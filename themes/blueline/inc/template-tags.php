@@ -44,6 +44,54 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 	protected $pending_submenu_id = '';
 
 	/**
+	 * Normalized URL path (e.g. "/register") to hide at depth 0 when a
+	 * childless item's own destination matches it. Used to de-duplicate
+	 * the Register CTA -- rendered separately in .bl-header__actions --
+	 * against an identical "Register to Play" entry inside the primary
+	 * menu itself.
+	 *
+	 * @var string
+	 */
+	protected $duplicate_path = '';
+
+	/**
+	 * Set by start_el() when it hides the current item, so end_el() also
+	 * skips emitting its closing tag instead of leaving an orphan </li>.
+	 *
+	 * @var bool
+	 */
+	protected $skip_current_item = false;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param string $duplicate_url Absolute URL to de-duplicate against (e.g. the
+	 *                              header's own Register CTA). Compared by URL
+	 *                              *path*, not the raw string or get_permalink():
+	 *                              this site runs the Page Links To plugin, which
+	 *                              filters get_permalink() per-post, so a menu
+	 *                              item's resolved $item->url and a freshly
+	 *                              computed get_permalink() for the "same" post
+	 *                              can legitimately disagree. Comparing the
+	 *                              already-resolved path is the reliable check.
+	 */
+	public function __construct( $duplicate_url = '' ) {
+		$this->duplicate_path = $duplicate_url ? self::normalize_path( $duplicate_url ) : '';
+	}
+
+	/**
+	 * Reduces a URL to a comparable path: lower-cased, no trailing slash,
+	 * scheme/host/query/fragment stripped.
+	 *
+	 * @param string $url URL to normalize.
+	 * @return string
+	 */
+	protected static function normalize_path( $url ) {
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+		return rtrim( strtolower( $path ), '/' );
+	}
+
+	/**
 	 * Opens a submenu <ul>, tagging it with the id start_el() queued up.
 	 *
 	 * @param string   $output Passed by reference.
@@ -86,13 +134,26 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 		$classes   = empty( $item->classes ) ? array() : (array) $item->classes;
 		$classes[] = 'bl-nav__item';
 
-		$is_current = in_array( 'current-menu-item', $classes, true )
-			|| in_array( 'current_page_item', $classes, true );
-
 		// Walker::display_element() sets $args->has_children right before
 		// calling start_el(); the menu-item-has-children class (added by
 		// wp_nav_menu() itself) is kept as a defensive fallback.
 		$has_children = ! empty( $args->has_children ) || in_array( 'menu-item-has-children', $classes, true );
+
+		$this->skip_current_item = false;
+
+		// Hide a top-level, childless item whose own destination matches
+		// the header's own Register CTA -- otherwise "Register to Play"
+		// renders twice (once here, once as the CTA button). Scoped to
+		// childless items only: a parent sharing this destination still
+		// needs its submenu, which this simple hide can't preserve.
+		if ( 0 === $depth && ! $has_children && $this->duplicate_path && ! empty( $item->url )
+			&& self::normalize_path( $item->url ) === $this->duplicate_path ) {
+			$this->skip_current_item = true;
+			return;
+		}
+
+		$is_current = in_array( 'current-menu-item', $classes, true )
+			|| in_array( 'current_page_item', $classes, true );
 
 		$submenu_id = '';
 		if ( $has_children ) {
@@ -165,6 +226,9 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 	 * @param stdClass $args   wp_nav_menu() args object.
 	 */
 	public function end_el( &$output, $item, $depth = 0, $args = null ) {
+		if ( $this->skip_current_item ) {
+			return;
+		}
 		$output .= "</li>\n";
 	}
 }
@@ -188,6 +252,7 @@ function blueline_leaf_mark( $extra_class = '' ) {
  * bands that separate the header from the paper-white content body.
  */
 function blueline_site_header() {
+	$register_url = home_url( '/register' );
 	?>
 	<a class="skip-link screen-reader-text" href="#main"><?php esc_html_e( 'Skip to main content', 'blueline' ); ?></a>
 
@@ -212,7 +277,7 @@ function blueline_site_header() {
 							'container'      => false,
 							'menu_id'        => 'bl-primary-menu',
 							'menu_class'     => 'bl-nav__menu',
-							'walker'         => new Blueline_Nav_Walker(),
+							'walker'         => new Blueline_Nav_Walker( $register_url ),
 							'fallback_cb'    => false,
 						)
 					);
@@ -220,7 +285,24 @@ function blueline_site_header() {
 				</nav>
 
 				<div class="bl-header__actions">
-					<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( home_url( '/register' ) ); ?>">
+					<?php if ( has_nav_menu( 'utility' ) ) : ?>
+						<nav class="bl-utility-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
+							<?php
+							wp_nav_menu(
+								array(
+									'theme_location' => 'utility',
+									'container'      => false,
+									'menu_id'        => 'bl-utility-menu',
+									'menu_class'     => 'bl-utility-nav__menu',
+									'fallback_cb'    => false,
+									'depth'          => 1,
+								)
+							);
+							?>
+						</nav>
+					<?php endif; ?>
+
+					<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( $register_url ); ?>">
 						<span class="bl-skew"><span><?php esc_html_e( 'Register to Play', 'blueline' ); ?></span></span>
 					</a>
 

@@ -216,22 +216,21 @@
 	}
 
 	/*
-	 * A tighter desktop-only footprint per item. The real "Menu 3.0" is 10
-	 * top-level items; at the shared --bl-space-4 (16px) horizontal padding
-	 * used everywhere else, the menu's natural single-row width is ~1076px,
-	 * which — combined with the brand/actions columns and gaps — needs
-	 * ~1388px of header row to lay out as one line. Trimming here narrows
-	 * that gap considerably without dropping below the 24px AA minimum
-	 * target size (28px, .bl-nav__toggle-sub below) or touching the shared
-	 * spacing tokens used elsewhere in the design.
+	 * A tighter desktop-only footprint per item. Once the header is
+	 * configured with the seven content items the primary menu is meant
+	 * to hold (account/utility items live in the "utility" location, see
+	 * blueline_site_header()), this — combined with the header-level
+	 * trims in header.css — is what fits them on one row inside the
+	 * shared --bl-container (1200px), without dropping below the 24px AA
+	 * minimum target size on .bl-nav__toggle-sub below.
 	 */
 	.bl-nav__link {
-		padding-inline: var(--bl-space-3);
+		padding-inline: var(--bl-space-1);
 	}
 
 	.bl-nav__toggle-sub {
-		width: 28px;
-		height: 28px;
+		width: 24px;
+		height: 24px;
 	}
 
 	/*

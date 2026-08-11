@@ -40,6 +40,7 @@ function blueline_setup() {
 	register_nav_menus(
 		array(
 			'primary' => __( 'Primary Menu', 'blueline' ),
+			'utility' => __( 'Utility Menu (account links, header actions)', 'blueline' ),
 			'footer'  => __( 'Footer Menu', 'blueline' ),
 		)
 	);

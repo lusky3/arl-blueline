@@ -77,7 +77,7 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--bl-space-3) var(--bl-space-4);
+	gap: var(--bl-space-3);
 	padding-block: var(--bl-space-3);
 }
 
@@ -108,7 +108,7 @@
 .bl-header__site-title {
 	display: inline-block;
 	overflow: hidden;
-	max-width: 16rem;
+	max-width: 8rem;
 	font-family: var(--bl-font-display);
 	font-weight: 800;
 	font-style: italic;
@@ -130,7 +130,35 @@
 	display: flex;
 	flex: 0 0 auto;
 	align-items: center;
-	gap: var(--bl-space-3);
+	gap: var(--bl-space-2);
+}
+
+/*
+ * Utility menu (account links -- "My ARL Account", "Log Out"): visually
+ * secondary to the primary row and the Register CTA. Plain body font, no
+ * skew/pill treatment, no bold/italic/uppercase. --bl-pale on
+ * --bl-ink-deep is 10.46:1 (tools/check-contrast.mjs), comfortably above
+ * the 4.5:1 AA text minimum.
+ */
+.bl-utility-nav__menu {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bl-utility-nav__menu a {
+	color: var(--bl-pale);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-xs);
+	white-space: nowrap;
+}
+
+.bl-utility-nav__menu a:hover,
+.bl-utility-nav__menu a:focus-visible {
+	color: var(--bl-paper);
 }
 
 /* Task 8 hooks sportspress_header_sponsors_selector at this container. */
@@ -150,7 +178,7 @@
 
 .bl-btn .bl-skew {
 	display: inline-flex;
-	padding: var(--bl-space-2) var(--bl-space-4);
+	padding: var(--bl-space-2) var(--bl-space-3);
 	font-family: var(--bl-font-display);
 	font-weight: 700;
 	font-style: italic;
@@ -165,21 +193,7 @@
 
 @media (min-width: 880px) {
 
-	/*
-	 * A wider cap than the shared --bl-container (1200px) token, for this
-	 * row specifically. --bl-container is tuned for readable body-copy
-	 * line length in the main content area; a 10-item primary nav needs
-	 * more room than that to lay out on one line before wrapping is
-	 * actually necessary, and a nav bar conventionally runs wider than a
-	 * prose column anyway. Without this, the 1200px content cap clips the
-	 * row on any viewport ≥1200px exactly the same as at 1200px itself,
-	 * so a 1400px+ desktop window gained nothing from being wider. This
-	 * override only ever *removes* an otherwise-arbitrary ceiling; it
-	 * never exceeds the actual viewport (margin-inline:auto + this
-	 * max-width still behave like a normal capped container).
-	 */
 	.bl-header__inner {
 		flex-wrap: nowrap;
-		max-width: 1760px;
 	}
 }
