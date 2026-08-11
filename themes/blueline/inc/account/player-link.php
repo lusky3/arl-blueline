@@ -18,7 +18,7 @@
  * Real season membership lives in the `sp_season` taxonomy instead (a
  * genuine per-season tag on sp_player, confirmed live: term 674 "W2026-27"
  * tags exactly 90 posts, term 654 "W2025-26" tags 524). See
- * blueline_claim_pool_season_term_id() below for how the candidate pool now
+ * blueline_claim_pool_season_term_ids() below for how the candidate pool now
  * resolves which season(s) to draw from.
  *
  * @package blueline
@@ -31,7 +31,7 @@ const BLUELINE_MATCH_THRESHOLD  = 0.85;
 
 /**
  * How much smaller than the previous (already-final) season's roster the
- * newest sp_season term's roster may be before blueline_claim_pool_season_term_id()
+ * newest sp_season term's roster may be before blueline_resolve_claim_pool_term_ids()
  * treats it as "still filling in" and falls back to that previous term.
  */
 const BLUELINE_CLAIM_POOL_SPARSE_RATIO = 0.5;
@@ -207,6 +207,63 @@ function blueline_is_claim_pool_sparse( int $current_count, int $previous_count 
 }
 
 /**
+ * Recognised sp_season slug shape: a leading session letter ("w" for
+ * Winter, "s" for Summer) immediately followed by a digit -- e.g.
+ * "w2026-27", "s2026". Deliberately a real pattern match, not "whichever
+ * character the slug happens to start with": the latter would silently
+ * treat any future slugging convention starting with something else (e.g.
+ * a year-first "2026-winter") as belonging to session "2" for every term
+ * that happened to share that first character, silently re-merging Winter
+ * and Summer into one pool -- exactly the cross-session bug this pattern
+ * exists to keep from coming back unnoticed.
+ */
+const BLUELINE_SEASON_SLUG_SESSION_PATTERN = '/^([ws])\d/i';
+
+/**
+ * The session letter ("w" or "s") a sp_season slug belongs to, per
+ * BLUELINE_SEASON_SLUG_SESSION_PATTERN -- or null if the slug does not
+ * match that recognised shape at all. Null is a real, load-bearing answer
+ * here, not an error to paper over: callers must not guess a session for a
+ * slug this can't classify.
+ *
+ * @param string $slug sp_season term slug.
+ * @return string|null
+ */
+function blueline_season_slug_session_letter( string $slug ): ?string {
+	if ( ! preg_match( BLUELINE_SEASON_SLUG_SESSION_PATTERN, $slug, $matches ) ) {
+		return null;
+	}
+
+	return strtolower( $matches[1] );
+}
+
+/**
+ * Report a sp_season term whose slug does not match
+ * BLUELINE_SEASON_SLUG_SESSION_PATTERN -- loudly, under WP_DEBUG, rather
+ * than silently excluding or silently guessing its session. A slug this
+ * cannot classify is exactly the situation that let W2026-27/S2026 merge
+ * into one pool before that specific case was caught; the next unrecognised
+ * shape must not repeat that silently.
+ *
+ * @param int    $term_id sp_season term ID.
+ * @param string $slug    Its slug.
+ */
+function blueline_log_nonconforming_season_slug( int $term_id, string $slug ): void {
+	if ( ! ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ) {
+		return;
+	}
+
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- WP_DEBUG-gated, deliberate: an unclassifiable sp_season slug must never fail silently -- see blueline_resolve_claim_pool_term_ids()'s docblock.
+	error_log(
+		sprintf(
+			'[blueline] sp_season term %1$d has slug "%2$s", which does not match the recognised w<digit>/s<digit> session shape. Excluded from the claim/backfill candidate pool rather than guessed into a session.',
+			$term_id,
+			$slug
+		)
+	);
+}
+
+/**
  * The number of sp_player posts tagged with $term_id in the sp_season
  * taxonomy -- deliberately NOT the term's own ->count property from
  * get_terms(). That property counts every post type sp_season is
@@ -229,7 +286,7 @@ function blueline_sp_season_player_count( int $term_id ): int {
 			'posts_per_page' => 1,
 			'fields'         => 'ids',
 			'no_found_rows'  => false,
-			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- one term, called at most twice per blueline_claim_pool_season_term_id() invocation, not a listing query.
+			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- one term, called a handful of times per blueline_claim_pool_season_term_ids() invocation, not a listing query.
 				array(
 					'taxonomy' => 'sp_season',
 					'field'    => 'term_id',
@@ -243,10 +300,94 @@ function blueline_sp_season_player_count( int $term_id ): int {
 }
 
 /**
- * The single sp_season term_id whose members form the claim/backfill
- * candidate pool -- preferring the current season, but falling back to the
- * most recent one that actually has sp_player members while the current
- * one is still being built (blueline_is_claim_pool_sparse()).
+ * Pure resolver: given a list of non-playoff sp_season terms as plain data
+ * (already ordered newest-first by term_id -- e.g. from get_terms()), and a
+ * callable that reports a term's real sp_player member count, decide which
+ * term_id(s) form the claim/backfill candidate pool. Kept free of WordPress
+ * calls (get_terms()/WP_Query live in blueline_claim_pool_season_term_ids(),
+ * the thin wrapper below) so this -- the actual fragile decision logic --
+ * can be unit tested directly, the same pure/impure split this file already
+ * uses for blueline_is_claim_pool_sparse() vs. the query functions around it.
+ *
+ * ADDITIVE, not exclusive-or: the newest term is ALWAYS included in the
+ * result, even when it is judged sparse; a fallback term is ADDED alongside
+ * it, never substituted in its place. A single-term result would make a
+ * genuine first-time registrant -- tagged only with the brand-new season,
+ * carrying no history at all -- invisible during exactly the early-season
+ * window they are most likely to need the claim flow. Verified live
+ * 2026-08-11 that this matters, not just in theory: today's real newest
+ * term (674 "W2026-27", 90 players) is judged sparse against 654's 524, so
+ * the resolved pool is BOTH terms -- a returning player tagged only with
+ * 654 and a first-timer tagged only with 674 are both reachable.
+ *
+ * Session-scoped: every comparison and fallback stays within the terms
+ * sharing the newest term's own session letter
+ * (blueline_season_slug_session_letter()) -- see
+ * blueline_claim_pool_season_term_ids()'s docblock for why crossing
+ * sessions (Winter vs. Summer) is a real, previously-live bug, not a
+ * hypothetical. A term whose slug does not match the recognised session
+ * shape at all is excluded from consideration (reported via
+ * blueline_log_nonconforming_season_slug() by the caller, since this
+ * function is pure and does no logging itself) rather than guessed into
+ * either session. If the NEWEST term itself is unclassifiable, this
+ * returns an empty array -- the caller then degrades to the broad,
+ * pre-fix pool, since there is no reliable session anchor to scope by at
+ * all.
+ *
+ * @param array<int, array{term_id:int, slug:string}> $terms    Non-playoff sp_season terms, newest first.
+ * @param callable                                    $count_fn int $term_id -> int sp_player member count.
+ * @return int[] Term ID(s) to include in the pool -- empty if nothing usable.
+ */
+function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn ): array {
+	if ( empty( $terms ) ) {
+		return array();
+	}
+
+	$current_letter = blueline_season_slug_session_letter( $terms[0]['slug'] );
+
+	if ( null === $current_letter ) {
+		return array(); // Anchor term's shape is unreliable -- no session to scope by.
+	}
+
+	$same_session_terms = array();
+	foreach ( $terms as $term ) {
+		if ( blueline_season_slug_session_letter( $term['slug'] ) === $current_letter ) {
+			$same_session_terms[] = $term;
+		}
+	}
+
+	if ( empty( $same_session_terms ) ) {
+		return array();
+	}
+
+	$current        = $same_session_terms[0];
+	$current_count  = $count_fn( $current['term_id'] );
+	$previous_count = isset( $same_session_terms[1] ) ? $count_fn( $same_session_terms[1]['term_id'] ) : 0;
+
+	$term_ids = array( (int) $current['term_id'] );
+
+	if ( ! blueline_is_claim_pool_sparse( $current_count, $previous_count ) ) {
+		return $term_ids;
+	}
+
+	foreach ( array_slice( $same_session_terms, 1 ) as $term ) {
+		if ( $count_fn( $term['term_id'] ) > 0 ) {
+			$term_ids[] = (int) $term['term_id'];
+			break; // Additive: current + ONE fallback, not every older term with members.
+		}
+	}
+
+	return $term_ids;
+}
+
+/**
+ * The sp_season term_id(s) whose members form the claim/backfill candidate
+ * pool -- always including the current season, additionally including the
+ * most recent one with actual sp_player members when the current one is
+ * still sparse. The actual decision logic lives in
+ * blueline_resolve_claim_pool_term_ids() (pure, unit tested); this function
+ * is the thin WordPress-touching wrapper that gathers real terms/counts and
+ * reports anything unclassifiable.
  *
  * Playoff sub-terms (e.g. "S2026 Playoffs") are excluded from consideration
  * entirely -- same "slug contains playoff" signal Season State uses
@@ -265,22 +406,14 @@ function blueline_sp_season_player_count( int $term_id ): int {
  * genuinely-current Winter registrant whose player post happens not to
  * carry a Summer tag simply because they don't play the other session
  * (verified live: a real current W2026-27 registrant carries W2025-26 and
- * W2024-25 tags but no S-prefixed tag at all). Every comparison and
- * fallback below is therefore scoped to terms sharing the newest term's own
- * leading session letter ("w" or "s"), never crossing sessions.
+ * W2024-25 tags but no S-prefixed tag at all).
  *
- * Failure mode, stated plainly: if the newest term's own session AND every
- * fallback term within it have zero sp_player members (e.g. sp_season has
- * just been created with no players tagged at all), this returns the
- * newest term anyway -- the caller
- * (blueline_current_season_unclaimed_player_ids()) then simply returns an
- * empty pool for it, which is the honest answer, not a crash.
- *
- * @return int|null Null if sp_season is missing/inactive or has no terms.
+ * @return int[] Term ID(s), possibly empty (blueline_current_season_unclaimed_player_ids()
+ *               then degrades to the broad, pre-fix pool).
  */
-function blueline_claim_pool_season_term_id(): ?int {
+function blueline_claim_pool_season_term_ids(): array {
 	if ( ! taxonomy_exists( 'sp_season' ) ) {
-		return null;
+		return array();
 	}
 
 	$terms = get_terms(
@@ -293,10 +426,10 @@ function blueline_claim_pool_season_term_id(): ?int {
 	);
 
 	if ( is_wp_error( $terms ) || empty( $terms ) ) {
-		return null;
+		return array();
 	}
 
-	$season_terms = array_values(
+	$non_playoff_terms = array_values(
 		array_filter(
 			$terms,
 			static function ( $term ) {
@@ -305,59 +438,71 @@ function blueline_claim_pool_season_term_id(): ?int {
 		)
 	);
 
-	if ( empty( $season_terms ) ) {
-		return null;
+	if ( empty( $non_playoff_terms ) ) {
+		return array();
 	}
 
-	$session_prefix = strtolower( substr( $season_terms[0]->slug, 0, 1 ) );
-	$season_terms   = array_values(
-		array_filter(
-			$season_terms,
-			static function ( $term ) use ( $session_prefix ) {
-				return 0 === strpos( strtolower( $term->slug ), $session_prefix );
-			}
-		)
-	);
-
-	if ( empty( $season_terms ) ) {
-		return null;
+	// The newest non-playoff term is the anchor the whole resolution below
+	// depends on. If ITS shape can't be classified, there is no reliable
+	// session to scope by at all -- treating the next-newest term as if IT
+	// were "current" instead would itself be a guess (possibly the wrong
+	// one, if the true newest term really was this season's, just
+	// unconventionally named). Degrade to the broad, pre-fix pool entirely
+	// rather than silently shift the anchor.
+	if ( null === blueline_season_slug_session_letter( $non_playoff_terms[0]->slug ) ) {
+		blueline_log_nonconforming_season_slug( (int) $non_playoff_terms[0]->term_id, $non_playoff_terms[0]->slug );
+		return array();
 	}
 
-	$current        = $season_terms[0];
-	$current_count  = blueline_sp_season_player_count( (int) $current->term_id );
-	$previous_count = isset( $season_terms[1] ) ? blueline_sp_season_player_count( (int) $season_terms[1]->term_id ) : 0;
-
-	if ( ! blueline_is_claim_pool_sparse( $current_count, $previous_count ) ) {
-		return (int) $current->term_id;
-	}
-
-	foreach ( array_slice( $season_terms, 1 ) as $term ) {
-		if ( blueline_sp_season_player_count( (int) $term->term_id ) > 0 ) {
-			return (int) $term->term_id;
+	$season_terms = array();
+	foreach ( $non_playoff_terms as $term ) {
+		if ( null === blueline_season_slug_session_letter( $term->slug ) ) {
+			blueline_log_nonconforming_season_slug( (int) $term->term_id, $term->slug );
+			continue; // Not the anchor -- safely excluded rather than guessed into a session.
 		}
+
+		$season_terms[] = array(
+			'term_id' => (int) $term->term_id,
+			'slug'    => $term->slug,
+		);
 	}
 
-	return (int) $current->term_id; // Nothing else has members either -- see docblock's failure mode.
+	return blueline_resolve_claim_pool_term_ids( $season_terms, 'blueline_sp_season_player_count' );
 }
 
 /**
- * Current-season (or, during the pre-roster window described by
- * blueline_claim_pool_season_term_id(), most-recent-populated-season)
- * sp_player post IDs that are not already linked to a DIFFERENT user than
+ * Current-season (plus, during the pre-roster window described by
+ * blueline_claim_pool_season_term_ids(), the most-recent-populated season
+ * too -- ADDITIVE, both at once, not one-or-the-other) sp_player post IDs
+ * that are not already linked to a DIFFERENT user than
  * $exclude_linked_to_user_id.
  *
- * Season-scoped via blueline_claim_pool_season_term_id() as of the Task 14
- * review fix (2026-08-11) -- see this file's header docblock for why the
+ * Season-scoped via blueline_claim_pool_season_term_ids() as of the Task 14
+ * review fixes (2026-08-11) -- see this file's header docblock for why the
  * previous `sp_current_team`-only definition let the claim pool include two
  * decades of retired players. `sp_current_team` (still required to be set,
  * defense in depth: a season-tagged player with genuinely no team would be
  * an odd edge case) remains part of the query below alongside the new
  * sp_season tax_query, not in place of it.
  *
- * Graceful degradation, stated plainly: if sp_season is missing/inactive or
- * has no terms at all (blueline_claim_pool_season_term_id() returns null),
- * this falls back to the PRE-FIX, sp_current_team-only pool -- broader and
- * more collision-prone, but a working claim flow beats a broken one.
+ * Why additive: an EARLIER version of this fix scoped to a single term
+ * (current, or the fallback when current was sparse) and was caught in
+ * review before shipping -- during the pre-roster window right now, that
+ * would have made a genuine first-time registrant (tagged only with the
+ * brand-new current season, no history at all) invisible to the claim card
+ * for the exact weeks they most need it, since only 4 RETURNING players
+ * (who carry multi-season tags) had been checked, never a first-timer.
+ * Passing an array to tax_query's `terms` (default `compare => 'IN'`)
+ * matches EITHER term, so a returning player tagged only with the fallback
+ * season and a first-timer tagged only with the current one are both
+ * reachable at once.
+ *
+ * Graceful degradation, stated plainly: if sp_season is missing/inactive,
+ * has no usable terms, or the newest term's slug can't be classified into a
+ * session at all (blueline_claim_pool_season_term_ids() returns an empty
+ * array in every one of those cases), this falls back to the PRE-FIX,
+ * sp_current_team-only pool -- broader and more collision-prone, but a
+ * working claim flow beats a broken one.
  *
  * Queried lean -- ids only, via meta_query/tax_query at the SQL level --
  * because this can run on a logged-in page load; loading full post objects
@@ -403,14 +548,14 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
 		),
 	);
 
-	$season_term_id = blueline_claim_pool_season_term_id();
+	$season_term_ids = blueline_claim_pool_season_term_ids();
 
-	if ( $season_term_id ) {
-		$query_args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to a single season term.
+	if ( ! empty( $season_term_ids ) ) {
+		$query_args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to one or two season terms.
 			array(
 				'taxonomy' => 'sp_season',
 				'field'    => 'term_id',
-				'terms'    => $season_term_id,
+				'terms'    => $season_term_ids, // Array + default 'compare' => 'IN' -- additive OR, see docblock.
 			),
 		);
 	}
