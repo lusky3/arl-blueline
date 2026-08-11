@@ -1,69 +1,36 @@
 <?php
 /**
- * @see     https://docs.woocommerce.com/document/template-structure/
- * @package WooCommerce/Templates
- * @version 4.4.0
+ * League-first My Account dashboard (Task 12). Replaces the Task 9 port of
+ * production's shop-account dashboard wholesale, per plan: league content
+ * -- next game, team, season stats -- leads; billing is demoted to a
+ * linked group at the bottom.
+ *
+ * For the ~88% of current-season players with no sp_user link (Task 11),
+ * the claim card is shown IN PLACE of the next-game/team/season modules,
+ * not alongside three empty versions of them -- it is the primary
+ * experience here, not a fallback.
+ *
+ * @package blueline
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly.
+defined( 'ABSPATH' ) || exit;
+
+blueline_account_render_claim_notice();
+
+$blueline_dashboard_user_id   = get_current_user_id();
+$blueline_dashboard_player_id = function_exists( 'blueline_get_linked_player_id' )
+	? blueline_get_linked_player_id( $blueline_dashboard_user_id )
+	: null;
+
+if ( $blueline_dashboard_player_id ) {
+	blueline_account_render_next_game( $blueline_dashboard_player_id );
+	blueline_account_render_my_team( $blueline_dashboard_player_id );
+	blueline_account_render_season_stats( $blueline_dashboard_player_id );
+} else {
+	blueline_account_render_claim_card( $blueline_dashboard_user_id );
 }
 
-$allowed_html = array(
-	'a' => array(
-		'href' => array(),
-	),
-);
-?>
-
-<p>
-	<?php
-	printf(
-		/* translators: 1: user display name 2: logout url */
-		wp_kses( __( 'Hello %1$s (not %1$s? <a href="%2$s">Log out</a>)', 'woocommerce' ), $allowed_html ),
-		'<strong>' . esc_html( $current_user->display_name ) . '</strong>',
-		esc_url( wc_logout_url() )
-	);
-	?>
-</p>
-
-<p>
-	<?php
-	/* translators: 1: Orders URL 2: Address URL 3: Account URL. */
-	$dashboard_desc = __( 'From the My ARL Account dashboard you can view your <a href="%1$s">recent registrations</a>, manage your <a href="%2$s">billing address</a>, and <a href="%3$s">edit your password and account details (including your Player Profile)</a>.', 'woocommerce' );
-	if ( wc_shipping_enabled() ) {
-		/* translators: 1: Orders URL 2: Addresses URL 3: Account URL. */
-		$dashboard_desc = __( 'From your account dashboard you can view your <a href="%1$s">recent orders</a>, manage your <a href="%2$s">shipping and billing addresses</a>, and <a href="%3$s">edit your password and account details</a>.', 'woocommerce' );
-	}
-	printf(
-		wp_kses( $dashboard_desc, $allowed_html ),
-		esc_url( wc_get_endpoint_url( 'orders' ) ),
-		esc_url( wc_get_endpoint_url( 'edit-address' ) ),
-		esc_url( wc_get_endpoint_url( 'edit-account' ) )
-	);
-	?>
-</p>
-
-<?php
-	/**
-	 * My Account dashboard.
-	 *
-	 * @since 2.6.0
-	 */
-	do_action( 'woocommerce_account_dashboard' );
-
-	/**
-	 * Deprecated woocommerce_before_my_account action.
-	 *
-	 * @deprecated 2.6.0
-	 */
-	do_action( 'woocommerce_before_my_account' );
-
-	/**
-	 * Deprecated woocommerce_after_my_account action.
-	 *
-	 * @deprecated 2.6.0
-	 */
-	do_action( 'woocommerce_after_my_account' );
+blueline_account_render_registration( $blueline_dashboard_user_id );
+blueline_account_render_billing_group();
 
 /* Omit closing PHP tag at the end of PHP files to avoid "headers already sent" issues. */

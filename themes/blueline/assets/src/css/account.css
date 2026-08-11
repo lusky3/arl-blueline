@@ -1,0 +1,404 @@
+/*
+ * Blueline — My Account (Task 12).
+ *
+ * League-first dashboard: the claim card and the next-game/team/season
+ * modules use a dedicated `.bl-account-module` card component (NOT
+ * `.bl-module`, homepage.css's full-bleed alternating-background band --
+ * see the docblock on blueline_account_module_start() in
+ * inc/account/dashboard.php for why reusing that one would double-nest
+ * `.bl-container`). The nav rail groups league links before billing links
+ * per Task 10's `blueline_account_endpoints()`, and the "Account & billing"
+ * card at the bottom is deliberately the smallest, quietest one on the
+ * page — reachable in one click, never the first thing shown.
+ *
+ * Only fires on the actual My Account page: WooCommerce adds the
+ * `woocommerce-account` body class exclusively there, and
+ * `.bl-main--woocommerce`/`.bl-container` are shared with every other
+ * WooCommerce page (Task 9), so both must be scoped together.
+ */
+
+body.woocommerce-account .bl-main--woocommerce .bl-container {
+	padding-block: var(--bl-space-6) var(--bl-space-8);
+}
+
+@media (min-width: 900px) {
+
+	body.woocommerce-account .bl-main--woocommerce .bl-container {
+		display: grid;
+		grid-template-columns: 240px minmax(0, 1fr);
+		align-items: start;
+		gap: var(--bl-space-8);
+	}
+}
+
+/* ---------------------------------------------------------------------
+ * Nav rail
+ * ------------------------------------------------------------------- */
+
+.woocommerce-MyAccount-navigation {
+	margin-block-end: var(--bl-space-6);
+}
+
+@media (min-width: 900px) {
+
+	.woocommerce-MyAccount-navigation {
+		margin-block-end: 0;
+		position: sticky;
+		top: var(--bl-space-5);
+	}
+}
+
+.bl-account-nav__group-title {
+	margin: var(--bl-space-5) 0 var(--bl-space-2);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-xs);
+	letter-spacing: 0.04em;
+	color: var(--bl-ink-mid);
+}
+
+.bl-account-nav__list {
+	margin: 0 0 var(--bl-space-3);
+	padding: 0;
+	list-style: none;
+}
+
+.bl-account-nav__list--plain {
+	padding-block: var(--bl-space-2);
+	border-block: 1px solid var(--bl-border);
+}
+
+.bl-account-nav__list a {
+	display: block;
+	padding: var(--bl-space-2) var(--bl-space-3);
+	color: var(--bl-ink);
+	text-decoration: none;
+	border-radius: var(--bl-radius);
+}
+
+.bl-account-nav__list a:hover,
+.bl-account-nav__list a:focus-visible {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-account-nav__list li.is-active a {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------
+ * Claim-result notice. Its own component, not WooCommerce's
+ * `.woocommerce-message`/`.woocommerce-error` -- see the docblock on
+ * blueline_account_render_claim_notice() (inc/account/dashboard.php) for
+ * why: a pre-existing site-wide custom-CSS snippet hides
+ * `.woocommerce-message` outright, which would make a "you're linked"
+ * success notice invisible.
+ * ------------------------------------------------------------------- */
+
+.bl-account-notice {
+	margin-block-end: var(--bl-space-5);
+	padding: var(--bl-space-4) var(--bl-space-5);
+	background: var(--bl-white);
+	border: 1px solid var(--bl-border);
+	border-inline-start: 4px solid var(--bl-steel);
+	border-radius: var(--bl-radius-card);
+	color: var(--bl-ink);
+}
+
+.bl-account-notice--success {
+	border-inline-start-color: var(--bl-success);
+}
+
+.bl-account-notice--error {
+	border-inline-start-color: var(--bl-danger);
+	color: var(--bl-danger);
+}
+
+/* ---------------------------------------------------------------------
+ * Module card shell
+ * ------------------------------------------------------------------- */
+
+.bl-account-module {
+	padding: var(--bl-space-5);
+	margin-block-end: var(--bl-space-5);
+	background: var(--bl-white);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+}
+
+.bl-account-module__header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bl-space-3);
+	margin-block-end: var(--bl-space-4);
+}
+
+.bl-account-module__title {
+	margin: 0;
+	font-size: var(--bl-text-lg);
+}
+
+.bl-account-module__link {
+	white-space: nowrap;
+	font-weight: 600;
+	font-size: var(--bl-text-sm);
+}
+
+.bl-account-module__empty {
+	max-width: 32rem;
+	padding-block: var(--bl-space-4);
+	text-align: center;
+	margin-inline: auto;
+}
+
+.bl-account-module__empty-mark {
+	width: 48px;
+	height: 48px;
+	margin-inline: auto;
+	margin-block-end: var(--bl-space-2);
+	color: var(--bl-ice);
+}
+
+.bl-account-module__empty-text {
+	margin: 0;
+	color: var(--bl-ink-mid);
+}
+
+/* ---------------------------------------------------------------------
+ * Claim card ("Is this you?") — the primary experience for the ~88% of
+ * current-season players with no sp_user link (Task 11).
+ * ------------------------------------------------------------------- */
+
+.bl-account-claim__intro {
+	margin-block-start: 0;
+	color: var(--bl-ink-mid);
+}
+
+.bl-account-claim__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-account-claim__item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bl-space-3);
+	padding-block: var(--bl-space-3);
+}
+
+.bl-account-claim__item + .bl-account-claim__item {
+	border-top: 1px solid var(--bl-border);
+}
+
+.bl-account-claim__name {
+	font-weight: 600;
+}
+
+.bl-account-claim__form {
+	margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+ * My next game
+ * ------------------------------------------------------------------- */
+
+.bl-account-next-game__date {
+	margin: 0;
+	font-weight: 600;
+}
+
+.bl-account-next-game__matchup {
+	margin: var(--bl-space-1) 0 0;
+	font-size: var(--bl-text-lg);
+}
+
+.bl-account-next-game__venue {
+	margin: var(--bl-space-1) 0 0;
+	color: var(--bl-ink-mid);
+}
+
+.bl-account-next-game__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-4);
+	margin-block-start: var(--bl-space-4);
+}
+
+/* ---------------------------------------------------------------------
+ * My team
+ * ------------------------------------------------------------------- */
+
+.bl-account-team__identity {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-4);
+}
+
+.bl-account-team__crest img {
+	display: block;
+	width: 56px;
+	height: 56px;
+	object-fit: contain;
+}
+
+.bl-account-team__crest--fallback {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	background: var(--bl-surface-sunken);
+	border-radius: 50%;
+}
+
+.bl-account-team__crest-mark {
+	width: 32px;
+	height: 32px;
+	color: var(--bl-steel);
+}
+
+.bl-account-team__name {
+	margin: 0;
+	font-weight: 600;
+}
+
+.bl-account-team__division,
+.bl-account-team__number,
+.bl-account-team__roster-summary {
+	margin: var(--bl-space-1) 0 0;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-account-team__roster {
+	margin: var(--bl-space-4) 0 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+	gap: var(--bl-space-2) var(--bl-space-4);
+}
+
+/* ---------------------------------------------------------------------
+ * My season (stat tiles)
+ * ------------------------------------------------------------------- */
+
+.bl-account-stats {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: var(--bl-space-3);
+	margin: 0;
+}
+
+.bl-account-stats__item {
+	padding: var(--bl-space-3);
+	text-align: center;
+	background: var(--bl-surface-sunken);
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-account-stats__item dt {
+	margin: 0;
+	font-size: var(--bl-text-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--bl-ink-mid);
+}
+
+.bl-account-stats__item dd {
+	margin: var(--bl-space-1) 0 0;
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	font-size: var(--bl-text-2xl);
+	color: var(--bl-ink);
+}
+
+.bl-account-stats__hint {
+	margin: var(--bl-space-3) 0 0;
+	font-size: var(--bl-text-sm);
+	color: var(--bl-ink-mid);
+}
+
+/* ---------------------------------------------------------------------
+ * My registration
+ * ------------------------------------------------------------------- */
+
+.bl-account-registration__season {
+	margin: 0;
+	font-weight: 600;
+}
+
+.bl-account-registration__status {
+	display: inline-flex;
+	margin: var(--bl-space-2) 0;
+	padding: var(--bl-space-1) var(--bl-space-3);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	border-radius: var(--bl-radius-card);
+}
+
+/* 0.08, not a round-looking 0.1 -- chosen so --bl-success/--bl-warning text
+ * clears 4.5:1 on the resulting tint with real margin (verified by hand:
+ * ~5.1:1 and ~5.5:1 respectively), not hugging the AA line at a higher
+ * opacity. */
+.bl-account-registration__status--paid {
+	background: rgba(31, 122, 77, 0.08);
+	color: var(--bl-success);
+}
+
+.bl-account-registration__status--unpaid {
+	background: rgba(138, 90, 0, 0.08);
+	color: var(--bl-warning);
+}
+
+/* ---------------------------------------------------------------------
+ * Account & billing — deliberately the smallest, quietest card on the
+ * page: smaller title (no display-face treatment), sunken background,
+ * plain link list. Still one click away, never hidden.
+ * ------------------------------------------------------------------- */
+
+.bl-account-module--billing {
+	background: var(--bl-surface-sunken);
+	box-shadow: none;
+}
+
+.bl-account-module--billing .bl-account-module__title {
+	font-family: var(--bl-font-body);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+	font-size: var(--bl-text-base);
+	color: var(--bl-ink-mid);
+}
+
+.bl-account-billing__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bl-space-2) var(--bl-space-5);
+
+	/* font-size inherits down to the plain <a> children -- no need to
+	 * target them directly and re-litigate specificity order against the
+	 * unrelated nav-rail rules earlier in this file. */
+	font-size: var(--bl-text-sm);
+}
+
+@media (max-width: 480px) {
+
+	.bl-account-stats {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
