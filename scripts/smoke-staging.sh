@@ -28,4 +28,14 @@ check /arl-league-info 200 -
 check /faqs 200 -
 check "/?s=hockey" 200 -
 
+# SportsPress entity pages (Task 8) -- real slugs discovered via
+# `swp post list --post_type=sp_event|sp_player|sp_team --posts_per_page=1 --field=post_name`
+check /event/116493 200 -
+check /player/alec-lehto 200 -
+check /team/blue-liners 200 -
+# Additional entity types the brief's verification list calls out
+# (staff page, venue archive) beyond the three literal Step 5 commands.
+check /staff/zoe 200 -
+check /venue/red 200 -
+
 exit $FAIL

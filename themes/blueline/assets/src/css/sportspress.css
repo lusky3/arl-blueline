@@ -1,0 +1,623 @@
+/*
+ * Blueline — SportsPress data surfaces.
+ *
+ * sportspress_enable_frontend_css is unset (defaults to "no") on this site,
+ * so SportsPress emits no CSS of its own: every rule below is the ONLY
+ * styling any of these classes ever receive, not an override of an
+ * existing SP colour system. Reuses base.css utilities (.bl-container,
+ * .bl-skew, .bl-band/.bl-band--ink, table defaults) rather than
+ * redefining them.
+ *
+ * Class provenance, so a future edit doesn't guess wrong:
+ *   Real SportsPress markup (confirmed by reading the installed plugin's
+ *   own templates): .sp-table-wrapper, .sp-data-table, .sp-league-table,
+ *   .sp-scrollable-table, .sp-event-blocks, .sp-event-calendar,
+ *   .sp-player-list, .sp-player-statistics, .sp-event-details,
+ *   .sp-event-venue, .sp-table-caption, .sp-highlight, .sp-heading,
+ *   .sp-view-all-link, .team-logo, .data-rank, .data-name, .data-number.
+ *   Theme-owned classes (this task's own markup, in inc/sportspress.php
+ *   and sportspress/team-lists.php): .bl-table-scroll, .sp-scoreboard,
+ *   .sp-team-list, .bl-sp-hero, .bl-sp-event-teaser, .bl-sp-empty,
+ *   .sp-statistic / .sp-statistic-bar (declared for the brief's named
+ *   selector; no shipped SP template in this install currently emits it).
+ */
+
+/* ---- Sidebar-aware full-bleed shell for hero-bearing entity pages ---- */
+
+.bl-main--sp-hero {
+
+	/* The hero (.sp-scoreboard / .bl-sp-hero) sits flush under the header's
+	   own blue-line bands, exactly like .bl-main--homepage does for the
+	   season hero -- .bl-main's normal top padding would otherwise leave a
+	   paper-white gap above it. */
+	padding-block-start: 0;
+}
+
+/* ---- Horizontal scroll container (hard constraint: the page body must
+   never scroll horizontally) ---- */
+
+.bl-table-scroll {
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+/* ---- Generic SP data-table chrome (league table, event blocks, event
+   calendar, player list, player statistics, event details/venue -- every
+   .sp-data-table wherever it appears) ---- */
+
+.sp-table-wrapper {
+	margin-block: var(--bl-space-4);
+}
+
+/*
+ * event-venue.php is the one SP template that renders its <table
+ * class="sp-event-venue"> with no surrounding .sp-table-wrapper (confirmed
+ * by reading every sp-table-wrapper occurrence in the installed plugin --
+ * this is the sole exception), so blueline_sp_wrap_tables_for_scroll()'s
+ * string replace never reaches it. Its embedded Leaflet map has a fixed
+ * pixel width that overflowed the page body at mobile widths until this
+ * was added (confirmed live at 390px: 26px of body-level horizontal
+ * overflow, traced to this exact table). Scroll on the table's own box
+ * instead of the wrapper div every other table gets.
+ */
+.sp-data-table.sp-event-venue {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+
+	/* Overrides the generic .sp-data-table min-width: max-content above --
+	   that rule exists so wrapper-scrolled tables never squish their
+	   columns, but it also forces this exact table (whose content is a
+	   fixed-width Leaflet map, not squishable columns) wider than its own
+	   100% width, which is what actually caused the body-level overflow;
+	   min-width always wins over a conflicting width. Doubled-up selector
+	   (both classes SP itself puts on this table) beats the single-class
+	   .sp-data-table rule on specificity, regardless of source order. */
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.sp-table-caption,
+.sp-heading {
+	margin-block: var(--bl-space-6) var(--bl-space-3);
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-lg);
+	color: var(--bl-ink);
+}
+
+.sp-data-table {
+	width: 100%;
+	min-width: max-content;
+	border-collapse: collapse;
+}
+
+.sp-data-table th,
+.sp-data-table td {
+	padding: var(--bl-space-2) var(--bl-space-3);
+	text-align: start;
+	border-bottom: 1px solid var(--bl-border);
+	white-space: nowrap;
+}
+
+.sp-data-table thead th {
+	background: var(--bl-paper);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-xs);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	border-bottom: 2px solid var(--bl-border-strong);
+}
+
+/* Zebra rows -- SP's own row classes, .odd/.even. */
+.sp-data-table tbody tr.odd {
+	background: var(--bl-white);
+}
+
+.sp-data-table tbody tr.even {
+	background: var(--bl-surface-sunken);
+}
+
+.sp-data-table tfoot {
+	font-weight: 700;
+	border-top: 2px solid var(--bl-border-strong);
+}
+
+/* Real, currently-emitted highlight class: today's calendar cell, a
+   player/team's own row in a trimmed table, the active-season stat column.
+   Fill only, ink text on top -- the same vetted 7.69:1 pairing as
+   .bl-btn--primary's ice fill (tools/check-contrast.mjs). */
+.sp-highlight {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 700;
+}
+
+.sp-view-all-link {
+	margin-block-start: var(--bl-space-3);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+.team-logo img,
+.player-photo img {
+	display: inline-block;
+	vertical-align: middle;
+	width: 24px;
+	height: 24px;
+	margin-inline-end: var(--bl-space-2);
+	object-fit: contain;
+
+	/* Team logos sit on light ground here -- never invert them. */
+	filter: none;
+}
+
+/* ---- League table: sticky header, --bl-ice position column ---- */
+
+.sp-league-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.sp-league-table td.data-rank {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 700;
+	text-align: center;
+}
+
+.sp-league-table td.data-name.has-logo {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	white-space: nowrap;
+}
+
+/* ---- Event blocks / event calendar: card treatment ---- */
+
+.sp-event-blocks,
+.sp-event-calendar {
+	border-radius: var(--bl-radius-card);
+	overflow: hidden;
+	box-shadow: var(--bl-shadow-card);
+}
+
+.sp-event-blocks .sp-event-date {
+	display: block;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-variant-numeric: tabular-nums;
+	white-space: normal;
+}
+
+.sp-event-blocks .sp-event-results {
+	margin: var(--bl-space-1) 0 0;
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	font-size: var(--bl-text-lg);
+}
+
+.sp-event-blocks .sp-event-status {
+	display: block;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-xs);
+	text-transform: uppercase;
+}
+
+.sp-event-blocks .sp-event-matchday {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-xs);
+}
+
+.sp-event-calendar .sp-highlight {
+	border-radius: 50%;
+}
+
+.sp-event-calendar .sp-previous-month,
+.sp-event-calendar .sp-next-month {
+	background: var(--bl-surface-sunken);
+}
+
+/* ---- Player list (SP's own <table class="sp-player-list">) ---- */
+
+.sp-player-list td.data-name.has-photo {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	white-space: nowrap;
+}
+
+/* ---- Theme-owned roster grid override: sportspress/team-lists.php ---- */
+
+.sp-team-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+	gap: var(--bl-space-3);
+	margin: 0 0 var(--bl-space-5);
+	padding: 0;
+	list-style: none;
+}
+
+.bl-sp-team-list__card {
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-sp-team-list__link {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bl-space-1);
+	padding: var(--bl-space-4) var(--bl-space-3);
+	color: var(--bl-ink);
+	text-align: center;
+	text-decoration: none;
+}
+
+.bl-sp-team-list__link:hover,
+.bl-sp-team-list__link:focus-visible {
+	color: var(--bl-accent-text);
+}
+
+.bl-sp-team-list__photo {
+	display: block;
+	width: 56px;
+	height: 56px;
+	margin-block-end: var(--bl-space-2);
+	border-radius: 50%;
+	overflow: hidden;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- img thumb */
+.bl-sp-team-list__photo img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.bl-sp-team-list__number {
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	font-size: var(--bl-text-xl);
+	color: var(--bl-accent-text);
+}
+
+.bl-sp-team-list__name {
+	font-weight: 600;
+}
+
+.bl-sp-team-list__position {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-xs);
+	text-transform: uppercase;
+}
+
+/* ---- Theme-owned stat chip (declared per the brief; no shipped SP
+   template in this install currently emits .sp-statistic-*, so this rule
+   is defensive/available rather than exercised by real markup today). ---- */
+
+.sp-statistic,
+.sp-statistic-bar {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var(--bl-space-1);
+	padding: var(--bl-space-1) var(--bl-space-2);
+	border: 1px solid var(--bl-border-strong);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- Event header / scoreboard: navy band with faceoff rings ---- */
+
+.sp-scoreboard {
+	position: relative;
+	overflow: hidden;
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+}
+
+.sp-scoreboard .bl-hero__ring {
+	position: absolute;
+	top: 50%;
+	right: -60px;
+	width: 360px;
+	height: 360px;
+	transform: translateY(-50%);
+	color: var(--bl-ice);
+	opacity: 0.12;
+	pointer-events: none;
+}
+
+.sp-scoreboard__inner {
+	position: relative;
+	z-index: 1;
+	padding-block: var(--bl-space-7) var(--bl-space-6);
+}
+
+.sp-scoreboard__status .bl-skew > span {
+	display: inline-flex;
+	padding: var(--bl-space-1) var(--bl-space-3);
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-sm);
+}
+
+.sp-scoreboard__matchup {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: var(--bl-space-5);
+	margin-block: var(--bl-space-4);
+}
+
+.sp-scoreboard__team {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bl-space-2);
+	min-width: 8rem;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- img thumb */
+.sp-scoreboard__logo img {
+	display: block;
+	width: 64px;
+	height: 64px;
+	object-fit: contain;
+
+	/* Team logos sit on the hero's navy ground; still not inverted -- most
+	   crests already carry their own light backing shape. */
+	background: var(--bl-white);
+	border-radius: 50%;
+	padding: var(--bl-space-1);
+}
+
+.sp-scoreboard__team-name {
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-lg);
+	text-align: center;
+}
+
+.sp-scoreboard__score {
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	font-size: var(--bl-text-3xl);
+	color: var(--bl-ice);
+}
+
+.sp-scoreboard__vs {
+	color: var(--bl-pale);
+	font-family: var(--bl-font-display);
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-sm);
+}
+
+.sp-scoreboard__meta {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bl-space-3);
+	margin-block-end: var(--bl-space-4);
+	color: var(--bl-pale);
+	font-size: var(--bl-text-sm);
+}
+
+.sp-scoreboard__calendar {
+	display: flex;
+	justify-content: center;
+}
+
+.sp-scoreboard .bl-btn--secondary .bl-skew {
+	color: var(--bl-paper);
+	border-color: var(--bl-paper);
+}
+
+.sp-scoreboard .bl-btn--secondary:hover .bl-skew,
+.sp-scoreboard .bl-btn--secondary:focus-visible .bl-skew {
+	background: var(--bl-paper);
+	color: var(--bl-ink);
+}
+
+/* ---- Player/team/staff mastheads (paper ground) ---- */
+
+.bl-sp-hero {
+	padding-block: var(--bl-space-7) var(--bl-space-5);
+	border-bottom: 1px solid var(--bl-border);
+}
+
+.bl-sp-hero__inner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-5);
+}
+
+.bl-sp-hero__number {
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	font-size: var(--bl-text-4xl);
+	color: var(--bl-accent-text);
+	line-height: 1;
+}
+
+.bl-sp-hero__identity {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.bl-sp-hero__title {
+	margin: 0 0 var(--bl-space-2);
+}
+
+.bl-sp-hero__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-3);
+	margin: 0;
+	color: var(--bl-ink-mid);
+}
+
+.bl-sp-hero__flag {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px var(--bl-space-2);
+	border: 1px solid var(--bl-border-strong);
+	font-size: var(--bl-text-xs);
+	letter-spacing: 0.04em;
+}
+
+.bl-sp-hero__team {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	color: var(--bl-ink);
+	text-decoration: none;
+	font-weight: 600;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- img thumb */
+.bl-sp-hero__team img {
+	display: block;
+	width: 40px;
+	height: 40px;
+	object-fit: contain;
+}
+
+.bl-sp-hero__crest {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 96px;
+	height: 96px;
+	flex: 0 0 auto;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- img thumb */
+.bl-sp-hero__crest img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+.bl-sp-hero__crest--fallback {
+	color: var(--bl-ice);
+}
+
+.bl-sp-hero__crest-mark {
+	width: 100%;
+	height: 100%;
+}
+
+.bl-sp-hero__teams {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bl-space-2) var(--bl-space-4);
+	margin: var(--bl-space-2) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* ---- Venue archive ---- */
+
+.bl-sp-venue-header__address,
+.bl-sp-venue-header__siblings {
+	margin: 0 0 var(--bl-space-2);
+	color: var(--bl-ink-mid);
+}
+
+/* ---- Compact event teaser rows (venue archive, generic SP archive) ---- */
+
+.bl-sp-event-teaser-list,
+.bl-sp-archive-list {
+	display: grid;
+	gap: var(--bl-space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-sp-event-teaser {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--bl-space-1) var(--bl-space-3);
+	padding: var(--bl-space-4);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+	color: var(--bl-ink);
+	text-decoration: none;
+}
+
+.bl-sp-event-teaser:hover,
+.bl-sp-event-teaser:focus-visible {
+	border-color: var(--bl-accent-text);
+}
+
+.bl-sp-event-teaser__date {
+	grid-column: 1 / -1;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.bl-sp-event-teaser__title {
+	font-weight: 600;
+}
+
+.bl-sp-event-teaser__score,
+.bl-sp-event-teaser__status {
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+	color: var(--bl-ink-mid);
+}
+
+/* ---- Empty states (no roster, no results yet) ---- */
+
+.bl-sp-empty {
+	max-width: 32rem;
+	margin-inline: auto;
+	padding-block: var(--bl-space-6);
+	text-align: center;
+}
+
+.bl-sp-empty__mark {
+	width: 64px;
+	height: 64px;
+	margin-inline: auto;
+	margin-block-end: var(--bl-space-3);
+	color: var(--bl-ice);
+}
+
+.bl-sp-empty__text {
+	margin: 0;
+	color: var(--bl-ink-mid);
+}
+
+@media (min-width: 700px) {
+
+	.bl-sp-event-teaser {
+		grid-template-columns: 180px minmax(0, 1fr) auto;
+	}
+
+	.bl-sp-event-teaser__date {
+		grid-column: auto;
+	}
+}
