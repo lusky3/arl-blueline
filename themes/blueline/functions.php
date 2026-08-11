@@ -32,3 +32,4 @@ require_once BLUELINE_DIR . '/inc/account/endpoints.php';
 require_once BLUELINE_DIR . '/inc/account/player-link.php';
 require_once BLUELINE_DIR . '/inc/account/player-data.php';
 require_once BLUELINE_DIR . '/inc/account/dashboard.php';
+require_once BLUELINE_DIR . '/inc/account/avatars.php';
