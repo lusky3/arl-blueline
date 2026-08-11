@@ -83,6 +83,86 @@ function blueline_account_legacy_redirect_map(): array {
 	);
 }
 
+/**
+ * The dedicated (collision-free) query var a legacy slug's rewrite endpoint
+ * is registered under. See blueline_register_account_rewrite_endpoints().
+ *
+ * Pure string formatting -- kept above the WooCommerce guard below (with the
+ * other pure helpers) so it, and everything built on it, stays unit testable
+ * without WooCommerce loaded.
+ *
+ * @param string $legacy_slug A key from blueline_account_legacy_redirect_map().
+ * @return string
+ */
+function blueline_legacy_query_var( string $legacy_slug ): string {
+	return 'blueline_legacy_' . str_replace( '-', '_', $legacy_slug );
+}
+
+/**
+ * Whether $legacy_slug is free to register as our own dedicated legacy-catch
+ * rewrite endpoint (see blueline_register_account_rewrite_endpoints()),
+ * given WooCommerce's fully-resolved query-var => slug map.
+ *
+ * It is NOT free when $legacy_slug appears as a VALUE anywhere in
+ * $resolved_vars: that means WooCommerce (or some other plugin) is about to
+ * call add_rewrite_endpoint() under that exact literal name itself, via
+ * WC_Query::add_endpoints(), and a second registration for the same $name
+ * under our own dedicated query var would be an order-dependent collision.
+ *
+ * This deliberately checks VALUES, not whether a specific query-var KEY
+ * still equals its expected ARL slug. The two internal WooCommerce-default
+ * slugs this theme knows about behave differently on this site: 'orders' is
+ * a genuine native WooCommerce query var (key and un-remapped default value
+ * both literally 'orders'), so a reverted blueline_remap_account_query_vars()
+ * would put 'orders' back into $resolved_vars' values and must be caught.
+ * 'credit', by contrast, is not a query-var key WooCommerce (or the actual
+ * WooCommerce Store Credit plugin installed here, which registers its own
+ * endpoint as 'store-credit' => 'store-credit') ever owns at all -- checking
+ * for key-level equality against it always reads as "broken" and would wrongly
+ * block a legacy /account/credit catch that was never actually at risk of
+ * colliding with anything. Checking membership in the resolved VALUES avoids
+ * that false positive while still catching the real collision this guards
+ * against.
+ *
+ * Pure: no WordPress or WooCommerce calls, so it is unit testable without
+ * faking WC_Query.
+ *
+ * @param string                $legacy_slug   Literal legacy URL slug (e.g. 'orders').
+ * @param array<string, string> $resolved_vars A fully-filtered query-var => slug map.
+ * @return bool
+ */
+function blueline_legacy_slug_is_free_to_register( string $legacy_slug, array $resolved_vars ): bool {
+	return ! in_array( $legacy_slug, $resolved_vars, true );
+}
+
+/**
+ * Pure decision logic behind blueline_redirect_legacy_account_endpoints():
+ * given the current request's query vars, decide whether this request hit a
+ * legacy WooCommerce-default account slug and, if so, which ARL slug it
+ * should redirect to and what trailing sub-value must be preserved (e.g.
+ * WooCommerce's /orders/2/ pagination convention -- the brief's Step 5
+ * redirects with no value, which would silently reset pagination to page 1;
+ * this theme instead forwards it, an intentional, authorised deviation from
+ * that literal line).
+ *
+ * No WordPress or WooCommerce calls, so the matching/value-extraction logic
+ * is unit testable without faking $wp or wc_get_endpoint_url().
+ *
+ * @param array<string, mixed>  $query_vars $wp->query_vars for the current request.
+ * @param array<string, string> $legacy_map blueline_account_legacy_redirect_map().
+ * @return array{0: string, 1: string}|null [ $arl_slug, $value ], or null if no legacy slug matched.
+ */
+function blueline_match_legacy_account_request( array $query_vars, array $legacy_map ): ?array {
+	foreach ( $legacy_map as $legacy_slug => $arl_slug ) {
+		$dedicated_var = blueline_legacy_query_var( $legacy_slug );
+		if ( array_key_exists( $dedicated_var, $query_vars ) ) {
+			return array( $arl_slug, (string) $query_vars[ $dedicated_var ] );
+		}
+	}
+
+	return null;
+}
+
 if ( ! class_exists( 'WooCommerce' ) ) {
 	return;
 }
@@ -105,25 +185,76 @@ add_action( 'init', 'blueline_register_account_rewrite_endpoints' );
  * 'orders' key in template_redirect() would also fire -- wrongly -- on every
  * correct request and 301 it to itself. The dedicated var name only ever gets
  * set by a literal hit on the old slug.
+ *
+ * Before registering each one, blueline_account_legacy_slug_is_safe() confirms
+ * the literal legacy slug isn't ALSO the slug WooCommerce (or some other
+ * plugin) ends up registering after the full `woocommerce_get_query_vars`
+ * filter chain has run -- not just our own priority-20 filter. A
+ * later-priority plugin filter could revert or repoint
+ * blueline_remap_account_query_vars()'s mapping, in which case WooCommerce
+ * would register its OWN rewrite endpoint under the literal legacy slug (e.g.
+ * 'orders') again. Registering a second, competing endpoint for that same
+ * literal name under our dedicated query var would then be order-dependent
+ * and could silently 404 /account/registrations or reopen the redirect loop
+ * this file exists to prevent -- so if that collision is detected, we skip
+ * our endpoint and log it instead of risking it.
  */
 function blueline_register_account_rewrite_endpoints() {
 	add_rewrite_endpoint( 'my-team', EP_ROOT | EP_PAGES );
 	add_rewrite_endpoint( 'my-schedule', EP_ROOT | EP_PAGES );
 
-	foreach ( array_keys( blueline_account_legacy_redirect_map() ) as $legacy_slug ) {
+	foreach ( blueline_account_legacy_redirect_map() as $legacy_slug => $arl_slug ) {
+		if ( ! blueline_account_legacy_slug_is_safe( $legacy_slug ) ) {
+			blueline_log_legacy_slug_collision( $legacy_slug, $arl_slug );
+			continue;
+		}
+
 		add_rewrite_endpoint( $legacy_slug, EP_ROOT | EP_PAGES, blueline_legacy_query_var( $legacy_slug ) );
 	}
 }
 
 /**
- * The dedicated (collision-free) query var a legacy slug's rewrite endpoint
- * is registered under. See blueline_register_account_rewrite_endpoints().
+ * Whether $legacy_slug is safe to register per
+ * blueline_legacy_slug_is_free_to_register(), checked against WooCommerce's
+ * actual, fully-resolved query vars -- after every `woocommerce_get_query_vars`
+ * filter callback has run, not just blueline_remap_account_query_vars().
+ * Queries WC_Query directly (rather than re-running our own filter logic) so
+ * a later, higher-priority filter that reverts or repoints the mapping is
+ * actually detected.
  *
- * @param string $legacy_slug A key from blueline_account_legacy_redirect_map().
- * @return string
+ * @param string $legacy_slug Literal legacy URL slug (e.g. 'orders').
+ * @return bool
  */
-function blueline_legacy_query_var( string $legacy_slug ): string {
-	return 'blueline_legacy_' . str_replace( '-', '_', $legacy_slug );
+function blueline_account_legacy_slug_is_safe( string $legacy_slug ): bool {
+	if ( ! function_exists( 'WC' ) || ! WC()->query ) {
+		return false;
+	}
+
+	return blueline_legacy_slug_is_free_to_register( $legacy_slug, WC()->query->get_query_vars() );
+}
+
+/**
+ * Surface a would-be rewrite-endpoint collision loudly instead of failing
+ * silently. A 404 (or a reopened redirect loop) on a live account URL is
+ * exactly what this file exists to prevent, so this is deliberately noisy
+ * rather than swallowed.
+ *
+ * @param string $legacy_slug Literal legacy URL slug that was skipped.
+ * @param string $arl_slug    The ARL slug it would have redirected to.
+ */
+function blueline_log_legacy_slug_collision( string $legacy_slug, string $arl_slug ): void {
+	if ( ! ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ) {
+		return;
+	}
+
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- WP_DEBUG-gated, deliberate: this must never fail silently.
+	error_log(
+		sprintf(
+			'[blueline] Skipping the legacy-redirect endpoint for "/account/%1$s" -> "/account/%2$s": WooCommerce (or another plugin) is also registering a rewrite endpoint under the literal slug "%1$s", and a second one would collide. Falling back to WooCommerce default behaviour for that slug.',
+			$legacy_slug,
+			$arl_slug
+		)
+	);
 }
 
 add_filter( 'woocommerce_get_query_vars', 'blueline_remap_account_query_vars', 20 );
@@ -198,18 +329,28 @@ function blueline_redirect_legacy_account_endpoints() {
 	if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
 		return;
 	}
-	if ( ! function_exists( 'wc_get_account_endpoint_url' ) ) {
+	if ( ! function_exists( 'wc_get_endpoint_url' ) || ! function_exists( 'wc_get_page_permalink' ) ) {
 		return;
 	}
 
 	global $wp;
 
-	foreach ( blueline_account_legacy_redirect_map() as $legacy_slug => $arl_slug ) {
-		if ( array_key_exists( blueline_legacy_query_var( $legacy_slug ), $wp->query_vars ) ) {
-			wp_safe_redirect( wc_get_account_endpoint_url( $arl_slug ), 301 );
-			exit;
-		}
+	$match = blueline_match_legacy_account_request( $wp->query_vars, blueline_account_legacy_redirect_map() );
+	if ( null === $match ) {
+		return;
 	}
+
+	list( $arl_slug, $value ) = $match;
+
+	// wc_get_account_endpoint_url() always passes an empty value, so it can't
+	// be reused here -- this mirrors its own non-dashboard/non-logout branch
+	// (wc_get_endpoint_url() against the account page permalink) but forwards
+	// $value through instead of discarding it.
+	wp_safe_redirect(
+		wc_get_endpoint_url( $arl_slug, $value, wc_get_page_permalink( 'myaccount' ) ),
+		301
+	);
+	exit;
 }
 
 add_action( 'after_switch_theme', 'flush_rewrite_rules' );
