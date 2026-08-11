@@ -115,30 +115,22 @@ function blueline_preload_fonts() {
 	}
 }
 
-add_action( 'enqueue_block_editor_assets', 'blueline_enqueue_editor_assets' );
-/**
- * Enqueue editor-only styles so front-end visitors never load them.
+/*
+ * Editor preview styling is intentionally NOT wired up via
+ * enqueue_block_editor_assets()/wp_enqueue_style() here. That hook prints
+ * into the actual wp-admin document (the Post/Page edit screen chrome),
+ * not just the editor canvas iframe -- so a stylesheet enqueued that way
+ * stays live and unscoped in wp-admin, which previously leaked this
+ * theme's bare `body`/`a`/`h1-h4` rules onto the edit-screen UI itself.
+ * It also can't reliably deliver style.css's --bl-* tokens into the
+ * canvas iframe: WordPress only clones an admin-enqueued stylesheet into
+ * that iframe when its rules contain a .wp-block or .editor-styles-wrapper
+ * selector (see getCompatibilityStyles() in the block-editor package),
+ * and a pure `:root { --bl-*: ... }` file matches neither.
  *
- * The editor canvas is a separate iframe document, so it does not inherit
- * the --bl-* custom properties defined in style.css's :root just because
- * they're loaded on the surrounding wp-admin page -- the same class of gap
- * Task 4 found and fixed for the front end (style.css was never enqueued
- * there either). Block editor mirrors stylesheets enqueued on this hook
- * into its canvas iframe, so enqueueing the tokens here, as a dependency
- * of editor.css, gets both into the iframe together.
+ * assets/dist/editor.css is instead registered via
+ * add_theme_support('editor-styles') + add_editor_style() in
+ * inc/setup.php -- the supported mechanism, which reads the file
+ * server-side and injects it only inside the canvas iframe's
+ * .editor-styles-wrapper.
  */
-function blueline_enqueue_editor_assets() {
-	wp_enqueue_style(
-		'blueline-tokens',
-		get_stylesheet_uri(),
-		array(),
-		blueline_stylesheet_version()
-	);
-
-	wp_enqueue_style(
-		'blueline-editor',
-		BLUELINE_URI . '/assets/dist/editor.css',
-		array( 'blueline-tokens' ),
-		blueline_dist_version( 'editor' )
-	);
-}

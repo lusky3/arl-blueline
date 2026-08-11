@@ -2,24 +2,74 @@
 
 /*
  * Blueline — block editor canvas styles.
- * Mirrors base.css/blocks.css typography and colour so the editor
- * preview matches the front end. Enqueued only for the block editor
- * (inc/enqueue.php: blueline_enqueue_editor_assets(), hooked to
- * enqueue_block_editor_assets) -- never on the front end. That gating
- * is unchanged here.
  *
- * Two things make this file different from blocks.css, both because the
- * editor canvas renders in its own iframe document:
- *   - :root custom properties from wp-admin's document don't cross into
- *     an iframe, so blueline_enqueue_editor_assets() also enqueues
- *     style.css (the --bl-* token source) as this stylesheet's
- *     dependency; the block editor mirrors both enqueued stylesheets
- *     into the canvas iframe.
- *   - this theme has no add_theme_support('editor-styles'), so block
- *     markup in the canvas has no .entry-content wrapper -- just bare
- *     tags and .wp-block-* class names, which is what these selectors
- *     target directly instead of blocks.css's `.entry-content …` scoping.
+ * Registered via add_theme_support('editor-styles') + add_editor_style()
+ * in inc/setup.php -- WordPress reads this file's contents server-side
+ * and injects them only inside the editor canvas iframe's
+ * .editor-styles-wrapper, never into the surrounding wp-admin document.
+ * An earlier version of this fix used wp_enqueue_style() on
+ * enqueue_block_editor_assets instead; that hook prints into wp-admin
+ * itself, so it leaked these bare `body`/`a`/`h1-h4` rules onto the
+ * actual edit-screen chrome (sidebar, toolbar, panel headings) -- see
+ * the Task 5 review fix report for how that was found and verified.
+ *
+ * Two things follow from the canvas being an iframe:
+ *   - :root custom properties don't cross document/iframe boundaries, and
+ *     add_editor_style() only guarantees this file lands inside
+ *     .editor-styles-wrapper -- not that a plain `:root` rule inside it
+ *     is guaranteed to resolve the way front-end `:root` does. The token
+ *     block below is declared against `:root, .editor-styles-wrapper`
+ *     together (the pattern WordPress's own editor-styles documentation
+ *     recommends for exactly this ambiguity) so it resolves either way.
+ *     It duplicates style.css's tokens rather than importing that file,
+ *     because style.css has no .wp-block/.editor-styles-wrapper selector
+ *     of its own to satisfy the same injection path -- keep this block in
+ *     sync with style.css's :root by hand when tokens change.
+ *   - this theme has no .entry-content wrapper inside the canvas -- just
+ *     .editor-styles-wrapper> bare tags and .wp-block-* class names,
+ *     which is what these selectors target directly instead of
+ *     blocks.css's `.entry-content …` scoping.
+ *
+ * Coverage vs. blocks.css: typography and colour rules are mirrored for
+ * every block in the brief's list (paragraph, heading, list, table,
+ * image, columns, group, buttons, separator, quote), including style
+ * variants (table stripes, separator dots, button outline). Purely
+ * spacing-only rules that only exist in blocks.css to establish vertical
+ * rhythm between top-level content elements (the `.entry-content > * +
+ * *` rule, per-block margins on p/li/hr) are deliberately NOT mirrored
+ * here: the canvas already has its own block-gap spacing model, and
+ * fighting it would make the preview a worse match, not a better one.
  */
+
+:root,
+.editor-styles-wrapper {
+	--bl-ink: #132343;
+	--bl-ink-deep: #0d1729;
+	--bl-ink-mid: #2e4a74;
+	--bl-accent-text: #3f6e9d;
+	--bl-steel: #5188b7;
+	--bl-ice: #74c0e1;
+	--bl-pale: #9acde7;
+	--bl-paper: #f7fbfc;
+	--bl-white: #fff;
+	--bl-surface: var(--bl-white);
+	--bl-surface-sunken: var(--bl-paper);
+	--bl-border: #dbe7f0;
+	--bl-border-strong: #c3d6e4;
+	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+	--bl-font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--bl-text-xs: 0.75rem;
+	--bl-text-sm: 0.875rem;
+	--bl-text-base: 1rem;
+	--bl-text-lg: clamp(1.125rem, 0.5vw + 1rem, 1.25rem);
+	--bl-text-xl: clamp(1.375rem, 1vw + 1.1rem, 1.75rem);
+	--bl-text-2xl: clamp(1.75rem, 2vw + 1.2rem, 2.5rem);
+	--bl-space-2: 0.5rem;
+	--bl-space-3: 0.75rem;
+	--bl-space-5: 1.5rem;
+	--bl-space-6: 2rem;
+	--bl-radius: 0px;
+}
 
 body {
 	background: var(--bl-paper);
@@ -96,13 +146,35 @@ thead th {
 	text-transform: uppercase;
 }
 
+.wp-block-table.is-style-stripes tbody tr:nth-child(odd) {
+	background: var(--bl-surface);
+}
+
 /* Image */
 figcaption {
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-sm);
 }
 
+.wp-block-image figcaption {
+	text-align: center;
+}
+
+/* Columns */
+.wp-block-columns {
+	gap: var(--bl-space-6);
+}
+
+/* Group */
+.wp-block-group.has-background {
+	padding: var(--bl-space-5);
+}
+
 /* Buttons -- see blocks.css for why these skip the skew device. */
+.wp-block-buttons {
+	gap: var(--bl-space-3);
+}
+
 .wp-block-button__link {
 	display: inline-block;
 	padding: var(--bl-space-3) var(--bl-space-5);
@@ -112,6 +184,7 @@ figcaption {
 	font-weight: 700;
 	font-style: italic;
 	text-transform: uppercase;
+	border-radius: var(--bl-radius);
 }
 
 .wp-block-button.is-style-outline .wp-block-button__link {
@@ -124,6 +197,19 @@ figcaption {
 .wp-block-separator {
 	border: none;
 	border-top: 1px solid var(--bl-border-strong);
+}
+
+.wp-block-separator.is-style-dots {
+	border: none;
+	text-align: center;
+	line-height: 1;
+}
+
+.wp-block-separator.is-style-dots::before {
+	content: "\00b7 \00b7 \00b7";
+	color: var(--bl-steel);
+	font-size: var(--bl-text-xl);
+	letter-spacing: var(--bl-space-2);
 }
 
 /* Quote -- italic body face, not the display face; see blocks.css. */

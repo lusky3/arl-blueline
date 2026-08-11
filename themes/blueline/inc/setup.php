@@ -37,6 +37,15 @@ function blueline_setup() {
 		)
 	);
 
+	// The supported mechanism for matching the block editor's preview to the
+	// front end: WordPress reads this file's contents server-side and injects
+	// them exclusively inside the editor canvas iframe's .editor-styles-wrapper
+	// -- never into the surrounding wp-admin document -- regardless of the
+	// selectors the CSS happens to use. See assets/src/css/editor.css for why
+	// its :root token block also duplicates onto .editor-styles-wrapper.
+	add_theme_support( 'editor-styles' );
+	add_editor_style( 'assets/dist/editor.css' );
+
 	register_nav_menus(
 		array(
 			'primary' => __( 'Primary Menu', 'blueline' ),

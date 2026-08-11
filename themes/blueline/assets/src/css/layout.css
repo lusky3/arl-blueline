@@ -5,15 +5,6 @@
  * 404) and default widget-area styling.
  */
 
-/*
- * This file is a set of independent, uniquely-classed components
- * (.bl-entry, .bl-post-card, .bl-comments, .bl-pagination, ...) that all
- * happen to style the same bare tags (a, img, li) at equal (0,1,1)
- * specificity; none of their ancestors overlap, so there's no real
- * cascade conflict for reordering to fix.
- */
-/* stylelint-disable no-descending-specificity */
-
 .bl-main {
 	display: block;
 	padding-block: var(--bl-space-7) var(--bl-space-8);
@@ -197,6 +188,7 @@
 	margin-block-end: var(--bl-space-5);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-entry__thumbnail img {
 	display: block;
 	width: 100%;
@@ -217,6 +209,7 @@
 	margin-block-end: var(--bl-space-3);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-entry-meta__eyebrow a {
 	display: inline-block;
 	padding: 2px var(--bl-space-2);
@@ -240,6 +233,7 @@
 	font-size: var(--bl-text-sm);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-page-links a {
 	margin-inline-start: var(--bl-space-2);
 }
@@ -250,6 +244,7 @@
 	border-top: 1px solid var(--bl-border);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-entry__tags a {
 	margin-inline-end: var(--bl-space-2);
 	font-size: var(--bl-text-sm);
@@ -322,6 +317,7 @@
 	border-radius: var(--bl-radius-card);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-post-card__thumb img {
 	display: block;
 	width: 100%;
@@ -334,6 +330,7 @@
 	margin: 0 0 var(--bl-space-2);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-post-card__title a {
 	color: var(--bl-ink);
 	text-decoration: none;
