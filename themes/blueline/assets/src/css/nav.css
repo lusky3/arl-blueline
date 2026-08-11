@@ -215,10 +215,24 @@
 		justify-content: flex-end;
 	}
 
+	/*
+	 * Anchored to the triggering item's RIGHT edge, not its left. .bl-nav__menu
+	 * is justify-content: flex-end, so items pack against .bl-header__actions
+	 * with no guaranteed free margin to the right of any of them — a
+	 * left-anchored 260px dropdown on a later top-level item (e.g.
+	 * "Standings", which owns the ~18-item "Past Standings" submenu) runs
+	 * past the CTA and off the right edge of the viewport at laptop widths
+	 * just above this breakpoint. Every item, including the ones near the
+	 * start of the bar, has the space to its own left available (that's
+	 * where its preceding siblings already render), so right-anchoring is
+	 * safe for all of them and needs no per-item/JS overflow detection.
+	 * Verified live at 900–1100px on "Standings" (Past Standings) and
+	 * "Rosters / Stats" (Past Rosters) — see the Task 4 fix report.
+	 */
 	.bl-nav__item > .bl-nav__submenu {
 		position: absolute;
 		top: 100%;
-		left: 0;
+		right: 0;
 		z-index: 40;
 		min-width: 260px;
 		max-height: min(70vh, 480px);

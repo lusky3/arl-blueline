@@ -1,16 +1,20 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; the sniff's error is anchored to the T_OPEN_TAG token on line 1, and `phpcs:disable` only takes effect from the line it appears on, so placed on any later line (even line 2) this specific error still slips through — confirmed empirically while fixing this finding.
 /**
  * Template tags: site header, site footer, and the primary nav walker.
  *
  * Blueline_Nav_Walker is deliberately kept in this file alongside
  * blueline_site_header()/blueline_site_footer(), per the Task 4 interface
- * contract, rather than split into its own class-blueline-nav-walker.php.
- *
- * phpcs:ignoreFile WordPress.Files.FileName.InvalidClassFileName
- * phpcs:ignoreFile Universal.Files.SeparateFunctionsFromOO.Mixed
+ * contract, rather than split into its own class-blueline-nav-walker.php —
+ * both file-organisation sniffs above/below are disabled (not ignored) for
+ * exactly that reason, each named, each with no matching `enable`, so the
+ * rest of this 265-line file — all of this task's escaping logic — is
+ * still linted (unlike the previous blanket `phpcs:ignoreFile <sniff>`,
+ * which is invalid syntax that silently disables the entire file).
  *
  * @package blueline
  */
+
+// phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed
 
 defined( 'ABSPATH' ) || exit;
 
@@ -117,16 +121,15 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 		if ( $is_current ) {
 			$link_attrs['aria-current'] = 'page';
 		}
-		if ( $has_children ) {
-			// The item's own link may be a real page (e.g. "Standings") or a
-			// placeholder ("#", e.g. "League Info"); navigation.js decides
-			// per-link whether to also toggle the submenu on click.
-			$link_attrs['data-bl-submenu'] = $submenu_id;
-		}
 
 		$attributes = '';
 		foreach ( $link_attrs as $attr => $value ) {
-			$attributes .= ' ' . $attr . '="' . esc_attr( $value ) . '"';
+			// Mirrors Walker_Nav_Menu::start_el() in WordPress core: href is a
+			// URL and must be validated/escaped with esc_url(), not merely
+			// HTML-entity-encoded with esc_attr() (which would let a
+			// javascript: URL through unchanged).
+			$escaped     = ( 'href' === $attr ) ? esc_url( $value ) : esc_attr( $value );
+			$attributes .= ' ' . $attr . '="' . $escaped . '"';
 		}
 
 		$title = apply_filters( 'the_title', $item->title, $item->ID );
