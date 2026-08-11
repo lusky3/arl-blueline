@@ -30,36 +30,157 @@ function blueline_normalize_player_stats( array $raw ): array {
 }
 
 /**
- * The sp_league (Division) term most likely to reflect $post_id's CURRENT
- * division, given that both sp_player and sp_team posts accumulate every
- * division term they were ever tagged with over the years and this
- * taxonomy carries no "current" flag of its own (confirmed live on
- * staging: team 14955 alone carries 7 different Division terms spanning
- * several seasons). Highest term_id first is a pragmatic "most recently
- * tagged" heuristic, not a season-scoped lookup -- there is no cheap way
- * to resolve a season-correct division without a lot more machinery than
- * this reader warrants, and this is no worse than the same heuristic this
- * codebase already ships for team crests (see blueline_sp_team_hero() in
- * inc/sportspress.php, which shows every sp_league term with no
- * disambiguation at all).
+ * $team_id's own sp_table post for the season currently driving the
+ * schedule (blueline_current_sp_season_term_id()) -- the specific
+ * standings table this team is rostered into for that season, found by
+ * checking each season-scoped table's own sp_teams roster meta, not by
+ * matching strings in the post title (unlike the simpler,
+ * Division-1-only homepage snippet in inc/homepage-modules.php, this must
+ * work for a team in ANY division).
  *
- * @param int $post_id sp_team or sp_player post ID.
- * @return string Empty string if the taxonomy is missing or the post has no terms.
+ * SportsPress's sp_table posts, unlike sp_team/sp_player, carry exactly
+ * ONE sp_season term and exactly ONE sp_league term each -- confirmed live: table
+ * "Division 1 | S2026" (116143) carries only the S2026 term and only the
+ * "Division 1" term, with none of the historical accumulation
+ * sp_team/sp_player posts carry (see blueline_player_division_name()'s
+ * docblock). That makes a team's current-season table the one clean,
+ * genuinely season-scoped anchor available anywhere in this taxonomy for
+ * BOTH division and record.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return int|null Null if there is no current season, or no table for it
+ *                   rosters this team (e.g. a team not yet assigned for a
+ *                   season that just started).
  */
-function blueline_player_division_name( int $post_id ): string {
-	if ( ! taxonomy_exists( 'sp_league' ) ) {
+function blueline_team_current_table_id( int $team_id ): ?int {
+	if ( $team_id <= 0 || ! post_type_exists( 'sp_table' ) || ! taxonomy_exists( 'sp_season' ) ) {
+		return null;
+	}
+
+	$season_id = blueline_current_sp_season_term_id();
+
+	if ( ! $season_id ) {
+		return null;
+	}
+
+	$table_ids = get_posts(
+		array(
+			'post_type'      => 'sp_table',
+			'post_status'    => 'publish',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to one season, a handful of division tables.
+				array(
+					'taxonomy' => 'sp_season',
+					'field'    => 'term_id',
+					'terms'    => $season_id,
+				),
+			),
+		)
+	);
+
+	foreach ( $table_ids as $table_id ) {
+		$rostered_teams = get_post_meta( $table_id, 'sp_teams', true );
+
+		if ( is_array( $rostered_teams ) && array_key_exists( $team_id, $rostered_teams ) ) {
+			return (int) $table_id;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * $team_id's division (sp_league term) for the season currently driving
+ * the schedule, read from that season's own sp_table post via
+ * blueline_team_current_table_id() -- NOT from the team's own sp_league
+ * terms directly.
+ *
+ * An earlier version of this function picked the team's own HIGHEST
+ * term_id sp_league term as a "most recently tagged" guess, and its
+ * docblock claimed blueline_sp_team_hero() (inc/sportspress.php) made the
+ * "identical choice." That claim was wrong: blueline_sp_team_hero()
+ * renders EVERY sp_league term comma-joined, with no single-value
+ * selection at all, so the two pages could disagree about the same
+ * team's division. Both the team's own terms and the player's own terms
+ * accumulate every division ever tagged with no "current" flag
+ * (confirmed live: team 14955 alone carries 7 different Division terms
+ * spanning several seasons) -- "highest term_id" is an artifact of
+ * insertion order, not a rule tied to which season is actually current,
+ * so it was never defensible.
+ *
+ * Resolving through the team's current-season sp_table instead is
+ * genuinely season-scoped, not a heuristic over insertion order: that
+ * table post carries exactly one sp_league term (confirmed live -- see
+ * blueline_team_current_table_id()'s docblock).
+ *
+ * Failure mode, stated plainly: if no table for the current season
+ * rosters this team (e.g. a newly created team not yet assigned for a
+ * season that just started), this returns '' rather than falling back to
+ * a guess -- the My Team dashboard module (inc/account/dashboard.php)
+ * already omits the division line entirely when it is empty, which is
+ * the honest behaviour here: no confident-but-wrong division, ever.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return string
+ */
+function blueline_player_division_name( int $team_id ): string {
+	$table_id = blueline_team_current_table_id( $team_id );
+
+	if ( ! $table_id || ! taxonomy_exists( 'sp_league' ) ) {
 		return '';
 	}
 
-	$terms = wp_get_post_terms( $post_id, 'sp_league' );
+	$terms = wp_get_post_terms( $table_id, 'sp_league' );
 
 	if ( is_wp_error( $terms ) || empty( $terms ) ) {
 		return '';
 	}
 
-	usort( $terms, static fn( $a, $b ) => $b->term_id <=> $a->term_id );
-
 	return (string) $terms[0]->name;
+}
+
+/**
+ * $team_id's own row from SportsPress's own already-computed
+ * SP_League_Table::data() for the season currently driving the schedule
+ * -- the authoritative record source review asked for, instead of a
+ * hand-rolled W/L/T aggregation off sp_results (which, for the three most
+ * recently played events checked live, was entirely empty -- see the
+ * docblock on blueline_get_player_season_stats() for the same
+ * sparse-results observation). Confirmed live: table 116143 ("Division 1
+ * | S2026") computes team 111510's own row as
+ * `['gp'=>14,'w'=>5,'l'=>6,'tie'=>3,'ot'=>0,'pts'=>13,...]` -- real,
+ * non-placeholder data, because SP_League_Table derives it from the
+ * table's own curated `sp_teams` roster plus event results, not from a
+ * single event's sp_results meta the way a naive per-event tally would.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return array<string,mixed>|null The raw computed row (column keys
+ *         depend on this site's configured result variables, e.g.
+ *         gp/w/l/tie/ot/pts for this hockey install) -- or null if
+ *         SportsPress's table class is unavailable or no current-season
+ *         table rosters this team (blueline_team_current_table_id()).
+ */
+function blueline_get_team_record( int $team_id ): ?array {
+	if ( $team_id <= 0 || ! class_exists( 'SP_League_Table' ) ) {
+		return null;
+	}
+
+	$table_id = blueline_team_current_table_id( $team_id );
+
+	if ( ! $table_id ) {
+		return null;
+	}
+
+	$table = new SP_League_Table( $table_id );
+	$data  = $table->data();
+
+	if ( ! is_array( $data ) || empty( $data[ $team_id ] ) || ! is_array( $data[ $team_id ] ) ) {
+		return null;
+	}
+
+	return $data[ $team_id ];
 }
 
 /**
@@ -76,13 +197,18 @@ function blueline_player_jersey_number( int $player_id ) {
 
 /**
  * $player_id's current team (sp_current_team), bundled with the fields the
- * My Team dashboard module needs in one call: crest, division, and the
- * player's own jersey number. Division is read from the TEAM's own
- * sp_league terms (not the player's) -- sp_league is fundamentally a
- * team-level classification, and blueline_sp_team_hero() already
- * establishes that same team-level reading for the single-team page; using
- * a different source here would make the two "division" values disagree
- * for the same team.
+ * brief's interface names for this reader: crest, division, and the
+ * player's own jersey number. Division is resolved through the team's
+ * current-season sp_table (blueline_player_division_name()), not the
+ * team's or player's own accumulated sp_league terms directly.
+ *
+ * "Record" is deliberately NOT part of this return shape -- the brief's
+ * interface for THIS function lists exactly team_id/name/logo_id/
+ * division/number, and record needed a different, table-based lookup
+ * (blueline_get_team_record()) added after review. Keeping it a separate
+ * call, called directly by the My Team renderer
+ * (inc/account/dashboard.php), avoids silently growing this documented
+ * interface.
  *
  * @param int $player_id sp_player post ID.
  * @return array{team_id:int, name:string, logo_id:?int, division:string, number:?string}|null
@@ -288,6 +414,60 @@ function blueline_get_player_season_stats( int $player_id ): array {
 }
 
 /**
+ * The most recent of $user_id's orders (newest first) containing a
+ * product from $product_ids, or null. Paginated in small batches rather
+ * than one `limit => -1` fetch of the user's entire order history: the
+ * match is almost always in the very first, most-recent page (a
+ * registrant's newest order is normally for the current season), so this
+ * short-circuits after page one in the common case while still bounding
+ * the worst case (a user who registered for the current season only in
+ * some older order) to at most `$max_pages` batches rather than hydrating
+ * every order a long-time customer has ever placed.
+ *
+ * @param int   $user_id     WordPress user ID.
+ * @param int[] $product_ids Product IDs that count as a match.
+ * @return WC_Order|null
+ */
+function blueline_find_registration_order( int $user_id, array $product_ids ) {
+	$batch_size = 20;
+	$max_pages  = 10;
+
+	for ( $page = 1; $page <= $max_pages; $page++ ) {
+		$orders = wc_get_orders(
+			array(
+				'customer_id' => $user_id,
+				'limit'       => $batch_size,
+				'paged'       => $page,
+				'orderby'     => 'date',
+				'order'       => 'DESC',
+			)
+		);
+
+		if ( empty( $orders ) ) {
+			return null;
+		}
+
+		foreach ( (array) $orders as $order ) {
+			if ( ! is_a( $order, 'WC_Order' ) ) {
+				continue;
+			}
+
+			foreach ( $order->get_items() as $item ) {
+				if ( in_array( $item->get_product_id(), $product_ids, true ) ) {
+					return $order;
+				}
+			}
+		}
+
+		if ( count( $orders ) < $batch_size ) {
+			return null; // Last page reached with no match.
+		}
+	}
+
+	return null;
+}
+
+/**
  * $user_id's registration for the current season: the most recent
  * WooCommerce order containing a product in the newest child product_cat
  * of Registration (term 91 -- the same season-resolution rule Season
@@ -343,31 +523,16 @@ function blueline_get_user_registration_status( int $user_id ): ?array {
 		return null;
 	}
 
-	$orders = wc_get_orders(
-		array(
-			'customer_id' => $user_id,
-			'limit'       => -1,
-			'orderby'     => 'date',
-			'order'       => 'DESC',
-		)
-	);
+	$order = blueline_find_registration_order( $user_id, $product_ids );
 
-	foreach ( (array) $orders as $order ) {
-		if ( ! is_a( $order, 'WC_Order' ) ) {
-			continue;
-		}
-
-		foreach ( $order->get_items() as $item ) {
-			if ( in_array( $item->get_product_id(), $product_ids, true ) ) {
-				return array(
-					'season'   => (string) $season_term->name,
-					'order_id' => $order->get_id(),
-					'status'   => $order->get_status(),
-					'paid'     => (bool) $order->is_paid(),
-				);
-			}
-		}
+	if ( ! $order ) {
+		return null;
 	}
 
-	return null;
+	return array(
+		'season'   => (string) $season_term->name,
+		'order_id' => $order->get_id(),
+		'status'   => $order->get_status(),
+		'paid'     => (bool) $order->is_paid(),
+	);
 }

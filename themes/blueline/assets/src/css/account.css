@@ -273,6 +273,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 }
 
 .bl-account-team__division,
+.bl-account-team__record,
 .bl-account-team__number,
 .bl-account-team__roster-summary {
 	margin: var(--bl-space-1) 0 0;

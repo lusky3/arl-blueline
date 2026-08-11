@@ -92,6 +92,14 @@ function blueline_account_module_empty_state( string $message ) {
  * by actually submitting a claim and finding the "you're linked" success
  * notice invisible. Reusing that class would have made the one message a
  * newly-linked user most needs to see silently disappear.
+ *
+ * This is a server-rendered notice on a normal (non-AJAX) page load, not
+ * a live region injected after the fact, so `role="alert"` alone is not
+ * reliably announced by every screen reader on load. `tabindex="-1"`
+ * makes it a valid programmatic focus target; assets/src/js/account.js
+ * moves focus to it on load, the standard "you just navigated here, read
+ * this" pattern, without pretending this is a live-region interruption it
+ * is not.
  */
 function blueline_account_render_claim_notice() {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only status flag from our own post-claim redirect, not a state-changing request.
@@ -116,7 +124,7 @@ function blueline_account_render_claim_notice() {
 
 	list( $type, $text ) = $messages[ $status ];
 	?>
-	<div class="bl-account-notice bl-account-notice--<?php echo esc_attr( $type ); ?>" role="alert">
+	<div class="bl-account-notice bl-account-notice--<?php echo esc_attr( $type ); ?>" role="alert" tabindex="-1">
 		<?php echo esc_html( $text ); ?>
 	</div>
 	<?php
@@ -227,13 +235,57 @@ function blueline_get_team_roster( int $team_id, int $exclude_player_id = 0 ): a
 }
 
 /**
- * The My Team module: crest, division, my jersey number, teammate list (or
- * a count on the compact dashboard view). "Record" is deliberately not
- * recomputed here -- SportsPress's own standings table is the correct,
- * already-computed source (the same call blueline_sp_team_hero() already
- * makes for the single-team page, see inc/sportspress.php); this module
- * links straight to it instead of a second, hand-rolled, and on this site's
- * sparsely-recorded results data likely WRONG, W/L/T aggregation.
+ * A human-readable "W-L-T · N PTS" summary of blueline_get_team_record()'s
+ * raw row, or null if the row doesn't carry the win/loss/tie columns this
+ * formatter knows how to read (this site's hockey config uses
+ * gp/w/l/tie/ot/pts; a differently-configured SportsPress install could
+ * use different column keys, in which case this degrades to a points-only
+ * summary, or to null if even that is missing -- never a fatal, and never
+ * a fabricated "0-0-0").
+ *
+ * @param array<string,mixed> $row blueline_get_team_record()'s row.
+ * @return string|null
+ */
+function blueline_format_team_record( array $row ): ?string {
+	if ( isset( $row['w'], $row['l'], $row['tie'] ) ) {
+		$record = sprintf( '%s-%s-%s', $row['w'], $row['l'], $row['tie'] );
+
+		if ( isset( $row['pts'] ) && '' !== $row['pts'] ) {
+			$record .= ' · ' . sprintf(
+				/* translators: %s: points total. */
+				__( '%s PTS', 'blueline' ),
+				$row['pts']
+			);
+		}
+
+		return $record;
+	}
+
+	if ( isset( $row['pts'] ) && '' !== $row['pts'] ) {
+		return sprintf(
+			/* translators: %s: points total. */
+			__( '%s PTS', 'blueline' ),
+			$row['pts']
+		);
+	}
+
+	return null;
+}
+
+/**
+ * The My Team module: crest, division, record, my jersey number, and
+ * teammate list (or a count on the compact dashboard view) -- all five
+ * fields the brief's Step 6 names for this module.
+ *
+ * Record is read from SportsPress's own already-computed standings
+ * (blueline_get_team_record(), via the team's current-season sp_table),
+ * never hand-rolled from event-level sp_results -- see that function's
+ * docblock for why a naive per-event tally would be unreliable on this
+ * site's sparsely-recorded results. When no current-season table rosters
+ * this team, the field still renders -- with an explicit "not available
+ * yet" state, matching every other module's empty-state convention --
+ * rather than being silently dropped, so a viewer can never confuse "not
+ * shown" with "0-0-0."
  *
  * @param int  $player_id sp_player post ID.
  * @param bool $full      True on the dedicated My Team tab (full named
@@ -253,7 +305,9 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
 	if ( ! $team ) {
 		blueline_account_module_empty_state( __( 'You’re not on a roster yet. Once you’re added to a team, it will show up here.', 'blueline' ) );
 	} else {
-		$roster = blueline_get_team_roster( $team['team_id'], $player_id );
+		$roster       = blueline_get_team_roster( $team['team_id'], $player_id );
+		$record_row   = blueline_get_team_record( $team['team_id'] );
+		$record_label = $record_row ? blueline_format_team_record( $record_row ) : null;
 		?>
 		<div class="bl-account-team">
 			<div class="bl-account-team__identity">
@@ -270,6 +324,21 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
 					<?php if ( $team['division'] ) : ?>
 						<p class="bl-account-team__division"><?php echo esc_html( $team['division'] ); ?></p>
 					<?php endif; ?>
+					<p class="bl-account-team__record">
+						<?php if ( $record_label ) : ?>
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %s: record summary, e.g. "5-6-3 · 13 PTS". */
+									__( 'Record: %s', 'blueline' ),
+									$record_label
+								)
+							);
+							?>
+						<?php else : ?>
+							<?php esc_html_e( 'Record not available yet.', 'blueline' ); ?>
+						<?php endif; ?>
+					</p>
 					<?php if ( $team['number'] ) : ?>
 						<p class="bl-account-team__number">
 							<?php

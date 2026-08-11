@@ -35,9 +35,9 @@ $blueline_nav_current_group = false;
 				</ul>
 			<?php endif; ?>
 			<?php if ( $blueline_nav_item['group'] && isset( $blueline_nav_group_labels[ $blueline_nav_item['group'] ] ) ) : ?>
-				<p class="bl-account-nav__group-title bl-account-nav__group-title--<?php echo esc_attr( $blueline_nav_item['group'] ); ?>">
+				<h2 class="bl-account-nav__group-title bl-account-nav__group-title--<?php echo esc_attr( $blueline_nav_item['group'] ); ?>">
 					<?php echo esc_html( $blueline_nav_group_labels[ $blueline_nav_item['group'] ] ); ?>
-				</p>
+				</h2>
 			<?php endif; ?>
 			<ul class="bl-account-nav__list<?php echo $blueline_nav_item['group'] ? '' : ' bl-account-nav__list--plain'; ?>">
 			<?php $blueline_nav_current_group = $blueline_nav_item['group']; ?>
