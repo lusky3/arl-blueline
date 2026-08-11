@@ -9,25 +9,32 @@ five steps and the seven items that accumulated onto Task 16 during Tasks 1–15
 gate below was actually run during this task, not inferred from prior reports; where a gate is a
 retest of something Task 9/10/15 already ran, that is noted.
 
+**Updated 2026-08-11 (later the same day):** a broad whole-branch review, run after all sixteen
+tasks had individually passed review, found nine defects that only appear across task
+boundaries — one of them a security hole. All nine were fixed in a single wave and every gate
+below was re-run against the fixed branch. §14 is the record of that wave; §1's table now
+carries the re-run results, not the pre-wave ones.
+
 ---
 
 ## 1. Automated gates
 
 | Gate | Result | Detail |
 |---|---|---|
-| `composer test` | **PASS** | 67 tests, 138 assertions, 0 failures (was 57 before this task; 10 new tests added — see §4) |
-| `composer lint` (full `phpcs --standard=WordPress`) | **PASS with documented exceptions** | `tests/` is now 0 errors / 0 warnings (was 105 errors / 5 warnings). Remaining: 81 errors / 7 warnings, entirely inside `woocommerce/` vendor-authored override templates. See §7 for the full breakdown and why these are not being force-fixed. |
+| `composer test` | **PASS** | **86 tests, 192 assertions, 0 failures.** Was 67 after Task 16; the fix wave added 19 (§14.1's candidate gate, §14.7's `blueline_link_player_to_user()` coverage, §14.2's query-var map). The six verbatim `blueline_name_match_score()` tests are unchanged and still pass. |
+| `composer lint` (full `phpcs --standard=WordPress`) | **PASS with documented exceptions** | `tests/` is 0 errors / 0 warnings (was 105 errors / 5 warnings). Remaining after the fix wave: **81 errors across 19 files, all still inside `woocommerce/`** — byte-identical to the pre-wave baseline, i.e. the wave introduced no new WPCS debt and cleared the four it briefly created in `tests/bootstrap.php` and `inc/account/player-link.php`. See §7 for why the 81 are not force-fixed. |
 | `npm run build` (`wp-scripts build`) | **PASS** | Webpack 5.109.2 compiled successfully; `index.css` 46.7 KiB, `editor.css` 4 KiB, fonts copied, `.asset.php` manifests written. |
 | `node tools/check-contrast.mjs` | **PASS** | All 10 contrast rules pass their WCAG minimum; the `--bl-ice`-must-stay-decorative guard passes; the new token-parity check (§5) passes — editor.css's 26 duplicated tokens match style.css exactly. |
 | `./scripts/deploy-theme.sh staging` | **PASS** | Ran six times during this task (baseline, after the skip-link fix, after the WooCommerce wrapper fix, a deliberate fail/revert round-trip proving the new smoke check works — see below, and final). Each rsync + chown 33:33 completed cleanly. |
-| `./scripts/smoke-staging.sh` | **PASS** | **Modified this task** — see §1.1. 16/16 checks (was 14; 2 new regression checks added), re-run after every deploy and every `simple_css` option change — all still passing in the final state. |
-| `./scripts/audit-archive-pages.sh` | **PASS** | 30/30 archive pages pass (re-run three times during this task: after the tabindex fix, after the simple-css swap, and in the final full re-run). One known exclusion unchanged: page 13440 (private, unlinked, expected 404 for anonymous requests). |
+| `./scripts/smoke-staging.sh` | **PASS** | **Modified twice** — see §1.1 (Task 16) and §14.6 (fix wave). **25/25 checks** (was 16; the wave added the `/standings` → `bl-table-scroll` assertion, eight ARL account slugs, and the `/account/orders` → 301 assertion the plan required but nobody had committed). |
+| `./scripts/audit-archive-pages.sh` | **PASS** | 30/30 archive pages pass, **re-run after the wave's three detection fixes** (§14.4: curl exit status, unbounded page fetch, hyphen-less `rookie/` pattern) — the broadened pattern found no new hits, so the 30/30 is now a stronger result against the same pages. `--self-test` passes 7/7 fixtures (was 5; two added for the new pattern). One known exclusion unchanged: page 13440 (private, unlinked, expected 404 for anonymous requests). |
 | `staging/tests/repro-duplicate-registration.sh` | **PASS (bug not reproduced)** | `items_count after login merge: 1` — the double-registration path Task 9 fixed stays fixed. Re-run in the final full pass. |
 | `staging/tests/test-one-registration-guard.sh` | **PASS — but only after a real defect in the test itself was fixed. See §6.** |
-| `staging/tests/checkout-end-to-end.py` | **PASS** | Ran four times (baseline, after the skip-link fix, after the simple-css swap, final full re-run). Each run placed a real order (116714, 116715, then 116716) with 1 line item, correct `_arl_rules_version`/`_arl_rules_accepted` meta, and a `success` checkout result. |
+| `staging/tests/checkout-end-to-end.py` | **PASS** | Ran six times in total; the last two are the fix-wave re-runs, placing orders 116717 and 116718. Order 116718 verified directly: **1 line item, `_arl_rules_version=W2026-27`, `_arl_rules_accepted=2026-08-11 18:35:00`, status `on-hold`**, `result: success`. |
 
 **Gate count: 10 run, 10 passing** (the table above has 10 rows — this line previously read "9
 run, 9 passing," an arithmetic slip against its own table, caught in review and corrected here).
+All ten were re-run end-to-end after the fix wave and all ten still pass.
 One (`test-one-registration-guard.sh`) required a real fix to the test's own setup before its
 pass became meaningful — see §6, which is the honest account of that.
 
@@ -840,9 +847,260 @@ form.** Required pre-cutover action: enable `cfturnstile_woo_register` before de
 
 ---
 
-## 14. Overall verdict
+## 14. Final whole-branch review — fix wave (2026-08-11)
 
-All ten automated/manual gates in §1 pass. The accessibility pass found one real, live
+After all sixteen tasks had passed their individual reviews, a broad review of the branch as a
+whole found nine defects that only appear across task boundaries — code that is correct inside
+its own task and wrong in combination with another's. All nine were fixed in a single wave and
+every gate in §1 was re-run against the result. This section is the record.
+
+### 14.1 CRITICAL — single-token names allowed identity squatting
+
+**The defect.** `blueline_name_match_score()` divides the token intersection by
+`min( count( $sa ), count( $sb ) )`, so any name that is a strict *subset* of the other scores
+exactly `1.0` — `"Matthew"` vs `"Matthew Zielinski"` is a perfect match. The account side of
+that comparison comes from `blueline_user_match_name()`, which reads `billing_first_name` +
+`billing_last_name` — **both editable by the account holder** at `/account/edit-address/`. A
+logged-in user could therefore blank their surname, set their given name to one common token,
+and be offered every current-season player sharing it at a perfect score, one click from
+confirming. `blueline_link_player_to_user()`'s three invariants do not stop this: they check
+that the *chosen* player is unclaimed, not that the candidate list was honestly derived. The
+consequence is identity squatting — the claimant sees a stranger's team, roster, jersey number,
+schedule and stats, and the real player is then permanently locked out with `already_linked`
+until an admin intervenes. The same hole reached
+`scripts/one-off/2026-08-11-sp-user-backfill.php`, whose AUTO rule is "exactly one candidate
+≥ 0.95": because its pool *excludes already-linked players*, a single-token name whose only
+remaining namesake is the **wrong** one is a unique 1.0 and would have been written
+automatically — the exact failure that script's docblock says it exists to prevent.
+
+**The fix.** The matcher's formula is plan-mandated and pinned by six verbatim unit tests, and
+was **not** changed (scoring against the smaller set is what lets "Cody James Lusk" match "Cody
+Lusk"). The hazard is not the arithmetic; it is which pairs reach it. A gate was added at the
+candidate boundary instead:
+
+- `BLUELINE_MATCH_MIN_TOKENS = 2`, `blueline_name_tokens()`, and
+  `blueline_name_pair_is_specific_enough()` in `inc/account/player-link.php`.
+- The scoring loop was extracted from `blueline_find_player_candidates()` into a pure
+  `blueline_score_player_candidates()`, which applies the gate to **every** pair before scoring
+  it. That is the single boundary both the claim card and the backfill cross (the backfill
+  delegates all matching to `blueline_find_player_candidates()`), so one gate covers both.
+- `blueline_find_player_candidates()` additionally short-circuits on a single-token account name
+  *before* querying the pool at all.
+- The gate is symmetric: a single-token **player post title** is rejected too.
+
+**Live proof on staging, with a real scratch account.** A throwaway `customer` user was created,
+given `billing_first_name = "Matthew"` / `billing_last_name = ""`, exercised, and deleted in the
+same run. No `sp_user` meta was written at any point — the probe never calls
+`blueline_link_player_to_user()`.
+
+```
+scratch user created: blueline-squat-probe-1786487779 (id 2435)
+
+=== CASE 1: single-token billing name (the attack) ===
+blueline_user_match_name() => "Matthew"
+candidate pool size: 282
+PRE-FIX (threshold only, no gate) would offer: 8
+    Matthew Smith (745) score=1.0000
+    Matthew Jibb (835) score=1.0000
+    Patrick Matthew (8659) score=1.0000
+    Matthew Hardy (55518) score=1.0000
+    Matthew Morin (97454) score=1.0000
+    Matthew Lee Wuk Len (100472) score=1.0000
+    Matthew Foster (109416) score=1.0000
+    Matthew Lareau (109417) score=1.0000
+POST-FIX blueline_find_player_candidates() offers: 0
+
+=== CASE 2: genuine two-token billing name (must still match) ===
+blueline_user_match_name() => "Matthew Smith"
+POST-FIX blueline_find_player_candidates() offers: 1
+    Matthew Smith (745) score=1.0000
+
+scratch user deleted: yes
+get_userdata() after delete: gone
+```
+
+Eight real, unlinked current-season players — including `Patrick Matthew`, whose *surname* is
+the collision — were one click away from being claimed by anyone who typed "Matthew" into their
+own billing form. That is now zero, and a genuine two-token name still resolves to exactly one
+candidate. **Test mutation reverted:** the scratch user was deleted in the same run and
+`get_userdata()` confirms it is gone; nothing else on staging was modified.
+
+**New tests** (`tests/PlayerLinkTest.php`): single-token rejected in both directions; a repeated
+token (`"Smith Smith"`) does not buy its way past the gate; empty/punctuation-only names
+rejected; two-token pairs accepted; a single-token account name yields no candidates against
+three perfect-scoring players; a single-token *player title* is rejected; a genuine match still
+produces one candidate; candidates still sort best-first; `blueline_find_player_candidates()`
+short-circuits before touching the pool. Plus a deliberate **pin** asserting
+`blueline_name_match_score( 'Matthew', 'Matthew Zielinski' ) === 1.0` — not a bug report, a
+tripwire: if that ever changes, someone edited the matcher and the six verbatim tests no longer
+describe shipped behaviour. All six verbatim matcher tests pass unchanged.
+
+### 14.2 `store-credit` routed through a query var that does not exist here
+
+`inc/account/endpoints.php` flipped `blueline_account_legacy_redirect_map()` to build a
+slug→query-var map, yielding `'store-credit' => 'credit'`. But the installed WooCommerce Store
+Credit plugin registers `'store-credit' => 'store-credit'`, and `'credit'` has never been a
+query-var key on this install — confirmed live against `WC()->query->get_query_vars()`, which
+carries `store-credit => store-credit`, `orders => registrations`, and no `credit` key at all.
+Three consequences: the nav linked to `/account/credit/` (a 301) on **every** render;
+`wc_get_account_menu_item_classes( 'credit' )` could never mark the real page active; and
+rebuilding `$ordered` from scratch dropped the plugin's own `store-credit` item.
+`inc/account/dashboard.php` carried the identical flip in two more places.
+
+**Fix:** the two maps are now separate functions with separate jobs —
+`blueline_account_legacy_redirect_map()` (dead URL segments that must 301: `orders`, `credit`)
+and `blueline_account_query_var_map()` (query-var keys whose URL slug this theme renames:
+`orders` only). One helper, `blueline_account_slug_query_var()`, is the single translation all
+four call sites now use.
+
+Verified live, authenticated as a real staging user:
+
+```
+--- account nav hrefs ---
+.../account/store-credit            (was /account/credit)
+--- any /account/credit link? (must be 0) ---
+0
+--- store-credit nav item on /account/store-credit ---
+class="woocommerce-MyAccount-navigation-link woocommerce-MyAccount-navigation-link--store-credit is-active"
+```
+
+Four new unit tests pin the separation, including an assertion that no
+`blueline_account_endpoints()` slug can ever resolve to a legacy-only URL slug.
+
+### 14.3 My Account dashboard silently dropped three WooCommerce extension hooks
+
+`woocommerce/myaccount/dashboard.php` ended without `woocommerce_account_dashboard`,
+`woocommerce_before_my_account`, or `woocommerce_after_my_account` —
+`grep -rn woocommerce_account_dashboard themes/blueline/` returned nothing. The theme still
+ships `woocommerce/myaccount/dashboard-store-credit.php`, which renders *via* that hook
+(`woocommerce-store-credit/legacy/includes/class-wc-store-credit-my-account.php` line 26), so
+the "you have available credit" block had silently disappeared — a direct breach of R1's
+behaviour-preservation promise.
+
+All three are restored at WooCommerce core's own position (last in the template) and in core's
+order. Proven in-process on staging, with three throwaway marker callbacks and the real template
+rendered through `wc_get_template()`:
+
+```
+template located: /var/www/html/wp-content/themes/blueline/woocommerce/myaccount/dashboard.php
+woocommerce_account_dashboard    FIRED
+woocommerce_before_my_account    FIRED
+woocommerce_after_my_account     FIRED
+markers appear after the billing module: true
+```
+
+Noted honestly: the Store Credit block itself still renders empty for the one staging user who
+holds credit (id 2240), because `wc_store_credit_get_customer_coupons()` returns `[false]` for
+them — a dangling coupon reference inside the plugin's own data, present before and after this
+change and unaffected by it. The hook that carries the block is what this fix restores, and it
+demonstrably fires.
+
+### 14.4 `scripts/audit-archive-pages.sh` — three detection holes
+
+This script is re-run at cutover, so a hole in it is a hole in the cutover.
+
+1. **curl exit status was dropped.** The check was `[ -z "$response" ]` only. curl still writes
+   `%{http_code}` on exit 28 (timeout) or 18 (partial file), so a transfer aborted *after*
+   headers yielded `code=200` with a truncated body — and both content assertions then passed
+   against bytes never received. `smoke-staging.sh` had always checked this correctly; the
+   asymmetry was the tell. Now `if ! response="$(curl …)"` fails the page explicitly, with
+   "empty response" kept as a separate second case.
+2. **`--posts_per_page=200` was an unchecked cap.** The site has 109 pages; at 201 the fetch
+   would truncate silently, the 200-row result would still clear `MIN_PAGE_ROWS=100`, and every
+   page past the cap would vanish from the audit. Both fetches now request `-1` — an unbounded
+   fetch cannot truncate at a cap it does not have.
+3. **The `rookie-` pattern required the hyphen.** `rookie-[A-Za-z0-9_-]*` matched
+   `rookie-child` but **not** `/wp-content/themes/rookie/style.css` — the actual parent theme
+   this entire audit exists to detect. Now `rookie[-/][A-Za-z0-9_./-]*`. The negative fixture
+   that matters (`rookiehockey.ca`, whose next character is `h`) is still correctly excluded,
+   and two new self-test fixtures pin both facts.
+
+`--self-test` now passes 7/7 fixtures offline; the live run passes 30/30 with the broadened
+pattern finding no new hits.
+
+### 14.5 `migrate-yith-avatars.php` was apply-by-default
+
+Dry-run required the operator to type the literal word `dry-run`, so `dry_run`, `dryrun`,
+`--dry-run` or any other near-miss silently **wrote** — and the writes landed before the table
+meant to let a human inspect them was printed. Its sibling backfill script gets this right.
+Inverted to report-by-default (positional `apply` opts in), and given the `WP_CLI` guard and the
+`current_user_can( 'edit_users' )` refusal the backfill already had — the refusal placed before
+the source query and before any output.
+
+Relatedly, `sp-user-backfill.php` printed its full TSV (user logins, self-set billing names, and
+the names of the *candidate players* they were scored against) **before** its `edit_users`
+refusal. The refusal now runs first: an `apply` run that cannot apply prints nothing.
+
+### 14.6 `smoke-staging.sh` — two guards the plan required but nobody had committed
+
+Plan `r1.md:1179-1182` and `:1418`. Both are things this branch has already been burned by:
+
+- `/standings` must contain `bl-table-scroll` (SportsPress tables reaching the page unwrapped
+  and overflowing at mobile widths — fixed twice during Tasks 7/8).
+- Every ARL account slug must resolve (200 or 302-to-login, **never** 404), and
+  `/account/orders` must return **301**.
+
+Both use the existing `check()` helper and preserve its failure aggregation. The account loop
+covers all eight ARL slugs, which is a superset of the four the review named. Final run: 25/25,
+including `ok /account/store-credit (200)` and `ok /account/orders (301)`.
+
+### 14.7 `blueline_link_player_to_user()` had no test coverage at all
+
+Its three invariants — `already_linked`, `user_already_linked`, `forbidden` — are the entire
+safety argument for an identity write, and none of them were tested. `tests/bootstrap.php`
+stubbed no `get_post_meta`/`update_post_meta`/`current_user_can`/`WP_Error`, so they could not
+be. Worse, its `taxonomy_exists()`/`post_type_exists()` stubs returned `false`
+**unconditionally**, meaning a naive test of any function guarded by them would silently
+exercise only the guard clause and assert nothing about the code underneath.
+
+The bootstrap now carries a by-reference `blueline_test_state()` (post types, taxonomies, post
+meta, user meta, users, capabilities, current user id) plus `blueline_test_reset_state()`, which
+also clears `player-link.php`'s request-scoped linked-player cache. **Default state is empty**,
+which reproduces the old always-false behaviour exactly, so every pre-existing test is
+unaffected. Six new tests cover all three rejections (each also asserting that *nothing was
+written*), the success path (including that `blueline_forget_linked_player_cache()` actually
+ran, by warming the cache with the pre-link answer first), the admin-acting-for-another-user
+path the backfill relies on, and idempotent re-linking.
+
+### 14.8 `wp_kses_post()` stripped attributes SportsPress needs
+
+`inc/homepage-modules.php` ran `[league_table]` output through `wp_kses_post()`, which allows no
+`data-*` attribute — so it dropped `data-sp-rows` (SP's own pagination hook) and every
+`data-label` (its responsive cell labels). The identical table rendered through `the_content` on
+`/standings` kept them, because `inc/sportspress.php` applies no kses. Two sanitisation policies
+for one plugin's first-party, already-escaped output. The homepage now applies the `/standings`
+policy, with an inline `phpcs:ignore` carrying the reason.
+
+### 14.9 Stale retracted statistics in shipped comments
+
+Task 16 corrected the spec to **84% linked / ~16% unlinked** (§12), but four files still said
+"~88% of current-season players" and one still said "~12%" — a premise off by roughly 5×, used
+in each case to justify a design decision. Corrected in `inc/account/dashboard.php` (×2),
+`inc/account/player-data.php`, `woocommerce/myaccount/dashboard.php`,
+`inc/account/player-link.php`, and `scripts/one-off/2026-08-11-sp-user-backfill.php`, each
+naming the retracted `sp_current_team` denominator so the number cannot silently drift back.
+
+The `sp_current_team`-is-sticky warning is kept and made explicit: `blueline_get_player_team()`,
+`blueline_get_player_next_event()` and `blueline_get_player_season_stats()` key off that field
+unqualified, so a player who last skated in 2019 legitimately resolves to that 2019 team with
+"Record not available yet" and no next game. That is honest degradation, not a wrong answer, and
+is **deliberately left as-is** — `inc/account/player-data.php` now says so in a header block so
+the next reader is not misled.
+
+### 14.10 What was deliberately not changed
+
+- `blueline_name_match_score()`'s formula and its six verbatim tests.
+- The 81 WPCS errors in `themes/blueline/woocommerce/` — byte-verbatim production templates,
+  kept diffable; reformatting risks the checkout and email path for no functional gain.
+- Anything else in `woocommerce/` beyond §14.3's hooks and §14.9's comment.
+- Production, which stayed read-only throughout.
+
+---
+
+## 15. Overall verdict
+
+All ten automated/manual gates in §1 pass, both as originally run for Task 16 and as re-run
+after §14's whole-branch fix wave. The accessibility pass found one real, live
 defect (the non-functional skip link) and fixed it, verified fixed with a real browser
 before/after; found one pre-existing, non-blueline defect (SP league-menu tab order) and
 documented it without attempting a fix outside this project's scope. The largest deferred item
@@ -863,3 +1121,11 @@ explicit, defensible reason it was not touched.
 as a clean pass without the deeper check (the vacuous guard test, the broken skip link, the
 `page-item-NNN` empirical-vs-theoretical distinction, the wrong spec denominator) was instead
 run to ground.
+
+The whole-branch review (§14) then found nine more defects that no single-task review could have
+seen, because each was correct inside its own task and wrong only in combination — including one
+security hole (§14.1) that made identity squatting a one-click operation against eight real
+players, reachable purely through a form the attacker is supposed to be able to edit. That is
+the honest lesson of this branch: sixteen clean task reviews did not add up to a clean branch.
+All nine are fixed, each with evidence, and the gate set that would now catch them is committed
+rather than performed by hand.

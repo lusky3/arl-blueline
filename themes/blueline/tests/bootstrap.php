@@ -13,6 +13,7 @@
  */
 
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed
+// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound -- same trade-off as the Mixed disable above: the Walker_Nav_Menu and WP_Error stand-ins are both one-liner stubs of WordPress globals, and splitting a test bootstrap into per-class files would scatter the stub environment across four files for no reader's benefit.
 
 define( 'ABSPATH', __DIR__ );
 
@@ -171,28 +172,260 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
 		return parse_url( (string) $url, $component ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- this IS the stand-in for wp_parse_url() in a non-WP test environment.
 	}
 }
+/**
+ * The mutable fake-WordPress state the stubs below read.
+ *
+ * Returned BY REFERENCE so a test can register a post type, set a capability,
+ * or seed post meta and have the stubs see it -- the alternative (stubs that
+ * return a hardcoded answer forever) is what let taxonomy_exists() and
+ * post_type_exists() return false unconditionally, so any test of a function
+ * guarded by them silently exercised only its guard clause and asserted
+ * nothing about the code underneath. Default state is deliberately EMPTY,
+ * which reproduces the old always-false behaviour exactly, so tests written
+ * against the previous stubs are unaffected.
+ *
+ * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int}
+ */
+function &blueline_test_state(): array {
+	static $state = array(
+		'post_types'      => array(),
+		'taxonomies'      => array(),
+		'post_meta'       => array(),
+		'user_meta'       => array(),
+		'users'           => array(),
+		'caps'            => array(),
+		'current_user_id' => 0,
+	);
+
+	return $state;
+}
+
+/**
+ * Return the fake-WordPress state to its empty default, and clear
+ * player-link.php's request-scoped linked-player cache along with it. Call
+ * this from setUp() in any test that touches the stateful stubs, so tests
+ * cannot leak state into each other through either store.
+ */
+function blueline_test_reset_state(): void {
+	$state = &blueline_test_state();
+	$state = array(
+		'post_types'      => array(),
+		'taxonomies'      => array(),
+		'post_meta'       => array(),
+		'user_meta'       => array(),
+		'users'           => array(),
+		'caps'            => array(),
+		'current_user_id' => 0,
+	);
+
+	if ( function_exists( 'blueline_linked_player_cache' ) ) {
+		$cache = &blueline_linked_player_cache();
+		$cache = array();
+	}
+}
+
 if ( ! function_exists( 'taxonomy_exists' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' taxonomy_exists() -- no taxonomy is
-	 * ever registered in this stub environment.
+	 * Minimal stand-in for WordPress' taxonomy_exists(): true only for a
+	 * taxonomy a test explicitly registered in blueline_test_state().
 	 *
-	 * @param string $taxonomy Taxonomy name (unused, kept for signature parity).
+	 * @param string $taxonomy Taxonomy name.
 	 * @return bool
 	 */
-	function taxonomy_exists( $taxonomy ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- always false in this stub environment; the name isn't needed to decide that.
-		return false;
+	function taxonomy_exists( $taxonomy ) {
+		$state = &blueline_test_state();
+		return in_array( (string) $taxonomy, $state['taxonomies'], true );
 	}
 }
 if ( ! function_exists( 'post_type_exists' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' post_type_exists() -- no post type is
-	 * ever registered in this stub environment.
+	 * Minimal stand-in for WordPress' post_type_exists(): true only for a post
+	 * type a test explicitly registered in blueline_test_state().
 	 *
-	 * @param string $post_type Post type name (unused, kept for signature parity).
+	 * @param string $post_type Post type name.
 	 * @return bool
 	 */
-	function post_type_exists( $post_type ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- always false in this stub environment; the name isn't needed to decide that.
-		return false;
+	function post_type_exists( $post_type ) {
+		$state = &blueline_test_state();
+		return in_array( (string) $post_type, $state['post_types'], true );
+	}
+}
+if ( ! class_exists( 'WP_Error' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' WP_Error -- only the code/message pair
+	 * blueline_link_player_to_user() constructs and its callers read back.
+	 */
+	class WP_Error {
+
+		/**
+		 * Error code.
+		 *
+		 * @var string
+		 */
+		private $code;
+
+		/**
+		 * Error message.
+		 *
+		 * @var string
+		 */
+		private $message;
+
+		/**
+		 * Constructor.
+		 *
+		 * @param string $code    Error code.
+		 * @param string $message Human-readable message.
+		 */
+		public function __construct( $code = '', $message = '' ) {
+			$this->code    = (string) $code;
+			$this->message = (string) $message;
+		}
+
+		/**
+		 * The error code.
+		 *
+		 * @return string
+		 */
+		public function get_error_code() {
+			return $this->code;
+		}
+
+		/**
+		 * The error message.
+		 *
+		 * @return string
+		 */
+		public function get_error_message() {
+			return $this->message;
+		}
+	}
+}
+if ( ! function_exists( 'is_wp_error' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' is_wp_error().
+	 *
+	 * @param mixed $thing Value to test.
+	 * @return bool
+	 */
+	function is_wp_error( $thing ) {
+		return $thing instanceof WP_Error;
+	}
+}
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_current_user_id().
+	 *
+	 * @return int
+	 */
+	function get_current_user_id() {
+		$state = &blueline_test_state();
+		return (int) $state['current_user_id'];
+	}
+}
+if ( ! function_exists( 'current_user_can' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' current_user_can(): only capabilities a
+	 * test explicitly granted in blueline_test_state() are held.
+	 *
+	 * @param string $capability Capability name.
+	 * @return bool
+	 */
+	function current_user_can( $capability ) {
+		$state = &blueline_test_state();
+		return ! empty( $state['caps'][ (string) $capability ] );
+	}
+}
+if ( ! function_exists( 'get_post_meta' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_post_meta() (single-value form only).
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Meta key.
+	 * @param bool   $single  Whether to return a single value.
+	 * @return mixed
+	 */
+	function get_post_meta( $post_id, $key = '', $single = false ) {
+		$state = &blueline_test_state();
+		$value = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? '';
+		return $single ? $value : array( $value );
+	}
+}
+if ( ! function_exists( 'update_post_meta' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' update_post_meta().
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Meta key.
+	 * @param mixed  $value   Meta value.
+	 * @return true
+	 */
+	function update_post_meta( $post_id, $key, $value ) {
+		$state = &blueline_test_state();
+		$state['post_meta'][ (int) $post_id ][ (string) $key ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'get_user_meta' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_user_meta() (single-value form only).
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $key     Meta key.
+	 * @param bool   $single  Whether to return a single value.
+	 * @return mixed
+	 */
+	function get_user_meta( $user_id, $key = '', $single = false ) {
+		$state = &blueline_test_state();
+		$value = $state['user_meta'][ (int) $user_id ][ (string) $key ] ?? '';
+		return $single ? $value : array( $value );
+	}
+}
+if ( ! function_exists( 'get_userdata' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_userdata(): an object carrying
+	 * display_name, or false for an unknown user.
+	 *
+	 * @param int $user_id User ID.
+	 * @return object|false
+	 */
+	function get_userdata( $user_id ) {
+		$state = &blueline_test_state();
+		return $state['users'][ (int) $user_id ] ?? false;
+	}
+}
+if ( ! function_exists( 'get_posts' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_posts(), supporting only the one
+	 * shape this suite exercises: blueline_get_linked_player_id()'s
+	 * post_type + meta_key/meta_value + fields=ids lookup, resolved against
+	 * blueline_test_state()'s post_meta store.
+	 *
+	 * @param array $args Query args.
+	 * @return int[]
+	 */
+	function get_posts( $args = array() ) {
+		$state = &blueline_test_state();
+
+		$key   = (string) ( $args['meta_key'] ?? '' );
+		$value = (string) ( $args['meta_value'] ?? '' );
+
+		if ( '' === $key ) {
+			return array();
+		}
+
+		$found = array();
+		foreach ( $state['post_meta'] as $post_id => $meta ) {
+			if ( isset( $meta[ $key ] ) && (string) $meta[ $key ] === $value ) {
+				$found[] = (int) $post_id;
+			}
+		}
+
+		sort( $found );
+
+		$limit = (int) ( $args['posts_per_page'] ?? -1 );
+
+		return ( $limit > 0 ) ? array_slice( $found, 0, $limit ) : $found;
 	}
 }
 if ( ! function_exists( 'get_the_date' ) ) {

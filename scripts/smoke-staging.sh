@@ -28,7 +28,13 @@ check() { # check <path> <expected-http-code(s), "|"-separated> <must-contain-ma
 # attribute breaks this line.
 check / 200 '<main id="main" class="bl-main bl-main--homepage" tabindex="-1">'
 check /schedule    200 -
-check /standings   200 -
+# /standings must carry at least one `bl-table-scroll` wrapper (plan Step 5,
+# r1.md:1179-1182). This branch has already been burned twice by SportsPress
+# tables reaching the page unwrapped and overflowing the body at mobile
+# widths; the wrapper is applied by three independent layers
+# (inc/sportspress.php) and this asserts at least one of them actually fired
+# on the real page, which no unit test can.
+check /standings   200 'bl-table-scroll'
 check /news        200 -
 check /account     "200|302" -
 check /nonexistent-page-xyz 404 -
@@ -58,5 +64,21 @@ check /venue/red 200 -
 # out of this project's scope, and deliberately not the hex checked here.)
 check /registration/player-registration-w2026-27 200 - 0577da
 check /registration/player-registration-w2026-27 200 - woocommerce-message
+
+# ARL My Account slugs (plan Step 6, r1.md:1418). Every one of these is a LIVE
+# URL today -- created by yith-woocommerce-customize-myaccount-page, which this
+# theme replaces -- so a 404 here means a real bookmark/emailed link broke.
+# Anonymous requests legitimately render the login form (200) or bounce to it
+# (302); what must never happen is a 404 or a 301 into some other slug. The
+# store-credit line is the specific regression the whole-branch review caught:
+# the nav was linking to the legacy /account/credit/ (a 301) because a
+# legacy-URL map had been flipped and used as a query-var map.
+for arl_account_slug in registrations store-credit refund-requests payment-methods edit-address edit-account my-team my-schedule; do
+  check "/account/$arl_account_slug" "200|302" -
+done
+
+# ...and the WooCommerce-default slug this theme renamed must 301, not 404 and
+# not serve a second copy of the same page at a second URL.
+check /account/orders 301 -
 
 exit $FAIL

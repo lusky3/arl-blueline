@@ -3,11 +3,15 @@
  * One-off: back-fill `sp_user` (WordPress user <-> SportsPress player link)
  * for the current registration season, from WooCommerce order billing names.
  *
- * Context (measured on staging 2026-08-11): 2,037 current-season sp_player
- * posts (sp_current_team set), only 237 carry sp_user -- about 12%. Tasks 11
- * and 12 built a self-service "is this you?" claim flow for the rest, but
- * that only helps someone who actually visits their account page. This
- * script closes as much of the gap as it safely can before anyone does.
+ * Context, with Task 16's CORRECTED denominator: real current-season coverage
+ * is 84% (76 of the 90 sp_player posts tagged with the current sp_season term,
+ * measured on staging 2026-08-11). The "about 12%" this docblock used to quote
+ * (237 of 2,037) counted against `sp_current_team`, a STICKY "last team ever
+ * rostered onto" field spanning two decades of players -- a retracted premise,
+ * off by roughly 5x. Tasks 11 and 12 built a self-service "is this you?" claim
+ * flow, which remains the PRIMARY mechanism for the ~16% gap; this script is a
+ * small top-up for people who never visit their account page, not the main
+ * event its original framing implied.
  *
  * "Safely" is the operative word: a WRONG link means one player sees
  * another player's team, schedule and registration status, and nothing
@@ -26,7 +30,13 @@
  * Matching itself is 100% delegated to Task 11's inc/account/player-link.php
  * (blueline_find_player_candidates() / blueline_name_match_score()) -- this
  * script does not reimplement scoring. A second, subtly different matcher
- * would be exactly the kind of hazard this task exists to avoid. The only
+ * would be exactly the kind of hazard this task exists to avoid. That
+ * delegation is also what gives this script
+ * blueline_name_pair_is_specific_enough() for free: a single-token name can no
+ * longer produce a candidate at all, which closes the AUTO-path hole where the
+ * pool's exclusion of already-linked players could leave one WRONG namesake as
+ * a unique 1.0 match and auto-write it -- the exact failure this docblock says
+ * the script exists to prevent. The only
  * thing this script adds on top is: (a) which users are even worth scoring
  * (see "Candidate users" below), and (b) the AUTO/REVIEW/NONE cutoff and the
  * gated write.
@@ -485,6 +495,26 @@ foreach ( $blueline_backfill_candidate_user_ids as $blueline_backfill_user_id ) 
 	);
 }
 
+// --- Capability refusal comes BEFORE the report. ---
+//
+// The TSV below carries user logins, the billing names those accounts set
+// themselves, and the names of the candidate PLAYERS they were scored against
+// -- i.e. other members' names -- so it is not something to emit and only then
+// discover the operator was never permitted to act. An `apply` run that cannot
+// apply stops here, having printed nothing.
+
+if ( $blueline_backfill_apply && ! current_user_can( 'edit_users' ) ) {
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "Refusing to apply: no current user with the edit_users capability.\n" );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "blueline_link_player_to_user() requires this. Re-run with --user=<an-administrator-id>,\n" );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "a real WP-CLI global parameter (unlike --apply), e.g.:\n" );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "  wp eval-file - --user=9 apply   < this-file.php\n" );
+	exit( 1 );
+}
+
 // --- STDOUT: the TSV report, and ONLY the TSV report. ---
 
 echo implode( "\t", array( 'user_id', 'user_login', 'scored_name', 'player_id', 'player_name', 'score', 'classification' ) ) . PHP_EOL;
@@ -502,18 +532,7 @@ foreach ( $blueline_backfill_rows as $blueline_backfill_row ) {
 $blueline_backfill_applied_count = 0;
 
 if ( $blueline_backfill_apply ) {
-	if ( ! current_user_can( 'edit_users' ) ) {
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
-		fwrite( STDERR, "Refusing to apply: no current user with the edit_users capability.\n" );
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
-		fwrite( STDERR, "blueline_link_player_to_user() requires this. Re-run with --user=<an-administrator-id>,\n" );
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
-		fwrite( STDERR, "a real WP-CLI global parameter (unlike --apply), e.g.:\n" );
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
-		fwrite( STDERR, "  wp eval-file - --user=9 apply   < this-file.php\n" );
-		exit( 1 );
-	}
-
+	// The edit_users refusal already ran, above the report -- see there.
 	foreach ( $blueline_backfill_rows as $blueline_backfill_row ) {
 		if ( 'AUTO' !== $blueline_backfill_row['classification'] ) {
 			continue;

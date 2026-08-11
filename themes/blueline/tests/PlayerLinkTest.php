@@ -15,6 +15,16 @@ require_once __DIR__ . '/../inc/account/player-link.php';
 final class PlayerLinkTest extends TestCase {
 
 	/**
+	 * Reset the fake-WordPress state (and player-link.php's request-scoped
+	 * linked-player cache) before every test, so the stateful cases below
+	 * cannot leak into each other or into the pure ones.
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		blueline_test_reset_state();
+	}
+
+	/**
 	 * Test case.
 	 */
 	public function test_normalize_strips_case_accents_and_punctuation(): void {
@@ -316,5 +326,260 @@ final class PlayerLinkTest extends TestCase {
 				}
 			)
 		);
+	}
+
+	// -----------------------------------------------------------------------
+	// Candidate gate -- the single-token identity-squatting hole.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_matcher_still_scores_a_subset_name_at_one(): void {
+		// NOT a bug report -- a pin. blueline_name_match_score()'s formula is
+		// plan-mandated and deliberately unchanged: it divides by the SMALLER
+		// token set so "Cody James Lusk" still matches "Cody Lusk". The
+		// consequence is that any strict subset scores exactly 1.0, which is
+		// why the fix for the identity-squatting hole lives in the candidate
+		// GATE below, not in this function. If this assertion ever starts
+		// failing, someone changed the matcher, and the six verbatim tests
+		// above are no longer describing the shipped behaviour.
+		$this->assertSame( 1.0, blueline_name_match_score( 'Matthew', 'Matthew Zielinski' ) );
+		$this->assertSame( 1.0, blueline_name_match_score( 'Smith', 'John Smith' ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_single_token_name_is_never_specific_enough(): void {
+		$this->assertFalse( blueline_name_pair_is_specific_enough( 'Matthew', 'Matthew Zielinski' ) );
+		$this->assertFalse( blueline_name_pair_is_specific_enough( 'Matthew Zielinski', 'Matthew' ) );
+		$this->assertFalse( blueline_name_pair_is_specific_enough( 'Smith', 'John Smith' ) );
+		// A repeated token is still ONE distinct token -- "Smith Smith" must
+		// not buy its way past the gate by padding the raw token list.
+		$this->assertFalse( blueline_name_pair_is_specific_enough( 'Smith Smith', 'John Smith' ) );
+		// Punctuation-only / empty names are not names.
+		$this->assertFalse( blueline_name_pair_is_specific_enough( '', 'John Smith' ) );
+		$this->assertFalse( blueline_name_pair_is_specific_enough( '---', 'John Smith' ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_two_token_names_are_specific_enough(): void {
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'Cody Lusk', 'Cody Lusk' ) );
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'Cody James Lusk', 'Cody Lusk' ) );
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'Lusk Cody', 'Cody Lusk' ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_single_token_account_name_produces_no_candidates(): void {
+		// The attack, end to end at the gate: a user sets billing_last_name to
+		// '' and billing_first_name to a common given name. Every one of these
+		// players scores a perfect 1.0 against "Matthew" -- and none may be
+		// offered.
+		$candidates = blueline_score_player_candidates(
+			'Matthew',
+			array(
+				101 => 'Matthew Zielinski',
+				102 => 'Matthew Brown',
+				103 => 'Matthew',
+			)
+		);
+
+		$this->assertSame( array(), $candidates );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_single_token_player_title_produces_no_candidates(): void {
+		// The gate is symmetric: a player post titled with one token is just
+		// as unidentifying as an account named with one, and a full-named
+		// account must not be offered it either.
+		$this->assertSame(
+			array(),
+			blueline_score_player_candidates( 'Cody Lusk', array( 101 => 'Cody' ) )
+		);
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_genuine_two_token_match_still_produces_a_candidate(): void {
+		$candidates = blueline_score_player_candidates(
+			'Cody James Lusk',
+			array(
+				101 => 'Wayne Gretzky',
+				102 => 'Cody Lusk',
+				103 => '',
+			)
+		);
+
+		$this->assertCount( 1, $candidates );
+		$this->assertSame( 102, $candidates[0]['player_id'] );
+		$this->assertSame( 'Cody Lusk', $candidates[0]['name'] );
+		$this->assertGreaterThanOrEqual( BLUELINE_MATCH_THRESHOLD, $candidates[0]['score'] );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_candidates_are_sorted_best_first(): void {
+		// Long compound names, because they are the only way to land a score
+		// strictly BETWEEN the threshold and 1.0: the score's denominator is
+		// the smaller token set, so a 7-token name missing one token scores
+		// 6/7 = 0.8571. Shorter near-misses fall straight through 0.85 to 0.5.
+		// The weaker match is listed FIRST in the input, so a sort that failed
+		// to run (or ran backwards) would be caught rather than accidentally
+		// agreeing with insertion order.
+		$candidates = blueline_score_player_candidates(
+			'Ana Maria Jose Luis Carmen Rosa Diaz',
+			array(
+				101 => 'Ana Maria Jose Luis Carmen Rosa Silva',
+				102 => 'Ana Maria Jose Luis Carmen Rosa Diaz',
+			)
+		);
+
+		$this->assertCount( 2, $candidates );
+		$this->assertSame( 102, $candidates[0]['player_id'] );
+		$this->assertSame( 101, $candidates[1]['player_id'] );
+		$this->assertGreaterThan( $candidates[1]['score'], $candidates[0]['score'] );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_find_player_candidates_short_circuits_on_a_single_token_name(): void {
+		// The same gate, reached through the real entry point the claim card
+		// and the backfill script both call. A single-token billing name must
+		// return an empty list WITHOUT ever querying the candidate pool -- the
+		// stub get_posts() would otherwise be reached and this suite has no
+		// $wpdb to fetch titles with, so an exception here would itself be the
+		// failure signal.
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+		$state['users'][5]        = (object) array( 'display_name' => 'Matthew' );
+		$state['user_meta'][5]    = array(
+			'billing_first_name' => 'Matthew',
+			'billing_last_name'  => '',
+		);
+
+		$this->assertSame( array(), blueline_find_player_candidates( 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_find_player_candidates_is_empty_without_a_name_at_all(): void {
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_player' );
+		$state['users'][6]   = (object) array( 'display_name' => '' );
+
+		$this->assertSame( array(), blueline_find_player_candidates( 6 ) );
+	}
+
+	// -----------------------------------------------------------------------
+	// blueline_link_player_to_user() -- the three invariants that are the
+	// entire safety argument for the identity write, plus the success path.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_when_acting_for_someone_else_without_edit_users(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 99; // Not the target user, and holds no caps.
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+		$this->assertSame( '', get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ), 'a refused link must write nothing' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_a_player_already_claimed_by_another_user(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+		$state['post_meta'][100]  = array( BLUELINE_PLAYER_USER_META => 7 );
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'already_linked', $result->get_error_code() );
+		$this->assertSame( 7, get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ), 'the existing owner must not be repointed' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_a_second_player_for_an_already_linked_user(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+		$state['post_meta'][200]  = array( BLUELINE_PLAYER_USER_META => 5 ); // User 5's existing player.
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'user_already_linked', $result->get_error_code() );
+		$this->assertSame( '', get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ), 'the second player must stay unclaimed' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_writes_the_meta_and_busts_the_cache_for_the_user_themselves(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+
+		// Warm the request-scoped cache with the pre-link answer, so the
+		// assertion below proves blueline_forget_linked_player_cache() ran --
+		// a stale cache here is the exact bug that accessor exists to prevent.
+		$this->assertNull( blueline_get_linked_player_id( 5 ) );
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertTrue( $result );
+		$this->assertSame( 5, get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ) );
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_is_allowed_for_an_admin_acting_on_another_users_behalf(): void {
+		// The backfill script's write path: a WP-CLI run under --user=<admin>.
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 9;
+		$state['caps']            = array( 'edit_users' => true );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+		$this->assertSame( 5, get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_relinking_the_same_player_to_the_same_user_is_a_no_op_success(): void {
+		// Idempotence: the backfill script is documented as safe to re-run,
+		// and a double-submitted claim form must not error either.
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+		$state['post_meta'][100]  = array( BLUELINE_PLAYER_USER_META => 5 );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
 	}
 }

@@ -37,19 +37,32 @@
  * Idempotent: a user already carrying the correct `blueline_avatar_id`
  * is reported "already migrated" and is not written to again.
  *
+ * REPORT BY DEFAULT (corrected in the final whole-branch review): this script
+ * used to be APPLY by default, opting OUT of writes only if the operator typed
+ * the literal word `dry-run` -- so `dry_run`, `dryrun`, `--dry-run`, or any
+ * other near-miss silently wrote to every matched user's meta instead, and the
+ * writes landed BEFORE the table that was supposed to let a human inspect them
+ * was printed. That is exactly backwards for a one-off migration, and the
+ * opposite of what its sibling
+ * scripts/one-off/2026-08-11-sp-user-backfill.php already does. A typo now
+ * costs a wasted report, never an unintended write.
+ *
  * Usage -- `wp eval-file` only ever hands this file POSITIONAL arguments
  * (via the `$args` array WP-CLI documents for that command); a bare
- * `--dry-run` flag is rejected by WP-CLI's own argument parser before this
- * file is even loaded ("Error: Parameter errors: unknown --dry-run
+ * `--apply` flag is rejected by WP-CLI's own argument parser before this
+ * file is even loaded ("Error: Parameter errors: unknown --apply
  * parameter"), verified empirically against this exact staging install.
- * Pass the WORD `dry-run` (no dashes) as a positional argument instead:
+ * Pass the WORD `apply` (no dashes) as a positional argument, plus
+ * `--user=<id>` (a genuine WP-CLI global parameter, unlike `--apply`) for an
+ * account holding `edit_users`, since writing another person's user meta is a
+ * privileged write and this script checks that capability before making one:
  *
- *   wp eval-file - dry-run   < this-file.php   (dry run: prints the table, writes nothing)
- *   wp eval-file -           < this-file.php   (apply: writes blueline_avatar_id)
+ *   wp eval-file -                  < this-file.php   (report mode: prints the table, writes nothing)
+ *   wp eval-file - --user=9 apply   < this-file.php   (apply: writes blueline_avatar_id)
  *
- * A literal `--dry-run`/`dry-run` string is also honoured if it somehow
- * arrives via `$assoc_args` or the `BLUELINE_DRY_RUN` environment variable,
- * for callers other than a bare `wp eval-file` invocation.
+ * A literal `apply`/`--apply` string is also honoured if it somehow arrives
+ * via `$assoc_args` or the `BLUELINE_MIGRATE_APPLY` environment variable, for
+ * callers other than a bare `wp eval-file` invocation.
  *
  * @package blueline
  */
@@ -60,14 +73,39 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit( 1 );
 }
 
-$blueline_migrate_avatars_args        = isset( $args ) && is_array( $args ) ? $args : array();
-$blueline_migrate_avatars_assoc_args  = isset( $assoc_args ) && is_array( $assoc_args ) ? $assoc_args : array();
-$blueline_migrate_avatars_dry_run_env = getenv( 'BLUELINE_DRY_RUN' );
+if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
+	// Shell access to `wp` is a coarser trust boundary this script requires
+	// regardless of which user `--user` supplies -- the same guard its sibling
+	// backfill script has carried since Task 14.
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- CLI script; WP_Filesystem is for the filesystem, not STDERR narration.
+	fwrite( STDERR, "This script must be run via WP-CLI (`wp eval-file`), which is the trust boundary its write path relies on.\n" );
+	exit( 1 );
+}
 
-$blueline_migrate_avatars_dry_run = in_array( 'dry-run', $blueline_migrate_avatars_args, true )
-	|| in_array( '--dry-run', $blueline_migrate_avatars_args, true )
-	|| ! empty( $blueline_migrate_avatars_assoc_args['dry-run'] )
-	|| ( false !== $blueline_migrate_avatars_dry_run_env && '' !== $blueline_migrate_avatars_dry_run_env && '0' !== $blueline_migrate_avatars_dry_run_env );
+$blueline_migrate_avatars_args       = isset( $args ) && is_array( $args ) ? $args : array();
+$blueline_migrate_avatars_assoc_args = isset( $assoc_args ) && is_array( $assoc_args ) ? $assoc_args : array();
+$blueline_migrate_avatars_apply_env  = getenv( 'BLUELINE_MIGRATE_APPLY' );
+
+$blueline_migrate_avatars_apply = in_array( 'apply', $blueline_migrate_avatars_args, true )
+	|| in_array( '--apply', $blueline_migrate_avatars_args, true )
+	|| ! empty( $blueline_migrate_avatars_assoc_args['apply'] )
+	|| ( false !== $blueline_migrate_avatars_apply_env && '' !== $blueline_migrate_avatars_apply_env && '0' !== $blueline_migrate_avatars_apply_env );
+
+// The capability refusal happens HERE -- before the source query, before the
+// loop that writes, and before a single row of the table is printed. An
+// operator who cannot make these writes must learn that from a one-line
+// refusal, not from a full report followed by silence.
+if ( $blueline_migrate_avatars_apply && ! current_user_can( 'edit_users' ) ) {
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "Refusing to apply: no current user with the edit_users capability.\n" );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "Writing another account's user meta is a privileged write. Re-run with --user=<an-administrator-id>,\n" );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "a real WP-CLI global parameter (unlike --apply), e.g.:\n" );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "  wp eval-file - --user=9 apply   < this-file.php\n" );
+	exit( 1 );
+}
 
 const BLUELINE_MIGRATE_META_KEY = 'blueline_avatar_id';
 const BLUELINE_YITH_META_KEY    = 'yith-wcmap-avatar';
@@ -144,7 +182,7 @@ foreach ( $blueline_yith_users as $blueline_user ) {
 		$row_status = 'SKIPPED -- attachment ' . $attachment_id . ' no longer exists';
 	} elseif ( $existing_meta === $attachment_id ) {
 		$row_status = 'already migrated (no-op)';
-	} elseif ( $blueline_migrate_avatars_dry_run ) {
+	} elseif ( ! $blueline_migrate_avatars_apply ) {
 		$row_status = 'would migrate';
 	} else {
 		update_user_meta( $user_id, BLUELINE_MIGRATE_META_KEY, $attachment_id );
@@ -157,7 +195,7 @@ foreach ( $blueline_yith_users as $blueline_user ) {
 		'attachment_id' => $attachment_id,
 		'before'        => $existing_meta ? (string) $existing_meta : '(none)',
 		'after'         => $attachment_exists
-			? ( $blueline_migrate_avatars_dry_run ? (string) $attachment_id . ' (dry run)' : (string) $attachment_id )
+			? ( $blueline_migrate_avatars_apply ? (string) $attachment_id : (string) $attachment_id . ' (report only)' )
 			: '(none)',
 		'status'        => $row_status,
 	);
@@ -191,7 +229,7 @@ $blueline_print_row = static function ( array $row ) use ( $blueline_column_widt
 	echo implode( ' | ', $cells ) . PHP_EOL;
 };
 
-echo ( $blueline_migrate_avatars_dry_run ? '=== DRY RUN -- no writes will be made ===' : '=== APPLYING -- writing blueline_avatar_id ===' ) . PHP_EOL;
+echo ( $blueline_migrate_avatars_apply ? '=== APPLYING -- writing blueline_avatar_id ===' : '=== REPORT MODE (default) -- no writes will be made; pass a positional `apply` to write ===' ) . PHP_EOL;
 $blueline_print_row(
 	array(
 		'user_id'       => 'user_id',

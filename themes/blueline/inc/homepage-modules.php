@@ -702,7 +702,18 @@ function blueline_homepage_module_standings_snippet() {
 	if ( '' === trim( wp_strip_all_tags( $table_html ) ) ) {
 		blueline_homepage_module_empty_state( __( 'Standings aren’t posted yet.', 'blueline' ) );
 	} else {
-		echo wp_kses_post( $table_html );
+		// Deliberately NOT wp_kses_post(). That filter allows no `data-*`
+		// attribute of any kind, so running SportsPress's own table through it
+		// stripped `data-sp-rows` (the hook SP's own pagination script reads)
+		// and every `data-label` (the labels its responsive CSS shows in place
+		// of column headers at narrow widths) -- quietly degrading the module
+		// while the very same [league_table], rendered through the_content on
+		// /standings, kept them (inc/sportspress.php applies no kses there).
+		// One plugin's first-party, already-escaped output must not be subject
+		// to two different sanitisation policies depending on which template
+		// renders it; this is the /standings policy, applied here too.
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SportsPress's own shortcode output, escaped by SP itself, and treated exactly as the_content treats it on /standings; see comment above.
+		echo $table_html;
 	}
 
 	blueline_homepage_module_end();

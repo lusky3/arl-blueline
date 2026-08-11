@@ -2,11 +2,14 @@
 /**
  * Linking a WordPress user to a SportsPress player.
  *
- * Only ~12% of current-season players carry sp_user, so everything here must
- * behave sensibly when no link exists.
+ * About 84% of current-season players carry sp_user (76 of the 90 players
+ * tagged with the current sp_season term, measured on staging 2026-08-11), so
+ * everything here must still behave sensibly for the remaining ~16% with no
+ * link -- a real minority to serve well, not the default case.
  *
- * CORRECTED PREMISE (found during Task 14's review, 2026-08-11): the
- * original "12%" figure, and the original candidate pool below, were both
+ * CORRECTED PREMISE (found during Task 14's review, 2026-08-11; the
+ * percentages above are Task 16's corrected figures): the original "12%"
+ * figure, and the original candidate pool below, were both
  * built on `sp_current_team NOT IN ('','0')` as the definition of
  * "current-season player." That field is NOT season-scoped -- it is a
  * STICKY "last team this player was ever rostered onto" value, set on
@@ -73,6 +76,79 @@ function blueline_name_match_score( string $a, string $b ): float {
 	// Score against the SMALLER set so extra middle names do not punish a real match.
 	$score = count( $common ) / min( count( $sa ), count( $sb ) );
 	return round( (float) $score, 4 );
+}
+
+/**
+ * The minimum number of DISTINCT normalised tokens the SHORTER of two names
+ * must carry before a blueline_name_match_score() between them may be trusted
+ * to identify a person.
+ *
+ * Two, because one is not a name -- it is a fragment that identifies nobody.
+ */
+const BLUELINE_MATCH_MIN_TOKENS = 2;
+
+/**
+ * The distinct, normalised tokens of $name -- the same token set
+ * blueline_name_match_score() scores against, exposed on its own so the
+ * candidate gate below can reason about set SIZE without reimplementing
+ * (or perturbing) that function's normalisation.
+ *
+ * @param string $name Raw name.
+ * @return string[] Distinct tokens, in first-seen order; empty for an empty/unnameable string.
+ */
+function blueline_name_tokens( string $name ): array {
+	return array_values( array_unique( array_filter( explode( ' ', blueline_normalize_name( $name ) ) ) ) );
+}
+
+/**
+ * SECURITY GATE -- may a score between these two names be offered as a
+ * candidate identity at all?
+ *
+ * The matcher, blueline_name_match_score(), divides the token intersection by
+ * `min( count( $sa ), count( $sb ) )`, so ANY name that is a strict subset of
+ * the other scores exactly 1.0:
+ *
+ *   "Matthew" vs "Matthew Zielinski"  => 1.0000
+ *   "Smith"   vs "John Smith"         => 1.0000
+ *
+ * That formula is plan-mandated and pinned by six verbatim unit tests, and is
+ * deliberately NOT changed -- scoring against the smaller set is what lets a
+ * real "Cody James Lusk" match "Cody Lusk". The hazard is not the arithmetic;
+ * it is WHICH pairs are allowed to reach it. blueline_user_match_name() builds
+ * the account side of that comparison from `billing_first_name` +
+ * `billing_last_name`, both of which the account holder edits themselves at
+ * /account/edit-address/. A user who blanks their surname and sets their given
+ * name to a single common token would otherwise be offered EVERY current-season
+ * player sharing that token at a perfect 1.0, one click from confirming -- and
+ * blueline_link_player_to_user()'s three invariants would not stop it, because
+ * they check that the CHOSEN player is unclaimed, not that the candidate list
+ * was honestly derived. The consequence is identity squatting: the claimant
+ * sees a stranger's team, roster, jersey number, schedule and stats, and the
+ * real player is then permanently locked out with `already_linked`.
+ *
+ * The same hole reached scripts/one-off/2026-08-11-sp-user-backfill.php, whose
+ * AUTO rule is "exactly one candidate >= 0.95" -- because its pool excludes
+ * already-linked players, a single-token name whose only remaining namesake is
+ * the WRONG one is a unique 1.0 and would have been written automatically.
+ *
+ * So the gate lives here, at the candidate boundary both paths cross
+ * (blueline_score_player_candidates(), reached by
+ * blueline_find_player_candidates() and therefore by the backfill too), not in
+ * the matcher.
+ *
+ * @param string $a One name.
+ * @param string $b The other name.
+ * @return bool True if the pair is specific enough to be scored for identity.
+ */
+function blueline_name_pair_is_specific_enough( string $a, string $b ): bool {
+	$ta = blueline_name_tokens( $a );
+	$tb = blueline_name_tokens( $b );
+
+	if ( empty( $ta ) || empty( $tb ) ) {
+		return false;
+	}
+
+	return min( count( $ta ), count( $tb ) ) >= BLUELINE_MATCH_MIN_TOKENS;
 }
 
 /**
@@ -147,6 +223,11 @@ function blueline_forget_linked_player_cache( int $user_id ): void {
  * The display name to match a WordPress user against a SportsPress player:
  * billing first/last name (set at checkout, so present for anyone who has
  * ever registered), falling back to their display name.
+ *
+ * ATTACKER-CONTROLLED: both billing fields are editable by the account holder
+ * at /account/edit-address/, and display_name is editable at
+ * /account/edit-account/. Nothing this returns may be treated as evidence of
+ * identity on its own -- see blueline_name_pair_is_specific_enough().
  *
  * @param int $user_id WordPress user ID.
  * @return string Trimmed full name, possibly empty for a user with neither.
@@ -572,6 +653,12 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
  * the admin_post_blueline_claim_player handler safe -- it only accepts a
  * player_id that appears in this list.
  *
+ * The name this scores with is USER-EDITABLE (blueline_user_match_name() reads
+ * billing_first_name/billing_last_name, which the account holder sets at
+ * /account/edit-address/), so every pair must clear
+ * blueline_name_pair_is_specific_enough() before it is scored at all -- see
+ * blueline_score_player_candidates().
+ *
  * @param int $user_id WordPress user ID.
  * @return array<int, array{player_id:int, score:float, name:string}> Sorted descending by score.
  */
@@ -585,6 +672,14 @@ function blueline_find_player_candidates( int $user_id ): array {
 		return array();
 	}
 
+	// Cheap half of the blueline_name_pair_is_specific_enough() gate, applied
+	// before the pool query rather than after it: an account name of fewer
+	// than BLUELINE_MATCH_MIN_TOKENS tokens can never produce a candidate
+	// against ANY player title, so there is nothing to query for.
+	if ( count( blueline_name_tokens( $name ) ) < BLUELINE_MATCH_MIN_TOKENS ) {
+		return array();
+	}
+
 	$player_ids = blueline_current_season_unclaimed_player_ids( $user_id );
 	if ( empty( $player_ids ) ) {
 		return array();
@@ -592,17 +687,57 @@ function blueline_find_player_candidates( int $user_id ): array {
 
 	$titles = blueline_get_post_titles( $player_ids );
 
-	$candidates = array();
+	// Re-key by the pool's own order (blueline_get_post_titles() returns rows
+	// in whatever order the IN() query yielded) so equal scores keep a stable,
+	// query-order tie-break.
+	$ordered_titles = array();
 	foreach ( $player_ids as $player_id ) {
-		$player_name = $titles[ $player_id ] ?? '';
+		$ordered_titles[ (int) $player_id ] = (string) ( $titles[ $player_id ] ?? '' );
+	}
+
+	return blueline_score_player_candidates( $name, $ordered_titles );
+}
+
+/**
+ * Pure scorer: given one account name and a player_id => player_name map,
+ * the candidates worth offering, best first.
+ *
+ * This is the single gate every claim path crosses --
+ * blueline_find_player_candidates() above, and therefore
+ * scripts/one-off/2026-08-11-sp-user-backfill.php's AUTO path too, since that
+ * script delegates all matching here rather than reimplementing it. A
+ * candidate must clear BOTH bars to be offered:
+ *
+ *   1. blueline_name_pair_is_specific_enough() -- neither side may be a
+ *      single-token fragment. See that function for the identity-squatting
+ *      attack this closes.
+ *   2. BLUELINE_MATCH_THRESHOLD on blueline_name_match_score().
+ *
+ * Kept free of WordPress calls, the same pure/impure split this file already
+ * uses for blueline_resolve_claim_pool_term_ids(), so the gate itself can be
+ * unit tested directly rather than only through a live query.
+ *
+ * @param string             $name         The account's own name (blueline_user_match_name()).
+ * @param array<int, string> $player_names player_id => post_title.
+ * @return array<int, array{player_id:int, score:float, name:string}> Sorted descending by score.
+ */
+function blueline_score_player_candidates( string $name, array $player_names ): array {
+	$candidates = array();
+
+	foreach ( $player_names as $player_id => $player_name ) {
+		$player_name = (string) $player_name;
 		if ( '' === $player_name ) {
+			continue;
+		}
+
+		if ( ! blueline_name_pair_is_specific_enough( $name, $player_name ) ) {
 			continue;
 		}
 
 		$score = blueline_name_match_score( $name, $player_name );
 		if ( $score >= BLUELINE_MATCH_THRESHOLD ) {
 			$candidates[] = array(
-				'player_id' => $player_id,
+				'player_id' => (int) $player_id,
 				'score'     => $score,
 				'name'      => $player_name,
 			);

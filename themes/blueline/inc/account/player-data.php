@@ -4,10 +4,20 @@
  *
  * Every reader here degrades to null/zeros instead of throwing when
  * SportsPress or WooCommerce is missing, or when the player/user has no
- * team, no upcoming game, no recorded stats, or no orders -- ~88% of
- * current-season players carry no sp_user link at all (see Task 11), so a
- * reader that assumes a fully-populated player is the common case is wrong
- * by construction.
+ * team, no upcoming game, no recorded stats, or no orders. About ~16% of
+ * current-season players carry no sp_user link (Task 16's corrected figure:
+ * 76 of 90 current-sp_season players ARE linked, i.e. 84%; the "~88%
+ * unlinked" this file used to claim came from the retracted, sticky
+ * sp_current_team denominator), and an unlinked or half-populated player is
+ * still a routine case a reader must not assume away.
+ *
+ * STICKY FIELD WARNING: the three readers below key off `sp_current_team`
+ * unqualified, and that field is "last team this player was ever rostered
+ * onto", never season-scoped -- so a player who last skated in 2019 legitimately
+ * resolves to that 2019 team here, with "Record not available yet" and no next
+ * game. That is honest degradation (an old team, plainly empty of current
+ * data), not a wrong answer, and is deliberately left as-is; do not read these
+ * as "this season's team" without adding a season qualifier yourself.
  *
  * @package blueline
  */

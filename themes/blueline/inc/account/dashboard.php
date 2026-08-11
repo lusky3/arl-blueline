@@ -7,10 +7,12 @@
  *
  * Inverts Task 9's ported (shop-account) dashboard: league content --
  * next game, team, season stats -- leads; billing is a visually demoted
- * group at the bottom. For the ~88% of current-season players with no
- * sp_user link (Task 11), the claim card is the primary experience, shown
- * in place of the league modules, not squeezed in alongside three empty
- * ones.
+ * group at the bottom. For the ~16% of current-season players with no
+ * sp_user link (Task 16's corrected figure -- 84% ARE linked; the "~88%
+ * unlinked" this file used to claim came from the retracted, sticky
+ * sp_current_team denominator), the claim card is shown in place of the
+ * league modules rather than squeezed in alongside three empty ones. It is
+ * now a minority path to serve well, not the default experience.
  *
  * @package blueline
  */
@@ -132,11 +134,16 @@ function blueline_account_render_claim_notice() {
 
 /**
  * The claim card: "Is this you?" plus one-click-confirm candidates, or a
- * plain "contact the league" message when there are none. This is the
- * PRIMARY experience for an unlinked user (~88% of current-season
- * players), not a fallback -- it replaces the next-game/team/season
- * modules entirely rather than sitting alongside three empty versions of
- * them.
+ * plain "contact the league" message when there are none. This is the whole
+ * experience for an unlinked user (~16% of current-season players, per Task
+ * 16's corrected figure) -- it replaces the next-game/team/season modules
+ * entirely rather than sitting alongside three empty versions of them.
+ *
+ * Candidates come from blueline_find_player_candidates(), which refuses to
+ * offer anything for a single-token account name -- see
+ * blueline_name_pair_is_specific_enough() in inc/account/player-link.php.
+ * "No candidates" is therefore a legitimate, expected outcome here, not a
+ * bug to loosen the matcher for.
  *
  * @param int $user_id Current WordPress user ID.
  */
@@ -539,23 +546,20 @@ function blueline_account_render_registration( int $user_id ) {
 
 /**
  * The URL for one blueline_account_endpoints() slug, resolved through
- * WooCommerce's actual query-var key -- mirrors the same
- * arl-slug-to-query-var flip blueline_account_menu_items() (Task 10,
- * inc/account/endpoints.php) already uses for 'registrations'/'store-credit',
- * whose real WooCommerce query-var keys are 'orders'/'credit'.
+ * WooCommerce's actual query-var key via blueline_account_slug_query_var()
+ * (inc/account/endpoints.php) -- the same single translation
+ * blueline_account_menu_items() uses, so the nav and this list can never
+ * disagree about which key an endpoint lives under.
  *
  * @param string $slug A key from blueline_account_endpoints().
  * @return string Empty string if WooCommerce is inactive.
  */
 function blueline_account_endpoint_url( string $slug ): string {
-	if ( ! function_exists( 'wc_get_account_endpoint_url' ) || ! function_exists( 'blueline_account_legacy_redirect_map' ) ) {
+	if ( ! function_exists( 'wc_get_account_endpoint_url' ) || ! function_exists( 'blueline_account_slug_query_var' ) ) {
 		return '';
 	}
 
-	$slug_to_query_var = array_flip( blueline_account_legacy_redirect_map() );
-	$query_var         = $slug_to_query_var[ $slug ] ?? $slug;
-
-	return wc_get_account_endpoint_url( $query_var );
+	return wc_get_account_endpoint_url( blueline_account_slug_query_var( $slug ) );
 }
 
 /**
@@ -610,12 +614,9 @@ function blueline_account_render_billing_group() {
 function blueline_account_nav_items( array $menu_items ): array {
 	$query_to_group = array();
 
-	if ( function_exists( 'blueline_account_endpoints' ) && function_exists( 'blueline_account_legacy_redirect_map' ) ) {
-		$slug_to_query_var = array_flip( blueline_account_legacy_redirect_map() );
-
+	if ( function_exists( 'blueline_account_endpoints' ) && function_exists( 'blueline_account_slug_query_var' ) ) {
 		foreach ( blueline_account_endpoints() as $slug => $config ) {
-			$query_var                    = $slug_to_query_var[ $slug ] ?? $slug;
-			$query_to_group[ $query_var ] = $config['group'];
+			$query_to_group[ blueline_account_slug_query_var( $slug ) ] = $config['group'];
 		}
 	}
 

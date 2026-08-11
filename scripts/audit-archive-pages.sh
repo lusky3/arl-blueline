@@ -9,11 +9,14 @@
 #     To redirect -- see LINKS_TO below -- everything else that isn't a
 #     plain 200 is a hard failure; this script never passes `-L` to curl,
 #     so a redirect can never silently be read as a 200)
-#   - no `rookie-`-prefixed token anywhere in the response body (class,
+#   - no `rookie-` OR `rookie/` token anywhere in the response body (class,
 #     asset path, or otherwise -- broader than just `class="..."` because a
 #     hardcoded <img src="/wp-content/themes/rookie-child/..."> left over in
 #     page content is exactly the kind of Rookie-specific dependency this
-#     audit exists to catch, not only a CSS class)
+#     audit exists to catch, not only a CSS class). The `/` alternative is
+#     load-bearing: `rookie-` alone REQUIRES the hyphen, so a hardcoded
+#     `/wp-content/themes/rookie/style.css` -- the actual parent theme this
+#     whole audit exists to detect -- did not match it.
 #   - no PHP error/warning/notice/deprecated string leaked into the response,
 #     whether PHP emitted it in plain text or HTML-wrapped (see has_php_error)
 #
@@ -32,7 +35,7 @@
 #
 # Archive pages live under three hubs, discovered via
 #   ssh -p SSH_PORT root@staging-host.example "swp post list --post_type=page \
-#     --posts_per_page=200 --format=csv --fields=ID,post_name,post_parent"
+#     --posts_per_page=-1 --format=csv --fields=ID,post_name,post_parent"
 # and cross-checked against both live nav menus (`menu-3-0`, the current
 # `primary` location, and the legacy `menu-2-0`):
 #   - 2557 "Past Standings" (parent of every standings-* archive page)
@@ -89,7 +92,9 @@ EXTRA_IDS=(14114)        # root-level anomaly, see header comment above
 
 # Plausibility floors against a truncated fetch (dropped ssh connection,
 # WP-CLI warning corrupting the CSV mid-stream, etc.) silently shrinking the
-# audit instead of failing it. Today's real numbers: the raw page table is
+# audit instead of failing it. These are floors only -- they cannot detect a
+# fetch truncated at a per-page CAP, which is why fetch_pages() below asks for
+# -1 rather than any finite number. Today's real numbers: the raw page table is
 # 110 rows (109 pages + header); the derived archive-page target list is 30.
 # Both floors are set well below today's real count so routine content
 # growth/pruning never trips them, but a fetch that came back a fraction of
@@ -123,11 +128,18 @@ has_php_error() {
   grep -iEo '(Fatal error|Parse error|Warning|Notice|Deprecated): .*on line [0-9]+' <<<"$detagged"
 }
 
-# Detect any rookie-<token> in the raw body (class, id, hardcoded asset
-# path, whatever) -- broader than just class="...", see header comment.
+# Detect any rookie- or rookie/ token in the raw body (class, id, hardcoded
+# asset path, whatever) -- broader than just class="...", see header comment.
+#
+# The separator character is the whole point of this pattern. Requiring `-`
+# (the original version) matched `rookie-child` but NOT the plain parent theme
+# path `/wp-content/themes/rookie/style.css`, i.e. it was blind to the single
+# most likely leftover it exists to find. Requiring one of `-` or `/` keeps the
+# only negative fixture that matters -- the site's own domain name,
+# `rookiehockey.ca`, whose next character is `h` -- correctly excluded.
 has_rookie_token() {
   local body="$1"
-  grep -oiE 'rookie-[A-Za-z0-9_-]*' <<<"$body"
+  grep -oiE 'rookie[-/][A-Za-z0-9_./-]*' <<<"$body"
 }
 
 self_test() {
@@ -173,6 +185,25 @@ self_test() {
     echo "SELF-TEST ok: genuine rookie- class detected -> $got"
   fi
 
+  # The exact blind spot flagged in the whole-branch review: the parent theme's
+  # own asset path has NO hyphen after "rookie", so the original
+  # 'rookie-[A-Za-z0-9_-]*' pattern never matched it.
+  got="$(has_rookie_token '<link rel="stylesheet" href="/wp-content/themes/rookie/style.css">')"
+  if [ -z "$got" ]; then
+    echo "SELF-TEST FAIL: hyphen-less parent theme path /themes/rookie/ not detected" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: hyphen-less parent theme path detected -> $got"
+  fi
+
+  got="$(has_rookie_token 'Visit https://rookiehockey.ca/standings for the full table')"
+  if [ -n "$got" ]; then
+    echo "SELF-TEST FAIL: false positive on a rookiehockey.ca URL -> $got" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: rookiehockey.ca URL not flagged as a rookie- token"
+  fi
+
   if [ "$failures" -eq 0 ]; then
     echo "SELF-TEST: all fixtures behaved as expected"
     return 0
@@ -191,14 +222,20 @@ fi
 # clear message) rather than silently auditing a shrunk list.
 # ---------------------------------------------------------------------------
 
+# `--posts_per_page=-1`, never a finite cap. The earlier `=200` was an upper
+# BOUND with no check that the result had not hit it: the site has 109 pages
+# today, so at 201 the fetch would truncate silently, the 200-row result would
+# still clear MIN_PAGE_ROWS below, and every page past the cap would simply be
+# skipped from the audit with no warning. An unbounded fetch cannot truncate at
+# a cap it does not have.
 fetch_pages() {
   ssh -p "$SSH_PORT" "$SSH_HOST" \
-    "swp post list --post_type=page --posts_per_page=200 --format=csv --fields=ID,post_name,post_parent,post_status"
+    "swp post list --post_type=page --posts_per_page=-1 --format=csv --fields=ID,post_name,post_parent,post_status"
 }
 
 fetch_links_to_ids() {
   ssh -p "$SSH_PORT" "$SSH_HOST" \
-    "swp post list --post_type=page --posts_per_page=200 --meta_key=_links_to --format=csv --field=ID"
+    "swp post list --post_type=page --posts_per_page=-1 --meta_key=_links_to --format=csv --field=ID"
 }
 
 STDERR_TMP="$(mktemp)"
@@ -325,9 +362,20 @@ check_page() {
   }
   url="${BASE}${path}"
 
-  response="$(curl -sS --max-time 30 -w '\n%{http_code}' "$url" 2>/dev/null)"
+  # curl's EXIT STATUS is checked, not just "did anything come back". `-w
+  # %{http_code}` is written even when the transfer aborts partway (exit 28
+  # timeout, exit 18 partial file), so an empty-body test alone would happily
+  # read code=200 off a response whose body was cut short after the headers --
+  # and then pass both content assertions below against bytes that were never
+  # received. scripts/smoke-staging.sh has always checked this correctly; this
+  # is the same check.
+  if ! response="$(curl -sS --max-time 30 -w '\n%{http_code}' "$url" 2>/dev/null)"; then
+    ROWS+=("FAIL|$id|$path|-|curl-error (non-zero curl exit -- transfer failed or was truncated)")
+    FAIL=1
+    return
+  fi
   if [ -z "$response" ]; then
-    ROWS+=("FAIL|$id|$path|-|curl-error")
+    ROWS+=("FAIL|$id|$path|-|curl-error (empty response)")
     FAIL=1
     return
   fi

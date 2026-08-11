@@ -68,11 +68,14 @@ function blueline_account_endpoints(): array {
 }
 
 /**
- * WooCommerce-default endpoint slug => ARL slug.
+ * Legacy URL slug => ARL slug, for the 301s in
+ * blueline_redirect_legacy_account_endpoints().
  *
- * Both keys are WooCommerce's internal query-var name AND, prior to YITH
- * renaming them, its default URL slug -- so a request to the literal legacy
- * slug (e.g. /account/orders/) is what template_redirect below watches for.
+ * These keys are LITERAL OLD URL SEGMENTS that may still be bookmarked or
+ * sitting in an old email -- `/account/orders/`, `/account/credit/`. They are
+ * NOT WooCommerce query-var names, and must never be used as such: see
+ * blueline_account_query_var_map() below for that separate (and much smaller)
+ * concern, and why conflating the two silently broke the store-credit tab.
  *
  * @return array<string, string>
  */
@@ -81,6 +84,57 @@ function blueline_account_legacy_redirect_map(): array {
 		'orders' => 'registrations',
 		'credit' => 'store-credit',
 	);
+}
+
+/**
+ * WooCommerce query-var KEY => ARL URL slug -- the (only) endpoints whose
+ * internal query-var name differs from the URL slug this theme gives them.
+ *
+ * Deliberately its own map, NOT a re-reading of
+ * blueline_account_legacy_redirect_map(). The two answer different questions
+ * and only coincide for 'orders':
+ *
+ *   - legacy map:    "which dead URL segments must 301 somewhere?"
+ *                    -> 'orders', 'credit'
+ *   - query-var map: "which query-var key does WooCommerce actually own for
+ *                    this ARL slug?"  -> 'orders' only.
+ *
+ * Flipping the legacy map to answer the second question yielded
+ * `'store-credit' => 'credit'`, and 'credit' is not a query var anything on
+ * this install registers -- verified live 2026-08-11 against
+ * `WC()->query->get_query_vars()`, which contains `'store-credit' =>
+ * 'store-credit'` (the WooCommerce Store Credit plugin's own registration) and
+ * no 'credit' key at all. That mistake made
+ * `wc_get_account_endpoint_url( 'credit' )` emit `/account/credit/` -- a
+ * legacy URL that 301s -- as the nav's own link on every single render, left
+ * `wc_get_account_menu_item_classes( 'credit' )` unable to mark the real page
+ * active, and dropped the plugin's genuine 'store-credit' menu item when
+ * blueline_account_menu_items() rebuilt the list. 'store-credit' is therefore
+ * absent here on purpose: its query var and its URL slug are the same string,
+ * so it needs no translation.
+ *
+ * @return array<string, string>
+ */
+function blueline_account_query_var_map(): array {
+	return array(
+		'orders' => 'registrations',
+	);
+}
+
+/**
+ * ARL URL slug => the WooCommerce query-var key that owns it, for the slugs
+ * where those differ (blueline_account_query_var_map()); any other slug is its
+ * own query var. This is the lookup every "give me this endpoint's URL / nav
+ * key" caller wants, in one place, so no caller has to remember which
+ * direction to flip which map.
+ *
+ * @param string $slug A key from blueline_account_endpoints().
+ * @return string The query-var key to hand wc_get_account_endpoint_url() etc.
+ */
+function blueline_account_slug_query_var( string $slug ): string {
+	$slug_to_query_var = array_flip( blueline_account_query_var_map() );
+
+	return $slug_to_query_var[ $slug ] ?? $slug;
 }
 
 /**
@@ -259,20 +313,22 @@ function blueline_log_legacy_slug_collision( string $legacy_slug, string $arl_sl
 
 add_filter( 'woocommerce_get_query_vars', 'blueline_remap_account_query_vars', 20 );
 /**
- * Rename the URL slug WooCommerce registers for its 'orders' and 'credit'
- * query vars, without touching the query-var keys themselves.
+ * Rename the URL slug WooCommerce registers for the query vars in
+ * blueline_account_query_var_map() ('orders'), without touching the query-var
+ * keys themselves.
  *
  * This is the crux of the slug-preservation requirement: WC_Query keeps
  * mapping the ARL slug back onto its own internal query var (see
  * WC_Query::init_query_vars()/parse_request()), so WooCommerce's own
- * handlers -- order history, store credit -- still fire. Only the URL
- * segment changes.
+ * order-history handler still fires. Only the URL segment changes. Store
+ * credit needs no entry here -- its plugin already registers
+ * 'store-credit' => 'store-credit', the slug this theme wants.
  *
  * @param array<string, string> $vars Query var => URL slug.
  * @return array<string, string>
  */
 function blueline_remap_account_query_vars( array $vars ): array {
-	foreach ( blueline_account_legacy_redirect_map() as $query_var => $arl_slug ) {
+	foreach ( blueline_account_query_var_map() as $query_var => $arl_slug ) {
 		if ( isset( $vars[ $query_var ] ) ) {
 			$vars[ $query_var ] = $arl_slug;
 		}
@@ -287,6 +343,11 @@ add_filter( 'woocommerce_account_menu_items', 'blueline_account_menu_items' );
  * (dead 'subscriptions'/'downloads' tabs) while preserving 'dashboard' and
  * 'customer-logout'.
  *
+ * Every key written into $ordered must be a real query-var key, since
+ * navigation.php feeds them straight to wc_get_account_endpoint_url() and
+ * wc_get_account_menu_item_classes(); blueline_account_slug_query_var() is the
+ * one place that translation lives.
+ *
  * @param array<string, string> $items WooCommerce's default menu items.
  * @return array<string, string>
  */
@@ -294,19 +355,13 @@ function blueline_account_menu_items( array $items ): array {
 	$endpoints = blueline_account_endpoints();
 	uasort( $endpoints, static fn( $a, $b ) => $a['order'] <=> $b['order'] );
 
-	// Endpoints whose slug differs from WooCommerce's internal query-var key
-	// (registrations/store-credit) must be added to the nav under that key,
-	// or wc_get_account_endpoint_url() can't resolve their URL.
-	$slug_to_query_var = array_flip( blueline_account_legacy_redirect_map() );
-
 	$ordered = array();
 	if ( isset( $items['dashboard'] ) ) {
 		$ordered['dashboard'] = $items['dashboard'];
 	}
 
 	foreach ( $endpoints as $slug => $config ) {
-		$query_var             = $slug_to_query_var[ $slug ] ?? $slug;
-		$ordered[ $query_var ] = $config['label'];
+		$ordered[ blueline_account_slug_query_var( $slug ) ] = $config['label'];
 	}
 
 	if ( isset( $items['customer-logout'] ) ) {

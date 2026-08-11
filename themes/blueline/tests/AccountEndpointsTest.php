@@ -40,6 +40,67 @@ final class AccountEndpointsTest extends TestCase {
 	/**
 	 * Test case.
 	 */
+	public function test_query_var_map_is_not_the_legacy_url_map(): void {
+		// These two maps answer different questions and coincide only for
+		// 'orders'. Conflating them -- flipping the LEGACY map to get a
+		// slug => query-var lookup -- yielded 'store-credit' => 'credit', and
+		// 'credit' is a query var nothing on this install registers.
+		$query_vars = blueline_account_query_var_map();
+
+		$this->assertSame( 'registrations', $query_vars['orders'] );
+		$this->assertArrayNotHasKey(
+			'credit',
+			$query_vars,
+			"'credit' is a legacy URL slug, never a query var: WC()->query->get_query_vars() carries 'store-credit' => 'store-credit' and no 'credit' key at all"
+		);
+
+		// The legacy URL map keeps BOTH -- /account/credit/ is still a real
+		// old URL that must 301 somewhere.
+		$this->assertSame( 'store-credit', blueline_account_legacy_redirect_map()['credit'] );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_store_credit_resolves_to_its_own_query_var(): void {
+		// The exact regression: navigation.php feeds this value to
+		// wc_get_account_endpoint_url() and wc_get_account_menu_item_classes().
+		// Returning 'credit' made the nav link to /account/credit/ (a 301) on
+		// every render and left the real page unable to mark itself active.
+		$this->assertSame( 'store-credit', blueline_account_slug_query_var( 'store-credit' ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_registrations_resolves_to_woocommerces_orders_query_var(): void {
+		$this->assertSame( 'orders', blueline_account_slug_query_var( 'registrations' ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_every_endpoint_slug_resolves_to_a_real_query_var(): void {
+		// A slug with no translation is its own query var. What must never
+		// happen is a slug resolving to a key that exists only in the legacy
+		// URL map -- those are dead URLs, not endpoints.
+		$legacy_only = array_diff(
+			array_keys( blueline_account_legacy_redirect_map() ),
+			array_keys( blueline_account_query_var_map() )
+		);
+
+		foreach ( array_keys( blueline_account_endpoints() ) as $slug ) {
+			$this->assertNotContains(
+				blueline_account_slug_query_var( $slug ),
+				$legacy_only,
+				"endpoint '$slug' resolved to a legacy-only URL slug instead of a query var"
+			);
+		}
+	}
+
+	/**
+	 * Test case.
+	 */
 	public function test_dead_endpoints_are_absent(): void {
 		$e = blueline_account_endpoints();
 		// No subscriptions plugin is active; the Installments endpoint cannot render.
