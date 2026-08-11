@@ -21,12 +21,20 @@
  * scrolled sideways.
  *
  * overflow-x: clip (not hidden) is deliberate: unlike hidden, clip does not
- * force the other axis (overflow-y) to also become a scroll container, so
- * it cannot accidentally trap the document's own vertical scroll or change
- * what position: sticky elements stick relative to. Verified live: sticky
- * table headers (.sp-league-table thead th) and the mobile nav drawer's
- * focus trap/open-close behaviour both still work correctly with this rule
- * in place (see the Task 8 fix report).
+ * force the other axis (overflow-y) to also become a scroll container at
+ * this element, so it cannot accidentally trap the document's own vertical
+ * scroll here. Verified live: the mobile nav drawer's focus trap/open-close
+ * behaviour still works correctly with this rule in place (see the Task 8
+ * fix report).
+ *
+ * Sticky table headers (.sp-league-table thead th) do NOT work on this
+ * site and this rule is not why -- .sp-table-wrapper's own overflow-x:auto
+ * (sportspress.css) independently makes that wrapper, not the page
+ * viewport, the sticky positioning containing block, with no spare height
+ * to visibly stick within. That CSS was removed rather than left non-
+ * functional; see sportspress.css's own comment on .sp-league-table and
+ * the design spec's risks/open-items section for the recorded decision not
+ * to implement it.
  */
 html {
 	overflow-x: clip;

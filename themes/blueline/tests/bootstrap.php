@@ -28,3 +28,9 @@ if ( ! function_exists( 'sanitize_text_field' ) ) {
 if ( ! function_exists( 'apply_filters' ) ) {
 	function apply_filters( $tag, $value ) { return $value; }
 }
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter( ...$args ) { return true; }
+}
+if ( ! function_exists( 'add_action' ) ) {
+	function add_action( ...$args ) { return true; }
+}

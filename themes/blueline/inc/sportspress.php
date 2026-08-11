@@ -102,12 +102,31 @@ function blueline_header_sponsors_selector( $selector ) { // phpcs:ignore Generi
 
 add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
 /**
- * Guarantee every <table> in rendered content either sits inside a scroll
- * container or gets one of its own -- "the page body must never scroll
- * horizontally" is a site-wide hard invariant, not a today's-markup-shaped
- * one, so this must not depend on SportsPress's exact current class names.
+ * Guarantee every SportsPress <table> in rendered content either sits
+ * inside a scroll container or gets one of its own -- "the page body must
+ * never scroll horizontally" is a site-wide hard invariant, not a
+ * today's-markup-shaped one, so this must not depend on SportsPress's exact
+ * current class names.
  *
- * Two layers, in order:
+ * Re-scoped after review: this must touch SportsPress's own output only,
+ * never an ordinary block-editor table in a blog post or page (those
+ * already have a working .wp-block-table wrapper of their own, and forcing
+ * display:block onto them via bl-table-self-scroll would be an untested,
+ * out-of-scope behaviour change). The scoping problem is that SP tables can
+ * legitimately appear on an ordinary Page too -- /standings embeds
+ * [team_standings] shortcodes directly in page content, so a page-type
+ * check (is_singular(sp_post_types())/is_tax(sp_taxonomies())) would
+ * incorrectly skip it. What every SportsPress table genuinely has in
+ * common, regardless of post type or template, is SportsPress's own `sp-`
+ * class-name convention: every table this plugin renders carries at least
+ * one class starting with "sp-" directly on the <table> itself (confirmed
+ * by reading every table-producing template in the installed plugin), and
+ * an ordinary wp-block-table never does. Detecting that convention, not one
+ * specific class, is what keeps this both scoped to SportsPress AND still
+ * resilient to a future SportsPress markup change (see
+ * blueline_dom_table_is_sportspress()).
+ *
+ * Three layers, in order:
  * 1. SportsPress's own templates (league-table.php, event-blocks.php,
  *    player-statistics-league.php, event-details.php, event-list.php,
  *    player-list.php, event-officials-table.php, event-logos-block.php) all
@@ -115,15 +134,18 @@ add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
  *    `<div class="sp-table-wrapper">` -- confirmed by reading every
  *    occurrence in the installed plugin. A cheap string check/replace
  *    handles this, the overwhelming common case, without any parsing.
- * 2. blueline_sp_ensure_tables_scroll() then walks every remaining <table>
- *    via DOMDocument and gives any that still has no scroll-capable
- *    ancestor a self-contained scroll class directly. This is what actually
- *    closes the gap: event-venue.php is the one SP template today that
- *    renders its <table> with no wrapper at all (its embedded Leaflet map
+ * 2. A cheap `strpos( $content, 'sp-' )` pre-check, then
+ *    blueline_sp_ensure_tables_scroll() walks every remaining <table> via
+ *    DOMDocument and gives any that (a) is SportsPress's own (carries an
+ *    sp- prefixed class) and (b) still has no scroll-capable ancestor a
+ *    self-contained scroll class directly. This is what actually closes
+ *    the gap: event-venue.php is the one SP template today that renders
+ *    its <table> with no wrapper at all (its embedded Leaflet map
  *    overflowed the page body at mobile widths until this was added -- see
- *    the Task 8 fix report) -- and a future SportsPress update changing any
- *    table's class list, or adding a new unwrapped one, is caught by this
- *    same generic pass without needing a matching theme update. Runs after
+ *    the Task 8 fix report) -- and a future SportsPress update changing
+ *    any table's class list, or adding a new unwrapped one, is still
+ *    caught by this pass as long as it keeps SP's own sp- prefix
+ *    convention, which every SP class already does today. Runs after
  *    shortcodes have already expanded (priority 20, after SP's own
  *    the_content hooks and do_shortcode's default priority 11).
  *
@@ -143,6 +165,17 @@ function blueline_sp_wrap_tables_for_scroll( $content ) {
 		$content = str_replace( 'class="sp-table-wrapper"', 'class="sp-table-wrapper bl-table-scroll"', $content );
 	}
 
+	// Cheap pre-check before the DOMDocument parse below: nothing
+	// SportsPress renders is ever without an sp- prefixed class somewhere,
+	// so content with no "sp-" substring at all cannot contain a
+	// SportsPress table and the expensive DOM pass is skipped entirely --
+	// an ordinary blog post with a block-editor table (<table
+	// class="wp-block-table">, no "sp-" anywhere) never reaches
+	// DOMDocument at all.
+	if ( false === strpos( $content, 'sp-' ) ) {
+		return $content;
+	}
+
 	if ( ! class_exists( 'DOMDocument' ) ) {
 		// ext-dom unavailable: degrade to the string-only pass above. The
 		// html{overflow-x:clip} CSS backstop still protects the invariant.
@@ -153,10 +186,44 @@ function blueline_sp_wrap_tables_for_scroll( $content ) {
 }
 
 /**
- * Walk every <table> in $content and make sure it has a scroll-capable
- * ancestor: either it's already inside something carrying bl-table-scroll
- * (added above, or by any future mechanism) or bl-table-self-scroll, or it
- * gets bl-table-self-scroll added directly to itself. See
+ * Whether a <table> is SportsPress's own output: does it (or an ancestor)
+ * carry a class starting with "sp-"? SportsPress's class-name convention is
+ * universal across every table-producing template in the installed plugin
+ * (sp-data-table, sp-league-table, sp-event-blocks, sp-event-calendar,
+ * sp-player-list, sp-player-statistics, sp-event-details, sp-event-venue --
+ * always directly on the <table> element itself), so this is a durable
+ * signal that survives a future SportsPress markup change, unlike matching
+ * one specific class. An ordinary WordPress block-editor table
+ * (<table class="wp-block-table">) never has one, at any ancestor depth.
+ *
+ * @param DOMElement $table Table element to check.
+ * @return bool
+ */
+function blueline_dom_table_is_sportspress( DOMElement $table ) {
+	if ( blueline_dom_has_class_prefix( $table, 'sp-' ) ) {
+		return true;
+	}
+
+	$node = $table->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- native DOMNode property, cannot be renamed.
+
+	while ( $node instanceof DOMElement ) {
+		if ( blueline_dom_has_class_prefix( $node, 'sp-' ) ) {
+			return true;
+		}
+		$node = $node->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- native DOMNode property, cannot be renamed.
+	}
+
+	return false;
+}
+
+/**
+ * Walk every <table> in $content and make sure every SportsPress one (see
+ * blueline_dom_table_is_sportspress()) has a scroll-capable ancestor:
+ * either it's already inside something carrying bl-table-scroll (added
+ * above, or by any future mechanism) or bl-table-self-scroll, or it gets
+ * bl-table-self-scroll added directly to itself. A table that is NOT
+ * SportsPress's own output (an ordinary block-editor table, for instance)
+ * is left completely untouched -- see
  * blueline_sp_wrap_tables_for_scroll()'s docblock for why this exists.
  *
  * @param string $content Post content.
@@ -192,6 +259,10 @@ function blueline_sp_ensure_tables_scroll( $content ) {
 	foreach ( $tables as $table ) {
 		if ( ! $table instanceof DOMElement ) {
 			continue;
+		}
+
+		if ( ! blueline_dom_table_is_sportspress( $table ) ) {
+			continue; // Not SportsPress's own markup -- e.g. an ordinary block-editor table. Leave it untouched.
 		}
 
 		if ( blueline_dom_find_class_ancestor( $table, 'bl-table-scroll' )
@@ -252,6 +323,29 @@ function blueline_dom_has_class( DOMElement $element, $class_name ) {
 	$classes = preg_split( '/\s+/', trim( (string) $element->getAttribute( 'class' ) ), -1, PREG_SPLIT_NO_EMPTY );
 
 	return in_array( $class_name, $classes, true );
+}
+
+/**
+ * Whether a DOM element's class attribute contains any class token starting
+ * with a given prefix (e.g. "sp-"). Token-exact prefix matching -- a class
+ * like "responsive-table" does NOT match prefix "sp-" just because that
+ * substring appears mid-word ("re-sp-onsive"); only a class that itself
+ * starts with "sp-" counts.
+ *
+ * @param DOMElement $element Element to check.
+ * @param string     $prefix  Prefix to look for.
+ * @return bool
+ */
+function blueline_dom_has_class_prefix( DOMElement $element, $prefix ) {
+	$classes = preg_split( '/\s+/', trim( (string) $element->getAttribute( 'class' ) ), -1, PREG_SPLIT_NO_EMPTY );
+
+	foreach ( $classes as $class_name ) {
+		if ( 0 === strpos( $class_name, $prefix ) ) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**

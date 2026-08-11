@@ -411,6 +411,7 @@ Appending a junk query string bypasses srcache and shows what WordPress actually
 | **Losing customer-facing email wording** | All 14 email templates ported in R1, before any redesign |
 | Custom avatars lost silently | Migrate the 11 records (§6.6) |
 | `/registration/*` child pages 404 | Pre-existing: WooCommerce `product_base` is `/registration`, shadowing children of page 168. Not caused by, and not fixed by, the theme |
+| **`.sp-league-table` sticky headers conflict with the horizontal-scroll hard constraint** — `border-collapse: collapse` spec-disables `position: sticky` on table-part boxes, and separately, the scroll wrapper's own `overflow-x: auto` forces its `overflow-y` to also become a scroll container (an unavoidable CSS pairing rule), leaving the sticky header nothing but that wrapper's own zero-spare-height box to stick within — confirmed live, both causes independently verified (Task 8 fix round 2) | **Ruled out, not implemented.** Divisions run ~8 teams, so standings tables are short; sticky buys little on tables this size, and the only CSS-only fix (bound the wrapper's `max-height` so it becomes its own vertical scroll region, then sticky the header inside that) trades an inline full-height table for a boxed one with an internal scrollbar — a real UX cost on `/standings`, the site's most-visited page. A working sticky header would cost a JS-driven frozen-header rewrite (splitting header from horizontally-scrolling body, syncing scroll position) — not attempted in R1 |
 
 ---
 
