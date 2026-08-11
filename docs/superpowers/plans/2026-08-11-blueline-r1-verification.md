@@ -19,14 +19,60 @@ retest of something Task 9/10/15 already ran, that is noted.
 | `composer lint` (full `phpcs --standard=WordPress`) | **PASS with documented exceptions** | `tests/` is now 0 errors / 0 warnings (was 105 errors / 5 warnings). Remaining: 81 errors / 7 warnings, entirely inside `woocommerce/` vendor-authored override templates. See §7 for the full breakdown and why these are not being force-fixed. |
 | `npm run build` (`wp-scripts build`) | **PASS** | Webpack 5.109.2 compiled successfully; `index.css` 46.7 KiB, `editor.css` 4 KiB, fonts copied, `.asset.php` manifests written. |
 | `node tools/check-contrast.mjs` | **PASS** | All 10 contrast rules pass their WCAG minimum; the `--bl-ice`-must-stay-decorative guard passes; the new token-parity check (§5) passes — editor.css's 26 duplicated tokens match style.css exactly. |
-| `./scripts/deploy-theme.sh staging` | **PASS** | Ran four times during this task (baseline, after the skip-link fix, after the WooCommerce wrapper fix, final). Each rsync + chown 33:33 completed cleanly. |
-| `./scripts/smoke-staging.sh` | **PASS** | 14/14 checks, re-run after every deploy — all still 200/404 as expected, every run. |
-| `./scripts/audit-archive-pages.sh` | **PASS** | 30/30 archive pages pass (re-run twice during this task, after the tabindex fix and after the simple-css swap). One known exclusion unchanged: page 13440 (private, unlinked, expected 404 for anonymous requests). |
-| `staging/tests/repro-duplicate-registration.sh` | **PASS (bug not reproduced)** | `items_count after login merge: 1` — the double-registration path Task 9 fixed stays fixed. |
+| `./scripts/deploy-theme.sh staging` | **PASS** | Ran six times during this task (baseline, after the skip-link fix, after the WooCommerce wrapper fix, a deliberate fail/revert round-trip proving the new smoke check works — see below, and final). Each rsync + chown 33:33 completed cleanly. |
+| `./scripts/smoke-staging.sh` | **PASS** | **Modified this task** — see §1.1. 16/16 checks (was 14; 2 new regression checks added), re-run after every deploy and every `simple_css` option change — all still passing in the final state. |
+| `./scripts/audit-archive-pages.sh` | **PASS** | 30/30 archive pages pass (re-run three times during this task: after the tabindex fix, after the simple-css swap, and in the final full re-run). One known exclusion unchanged: page 13440 (private, unlinked, expected 404 for anonymous requests). |
+| `staging/tests/repro-duplicate-registration.sh` | **PASS (bug not reproduced)** | `items_count after login merge: 1` — the double-registration path Task 9 fixed stays fixed. Re-run in the final full pass. |
 | `staging/tests/test-one-registration-guard.sh` | **PASS — but only after a real defect in the test itself was fixed. See §6.** |
-| `staging/tests/checkout-end-to-end.py` | **PASS** | Ran three times (baseline, after the skip-link fix, after the simple-css swap). Each run placed a real order (116714, then 116715) with 1 line item, correct `_arl_rules_version`/`_arl_rules_accepted` meta, and a `success` checkout result. |
+| `staging/tests/checkout-end-to-end.py` | **PASS** | Ran four times (baseline, after the skip-link fix, after the simple-css swap, final full re-run). Each run placed a real order (116714, 116715, then 116716) with 1 line item, correct `_arl_rules_version`/`_arl_rules_accepted` meta, and a `success` checkout result. |
 
-**Gate count: 9 run, 9 passing.** One (`test-one-registration-guard.sh`) required a real fix to the test's own setup before its pass became meaningful — see §6, which is the honest account of that.
+**Gate count: 10 run, 10 passing** (the table above has 10 rows — this line previously read "9
+run, 9 passing," an arithmetic slip against its own table, caught in review and corrected here).
+One (`test-one-registration-guard.sh`) required a real fix to the test's own setup before its
+pass became meaningful — see §6, which is the honest account of that.
+
+### 1.1 `scripts/smoke-staging.sh` — modified this task
+
+The Task 16 brief's own Files list required this file to be modified, and the first version of
+this record shipped without touching it — an oversight caught in review. The two real defects
+found and fixed elsewhere in this task (§2's skip link, §9's `simple-css` prune) had gained only
+manual/Playwright verification, which nobody would repeat; both are cheaply assertable from a
+plain HTTP GET, so both are now permanent regression checks:
+
+- **Skip-link/tabindex regression.** `check /` now also asserts the literal string `<main
+  id="main" class="bl-main bl-main--homepage" tabindex="-1">` is present in the homepage
+  response — the exact tag `template-homepage.php` emits. If a future template edit drops the
+  `tabindex` attribute, this line fails.
+- **`simple-css` prune regression** (two checks, both against a real WooCommerce/SportsPress
+  registration product page, `/registration/player-registration-w2026-27`): the old brand blue
+  hex `0577da` must be **absent** from the response, and the literal string `woocommerce-message`
+  must also be **absent** — the only way that string can appear in a plain page response (no
+  notice is showing on a bare GET) is the plugin's injected `<style id="simple-css-output">`
+  block hiding it, which is exactly the regression this guards against.
+
+`check()`'s existing `<path> <code> <marker>` signature is unchanged in spirit — it gained a 4th,
+optional **must-NOT-contain** marker (default `-`, meaning "skip," matching the existing
+sentinel convention), rather than a one-off bolted onto the bottom of the script. The existing
+failure-aggregation behaviour (`FAIL` variable, no early return inside the loop, `exit $FAIL`
+after every check has run) is untouched.
+
+**Both new checks were proven to actually fail, not just proven to pass:**
+- Temporarily removed `tabindex="-1"` from `template-homepage.php`, redeployed:
+  `FAIL / -> missing marker: <main id="main" class="bl-main bl-main--homepage" tabindex="-1">`,
+  exit 1. Reverted (`git checkout --`), redeployed: clean pass, exit 0, `git status` empty on the
+  file.
+- Temporarily restored the pre-Task-16 `simple_css` option verbatim (§9.4) via `wp option
+  update`: `FAIL /registration/player-registration-w2026-27 -> forbidden marker present: 0577da`
+  and the same for `woocommerce-message`, exit 1. Restored the pruned option: clean pass, exit 0.
+
+One incidental finding while designing the `0577da` check: SportsPress itself has an unrelated,
+pre-existing, fully-commented-out "Custom CSS" snippet
+(`<style type="text/css"> /* SportsPress Custom CSS */ /* #032867 #0066cc */</style>`) that also
+renders inline on every page. It is two CSS *comments*, no live declaration — genuinely inert —
+and is a different plugin setting entirely from the `simple_css` option this task's item a
+scoped to. Noted here so nobody mistakes its presence for the prune having failed; it's also why
+the smoke check uses `0577da` specifically (which that snippet does not contain) rather than a
+broader old-brand-hex search.
 
 ---
 
@@ -325,8 +371,17 @@ the staging DB backup process, but is reproduced here per the task's requirement
 | `.woocommerce span.onsale {display:none!important}` | **Kept, unchanged** | Still explicitly wanted — registrations should not show sale stickers. No colour. |
 | `.page-id-6507 li.wc_payment_method.payment_method_c2p-gateway > label > img {max-width:100%;height:3em}` | **Kept, unchanged** | Page 6507 confirmed still the live Checkout page; clik2pay is a real, active payment option. No colour. |
 
-**Result: 6,918 → 2,699 characters (61% smaller).** Every colour value in the pruned CSS was
-checked against blueline's own token contrast math, not guessed.
+**Result: 6,918 → 2,967 characters as stored** (the original uses CRLF line endings, the pruned
+version LF-only — the two counts are not on a strictly like-for-like basis as raw character
+counts). Two ways to state the reduction honestly: **57.1% smaller comparing each version's own
+as-stored length** (6,918 → 2,967), or **55.6% smaller on a line-ending-normalized basis**
+(6,918 CRLF-normalized to 6,683 LF-equivalent characters, vs. 2,967 LF characters) — the fairer
+apples-to-apples figure. Either way it's roughly halved. (The pruned length grew slightly, from
+an earlier 2,699-character draft, to 2,967 after a second revision described in §1.1: the
+draft's rationale comments quoted the old brand's literal hex codes, which would have made the
+new `smoke-staging.sh` regression check for `0577da` a false-positive risk against the CSS's own
+explanatory text; the final version describes the old colours in words instead.) Every colour
+value in the pruned CSS was checked against blueline's own token contrast math, not guessed.
 
 ### 9.2 Applied and verified on staging
 
@@ -334,17 +389,18 @@ checked against blueline's own token contrast math, not guessed.
 $ wp option update simple_css --format=json < pruned-option.json
 Success: Updated 'simple_css' option.
 ```
-Re-fetched and confirmed: 2,699-char `css` value live, `theme: "1"` preserved. No caching layer
-in front of staging — the change was reflected in the very next page load's `<style
-id="simple-css-output">` block, no purge needed.
+Re-fetched and confirmed: 2,967-char `css` value live (final revision — see above), `theme: "1"`
+preserved. No caching layer in front of staging — the change was reflected in the very next page
+load's `<style id="simple-css-output">` block, no purge needed.
 
 **Live before/after proof, not just code review:**
 - A real registration product's Add-to-Cart button: `getComputedStyle(...).backgroundColor` is
   now `rgb(19, 35, 67)` (`#132343`, blueline's `--bl-ink`) — previously `#0577da`.
 - A synthetic `.woocommerce-message` element now computes `display: flex` — previously `none`.
-- `./scripts/smoke-staging.sh` (14/14), `./scripts/audit-archive-pages.sh` (30/30), and
-  `staging/tests/checkout-end-to-end.py` (real order placed, `success`) were all **re-run after**
-  this change and stayed green — the site-wide CSS swap did not break anything downstream.
+- `./scripts/smoke-staging.sh` (now 16/16 — see §1.1), `./scripts/audit-archive-pages.sh`
+  (30/30), and `staging/tests/checkout-end-to-end.py` (real order placed, `success`) were all
+  **re-run after** this change and stayed green — the site-wide CSS swap did not break anything
+  downstream.
 
 ### 9.3 Production cutover step (not executed — staging only per this task's scope)
 
@@ -353,7 +409,7 @@ id="simple-css-output">` block, no purge needed.
 # backed up (see §9.4 for the verbatim original):
 wp option update simple_css --format=json < pruned-option.json
 ```
-Where `pruned-option.json` is `{"css": "<the 2,699-char pruned CSS in §9.4>", "theme": "1"}`.
+Where `pruned-option.json` is `{"css": "<the 2,967-char pruned CSS in §9.5>", "theme": "1"}`.
 No cache purge is required on staging; **production's own cache layer (the Redis-backed nginx
 srcache mentioned in the cutover checklist) must be purged by key after this change**, since
 `wo clean --fastcgi` does not touch it — see the consolidated checklist in §11.
@@ -598,19 +654,28 @@ border-radius: 3px
 }
 ```
 
-### 9.5 Pruned/re-themed CSS, verbatim (currently live on staging)
+### 9.5 Pruned/re-themed CSS, verbatim (currently live on staging — final revision)
+
+This is the second revision (see §1.1/§9.1): the first draft's comments quoted the old brand's
+literal hex codes as documentation, which is exactly the string the new `smoke-staging.sh`
+regression check searches for — a comment containing `0577da` would have made that check
+unreliable. This version describes the old colours in words instead of hex, so the check has no
+false-positive source anywhere in the live CSS, including its own comments.
 
 ```css
 /* Some custom CSS added by Cody Lusk */
 /* Pruned and re-themed for blueline -- Task 16, 2026-08-11. See the R1
    verification record (docs/superpowers/plans/2026-08-11-blueline-r1-verification.md,
    section "simple-css audit") for the full rule-by-rule rationale and the
-   verbatim original this replaces. */
+   verbatim original this replaces. Old-brand hex values are deliberately
+   NOT quoted in these comments -- smoke-staging.sh asserts their absence
+   from every response as a regression guard, and a comment containing the
+   literal hex would defeat that check. */
 
 /* Arenas Page */
-/* Border behind H3, H3 formatting -- re-themed from the old brand's
-   #032867/#0577da to blueline's --bl-ink / --bl-steel. Still used live in
-   the Arenas page content. */
+/* Border behind H3, H3 formatting -- re-themed from the old brand's navy
+   and mid-blue to blueline's --bl-ink / --bl-steel. Still used live in the
+   Arenas page content. */
 .arenah3border {
 	width: 100%;
 	height: 45px;
@@ -633,7 +698,7 @@ border-radius: 3px
 }
 
 /* Active tab -- re-themed to --bl-accent-text (passes 5.35:1 white-text
-   contrast; the old #0577da did not reliably). */
+   contrast; the old brand's mid-blue did not reliably). */
 .su-tabs.my-custom-tabs .su-tabs-nav span.su-tabs-current {
 	background-color: #3F6E9D;
 }
@@ -651,18 +716,18 @@ body.login #loginform p.submit .button-primary, body.wp-core-ui .button-primary 
 	width: 100%;
 }
 
-/* WooCommerce login form submit button -- re-themed from #032867 to
-   --bl-ink so it matches blueline's own button styling exactly rather than
-   fighting it. */
+/* WooCommerce login form submit button -- re-themed from the old brand's
+   navy to --bl-ink so it matches blueline's own button styling exactly
+   rather than fighting it. */
 .woocommerce form.login input[type=submit], form.login .button {
     background: #132343 !important;
 }
 
-/* Account/login button colour -- re-themed from #0577da to --bl-ink.
-   ".wizard" markup was not found anywhere on the current site (checked
-   /checkout, /account, /register); ".login .form-row .button" is the part
-   still plausibly reachable, so this stays as a retheme rather than a
-   removal. */
+/* Account/login button colour -- re-themed from the old brand's mid-blue
+   to --bl-ink. ".wizard" markup was not found anywhere on the current site
+   (checked /checkout, /account, /register); ".login .form-row .button" is
+   the part still plausibly reachable, so this stays as a retheme rather
+   than a removal. */
 .wizard > .actions a, .wizard > .actions a:hover, .wizard > .actions a:active, .login .form-row .button {
     background: #132343 !important;
 }
@@ -777,19 +842,22 @@ form.** Required pre-cutover action: enable `cfturnstile_woo_register` before de
 
 ## 14. Overall verdict
 
-All nine automated/manual gates in §1 pass. The accessibility pass found one real, live
+All ten automated/manual gates in §1 pass. The accessibility pass found one real, live
 defect (the non-functional skip link) and fixed it, verified fixed with a real browser
 before/after; found one pre-existing, non-blueline defect (SP league-menu tab order) and
 documented it without attempting a fix outside this project's scope. The largest deferred item
-(`simple-css`) was fully audited rule-by-rule, pruned 61%, re-themed with contrast-checked
-colours, applied to staging, and verified live with before/after button-colour and
-notice-visibility proof — with the production step written up as an explicit, sequenced cutover
-action. The design spec's most consequential numerical error was corrected with fresh
-verification, not just a copy-edit. The one gate that looked clean but wasn't
-(`test-one-registration-guard.sh`) was diagnosed, fixed, and re-run to a genuine result. WPCS
-debt in this project's own test scaffolding is fully cleared; the debt remaining in
-vendor-authored WooCommerce templates is enumerated with an explicit, defensible reason it was
-not touched.
+(`simple-css`) was fully audited rule-by-rule, pruned by roughly half (57.1% as-stored, 55.6% on
+a line-ending-normalized basis — §9.1), re-themed with contrast-checked colours, applied to
+staging, and verified live with before/after button-colour and notice-visibility proof — with
+the production step written up as an explicit, sequenced cutover action. Both of this task's own
+fixes (the skip link and the `simple-css` prune) were additionally turned into permanent,
+proven-to-fail-and-pass regression checks in `smoke-staging.sh` (§1.1), so neither depends on
+anyone re-running a manual browser check to catch a future regression. The design spec's most
+consequential numerical error was corrected with fresh verification, not just a copy-edit. The
+one gate that looked clean but wasn't (`test-one-registration-guard.sh`) was diagnosed, fixed,
+and re-run to a genuine result. WPCS debt in this project's own test scaffolding is fully
+cleared; the debt remaining in vendor-authored WooCommerce templates is enumerated with an
+explicit, defensible reason it was not touched.
 
 **Nothing in this record was papered over.** Every finding above that could have been reported
 as a clean pass without the deeper check (the vacuous guard test, the broken skip link, the
