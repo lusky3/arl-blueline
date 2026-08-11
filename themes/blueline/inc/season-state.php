@@ -50,6 +50,20 @@ function blueline_decide_season_state( array $signals ): string {
 const BLUELINE_REGISTRATION_TERM_ID = 91;
 
 /**
+ * The post_status a published, already-visible product or event carries.
+ *
+ * Used as-is for the product query and the recent-events query, both of
+ * which only ever want posts that are actually live. The upcoming-events
+ * query is deliberately NOT this constant alone: WordPress core
+ * auto-assigns `future` (not `publish`) to any post whose post_date is
+ * later than now, so a query for genuinely upcoming sp_event posts must
+ * include `future` too or it silently returns nothing but already-past
+ * games -- confirmed on staging, where every real upcoming game (33 of
+ * them) carries `future` and zero upcoming games carry `publish`.
+ */
+const BLUELINE_PUBLISHED_STATUS = 'publish';
+
+/**
  * Gather live season-state signals, run them through the pure decision
  * function, and cache the result.
  *
@@ -74,7 +88,7 @@ const BLUELINE_REGISTRATION_TERM_ID = 91;
  *     @type int|null $next_event_id Soonest upcoming sp_event, if any.
  * }
  */
-function blueline_season_state_data() {
+function blueline_season_state_data(): array {
 	$cached = get_transient( 'blueline_season_state' );
 	if ( is_array( $cached ) && isset( $cached['state'] ) ) {
 		return $cached;
@@ -110,7 +124,7 @@ function blueline_season_state_data() {
 			$product_query = new WP_Query(
 				array(
 					'post_type'      => 'product',
-					'post_status'    => 'publish',
+					'post_status'    => BLUELINE_PUBLISHED_STATUS,
 					'posts_per_page' => -1,
 					'fields'         => 'ids',
 					'no_found_rows'  => true,
@@ -144,7 +158,10 @@ function blueline_season_state_data() {
 		$upcoming_query = new WP_Query(
 			array(
 				'post_type'      => 'sp_event',
-				'post_status'    => 'publish',
+				// Upcoming games are 'future', not 'publish' -- WordPress
+				// core auto-assigns 'future' to any post whose post_date is
+				// later than now. See BLUELINE_PUBLISHED_STATUS's docblock.
+				'post_status'    => array( BLUELINE_PUBLISHED_STATUS, 'future' ),
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
 				'no_found_rows'  => true,
@@ -204,7 +221,7 @@ function blueline_season_state_data() {
 		$recent_query = new WP_Query(
 			array(
 				'post_type'      => 'sp_event',
-				'post_status'    => 'publish',
+				'post_status'    => BLUELINE_PUBLISHED_STATUS,
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
 				'no_found_rows'  => true,
@@ -240,7 +257,7 @@ function blueline_season_state_data() {
  *
  * @return string One of registration_open|preseason|in_season|playoffs|offseason.
  */
-function blueline_season_state() {
+function blueline_season_state(): string {
 	$data = blueline_season_state_data();
 
 	/**
