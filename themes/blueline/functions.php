@@ -29,3 +29,4 @@ require_once BLUELINE_DIR . '/inc/homepage-modules.php';
 require_once BLUELINE_DIR . '/inc/sportspress.php';
 require_once BLUELINE_DIR . '/inc/woocommerce.php';
 require_once BLUELINE_DIR . '/inc/account/endpoints.php';
+require_once BLUELINE_DIR . '/inc/account/player-link.php';
