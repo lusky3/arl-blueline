@@ -1,0 +1,101 @@
+/*
+ * Blueline — base reset and element defaults.
+ * Uses design tokens only (see style.css :root). No component, header,
+ * nav, footer or template CSS belongs here — see Tasks 4+.
+ */
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-base);
+	line-height: 1.6;
+	color: var(--bl-ink);
+	background: var(--bl-paper);
+}
+
+/*
+ * Display face — headings, eyebrows, buttons only.
+ * Body copy and table cells must NEVER use this face: heavy italic
+ * caps in running text/data is the known failure mode of this design.
+ */
+h1,
+h2,
+h3,
+h4 {
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	line-height: 0.92;
+}
+
+a {
+	color: var(--bl-accent-text);
+	text-decoration: underline;
+}
+
+:focus-visible {
+	outline: var(--bl-focus);
+	outline-offset: var(--bl-focus-offset);
+}
+
+table {
+	border-collapse: collapse;
+}
+
+th,
+td {
+	font-family: var(--bl-font-body);
+	font-variant-numeric: tabular-nums;
+}
+
+img {
+	max-width: 100%;
+	height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Layout */
+
+.bl-container {
+	max-width: var(--bl-container);
+	margin-inline: auto;
+	padding-inline: var(--bl-space-5);
+}
+
+/* Signature devices */
+
+.bl-skew {
+	transform: skewX(var(--bl-skew));
+}
+
+.bl-skew > * {
+	display: inline-block;
+	transform: skewX(calc(var(--bl-skew) * -1));
+}
+
+.bl-band {
+	height: var(--bl-band-ice);
+	background: var(--bl-ice);
+}
+
+.bl-band--ink {
+	height: var(--bl-band-ink);
+	background: var(--bl-ink);
+}

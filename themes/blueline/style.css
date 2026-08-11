@@ -9,3 +9,60 @@ Requires PHP: 8.1
 License: GNU General Public License v2 or later
 Text Domain: blueline
 */
+
+:root {
+	/* Brand — sampled from ARL2026-Logo-Final. Ratios verified by tools/check-contrast.mjs. */
+	--bl-ink:          #132343; /* 14.94 on paper */
+	--bl-ink-deep:     #0D1729;
+	--bl-ink-mid:      #2E4A74; /*  8.59 on paper */
+	--bl-accent-text:  #3F6E9D; /*  5.13 on paper — links/accent text on light */
+	--bl-steel:        #5188B7; /*  3.63 — borders, large text, strokes ONLY */
+	--bl-ice:          #74C0E1; /*  1.94 — FILL ONLY, never text on light */
+	--bl-pale:         #9ACDE7; /*  text only on dark (9.09 on ink) */
+	--bl-paper:        #F7FBFC;
+	--bl-white:        #FFFFFF;
+
+	/* Surfaces */
+	--bl-surface:          var(--bl-white);
+	--bl-surface-sunken:   var(--bl-paper);
+	--bl-surface-inverse:  var(--bl-ink);
+	--bl-border:           #DBE7F0;
+	--bl-border-strong:    #C3D6E4;
+
+	/* Semantic */
+	--bl-success: #1F7A4D;
+	--bl-warning: #8A5A00;
+	--bl-danger:  #A32C1B;
+
+	/* Type */
+	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+	--bl-font-body:    "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+	--bl-text-xs:   0.75rem;
+	--bl-text-sm:   0.875rem;
+	--bl-text-base: 1rem;
+	--bl-text-lg:   clamp(1.125rem, 0.5vw + 1rem, 1.25rem);
+	--bl-text-xl:   clamp(1.375rem, 1vw + 1.1rem, 1.75rem);
+	--bl-text-2xl:  clamp(1.75rem, 2vw + 1.2rem, 2.5rem);
+	--bl-text-3xl:  clamp(2.25rem, 4vw + 1.2rem, 3.75rem);
+	--bl-text-4xl:  clamp(2.75rem, 6vw + 1.2rem, 5rem);
+
+	/* Spacing — 4px base */
+	--bl-space-1: 0.25rem;  --bl-space-2: 0.5rem;   --bl-space-3: 0.75rem;
+	--bl-space-4: 1rem;     --bl-space-5: 1.5rem;   --bl-space-6: 2rem;
+	--bl-space-7: 3rem;     --bl-space-8: 4rem;     --bl-space-9: 6rem;
+
+	/* Signature devices */
+	--bl-skew: -11deg;
+	--bl-band-ice: 9px;
+	--bl-band-ink: 4px;
+
+	--bl-radius: 0px;
+	--bl-radius-card: 14px;
+	--bl-shadow-card: 0 6px 20px rgba(19, 35, 67, 0.06);
+	--bl-shadow-raised: 0 10px 34px rgba(10, 20, 40, 0.18);
+
+	--bl-container: 1200px;
+	--bl-focus: 3px solid var(--bl-accent-text);
+	--bl-focus-offset: 2px;
+}
