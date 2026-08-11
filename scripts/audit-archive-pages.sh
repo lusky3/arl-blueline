@@ -5,13 +5,22 @@
 # SportsPress shortcodes -- authored against the ThemeBoy `rookie` theme.
 # This script enumerates every one of them, fetches it from staging, and
 # asserts:
-#   - HTTP 200
+#   - HTTP 200 (a 301 is only accepted when it is a documented Page Links
+#     To redirect -- see LINKS_TO below -- everything else that isn't a
+#     plain 200 is a hard failure; this script never passes `-L` to curl,
+#     so a redirect can never silently be read as a 200)
 #   - no `rookie-`-prefixed token anywhere in the response body (class,
 #     asset path, or otherwise -- broader than just `class="..."` because a
 #     hardcoded <img src="/wp-content/themes/rookie-child/..."> left over in
 #     page content is exactly the kind of Rookie-specific dependency this
 #     audit exists to catch, not only a CSS class)
-#   - no PHP error/warning/notice/deprecated string leaked into the response
+#   - no PHP error/warning/notice/deprecated string leaked into the response,
+#     whether PHP emitted it in plain text or HTML-wrapped (see has_php_error)
+#
+# Run `./scripts/audit-archive-pages.sh --self-test` to exercise the two
+# content checks above against known fixture strings, offline, before ever
+# touching the network -- no ssh/curl involved. Do this after editing either
+# check; it is the regression test for the checks themselves.
 #
 # Enumeration strategy (Task 15 brief, "How to enumerate them"):
 #   `get_permalink()` is unreliable on this site -- the Page Links To plugin
@@ -33,6 +42,14 @@
 #                            and publicly reachable -- audited anyway, since
 #                            "no longer in the menu" isn't "no longer live")
 #
+# HUB_IDS and EXTRA_IDS below are a hardcoded snapshot from that manual
+# investigation (2026-08-11), not auto-discovered. This is a one-off audit
+# script, not a live-discovery crawler: a brand new archive hub added later
+# (e.g. a "Past Playoffs" section) would need a human to notice it and add
+# its id here. Re-run the enumeration commands above periodically -- ideally
+# right before each production cutover -- rather than trusting this list to
+# stay complete on its own.
+#
 # Known anomaly, included explicitly below: page 14114 ("Rosters | S2018")
 # appears in the nav under Past Rosters, but its own post_parent is 0, not
 # 2583 -- it lives at site root (/rosters-s2018/) rather than nested under
@@ -52,6 +69,15 @@
 # child of page 168). None of the archive hubs above are children of 168,
 # so that trap does not apply to any URL this script builds -- noted here
 # only so a future reader doesn't go looking for it.
+#
+# Page Links To: the three archive HUB pages themselves (2557/2583/3429)
+# have `_links_to` postmeta set (confirmed 2026-08-11 -- they're the nav's
+# non-clickable "#" dropdown triggers), but none of the 30 audited child
+# pages did at that time. If a child page ever gains `_links_to` metadata
+# later, its URL redirecting (301/302/307/308) is expected, not a bug --
+# LINKS_TO below is fetched fresh on every run precisely so that case
+# reads as an informational pass with a clear reason, not a confusing
+# false failure that sends someone hunting for a regression that isn't one.
 
 set -uo pipefail
 
@@ -61,27 +87,175 @@ BASE="${BASE:-https://staging.rookiehockey.ca}"
 HUB_IDS=(2557 2583 3429) # past-standings, past-rosters, past-stats
 EXTRA_IDS=(14114)        # root-level anomaly, see header comment above
 
-FAIL=0
-declare -a ROWS=()
+# Plausibility floors against a truncated fetch (dropped ssh connection,
+# WP-CLI warning corrupting the CSV mid-stream, etc.) silently shrinking the
+# audit instead of failing it. Today's real numbers: the raw page table is
+# 110 rows (109 pages + header); the derived archive-page target list is 30.
+# Both floors are set well below today's real count so routine content
+# growth/pruning never trips them, but a fetch that came back a fraction of
+# its real size will.
+MIN_PAGE_ROWS=100
+MIN_TARGET_PAGES=20
+
+# ---------------------------------------------------------------------------
+# Content checks (pure functions -- no network). Exercised offline by
+# --self-test below; keep these dependency-free so that mode never needs ssh.
+# ---------------------------------------------------------------------------
+
+# Detect a leaked PHP error/warning/notice/deprecated message. Tolerant of
+# both plain-text output (html_errors=Off) and HTML-wrapped output
+# (html_errors=On, the more common default wherever display_errors is also
+# on). PHP's html_errors formatter wraps the error class name AND the
+# trailing line number in <b>...</b> tags -- e.g.
+#   <b>Notice</b>:  Undefined variable $foo in <b>...</b> on line <b>42</b>
+# -- so a regex requiring digits immediately after literal "on line " (the
+# first version of this check) never matches that form: a genuine leaked
+# notice would register as "no PHP error", a vacuous pass. Strip HTML tags
+# before matching so both forms collapse to the same shape, then require the
+# full "ClassName: ... in FILE on line N" structure PHP always emits -- that
+# structure, not just the word "Notice" or "Warning" on its own, is what
+# keeps this from false-positiving on ordinary page prose (a "Cookie Notice"
+# plugin's own injected copy showed up during manual testing on these very
+# pages and does NOT match this pattern).
+has_php_error() {
+  local body="$1" detagged
+  detagged="$(sed -E 's/<[^>]+>//g' <<<"$body")"
+  grep -iEo '(Fatal error|Parse error|Warning|Notice|Deprecated): .*on line [0-9]+' <<<"$detagged"
+}
+
+# Detect any rookie-<token> in the raw body (class, id, hardcoded asset
+# path, whatever) -- broader than just class="...", see header comment.
+has_rookie_token() {
+  local body="$1"
+  grep -oiE 'rookie-[A-Za-z0-9_-]*' <<<"$body"
+}
+
+self_test() {
+  local failures=0 got
+
+  got="$(has_php_error 'Notice: Undefined variable: foo in /var/www/html/wp-content/themes/blueline/single.php on line 42')"
+  if [ -z "$got" ]; then
+    echo "SELF-TEST FAIL: plain-mode (html_errors=Off) PHP notice not detected" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: plain-mode PHP notice detected -> $got"
+  fi
+
+  got="$(has_php_error $'<br />\n<b>Notice</b>:  Undefined variable $foo in <b>/var/www/html/wp-content/themes/blueline/single.php</b> on line <b>42</b><br />\n')"
+  if [ -z "$got" ]; then
+    echo "SELF-TEST FAIL: html_errors=On PHP notice not detected -- this is the exact blind spot flagged in review" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: html_errors=On PHP notice detected -> $got"
+  fi
+
+  got="$(has_php_error '<p>Cookie Notice: We use cookies to improve your experience on this site.</p>')"
+  if [ -n "$got" ]; then
+    echo "SELF-TEST FAIL: false positive on benign 'Cookie Notice:' prose -> $got" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: benign 'Cookie Notice:' prose not flagged"
+  fi
+
+  got="$(has_rookie_token '<div class="bl-standings-table">See rookiehockey.ca for details</div>')"
+  if [ -n "$got" ]; then
+    echo "SELF-TEST FAIL: false positive on domain name 'rookiehockey' -> $got" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: domain name 'rookiehockey' not flagged as a rookie- token"
+  fi
+
+  got="$(has_rookie_token '<div class="rookie-standings-table">old markup</div>')"
+  if [ -z "$got" ]; then
+    echo "SELF-TEST FAIL: genuine rookie- class not detected" >&2
+    failures=$((failures + 1))
+  else
+    echo "SELF-TEST ok: genuine rookie- class detected -> $got"
+  fi
+
+  if [ "$failures" -eq 0 ]; then
+    echo "SELF-TEST: all fixtures behaved as expected"
+    return 0
+  fi
+  echo "SELF-TEST: $failures fixture(s) failed" >&2
+  return 1
+}
+
+if [ "${1:-}" = "--self-test" ]; then
+  self_test
+  exit $?
+fi
+
+# ---------------------------------------------------------------------------
+# Fetch phase: page list + Page Links To membership. Fails loudly (non-zero,
+# clear message) rather than silently auditing a shrunk list.
+# ---------------------------------------------------------------------------
 
 fetch_pages() {
   ssh -p "$SSH_PORT" "$SSH_HOST" \
-    "swp post list --post_type=page --posts_per_page=200 --format=csv --fields=ID,post_name,post_parent,post_status" \
-    2>/dev/null
+    "swp post list --post_type=page --posts_per_page=200 --format=csv --fields=ID,post_name,post_parent,post_status"
 }
 
+fetch_links_to_ids() {
+  ssh -p "$SSH_PORT" "$SSH_HOST" \
+    "swp post list --post_type=page --posts_per_page=200 --meta_key=_links_to --format=csv --field=ID"
+}
+
+STDERR_TMP="$(mktemp)"
+trap 'rm -f "$STDERR_TMP"' EXIT
+
+PAGE_CSV="$(fetch_pages 2>"$STDERR_TMP")"
+FETCH_STATUS=$?
+if [ "$FETCH_STATUS" -ne 0 ]; then
+  echo "FATAL: ssh/swp exited $FETCH_STATUS fetching the page list from $SSH_HOST" >&2
+  echo "--- remote stderr ---" >&2
+  cat "$STDERR_TMP" >&2
+  exit 2
+fi
+
+PAGE_ROW_COUNT="$(grep -c . <<<"$PAGE_CSV")"
+if [ "$PAGE_ROW_COUNT" -lt "$MIN_PAGE_ROWS" ]; then
+  echo "FATAL: fetched page table has only $PAGE_ROW_COUNT row(s) (want >= $MIN_PAGE_ROWS)." >&2
+  echo "       This looks like a truncated transfer (dropped ssh connection, WP-CLI" >&2
+  echo "       warning breaking the CSV mid-stream, etc.) -- refusing to silently" >&2
+  echo "       audit a smaller page list than the real site has." >&2
+  exit 2
+fi
+
 declare -A SLUG=() PARENT=() STATUS=()
+PARSE_ERRORS=0
 while IFS=, read -r id name parent status; do
+  [ -z "$id" ] && continue
   [ "$id" = "ID" ] && continue
+  if ! [[ "$id" =~ ^[0-9]+$ ]]; then
+    echo "WARN: unparseable page-list row (non-numeric id): '$id,$name,$parent,$status'" >&2
+    PARSE_ERRORS=$((PARSE_ERRORS + 1))
+    continue
+  fi
   SLUG["$id"]="$name"
   PARENT["$id"]="$parent"
   STATUS["$id"]="$status"
-done < <(fetch_pages)
+done <<<"$PAGE_CSV"
 
-if [ "${#SLUG[@]}" -eq 0 ]; then
-  echo "FATAL: could not fetch page list from $SSH_HOST (ssh/swp failed)" >&2
+if [ "$PARSE_ERRORS" -gt 0 ]; then
+  echo "FATAL: $PARSE_ERRORS page-list row(s) failed to parse as 'ID,name,parent,status'." >&2
+  echo "       A stray WP-CLI warning printed to stdout likely corrupted the CSV --" >&2
+  echo "       refusing to audit a possibly-incomplete list." >&2
   exit 2
 fi
+
+if [ "${#SLUG[@]}" -eq 0 ]; then
+  echo "FATAL: parsed zero pages from $SSH_HOST (ssh/swp failed silently?)" >&2
+  exit 2
+fi
+
+declare -A LINKS_TO=()
+LINKS_TO_CSV="$(fetch_links_to_ids 2>/dev/null || true)"
+while IFS= read -r id; do
+  [ -z "$id" ] && continue
+  [ "$id" = "ID" ] && continue
+  LINKS_TO["$id"]=1
+done <<<"$LINKS_TO_CSV"
 
 # Walk post_parent to the root, joining post_name slugs -- never get_permalink().
 resolve_path() {
@@ -126,11 +300,26 @@ done
 # Stable, numeric sort so re-runs diff cleanly.
 mapfile -t TARGET_IDS < <(printf '%s\n' "${TARGET_IDS[@]}" | sort -n -u)
 
+if [ "${#TARGET_IDS[@]}" -lt "$MIN_TARGET_PAGES" ]; then
+  echo "FATAL: derived target list has only ${#TARGET_IDS[@]} page(s) (want >= $MIN_TARGET_PAGES)." >&2
+  echo "       The raw page table passed its own floor, but the archive-page list" >&2
+  echo "       derived from it did not -- refusing to audit a shrunk target list." >&2
+  exit 2
+fi
+
+# ---------------------------------------------------------------------------
+# Per-page checks. Aggregates every result before reporting; never exits
+# early on an individual failure.
+# ---------------------------------------------------------------------------
+
+FAIL=0
+declare -a ROWS=()
+
 check_page() {
   local id="$1" path url response body code rookie_hit php_hit
 
   path="$(resolve_path "$id")" || {
-    ROWS+=("FAIL|$id|-|path-resolve-error|-")
+    ROWS+=("FAIL|$id|-|-|path-resolve-error")
     FAIL=1
     return
   }
@@ -138,7 +327,7 @@ check_page() {
 
   response="$(curl -sS --max-time 30 -w '\n%{http_code}' "$url" 2>/dev/null)"
   if [ -z "$response" ]; then
-    ROWS+=("FAIL|$id|$path|curl-error|-")
+    ROWS+=("FAIL|$id|$path|-|curl-error")
     FAIL=1
     return
   fi
@@ -146,13 +335,21 @@ check_page() {
   body="${response%$'\n'*}"
 
   if [ "$code" != "200" ]; then
+    case "$code" in
+      301 | 302 | 307 | 308)
+        if [ -n "${LINKS_TO[$id]:-}" ]; then
+          ROWS+=("PASS|$id|$path|$code|links-to-redirect (Page Links To meta present -- expected)")
+          return
+        fi
+        ;;
+    esac
     ROWS+=("FAIL|$id|$path|HTTP $code|-")
     FAIL=1
     return
   fi
 
-  rookie_hit="$(grep -oiE 'rookie-[A-Za-z0-9_-]*' <<<"$body" | sort -u | paste -sd, -)"
-  php_hit="$(grep -iEo '(Fatal error|Parse error|Warning|Notice|Deprecated): .*on line [0-9]+' <<<"$body" | sort -u | paste -sd, -)"
+  rookie_hit="$(has_rookie_token "$body" | sort -u | paste -sd, -)"
+  php_hit="$(has_php_error "$body" | sort -u | paste -sd, -)"
 
   if [ -n "$rookie_hit" ] || [ -n "$php_hit" ]; then
     local detail=""
