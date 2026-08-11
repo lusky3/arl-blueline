@@ -27,3 +27,4 @@ require_once BLUELINE_DIR . '/inc/template-tags.php';
 require_once BLUELINE_DIR . '/inc/season-state.php';
 require_once BLUELINE_DIR . '/inc/homepage-modules.php';
 require_once BLUELINE_DIR . '/inc/sportspress.php';
+require_once BLUELINE_DIR . '/inc/woocommerce.php';

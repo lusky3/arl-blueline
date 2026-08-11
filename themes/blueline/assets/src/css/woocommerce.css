@@ -1,0 +1,560 @@
+/*
+ * Blueline -- WooCommerce restyle (Task 9).
+ *
+ * Task 9 is a PORT, not a redesign: the markup in woocommerce/ is copied
+ * unchanged from production (see the Task 9 report for the md5 proof), so
+ * everything below styles WooCommerce's own generic/stock class names and
+ * HTML elements -- never a hard-coded field id. In particular the ~16
+ * woocommerce-checkout-field-editor-pro fields rendered inside
+ * #customer_details use the exact same woocommerce_form_field() markup
+ * (.form-row, .input-text, <select>, <textarea>, .required) as every other
+ * checkout field, so styling those generic selectors covers all of them
+ * without ever naming a field. Do not add per-field selectors here.
+ *
+ * Buttons: WooCommerce's own buttons (.button, #place_order, the coupon
+ * "Apply coupon" button, quantity/add-to-cart) render as a single
+ * <button>/<a> with no inner node to counter-skew -- the same shape
+ * blocks.css's .wp-block-button__link already hit and deliberately did NOT
+ * skew (see that file's comment). Skewing the whole element would rotate
+ * its :focus-visible ring as well as the label, which the project has
+ * already rejected once for that reason. These follow that same, already-
+ * reviewed precedent: same on-brand button language (ink fill, paper text,
+ * heavy italic caps), kept upright.
+ *
+ * A handful of selectors below target #place_order/#order_review_heading:
+ * WooCommerce core hard-codes those ids in the (unmodified) stock templates
+ * this theme does not override, so they can't be renamed to kebab-case
+ * without changing ported markup -- out of scope for a port. Each is
+ * annotated with a scoped stylelint-disable for selector-id-pattern only.
+ */
+
+/* ---------------------------------------------------------------------
+ * Notices -- woocommerce-message (success), woocommerce-error,
+ * woocommerce-info, plus the woocommerce-notice/--success/--error
+ * variants used by the ported checkout/thankyou.php.
+ * ------------------------------------------------------------------- */
+
+.woocommerce-message,
+.woocommerce-error,
+.woocommerce-info,
+.woocommerce-noreviews,
+.woocommerce-notice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-3);
+	margin: 0 0 var(--bl-space-5);
+	padding: var(--bl-space-4) var(--bl-space-5);
+	list-style: none;
+	background: var(--bl-white);
+	border: 1px solid var(--bl-border);
+	border-inline-start: 4px solid var(--bl-steel);
+	border-radius: var(--bl-radius-card);
+	color: var(--bl-ink);
+}
+
+.woocommerce-error li {
+	list-style: none;
+	color: var(--bl-danger);
+}
+
+.woocommerce-message,
+.woocommerce-notice--success {
+	border-inline-start-color: var(--bl-success);
+}
+
+.woocommerce-error,
+.woocommerce-notice--error {
+	border-inline-start-color: var(--bl-danger);
+}
+
+/* --bl-ice is fill-only (1.94:1); navy text on top keeps this AA. */
+.woocommerce-info {
+	background: var(--bl-ice);
+	border-inline-start-color: var(--bl-steel);
+	color: var(--bl-ink);
+}
+
+.woocommerce-message a.button,
+.woocommerce-error a.button,
+.woocommerce-info a.button,
+.woocommerce-notice a.button {
+	margin-inline-start: auto;
+}
+
+/* ---------------------------------------------------------------------
+ * Shared button language -- see file-level comment on why these stay
+ * upright rather than taking the .bl-btn skew treatment, and on the
+ * #place_order stylelint-disable below.
+ * ------------------------------------------------------------------- */
+
+.woocommerce a.button,
+.woocommerce button.button,
+.woocommerce input.button,
+.woocommerce #respond input#submit,
+.woocommerce-page a.button,
+.woocommerce-page button.button,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order {
+	display: inline-block;
+	padding: var(--bl-space-3) var(--bl-space-5);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-size: var(--bl-text-base);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	text-decoration: none;
+	border: 0;
+	border-radius: var(--bl-radius);
+	cursor: pointer;
+}
+
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order {
+	width: 100%;
+	margin-block-start: var(--bl-space-4);
+	font-size: var(--bl-text-lg);
+}
+
+.woocommerce a.button.alt,
+.woocommerce button.button.alt {
+	background: var(--bl-ink);
+}
+
+.woocommerce a.button:hover,
+.woocommerce a.button:focus-visible,
+.woocommerce button.button:hover,
+.woocommerce button.button:focus-visible,
+.woocommerce input.button:hover,
+.woocommerce input.button:focus-visible,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:hover,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:focus-visible {
+	background: var(--bl-ink-mid);
+	color: var(--bl-paper);
+}
+
+.woocommerce a.button:disabled,
+.woocommerce button.button:disabled,
+.woocommerce button.button.disabled,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------
+ * Form fields -- shared by the checkout's ~16 Checkout Field Editor Pro
+ * fields (styled purely by these generic selectors, per the file-level
+ * comment) and the cart/checkout coupon fields.
+ * ------------------------------------------------------------------- */
+
+.woocommerce .input-text,
+.woocommerce select,
+.woocommerce textarea {
+	width: 100%;
+	padding: var(--bl-space-3);
+	background: var(--bl-white);
+	color: var(--bl-ink);
+	border: 1px solid var(--bl-border-strong);
+	border-radius: var(--bl-radius);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-base);
+}
+
+.woocommerce .select2-container .select2-selection--single {
+	height: auto;
+	padding: var(--bl-space-3);
+	border: 1px solid var(--bl-border-strong);
+	border-radius: var(--bl-radius);
+}
+
+.woocommerce .woocommerce-invalid .input-text,
+.woocommerce .woocommerce-invalid select,
+.woocommerce .woocommerce-invalid textarea {
+	border-color: var(--bl-danger);
+}
+
+.woocommerce .woocommerce-input-wrapper .woocommerce-invalid-required-field {
+	color: var(--bl-danger);
+	font-size: var(--bl-text-sm);
+}
+
+.woocommerce .form-row {
+	margin: 0 0 var(--bl-space-4);
+}
+
+.woocommerce .form-row label {
+	display: block;
+	margin-block-end: var(--bl-space-2);
+	color: var(--bl-ink);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+.woocommerce .form-row label .required {
+	color: var(--bl-danger);
+	text-decoration: none;
+}
+
+.woocommerce .form-row label .optional {
+	color: var(--bl-ink-mid);
+	font-weight: 400;
+}
+
+/* ---------------------------------------------------------------------
+ * Product archive (registration listing).
+ * ------------------------------------------------------------------- */
+
+.woocommerce ul.products {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: var(--bl-space-6);
+	margin: 0 0 var(--bl-space-7);
+	padding: 0;
+	list-style: none;
+}
+
+.woocommerce ul.products li.product {
+	padding: var(--bl-space-5);
+	background: var(--bl-white);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+}
+
+.woocommerce ul.products li.product a {
+	display: block;
+	color: inherit;
+	text-decoration: none;
+}
+
+.woocommerce ul.products li.product img {
+	display: block;
+	margin-block-end: var(--bl-space-4);
+	border-radius: var(--bl-radius);
+}
+
+.woocommerce ul.products li.product .woocommerce-loop-product__title {
+	margin: 0 0 var(--bl-space-2);
+	font-size: var(--bl-text-lg);
+}
+
+.woocommerce ul.products li.product .price {
+	display: block;
+	margin-block-end: var(--bl-space-4);
+	color: var(--bl-ink);
+	font-weight: 700;
+}
+
+.woocommerce ul.products li.product .price del {
+	margin-inline-end: var(--bl-space-2);
+	color: var(--bl-ink-mid);
+	text-decoration: line-through;
+	opacity: 0.7;
+}
+
+.woocommerce ul.products li.product .price ins {
+	color: var(--bl-success);
+	text-decoration: none;
+}
+
+/* ---------------------------------------------------------------------
+ * Single product (the registration page itself).
+ * ------------------------------------------------------------------- */
+
+.woocommerce div.product {
+	display: grid;
+	gap: var(--bl-space-7);
+}
+
+@media (min-width: 780px) {
+
+	.woocommerce div.product.has-woocommerce-product-gallery {
+		grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+		align-items: start;
+	}
+}
+
+.woocommerce div.product .product_title {
+	margin-block-start: 0;
+}
+
+.woocommerce div.product p.price,
+.woocommerce div.product span.price {
+	color: var(--bl-ink);
+	font-size: var(--bl-text-xl);
+	font-weight: 700;
+}
+
+.woocommerce div.product .woocommerce-product-details__short-description {
+	color: var(--bl-ink-mid);
+}
+
+.woocommerce div.product form.cart {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-4);
+	margin-block: var(--bl-space-5);
+}
+
+.woocommerce div.product form.cart .quantity {
+	margin: 0;
+}
+
+.woocommerce div.product .quantity .qty {
+	width: 4.5em;
+	padding: var(--bl-space-2) var(--bl-space-3);
+}
+
+.woocommerce div.product .product_meta {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+/* ---------------------------------------------------------------------
+ * Tables shared by cart, checkout order review, and the My Account
+ * store-credit/refund-request partials (dashboard.php itself is replaced
+ * wholesale in Task 12).
+ * ------------------------------------------------------------------- */
+
+.woocommerce table.shop_table,
+.woocommerce-MyAccount-content table.shop_table,
+.my_account_orders {
+	width: 100%;
+	border-collapse: collapse;
+	margin-block-end: var(--bl-space-6);
+	background: var(--bl-white);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.woocommerce table.shop_table th,
+.woocommerce table.shop_table td {
+	padding: var(--bl-space-4);
+	border-bottom: 1px solid var(--bl-border);
+	text-align: start;
+}
+
+.woocommerce table.shop_table thead th {
+	background: var(--bl-paper);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.woocommerce table.shop_table tfoot th,
+.woocommerce table.shop_table tr.order-total th,
+.woocommerce table.shop_table tr.order-total td {
+	font-weight: 700;
+}
+
+.woocommerce table.shop_table tbody tr:last-child td,
+.woocommerce table.shop_table tfoot tr:last-child th,
+.woocommerce table.shop_table tfoot tr:last-child td {
+	border-bottom: 0;
+}
+
+.woocommerce table.shop_table td.product-thumbnail img {
+	width: 64px;
+	height: auto;
+	border-radius: var(--bl-radius);
+}
+
+.woocommerce table.shop_table td.product-remove a.remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.75em;
+	height: 1.75em;
+	color: var(--bl-danger);
+	text-decoration: none;
+	border: 1px solid currentcolor;
+	border-radius: 50%;
+}
+
+.woocommerce table.shop_table td.product-remove a.remove:hover,
+.woocommerce table.shop_table td.product-remove a.remove:focus-visible {
+	background: var(--bl-danger);
+	color: var(--bl-white);
+}
+
+/* ---------------------------------------------------------------------
+ * Cart.
+ * ------------------------------------------------------------------- */
+
+.woocommerce .cart_totals,
+.woocommerce-page .cart_totals {
+	max-width: 28rem;
+	margin-inline-start: auto;
+	padding: var(--bl-space-5);
+	background: var(--bl-paper);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.woocommerce .cart_totals table.shop_table {
+	background: transparent;
+	border: 0;
+}
+
+.woocommerce .wc-proceed-to-checkout {
+	margin-block-start: var(--bl-space-5);
+}
+
+.woocommerce .wc-proceed-to-checkout a.checkout-button {
+	display: block;
+	text-align: center;
+}
+
+.woocommerce .cart-collaterals {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--bl-space-6);
+}
+
+.woocommerce table.cart td.actions .coupon {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-3);
+}
+
+.woocommerce table.cart td.actions .coupon .input-text {
+	width: auto;
+	min-width: 12em;
+}
+
+/* ---------------------------------------------------------------------
+ * Checkout -- form-checkout.php's col2-set/#customer_details, the coupon
+ * and login toggles, and #order_review.
+ * ------------------------------------------------------------------- */
+
+.woocommerce-checkout .col2-set {
+	display: grid;
+	gap: var(--bl-space-7);
+}
+
+@media (min-width: 780px) {
+
+	.woocommerce-checkout .col2-set {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.woocommerce-checkout h3 {
+	margin-block-end: var(--bl-space-4);
+}
+
+/* stylelint-disable-next-line selector-id-pattern */
+.woocommerce-checkout #order_review_heading {
+	margin-block-end: var(--bl-space-4);
+	font-size: var(--bl-text-xl);
+}
+
+.woocommerce-checkout .create-account {
+	margin-block-start: var(--bl-space-3);
+}
+
+.woocommerce-form-coupon-toggle,
+.woocommerce-form-login-toggle {
+	margin-block-end: var(--bl-space-5);
+}
+
+.woocommerce-form-coupon,
+.woocommerce-form-login {
+	padding: var(--bl-space-5);
+	margin-block-end: var(--bl-space-5);
+	background: var(--bl-paper);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.woocommerce-form-coupon .form-row,
+.woocommerce-form-login .form-row {
+	margin-block-end: var(--bl-space-3);
+}
+
+.woocommerce-checkout-review-order-table {
+	margin-block-end: var(--bl-space-5);
+}
+
+#payment {
+	margin-block-start: var(--bl-space-5);
+	background: var(--bl-paper);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+#payment .wc_payment_methods {
+	margin: 0;
+	padding: var(--bl-space-4);
+	list-style: none;
+}
+
+#payment .wc_payment_method {
+	padding-block: var(--bl-space-2);
+	border-bottom: 1px solid var(--bl-border);
+}
+
+#payment .wc_payment_method:last-child {
+	border-bottom: 0;
+}
+
+#payment .payment_box {
+	padding: var(--bl-space-3) 0 0 var(--bl-space-6);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+#payment .form-row {
+	margin-block-start: var(--bl-space-4);
+}
+
+.woocommerce-terms-and-conditions-wrapper {
+	margin-block: var(--bl-space-4);
+}
+
+.woocommerce-privacy-policy-text {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+/* ---------------------------------------------------------------------
+ * Thank-you / order-received.
+ * ------------------------------------------------------------------- */
+
+.woocommerce-order {
+	padding: var(--bl-space-6);
+	background: var(--bl-white);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+}
+
+.woocommerce-order-overview {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bl-space-3) var(--bl-space-7);
+	margin: var(--bl-space-5) 0;
+	padding: 0;
+	list-style: none;
+}
+
+.woocommerce-order-overview li {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+.woocommerce-order-overview li strong {
+	display: block;
+	margin-block-start: var(--bl-space-1);
+	color: var(--bl-ink);
+	font-size: var(--bl-text-base);
+}
