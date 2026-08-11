@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Deploy themes/blueline to staging or production.
+#   ./scripts/deploy-theme.sh staging
+#   ./scripts/deploy-theme.sh production   (asks for confirmation)
+set -euo pipefail
+
+TARGET="${1:-}"
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/themes/blueline/"
+
+case "$TARGET" in
+  staging)
+    HOST="root@staging-host.example"; PORT=SSH_PORT
+    DEST="/var/lib/docker/volumes/staging_wp_data/_data/wp-content/themes/blueline/"
+    ;;
+  production)
+    HOST="root@production-host.example"; PORT=SSH_PORT
+    DEST="/var/www/rookiehockey.ca/htdocs/wp-content/themes/blueline/"
+    read -r -p "Deploy to PRODUCTION? type 'yes': " c; [ "$c" = "yes" ] || { echo "aborted"; exit 1; }
+    ;;
+  *) echo "usage: $0 {staging|production}" >&2; exit 2 ;;
+esac
+
+ssh -p "$PORT" "$HOST" "mkdir -p '$DEST'"
+rsync -az --delete -e "ssh -p $PORT" \
+  --exclude node_modules --exclude vendor --exclude tests \
+  --exclude .git --exclude '*.map' \
+  "$SRC" "$HOST:$DEST"
+ssh -p "$PORT" "$HOST" "chown -R 33:33 '$DEST'"
+echo "deployed $TARGET"
