@@ -247,12 +247,47 @@ function blueline_leaf_mark( $extra_class = '' ) {
 }
 
 /**
+ * Header CTA content, driven by Season State (Task 6/7): "Register to Play"
+ * with the ice fill only while a real registration is open AND its product
+ * is purchasable right now, re-checked live rather than trusting a possibly
+ * up-to-15-minutes-stale cached state alone -- a Register button must never
+ * point at a product that has since sold out or been unpublished. Every
+ * other state shows "Schedule" with the ice fill dropped. Mirrors the same
+ * live re-check inc/homepage-modules.php uses for the homepage hero's own
+ * Register CTA, for the same reason.
+ *
+ * @return array{label: string, url: string, class: string}
+ */
+function blueline_header_cta(): array {
+	$state      = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
+	$state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+
+	$show_register = 'registration_open' === $state
+		&& function_exists( 'blueline_homepage_registration_offer' )
+		&& null !== blueline_homepage_registration_offer( $state_data );
+
+	if ( $show_register ) {
+		return array(
+			'label' => __( 'Register to Play', 'blueline' ),
+			'url'   => home_url( '/register' ),
+			'class' => 'bl-btn--primary',
+		);
+	}
+
+	return array(
+		'label' => __( 'Schedule', 'blueline' ),
+		'url'   => home_url( '/schedule' ),
+		'class' => 'bl-btn--secondary',
+	);
+}
+
+/**
  * Output the site header: skip link, navy bar (logo, primary nav, sponsors
- * placeholder, Register CTA, mobile toggle), then the paired blue-line
+ * placeholder, season-aware CTA, mobile toggle), then the paired blue-line
  * bands that separate the header from the paper-white content body.
  */
 function blueline_site_header() {
-	$register_url = home_url( '/register' );
+	$cta = blueline_header_cta();
 	?>
 	<a class="skip-link screen-reader-text" href="#main"><?php esc_html_e( 'Skip to main content', 'blueline' ); ?></a>
 
@@ -277,7 +312,7 @@ function blueline_site_header() {
 							'container'      => false,
 							'menu_id'        => 'bl-primary-menu',
 							'menu_class'     => 'bl-nav__menu',
-							'walker'         => new Blueline_Nav_Walker( $register_url ),
+							'walker'         => new Blueline_Nav_Walker( $cta['url'] ),
 							'fallback_cb'    => false,
 						)
 					);
@@ -302,8 +337,8 @@ function blueline_site_header() {
 						</nav>
 					<?php endif; ?>
 
-					<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( $register_url ); ?>">
-						<span class="bl-skew"><span><?php esc_html_e( 'Register to Play', 'blueline' ); ?></span></span>
+					<a class="bl-btn <?php echo esc_attr( $cta['class'] ); ?>" href="<?php echo esc_url( $cta['url'] ); ?>">
+						<span class="bl-skew"><span><?php echo esc_html( $cta['label'] ); ?></span></span>
 					</a>
 
 					<button type="button" class="bl-nav__toggle" aria-expanded="false" aria-controls="bl-primary-menu">

@@ -1,0 +1,266 @@
+/*
+ * Blueline — season-aware homepage (Task 7).
+ * The hero sits directly under the header's own blue-line bands, so its
+ * top padding is zeroed on .bl-main--homepage; the hero closes with its
+ * own paired bands before the paper-white module stack begins.
+ */
+
+.bl-main--homepage {
+	padding-block-start: 0;
+}
+
+/* Hero */
+
+.bl-hero {
+	position: relative;
+	overflow: hidden;
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+}
+
+.bl-hero__ring {
+	position: absolute;
+	top: 50%;
+	right: -60px;
+	width: 420px;
+	height: 420px;
+	transform: translateY(-50%);
+	color: var(--bl-ice);
+	opacity: 0.12;
+	pointer-events: none;
+}
+
+.bl-hero__inner {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bl-space-5);
+	padding-block: var(--bl-space-9) var(--bl-space-8);
+}
+
+.bl-hero__eyebrow {
+	margin: 0;
+}
+
+.bl-hero__eyebrow .bl-skew > span {
+	display: inline-flex;
+	padding: var(--bl-space-1) var(--bl-space-3);
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-sm);
+}
+
+.bl-hero__headline {
+	max-width: 20ch;
+	margin: 0;
+	color: var(--bl-paper);
+	font-size: var(--bl-text-4xl);
+}
+
+.bl-hero__highlight {
+	color: var(--bl-ice);
+}
+
+/*
+ * Secondary hero CTA on the dark hero ground -- every non-registration_open
+ * state shows a secondary-styled action here. Overrides only color/border
+ * on top of the shared .bl-btn--secondary defined for light backgrounds in
+ * layout.css; the header applies the same pattern for its own CTA in
+ * header.css.
+ */
+.bl-hero .bl-btn--secondary .bl-skew {
+	color: var(--bl-paper);
+	border-color: var(--bl-paper);
+}
+
+.bl-hero .bl-btn--secondary:hover .bl-skew,
+.bl-hero .bl-btn--secondary:focus-visible .bl-skew {
+	background: var(--bl-paper);
+	color: var(--bl-ink);
+}
+
+/* Modules */
+
+.bl-module {
+	padding-block: var(--bl-space-8);
+}
+
+.bl-module + .bl-module {
+	border-top: 1px solid var(--bl-border);
+}
+
+.bl-module--sponsors {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-module__header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bl-space-3);
+	margin-block-end: var(--bl-space-5);
+}
+
+.bl-module__title {
+	margin: 0;
+	font-size: var(--bl-text-2xl);
+}
+
+.bl-module__link {
+	white-space: nowrap;
+	font-weight: 600;
+	font-size: var(--bl-text-sm);
+}
+
+/* Empty state -- scoped, smaller than the page-level .bl-empty-state */
+
+.bl-module__empty {
+	max-width: 32rem;
+	padding-block: var(--bl-space-6);
+	text-align: center;
+}
+
+.bl-module__empty-mark {
+	width: 64px;
+	height: 64px;
+	margin-inline: auto;
+	margin-block-end: var(--bl-space-3);
+	color: var(--bl-ice);
+}
+
+.bl-module__empty-text {
+	margin: 0;
+	color: var(--bl-ink-mid);
+}
+
+/* new_here */
+
+.bl-new-here__list {
+	display: grid;
+	gap: var(--bl-space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-new-here__list li {
+	position: relative;
+	padding-inline-start: var(--bl-space-6);
+}
+
+.bl-new-here__list li::before {
+	content: "";
+	position: absolute;
+	top: 0.5em;
+	left: 0;
+	width: 10px;
+	height: 10px;
+	border: 2px solid var(--bl-steel);
+	border-radius: 50%;
+}
+
+/* next_games */
+
+.bl-next-games {
+	display: grid;
+	gap: var(--bl-space-4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-next-games__item {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--bl-space-1) var(--bl-space-3);
+	padding: var(--bl-space-4);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-next-games__date {
+	grid-column: 1 / -1;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.bl-next-games__title {
+	font-weight: 600;
+}
+
+.bl-next-games__venue {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	text-align: end;
+}
+
+/* latest_news */
+
+.bl-latest-news {
+	display: grid;
+	gap: var(--bl-space-4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-latest-news__item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bl-space-2);
+	padding-block-end: var(--bl-space-4);
+	border-bottom: 1px solid var(--bl-border);
+}
+
+.bl-latest-news__title {
+	color: var(--bl-ink);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.bl-latest-news__title:hover,
+.bl-latest-news__title:focus-visible {
+	color: var(--bl-accent-text);
+}
+
+.bl-latest-news__date {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	white-space: nowrap;
+}
+
+/* standings_snippet / sponsors -- SportsPress's own shortcode markup needs
+   only spacing/overflow guards here; its own CSS (enqueued site-wide by
+   SportsPress Pro) supplies the rest. */
+
+.bl-module--standings_snippet .bl-module__body {
+	overflow-x: auto;
+}
+
+.bl-module--sponsors .bl-module__body {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bl-space-5);
+	align-items: center;
+}
+
+@media (min-width: 700px) {
+
+	.bl-next-games__item {
+		grid-template-columns: 180px minmax(0, 1fr) auto;
+	}
+
+	.bl-next-games__date {
+		grid-column: auto;
+	}
+}

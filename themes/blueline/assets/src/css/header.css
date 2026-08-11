@@ -191,6 +191,25 @@
 	color: var(--bl-ink);
 }
 
+/*
+ * Secondary CTA on the header's dark ground -- Season State (Task 7) shows
+ * this instead of the primary Register button in every state but
+ * registration_open, per the brief's "drop the ice fill" rule. Overrides
+ * only color/border on top of the shared .bl-btn--secondary defined for
+ * light backgrounds in layout.css; the homepage hero applies the same
+ * pattern in homepage.css for its own dark ground.
+ */
+.bl-header .bl-btn--secondary .bl-skew {
+	color: var(--bl-paper);
+	border-color: var(--bl-paper);
+}
+
+.bl-header .bl-btn--secondary:hover .bl-skew,
+.bl-header .bl-btn--secondary:focus-visible .bl-skew {
+	background: var(--bl-paper);
+	color: var(--bl-ink);
+}
+
 @media (min-width: 880px) {
 
 	.bl-header__inner {
