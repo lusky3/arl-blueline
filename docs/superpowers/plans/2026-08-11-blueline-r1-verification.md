@@ -1129,3 +1129,78 @@ players, reachable purely through a form the attacker is supposed to be able to 
 the honest lesson of this branch: sixteen clean task reviews did not add up to a clean branch.
 All nine are fixed, each with evidence, and the gate set that would now catch them is committed
 rather than performed by hand.
+
+---
+
+## 16. Residual risks accepted at merge (controller adjudication)
+
+The fix wave in §14 was re-reviewed. One finding was incomplete and three items were raised
+that fall outside R1's scope. There is no second fix wave, so each is adjudicated here and
+carried as an explicit, accepted risk rather than silently dropped.
+
+### 16.1 ACCEPTED RISK — two-token identity claiming is still one click
+
+**This is the most important thing on this page.** §14.1 closed the *single-token* vector: a
+user could previously set a one-word billing name and be offered eight real players at a
+perfect 1.0 score. That is fixed and proven (8 → 0).
+
+It did **not** eliminate claiming by a knowledgeable attacker. To score 1.0 you now need a
+two-token subset of a target's normalised name, in any order, case-insensitive, accents and
+punctuation stripped. Player names are published on public roster and player pages. So the
+workflow is: read a public roster, pick an unlinked current-season player, set
+`billing_first_name` / `billing_last_name` at `/account/edit-address/`, claim. Partial
+knowledge suffices — `"John Smith"` matches `"John Robert Smith"` at 1.0.
+
+**Consequences if exploited:** the claimant sees that player's team, roster, jersey number,
+schedule and stats — all of which are already public on the SportsPress side — and the real
+player is then locked out with `already_linked` until an admin unlinks them. It is a nuisance
+and support-load problem, not a data-exposure or privilege-escalation one.
+
+**Why it is accepted for R1:** the durable fixes are design changes, not patches, and both
+belong in R2 —
+1. score against the **order's billing snapshot** (immutable, written at checkout) rather than
+   live user-editable billing meta; and/or
+2. notify the league on every successful claim, so a wrong claim is caught by a human rather
+   than by the displaced player complaining.
+
+The gate reduced this from "no knowledge required, eight targets at once" to "one named
+target, one at a time." That is a real reduction, and the remaining vector requires a
+logged-in account acting deliberately against a named person.
+
+**Do not read §14.1 as 'claiming is now safe'. Read it as 'the anonymous version is gone.'**
+
+### 16.2 ACCEPTED — single-token player names are permanently unclaimable via self-service
+
+The gate is symmetric, so an `sp_player` whose post title is a single word can never be
+offered as a candidate. Those players get the "we couldn't find your profile, contact the
+league" empty state forever. Deliberate, documented at `inc/account/dashboard.php:142-147`,
+and the correct trade — but it is a silent support path, and at least one such title exists.
+
+### 16.3 CORRECTION — the Store Credit disclosure in §14.3 is mis-stated
+
+§14.3 reports the block "renders empty" for staging user 2240 because
+`wc_store_credit_get_customer_coupons()` returns `[false]`. With that return value the shipped
+template's own `! empty( $coupons )` guard at `woocommerce/myaccount/dashboard-store-credit.php:14`
+is **true**, so it should render a heading and link, not nothing — unless the plugin guards
+earlier. Either way the defect is a dangling coupon in the plugin's own data and predates this
+branch; the hook restoration is proven independently. **Do not rely on §14.3's diagnosis** —
+investigate the coupon before cutover.
+
+### 16.4 FIXED HERE — stale runbook and a missed comment
+
+Two documentation defects the re-review caught, corrected directly since they are zero-risk
+and one was a genuine cutover hazard:
+
+- `docs/superpowers/plans/2026-08-11-blueline-r1.md` Task 13 Step 3 still carried the
+  **pre-inversion** avatar-migration commands. After §14.5 made that script report-by-default,
+  an operator following the old page would have run the bare command, seen a table, and
+  believed the migration had applied when it had only reported. Corrected in place, with the
+  `--user=` requirement and the real row count (10, not 11) recorded.
+- `themes/blueline/assets/src/css/account.css` still carried the retracted "~88%" figure and
+  its framing. §14.9 swept `.php` only.
+
+### 16.5 Not covered by the new smoke guards
+
+Anonymous `/account/store-credit` returns 200 (the login form) whether or not the nav points
+at the right slug, so §14.2's regression is caught by unit tests, **not** by
+`smoke-staging.sh`. A green 25/25 does not cover nav-href or `is-active` behaviour.

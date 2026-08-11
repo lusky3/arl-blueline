@@ -171,8 +171,16 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 }
 
 /* ---------------------------------------------------------------------
- * Claim card ("Is this you?") — the primary experience for the ~88% of
- * current-season players with no sp_user link (Task 11).
+ * Claim card ("Is this you?") — shown when the logged-in user has no
+ * sp_user link. About 84% of players registered for the CURRENT season
+ * are already linked (sportspress-player-registration links them at
+ * checkout), so this is the safety net for the remaining ~16% and for
+ * returning players whose historical records were never linked (Task 11).
+ *
+ * Do not size this from `sp_current_team`: that field is sticky ("last
+ * team ever rostered") and is set on ~95% of every player in the site's
+ * history, which is where the retracted "88% unlinked" figure came from.
+ * Real season membership lives in the `sp_season` taxonomy.
  * ------------------------------------------------------------------- */
 
 .bl-account-claim__intro {
