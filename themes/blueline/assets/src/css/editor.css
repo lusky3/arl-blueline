@@ -1,0 +1,141 @@
+@import "./fonts.css";
+
+/*
+ * Blueline — block editor canvas styles.
+ * Mirrors base.css/blocks.css typography and colour so the editor
+ * preview matches the front end. Enqueued only for the block editor
+ * (inc/enqueue.php: blueline_enqueue_editor_assets(), hooked to
+ * enqueue_block_editor_assets) -- never on the front end. That gating
+ * is unchanged here.
+ *
+ * Two things make this file different from blocks.css, both because the
+ * editor canvas renders in its own iframe document:
+ *   - :root custom properties from wp-admin's document don't cross into
+ *     an iframe, so blueline_enqueue_editor_assets() also enqueues
+ *     style.css (the --bl-* token source) as this stylesheet's
+ *     dependency; the block editor mirrors both enqueued stylesheets
+ *     into the canvas iframe.
+ *   - this theme has no add_theme_support('editor-styles'), so block
+ *     markup in the canvas has no .entry-content wrapper -- just bare
+ *     tags and .wp-block-* class names, which is what these selectors
+ *     target directly instead of blocks.css's `.entry-content …` scoping.
+ */
+
+body {
+	background: var(--bl-paper);
+	color: var(--bl-ink);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-base);
+	line-height: 1.7;
+}
+
+a {
+	color: var(--bl-accent-text);
+}
+
+h1,
+h2,
+h3,
+h4,
+.wp-block-heading:is(h1, h2, h3, h4) {
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	line-height: 0.92;
+}
+
+h5,
+h6,
+.wp-block-heading:is(h5, h6) {
+	font-family: var(--bl-font-body);
+	font-weight: 700;
+	font-style: normal;
+	text-transform: none;
+}
+
+h1.wp-block-heading,
+h2.wp-block-heading {
+	font-size: var(--bl-text-2xl);
+}
+
+h3.wp-block-heading {
+	font-size: var(--bl-text-xl);
+}
+
+h4.wp-block-heading {
+	font-size: var(--bl-text-lg);
+}
+
+/* List */
+.wp-block-list {
+	padding-inline-start: var(--bl-space-6);
+}
+
+/* Table */
+table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+th,
+td {
+	padding: var(--bl-space-2) var(--bl-space-3);
+	border: 1px solid var(--bl-border);
+	font-family: var(--bl-font-body);
+	font-variant-numeric: tabular-nums;
+	text-align: start;
+}
+
+thead th {
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+}
+
+/* Image */
+figcaption {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+/* Buttons -- see blocks.css for why these skip the skew device. */
+.wp-block-button__link {
+	display: inline-block;
+	padding: var(--bl-space-3) var(--bl-space-5);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+}
+
+.wp-block-button.is-style-outline .wp-block-button__link {
+	background: transparent;
+	color: var(--bl-ink);
+	border: 2px solid var(--bl-ink);
+}
+
+/* Separator */
+.wp-block-separator {
+	border: none;
+	border-top: 1px solid var(--bl-border-strong);
+}
+
+/* Quote -- italic body face, not the display face; see blocks.css. */
+.wp-block-quote {
+	border-inline-start: 4px solid var(--bl-ice);
+	padding-inline-start: var(--bl-space-5);
+	font-style: italic;
+	color: var(--bl-ink-mid);
+}
+
+.wp-block-quote cite {
+	color: var(--bl-ink);
+	font-style: normal;
+	font-size: var(--bl-text-sm);
+}

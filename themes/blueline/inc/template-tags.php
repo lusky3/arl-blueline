@@ -350,3 +350,63 @@ function blueline_site_footer() {
 	</footer>
 	<?php
 }
+
+/**
+ * Output a post's byline: category eyebrow, author and date.
+ *
+ * A no-op for anything other than the 'post' post type -- static Pages
+ * and future SportsPress entity types (Task 8) don't get a byline.
+ */
+function blueline_entry_meta() {
+	if ( 'post' !== get_post_type() ) {
+		return;
+	}
+
+	$categories_list = get_the_category_list( ', ' );
+	?>
+	<div class="bl-entry-meta">
+		<?php if ( $categories_list ) : ?>
+			<span class="bl-entry-meta__eyebrow">
+				<?php
+				// get_the_category_list() escapes each term name/link itself.
+				echo wp_kses_post( $categories_list );
+				?>
+			</span>
+		<?php endif; ?>
+
+		<span class="bl-entry-meta__byline">
+			<?php
+			printf(
+				/* translators: 1: post author name, 2: post date. */
+				esc_html__( 'By %1$s on %2$s', 'blueline' ),
+				'<span class="bl-entry-meta__author">' . esc_html( get_the_author() ) . '</span>',
+				'<time class="bl-entry-meta__date" datetime="' . esc_attr( get_the_date( DATE_W3C ) ) . '">' . esc_html( get_the_date() ) . '</time>'
+			);
+			?>
+		</span>
+	</div>
+	<?php
+}
+
+/**
+ * Output numbered pagination for an archive/search/blog-index query.
+ * Real <a> links (not JS-only) inside a labelled <nav>, per WCAG 2.2 AA.
+ */
+function blueline_pagination() {
+	$links = paginate_links(
+		array(
+			'prev_text' => '<span aria-hidden="true">&larr;</span> ' . __( 'Newer', 'blueline' ),
+			'next_text' => __( 'Older', 'blueline' ) . ' <span aria-hidden="true">&rarr;</span>',
+			'type'      => 'list',
+		)
+	);
+
+	if ( ! $links ) {
+		return;
+	}
+	?>
+	<nav class="bl-pagination" aria-label="<?php esc_attr_e( 'Posts navigation', 'blueline' ); ?>">
+		<?php echo wp_kses_post( $links ); ?>
+	</nav>
+	<?php
+}

@@ -118,12 +118,27 @@ function blueline_preload_fonts() {
 add_action( 'enqueue_block_editor_assets', 'blueline_enqueue_editor_assets' );
 /**
  * Enqueue editor-only styles so front-end visitors never load them.
+ *
+ * The editor canvas is a separate iframe document, so it does not inherit
+ * the --bl-* custom properties defined in style.css's :root just because
+ * they're loaded on the surrounding wp-admin page -- the same class of gap
+ * Task 4 found and fixed for the front end (style.css was never enqueued
+ * there either). Block editor mirrors stylesheets enqueued on this hook
+ * into its canvas iframe, so enqueueing the tokens here, as a dependency
+ * of editor.css, gets both into the iframe together.
  */
 function blueline_enqueue_editor_assets() {
 	wp_enqueue_style(
+		'blueline-tokens',
+		get_stylesheet_uri(),
+		array(),
+		blueline_stylesheet_version()
+	);
+
+	wp_enqueue_style(
 		'blueline-editor',
 		BLUELINE_URI . '/assets/dist/editor.css',
-		array(),
+		array( 'blueline-tokens' ),
 		blueline_dist_version( 'editor' )
 	);
 }

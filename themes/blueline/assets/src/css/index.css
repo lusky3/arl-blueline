@@ -1,5 +1,7 @@
 @import "./fonts.css";
 @import "./base.css";
+@import "./layout.css";
+@import "./blocks.css";
 @import "./header.css";
 @import "./nav.css";
 @import "./footer.css";

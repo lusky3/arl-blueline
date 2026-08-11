@@ -24,5 +24,8 @@ check /standings   200 -
 check /news        200 -
 check /account     "200|302" -
 check /nonexistent-page-xyz 404 -
+check /arl-league-info 200 -
+check /faqs 200 -
+check "/?s=hockey" 200 -
 
 exit $FAIL

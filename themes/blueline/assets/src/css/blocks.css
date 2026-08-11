@@ -1,0 +1,220 @@
+/*
+ * Blueline — Gutenberg block styles for page/post content.
+ *
+ * Scoped to `.entry-content` (the wrapper every content-*.php template
+ * puts around the_content()) so these rules only ever touch
+ * editor-authored blocks -- never SportsPress's own shortcode-rendered
+ * markup (Task 8) or the theme's own hand-written chrome, which live
+ * outside this wrapper or use their own class names entirely.
+ *
+ * Covers exactly the blocks this site's real pages use: paragraph,
+ * heading, list, table, image, columns, group, buttons, separator, quote.
+ * See assets/src/css/editor.css for the block-editor-canvas mirror of
+ * this file (different selectors -- no .entry-content wrapper exists
+ * inside the editor's iframe).
+ */
+
+.entry-content {
+	font-size: var(--bl-text-base);
+	line-height: 1.7;
+}
+
+.entry-content > * + * {
+	margin-block-start: var(--bl-space-5);
+}
+
+/* Paragraph -- core/paragraph has no wrapper class, the block IS the <p>. */
+.entry-content p {
+	margin: 0;
+}
+
+/* Heading -- core adds .wp-block-heading to core/heading since WP 6.3. */
+.entry-content .wp-block-heading {
+	margin-block-end: var(--bl-space-2);
+}
+
+.entry-content h1.wp-block-heading,
+.entry-content h2.wp-block-heading {
+	font-size: var(--bl-text-2xl);
+}
+
+.entry-content h3.wp-block-heading {
+	font-size: var(--bl-text-xl);
+}
+
+.entry-content h4.wp-block-heading {
+	font-size: var(--bl-text-lg);
+}
+
+/*
+ * h5/h6 stay out of the display face. base.css's global rule (and the
+ * "display face is for headings, eyebrows and buttons only" hard
+ * constraint) covers h1-h4; deep, fine-grained subheadings in long
+ * content pages read better as a plain bold body weight than another
+ * layer of heavy italic caps.
+ */
+.entry-content h5.wp-block-heading,
+.entry-content h6.wp-block-heading {
+	font-family: var(--bl-font-body);
+	font-weight: 700;
+	font-style: normal;
+	text-transform: none;
+	color: var(--bl-ink);
+}
+
+/* List */
+.entry-content .wp-block-list {
+	padding-inline-start: var(--bl-space-6);
+}
+
+.entry-content .wp-block-list li + li {
+	margin-block-start: var(--bl-space-2);
+}
+
+.entry-content .wp-block-list :where(ul, ol) {
+	margin-block-start: var(--bl-space-2);
+}
+
+/* Table -- core/table wraps the <table> in <figure class="wp-block-table">. */
+.entry-content .wp-block-table {
+	overflow-x: auto;
+}
+
+.entry-content .wp-block-table table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.entry-content .wp-block-table th,
+.entry-content .wp-block-table td {
+	padding: var(--bl-space-2) var(--bl-space-3);
+	border: 1px solid var(--bl-border);
+	text-align: start;
+}
+
+.entry-content .wp-block-table thead th {
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	letter-spacing: 0.01em;
+}
+
+.entry-content .wp-block-table.is-style-stripes tbody tr:nth-child(odd) {
+	background: var(--bl-surface);
+}
+
+.entry-content .wp-block-table figcaption {
+	margin-block-start: var(--bl-space-2);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+/* Image */
+.entry-content .wp-block-image {
+	margin: 0;
+}
+
+.entry-content .wp-block-image img {
+	display: block;
+}
+
+.entry-content .wp-block-image figcaption {
+	margin-block-start: var(--bl-space-2);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	text-align: center;
+}
+
+/* Columns */
+.entry-content .wp-block-columns {
+	gap: var(--bl-space-6);
+}
+
+/* Group */
+.entry-content .wp-block-group.has-background {
+	padding: var(--bl-space-5);
+}
+
+/*
+ * Buttons -- on-brand fill/type, without the skew device. The skew hard
+ * constraint requires skewing a container while counter-skewing an inner
+ * text node and putting the focus ring on the un-skewed parent; a block
+ * button is a single <a class="wp-block-button__link"> with no such inner
+ * structure, so skewing it directly would put the transform and the focus
+ * ring on the same element. Kept upright but unmistakably the same
+ * button language: ink fill, paper text, heavy italic caps.
+ */
+.entry-content .wp-block-buttons {
+	gap: var(--bl-space-3);
+}
+
+.entry-content .wp-block-button__link {
+	display: inline-block;
+	padding: var(--bl-space-3) var(--bl-space-5);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	text-decoration: none;
+	border-radius: var(--bl-radius);
+}
+
+.entry-content .wp-block-button__link:hover,
+.entry-content .wp-block-button__link:focus-visible {
+	background: var(--bl-ink-mid);
+}
+
+.entry-content .wp-block-button.is-style-outline .wp-block-button__link {
+	background: transparent;
+	color: var(--bl-ink);
+	border: 2px solid var(--bl-ink);
+}
+
+/* Separator */
+.entry-content .wp-block-separator {
+	border: none;
+	border-top: 1px solid var(--bl-border-strong);
+	margin-block: var(--bl-space-6);
+}
+
+.entry-content .wp-block-separator.is-style-dots {
+	border: none;
+	text-align: center;
+	line-height: 1;
+}
+
+.entry-content .wp-block-separator.is-style-dots::before {
+	content: "\00b7 \00b7 \00b7";
+	color: var(--bl-steel);
+	font-size: var(--bl-text-xl);
+	letter-spacing: var(--bl-space-2);
+}
+
+/*
+ * Quote -- italic Inter (the body face), deliberately not the display
+ * face: this is quoted prose, not a heading/eyebrow/button.
+ */
+.entry-content .wp-block-quote {
+	margin: 0;
+	padding-inline-start: var(--bl-space-5);
+	border-inline-start: 4px solid var(--bl-ice);
+	font-style: italic;
+	color: var(--bl-ink-mid);
+}
+
+.entry-content .wp-block-quote p {
+	margin: 0;
+}
+
+.entry-content .wp-block-quote cite {
+	display: block;
+	margin-block-start: var(--bl-space-2);
+	color: var(--bl-ink);
+	font-style: normal;
+	font-size: var(--bl-text-sm);
+}

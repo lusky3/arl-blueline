@@ -1,0 +1,495 @@
+/*
+ * Blueline — page/post template layout.
+ * Content area + optional sidebar, entry chrome (title/meta/thumbnail),
+ * post teaser cards, pagination, comments, empty states (search/archive/
+ * 404) and default widget-area styling.
+ */
+
+/*
+ * This file is a set of independent, uniquely-classed components
+ * (.bl-entry, .bl-post-card, .bl-comments, .bl-pagination, ...) that all
+ * happen to style the same bare tags (a, img, li) at equal (0,1,1)
+ * specificity; none of their ancestors overlap, so there's no real
+ * cascade conflict for reordering to fix.
+ */
+/* stylelint-disable no-descending-specificity */
+
+.bl-main {
+	display: block;
+	padding-block: var(--bl-space-7) var(--bl-space-8);
+}
+
+/*
+ * Single column by default; two columns once a sidebar widget area
+ * actually has content. Templates only add --has-sidebar when
+ * is_active_sidebar('sidebar-1') is true, so an empty widget area never
+ * reserves a phantom column.
+ */
+.bl-content-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--bl-space-8);
+}
+
+@media (min-width: 960px) {
+
+	.bl-content-layout--has-sidebar {
+		grid-template-columns: minmax(0, 1fr) 300px;
+		align-items: start;
+	}
+}
+
+.bl-content-layout__primary {
+	min-width: 0;
+}
+
+/*
+ * Comments -- placed early in the cascade (before Sidebar/Pagination
+ * below) so their lower-specificity `li`/`a` selectors aren't read as
+ * unintentionally overriding those unrelated, higher-specificity ones.
+ */
+
+.bl-comments {
+	margin-block-start: var(--bl-space-8);
+	padding-block-start: var(--bl-space-6);
+	border-top: 1px solid var(--bl-border);
+}
+
+.bl-comments__title {
+	margin-block-end: var(--bl-space-4);
+}
+
+.bl-comments__nav {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--bl-space-3);
+	margin-block-end: var(--bl-space-4);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-comments__list,
+.bl-comments__list ul.children {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bl-comments__list ul.children {
+	padding-inline-start: var(--bl-space-6);
+}
+
+.bl-comments__list > li {
+	padding-block: var(--bl-space-4);
+	border-top: 1px solid var(--bl-border);
+}
+
+.bl-comments__list .comment-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bl-space-2);
+}
+
+.bl-comments__list .comment-author img {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	vertical-align: middle;
+	margin-inline-end: var(--bl-space-2);
+}
+
+.bl-comments__list .fn {
+	font-style: normal;
+	font-weight: 700;
+}
+
+.bl-comments__list .comment-metadata {
+	font-size: var(--bl-text-xs);
+	color: var(--bl-ink-mid);
+}
+
+.bl-comments__list .comment-metadata a {
+	color: inherit;
+}
+
+.bl-comments__list .reply a {
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+.bl-comments__closed {
+	color: var(--bl-ink-mid);
+}
+
+.bl-comments .comment-form p {
+	margin-block-end: var(--bl-space-4);
+}
+
+.bl-comments .comment-form label {
+	display: block;
+	margin-block-end: var(--bl-space-1);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+.bl-comments .comment-form input[type="text"],
+.bl-comments .comment-form input[type="email"],
+.bl-comments .comment-form input[type="url"],
+.bl-comments .comment-form textarea {
+	width: 100%;
+	padding: var(--bl-space-2) var(--bl-space-3);
+	border: 1px solid var(--bl-border-strong);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-base);
+	color: var(--bl-ink);
+	background: var(--bl-white);
+}
+
+.bl-comments .comment-form input[type="text"]:focus-visible,
+.bl-comments .comment-form input[type="email"]:focus-visible,
+.bl-comments .comment-form input[type="url"]:focus-visible,
+.bl-comments .comment-form textarea:focus-visible {
+	outline: var(--bl-focus);
+	outline-offset: var(--bl-focus-offset);
+}
+
+.bl-comments .comment-form .submit {
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border: 2px solid var(--bl-ink);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	cursor: pointer;
+}
+
+.bl-comments .comment-form .submit:hover,
+.bl-comments .comment-form .submit:focus-visible {
+	background: var(--bl-ink-mid);
+	border-color: var(--bl-ink-mid);
+}
+
+/* Sidebar widgets */
+
+.bl-sidebar .widget + .widget {
+	margin-block-start: var(--bl-space-6);
+}
+
+.bl-sidebar .widget-title {
+	margin-block: 0 var(--bl-space-3);
+	font-size: var(--bl-text-lg);
+}
+
+.bl-sidebar ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bl-sidebar li + li {
+	margin-block-start: var(--bl-space-2);
+}
+
+/* Entry chrome (single post/page/entity) */
+
+.bl-entry__thumbnail {
+	margin-block-end: var(--bl-space-5);
+}
+
+.bl-entry__thumbnail img {
+	display: block;
+	width: 100%;
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-entry__title {
+	margin-block-end: var(--bl-space-3);
+}
+
+.bl-entry-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-3);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	margin-block-end: var(--bl-space-3);
+}
+
+.bl-entry-meta__eyebrow a {
+	display: inline-block;
+	padding: 2px var(--bl-space-2);
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-xs);
+	text-decoration: none;
+}
+
+.bl-entry-meta__author {
+	color: var(--bl-ink);
+}
+
+.bl-page-links {
+	display: block;
+	margin-block-start: var(--bl-space-6);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-page-links a {
+	margin-inline-start: var(--bl-space-2);
+}
+
+.bl-entry__footer {
+	margin-block-start: var(--bl-space-6);
+	padding-block-start: var(--bl-space-4);
+	border-top: 1px solid var(--bl-border);
+}
+
+.bl-entry__tags a {
+	margin-inline-end: var(--bl-space-2);
+	font-size: var(--bl-text-sm);
+}
+
+/* Post navigation (previous/next single post -- core the_post_navigation()) */
+
+.post-navigation {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--bl-space-4);
+	margin-block-start: var(--bl-space-7);
+	padding-block-start: var(--bl-space-5);
+	border-top: 1px solid var(--bl-border);
+}
+
+.post-navigation .nav-next {
+	text-align: end;
+}
+
+.bl-post-nav__label {
+	display: block;
+	color: var(--bl-ink-mid);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-xs);
+}
+
+.bl-post-nav__title {
+	display: block;
+	color: var(--bl-accent-text);
+}
+
+/* Archive/search header */
+
+.bl-archive-header {
+	margin-block-end: var(--bl-space-6);
+}
+
+.bl-archive-header__description {
+	color: var(--bl-ink-mid);
+}
+
+/* Post list (archive/search/blog-index teasers) */
+
+.bl-post-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bl-space-7);
+}
+
+.bl-post-card {
+	display: grid;
+	gap: var(--bl-space-4);
+}
+
+@media (min-width: 700px) {
+
+	.bl-post-card.has-post-thumbnail {
+		grid-template-columns: 240px minmax(0, 1fr);
+		align-items: start;
+	}
+}
+
+.bl-post-card__thumb {
+	display: block;
+	overflow: hidden;
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-post-card__thumb img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	aspect-ratio: 4 / 3;
+}
+
+.bl-post-card__title {
+	margin: 0 0 var(--bl-space-2);
+}
+
+.bl-post-card__title a {
+	color: var(--bl-ink);
+	text-decoration: none;
+}
+
+.bl-post-card__title a:hover,
+.bl-post-card__title a:focus-visible {
+	color: var(--bl-accent-text);
+}
+
+.bl-post-card__excerpt {
+	color: var(--bl-ink-mid);
+}
+
+.bl-post-card__more {
+	display: inline-block;
+	margin-block-start: var(--bl-space-2);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+/* Pagination */
+
+.bl-pagination {
+	margin-block-start: var(--bl-space-7);
+}
+
+.bl-pagination ul.page-numbers {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-2);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bl-pagination .page-numbers a,
+.bl-pagination .page-numbers span {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.25rem;
+	min-height: 2.25rem;
+	padding-inline: var(--bl-space-2);
+	border: 1px solid var(--bl-border-strong);
+	color: var(--bl-ink);
+	text-decoration: none;
+	font-variant-numeric: tabular-nums;
+}
+
+.bl-pagination .page-numbers a:hover,
+.bl-pagination .page-numbers a:focus-visible {
+	border-color: var(--bl-accent-text);
+	color: var(--bl-accent-text);
+}
+
+.bl-pagination .page-numbers.current {
+	background: var(--bl-ink);
+	border-color: var(--bl-ink);
+	color: var(--bl-paper);
+}
+
+.bl-pagination .page-numbers.dots {
+	border: none;
+}
+
+.bl-pagination .prev,
+.bl-pagination .next {
+	min-width: auto;
+	padding-inline: var(--bl-space-3);
+	font-weight: 600;
+}
+
+/* Buttons -- secondary (outline) variant, used outside the header (e.g. 404) */
+
+.bl-btn--secondary .bl-skew {
+	background: transparent;
+	color: var(--bl-ink);
+	border: 2px solid var(--bl-ink);
+}
+
+.bl-btn--secondary:hover .bl-skew,
+.bl-btn--secondary:focus-visible .bl-skew {
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+}
+
+/* Empty states (no posts, no search results, 404) */
+
+.bl-empty-state {
+	max-width: 40rem;
+	margin-inline: auto;
+	padding-block: var(--bl-space-8);
+	text-align: center;
+}
+
+.bl-empty-state__mark {
+	width: 96px;
+	height: 96px;
+	margin-inline: auto;
+	margin-block-end: var(--bl-space-5);
+	color: var(--bl-ice);
+}
+
+.bl-empty-state__title {
+	margin-block-end: var(--bl-space-3);
+}
+
+.bl-empty-state__text {
+	color: var(--bl-ink-mid);
+	margin-block-end: var(--bl-space-6);
+}
+
+.bl-empty-state__links {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bl-space-3);
+	list-style: none;
+	margin: 0 0 var(--bl-space-6);
+	padding: 0;
+}
+
+/* Search form (get_search_form() default markup) */
+
+.search-form {
+	display: flex;
+	gap: var(--bl-space-2);
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.search-form .search-field {
+	padding: var(--bl-space-2) var(--bl-space-3);
+	border: 1px solid var(--bl-border-strong);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-base);
+	color: var(--bl-ink);
+	background: var(--bl-white);
+}
+
+.search-form .search-submit {
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border: 2px solid var(--bl-ink);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	cursor: pointer;
+}
+
+.search-form .search-submit:hover,
+.search-form .search-submit:focus-visible {
+	background: var(--bl-ink-mid);
+	border-color: var(--bl-ink-mid);
+}
