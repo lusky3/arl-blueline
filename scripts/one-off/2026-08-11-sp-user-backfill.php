@@ -77,29 +77,52 @@
  * (blueline_get_linked_player_id()) is skipped entirely, every run,
  * including AUTO rows -- so a second `apply` run is a safe no-op.
  *
- * Write path deliberately does NOT call blueline_link_player_to_user():
- * that function's capability check ("the user themselves, or someone who
- * can edit_users") assumes an HTTP request with a logged-in current user.
- * Under `wp eval-file`, get_current_user_id() is 0 and current_user_can()
- * for user 0 is always false, so reusing it here would make every write
- * fail with "forbidden" -- not a safety feature, just a mismatched trust
- * model. The actual trust boundary for a script that only runs via
- * WP-CLI shell access on staging is that shell access itself (checked via
- * the WP_CLI constant below); the write re-verifies both directions of the
- * link (player not claimed by someone else, user not already linked) at
- * write time, same invariants blueline_link_player_to_user() enforces, then
- * writes directly via update_post_meta().
+ * Orders are only evidence of registration if they are in a status that
+ * actually means "registered": `completed`, `processing`, or `on-hold`.
+ * Cancelled/refunded/failed/pending-payment orders are excluded -- a
+ * cancelled order is not evidence that the billing name on it belongs to
+ * this season's roster. (On staging 2026-08-11 every one of the 100
+ * current-season orders is `completed` or `on-hold` already, so this made
+ * no observed difference here, but it is not something a future season's
+ * data can be assumed to preserve.)
+ *
+ * WRITE PATH (revised per Task 14 review, 2026-08-11): this script now
+ * calls Task 11's own blueline_link_player_to_user()
+ * (inc/account/player-link.php) to perform the write, rather than
+ * re-implementing its "player not claimed by someone else" / "user not
+ * already linked" invariants here -- a duplicated copy of vetted logic
+ * drifts. That function's capability check
+ * (`get_current_user_id() === $user_id || current_user_can( 'edit_users' )`)
+ * assumes a real current-user context, which `wp eval-file` does NOT
+ * provide by default (`get_current_user_id()` is 0). The fix is
+ * `wp eval-file`'s own `--user=<id>` global parameter -- confirmed
+ * empirically to differ from `--apply`/`--dry-run`: those are unrecognised
+ * flags eval-file's parser rejects before this file loads, but `--user` is
+ * a genuine WP-CLI global parameter every command (including eval-file)
+ * honours, so it reaches WordPress and sets a real current user BEFORE this
+ * script runs -- verified live: `wp eval-file - --user=9` (an
+ * administrator on staging) makes `current_user_can('edit_users')` true.
+ * `apply` mode therefore requires the operator to also pass
+ * `--user=<an-administrator-id>`; this script checks
+ * `current_user_can( 'edit_users' )` itself before attempting any write and
+ * exits with a clear instruction if that capability is absent, rather than
+ * silently collecting a WP_Error 'forbidden' on every single row. The
+ * `WP_CLI` guard below is unchanged and unrelated to this -- shell access to
+ * `wp` is a separate, coarser trust boundary this script still requires
+ * regardless of which user context `--user` supplies.
  *
  * Usage -- `wp eval-file` only ever hands this file POSITIONAL arguments
- * (via the `$args` array WP-CLI documents for that command); a bare
- * `--apply` flag is rejected by WP-CLI's own argument parser BEFORE this
- * file is even loaded ("Error: Parameter errors: unknown --apply
- * parameter") -- the exact gotcha Task 13's migration script already hit
- * and documented, reconfirmed empirically for this script too (see the
- * task report). Pass the WORD `apply` (no dashes) as a positional argument:
+ * for its OWN parsing (via the `$args` array WP-CLI documents for that
+ * command); a bare `--apply` flag is rejected by WP-CLI's own argument
+ * parser BEFORE this file is even loaded ("Error: Parameter errors: unknown
+ * --apply parameter") -- the exact gotcha Task 13's migration script
+ * already hit and documented, reconfirmed empirically for this script too
+ * (see the task report). Pass the WORD `apply` (no dashes) as a positional
+ * argument, and `--user=<id>` (a real global parameter, not rejected) to
+ * satisfy the capability check above:
  *
- *   wp eval-file -         < this-file.php   (report mode: prints the TSV, writes nothing)
- *   wp eval-file - apply   < this-file.php   (apply: writes sp_user for AUTO rows only)
+ *   wp eval-file -                     < this-file.php   (report mode: prints the TSV, writes nothing)
+ *   wp eval-file - --user=9 apply      < this-file.php   (apply: writes sp_user for AUTO rows only)
  *
  * A literal `apply`/`--apply` is also honoured via `$assoc_args` or the
  * `BLUELINE_BACKFILL_APPLY` environment variable, for callers other than a
@@ -108,10 +131,18 @@
  * is the only invocation that actually reaches this script that way.
  *
  * Output: STDOUT carries ONLY the TSV report (a header row, then one row
- * per evaluated user: user_id, user_login, billing_name, player_id,
+ * per evaluated user: user_id, user_login, scored_name, player_id,
  * player_name, score, classification) so it stays pipeable straight into
  * `awk -F'\t'`. All narration -- season/product resolution, per-row apply
  * results, final counts -- goes to STDERR, never mixed into STDOUT.
+ * `scored_name` is deliberately the ACCOUNT's own billing/display name via
+ * blueline_user_match_name() -- the exact string blueline_find_player_candidates()
+ * scored -- not the order's own billing name; the two are usually identical
+ * (WooCommerce syncs order billing back onto user meta at checkout, and
+ * every AUTO row's order billing email matched the account email exactly
+ * when hand-checked, see the task report), but printing the account's own
+ * string, not the order's, is what removes the ambiguity of "which name
+ * actually produced this score" for whoever reads the report.
  *
  * @package blueline
  */
@@ -153,6 +184,12 @@ if ( ! function_exists( 'blueline_find_player_candidates' ) ) {
 if ( ! function_exists( 'blueline_get_linked_player_id' ) ) {
 	$blueline_backfill_missing[] = 'blueline_get_linked_player_id() (inc/account/player-link.php)';
 }
+if ( ! function_exists( 'blueline_link_player_to_user' ) ) {
+	$blueline_backfill_missing[] = 'blueline_link_player_to_user() (inc/account/player-link.php)';
+}
+if ( ! function_exists( 'blueline_user_match_name' ) ) {
+	$blueline_backfill_missing[] = 'blueline_user_match_name() (inc/account/player-link.php)';
+}
 if ( ! defined( 'BLUELINE_PLAYER_USER_META' ) ) {
 	$blueline_backfill_missing[] = 'BLUELINE_PLAYER_USER_META (inc/account/player-link.php)';
 }
@@ -180,6 +217,16 @@ if ( ! empty( $blueline_backfill_missing ) ) {
  * inc/season-state.php's blueline_season_state_data() and
  * inc/account/player-data.php's blueline_get_user_registration_status(), so
  * "current season" means the same thing everywhere on this site.
+ *
+ * NOTE (flagged, not fixed, per Task 14 review): this get_terms() call is a
+ * verbatim duplicate of the one in inc/season-state.php's
+ * blueline_season_state_data() (and a near-duplicate of
+ * inc/account/player-data.php's blueline_get_user_registration_status()).
+ * Left as-is because this is a one-off script, not code that runs on every
+ * page load -- but if this script is ever scheduled to re-run periodically
+ * rather than by hand, factoring this out into one shared helper (e.g.
+ * `blueline_current_registration_season_term()`) that all three call would
+ * be worth doing then, so the rule can't drift between copies.
  *
  * @return WP_Term|null
  */
@@ -260,15 +307,28 @@ function blueline_backfill_order_ids_for_products( array $product_ids ): array {
 }
 
 /**
- * For each of $order_ids, the owning user's most recent qualifying order
- * (by date) among them -- customer_id 0 (guest, or a deleted/anonymised
- * order) is skipped, there is nobody to link. "Most recent" matters because
- * some customers placed more than one current-season order (5 of staging's
- * 74 distinct customers did); the newest is the best evidence of their
- * current registration name.
+ * Order statuses that actually mean "this person registered" -- everything
+ * else (cancelled, refunded, failed, pending-payment-never-completed, trash)
+ * is not evidence that the billing name on the order belongs to this
+ * season's roster and must not count as a candidate-producing order.
+ */
+const BLUELINE_BACKFILL_REGISTERED_STATUSES = array( 'completed', 'processing', 'on-hold' );
+
+/**
+ * For each of $order_ids, the owning user_id -- provided their order is in
+ * a status that means "registered" (BLUELINE_BACKFILL_REGISTERED_STATUSES)
+ * -- keyed to their most recent qualifying order's ID and date among them.
+ * customer_id 0 (guest, or a deleted/anonymised order) is skipped, there is
+ * nobody to link. "Most recent" matters because some customers placed more
+ * than one current-season order (5 of staging's 74 distinct customers did).
+ *
+ * Does NOT read the order's own billing name -- see the file docblock's
+ * "Output" section for why the TSV's `scored_name` column is deliberately
+ * the ACCOUNT's own billing/display name (blueline_user_match_name()),
+ * read later once we know which candidates survived, not the order's.
  *
  * @param int[] $order_ids Order IDs to inspect.
- * @return array<int, array{order_id:int, billing_name:string}> user_id => order evidence.
+ * @return array<int, array{order_id:int, date_ts:int}> user_id => most recent qualifying order.
  */
 function blueline_backfill_user_orders( array $order_ids ): array {
 	$by_user = array();
@@ -277,6 +337,10 @@ function blueline_backfill_user_orders( array $order_ids ): array {
 		$order = wc_get_order( $order_id );
 		if ( ! $order || ! is_a( $order, 'WC_Order' ) ) {
 			continue;
+		}
+
+		if ( ! $order->has_status( BLUELINE_BACKFILL_REGISTERED_STATUSES ) ) {
+			continue; // Cancelled/refunded/failed/pending -- not evidence of registration.
 		}
 
 		$user_id = (int) $order->get_customer_id();
@@ -292,14 +356,9 @@ function blueline_backfill_user_orders( array $order_ids ): array {
 			continue; // Already holding an equally-or-more-recent order for this user.
 		}
 
-		$first = trim( (string) $order->get_billing_first_name() );
-		$last  = trim( (string) $order->get_billing_last_name() );
-		$name  = trim( preg_replace( '/[\t\r\n]+/', ' ', $first . ' ' . $last ) );
-
 		$by_user[ $user_id ] = array(
-			'order_id'     => $order_id,
-			'billing_name' => $name,
-			'date_ts'      => $date_ts,
+			'order_id' => $order_id,
+			'date_ts'  => $date_ts,
 		);
 	}
 
@@ -351,7 +410,7 @@ function blueline_backfill_row_to_tsv_line( array $row ): string {
 		array(
 			(string) $row['user_id'],
 			blueline_backfill_tsv_cell( $row['user_login'] ),
-			blueline_backfill_tsv_cell( $row['billing_name'] ),
+			blueline_backfill_tsv_cell( $row['scored_name'] ),
 			(string) $row['player_id'],
 			blueline_backfill_tsv_cell( (string) $row['player_name'] ),
 			(string) $row['score'],
@@ -395,9 +454,10 @@ $blueline_backfill_counts        = array(
 	'NONE'   => 0,
 );
 
-ksort( $blueline_backfill_user_orders );
+$blueline_backfill_candidate_user_ids = array_keys( $blueline_backfill_user_orders );
+sort( $blueline_backfill_candidate_user_ids );
 
-foreach ( $blueline_backfill_user_orders as $blueline_backfill_user_id => $blueline_backfill_order_info ) {
+foreach ( $blueline_backfill_candidate_user_ids as $blueline_backfill_user_id ) {
 	if ( null !== blueline_get_linked_player_id( $blueline_backfill_user_id ) ) {
 		++$blueline_backfill_skipped_count; // Idempotent: already linked, nothing to do.
 		continue;
@@ -413,7 +473,10 @@ foreach ( $blueline_backfill_user_orders as $blueline_backfill_user_id => $bluel
 	$blueline_backfill_rows[] = array(
 		'user_id'        => $blueline_backfill_user_id,
 		'user_login'     => $blueline_backfill_user ? $blueline_backfill_user->user_login : '(deleted user)',
-		'billing_name'   => $blueline_backfill_order_info['billing_name'],
+		// The ACCOUNT's own billing/display name, via the same resolver
+		// blueline_find_player_candidates() itself used to produce the score
+		// above -- not the order's billing name (see file docblock).
+		'scored_name'    => blueline_user_match_name( $blueline_backfill_user_id ),
 		'player_id'      => $blueline_backfill_top ? $blueline_backfill_top['player_id'] : '',
 		'player_name'    => $blueline_backfill_top ? $blueline_backfill_top['name'] : '',
 		'score'          => $blueline_backfill_top ? $blueline_backfill_top['score'] : '',
@@ -424,18 +487,33 @@ foreach ( $blueline_backfill_user_orders as $blueline_backfill_user_id => $bluel
 
 // --- STDOUT: the TSV report, and ONLY the TSV report. ---
 
-echo implode( "\t", array( 'user_id', 'user_login', 'billing_name', 'player_id', 'player_name', 'score', 'classification' ) ) . PHP_EOL;
+echo implode( "\t", array( 'user_id', 'user_login', 'scored_name', 'player_id', 'player_name', 'score', 'classification' ) ) . PHP_EOL;
 
 foreach ( $blueline_backfill_rows as $blueline_backfill_row ) {
 	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CLI STDOUT TSV row via `wp eval-file`, not browser-rendered HTML; esc_html() would corrupt the tab-separated values a consumer pipes into awk/cut.
 	echo blueline_backfill_row_to_tsv_line( $blueline_backfill_row ) . PHP_EOL;
 }
 
-// --- Apply: write sp_user for AUTO rows only. Narration to STDERR. ---
+// --- Apply: write sp_user for AUTO rows only, via blueline_link_player_to_user().
+// Narration to STDERR. See file docblock's "WRITE PATH" section for why this
+// calls Task 11's own vetted function rather than duplicating its invariants,
+// and why that requires --user=<admin-id> on the wp eval-file invocation. ---
 
 $blueline_backfill_applied_count = 0;
 
 if ( $blueline_backfill_apply ) {
+	if ( ! current_user_can( 'edit_users' ) ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+		fwrite( STDERR, "Refusing to apply: no current user with the edit_users capability.\n" );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+		fwrite( STDERR, "blueline_link_player_to_user() requires this. Re-run with --user=<an-administrator-id>,\n" );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+		fwrite( STDERR, "a real WP-CLI global parameter (unlike --apply), e.g.:\n" );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+		fwrite( STDERR, "  wp eval-file - --user=9 apply   < this-file.php\n" );
+		exit( 1 );
+	}
+
 	foreach ( $blueline_backfill_rows as $blueline_backfill_row ) {
 		if ( 'AUTO' !== $blueline_backfill_row['classification'] ) {
 			continue;
@@ -444,27 +522,16 @@ if ( $blueline_backfill_apply ) {
 		$blueline_backfill_user_id   = (int) $blueline_backfill_row['user_id'];
 		$blueline_backfill_player_id = (int) $blueline_backfill_row['player_id'];
 
-		// Re-verify both directions of the link at write time -- the same
-		// invariants blueline_link_player_to_user() enforces for the
-		// front-end claim flow, checked directly since that function's own
-		// capability check does not apply in a CLI context (see docblock).
-		if ( null !== blueline_get_linked_player_id( $blueline_backfill_user_id ) ) {
+		$blueline_backfill_result = blueline_link_player_to_user( $blueline_backfill_player_id, $blueline_backfill_user_id );
+
+		if ( is_wp_error( $blueline_backfill_result ) ) {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
-			fwrite( STDERR, "SKIP user {$blueline_backfill_user_id}: already linked at write time.\n" );
+			fwrite(
+				STDERR,
+				"SKIP user_id={$blueline_backfill_user_id} -> player_id={$blueline_backfill_player_id}: "
+				. $blueline_backfill_result->get_error_code() . ' - ' . $blueline_backfill_result->get_error_message() . "\n"
+			);
 			continue;
-		}
-
-		$blueline_backfill_existing_owner = (int) get_post_meta( $blueline_backfill_player_id, BLUELINE_PLAYER_USER_META, true );
-		if ( $blueline_backfill_existing_owner > 0 ) {
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
-			fwrite( STDERR, "SKIP player {$blueline_backfill_player_id}: already linked to a different user at write time.\n" );
-			continue;
-		}
-
-		update_post_meta( $blueline_backfill_player_id, BLUELINE_PLAYER_USER_META, $blueline_backfill_user_id );
-
-		if ( function_exists( 'blueline_forget_linked_player_cache' ) ) {
-			blueline_forget_linked_player_cache( $blueline_backfill_user_id );
 		}
 
 		++$blueline_backfill_applied_count;

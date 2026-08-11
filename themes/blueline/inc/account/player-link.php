@@ -5,6 +5,22 @@
  * Only ~12% of current-season players carry sp_user, so everything here must
  * behave sensibly when no link exists.
  *
+ * CORRECTED PREMISE (found during Task 14's review, 2026-08-11): the
+ * original "12%" figure, and the original candidate pool below, were both
+ * built on `sp_current_team NOT IN ('','0')` as the definition of
+ * "current-season player." That field is NOT season-scoped -- it is a
+ * STICKY "last team this player was ever rostered onto" value, set on
+ * 2,037 of 2,134 sp_player posts ever created (95% of every player in the
+ * system's history). Filtering on it alone meant every unlinked user's
+ * claim card was scored against two decades of names, including players who
+ * last played years ago, raising the odds of a wrong-identity match on a
+ * common name -- the one failure mode this whole feature exists to avoid.
+ * Real season membership lives in the `sp_season` taxonomy instead (a
+ * genuine per-season tag on sp_player, confirmed live: term 674 "W2026-27"
+ * tags exactly 90 posts, term 654 "W2025-26" tags 524). See
+ * blueline_claim_pool_season_term_id() below for how the candidate pool now
+ * resolves which season(s) to draw from.
+ *
  * @package blueline
  */
 
@@ -12,6 +28,13 @@ defined( 'ABSPATH' ) || exit;
 
 const BLUELINE_PLAYER_USER_META = 'sp_user';
 const BLUELINE_MATCH_THRESHOLD  = 0.85;
+
+/**
+ * How much smaller than the previous (already-final) season's roster the
+ * newest sp_season term's roster may be before blueline_claim_pool_season_term_id()
+ * treats it as "still filling in" and falls back to that previous term.
+ */
+const BLUELINE_CLAIM_POOL_SPARSE_RATIO = 0.5;
 
 // phpcs:ignore Squiz.Commenting.FunctionComment.MissingParamTag -- docblock and body below are kept verbatim per the task-11 brief; not to be "improved".
 /**
@@ -146,14 +169,199 @@ function blueline_user_match_name( int $user_id ): string {
 }
 
 /**
- * Current-season sp_player post IDs (sp_current_team set, per the same
- * NOT IN ('', '0') definition of "set" used across this project) that are
- * not already linked to a DIFFERENT user than $exclude_linked_to_user_id.
+ * Pure decision: is the newest sp_season term's own roster too sparse,
+ * relative to the previous (already-final) season's roster, to trust as the
+ * claim/backfill candidate pool on its own?
  *
- * Queried lean -- ids only, via meta_query at the SQL level -- because there
- * are ~2,037 current-season players and this can run on a logged-in page
- * load; loading full post objects for all of them just to filter in PHP
- * would not scale.
+ * "Sparse" is deliberately relative, not a fixed headcount: a season's
+ * roster starts at zero and fills in gradually as registrants are assigned
+ * to teams over the weeks a registration window is open, so the meaningful
+ * question is "how much of last season's final roster size has this one
+ * reached so far" -- a ratio that self-calibrates to however large the
+ * league happens to be, rather than a constant that would need re-tuning as
+ * the league grows or shrinks year to year.
+ *
+ * Verified live 2026-08-11, the exact case this function exists for:
+ * newest = W2026-27 (90 players), previous = W2025-26 (524) -- 90/524 =~
+ * 17%, clearly still filling in. Restricting the claim pool to those 90
+ * alone right now would make ~1,947 other sp_current_team players
+ * (including many who registered for W2026-27 this same week -- see Task
+ * 14's report) invisible to both the self-service claim flow and the
+ * backfill script, simply because SportsPress has not yet re-tagged their
+ * player post with the new season term.
+ *
+ * @param int $current_count  Newest non-playoff sp_season term's member count.
+ * @param int $previous_count The next most recent non-playoff term's member count (0 if none exists).
+ * @return bool True if the newest term should be treated as not-yet-representative.
+ */
+function blueline_is_claim_pool_sparse( int $current_count, int $previous_count ): bool {
+	if ( $current_count <= 0 ) {
+		return true;
+	}
+
+	if ( $previous_count <= 0 ) {
+		return false; // Nothing to compare against -- take the newest term at face value.
+	}
+
+	return ( $current_count / $previous_count ) < BLUELINE_CLAIM_POOL_SPARSE_RATIO;
+}
+
+/**
+ * The number of sp_player posts tagged with $term_id in the sp_season
+ * taxonomy -- deliberately NOT the term's own ->count property from
+ * get_terms(). That property counts every post type sp_season is
+ * registered for (sp_event, sp_table, sp_player all share this one
+ * taxonomy), not sp_player specifically -- confirmed live 2026-08-11: term
+ * 666 "S2026" reports ->count = 568, but only 350 of those relationships
+ * are to sp_player posts (the rest are events/tables tagged with the same
+ * season). Using the raw ->count would make a season with many tagged
+ * events look like a bigger player roster than it actually has, which is
+ * exactly the wrong axis for a function whose whole job is sizing player
+ * rosters.
+ *
+ * @param int $term_id sp_season term ID.
+ * @return int
+ */
+function blueline_sp_season_player_count( int $term_id ): int {
+	$query = new WP_Query(
+		array(
+			'post_type'      => 'sp_player',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'no_found_rows'  => false,
+			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- one term, called at most twice per blueline_claim_pool_season_term_id() invocation, not a listing query.
+				array(
+					'taxonomy' => 'sp_season',
+					'field'    => 'term_id',
+					'terms'    => $term_id,
+				),
+			),
+		)
+	);
+
+	return (int) $query->found_posts;
+}
+
+/**
+ * The single sp_season term_id whose members form the claim/backfill
+ * candidate pool -- preferring the current season, but falling back to the
+ * most recent one that actually has sp_player members while the current
+ * one is still being built (blueline_is_claim_pool_sparse()).
+ *
+ * Playoff sub-terms (e.g. "S2026 Playoffs") are excluded from consideration
+ * entirely -- same "slug contains playoff" signal Season State uses
+ * (inc/season-state.php) -- because they are a POSTSEASON SUBSET of a
+ * season's roster, not its base roster; comparing a fresh regular season's
+ * count against an already-final playoff round's count would compare the
+ * wrong two populations.
+ *
+ * This league runs BOTH a Winter and a Summer session, tagged with
+ * interleaved sp_season terms sharing one term_id sequence -- confirmed
+ * live 2026-08-11: 674 "W2026-27", 666 "S2026", 654 "W2025-26", 647
+ * "S2025", ... A fallback that walked that sequence blindly by term_id
+ * would, and on this exact live data DID before this restriction was added,
+ * land on the newest term of the OTHER session (S2026) instead of the
+ * previous term of the SAME session (W2025-26) -- silently excluding any
+ * genuinely-current Winter registrant whose player post happens not to
+ * carry a Summer tag simply because they don't play the other session
+ * (verified live: a real current W2026-27 registrant carries W2025-26 and
+ * W2024-25 tags but no S-prefixed tag at all). Every comparison and
+ * fallback below is therefore scoped to terms sharing the newest term's own
+ * leading session letter ("w" or "s"), never crossing sessions.
+ *
+ * Failure mode, stated plainly: if the newest term's own session AND every
+ * fallback term within it have zero sp_player members (e.g. sp_season has
+ * just been created with no players tagged at all), this returns the
+ * newest term anyway -- the caller
+ * (blueline_current_season_unclaimed_player_ids()) then simply returns an
+ * empty pool for it, which is the honest answer, not a crash.
+ *
+ * @return int|null Null if sp_season is missing/inactive or has no terms.
+ */
+function blueline_claim_pool_season_term_id(): ?int {
+	if ( ! taxonomy_exists( 'sp_season' ) ) {
+		return null;
+	}
+
+	$terms = get_terms(
+		array(
+			'taxonomy'   => 'sp_season',
+			'orderby'    => 'term_id',
+			'order'      => 'DESC',
+			'hide_empty' => false,
+		)
+	);
+
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return null;
+	}
+
+	$season_terms = array_values(
+		array_filter(
+			$terms,
+			static function ( $term ) {
+				return false === strpos( $term->slug, 'playoff' );
+			}
+		)
+	);
+
+	if ( empty( $season_terms ) ) {
+		return null;
+	}
+
+	$session_prefix = strtolower( substr( $season_terms[0]->slug, 0, 1 ) );
+	$season_terms   = array_values(
+		array_filter(
+			$season_terms,
+			static function ( $term ) use ( $session_prefix ) {
+				return 0 === strpos( strtolower( $term->slug ), $session_prefix );
+			}
+		)
+	);
+
+	if ( empty( $season_terms ) ) {
+		return null;
+	}
+
+	$current        = $season_terms[0];
+	$current_count  = blueline_sp_season_player_count( (int) $current->term_id );
+	$previous_count = isset( $season_terms[1] ) ? blueline_sp_season_player_count( (int) $season_terms[1]->term_id ) : 0;
+
+	if ( ! blueline_is_claim_pool_sparse( $current_count, $previous_count ) ) {
+		return (int) $current->term_id;
+	}
+
+	foreach ( array_slice( $season_terms, 1 ) as $term ) {
+		if ( blueline_sp_season_player_count( (int) $term->term_id ) > 0 ) {
+			return (int) $term->term_id;
+		}
+	}
+
+	return (int) $current->term_id; // Nothing else has members either -- see docblock's failure mode.
+}
+
+/**
+ * Current-season (or, during the pre-roster window described by
+ * blueline_claim_pool_season_term_id(), most-recent-populated-season)
+ * sp_player post IDs that are not already linked to a DIFFERENT user than
+ * $exclude_linked_to_user_id.
+ *
+ * Season-scoped via blueline_claim_pool_season_term_id() as of the Task 14
+ * review fix (2026-08-11) -- see this file's header docblock for why the
+ * previous `sp_current_team`-only definition let the claim pool include two
+ * decades of retired players. `sp_current_team` (still required to be set,
+ * defense in depth: a season-tagged player with genuinely no team would be
+ * an odd edge case) remains part of the query below alongside the new
+ * sp_season tax_query, not in place of it.
+ *
+ * Graceful degradation, stated plainly: if sp_season is missing/inactive or
+ * has no terms at all (blueline_claim_pool_season_term_id() returns null),
+ * this falls back to the PRE-FIX, sp_current_team-only pool -- broader and
+ * more collision-prone, but a working claim flow beats a broken one.
+ *
+ * Queried lean -- ids only, via meta_query/tax_query at the SQL level --
+ * because this can run on a logged-in page load; loading full post objects
+ * just to filter in PHP would not scale.
  *
  * @param int $exclude_linked_to_user_id A player linked to this user IS
  *                                       still included (e.g. re-checking
@@ -162,40 +370,52 @@ function blueline_user_match_name( int $user_id ): string {
  * @return int[] Player post IDs.
  */
 function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_user_id = 0 ): array {
-	return get_posts(
-		array(
-			'post_type'      => 'sp_player',
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
-			'no_found_rows'  => true,
-			'orderby'        => 'none',
-			'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- deliberate: filtering at SQL level is the fast path here, see docblock.
-				'relation' => 'AND',
+	$query_args = array(
+		'post_type'      => 'sp_player',
+		'posts_per_page' => -1,
+		'fields'         => 'ids',
+		'no_found_rows'  => true,
+		'orderby'        => 'none',
+		'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- deliberate: filtering at SQL level is the fast path here, see docblock.
+			'relation' => 'AND',
+			array(
+				'key'     => 'sp_current_team',
+				'value'   => array( '', '0' ),
+				'compare' => 'NOT IN',
+			),
+			array(
+				'relation' => 'OR',
 				array(
-					'key'     => 'sp_current_team',
-					'value'   => array( '', '0' ),
-					'compare' => 'NOT IN',
+					'key'     => BLUELINE_PLAYER_USER_META,
+					'compare' => 'NOT EXISTS',
 				),
 				array(
-					'relation' => 'OR',
-					array(
-						'key'     => BLUELINE_PLAYER_USER_META,
-						'compare' => 'NOT EXISTS',
-					),
-					array(
-						'key'     => BLUELINE_PLAYER_USER_META,
-						'value'   => array( '', '0' ),
-						'compare' => 'IN',
-					),
-					array(
-						'key'     => BLUELINE_PLAYER_USER_META,
-						'value'   => (string) $exclude_linked_to_user_id,
-						'compare' => '=',
-					),
+					'key'     => BLUELINE_PLAYER_USER_META,
+					'value'   => array( '', '0' ),
+					'compare' => 'IN',
+				),
+				array(
+					'key'     => BLUELINE_PLAYER_USER_META,
+					'value'   => (string) $exclude_linked_to_user_id,
+					'compare' => '=',
 				),
 			),
-		)
+		),
 	);
+
+	$season_term_id = blueline_claim_pool_season_term_id();
+
+	if ( $season_term_id ) {
+		$query_args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to a single season term.
+			array(
+				'taxonomy' => 'sp_season',
+				'field'    => 'term_id',
+				'terms'    => $season_term_id,
+			),
+		);
+	}
+
+	return get_posts( $query_args );
 }
 
 /**
