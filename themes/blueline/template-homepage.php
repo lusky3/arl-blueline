@@ -18,9 +18,14 @@ $blueline_state = function_exists( 'blueline_season_state' ) ? blueline_season_s
 ?>
 <main id="main" class="bl-main bl-main--homepage">
 	<?php
-	blueline_render_hero( $blueline_state );
+	// blueline_render_hero() can render a different EFFECTIVE state than the
+	// one requested (e.g. registration_open falls back to preseason/offseason
+	// when the product fails live re-verification) -- module order is chosen
+	// from that same effective state, not the raw one, so the module stack
+	// never disagrees with the hero actually shown above it.
+	$blueline_effective_state = blueline_render_hero( $blueline_state );
 
-	foreach ( blueline_homepage_module_order( $blueline_state ) as $blueline_module ) {
+	foreach ( blueline_homepage_module_order( $blueline_effective_state ) as $blueline_module ) {
 		blueline_render_module( $blueline_module );
 	}
 	?>

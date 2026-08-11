@@ -44,15 +44,22 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 	protected $pending_submenu_id = '';
 
 	/**
-	 * Normalized URL path (e.g. "/register") to hide at depth 0 when a
-	 * childless item's own destination matches it. Used to de-duplicate
-	 * the Register CTA -- rendered separately in .bl-header__actions --
-	 * against an identical "Register to Play" entry inside the primary
-	 * menu itself.
+	 * Normalized URL path of the Register CTA (e.g. "/register"), used to
+	 * hide an identical depth-0, childless "Register to Play" item inside
+	 * the primary menu -- otherwise it renders twice, once here and once
+	 * as the CTA button in .bl-header__actions.
+	 *
+	 * This is empty whenever the header's CTA is anything other than
+	 * Register (see blueline_site_header()): the primary menu's other
+	 * permanent items (e.g. "Schedule") are real, distinct navigation and
+	 * must never be hidden just because a differently-labelled CTA button
+	 * happens to share their URL. Do not repurpose this property to
+	 * de-duplicate against whatever CTA is currently showing -- that
+	 * generalisation is exactly the bug this comment exists to prevent.
 	 *
 	 * @var string
 	 */
-	protected $duplicate_path = '';
+	protected $register_duplicate_path = '';
 
 	/**
 	 * Set by start_el() when it hides the current item, so end_el() also
@@ -65,18 +72,23 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 	/**
 	 * Constructor.
 	 *
-	 * @param string $duplicate_url Absolute URL to de-duplicate against (e.g. the
-	 *                              header's own Register CTA). Compared by URL
-	 *                              *path*, not the raw string or get_permalink():
-	 *                              this site runs the Page Links To plugin, which
-	 *                              filters get_permalink() per-post, so a menu
-	 *                              item's resolved $item->url and a freshly
-	 *                              computed get_permalink() for the "same" post
-	 *                              can legitimately disagree. Comparing the
-	 *                              already-resolved path is the reliable check.
+	 * @param string $register_cta_url Absolute URL of the header's Register CTA,
+	 *                                 or '' when that CTA is not currently showing
+	 *                                 "Register to Play" (see blueline_site_header()).
+	 *                                 Pass '' rather than some other CTA's URL --
+	 *                                 this parameter exists solely to de-duplicate
+	 *                                 the Register item, never any other one.
+	 *                                 Compared by URL *path*, not the raw string or
+	 *                                 get_permalink(): this site runs the Page Links
+	 *                                 To plugin, which filters get_permalink()
+	 *                                 per-post, so a menu item's resolved $item->url
+	 *                                 and a freshly computed get_permalink() for the
+	 *                                 "same" post can legitimately disagree.
+	 *                                 Comparing the already-resolved path is the
+	 *                                 reliable check.
 	 */
-	public function __construct( $duplicate_url = '' ) {
-		$this->duplicate_path = $duplicate_url ? self::normalize_path( $duplicate_url ) : '';
+	public function __construct( $register_cta_url = '' ) {
+		$this->register_duplicate_path = $register_cta_url ? self::normalize_path( $register_cta_url ) : '';
 	}
 
 	/**
@@ -143,11 +155,15 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 
 		// Hide a top-level, childless item whose own destination matches
 		// the header's own Register CTA -- otherwise "Register to Play"
-		// renders twice (once here, once as the CTA button). Scoped to
-		// childless items only: a parent sharing this destination still
-		// needs its submenu, which this simple hide can't preserve.
-		if ( 0 === $depth && ! $has_children && $this->duplicate_path && ! empty( $item->url )
-			&& self::normalize_path( $item->url ) === $this->duplicate_path ) {
+		// renders twice (once here, once as the CTA button). $register_duplicate_path
+		// is only ever non-empty while the CTA is genuinely showing Register
+		// (see blueline_site_header()), so this never hides an unrelated
+		// permanent item (e.g. "Schedule") just because some other CTA
+		// happens to share its URL. Scoped to childless items only: a
+		// parent sharing this destination still needs its submenu, which
+		// this simple hide can't preserve.
+		if ( 0 === $depth && ! $has_children && $this->register_duplicate_path && ! empty( $item->url )
+			&& self::normalize_path( $item->url ) === $this->register_duplicate_path ) {
 			$this->skip_current_item = true;
 			return;
 		}
@@ -256,7 +272,15 @@ function blueline_leaf_mark( $extra_class = '' ) {
  * live re-check inc/homepage-modules.php uses for the homepage hero's own
  * Register CTA, for the same reason.
  *
- * @return array{label: string, url: string, class: string}
+ * The 'is_register' flag exists specifically so blueline_site_header() can
+ * tell Blueline_Nav_Walker to de-duplicate the primary menu's own "Register
+ * to Play" item ONLY when this CTA is genuinely Register -- never pass a
+ * Schedule (or any other) CTA's URL to that walker's de-dup parameter, or
+ * the primary menu's real, permanent "Schedule" item silently disappears in
+ * every state but registration_open. That was a shipped regression; see the
+ * walker's own $register_duplicate_path docblock for the full explanation.
+ *
+ * @return array{label: string, url: string, class: string, is_register: bool}
  */
 function blueline_header_cta(): array {
 	$state      = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
@@ -268,16 +292,18 @@ function blueline_header_cta(): array {
 
 	if ( $show_register ) {
 		return array(
-			'label' => __( 'Register to Play', 'blueline' ),
-			'url'   => home_url( '/register' ),
-			'class' => 'bl-btn--primary',
+			'label'       => __( 'Register to Play', 'blueline' ),
+			'url'         => home_url( '/register' ),
+			'class'       => 'bl-btn--primary',
+			'is_register' => true,
 		);
 	}
 
 	return array(
-		'label' => __( 'Schedule', 'blueline' ),
-		'url'   => home_url( '/schedule' ),
-		'class' => 'bl-btn--secondary',
+		'label'       => __( 'Schedule', 'blueline' ),
+		'url'         => home_url( '/schedule' ),
+		'class'       => 'bl-btn--secondary',
+		'is_register' => false,
 	);
 }
 
@@ -288,6 +314,12 @@ function blueline_header_cta(): array {
  */
 function blueline_site_header() {
 	$cta = blueline_header_cta();
+
+	// Only ever de-duplicate the primary menu's "Register to Play" item --
+	// and only while this CTA genuinely is Register. Passing any other
+	// CTA's URL here would hide whichever unrelated permanent nav item
+	// (e.g. "Schedule") happens to share it.
+	$register_duplicate_url = $cta['is_register'] ? $cta['url'] : '';
 	?>
 	<a class="skip-link screen-reader-text" href="#main"><?php esc_html_e( 'Skip to main content', 'blueline' ); ?></a>
 
@@ -312,7 +344,7 @@ function blueline_site_header() {
 							'container'      => false,
 							'menu_id'        => 'bl-primary-menu',
 							'menu_class'     => 'bl-nav__menu',
-							'walker'         => new Blueline_Nav_Walker( $cta['url'] ),
+							'walker'         => new Blueline_Nav_Walker( $register_duplicate_url ),
 							'fallback_cb'    => false,
 						)
 					);

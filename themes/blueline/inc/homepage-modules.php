@@ -154,20 +154,22 @@ function blueline_hero_highlight( string $text ): string {
 }
 
 /**
- * Build a headline with one embedded, pre-escaped highlight span. Mirrors
- * the wp_kses( __( ... ) ) + sprintf pattern content-none.php already uses
- * for translatable strings with embedded HTML, so the translators comment
- * stays directly above the real gettext call at each call site.
+ * Build a headline with one embedded, pre-escaped highlight span. The
+ * highlight span itself is already safe (blueline_hero_highlight() escapes
+ * its text); this only substitutes it into the surrounding translated copy.
+ *
+ * Escaping happens exactly once, at the single point every hero headline
+ * (however it was assembled) is actually echoed -- the wp_kses() call in
+ * blueline_render_hero(). Deliberately not re-applied here: doing it in
+ * both places was flagged as redundant double sanitization in review.
  *
  * @param string $translated_format A translated string containing exactly one %s.
  * @param string $highlight         Plain text for the highlighted word/phrase.
- * @return string Safe HTML.
+ * @return string HTML fragment; the caller (blueline_render_hero()) still
+ *                passes the final headline_html through wp_kses() before echoing.
  */
 function blueline_hero_headline( string $translated_format, string $highlight ): string {
-	return sprintf(
-		wp_kses( $translated_format, array( 'span' => array( 'class' => array() ) ) ),
-		blueline_hero_highlight( $highlight )
-	);
+	return sprintf( $translated_format, blueline_hero_highlight( $highlight ) );
 }
 
 /**
@@ -252,19 +254,20 @@ function blueline_homepage_hero_in_season_content( array $state_data ): array {
 		/* translators: %d: number of games this week. */
 		: sprintf( __( 'Week %d', 'blueline' ), $count );
 
-	$count_label = sprintf(
-		/* translators: %d: number of games this week. */
-		_n( '%d game', '%d games', $count, 'blueline' ),
-		$count
+	// The brief's table highlights only {n} ("**{n}** games this week."),
+	// not the whole "N games" phrase -- so the pluralized noun is a plain,
+	// separately-escaped substitution alongside the highlighted number,
+	// not passed through blueline_hero_headline()'s single-highlight helper.
+	$headline_html = sprintf(
+		/* translators: 1: the highlighted game count number, 2: "game" or "games". */
+		__( '%1$s %2$s this week.', 'blueline' ),
+		blueline_hero_highlight( (string) $count ),
+		esc_html( _n( 'game', 'games', $count, 'blueline' ) )
 	);
 
 	return array(
 		'eyebrow'       => $eyebrow,
-		'headline_html' => blueline_hero_headline(
-			/* translators: %s: the highlighted game count, e.g. "3 games". */
-			__( '%s this week.', 'blueline' ),
-			$count_label
-		),
+		'headline_html' => $headline_html,
 		'cta_label'     => __( 'My next game', 'blueline' ),
 		'cta_url'       => home_url( '/schedule' ),
 		'cta_variant'   => 'secondary',
@@ -319,16 +322,27 @@ function blueline_homepage_hero_offseason_content(): array {
  * Resolve the eyebrow/headline/CTA copy for one hero variant, per the
  * per-state table in the Task 7 brief.
  *
+ * The returned 'state' key is the EFFECTIVE state actually rendered, which
+ * can differ from the requested $state: when $state is registration_open
+ * but the product fails live re-verification (see
+ * blueline_homepage_registration_offer()), this falls back to preseason or
+ * offseason copy -- and now reports that fallback back to the caller, so
+ * blueline_render_hero() can put a matching bl-hero--{state} class on the
+ * markup instead of a class that names one state while showing another's
+ * copy. That mismatch was a shipped bug; do not drop this key while editing.
+ *
  * @param string $state      One of the five known season states.
  * @param array  $state_data Result of blueline_season_state_data().
- * @return array{eyebrow: string, headline_html: string, cta_label: string, cta_url: string, cta_variant: string}
+ * @return array{state: string, eyebrow: string, headline_html: string, cta_label: string, cta_url: string, cta_variant: string}
  */
 function blueline_homepage_hero_content( string $state, array $state_data ): array {
 	if ( 'registration_open' === $state ) {
 		$offer = blueline_homepage_registration_offer( $state_data );
 
 		if ( $offer ) {
-			return blueline_homepage_hero_registration_content( $offer );
+			$content          = blueline_homepage_hero_registration_content( $offer );
+			$content['state'] = 'registration_open';
+			return $content;
 		}
 
 		// The product driving registration_open turned out not to be
@@ -339,18 +353,26 @@ function blueline_homepage_hero_content( string $state, array $state_data ): arr
 	}
 
 	if ( 'preseason' === $state ) {
-		return blueline_homepage_hero_preseason_content( $state_data );
+		$content          = blueline_homepage_hero_preseason_content( $state_data );
+		$content['state'] = 'preseason';
+		return $content;
 	}
 
 	if ( 'in_season' === $state ) {
-		return blueline_homepage_hero_in_season_content( $state_data );
+		$content          = blueline_homepage_hero_in_season_content( $state_data );
+		$content['state'] = 'in_season';
+		return $content;
 	}
 
 	if ( 'playoffs' === $state ) {
-		return blueline_homepage_hero_playoffs_content( $state_data );
+		$content          = blueline_homepage_hero_playoffs_content( $state_data );
+		$content['state'] = 'playoffs';
+		return $content;
 	}
 
-	return blueline_homepage_hero_offseason_content();
+	$content          = blueline_homepage_hero_offseason_content();
+	$content['state'] = 'offseason';
+	return $content;
 }
 
 /**
@@ -374,20 +396,30 @@ function blueline_render_faceoff_rings() {
  * chrome. Falls back to the offseason variant for any value outside the
  * five known states -- this theme never invents a sixth.
  *
+ * The bl-hero--{state} class is always taken from the EFFECTIVE state
+ * blueline_homepage_hero_content() actually rendered, not the requested
+ * $state -- those can differ (a registration_open request whose product
+ * fails live re-verification renders preseason/offseason copy instead),
+ * and the class must agree with what is actually on the page. The
+ * effective state is returned so the caller (template-homepage.php) can
+ * keep the module order in sync with whatever the hero actually showed.
+ *
  * @param string $state One of registration_open|preseason|in_season|playoffs|offseason.
+ * @return string The effective state actually rendered.
  */
-function blueline_render_hero( string $state ) {
+function blueline_render_hero( string $state ): string {
 	$known_states = array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' );
 
 	if ( ! in_array( $state, $known_states, true ) ) {
 		$state = 'offseason';
 	}
 
-	$state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
-	$content    = blueline_homepage_hero_content( $state, $state_data );
-	$cta_class  = 'primary' === $content['cta_variant'] ? 'bl-btn--primary' : 'bl-btn--secondary';
+	$state_data      = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+	$content         = blueline_homepage_hero_content( $state, $state_data );
+	$effective_state = $content['state'];
+	$cta_class       = 'primary' === $content['cta_variant'] ? 'bl-btn--primary' : 'bl-btn--secondary';
 	?>
-	<section class="bl-hero bl-hero--<?php echo esc_attr( $state ); ?>">
+	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?>">
 		<?php blueline_render_faceoff_rings(); ?>
 
 		<div class="bl-container bl-hero__inner">
@@ -408,6 +440,7 @@ function blueline_render_hero( string $state ) {
 		<div class="bl-band--ink" aria-hidden="true"></div>
 	</section>
 	<?php
+	return $effective_state;
 }
 
 /**
