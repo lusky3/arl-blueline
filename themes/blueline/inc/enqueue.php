@@ -12,10 +12,22 @@ add_action( 'wp_enqueue_scripts', 'blueline_enqueue_assets' );
  * Enqueue the theme's built CSS/JS and comment-reply where needed.
  */
 function blueline_enqueue_assets() {
+	// style.css is the theme's only source of the :root --bl-* custom
+	// properties (tokens); WordPress never loads it automatically just
+	// because it's the theme stylesheet header file, so it must be
+	// enqueued explicitly or every var(--bl-*) in assets/dist/index.css
+	// resolves to nothing.
+	wp_enqueue_style(
+		'blueline-tokens',
+		get_stylesheet_uri(),
+		array(),
+		BLUELINE_VERSION
+	);
+
 	wp_enqueue_style(
 		'blueline',
 		BLUELINE_URI . '/assets/dist/index.css',
-		array(),
+		array( 'blueline-tokens' ),
 		BLUELINE_VERSION
 	);
 

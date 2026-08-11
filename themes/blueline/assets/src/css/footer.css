@@ -1,0 +1,84 @@
+/*
+ * Blueline — site footer.
+ * Four widget columns on --bl-ink-deep, then a bottom bar with the leaf
+ * mark and copyright. Everything here sits on a dark ground, so text
+ * uses --bl-pale or --bl-paper only, per the contrast guard.
+ */
+
+.bl-footer {
+	background: var(--bl-ink-deep);
+	color: var(--bl-pale);
+	padding-block: var(--bl-space-7) var(--bl-space-6);
+}
+
+.bl-footer a {
+	color: var(--bl-pale);
+	text-decoration: underline;
+}
+
+.bl-footer a:hover,
+.bl-footer a:focus-visible {
+	color: var(--bl-paper);
+}
+
+.bl-footer__columns {
+	display: grid;
+	grid-template-columns: repeat(1, minmax(0, 1fr));
+	gap: var(--bl-space-6);
+}
+
+@media (min-width: 700px) {
+
+	.bl-footer__columns {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (min-width: 960px) {
+
+	.bl-footer__columns {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+
+.bl-footer__column .widget-title,
+.bl-footer__column h2,
+.bl-footer__column h3 {
+	color: var(--bl-paper);
+	font-size: var(--bl-text-lg);
+	margin-block: 0 var(--bl-space-3);
+}
+
+.bl-footer__column ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bl-footer__column li {
+	margin-block-end: var(--bl-space-2);
+}
+
+.bl-footer__bottom {
+	margin-top: var(--bl-space-7);
+	border-top: 1px solid var(--bl-ink-mid);
+}
+
+.bl-footer__bottom-inner {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-3);
+	padding-block: var(--bl-space-5) 0;
+}
+
+.bl-leaf-mark {
+	width: 28px;
+	height: 28px;
+	flex: 0 0 auto;
+	color: var(--bl-ice);
+}
+
+.bl-footer__copyright {
+	margin: 0;
+	font-size: var(--bl-text-sm);
+}

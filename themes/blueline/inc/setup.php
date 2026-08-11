@@ -26,10 +26,23 @@ function blueline_setup() {
 	add_theme_support( 'responsive-embeds' );
 	add_theme_support( 'html5', array( 'search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script' ) );
 
-	register_nav_menus( array(
-		'primary' => __( 'Primary Menu', 'blueline' ),
-		'footer'  => __( 'Footer Menu', 'blueline' ),
-	) );
+	// Required so the header can call has_custom_logo() / the_custom_logo() (Task 4).
+	add_theme_support(
+		'custom-logo',
+		array(
+			'height'      => 80,
+			'width'       => 240,
+			'flex-height' => true,
+			'flex-width'  => true,
+		)
+	);
+
+	register_nav_menus(
+		array(
+			'primary' => __( 'Primary Menu', 'blueline' ),
+			'footer'  => __( 'Footer Menu', 'blueline' ),
+		)
+	);
 }
 
 add_action( 'widgets_init', 'blueline_widgets_init' );

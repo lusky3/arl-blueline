@@ -28,6 +28,9 @@ const RULES = [
 	[ 'pale text on ink',          'bl-pale',        'bl-ink',   4.5 ],
 	[ 'ice text on ink',           'bl-ice',         'bl-ink',   4.5 ],
 	[ 'steel border on paper',     'bl-steel',       'bl-paper', 3.0 ],
+	// bl-ink-deep is first used (header/nav/footer chrome) in Task 4.
+	[ 'paper text on ink-deep',    'bl-paper',       'bl-ink-deep', 4.5 ],
+	[ 'pale text on ink-deep',     'bl-pale',        'bl-ink-deep', 4.5 ],
 ];
 
 let failed = 0;

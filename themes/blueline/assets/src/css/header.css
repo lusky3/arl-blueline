@@ -1,0 +1,157 @@
+/*
+ * Blueline — site header.
+ * Navy chrome (--bl-ink-deep) with the logo, primary nav, sponsors
+ * placeholder and Register CTA, closed off by the paired blue-line bands.
+ */
+
+/*
+ * Visually-hidden utility, shared by the skip link and every icon-only
+ * control (mobile toggle, submenu toggles) introduced by the header/nav.
+ */
+.screen-reader-text {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.skip-link.screen-reader-text:focus {
+	position: fixed;
+	top: var(--bl-space-3);
+	left: var(--bl-space-3);
+	z-index: 100;
+	width: auto;
+	height: auto;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	overflow: visible;
+	clip: auto;
+	white-space: normal;
+	background: var(--bl-paper);
+	color: var(--bl-ink);
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	text-decoration: none;
+	outline: var(--bl-focus);
+	outline-offset: var(--bl-focus-offset);
+}
+
+.bl-header {
+	background: var(--bl-ink-deep);
+	color: var(--bl-paper);
+}
+
+.bl-header a {
+	text-decoration: none;
+}
+
+.bl-header__bar {
+	position: relative;
+
+	/* Stays above the full-screen mobile drawer so the toggle stays reachable. */
+	z-index: 60;
+}
+
+.bl-header__inner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bl-space-3) var(--bl-space-4);
+	padding-block: var(--bl-space-3);
+}
+
+.bl-header__brand {
+	display: flex;
+	flex: 0 1 auto;
+	align-items: center;
+
+	/*
+	 * min-width: 0 lets this flex item shrink below its text's natural
+	 * width instead of forcing the row to overflow — but without a cap
+	 * on the title itself, that shrink has no floor and the box (and its
+	 * text) can collapse to nothing while siblings keep their full size.
+	 * The max-width + ellipsis on .bl-header__site-title below is the
+	 * floor: it truncates gracefully instead of vanishing.
+	 */
+	min-width: 0;
+}
+
+.bl-header__logo,
+.custom-logo-link {
+	display: inline-flex;
+	align-items: center;
+	min-width: 0;
+	color: var(--bl-paper);
+}
+
+.bl-header__site-title {
+	display: inline-block;
+	overflow: hidden;
+	max-width: 16rem;
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-xl);
+	line-height: 1;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.custom-logo-link img,
+.bl-header__logo img {
+	display: block;
+	height: 48px;
+	width: auto;
+}
+
+.bl-header__actions {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: var(--bl-space-3);
+}
+
+/* Task 8 hooks sportspress_header_sponsors_selector at this container. */
+.bl-header__sponsors:empty {
+	display: none;
+}
+
+/*
+ * Primary button (Register CTA). Device #1 (the skew) applies to the
+ * decorative inner .bl-skew shape only — the <a> itself stays un-skewed
+ * so its :focus-visible ring is a true, unrotated rectangle.
+ */
+.bl-btn {
+	display: inline-flex;
+	position: relative;
+}
+
+.bl-btn .bl-skew {
+	display: inline-flex;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.bl-btn--primary .bl-skew {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+}
+
+@media (min-width: 880px) {
+
+	.bl-header__inner {
+		flex-wrap: nowrap;
+	}
+}

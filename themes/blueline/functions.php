@@ -1,13 +1,16 @@
 <?php
 /**
- * blueline theme bootstrap.
+ * Blueline theme bootstrap.
  *
  * @package blueline
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BLUELINE_VERSION', '1.0.0' );
+// Bump on every asset-affecting change: enqueued CSS/JS/style.css use this
+// as their query-string version, and staging/production both serve them
+// with long, immutable cache lifetimes (see inc/enqueue.php).
+define( 'BLUELINE_VERSION', '1.0.1' );
 define( 'BLUELINE_DIR', get_template_directory() );
 define( 'BLUELINE_URI', get_template_directory_uri() );
 

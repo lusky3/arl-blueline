@@ -1,0 +1,246 @@
+/*
+ * Blueline — primary navigation.
+ *
+ * Three input modes are all supported for opening a submenu, layered so
+ * any one of them is enough:
+ *   1. :hover        — mouse users.
+ *   2. :focus-within  — keyboard users tabbing through links (also covers
+ *                        the mobile drawer, where hover doesn't apply).
+ *   3. [data-open]    — set by navigation.js on click/tap, for touch
+ *                        devices with no hover state and for the explicit
+ *                        chevron toggle button.
+ *
+ * Below 880px the menu becomes a full-screen drawer opened by the
+ * hamburger toggle; submenus render in-flow (accordion) instead of as
+ * dropdowns. A ~20-item submenu never breaks the viewport because the
+ * drawer itself scrolls (overflow-y: auto) and nested submenus never
+ * introduce a second independent scroll region — see the desktop rule
+ * for .bl-nav__submenu .bl-nav__submenu below.
+ */
+
+.bl-nav {
+	position: relative;
+}
+
+.bl-nav__menu,
+.bl-nav__submenu {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bl-nav__item {
+	position: relative;
+}
+
+.bl-nav__link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	padding: var(--bl-space-3) var(--bl-space-4);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	letter-spacing: 0.01em;
+	text-decoration: none;
+	border-bottom: 3px solid transparent;
+}
+
+.bl-nav__link:hover,
+.bl-nav__link:focus-visible {
+	color: var(--bl-pale);
+}
+
+/* Hard constraint: active item is paper-on-ink with an ice underline,
+   never white/paper text directly on the --bl-steel fill. */
+.bl-nav__link[aria-current="page"] {
+	color: var(--bl-paper);
+	border-bottom-color: var(--bl-ice);
+}
+
+.bl-nav .bl-skew {
+	padding: var(--bl-space-1) var(--bl-space-3);
+}
+
+.bl-nav__link[aria-current="page"] .bl-skew {
+	background: var(--bl-ink);
+}
+
+.bl-nav__submenu .bl-nav__link[aria-current="page"] {
+	background: var(--bl-ink);
+}
+
+.bl-nav__toggle-sub {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	flex: 0 0 auto;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--bl-paper);
+	cursor: pointer;
+}
+
+.bl-nav__chevron {
+	width: 10px;
+	height: 10px;
+}
+
+.bl-motion-ok .bl-nav__chevron {
+	transition: transform 0.15s ease;
+}
+
+.bl-nav__toggle-sub[aria-expanded="true"] .bl-nav__chevron,
+.bl-nav__item--parent[data-open="true"] > .bl-nav__toggle-sub .bl-nav__chevron {
+	transform: rotate(180deg);
+}
+
+/* Submenus: hidden until hovered, focused-within, or opened via JS. */
+.bl-nav__submenu {
+	display: none;
+}
+
+.bl-nav__item:hover > .bl-nav__submenu,
+.bl-nav__item:focus-within > .bl-nav__submenu,
+.bl-nav__item[data-open="true"] > .bl-nav__submenu {
+	display: block;
+}
+
+/* Mobile toggle (hamburger) */
+
+.bl-nav__toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	flex: 0 0 auto;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--bl-paper);
+	cursor: pointer;
+}
+
+.bl-nav__toggle-bars {
+	position: relative;
+	display: block;
+	width: 22px;
+	height: 2px;
+	background: currentcolor;
+	border-radius: 1px;
+}
+
+.bl-nav__toggle-bars::before,
+.bl-nav__toggle-bars::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	width: 22px;
+	height: 2px;
+	background: currentcolor;
+	border-radius: 1px;
+}
+
+.bl-nav__toggle-bars::before {
+	top: -7px;
+}
+
+.bl-nav__toggle-bars::after {
+	top: 7px;
+}
+
+/* Mobile drawer (below 880px) */
+
+@media (max-width: 879.98px) {
+
+	.bl-nav__menu {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		overflow-y: auto;
+		background: var(--bl-ink-deep);
+		padding: var(--bl-space-8) var(--bl-space-5) var(--bl-space-6);
+	}
+
+	body.bl-nav-open .bl-nav__menu {
+		display: block;
+	}
+
+	.bl-nav__item {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.bl-nav__menu > .bl-nav__item {
+		border-bottom: 1px solid var(--bl-ink-mid);
+	}
+
+	.bl-nav__link {
+		flex: 1 1 auto;
+	}
+
+	.bl-nav__submenu {
+		flex-basis: 100%;
+		padding-inline-start: var(--bl-space-5);
+	}
+}
+
+@media (min-width: 880px) {
+
+	.bl-nav__toggle {
+		display: none;
+	}
+
+	/*
+	 * The nav is the one flex sibling in .bl-header__inner allowed to
+	 * shrink (brand and actions are flex: 0 …, holding their size).
+	 */
+	.bl-nav {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.bl-nav__menu {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: stretch;
+		justify-content: flex-end;
+	}
+
+	.bl-nav__item > .bl-nav__submenu {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		z-index: 40;
+		min-width: 260px;
+		max-height: min(70vh, 480px);
+		overflow-y: auto;
+		background: var(--bl-ink-deep);
+		box-shadow: var(--bl-shadow-raised);
+		padding-block: var(--bl-space-2);
+	}
+
+	/*
+	 * Nested (depth-2) submenus — e.g. "Past Standings" with ~20 items —
+	 * stay in-flow inside the depth-1 dropdown rather than flying out
+	 * sideways. That keeps them scrolling with their parent's single
+	 * overflow-y region instead of risking an off-screen flyout or a
+	 * second independent scrollbar.
+	 */
+	.bl-nav__submenu .bl-nav__submenu {
+		position: static;
+		max-height: none;
+		overflow: visible;
+		background: transparent;
+		box-shadow: none;
+		margin-inline-start: var(--bl-space-4);
+	}
+}
