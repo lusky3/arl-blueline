@@ -319,12 +319,24 @@ set — no Font Awesome dependency.
 
 ### 6.6 Migration details
 
-- **Custom avatars.** 11 users have avatars stored in `yith_wcmap_users_avatar_ids`
-  (attachment IDs). Migrate to theme-owned user meta plus a `get_avatar` filter, or they
-  disappear silently on deactivation.
-- **reCAPTCHA.** YITH supplies reCAPTCHA on the account form, but `simple-cloudflare-turnstile`
-  is also active. Confirm which actually guards the login/register form before removal; if
-  Turnstile covers it, no replacement is needed. **Open item — verify during build.**
+- **Custom avatars — done (Task 13).** 11 entries exist in
+  `yith_wcmap_users_avatar_ids`, but that option is not itself a `user_id => attachment_id`
+  map — it's YITH's internal upload-bookkeeping list (a sequential push/unset history); the
+  real per-user link is user meta `yith-wcmap-avatar` (10 real links; the option's 11th entry
+  is an orphan attachment with no owning user). Migrated to theme-owned user meta
+  (`blueline_avatar_id`) plus a `pre_get_avatar_data` filter — the one hook that reaches both
+  `get_avatar()` and `get_avatar_url()` — verified on staging. **This produces no visible
+  change at cutover**: `show_avatars` is off site-wide, and an active Code Snippets rule
+  ("Remove Gravatars", ID 23) unconditionally filters `get_avatar` to return an empty string
+  for every user. Both predate this project and would have suppressed YITH's own avatar image
+  too — these 10 users' avatars may never have actually rendered on the live site. The
+  migration is still correct and necessary (it preserves the data and wires the filter for
+  whichever future template first calls `get_avatar()`/`get_avatar_url()`), but nobody should
+  "verify" it by looking for a visible avatar on `/account` and conclude it failed.
+- **reCAPTCHA vs Turnstile — resolved (Task 13).** YITH's reCAPTCHA is the *only* thing that
+  has ever guarded the registration form; Turnstile has never covered it, despite already
+  being installed and credentialed on production. See §9 Risks for the verified state and the
+  required pre-cutover step.
 - **The "Installments" endpoint is already dead.** No subscriptions plugin is active, yet 534
   `shop_subscription` records exist — 2 `wc-active`, 127 `wc-on-hold`, 66 cancelled, 338
   expired, plus 1 `hf_shop_subscription` and 3 `ywsbs_subscription`. The endpoint cannot
@@ -410,6 +422,7 @@ Appending a junk query string bypasses srcache and shows what WordPress actually
 | **Rewrite flush exposing the `/register` 405** | Confirm `rh-royal-mcp-register-fix.php` is present in production `mu-plugins` before flushing |
 | **Losing customer-facing email wording** | All 14 email templates ported in R1, before any redesign |
 | Custom avatars lost silently | Migrate the 11 records (§6.6) |
+| **Registration form loses bot protection when YITH is removed — resolved with a required pre-cutover step.** Verified via a live `$wp_filter` dump on staging (YITH deactivated there): `woocommerce_login_form` and `login_form` have never had any callback from either plugin — login has never been guarded. `woocommerce_register_form` is currently guarded only by WooCommerce core's own non-security hooks. Reading YITH's source confirms its reCAPTCHA (`yith-wcmap-enable-recaptcha`, genuinely configured with real keys) only ever hooked `woocommerce_register_form` — it is the *only* bot protection the registration form has ever had. `simple-cloudflare-turnstile` is **active on production**, already credentialed (`cfturnstile_key`/`cfturnstile_secret`/`cfturnstile_tested` all set) and already guarding Gravity Forms (`cfturnstile_gravity` on) — but every WooCommerce toggle is off: `cfturnstile_woo_register`, `cfturnstile_woo_login`, `cfturnstile_woo_checkout`, `cfturnstile_woo_reset` all `off`. So Turnstile does **not** currently cover this form, contrary to this spec's original assumption in §6.6 — but closing the gap is a **settings change, not a new integration**, since the plugin, keys, and Gravity Forms precedent already exist | **Before YITH is deactivated on production:** enable `cfturnstile_woo_register` (registration parity with today); consider also enabling `cfturnstile_woo_login`, since login has never been protected by either plugin and this is a good moment to add it; then load `/account?action=register` and confirm the Turnstile widget actually renders and validates before removing YITH |
 | `/registration/*` child pages 404 | Pre-existing: WooCommerce `product_base` is `/registration`, shadowing children of page 168. Not caused by, and not fixed by, the theme |
 | **`.sp-league-table` sticky headers conflict with the horizontal-scroll hard constraint** — `border-collapse: collapse` spec-disables `position: sticky` on table-part boxes, and separately, the scroll wrapper's own `overflow-x: auto` forces its `overflow-y` to also become a scroll container (an unavoidable CSS pairing rule), leaving the sticky header nothing but that wrapper's own zero-spare-height box to stick within — confirmed live, both causes independently verified (Task 8 fix round 2) | **Ruled out, not implemented.** Divisions run ~8 teams, so standings tables are short; sticky buys little on tables this size, and the only CSS-only fix (bound the wrapper's `max-height` so it becomes its own vertical scroll region, then sticky the header inside that) trades an inline full-height table for a boxed one with an internal scrollbar — a real UX cost on `/standings`, the site's most-visited page. A working sticky header would cost a JS-driven frozen-header rewrite (splitting header from horizontally-scrolling body, syncing scroll position) — not attempted in R1 |
 
@@ -417,11 +430,11 @@ Appending a junk query string bypasses srcache and shows what WordPress actually
 
 ## 10. Open items
 
-1. **Which service guards the account form** — YITH reCAPTCHA or Cloudflare Turnstile.
-   Verify before removing YITH.
-2. **The 2 active `shop_subscription` records** — a league business decision about payment
+*(Former item 1, "which service guards the account form," is resolved — see §9 Risks.)*
+
+1. **The 2 active `shop_subscription` records** — a league business decision about payment
    plans, referred to the ARL.
-3. **Theme slug** — `blueline` is assumed throughout; trivially changeable before scaffolding.
+2. **Theme slug** — `blueline` is assumed throughout; trivially changeable before scaffolding.
 
 ---
 

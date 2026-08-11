@@ -88,7 +88,12 @@ echo PHP_EOL;
 /**
  * The real source: every user with a non-empty `yith-wcmap-avatar` link.
  *
- * @var WP_User[] $blueline_yith_users
+ * `get_users()` with an explicit `fields` list (anything other than 'all'/
+ * 'all_with_meta') returns plain stdClass rows carrying only the requested
+ * columns, not full WP_User objects -- only `->ID` and `->user_login` are
+ * read below, so no WP_User method is ever called on these.
+ *
+ * @var stdClass[] $blueline_yith_users
  */
 $blueline_yith_users = get_users(
 	array(
@@ -109,17 +114,31 @@ $blueline_migration_rows             = array();
 $blueline_option_attachment_ids_seen = array();
 
 foreach ( $blueline_yith_users as $blueline_user ) {
-	$user_id       = (int) $blueline_user->ID;
-	$attachment_id = absint( get_user_meta( $user_id, BLUELINE_YITH_META_KEY, true ) );
+	$user_id        = (int) $blueline_user->ID;
+	$raw_meta_value = get_user_meta( $user_id, BLUELINE_YITH_META_KEY, true );
+	$attachment_id  = absint( $raw_meta_value );
+	$existing_meta  = absint( get_user_meta( $user_id, BLUELINE_MIGRATE_META_KEY, true ) );
 
+	// The meta_query above only guarantees a non-empty raw value -- a
+	// non-numeric one (e.g. corrupt data) still resolves to 0 here. Report
+	// it as skipped rather than silently `continue`-ing past it, so the
+	// before/after table stays a complete account of every row it looked
+	// at on any future rerun, not just the ones that happened to parse.
 	if ( ! $attachment_id ) {
+		$blueline_migration_rows[] = array(
+			'user_id'       => $user_id,
+			'user_login'    => $blueline_user->user_login,
+			'attachment_id' => '(invalid)',
+			'before'        => $existing_meta ? (string) $existing_meta : '(none)',
+			'after'         => $existing_meta ? (string) $existing_meta : '(none)',
+			'status'        => 'SKIPPED -- yith-wcmap-avatar value is non-numeric/zero: ' . wp_json_encode( $raw_meta_value ),
+		);
 		continue;
 	}
 
 	$blueline_option_attachment_ids_seen[ $attachment_id ] = true;
 
 	$attachment_exists = 'attachment' === get_post_type( $attachment_id );
-	$existing_meta     = absint( get_user_meta( $user_id, BLUELINE_MIGRATE_META_KEY, true ) );
 
 	if ( ! $attachment_exists ) {
 		$row_status = 'SKIPPED -- attachment ' . $attachment_id . ' no longer exists';
