@@ -10,6 +10,28 @@
 	box-sizing: border-box;
 }
 
+/*
+ * Site-wide hard invariant: the page body must never scroll horizontally.
+ * Wide content (data tables, embedded maps/widgets) is expected to scroll
+ * inside its own container instead -- see .bl-table-scroll/.bl-table-self-
+ * scroll in sportspress.css, and blueline_sp_wrap_tables_for_scroll() in
+ * inc/sportspress.php, which are the primary mechanism. This is the
+ * independent, last-resort backstop: even if some future markup this theme
+ * doesn't yet know about overflows, the page itself still cannot be
+ * scrolled sideways.
+ *
+ * overflow-x: clip (not hidden) is deliberate: unlike hidden, clip does not
+ * force the other axis (overflow-y) to also become a scroll container, so
+ * it cannot accidentally trap the document's own vertical scroll or change
+ * what position: sticky elements stick relative to. Verified live: sticky
+ * table headers (.sp-league-table thead th) and the mobile nav drawer's
+ * focus trap/open-close behaviour both still work correctly with this rule
+ * in place (see the Task 8 fix report).
+ */
+html {
+	overflow-x: clip;
+}
+
 body {
 	margin: 0;
 	font-family: var(--bl-font-body);

@@ -15,23 +15,34 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A post's raw title, bypassing the 'the_title' filter entirely -- not
- * merely stripped of tags. SportsPress hooks 'the_title' for sp_player/
- * sp_staff to prepend a "<strong class=\"sp-player-number\">27</strong> " /
- * "<strong class=\"sp-staff-role\">Referee</strong> " badge (confirmed live:
+ * A post's display title, with SportsPress's own number/role badge removed
+ * for exactly the two post types that get one.
+ *
+ * SportsPress hooks 'the_title' for sp_player/sp_staff only, to prepend a
+ * "<strong class=\"sp-player-number\">27</strong> " / "<strong
+ * class=\"sp-staff-role\">Referee</strong> " badge (confirmed live:
  * get_the_title() on a player named "Matthew Mascola" returns that literal
- * markup plus text). wp_strip_all_tags() alone would only remove the <strong>
- * tags and leave "27 Matthew Mascola" -- still duplicating the number this
- * theme's own hero markup already shows in its own badge. get_post_field()
- * with the 'raw' context returns the exact, unfiltered database value
- * (sanitize_post_field() special-cases 'raw' to skip every filter), so this
- * is the plain title with nothing prepended, ready for esc_html().
+ * markup plus text) -- this theme's own hero markup already shows that same
+ * number/role in its own badge, so the prefix would both duplicate it and,
+ * if merely HTML-escaped, print the literal tags as visible text.
+ *
+ * Review finding: an earlier version of this function used
+ * get_post_field( 'post_title', $id, 'raw' ) for every post type, which
+ * bypasses the ENTIRE 'the_title' filter chain -- not just SportsPress's
+ * badge, but also wptexturize()/convert_chars() (smart quotes, em-dashes)
+ * that every other post type's title still needs. Narrowed to only the two
+ * post types with the actual badge problem; sp_event/sp_team (and anything
+ * else) go through the normal, fully-filtered get_the_title().
  *
  * @param int $post_id Post ID.
- * @return string Plain, unfiltered title.
+ * @return string Plain title, ready for esc_html().
  */
 function blueline_sp_title( $post_id ) {
-	return (string) get_post_field( 'post_title', $post_id, 'raw' );
+	if ( in_array( get_post_type( $post_id ), array( 'sp_player', 'sp_staff' ), true ) ) {
+		return (string) get_post_field( 'post_title', $post_id, 'raw' );
+	}
+
+	return get_the_title( $post_id );
 }
 
 /**
@@ -91,27 +102,171 @@ function blueline_header_sponsors_selector( $selector ) { // phpcs:ignore Generi
 
 add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
 /**
- * SportsPress's own templates (league-table.php, event-blocks.php,
- * player-statistics-league.php, event-details.php, event-list.php,
- * player-list.php, event-officials-table.php, event-logos-block.php) all
- * wrap their <table> in an identical, class-only `<div class="sp-table-
- * wrapper">` with no other classes ever present alongside it -- confirmed
- * by reading every occurrence in the installed plugin. Appending
- * bl-table-scroll there, after shortcodes have already expanded (priority
- * 20, run after SP's own the_content hooks and do_shortcode's default
- * priority 11), gives every SP data table a horizontal scroll container
- * without touching a single plugin file. This is the only place these
- * tables get wrapped -- entity hero markup below never repeats it.
+ * Guarantee every <table> in rendered content either sits inside a scroll
+ * container or gets one of its own -- "the page body must never scroll
+ * horizontally" is a site-wide hard invariant, not a today's-markup-shaped
+ * one, so this must not depend on SportsPress's exact current class names.
+ *
+ * Two layers, in order:
+ * 1. SportsPress's own templates (league-table.php, event-blocks.php,
+ *    player-statistics-league.php, event-details.php, event-list.php,
+ *    player-list.php, event-officials-table.php, event-logos-block.php) all
+ *    wrap their <table> in an identical, class-only
+ *    `<div class="sp-table-wrapper">` -- confirmed by reading every
+ *    occurrence in the installed plugin. A cheap string check/replace
+ *    handles this, the overwhelming common case, without any parsing.
+ * 2. blueline_sp_ensure_tables_scroll() then walks every remaining <table>
+ *    via DOMDocument and gives any that still has no scroll-capable
+ *    ancestor a self-contained scroll class directly. This is what actually
+ *    closes the gap: event-venue.php is the one SP template today that
+ *    renders its <table> with no wrapper at all (its embedded Leaflet map
+ *    overflowed the page body at mobile widths until this was added -- see
+ *    the Task 8 fix report) -- and a future SportsPress update changing any
+ *    table's class list, or adding a new unwrapped one, is caught by this
+ *    same generic pass without needing a matching theme update. Runs after
+ *    shortcodes have already expanded (priority 20, after SP's own
+ *    the_content hooks and do_shortcode's default priority 11).
+ *
+ * base.css's `html { overflow-x: clip; }` is the third, independent layer:
+ * even if a table somehow reaches the page without either mechanism above
+ * catching it, the page body still cannot scroll horizontally.
  *
  * @param string $content Post content, already shortcode-expanded.
  * @return string
  */
 function blueline_sp_wrap_tables_for_scroll( $content ) {
-	if ( false === strpos( $content, 'sp-table-wrapper' ) ) {
+	if ( false === strpos( $content, '<table' ) ) {
 		return $content;
 	}
 
-	return str_replace( 'class="sp-table-wrapper"', 'class="sp-table-wrapper bl-table-scroll"', $content );
+	if ( false !== strpos( $content, 'class="sp-table-wrapper"' ) ) {
+		$content = str_replace( 'class="sp-table-wrapper"', 'class="sp-table-wrapper bl-table-scroll"', $content );
+	}
+
+	if ( ! class_exists( 'DOMDocument' ) ) {
+		// ext-dom unavailable: degrade to the string-only pass above. The
+		// html{overflow-x:clip} CSS backstop still protects the invariant.
+		return $content;
+	}
+
+	return blueline_sp_ensure_tables_scroll( $content );
+}
+
+/**
+ * Walk every <table> in $content and make sure it has a scroll-capable
+ * ancestor: either it's already inside something carrying bl-table-scroll
+ * (added above, or by any future mechanism) or bl-table-self-scroll, or it
+ * gets bl-table-self-scroll added directly to itself. See
+ * blueline_sp_wrap_tables_for_scroll()'s docblock for why this exists.
+ *
+ * @param string $content Post content.
+ * @return string
+ */
+function blueline_sp_ensure_tables_scroll( $content ) {
+	$libxml_state = libxml_use_internal_errors( true );
+
+	$dom    = new DOMDocument();
+	$loaded = $dom->loadHTML(
+		'<?xml encoding="utf-8" ?><div id="blueline-scroll-root">' . $content . '</div>',
+		LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+	);
+
+	libxml_clear_errors();
+	libxml_use_internal_errors( $libxml_state );
+
+	if ( ! $loaded ) {
+		// Malformed fragment -- leave content untouched rather than risk
+		// corrupting it; the CSS backstop still applies.
+		return $content;
+	}
+
+	$xpath  = new DOMXPath( $dom );
+	$tables = $xpath->query( '//table' );
+
+	if ( 0 === $tables->length ) {
+		return $content;
+	}
+
+	$changed = false;
+
+	foreach ( $tables as $table ) {
+		if ( ! $table instanceof DOMElement ) {
+			continue;
+		}
+
+		if ( blueline_dom_find_class_ancestor( $table, 'bl-table-scroll' )
+			|| blueline_dom_find_class_ancestor( $table, 'bl-table-self-scroll' ) ) {
+			continue; // Already inside a scroll container.
+		}
+
+		blueline_dom_add_class( $table, 'bl-table-self-scroll' );
+		$changed = true;
+	}
+
+	if ( ! $changed ) {
+		return $content;
+	}
+
+	$root = $xpath->query( '//div[@id="blueline-scroll-root"]' )->item( 0 );
+
+	if ( ! $root ) {
+		return $content;
+	}
+
+	$html = '';
+	foreach ( $root->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- native DOMNode property, cannot be renamed.
+		$html .= $dom->saveHTML( $child );
+	}
+
+	return $html;
+}
+
+/**
+ * Find the nearest ancestor element carrying a given class, or null.
+ *
+ * @param DOMNode $node       Node to search upward from (its own classes are not checked).
+ * @param string  $class_name Class name to look for.
+ * @return DOMElement|null
+ */
+function blueline_dom_find_class_ancestor( $node, $class_name ) {
+	$node = $node->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- native DOMNode property, cannot be renamed.
+
+	while ( $node instanceof DOMElement ) {
+		if ( blueline_dom_has_class( $node, $class_name ) ) {
+			return $node;
+		}
+		$node = $node->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- native DOMNode property, cannot be renamed.
+	}
+
+	return null;
+}
+
+/**
+ * Whether a DOM element's class attribute contains a given class token.
+ *
+ * @param DOMElement $element    Element to check.
+ * @param string     $class_name Class name to look for.
+ * @return bool
+ */
+function blueline_dom_has_class( DOMElement $element, $class_name ) {
+	$classes = preg_split( '/\s+/', trim( (string) $element->getAttribute( 'class' ) ), -1, PREG_SPLIT_NO_EMPTY );
+
+	return in_array( $class_name, $classes, true );
+}
+
+/**
+ * Add a class token to a DOM element, without duplicating it if present.
+ *
+ * @param DOMElement $element    Element to modify.
+ * @param string     $class_name Class name to add.
+ */
+function blueline_dom_add_class( DOMElement $element, $class_name ) {
+	if ( blueline_dom_has_class( $element, $class_name ) ) {
+		return;
+	}
+
+	$existing = trim( (string) $element->getAttribute( 'class' ) );
+	$element->setAttribute( 'class', ( '' !== $existing ? $existing . ' ' : '' ) . $class_name );
 }
 
 add_action( 'pre_get_posts', 'blueline_sp_venue_archive_include_future' );
@@ -195,6 +350,61 @@ function blueline_sp_event_calendar_url( $event_id ) {
 }
 
 /**
+ * One team's own scoreline for a played sp_event, looked up by team ID --
+ * never by position in a shared results array.
+ *
+ * Review finding: SP_Event::main_results() (SportsPress core) returns a
+ * plain, re-indexed array built by looping $teams and doing
+ * `$output[] = $team_result` only `if ( null != $team_result )` -- so a
+ * team with no result recorded for this event (a bye, an incomplete score
+ * entry, etc.) is skipped entirely, shifting every following team's score
+ * left by one slot. Zipping that array against this theme's own
+ * separately-fetched $teams array by index (the original implementation)
+ * would silently attribute one team's score to a different team the moment
+ * either team is missing a value -- home/away meta-row order is meaningful
+ * on this site but not guaranteed to line up with a differently-derived,
+ * gap-compacted results array. This function re-derives one specific
+ * team's own result directly from the sp_results meta, keyed by that
+ * team's own ID, mirroring SP_Event::main_results()'s own per-team logic
+ * (primary result column if configured and non-empty, else the last
+ * non-empty, non-outcome column) without going through its shared,
+ * position-based output array at all.
+ *
+ * @param int $event_id sp_event post ID.
+ * @param int $team_id  sp_team post ID, expected to be one of this event's own sp_team meta values.
+ * @return string|int|null The team's own scoreline, or null if none is recorded.
+ */
+function blueline_sp_team_result( $event_id, $team_id ) {
+	$results = get_post_meta( $event_id, 'sp_results', true );
+
+	if ( ! is_array( $results ) || empty( $results[ $team_id ] ) || ! is_array( $results[ $team_id ] ) ) {
+		return null;
+	}
+
+	$team_results = $results[ $team_id ];
+	$primary_key  = get_option( 'sportspress_primary_result', '' );
+
+	if ( $primary_key && isset( $team_results[ $primary_key ] ) && '' !== $team_results[ $primary_key ] ) {
+		return $team_results[ $primary_key ];
+	}
+
+	unset( $team_results['outcome'] );
+
+	$team_results = array_filter(
+		$team_results,
+		static function ( $value ) {
+			return '' !== $value && null !== $value;
+		}
+	);
+
+	if ( empty( $team_results ) ) {
+		return null;
+	}
+
+	return end( $team_results );
+}
+
+/**
  * The event masthead: teams, "vs", venue (and pad, since the venue term
  * name IS the pad here -- e.g. term 14 is literally named "Red", term 13
  * "Black", both sharing one street address), and either an add-to-calendar
@@ -214,11 +424,6 @@ function blueline_sp_event_hero( $event_id ) {
 
 	$status    = sp_get_status( $event_id );
 	$is_played = ( 'results' === $status );
-
-	$results = array();
-	if ( $is_played && function_exists( 'sp_get_main_results' ) ) {
-		$results = array_values( (array) sp_get_main_results( $event_id ) );
-	}
 
 	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
 	$venue_name  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0]->name : '';
@@ -240,7 +445,7 @@ function blueline_sp_event_hero( $event_id ) {
 				<?php foreach ( array( 0, 1 ) as $slot ) : ?>
 					<?php
 					$team_id = $teams[ $slot ] ?? 0;
-					$score   = $results[ $slot ] ?? null;
+					$score   = ( $is_played && $team_id ) ? blueline_sp_team_result( $event_id, $team_id ) : null;
 					?>
 					<div class="sp-scoreboard__team">
 						<?php if ( $team_id && has_post_thumbnail( $team_id ) ) : ?>
@@ -459,31 +664,29 @@ function blueline_sp_event_teaser( $event_id ) {
 	$status    = function_exists( 'sp_get_status' ) ? sp_get_status( $event_id ) : get_post_status( $event_id );
 	$is_played = ( 'results' === $status );
 
-	$results = array();
-	if ( $is_played && function_exists( 'sp_get_main_results' ) ) {
-		$results = array_values( array_filter( (array) sp_get_main_results( $event_id ), 'blueline_sp_filter_positive_or_zero_exists' ) );
+	// Keyed by team ID (blueline_sp_team_result()), not positionally zipped
+	// against a shared results array -- see that function's own docblock
+	// for why a positional pairing can silently attribute one team's score
+	// to the other.
+	$scores = array();
+	if ( $is_played ) {
+		$teams = array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) );
+		foreach ( $teams as $team_id ) {
+			$score = blueline_sp_team_result( $event_id, $team_id );
+			if ( null !== $score && '' !== $score ) {
+				$scores[] = $score;
+			}
+		}
 	}
 	?>
 	<a class="bl-sp-event-teaser" href="<?php echo esc_url( get_permalink( $event_id ) ); ?>">
 		<span class="bl-sp-event-teaser__date"><?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event_id ) ); ?></span>
 		<span class="bl-sp-event-teaser__title"><?php echo esc_html( blueline_sp_title( $event_id ) ); ?></span>
-		<?php if ( $is_played && $results ) : ?>
-			<span class="bl-sp-event-teaser__score"><?php echo esc_html( implode( ' - ', $results ) ); ?></span>
+		<?php if ( $is_played && $scores ) : ?>
+			<span class="bl-sp-event-teaser__score"><?php echo esc_html( implode( ' - ', $scores ) ); ?></span>
 		<?php else : ?>
 			<span class="bl-sp-event-teaser__status"><?php esc_html_e( 'Preview', 'blueline' ); ?></span>
 		<?php endif; ?>
 	</a>
 	<?php
-}
-
-/**
- * Array_filter() callback: keeps a result value whenever it was actually set
- * (including a genuine 0-0 scoreline), unlike sp_filter_positive()
- * (SportsPress's own helper) which would drop a real "0" score.
- *
- * @param mixed $value Result value.
- * @return bool
- */
-function blueline_sp_filter_positive_or_zero_exists( $value ) {
-	return '' !== $value && null !== $value;
 }

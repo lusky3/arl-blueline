@@ -16,10 +16,11 @@
  *   .sp-event-venue, .sp-table-caption, .sp-highlight, .sp-heading,
  *   .sp-view-all-link, .team-logo, .data-rank, .data-name, .data-number.
  *   Theme-owned classes (this task's own markup, in inc/sportspress.php
- *   and sportspress/team-lists.php): .bl-table-scroll, .sp-scoreboard,
- *   .sp-team-list, .bl-sp-hero, .bl-sp-event-teaser, .bl-sp-empty,
- *   .sp-statistic / .sp-statistic-bar (declared for the brief's named
- *   selector; no shipped SP template in this install currently emits it).
+ *   and sportspress/team-lists.php): .bl-table-scroll, .bl-table-self-scroll,
+ *   .sp-scoreboard, .sp-team-list, .bl-sp-hero, .bl-sp-event-teaser,
+ *   .bl-sp-empty, .sp-statistic / .sp-statistic-bar (declared for the
+ *   brief's named selector; no shipped SP template in this install
+ *   currently emits it).
  */
 
 /* ---- Sidebar-aware full-bleed shell for hero-bearing entity pages ---- */
@@ -36,9 +37,63 @@
 /* ---- Horizontal scroll container (hard constraint: the page body must
    never scroll horizontally) ---- */
 
+/*
+ * overflow-y: clip is a defensive, not load-bearing, addition: this
+ * wrapper's own content is never taller than itself, so it should never
+ * need to scroll vertically at all. It was added while chasing a sticky-
+ * table-header attempt (see .sp-league-table's own comment below for the
+ * full finding) -- explicitly declaring "no vertical overflow behaviour
+ * wanted" here did NOT restore position: sticky for content inside this
+ * wrapper (confirmed empirically: even overflow-y: visible forced via an
+ * !important inline style still computed as "auto" once overflow-x is
+ * non-visible -- there is no per-axis escape from that pairing while this
+ * wrapper needs horizontal scrolling). Kept anyway since it is harmless
+ * and semantically accurate; the sticky-header idea itself was abandoned.
+ */
 .bl-table-scroll {
 	overflow-x: auto;
+	overflow-y: clip;
 	-webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Self-contained scroll fallback for a <table> that has no .bl-table-scroll
+ * wrapper ancestor -- added directly to the table itself by
+ * blueline_sp_ensure_tables_scroll() (inc/sportspress.php) for any table
+ * SportsPress (or a future SportsPress update, or any other plugin) emits
+ * without its own wrapper. event-venue.php's embedded Leaflet-map table is
+ * the one that needs this today (confirmed live at 390px: its fixed pixel
+ * width overflowed the page body by 26px before this existed), but the
+ * class is deliberately generic, not named after that one table -- this is
+ * the defence-in-depth layer, not a special case for a single selector.
+ *
+ * min-width: 0 overrides the generic .sp-data-table's own
+ * min-width: max-content below (that rule exists so *wrapper-scrolled*
+ * tables never squish their columns, but it would also force a
+ * self-scrolled table wider than its own 100% width -- min-width always
+ * wins over a conflicting width, which is exactly how the original
+ * body-overflow bug happened here).
+ *
+ * `table.bl-table-self-scroll` (element + class), not just `.bl-table-
+ * self-scroll`, is deliberate: this class is only ever applied to <table>
+ * elements (blueline_sp_ensure_tables_scroll() only ever queries //table),
+ * and the extra element-type specificity guarantees this rule beats
+ * .sp-data-table's single-class specificity regardless of which rule
+ * happens to come first in the file -- confirmed live that a same-
+ * specificity version of this exact rule silently lost to .sp-data-table
+ * (min-width stayed max-content, the table stayed 391.5px wide, and the
+ * body overflowed exactly as before) purely because of source order.
+ */
+table.bl-table-self-scroll {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow-x: auto;
+
+	/* overflow-y: clip -- defensive, not load-bearing; see .bl-table-scroll's
+	   own comment above. */
+	overflow-y: clip;
 }
 
 /* ---- Generic SP data-table chrome (league table, event blocks, event
@@ -47,34 +102,6 @@
 
 .sp-table-wrapper {
 	margin-block: var(--bl-space-4);
-}
-
-/*
- * event-venue.php is the one SP template that renders its <table
- * class="sp-event-venue"> with no surrounding .sp-table-wrapper (confirmed
- * by reading every sp-table-wrapper occurrence in the installed plugin --
- * this is the sole exception), so blueline_sp_wrap_tables_for_scroll()'s
- * string replace never reaches it. Its embedded Leaflet map has a fixed
- * pixel width that overflowed the page body at mobile widths until this
- * was added (confirmed live at 390px: 26px of body-level horizontal
- * overflow, traced to this exact table). Scroll on the table's own box
- * instead of the wrapper div every other table gets.
- */
-.sp-data-table.sp-event-venue {
-	display: block;
-	width: 100%;
-	max-width: 100%;
-
-	/* Overrides the generic .sp-data-table min-width: max-content above --
-	   that rule exists so wrapper-scrolled tables never squish their
-	   columns, but it also forces this exact table (whose content is a
-	   fixed-width Leaflet map, not squishable columns) wider than its own
-	   100% width, which is what actually caused the body-level overflow;
-	   min-width always wins over a conflicting width. Doubled-up selector
-	   (both classes SP itself puts on this table) beats the single-class
-	   .sp-data-table rule on specificity, regardless of source order. */
-	min-width: 0;
-	overflow-x: auto;
 }
 
 .sp-table-caption,
@@ -155,13 +182,28 @@
 	filter: none;
 }
 
-/* ---- League table: sticky header, --bl-ice position column ---- */
-
-.sp-league-table thead th {
-	position: sticky;
-	top: 0;
-	z-index: 1;
-}
+/* ---- League table: header emphasis, --bl-ice position column ----
+ *
+ * position: sticky on the header row was attempted and removed -- verified
+ * live, and disclosing rather than shipping non-functional CSS: this
+ * table's own .sp-table-wrapper needs overflow-x: auto for the horizontal-
+ * scroll hard constraint, and per the CSS Overflow spec, any ancestor with
+ * a non-visible overflow-x makes that same ancestor a scroll container on
+ * BOTH axes (confirmed empirically: forcing overflow-y: visible on the
+ * wrapper via an !important inline style still computed as "auto", and the
+ * same was true for overflow-y: clip -- there is no per-axis escape from
+ * this pairing once overflow-x is non-visible). That makes .sp-table-
+ * wrapper, not the page viewport, the sticky-positioning containing block
+ * for anything nested inside it -- and since the wrapper is never taller
+ * than the table itself, "sticky within the wrapper" has no room to
+ * visibly do anything as the outer page scrolls. This is a well-known,
+ * general CSS limitation (sticky headers inside a horizontally-scrollable
+ * container), not something specific to this table or introduced by this
+ * theme; solving it for real requires a JS-driven frozen-header rewrite,
+ * out of scope here. The header row keeps its visual weight (background,
+ * bold, border) from the shared .sp-data-table thead th rule above without
+ * claiming a sticky behaviour that cannot work in this structure.
+ */
 
 .sp-league-table td.data-rank {
 	background: var(--bl-ice);
@@ -223,13 +265,82 @@
 	background: var(--bl-surface-sunken);
 }
 
-/* ---- Player list (SP's own <table class="sp-player-list">) ---- */
+/* ---- Player list (SP's own <table class="sp-player-list">) ----
+   The brief names .sp-player-list alongside .sp-team-list for "roster
+   grids". team-lists.php's own override never emits .sp-player-list (it
+   builds .sp-team-list cards directly instead) -- this class is what
+   SportsPress's [player_list] shortcode/player-list.php template emits
+   wherever it's used outside that override (e.g. embedded directly in a
+   page). Below a real card-grid width, this table restructures into a
+   grid of roster cards using SP's own per-cell data-label attributes
+   (confirmed present on every <td> in player-list.php) rather than a
+   second, unrelated visual language from .sp-team-list's own markup,
+   which is a <ul> of <a> cards, not a <table>, and can't be reused
+   directly on a semantically different element. At wider widths it stays
+   a normal, tabular .sp-data-table, since multi-column stat lists (GP/G/A/
+   PIM alongside name/number) read better with real column alignment than
+   as cards once there's room for it. */
 
 .sp-player-list td.data-name.has-photo {
 	display: flex;
 	align-items: center;
 	gap: var(--bl-space-2);
 	white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+
+	.sp-player-list,
+	.sp-player-list tbody,
+	.sp-player-list tr {
+		display: block;
+		width: 100%;
+	}
+
+	.sp-player-list thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+	}
+
+	.sp-player-list tr {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+		gap: var(--bl-space-1) var(--bl-space-3);
+		padding: var(--bl-space-3);
+		margin-block-end: var(--bl-space-3);
+		border: 1px solid var(--bl-border);
+		border-radius: var(--bl-radius-card);
+	}
+
+	.sp-player-list td {
+		display: block;
+		padding: 0;
+		border: 0;
+		white-space: normal;
+	}
+
+	.sp-player-list td.data-name {
+		grid-column: 1 / -1;
+		font-weight: 600;
+	}
+
+	.sp-player-list td[data-label]::before {
+		content: attr(data-label);
+		display: block;
+		margin-block-end: 2px;
+		color: var(--bl-ink-mid);
+		font-size: var(--bl-text-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+
+	.sp-player-list td.data-name[data-label]::before {
+		content: "";
+		display: none;
+	}
 }
 
 /* ---- Theme-owned roster grid override: sportspress/team-lists.php ---- */
