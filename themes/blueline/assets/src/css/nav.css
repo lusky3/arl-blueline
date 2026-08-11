@@ -216,6 +216,25 @@
 	}
 
 	/*
+	 * A tighter desktop-only footprint per item. The real "Menu 3.0" is 10
+	 * top-level items; at the shared --bl-space-4 (16px) horizontal padding
+	 * used everywhere else, the menu's natural single-row width is ~1076px,
+	 * which — combined with the brand/actions columns and gaps — needs
+	 * ~1388px of header row to lay out as one line. Trimming here narrows
+	 * that gap considerably without dropping below the 24px AA minimum
+	 * target size (28px, .bl-nav__toggle-sub below) or touching the shared
+	 * spacing tokens used elsewhere in the design.
+	 */
+	.bl-nav__link {
+		padding-inline: var(--bl-space-3);
+	}
+
+	.bl-nav__toggle-sub {
+		width: 28px;
+		height: 28px;
+	}
+
+	/*
 	 * Anchored to the triggering item's RIGHT edge, not its left. .bl-nav__menu
 	 * is justify-content: flex-end, so items pack against .bl-header__actions
 	 * with no guaranteed free margin to the right of any of them — a

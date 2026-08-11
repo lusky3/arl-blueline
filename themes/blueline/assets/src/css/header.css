@@ -58,7 +58,21 @@
 	z-index: 60;
 }
 
+/*
+ * Explicit width:100% is load-bearing, not decorative. .bl-container
+ * (max-width + margin-inline:auto) is meant to let this row fill the
+ * viewport up to --bl-container and no further -- but with width left
+ * at its flex-layout default, this element (an auto-width flex
+ * container containing a flex-grow item, .bl-nav, that itself nests
+ * flex-wrap:wrap content) resolves its own main size to a fit-content
+ * value derived from its children's content instead of filling the
+ * available width, so the row runs narrower than the container and
+ * the primary menu wraps into multiple short lines well before it
+ * needs to. Pinning width:100% makes the row's own size definite
+ * up front, matching a plain block box, and removes that dependency.
+ */
 .bl-header__inner {
+	width: 100%;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -151,7 +165,21 @@
 
 @media (min-width: 880px) {
 
+	/*
+	 * A wider cap than the shared --bl-container (1200px) token, for this
+	 * row specifically. --bl-container is tuned for readable body-copy
+	 * line length in the main content area; a 10-item primary nav needs
+	 * more room than that to lay out on one line before wrapping is
+	 * actually necessary, and a nav bar conventionally runs wider than a
+	 * prose column anyway. Without this, the 1200px content cap clips the
+	 * row on any viewport ≥1200px exactly the same as at 1200px itself,
+	 * so a 1400px+ desktop window gained nothing from being wider. This
+	 * override only ever *removes* an otherwise-arbitrary ceiling; it
+	 * never exceeds the actual viewport (margin-inline:auto + this
+	 * max-width still behave like a normal capped container).
+	 */
 	.bl-header__inner {
 		flex-wrap: nowrap;
+		max-width: 1760px;
 	}
 }
