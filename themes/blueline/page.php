@@ -11,7 +11,7 @@ get_header();
 
 $has_sidebar = is_active_sidebar( 'sidebar-1' );
 ?>
-<main id="main" class="bl-main">
+<main id="main" class="bl-main" tabindex="-1">
 	<div class="bl-container">
 		<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
 			<div class="bl-content-layout__primary">

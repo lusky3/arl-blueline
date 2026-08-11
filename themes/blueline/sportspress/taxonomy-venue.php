@@ -58,7 +58,7 @@ if ( $term_id && $address && taxonomy_exists( 'sp_venue' ) ) {
 	}
 }
 ?>
-<main id="main" class="bl-main bl-main--sp">
+<main id="main" class="bl-main bl-main--sp" tabindex="-1">
 	<div class="bl-container">
 		<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
 			<div class="bl-content-layout__primary">

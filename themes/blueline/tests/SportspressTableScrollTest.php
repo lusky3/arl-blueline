@@ -1,4 +1,10 @@
 <?php
+/**
+ * Unit tests.
+ *
+ * @package blueline
+ */
+
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/sportspress.php';
@@ -19,11 +25,17 @@ require_once __DIR__ . '/../inc/sportspress.php';
  */
 final class SportspressTableScrollTest extends TestCase {
 
+	/**
+	 * Test case.
+	 */
 	public function test_content_with_no_table_is_untouched(): void {
 		$in = '<p>no tables here</p>';
 		$this->assertSame( $in, blueline_sp_wrap_tables_for_scroll( $in ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_wrapped_sportspress_table_gets_bl_table_scroll(): void {
 		$in  = '<div class="sp-table-wrapper"><table class="sp-data-table"><tr><td>x</td></tr></table></div>';
 		$out = blueline_sp_wrap_tables_for_scroll( $in );
@@ -32,6 +44,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertStringNotContainsString( 'bl-table-self-scroll', $out );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_unwrapped_sportspress_table_gets_self_scroll_class_added_to_itself(): void {
 		// event-venue.php's real shape: no .sp-table-wrapper around it.
 		$in  = '<table class="sp-data-table sp-event-venue"><tr><td>map</td></tr></table>';
@@ -43,6 +58,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertStringNotContainsString( '<div', $out, 'the self-scroll path must not introduce a wrapping div' );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_two_unwrapped_sportspress_tables_are_both_handled_independently(): void {
 		$in  = '<table class="sp-a"><tr><td>1</td></tr></table><p>text</p><table class="sp-b"><tr><td>2</td></tr></table>';
 		$out = blueline_sp_wrap_tables_for_scroll( $in );
@@ -50,6 +68,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertSame( 2, substr_count( $out, 'bl-table-self-scroll' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_a_table_with_an_unrecognised_future_sp_class_is_still_caught(): void {
 		// Defence in depth: a future SportsPress markup change is still
 		// caught as long as it keeps the sp- prefix convention, which is
@@ -60,6 +81,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertStringContainsString( 'bl-table-self-scroll', $out );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_sportspress_table_inside_an_unrelated_wrapper_still_gets_self_scroll(): void {
 		$in  = '<div class="some-other-widget"><table class="sp-c"><tr><td>3</td></tr></table></div>';
 		$out = blueline_sp_wrap_tables_for_scroll( $in );
@@ -67,6 +91,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertStringContainsString( 'bl-table-self-scroll', $out );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_malformed_table_markup_does_not_crash(): void {
 		$in  = '<table><tr><td>unclosed';
 		$out = blueline_sp_wrap_tables_for_scroll( $in );
@@ -75,6 +102,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertNotSame( '', $out );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_running_the_filter_twice_does_not_duplicate_the_class(): void {
 		$in    = '<table class="sp-data-table sp-event-venue"><tr><td>map</td></tr></table>';
 		$once  = blueline_sp_wrap_tables_for_scroll( $in );
@@ -98,6 +128,9 @@ final class SportspressTableScrollTest extends TestCase {
 		$this->assertStringNotContainsString( 'bl-table-scroll', $out );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_block_editor_table_with_a_style_variant_is_also_untouched(): void {
 		$in  = '<figure class="wp-block-table is-style-stripes"><table class="has-fixed-layout"><tbody><tr><td>A</td></tr></tbody></table></figure>';
 		$out = blueline_sp_wrap_tables_for_scroll( $in );

@@ -73,7 +73,7 @@ add_action( 'woocommerce_after_main_content', 'blueline_wc_wrapper_end' );
  */
 function blueline_wc_wrapper_start() {
 	?>
-	<main id="main" class="bl-main bl-main--woocommerce">
+	<main id="main" class="bl-main bl-main--woocommerce" tabindex="-1">
 		<div class="bl-container">
 	<?php
 }

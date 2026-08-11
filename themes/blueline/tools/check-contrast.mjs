@@ -11,6 +11,40 @@ const token = ( name ) => {
 	return m[ 1 ];
 };
 
+/**
+ * Extracts every `--bl-*: value;` declaration from the first `:root { ... }`
+ * (or `:root, <selector> { ... }`) block found in a CSS source string, as a
+ * Map of token name -> trimmed value string (e.g. "#132343", or
+ * `clamp(1.125rem, 0.5vw + 1rem, 1.25rem)`).
+ *
+ * @param {string} source CSS source text.
+ * @returns {Map<string, string>}
+ */
+function extractRootTokens( source ) {
+	const rootStart = source.indexOf( ':root' );
+	if ( rootStart === -1 ) throw new Error( 'no :root block found' );
+
+	const braceStart = source.indexOf( '{', rootStart );
+	let depth = 0;
+	let i = braceStart;
+	for ( ; i < source.length; i++ ) {
+		if ( source[ i ] === '{' ) depth++;
+		else if ( source[ i ] === '}' ) {
+			depth--;
+			if ( depth === 0 ) break;
+		}
+	}
+	const block = source.slice( braceStart + 1, i );
+
+	const tokens = new Map();
+	const re = /(--bl-[\w-]+)\s*:\s*([^;]+);/g;
+	let m;
+	while ( ( m = re.exec( block ) ) !== null ) {
+		tokens.set( m[ 1 ], m[ 2 ].trim().toLowerCase() );
+	}
+	return tokens;
+}
+
 const lin = ( c ) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow( ( c + 0.055 ) / 1.055, 2.4 ); };
 const lum = ( hex ) => {
 	const n = parseInt( hex.slice( 1 ), 16 );
@@ -48,6 +82,53 @@ if ( iceOnPaper >= 3.0 ) {
 	failed++;
 } else {
 	console.log( `ok   --bl-ice correctly unusable as light-bg text (${ iceOnPaper.toFixed( 2 ) })` );
+}
+
+/*
+ * Token parity: assets/src/css/editor.css duplicates a hand-picked subset of
+ * style.css's --bl-* tokens by value, because WordPress's editor-styles
+ * injection path has no way to @import or otherwise share style.css's own
+ * :root block into the block-editor canvas iframe (see editor.css's own
+ * top-of-file comment for why). Nothing previously kept the two copies in
+ * sync -- a token changed in style.css and forgotten in editor.css would
+ * silently desync the editor preview from the real front end (Task 5
+ * deferred finding, rolled into Task 16 item c).
+ *
+ * This check is deliberately ONE-DIRECTIONAL: editor.css is allowed to omit
+ * tokens it has no use for (e.g. --bl-focus, the semantic status colours),
+ * but every token it DOES declare must exactly match style.css's value, and
+ * it must not invent a --bl-* name style.css doesn't define at all.
+ */
+const styleTokens  = extractRootTokens( css );
+const editorCssPath = resolve( here, '../assets/src/css/editor.css' );
+const editorCss     = readFileSync( editorCssPath, 'utf8' );
+const editorTokens  = extractRootTokens( editorCss );
+
+const normalizeValue = ( value ) => {
+	const hex3 = value.match( /^#([0-9a-f])([0-9a-f])([0-9a-f])$/ );
+	if ( hex3 ) return `#${ hex3[ 1 ] }${ hex3[ 1 ] }${ hex3[ 2 ] }${ hex3[ 2 ] }${ hex3[ 3 ] }${ hex3[ 3 ] }`;
+	return value.replace( /\s+/g, ' ' );
+};
+
+let parityFailed = 0;
+for ( const [ name, editorValue ] of editorTokens ) {
+	if ( ! styleTokens.has( name ) ) {
+		console.log( `FAIL editor.css declares ${ name }, which style.css does not define at all` );
+		parityFailed++;
+		continue;
+	}
+	const styleValue = normalizeValue( styleTokens.get( name ) );
+	const normalizedEditorValue = normalizeValue( editorValue );
+	if ( styleValue !== normalizedEditorValue ) {
+		console.log( `FAIL ${ name } drifted: style.css has "${ styleTokens.get( name ) }", editor.css has "${ editorValue }"` );
+		parityFailed++;
+	}
+}
+
+if ( parityFailed ) {
+	failed += parityFailed;
+} else {
+	console.log( `ok   editor.css's ${ editorTokens.size } duplicated tokens match style.css byte-for-byte` );
 }
 
 process.exit( failed ? 1 : 0 );

@@ -263,39 +263,58 @@ Mitigation, required on day one:
   previously exposed a `/register` 405**, fixed by `mu-plugins/rh-royal-mcp-register-fix.php`.
   Production carries that mu-plugin; verify it is present before flushing.
 
-### 6.3 The constraint: only 12% of players are linked to a user
+### 6.3 The constraint: linking a WordPress user to their `sp_player` record
+
+**Corrected during Task 16.** This section originally measured coverage against the wrong
+denominator — `sp_current_team`, a *sticky* "last team this player was ever on" field that is
+set on 2,047 of 2,134 players (95% of everyone who has ever played, not a current-season
+roster). Against that denominator, linkage reads as "only 12%," which drove a false premise
+throughout the rest of this spec: that ~88% of logged-in players would see an empty dashboard
+and that the pre-launch backfill was the primary fix for that. Both are wrong. The
+`sp_current_team` figure is kept below only as a warning against reusing it.
 
 A league account has to know which player you are. That link is `sp_user` post meta on
-`sp_player`. Measured:
+`sp_player` — the same meta `sportspress-player-registration` writes at checkout, so writing it
+here keeps us compatible with the plugin rather than inventing a parallel link. Real season
+membership is the `sp_season` **taxonomy**, not `sp_current_team`. Measured live on staging,
+2026-08-11:
 
 | Metric | Count |
 |---|---|
 | `sp_player` posts (published) | 2,134 |
 | WP users | 2,423 |
-| Players with `sp_user` set | 265 |
-| **Current-season players** (`sp_current_team` set) | **2,037** |
-| **…of those, linked to a user** | **244 (12%)** |
+| **W2026-27 players** (`sp_season` = current term) | **90, of which 76 linked → 84%** |
+| W2025-26 players (`sp_season` = last full season) | 524, of which 241 linked → 46% |
+| `sp_current_team` set (sticky, misleading denominator — do not use) | 2,047, of which 242 linked → 12% |
 | Players with a non-empty `spat_email` | 51 |
 
-So "your team / your next game / your stats" is dark for roughly 88% of logged-in players
-unless this is addressed. Email is not a usable fallback join key at 51 records.
+The real reason coverage is high for the current season: `sportspress-player-registration`
+auto-links `sp_user` at checkout, so anyone registering through the live flow is linked
+automatically, with no manual step. The unlinked long tail is almost entirely *historical*
+players from past seasons who registered before that plugin existed, or who never made an
+account at all — W2026-27 is small (90) only because registration opened days ago and is still
+filling; its 84% is the number that matters for launch-day dashboard experience. Email is not a
+usable fallback join key at 51 records.
 
-`sp_user` is the same meta the `sportspress-player-registration` plugin uses, so writing it
-keeps us compatible with the plugin rather than inventing a parallel link.
+**Two-part answer, both in scope — but re-ranked given the real numbers:**
 
-**Two-part answer, both in scope:**
+1. **Claim flow for the unlinked state (the primary mechanism, not a supplement).** When
+   `sp_user` is missing, the dashboard leads with an "Is this you?" card built from a name
+   match; one click confirms and writes `sp_user`. Writes are capability- and nonce-checked, and
+   a player already claimed by another user is never offered. This is the real safety net for
+   the current season's ~16% gap and for returning players whose historical records predate
+   auto-linking.
+2. **Pre-launch backfill — a small top-up, not the main mechanism.** A one-off matcher joining
+   billing first/last name on recent registration orders against `sp_player` posts in the
+   current or immediately-preceding season, emitting a **reviewable list** — no blind writes.
+   Task 14 measured its actual yield empirically: of 74 non-guest customers who bought a
+   current-season product, 69 were *already linked* before the script ran; the backfill moved
+   coverage by only a few players, because auto-linking at checkout had already done almost all
+   of the work. Ambiguous matches (duplicate names) are left for manual resolution.
 
-1. **Pre-launch backfill.** A one-off matcher joining billing first/last name on the current
-   season's registration orders against current-season `sp_player` posts, emitting a
-   **reviewable list** — no blind writes. This is what turns 12% into most of the roster.
-   Ambiguous matches (duplicate names) are left for manual resolution.
-2. **Claim flow for the unlinked state.** When `sp_user` is missing, the dashboard leads with
-   an "Is this you?" card built from a name match; one click confirms and writes `sp_user`.
-   Writes are capability- and nonce-checked, and a player already claimed by another user is
-   never offered.
-
-The dashboard must render sensibly in the unlinked state — league modules are replaced by the
-claim card, and the billing group still works.
+The dashboard must still render sensibly in the unlinked state — league modules are replaced by
+the claim card, and the billing group still works — but that state is now the ~16% exception for
+a freshly-registered player, not the ~88% default the original framing implied.
 
 ### 6.4 Page composition
 
@@ -416,7 +435,7 @@ Appending a junk query string bypasses srcache and shows what WordPress actually
 | Risk | Mitigation |
 |---|---|
 | **Account URL slugs break on YITH removal** | Re-register identical slugs + 301s from defaults; test every endpoint before cutover (§6.2) |
-| **88% of players unlinked → empty dashboard** | Pre-launch backfill + claim flow; dashboard degrades gracefully (§6.3) |
+| **A freshly-registered or historical player has no `sp_user` link yet → empty dashboard** — corrected in Task 16: real current-season (W2026-27) coverage is 84% (76/90), not the 12% the spec originally measured against the wrong (`sp_current_team`) denominator; the claim flow is the primary mechanism for the remaining ~16%, the backfill only a small top-up (§6.3) | Claim flow + pre-launch backfill; dashboard degrades gracefully (§6.3) |
 | **Plugin/theme overlap on the commerce path** — `woocommerce-checkout-field-editor-pro` (~16 custom checkout fields), `wp-email-template`, `woocommerce-store-credit`, `yith-advanced-refund-system` all render into templates the theme also overrides | R1 does not restructure these. R2 establishes ownership per template before redesigning |
 | **The skew device as an accessibility liability** | Counter-skewed text, focus rings on un-skewed parents, explicit audit gate |
 | **Rewrite flush exposing the `/register` 405** | Confirm `rh-royal-mcp-register-fix.php` is present in production `mu-plugins` before flushing |

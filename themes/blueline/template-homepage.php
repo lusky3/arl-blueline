@@ -16,7 +16,7 @@ get_header();
 
 $blueline_state = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
 ?>
-<main id="main" class="bl-main bl-main--homepage">
+<main id="main" class="bl-main bl-main--homepage" tabindex="-1">
 	<?php
 	// blueline_render_hero() can render a different EFFECTIVE state than the
 	// one requested (e.g. registration_open falls back to preseason/offseason

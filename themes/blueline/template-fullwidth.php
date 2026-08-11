@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 ?>
-<main id="main" class="bl-main">
+<main id="main" class="bl-main" tabindex="-1">
 	<div class="bl-container">
 		<?php
 		while ( have_posts() ) :

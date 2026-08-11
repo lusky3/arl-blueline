@@ -1,10 +1,22 @@
 <?php
+/**
+ * Unit tests.
+ *
+ * @package blueline
+ */
+
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/account/endpoints.php';
 
+/**
+ * Unit tests.
+ */
 final class AccountEndpointsTest extends TestCase {
 
+	/**
+	 * Test case.
+	 */
 	public function test_arl_slugs_are_preserved_exactly(): void {
 		$e = blueline_account_endpoints();
 		// These slugs are live URLs today, created by yith-woocommerce-customize-myaccount-page.
@@ -16,12 +28,18 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertArrayHasKey( 'edit-account', $e );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_woocommerce_default_slugs_redirect_to_arl_slugs(): void {
 		$map = blueline_account_legacy_redirect_map();
 		$this->assertSame( 'registrations', $map['orders'] );
 		$this->assertSame( 'store-credit', $map['credit'] );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_dead_endpoints_are_absent(): void {
 		$e = blueline_account_endpoints();
 		// No subscriptions plugin is active; the Installments endpoint cannot render.
@@ -30,8 +48,11 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertArrayNotHasKey( 'downloads', $e );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_league_modules_sort_before_billing(): void {
-		$e = blueline_account_endpoints();
+		$e       = blueline_account_endpoints();
 		$league  = array_filter( $e, fn( $v ) => 'league' === $v['group'] );
 		$billing = array_filter( $e, fn( $v ) => 'billing' === $v['group'] );
 		$this->assertNotEmpty( $league, 'the account must lead with league content' );
@@ -42,6 +63,9 @@ final class AccountEndpointsTest extends TestCase {
 		);
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_every_endpoint_has_a_label(): void {
 		foreach ( blueline_account_endpoints() as $slug => $cfg ) {
 			$this->assertNotEmpty( $cfg['label'], "endpoint $slug has no label" );
@@ -49,6 +73,9 @@ final class AccountEndpointsTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_slug_is_free_to_register_when_remap_is_intact(): void {
 		// 'orders' remapped to 'registrations' means WooCommerce's resolved
 		// vars no longer contain the literal slug 'orders' anywhere -- safe.
@@ -57,6 +84,9 @@ final class AccountEndpointsTest extends TestCase {
 		);
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_slug_is_not_free_when_a_later_filter_reverted_the_remap(): void {
 		// Simulates a hypothetical future plugin filtering woocommerce_get_query_vars
 		// at a higher priority and reverting WooCommerce's 'orders' slug back to its
@@ -68,6 +98,9 @@ final class AccountEndpointsTest extends TestCase {
 		);
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_slug_is_not_free_when_another_key_resolves_to_it(): void {
 		// The collision is about the literal SLUG, not which query-var key
 		// produces it -- a different plugin's key could end up pointing at the
@@ -77,6 +110,9 @@ final class AccountEndpointsTest extends TestCase {
 		);
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_slug_is_free_when_it_never_appears_in_resolved_vars(): void {
 		// 'credit' is the real-world case this guards against a false
 		// positive on: the actual WooCommerce Store Credit plugin installed
@@ -89,6 +125,9 @@ final class AccountEndpointsTest extends TestCase {
 		);
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_orders_request_matches_with_no_sub_value(): void {
 		$match = blueline_match_legacy_account_request(
 			array( 'blueline_legacy_orders' => '' ),
@@ -97,6 +136,9 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertSame( array( 'registrations', '' ), $match );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_orders_pagination_sub_value_is_preserved(): void {
 		// /account/orders/2/ must redirect to /account/registrations/2/, not lose
 		// the page number by redirecting to the bare /account/registrations/.
@@ -107,6 +149,9 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertSame( array( 'registrations', '2' ), $match );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_legacy_credit_request_matches_its_own_arl_slug(): void {
 		$match = blueline_match_legacy_account_request(
 			array( 'blueline_legacy_credit' => '' ),
@@ -115,6 +160,9 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertSame( array( 'store-credit', '' ), $match );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_a_request_for_the_arl_slug_itself_does_not_match_as_legacy(): void {
 		// This is the exact bug the redirect-loop fix closed: WooCommerce's own
 		// query-var remap sets $wp->query_vars['orders'] on every *correct* request
@@ -132,6 +180,9 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertNull( $match );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_no_legacy_slug_present_does_not_match(): void {
 		$match = blueline_match_legacy_account_request( array(), blueline_account_legacy_redirect_map() );
 		$this->assertNull( $match );

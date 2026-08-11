@@ -20,7 +20,7 @@ get_header();
 
 $has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
 ?>
-<main id="main" class="bl-main bl-main--sp">
+<main id="main" class="bl-main bl-main--sp" tabindex="-1">
 	<div class="bl-container">
 		<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
 			<div class="bl-content-layout__primary">

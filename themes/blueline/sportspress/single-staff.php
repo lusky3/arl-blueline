@@ -13,7 +13,7 @@ get_header();
 
 $has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
 ?>
-<main id="main" class="bl-main bl-main--sp bl-main--sp-hero">
+<main id="main" class="bl-main bl-main--sp bl-main--sp-hero" tabindex="-1">
 	<?php
 	while ( have_posts() ) :
 		the_post();

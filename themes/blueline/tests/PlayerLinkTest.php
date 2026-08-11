@@ -1,51 +1,90 @@
 <?php
+/**
+ * Unit tests.
+ *
+ * @package blueline
+ */
+
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/account/player-link.php';
 
+/**
+ * Unit tests.
+ */
 final class PlayerLinkTest extends TestCase {
 
+	/**
+	 * Test case.
+	 */
 	public function test_normalize_strips_case_accents_and_punctuation(): void {
 		$this->assertSame( 'jean luc picard', blueline_normalize_name( 'Jean-Luc  PICARD' ) );
 		$this->assertSame( 'renee cote', blueline_normalize_name( 'Renée Côté' ) );
 		$this->assertSame( 'oconnor', blueline_normalize_name( "O'Connor" ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_identical_names_score_one(): void {
 		$this->assertSame( 1.0, blueline_name_match_score( 'Cody Lusk', 'cody lusk' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_unrelated_names_score_low(): void {
 		$this->assertLessThan( 0.5, blueline_name_match_score( 'Cody Lusk', 'Wayne Gretzky' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_middle_name_still_matches_well(): void {
 		$this->assertGreaterThanOrEqual( 0.8, blueline_name_match_score( 'Cody James Lusk', 'Cody Lusk' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_reversed_order_still_matches(): void {
 		$this->assertGreaterThanOrEqual( 0.8, blueline_name_match_score( 'Lusk Cody', 'Cody Lusk' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_empty_input_scores_zero(): void {
 		$this->assertSame( 0.0, blueline_name_match_score( '', 'Cody Lusk' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_claim_pool_current_term_at_or_above_ratio_is_not_sparse(): void {
 		// 90/524 was the real, sparse case that motivated this function --
 		// half that gap closed (262/524 = 50%) is the boundary, not sparse.
 		$this->assertFalse( blueline_is_claim_pool_sparse( 262, 524 ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_claim_pool_current_term_below_ratio_is_sparse(): void {
 		// The real staging case (90/524 =~ 17%) this function was added for.
 		$this->assertTrue( blueline_is_claim_pool_sparse( 90, 524 ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_claim_pool_zero_current_is_sparse_even_with_no_previous(): void {
 		$this->assertTrue( blueline_is_claim_pool_sparse( 0, 0 ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_claim_pool_no_previous_term_takes_current_at_face_value(): void {
 		// Nothing to compare against (e.g. the very first season ever
 		// tracked) -- a non-empty current term is not "sparse" by definition
@@ -53,16 +92,25 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertFalse( blueline_is_claim_pool_sparse( 5, 0 ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_claim_pool_equal_rosters_are_not_sparse(): void {
 		$this->assertFalse( blueline_is_claim_pool_sparse( 524, 524 ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_season_slug_session_letter_recognises_winter_and_summer(): void {
 		$this->assertSame( 'w', blueline_season_slug_session_letter( 'w2026-27' ) );
 		$this->assertSame( 's', blueline_season_slug_session_letter( 's2026' ) );
 		$this->assertSame( 'w', blueline_season_slug_session_letter( 'W2025-26' ) ); // Case-insensitive.
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_season_slug_session_letter_rejects_year_first_slug(): void {
 		// The exact failure mode review flagged: a future "2026-winter"
 		// slugging convention must not be classified by a bare first
@@ -71,6 +119,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertNull( blueline_season_slug_session_letter( '2026-winter' ) );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_normal_current_term_selection(): void {
 		// Not sparse (300/524 > the 0.5 ratio) -- current term alone is
 		// representative enough on its own, no fallback needed.
@@ -99,6 +150,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertSame( array( 674 ), $result );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_sparse_fallback_is_additive_and_stays_same_session(): void {
 		// The real staging shape: newest (674, Winter) is sparse against its
 		// own previous Winter term (654), but a Summer term (666) sits
@@ -136,6 +190,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertNotContains( 666, $result );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_nonconforming_anchor_returns_empty(): void {
 		// The newest term's own slug can't be classified into a session --
 		// no reliable anchor to scope by, so this must not guess by shifting
@@ -161,6 +218,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertSame( array(), $result );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_skips_nonconforming_non_anchor_term(): void {
 		// A non-conforming term that is NOT the anchor is simply excluded --
 		// never guessed into the current session, however large its count.
@@ -194,6 +254,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertSame( array( 674, 654 ), $result );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_no_members_anywhere_returns_current_alone(): void {
 		// Documented failure mode: nothing in this session has any members
 		// at all -- return the (empty) current term rather than nothing,
@@ -219,6 +282,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertSame( array( 674 ), $result );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_single_term_with_no_previous_is_not_sparse(): void {
 		$terms = array(
 			array(
@@ -237,6 +303,9 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertSame( array( 100 ), $result );
 	}
 
+	/**
+	 * Test case.
+	 */
 	public function test_resolve_pool_empty_terms_returns_empty(): void {
 		$this->assertSame(
 			array(),

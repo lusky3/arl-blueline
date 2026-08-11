@@ -12,7 +12,7 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 ?>
-<main id="main" class="bl-main">
+<main id="main" class="bl-main" tabindex="-1">
 	<div class="bl-container">
 		<section class="bl-empty-state bl-empty-state--404">
 			<?php blueline_leaf_mark( 'bl-empty-state__mark' ); ?>
