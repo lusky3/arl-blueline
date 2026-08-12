@@ -12,28 +12,146 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The current registration_open product, re-verified live. Season State's
- * own transient can be up to 15 minutes stale, so this never trusts
- * $state_data['product_id'] alone -- a Register CTA must never point at a
- * product that has since sold out or been unpublished.
+ * Every purchasable, in-stock product in the current season's Registration
+ * category, re-verified live -- Season State's own transient can be up to
+ * 15 minutes stale, so this never trusts a cached product list alone; a
+ * Register CTA must never quote a price for a product that has since sold
+ * out or been unpublished. Sorted highest price first.
+ *
+ * P0 finding 1: the hero used to read a SINGLE product id
+ * ($state_data['product_id'], "the first purchasable product Season State
+ * happened to find") and quote its price on the primary CTA -- on this site
+ * that resolved to the $145 Goalie Registration outranking the $550 Player
+ * Registration by post ID, so the button read "Register — $145.00" while
+ * the skater the button was aimed at actually owed $550 at checkout. This
+ * intentionally does not pick a single "winner" product by name or ID
+ * (the season's category can hold any number of registration products, and
+ * pinned IDs/role names are a known trap in this codebase -- see
+ * BLUELINE_REGISTRATION_TERM_ID's own resolve-by-newest-term pattern); it
+ * returns every live offer and lets blueline_homepage_registration_cta_pricing()
+ * decide, from the actual set, whether one price or a breakdown belongs on
+ * the page.
  *
  * @param array $state_data Result of blueline_season_state_data().
- * @return array{product: object, price_label: string}|null
+ * @return array<int, array{product: object, price_label: string, price: float, role_label: string}>
  */
-function blueline_homepage_registration_offer( array $state_data ) {
-	if ( empty( $state_data['product_id'] ) || ! function_exists( 'wc_get_product' ) ) {
-		return null;
+function blueline_homepage_registration_offers( array $state_data ): array {
+	if ( ! function_exists( 'wc_get_product' ) ) {
+		return array();
 	}
 
-	$product = wc_get_product( (int) $state_data['product_id'] );
+	$product_ids = function_exists( 'blueline_registration_season_product_ids' )
+		? blueline_registration_season_product_ids()
+		: array_filter( array( (int) ( $state_data['product_id'] ?? 0 ) ) );
 
-	if ( ! $product || ! $product->is_purchasable() || ! $product->is_in_stock() ) {
-		return null;
+	$offers = array();
+
+	foreach ( $product_ids as $product_id ) {
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product || ! $product->is_purchasable() || ! $product->is_in_stock() ) {
+			continue;
+		}
+
+		$price = $product->get_price();
+
+		$offers[] = array(
+			'product'     => $product,
+			'price_label' => blueline_homepage_format_price( $product ),
+			'price'       => ( '' !== $price && null !== $price ) ? (float) $price : 0.0,
+			'role_label'  => blueline_homepage_registration_offer_role_label( $product ),
+		);
+	}
+
+	usort(
+		$offers,
+		static function ( $a, $b ) {
+			return $b['price'] <=> $a['price'];
+		}
+	);
+
+	return $offers;
+}
+
+/**
+ * A short, human label for one registration product -- "Player", "Goalie",
+ * whatever the site's own WooCommerce product_tag taxonomy says, so the
+ * price-breakdown subcopy (see blueline_homepage_registration_cta_pricing())
+ * never has to hardcode a role name. Falls back to the product's own title
+ * with a trailing "(Season Label)" parenthetical stripped (e.g. "Player
+ * Registration (W2026-27)" -> "Player Registration") when no tag is set.
+ *
+ * @param object $product A WC_Product instance.
+ * @return string
+ */
+function blueline_homepage_registration_offer_role_label( $product ): string {
+	if ( taxonomy_exists( 'product_tag' ) ) {
+		$tags = wp_get_post_terms( $product->get_id(), 'product_tag', array( 'fields' => 'names' ) );
+
+		if ( ! is_wp_error( $tags ) && ! empty( $tags ) ) {
+			return (string) $tags[0];
+		}
+	}
+
+	$stripped = trim( (string) preg_replace( '/\s*\([^)]*\)\s*$/', '', $product->get_name() ) );
+
+	return '' !== $stripped ? $stripped : (string) $product->get_name();
+}
+
+/**
+ * Pure: given the current season's live registration offers (see
+ * blueline_homepage_registration_offers()), decide what the hero's CTA
+ * button and subcopy should say about price. Kept free of WooCommerce/
+ * WordPress calls -- it only ever sees plain arrays the caller has already
+ * extracted from a WC_Product -- so the exact decision this P0 bug turned
+ * on (one price on a button vs. several products at different prices) is
+ * directly unit testable without a WC_Product fixture.
+ *
+ * - No offers at all: nothing to show; caller falls back to non-registration copy.
+ * - Every offer the same price (including the common case of exactly one
+ *   offer): that single price is unambiguous and safe to put on the CTA
+ *   itself, exactly as before this fix.
+ * - Offers at different prices: quoting any one of them on the button is
+ *   the bait-and-switch this was fixed for, so the CTA carries no price at
+ *   all and every distinct price gets its own line in the breakdown,
+ *   labelled by blueline_homepage_registration_offer_role_label() and
+ *   ordered highest first -- matching what /register itself shows.
+ *
+ * @param array $offers Result of blueline_homepage_registration_offers().
+ * @return array{cta_price_label: string, price_breakdown: string}
+ */
+function blueline_homepage_registration_cta_pricing( array $offers ): array {
+	if ( empty( $offers ) ) {
+		return array(
+			'cta_price_label' => '',
+			'price_breakdown' => '',
+		);
+	}
+
+	$distinct_labels = array_unique( array_column( $offers, 'price_label' ) );
+
+	if ( count( $distinct_labels ) <= 1 ) {
+		return array(
+			'cta_price_label' => $offers[0]['price_label'],
+			'price_breakdown' => '',
+		);
+	}
+
+	$parts = array();
+
+	foreach ( $offers as $offer ) {
+		if ( '' === $offer['price_label'] ) {
+			continue;
+		}
+
+		$parts[] = '' !== $offer['role_label']
+			? trim( $offer['role_label'] . ' ' . $offer['price_label'] )
+			: $offer['price_label'];
 	}
 
 	return array(
-		'product'     => $product,
-		'price_label' => blueline_homepage_format_price( $product ),
+		'cta_price_label' => '',
+		'price_breakdown' => implode( ' · ', $parts ),
 	);
 }
 
@@ -173,23 +291,79 @@ function blueline_hero_headline( string $translated_format, string $highlight ):
 }
 
 /**
+ * A one-line "next game" summary for the hero's registration_open subcopy --
+ * P1 finding 4: registration can be open for months while the current
+ * season is still being played, and an existing player hitting the
+ * registration-heavy hero should still see their next game rather than
+ * have the sell fully mask it.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string Empty string if the event/venue cannot be resolved.
+ */
+function blueline_homepage_next_event_line( int $event_id ): string {
+	if ( ! $event_id ) {
+		return '';
+	}
+
+	$date = get_the_date( 'D, M j \a\t g:ia', $event_id );
+
+	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_object_terms( $event_id, 'sp_venue' ) : array();
+	$venue_term  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0] : null;
+	$venue_label = '';
+
+	if ( $venue_term instanceof WP_Term ) {
+		$venue_label = function_exists( 'blueline_venue_label' )
+			? blueline_venue_label( $venue_term->term_id )
+			: $venue_term->name;
+	}
+
+	return $venue_label
+		/* translators: 1: next game's date/time, 2: venue label. */
+		? sprintf( __( 'Next game: %1$s — %2$s', 'blueline' ), $date, $venue_label )
+		/* translators: %s: next game's date/time. */
+		: sprintf( __( 'Next game: %s', 'blueline' ), $date );
+}
+
+/**
  * Hero content for the registration_open state.
  *
- * @param array $offer Result of blueline_homepage_registration_offer(), non-null.
- * @return array{eyebrow: string, headline_html: string, cta_label: string, cta_url: string, cta_variant: string}
+ * @param array $offers     Result of blueline_homepage_registration_offers(), non-empty.
+ * @param array $state_data Result of blueline_season_state_data().
+ * @return array{eyebrow: string, headline_html: string, subcopy_lines: string[], cta_label: string, cta_url: string, cta_variant: string}
  */
-function blueline_homepage_hero_registration_content( array $offer ): array {
-	$season = blueline_homepage_registration_season_label( $offer['product']->get_id() );
+function blueline_homepage_hero_registration_content( array $offers, array $state_data = array() ): array {
+	$season = blueline_homepage_registration_season_label( $offers[0]['product']->get_id() );
 
 	$eyebrow = $season
 		/* translators: %s: current season label, e.g. "Winter 2026-27". */
 		? sprintf( __( '%s · Registration open', 'blueline' ), $season )
 		: __( 'Registration open', 'blueline' );
 
-	$cta_label = $offer['price_label']
-		/* translators: %s: formatted price, e.g. "$145.00". */
-		? sprintf( __( 'Register — %s', 'blueline' ), $offer['price_label'] )
+	$pricing = blueline_homepage_registration_cta_pricing( $offers );
+
+	$cta_label = $pricing['cta_price_label']
+		/* translators: %s: formatted price, e.g. "$550.00". */
+		? sprintf( __( 'Register — %s', 'blueline' ), $pricing['cta_price_label'] )
 		: __( 'Register now', 'blueline' );
+
+	$subcopy_lines = array();
+
+	if ( $pricing['price_breakdown'] ) {
+		$subcopy_lines[] = $pricing['price_breakdown'];
+	}
+
+	// Sell-and-play overlap (P1 finding 4): registration can be open while
+	// this season's games are still happening. Rather than let the sell
+	// fully mask "when's my next game" for a third of the year, carry both
+	// at once -- the price breakdown (or lack of one) above, and this line,
+	// can appear together.
+	if ( ! empty( $state_data['is_playing'] ) && ! empty( $state_data['next_event_id'] ) ) {
+		$next_line = blueline_homepage_next_event_line( (int) $state_data['next_event_id'] );
+
+		if ( $next_line ) {
+			$subcopy_lines[] = $next_line;
+		}
+	}
 
 	return array(
 		'eyebrow'       => $eyebrow,
@@ -198,6 +372,7 @@ function blueline_homepage_hero_registration_content( array $offer ): array {
 			__( 'Burlington’s %s league.', 'blueline' ),
 			__( 'beginner', 'blueline' )
 		),
+		'subcopy_lines' => $subcopy_lines,
 		'cta_label'     => $cta_label,
 		'cta_url'       => home_url( '/register' ),
 		'cta_variant'   => 'primary',
@@ -324,8 +499,8 @@ function blueline_homepage_hero_offseason_content(): array {
  *
  * The returned 'state' key is the EFFECTIVE state actually rendered, which
  * can differ from the requested $state: when $state is registration_open
- * but the product fails live re-verification (see
- * blueline_homepage_registration_offer()), this falls back to preseason or
+ * but every product fails live re-verification (see
+ * blueline_homepage_registration_offers()), this falls back to preseason or
  * offseason copy -- and now reports that fallback back to the caller, so
  * blueline_render_hero() can put a matching bl-hero--{state} class on the
  * markup instead of a class that names one state while showing another's
@@ -333,21 +508,21 @@ function blueline_homepage_hero_offseason_content(): array {
  *
  * @param string $state      One of the five known season states.
  * @param array  $state_data Result of blueline_season_state_data().
- * @return array{state: string, eyebrow: string, headline_html: string, cta_label: string, cta_url: string, cta_variant: string}
+ * @return array{state: string, eyebrow: string, headline_html: string, subcopy_lines: string[], cta_label: string, cta_url: string, cta_variant: string}
  */
 function blueline_homepage_hero_content( string $state, array $state_data ): array {
 	if ( 'registration_open' === $state ) {
-		$offer = blueline_homepage_registration_offer( $state_data );
+		$offers = blueline_homepage_registration_offers( $state_data );
 
-		if ( $offer ) {
-			$content          = blueline_homepage_hero_registration_content( $offer );
+		if ( ! empty( $offers ) ) {
+			$content          = blueline_homepage_hero_registration_content( $offers, $state_data );
 			$content['state'] = 'registration_open';
 			return $content;
 		}
 
-		// The product driving registration_open turned out not to be
+		// Every product driving registration_open turned out not to be
 		// purchasable when re-checked live (a stale transient, at most 15
-		// minutes old) -- never point a Register button at it. Fall back to
+		// minutes old) -- never point a Register button at one. Fall back to
 		// whatever the event signals say instead of inventing a sixth state.
 		$state = ! empty( $state_data['next_event_id'] ) ? 'preseason' : 'offseason';
 	}
@@ -431,6 +606,10 @@ function blueline_render_hero( string $state ): string {
 				<?php echo wp_kses( $content['headline_html'], array( 'span' => array( 'class' => array() ) ) ); ?>
 			</h1>
 
+			<?php foreach ( ( $content['subcopy_lines'] ?? array() ) as $bl_hero_subcopy_line ) : ?>
+				<p class="bl-hero__subcopy"><?php echo esc_html( $bl_hero_subcopy_line ); ?></p>
+			<?php endforeach; ?>
+
 			<a class="bl-btn bl-hero__cta <?php echo esc_attr( $cta_class ); ?>" href="<?php echo esc_url( $content['cta_url'] ); ?>">
 				<span class="bl-skew"><span><?php echo esc_html( $content['cta_label'] ); ?></span></span>
 			</a>
@@ -458,10 +637,28 @@ function blueline_render_hero( string $state ): string {
  * assets/src/css/sportspress.css for the styling now applied to
  * SportsPress's block instead.
  *
- * @param string $state Season state.
+ * P1 finding 4: registration_open's own order below still leads with
+ * 'new_here' unconditionally, because the enum cannot tell "nobody has
+ * played yet" apart from "the season is already running and we're also
+ * selling next season" -- but those are very different visitors. When
+ * $state_data reports blueline_is_playing() true (the second case, and on
+ * this site a months-long overlap, not an edge case), an existing player
+ * checking the registration-heavy hero should meet their own next game and
+ * the standings first, not three bullets of first-timer reassurance ahead
+ * of it.
+ *
+ * @param string $state      Season state.
+ * @param array  $state_data Result of blueline_season_state_data(); optional
+ *                            so existing callers/tests passing only $state
+ *                            keep working unchanged (empty array reads as
+ *                            "not playing", i.e. today's behaviour).
  * @return string[] Module names, in render order.
  */
-function blueline_homepage_module_order( string $state ): array {
+function blueline_homepage_module_order( string $state, array $state_data = array() ): array {
+	if ( 'registration_open' === $state && ! empty( $state_data['is_playing'] ) ) {
+		return array( 'next_games', 'standings_snippet', 'new_here', 'latest_news' );
+	}
+
 	$orders = array(
 		'registration_open' => array( 'new_here', 'next_games', 'standings_snippet', 'latest_news' ),
 		'preseason'         => array( 'next_games', 'new_here', 'latest_news' ),
@@ -564,18 +761,39 @@ function blueline_homepage_module_next_games() {
 		<ul class="bl-next-games">
 			<?php foreach ( $events as $event ) : ?>
 				<?php
-				$venue_names = taxonomy_exists( 'sp_venue' )
-					? wp_get_object_terms( $event->ID, 'sp_venue', array( 'fields' => 'names' ) )
+				// P1 finding 3: this used to print only the pad name ("Red")
+				// as plain text -- the same value /schedule links to
+				// /venue/red, which carries the street address and the
+				// sibling-pad cross-link. blueline_venue_label() (package 1)
+				// gives the arena name too ("Mr. Lube and Tires Arena —
+				// Red"), matching PRODUCT.md principle 4 ("the pad, not just
+				// the arena"), and linking it gives a phone-in-a-car-park
+				// player one tap to the address.
+				$venue_terms = taxonomy_exists( 'sp_venue' )
+					? wp_get_object_terms( $event->ID, 'sp_venue' )
 					: array();
-				$venue       = ( ! is_wp_error( $venue_names ) && ! empty( $venue_names ) ) ? $venue_names[0] : '';
+				$venue_term  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0] : null;
+				$venue_label = '';
+				$venue_url   = '';
+
+				if ( $venue_term instanceof WP_Term ) {
+					$venue_label = function_exists( 'blueline_venue_label' )
+						? blueline_venue_label( $venue_term->term_id )
+						: $venue_term->name;
+
+					$term_link = get_term_link( $venue_term );
+					$venue_url = ( ! is_wp_error( $term_link ) ) ? $term_link : '';
+				}
 				?>
 				<li class="bl-next-games__item">
 					<span class="bl-next-games__date">
 						<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event ) ); ?>
 					</span>
 					<span class="bl-next-games__title"><?php echo esc_html( get_the_title( $event ) ); ?></span>
-					<?php if ( $venue ) : ?>
-						<span class="bl-next-games__venue"><?php echo esc_html( $venue ); ?></span>
+					<?php if ( $venue_label && $venue_url ) : ?>
+						<a class="bl-next-games__venue" href="<?php echo esc_url( $venue_url ); ?>"><?php echo esc_html( $venue_label ); ?></a>
+					<?php elseif ( $venue_label ) : ?>
+						<span class="bl-next-games__venue"><?php echo esc_html( $venue_label ); ?></span>
 					<?php endif; ?>
 				</li>
 			<?php endforeach; ?>
@@ -712,6 +930,20 @@ function blueline_homepage_module_standings_snippet() {
 	if ( '' === trim( wp_strip_all_tags( $table_html ) ) ) {
 		blueline_homepage_module_empty_state( __( 'Standings aren’t posted yet.', 'blueline' ) );
 	} else {
+		// P1 finding 2: inc/sportspress.php's blueline_sp_wrap_tables_for_scroll()
+		// only ever hooks 'the_content' -- do_shortcode() above bypasses that
+		// filter entirely, so without this call the table reached the page with
+		// .sp-table-wrapper computing overflow-x: visible, and at 360px a 786px
+		// table was silently cut off by the html{overflow-x:clip} backstop --
+		// only Pos/Team/GP stayed reachable; W/L/Tie/PTS/GF/GA/Diff/L10/Strk
+		// were not. Running the shortcode's own output through the SAME wrap
+		// function /standings gets via the_content (owned by package 1;
+		// called here, not duplicated) keeps this one table scrollable exactly
+		// like every other SportsPress table on the site.
+		if ( function_exists( 'blueline_sp_wrap_tables_for_scroll' ) ) {
+			$table_html = blueline_sp_wrap_tables_for_scroll( $table_html );
+		}
+
 		// Deliberately NOT wp_kses_post(). That filter allows no `data-*`
 		// attribute of any kind, so running SportsPress's own table through it
 		// stripped `data-sp-rows` (the hook SP's own pagination script reads)
@@ -729,19 +961,101 @@ function blueline_homepage_module_standings_snippet() {
 	blueline_homepage_module_end();
 }
 
+add_action( 'widgets_init', 'blueline_homepage_new_here_widgets_init' );
 /**
- * The new_here module: static reassurance copy for a first-time player deciding
- * whether to register. Never empty -- there is no data source to fail.
+ * Register a widget area for the new_here module's body copy.
+ *
+ * P1 finding 5: "Never played? Perfect." is PRODUCT.md's tonal north star --
+ * the site's whole reason to exist is convincing the nervous first-timer
+ * persona to register -- and this content was three short bullets, hardcoded
+ * as English strings in PHP, with no way for a league volunteer (who runs
+ * this site day to day, and is not a developer) to update it without a code
+ * deploy. Appearance > Widgets is something a volunteer can already use
+ * confidently for the footer sidebars this theme registers elsewhere; giving
+ * this module the same mechanism means the site's single most important
+ * sales copy can be rewritten, re-ordered, or have an image added without
+ * touching code. Leaving the widget area empty (the default, out of the
+ * box) falls back to blueline_homepage_new_here_default_content() below, so
+ * the module is never blank.
+ */
+function blueline_homepage_new_here_widgets_init() {
+	register_sidebar(
+		array(
+			'name'          => __( 'Homepage — Never played? Perfect.', 'blueline' ),
+			'id'            => 'bl-homepage-new-here',
+			'description'   => __( 'Body content for the homepage "Never played? Perfect." module -- the reassurance section aimed at first-time players. Leave this widget area empty to use the theme\'s own default copy.', 'blueline' ),
+			'before_widget' => '<div class="bl-new-here__widget">',
+			'after_widget'  => '</div>',
+			'before_title'  => '<h3 class="bl-new-here__widget-title">',
+			'after_title'   => '</h3>',
+		)
+	);
+}
+
+/**
+ * The new_here module's own default copy, used only when a league volunteer
+ * has not configured the 'bl-homepage-new-here' widget area (see
+ * blueline_homepage_new_here_widgets_init()). Answers the three questions
+ * PRODUCT.md names as what the nervous-beginner persona actually asks --
+ * "will I be the worst one there", "what gear do I need", "what if I can't
+ * skate" -- in the league's own voice, rather than three interchangeable
+ * reassurance bullets with no image and less weight than the standings
+ * snippet below it.
+ */
+function blueline_homepage_new_here_default_content() {
+	?>
+	<p class="bl-new-here__intro">
+		<?php esc_html_e( 'Every player on every team here started exactly where you are: never having played an organized game of hockey. That\'s not the exception in this league. It\'s most of the room.', 'blueline' ); ?>
+	</p>
+
+	<dl class="bl-new-here__qa">
+		<div class="bl-new-here__qa-item">
+			<dt><?php esc_html_e( 'Will I be the worst one out there?', 'blueline' ); ?></dt>
+			<dd><?php esc_html_e( 'Almost certainly not, and it wouldn\'t matter if you were. This is a co-ed beginner league by design — no tryouts, no cuts, and teams built to be even, not stacked.', 'blueline' ); ?></dd>
+		</div>
+		<div class="bl-new-here__qa-item">
+			<dt><?php esc_html_e( 'What gear do I actually need?', 'blueline' ); ?></dt>
+			<dd>
+				<?php
+				printf(
+					wp_kses(
+						/* translators: 1: opening <a> tag to the equipment guide, 2: closing </a> tag. */
+						__( 'Less than you\'d think, and you can rent most of it nearby before buying a single thing. %1$sSee the gear guide%2$s.', 'blueline' ),
+						array( 'a' => array( 'href' => array() ) )
+					),
+					'<a href="' . esc_url( home_url( '/arl-league-info/equipment' ) ) . '">',
+					'</a>'
+				);
+				?>
+			</dd>
+		</div>
+		<div class="bl-new-here__qa-item">
+			<dt><?php esc_html_e( 'What if I can\'t really skate yet?', 'blueline' ); ?></dt>
+			<dd><?php esc_html_e( 'Then you\'ll fit right in with half the room. Games are paced for people still finding their edges, not for anyone trying out for the NHL.', 'blueline' ); ?></dd>
+		</div>
+	</dl>
+	<?php
+}
+
+/**
+ * The new_here module: reassurance copy for a first-time player deciding
+ * whether to register. Never empty -- if the 'bl-homepage-new-here' widget
+ * area has no widgets, blueline_homepage_new_here_default_content() renders
+ * the theme's own default copy instead.
  */
 function blueline_homepage_module_new_here() {
 	blueline_homepage_module_start( 'new_here', __( 'Never played? Perfect.', 'blueline' ), home_url( '/faqs' ), __( 'Read the FAQs', 'blueline' ) );
-	?>
-	<ul class="bl-new-here__list">
-		<li><?php esc_html_e( 'No hockey experience required — most players start here as complete beginners.', 'blueline' ); ?></li>
-		<li><?php esc_html_e( 'Co-ed, adult, beginner-paced games every week.', 'blueline' ); ?></li>
-		<li><?php esc_html_e( 'No gear yet? Rental options are available nearby — no need to buy everything up front.', 'blueline' ); ?></li>
-	</ul>
-	<?php
+
+	if ( function_exists( 'blueline_leaf_mark' ) ) {
+		blueline_leaf_mark( 'bl-new-here__watermark' );
+	}
+
+	if ( is_active_sidebar( 'bl-homepage-new-here' ) ) {
+		dynamic_sidebar( 'bl-homepage-new-here' );
+	} else {
+		blueline_homepage_new_here_default_content();
+	}
+
 	blueline_homepage_module_end();
 }
 

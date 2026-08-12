@@ -8,7 +8,57 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Pure decision function. Kept free of WordPress calls so it can be unit tested.
+ * Pure predicate: is registration currently open. P1 finding 4: this used to
+ * live only as a branch inside blueline_decide_season_state(), which forces
+ * it to be mutually exclusive with every other state -- but this site sells
+ * next season's registration while this season's games are still being
+ * played for months at a time (confirmed: that overlap is normal, not an
+ * edge case), so "are we selling" and "are we playing" are independent
+ * facts a caller may need separately. Extracted so both can be asked
+ * without going through the five-state enum at all.
+ *
+ * @param array $signals Same shape as blueline_decide_season_state().
+ * @return bool
+ */
+function blueline_decide_registration_open( array $signals ): bool {
+	return ! empty( $signals['has_purchasable_product'] );
+}
+
+/**
+ * Pure predicate: are games currently being played -- i.e. would an existing
+ * player checking the site right now have a "when's my next game" question
+ * worth answering. True for both of the enum's in_season and playoffs
+ * states (playoffs is a kind of playing), false for preseason (games are
+ * scheduled but none have been played recently and the next one isn't
+ * imminent) and offseason. See blueline_decide_registration_open()'s
+ * docblock for why this is independent of that predicate rather than a
+ * branch of the same enum.
+ *
+ * @param array $signals Same shape as blueline_decide_season_state().
+ * @return bool
+ */
+function blueline_decide_is_playing( array $signals ): bool {
+	$upcoming = (int) ( $signals['upcoming_events'] ?? 0 );
+	$days     = $signals['days_to_next_event'] ?? null;
+	$recent   = (int) ( $signals['recent_events'] ?? 0 );
+
+	if ( $upcoming <= 0 ) {
+		return false;
+	}
+
+	return $recent > 0 || ( null !== $days && $days <= 14 );
+}
+
+/**
+ * Pure decision function. Kept free of WordPress calls so it can be unit
+ * tested. Still the single five-state summary other code depends on
+ * (blueline_season_state() and its consumers) -- registration_open and
+ * "games are being played" are independent facts (see
+ * blueline_decide_registration_open()/blueline_decide_is_playing()) that
+ * this enum necessarily collapses into one mutually-exclusive value, which
+ * is exactly why callers that need both facts at once (the homepage layout,
+ * P1 finding 4) should read blueline_is_registration_open()/
+ * blueline_is_playing() instead of branching on this string.
  *
  * @param array $signals Keys: has_purchasable_product (bool), upcoming_events (int),
  *                       days_to_next_event (int|null), has_playoff_events (bool),
@@ -16,14 +66,11 @@ defined( 'ABSPATH' ) || exit;
  * @return string One of registration_open|preseason|in_season|playoffs|offseason.
  */
 function blueline_decide_season_state( array $signals ): string {
-	$has_product = ! empty( $signals['has_purchasable_product'] );
-	$upcoming    = (int) ( $signals['upcoming_events'] ?? 0 );
-	$days        = $signals['days_to_next_event'] ?? null;
-	$playoffs    = ! empty( $signals['has_playoff_events'] );
-	$recent      = (int) ( $signals['recent_events'] ?? 0 );
+	$upcoming = (int) ( $signals['upcoming_events'] ?? 0 );
+	$playoffs = ! empty( $signals['has_playoff_events'] );
 
 	// Selling a registration is always the loudest signal.
-	if ( $has_product ) {
+	if ( blueline_decide_registration_open( $signals ) ) {
 		return 'registration_open';
 	}
 
@@ -32,11 +79,7 @@ function blueline_decide_season_state( array $signals ): string {
 	}
 
 	if ( $upcoming > 0 ) {
-		// Games already played this season means we are mid-season; otherwise it has not started.
-		if ( $recent > 0 || ( null !== $days && $days <= 14 ) ) {
-			return 'in_season';
-		}
-		return 'preseason';
+		return blueline_decide_is_playing( $signals ) ? 'in_season' : 'preseason';
 	}
 
 	return 'offseason';
@@ -64,6 +107,65 @@ const BLUELINE_REGISTRATION_TERM_ID = 91;
 const BLUELINE_PUBLISHED_STATUS = 'publish';
 
 /**
+ * Post IDs of every product in the current season's Registration category
+ * (BLUELINE_REGISTRATION_TERM_ID's newest child term by term_id) --
+ * unfiltered by purchasability/stock, since callers need to make that live
+ * call themselves (see blueline_season_state_data()'s own docblock on why
+ * purchasability is never read from a cache).
+ *
+ * P0 finding 1: this exists so a consumer that needs to know about EVERY
+ * product in the season -- not just "the first purchasable one", which is
+ * all blueline_season_state_data() itself needs -- doesn't have to
+ * duplicate the season-term resolution query. The homepage hero used to
+ * quote the price of whatever single product this query happened to return
+ * first (post ID order), which meant a $145 Goalie Registration could
+ * outrank a $550 Player Registration on the site's primary CTA. Nothing
+ * here picks a "winner" by name or ID; every purchasable product this
+ * returns is the caller's to price and label.
+ *
+ * @return int[] Product IDs, in whatever order WP_Query returned them.
+ */
+function blueline_registration_season_product_ids(): array {
+	if ( ! taxonomy_exists( 'product_cat' ) ) {
+		return array();
+	}
+
+	$season_terms = get_terms(
+		array(
+			'taxonomy'   => 'product_cat',
+			'parent'     => BLUELINE_REGISTRATION_TERM_ID,
+			'orderby'    => 'term_id',
+			'order'      => 'DESC',
+			'number'     => 1,
+			'hide_empty' => false,
+		)
+	);
+
+	if ( is_wp_error( $season_terms ) || empty( $season_terms ) ) {
+		return array();
+	}
+
+	$product_query = new WP_Query(
+		array(
+			'post_type'      => 'product',
+			'post_status'    => BLUELINE_PUBLISHED_STATUS,
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to a single small season term, not an unbounded query.
+				array(
+					'taxonomy' => 'product_cat',
+					'field'    => 'term_id',
+					'terms'    => $season_terms[0]->term_id,
+				),
+			),
+		)
+	);
+
+	return array_map( 'absint', $product_query->posts );
+}
+
+/**
  * Gather live season-state signals, run them through the pure decision
  * function, and cache the result.
  *
@@ -83,14 +185,16 @@ const BLUELINE_PUBLISHED_STATUS = 'publish';
  * with the catalogue.
  *
  * @return array {
- *     @type string   $state         One of the five season states.
- *     @type int|null $product_id    Purchasable product driving registration_open, if any.
- *     @type int|null $next_event_id Soonest upcoming sp_event, if any.
+ *     @type string   $state                 One of the five season states.
+ *     @type int|null $product_id            Purchasable product driving registration_open, if any.
+ *     @type int|null $next_event_id         Soonest upcoming sp_event, if any.
+ *     @type bool     $is_registration_open  Independent of $state -- see blueline_decide_registration_open().
+ *     @type bool     $is_playing            Independent of $state -- see blueline_decide_is_playing().
  * }
  */
 function blueline_season_state_data(): array {
 	$cached = get_transient( 'blueline_season_state' );
-	if ( is_array( $cached ) && isset( $cached['state'] ) ) {
+	if ( is_array( $cached ) && isset( $cached['state'], $cached['is_playing'], $cached['is_registration_open'] ) ) {
 		return $cached;
 	}
 
@@ -106,46 +210,14 @@ function blueline_season_state_data(): array {
 	$next_event_id = null;
 
 	// --- WooCommerce: purchasable product in the current season's product_cat. ---
-	if ( function_exists( 'wc_get_product' ) && taxonomy_exists( 'product_cat' ) ) {
-		$season_terms = get_terms(
-			array(
-				'taxonomy'   => 'product_cat',
-				'parent'     => BLUELINE_REGISTRATION_TERM_ID,
-				'orderby'    => 'term_id',
-				'order'      => 'DESC',
-				'number'     => 1,
-				'hide_empty' => false,
-			)
-		);
+	if ( function_exists( 'wc_get_product' ) ) {
+		foreach ( blueline_registration_season_product_ids() as $candidate_id ) {
+			$product = wc_get_product( $candidate_id );
 
-		if ( ! is_wp_error( $season_terms ) && ! empty( $season_terms ) ) {
-			$season_term_id = $season_terms[0]->term_id;
-
-			$product_query = new WP_Query(
-				array(
-					'post_type'      => 'product',
-					'post_status'    => BLUELINE_PUBLISHED_STATUS,
-					'posts_per_page' => -1,
-					'fields'         => 'ids',
-					'no_found_rows'  => true,
-					'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to a single small season term, not an unbounded query.
-						array(
-							'taxonomy' => 'product_cat',
-							'field'    => 'term_id',
-							'terms'    => $season_term_id,
-						),
-					),
-				)
-			);
-
-			foreach ( $product_query->posts as $candidate_id ) {
-				$product = wc_get_product( $candidate_id );
-
-				if ( $product && $product->is_purchasable() && $product->is_in_stock() ) {
-					$signals['has_purchasable_product'] = true;
-					$product_id                         = (int) $candidate_id;
-					break;
-				}
+			if ( $product && $product->is_purchasable() && $product->is_in_stock() ) {
+				$signals['has_purchasable_product'] = true;
+				$product_id                         = (int) $candidate_id;
+				break;
 			}
 		}
 	}
@@ -242,14 +314,41 @@ function blueline_season_state_data(): array {
 	$state = blueline_decide_season_state( $signals );
 
 	$data = array(
-		'state'         => $state,
-		'product_id'    => $product_id,
-		'next_event_id' => $next_event_id,
+		'state'                => $state,
+		'product_id'           => $product_id,
+		'next_event_id'        => $next_event_id,
+		'is_registration_open' => blueline_decide_registration_open( $signals ),
+		'is_playing'           => blueline_decide_is_playing( $signals ),
 	);
 
 	set_transient( 'blueline_season_state', $data, 15 * MINUTE_IN_SECONDS );
 
 	return $data;
+}
+
+/**
+ * Public accessor: is registration open right now, independent of whether
+ * games are also being played (P1 finding 4). Unlike blueline_season_state(),
+ * this and blueline_is_playing() can BOTH be true at once -- which is the
+ * normal, months-long state of this site whenever next season's
+ * registration opens before this season's games finish.
+ *
+ * @return bool
+ */
+function blueline_is_registration_open(): bool {
+	$data = blueline_season_state_data();
+	return ! empty( $data['is_registration_open'] );
+}
+
+/**
+ * Public accessor: are games currently being played, independent of whether
+ * registration is also open. See blueline_is_registration_open()'s docblock.
+ *
+ * @return bool
+ */
+function blueline_is_playing(): bool {
+	$data = blueline_season_state_data();
+	return ! empty( $data['is_playing'] );
 }
 
 /**

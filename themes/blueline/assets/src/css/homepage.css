@@ -68,6 +68,22 @@
 }
 
 /*
+ * P0 finding 1 / P1 finding 4: zero, one or two of these can render per
+ * hero -- the price breakdown line ("Skaters $550 · Goalies $145") when the
+ * season's registration products don't share one price, and/or the
+ * "Next game: ..." line when registration is open while the season is also
+ * being played (blueline_is_playing()). --bl-pale is the one theme token
+ * meant for de-emphasised text on a dark ground (9.09:1 on --bl-ink, see
+ * DESIGN.md) -- exactly the "quieter than the headline, still AA" register
+ * this needs.
+ */
+.bl-hero__subcopy {
+	margin: 0;
+	color: var(--bl-pale);
+	font-size: var(--bl-text-base);
+}
+
+/*
  * Secondary hero CTA on the dark hero ground -- every non-registration_open
  * state shows a secondary-styled action here. Overrides only color/border
  * on top of the shared .bl-btn--secondary defined for light backgrounds in
@@ -91,8 +107,40 @@
 	padding-block: var(--bl-space-8);
 }
 
+/*
+ * P1 finding 6: five consecutive modules used to be separated by the same
+ * generic 1px hairline as everything else on the site -- one of the things
+ * that made the homepage read as "a list of modules" rather than a
+ * designed page. Reusing the paired blue-line band device (Device #2,
+ * already used to close the hero and every SportsPress hero) as the
+ * divider between modules instead is the single change a reviewer flagged
+ * as enough to make the site recognisable from a thumbnail. Built with
+ * ::before/::after rather than the literal .bl-band/.bl-band--ink markup
+ * used elsewhere: this is a decorative divider between two already-labelled
+ * sections, not new content, so it does not need its own DOM nodes.
+ */
 .bl-module + .bl-module {
-	border-top: 1px solid var(--bl-border);
+	position: relative;
+	margin-block-start: calc(var(--bl-band-ice) + var(--bl-band-ink));
+}
+
+.bl-module + .bl-module::before,
+.bl-module + .bl-module::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+}
+
+.bl-module + .bl-module::before {
+	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
+	height: var(--bl-band-ice);
+	background: var(--bl-ice);
+}
+
+.bl-module + .bl-module::after {
+	inset-block-start: calc(-1 * var(--bl-band-ink));
+	height: var(--bl-band-ink);
+	background: var(--bl-ink);
 }
 
 .bl-module__header {
@@ -136,30 +184,114 @@
 	color: var(--bl-ink-mid);
 }
 
-/* new_here */
+/* new_here -- P1 finding 5: this is the tonal north star ("Never played?
+   Perfect.") and used to be three short bullets with no more visual weight
+   than any other module, less than the standings snippet below it. It now
+   gets a tinted band of its own (breaking the all-paper rhythm, P1 finding
+   6), a bigger heading, and a decorative leaf watermark (Device #4) instead
+   of a plain list.
 
-.bl-new-here__list {
-	display: grid;
-	gap: var(--bl-space-3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
+   Deliberately no `overflow: hidden` on .bl-module--new_here below, even
+   though the watermark can extend slightly past the section's own edge:
+   this class also matches the ".bl-module + .bl-module" divider-band
+   selector above when new_here isn't the first module on the page, and
+   that band is drawn with negative-offset ::before/::after pseudo-elements
+   on this same box -- clipping this element would clip its own top
+   divider. base.css's `html { overflow-x: clip }` (DESIGN.md's documented
+   backstop) already guarantees the page body itself never scrolls
+   horizontally, which is the actual hard constraint; this section does not
+   need its own. */
 
-.bl-new-here__list li {
+.bl-module--new_here {
 	position: relative;
-	padding-inline-start: var(--bl-space-6);
+
+	/* --bl-ice at low opacity: a fill use, per DESIGN.md -- no text sits
+	   directly on it that isn't already an AA-passing token colour. */
+	background: rgba(116, 192, 225, 0.08);
 }
 
-.bl-new-here__list li::before {
-	content: "";
+.bl-module--new_here .bl-module__title {
+	max-width: 14ch;
+	font-size: var(--bl-text-3xl);
+}
+
+/*
+ * inset-inline-end below is a positive container-gutter value, not a
+ * negative bleed-past-the-edge one: this element sits inside the
+ * full-width .bl-module--new_here section (not the narrower .bl-container),
+ * so a negative offset here was pushing part of the mark past the
+ * viewport's own right edge at 360px -- a real, scrollable layout overflow
+ * the html{overflow-x:clip} backstop turned out NOT to swallow, confirmed
+ * live (window could still scroll ~14px right). "The page body never
+ * scrolls horizontally at 360px" is a hard constraint; a decorative
+ * watermark is not worth risking it over.
+ */
+.bl-new-here__watermark {
 	position: absolute;
-	top: 0.5em;
-	left: 0;
-	width: 10px;
-	height: 10px;
-	border: 2px solid var(--bl-steel);
-	border-radius: 50%;
+	inset-block-start: var(--bl-space-6);
+	inset-inline-end: var(--bl-space-5);
+	z-index: 0;
+	width: 36%;
+	max-width: 220px;
+	color: var(--bl-ice);
+	opacity: 0.16;
+	pointer-events: none;
+}
+
+.bl-new-here__intro,
+.bl-new-here__qa {
+	position: relative;
+	z-index: 1;
+}
+
+.bl-new-here__intro {
+	max-width: 56ch;
+	margin: 0 0 var(--bl-space-6);
+	color: var(--bl-ink);
+	font-size: var(--bl-text-lg);
+}
+
+.bl-new-here__qa {
+	display: grid;
+	gap: var(--bl-space-6);
+	margin: 0;
+	max-width: 56ch;
+}
+
+.bl-new-here__qa-item dt {
+	margin: 0 0 var(--bl-space-2);
+	font-weight: 700;
+	font-size: var(--bl-text-lg);
+}
+
+.bl-new-here__qa-item dd {
+	margin: 0;
+	color: var(--bl-ink-mid);
+}
+
+.bl-new-here__qa-item a {
+	font-weight: 600;
+}
+
+/* A league volunteer's own widgets (see
+   blueline_homepage_new_here_widgets_init()) render in normal document
+   flow -- only light spacing, nothing that fights whatever content they
+   add. */
+.bl-new-here__widget + .bl-new-here__widget {
+	margin-block-start: var(--bl-space-5);
+}
+
+.bl-new-here__widget-title {
+	margin: 0 0 var(--bl-space-2);
+	font-size: var(--bl-text-lg);
+}
+
+@media (min-width: 900px) {
+
+	.bl-new-here__qa {
+		grid-template-columns: repeat(3, 1fr);
+		max-width: none;
+	}
 }
 
 /* next_games */
@@ -196,6 +328,22 @@
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-sm);
 	text-align: end;
+}
+
+/* P1 finding 3: the venue is a real link (to the sp_venue archive, carrying
+   the address and any sibling-pad cross-link) whenever one is resolvable --
+   give it the same accent-on-hover/focus treatment as every other inline
+   link on the page instead of looking identical to the plain-text fallback. */
+a.bl-next-games__venue {
+	text-decoration: underline;
+	text-decoration-color: var(--bl-border);
+	text-underline-offset: 2px;
+}
+
+a.bl-next-games__venue:hover,
+a.bl-next-games__venue:focus-visible {
+	color: var(--bl-accent-text);
+	text-decoration-color: currentcolor;
 }
 
 /* latest_news */
