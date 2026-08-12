@@ -60,12 +60,59 @@
 	border-bottom-color: var(--bl-ice);
 }
 
+/*
+ * The skewed label wrapper must not contribute layout width, or nav items
+ * sit at different widths depending on whether their background happens to
+ * be showing, and the row reads as unevenly spaced.
+ *
+ * Every nav label is wrapped in `.bl-skew` (inc/template-tags.php), but the
+ * skewed background is only *visible* on the active item. Previously this
+ * wrapper carried its own `padding: space-1 space-3` nested inside the
+ * link's own `padding: space-3 space-4`, which produced two problems:
+ *
+ *   1. 1.75rem of horizontal padding per side on every item, so labels were
+ *      spaced further apart than they looked like they should be, and
+ *   2. because `skewX(-11deg)` leans the box, its top edge sits ~tan(11°) x
+ *      height further right than its bottom edge (~5.4px at this nav's
+ *      ~28px label height). Equal padding therefore *renders* unequal: the
+ *      glyphs appear pushed left of centre inside their own ribbon.
+ *
+ * Now the padding is applied with an equal, opposite margin, so the ribbon
+ * still bleeds out around the glyphs when it is visible but adds nothing to
+ * layout width — every item is spaced purely by the link's own padding, and
+ * active/inactive items are identical in size. `padding-inline-end` carries
+ * the slant compensation so the label reads optically centred in the ribbon
+ * rather than mathematically centred in its box.
+ */
 .bl-nav .bl-skew {
-	padding: var(--bl-space-1) var(--bl-space-3);
+	padding-block: var(--bl-space-1);
+	padding-inline: var(--bl-space-3) calc(var(--bl-space-3) + 0.18em);
+	margin-block: calc(var(--bl-space-1) * -1);
+	margin-inline: calc(var(--bl-space-3) * -1) calc((var(--bl-space-3) + 0.18em) * -1);
+	line-height: 1.2;
 }
 
 .bl-nav__link[aria-current="page"] .bl-skew {
 	background: var(--bl-ink);
+}
+
+/*
+ * Submenu rows are full-width, unlike top-level items. `.bl-nav__link` is
+ * `inline-flex` so top-level items hug their label, but inside a dropdown
+ * that left every row a different width: the hover and active backgrounds
+ * wrapped only the text, so a column of items read as ragged rather than as
+ * a list, and the highlight stopped mid-row. Stretching them makes the
+ * hit target the whole row too, which is the behaviour a dropdown implies.
+ */
+.bl-nav__submenu .bl-nav__link {
+	display: flex;
+	width: 100%;
+}
+
+.bl-nav__submenu .bl-nav__link:hover,
+.bl-nav__submenu .bl-nav__link:focus-visible {
+	background: var(--bl-ink);
+	color: var(--bl-paper);
 }
 
 .bl-nav__submenu .bl-nav__link[aria-current="page"] {
@@ -165,6 +212,18 @@
 		inset: 0;
 		z-index: 50;
 		overflow-y: auto;
+
+		/*
+		 * Same dark-scroll-container contract as the desktop dropdown: this
+		 * drawer is full-viewport navy and scrolls, so without color-scheme
+		 * it gets a light native scrollbar. `overscroll-behavior: contain`
+		 * also stops the page behind the drawer scrolling when the drawer
+		 * itself reaches its end.
+		 */
+		color-scheme: dark;
+		scrollbar-width: thin;
+		scrollbar-color: var(--bl-steel) transparent;
+		overscroll-behavior: contain;
 		background: var(--bl-ink-deep);
 		padding: var(--bl-space-8) var(--bl-space-5) var(--bl-space-6);
 	}
@@ -253,11 +312,32 @@
 		right: 0;
 		z-index: 40;
 		min-width: 260px;
-		max-height: min(70vh, 480px);
+		max-height: min(78vh, 560px);
 		overflow-y: auto;
 		background: var(--bl-ink-deep);
 		box-shadow: var(--bl-shadow-raised);
 		padding-block: var(--bl-space-2);
+
+		/*
+		 * This panel is a dark scroll container, so it needs both halves of
+		 * the dark-surface contract or the scrollbar renders as a bright
+		 * light-mode bar straight down a navy dropdown -- which is what it
+		 * did, and what read as "unstyled scrollbars on long menu items".
+		 *
+		 * `color-scheme: dark` is the part that actually fixes the native
+		 * widget (Chromium and Safari paint the UA scrollbar from it, and
+		 * it needs no vendor-prefixed pseudo-element); the two
+		 * `scrollbar-*` properties are the standard, non-prefixed controls
+		 * Firefox honours. Together they cover every engine this site sees
+		 * without a single `::-webkit-scrollbar` rule.
+		 *
+		 * `overscroll-behavior: contain` stops a flick inside the dropdown
+		 * from chaining into the page once the list hits its end.
+		 */
+		color-scheme: dark;
+		scrollbar-width: thin;
+		scrollbar-color: var(--bl-steel) transparent;
+		overscroll-behavior: contain;
 	}
 
 	/*
