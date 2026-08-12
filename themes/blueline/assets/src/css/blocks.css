@@ -23,6 +23,23 @@
 	margin-block-start: var(--bl-space-5);
 }
 
+/*
+ * Prose measure -- a deliberate reading-width cap, not an accident of
+ * layout. Without a sidebar, .entry-content fills the whole content column
+ * (up to 1152px at 1280px viewport width); measured live on /faqs that was
+ * 16px/27.2px type at ~135 characters per line, roughly double the
+ * comfortable ~65-75ch ceiling. Pages with an active sidebar happened to
+ * read better only because the grid narrows the column to ~90ch by
+ * accident -- this holds the same measure everywhere, sidebar or not.
+ * Scoped to text-bearing elements only (not the whole .entry-content
+ * container) so images, tables and full-width blocks are unaffected.
+ */
+.entry-content p,
+.entry-content li,
+.entry-content :where(h1, h2, h3, h4, h5, h6) {
+	max-width: 70ch;
+}
+
 /* Paragraph -- core/paragraph has no wrapper class, the block IS the <p>. */
 .entry-content p {
 	margin: 0;

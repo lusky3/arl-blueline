@@ -248,4 +248,51 @@ final class AccountEndpointsTest extends TestCase {
 		$match = blueline_match_legacy_account_request( array(), blueline_account_legacy_redirect_map() );
 		$this->assertNull( $match );
 	}
+
+	/**
+	 * P4 finding 7: the browser tab's <title> is driven exclusively by
+	 * `woocommerce_endpoint_{endpoint}_title`, keyed by WooCommerce's
+	 * query-var name -- NOT this theme's own ARL slug. 'registrations' must
+	 * therefore surface under 'orders', matching
+	 * blueline_account_slug_query_var()'s own translation, or the filter
+	 * registered against this array's keys would silently never fire.
+	 */
+	public function test_endpoint_titles_are_keyed_by_query_var_not_arl_slug(): void {
+		$titles = blueline_account_endpoint_titles();
+
+		$this->assertArrayHasKey( 'orders', $titles );
+		$this->assertArrayNotHasKey( 'registrations', $titles );
+		$this->assertSame( 'My Registrations', $titles['orders'] );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_endpoint_titles_cover_every_arl_endpoint(): void {
+		$titles    = blueline_account_endpoint_titles();
+		$endpoints = blueline_account_endpoints();
+
+		$this->assertCount( count( $endpoints ), $titles );
+
+		foreach ( $endpoints as $slug => $config ) {
+			$query_var = blueline_account_slug_query_var( $slug );
+			$this->assertArrayHasKey( $query_var, $titles );
+			$this->assertSame( $config['label'], $titles[ $query_var ] );
+		}
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_endpoint_titles_match_this_themes_own_copy_not_woocommerces_defaults(): void {
+		// Regression pin for the live mismatch: WooCommerce's own hard-coded
+		// defaults are "Addresses" and "Account details" (lowercase d) --
+		// this theme's copy is "Addresses" (same, coincidentally) and
+		// "Account Details" (capital D). Both must resolve to THIS theme's
+		// copy, not silently fall back to WooCommerce's.
+		$titles = blueline_account_endpoint_titles();
+
+		$this->assertSame( 'Addresses', $titles['edit-address'] );
+		$this->assertSame( 'Account Details', $titles['edit-account'] );
+	}
 }

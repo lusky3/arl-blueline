@@ -188,10 +188,29 @@
 	margin-block-end: var(--bl-space-5);
 }
 
+/*
+ * Cropped, not raw-intrinsic: an uncropped featured image renders at
+ * whatever aspect ratio the upload happened to be, full container width --
+ * on /faqs that pushed the H1 itself ~880px down the page (measured live at
+ * 1280px). A fixed crop keeps every page's hero image, and therefore its
+ * heading, at a predictable vertical position.
+ */
 /* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-entry__thumbnail img {
 	display: block;
 	width: 100%;
+
+	/*
+	 * 21/8 (~2.6:1), not the more common 16/9: measured live, /faqs's own
+	 * upload already rendered close to 2.36:1 uncropped (488px tall at
+	 * 1152px wide), so 16/9's taller 1.78:1 would have made that specific
+	 * page WORSE (648px) while "fixing" only the pages with a tall/portrait
+	 * upload. 21/8 caps every page -- including a portrait upload, which
+	 * would otherwise render taller than it is wide -- while still shipping
+	 * a real reduction (~439px) on the one page this finding measured.
+	 */
+	aspect-ratio: 21 / 8;
+	object-fit: cover;
 	border-radius: var(--bl-radius-card);
 }
 
@@ -303,11 +322,25 @@
 	gap: var(--bl-space-4);
 }
 
+/*
+ * Applied to every card, not just `.has-post-thumbnail`: the thumbnail
+ * column used to exist only on cards with an image, so a list mixing
+ * illustrated and un-illustrated posts had titles landing at two different
+ * x-offsets (280px vs 24px, measured live on /news at 1280px) -- the list
+ * visibly jumped sideways mid-scroll. The column is now always reserved;
+ * `.bl-post-card__body` is pinned to it explicitly so a card with no
+ * `.bl-post-card__thumb` (the grid's only other possible child) leaves the
+ * first column empty instead of auto-placing the body into it.
+ */
 @media (min-width: 700px) {
 
-	.bl-post-card.has-post-thumbnail {
+	.bl-post-card {
 		grid-template-columns: 240px minmax(0, 1fr);
 		align-items: start;
+	}
+
+	.bl-post-card__body {
+		grid-column: 2;
 	}
 }
 

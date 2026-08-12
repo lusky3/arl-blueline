@@ -138,6 +138,44 @@ function blueline_account_slug_query_var( string $slug ): string {
 }
 
 /**
+ * Query-var endpoint => this theme's own blueline_account_endpoints() label,
+ * for filtering `woocommerce_endpoint_{endpoint}_title` (P4 finding 7).
+ *
+ * WooCommerce's WC_Query::get_endpoint_title() hard-codes English defaults
+ * ("Orders", "Addresses", "Account details") for this hook's un-filtered
+ * value, and that SAME method drives both the document `<title>`
+ * (wc_page_endpoint_document_title_parts()) and the on-page `<h1>`
+ * (wc_page_endpoint_title(), hooked on `the_title`) -- confirmed live
+ * against WooCommerce core's own wc-page-functions.php. Nothing in this
+ * theme filtered that hook at all before now, so the browser tab showed
+ * WooCommerce's hard-coded defaults instead of this theme's own copy.
+ *
+ * This does NOT make the on-page `<h1>` agree for 'orders'/'edit-address'/
+ * 'edit-account': a separate legacy Code Snippet (`wp_snippets` id 9, "My
+ * Account Tab Modifications") hooks `the_title` directly, independently of
+ * this filter, and its callback runs after WooCommerce's own -- see the P4
+ * review for the full mechanism and why that snippet is a cutover/config
+ * item, not something this theme should fight programmatically. This filter
+ * still fully controls the document title for every endpoint (the snippet
+ * never touches `document_title_parts`), and fully controls both title AND
+ * h1 for every endpoint the snippet does not touch (my-team, my-schedule,
+ * store-credit, refund-requests, payment-methods).
+ *
+ * Pure: no WordPress calls, so it's unit-testable without extra bootstrap
+ * stubs. Kept above the WooCommerce guard below with this file's other pure
+ * helpers.
+ *
+ * @return array<string, string> query-var => label.
+ */
+function blueline_account_endpoint_titles(): array {
+	$titles = array();
+	foreach ( blueline_account_endpoints() as $slug => $config ) {
+		$titles[ blueline_account_slug_query_var( $slug ) ] = $config['label'];
+	}
+	return $titles;
+}
+
+/**
  * The dedicated (collision-free) query var a legacy slug's rewrite endpoint
  * is registered under. See blueline_register_account_rewrite_endpoints().
  *
@@ -334,6 +372,26 @@ function blueline_remap_account_query_vars( array $vars ): array {
 		}
 	}
 	return $vars;
+}
+
+blueline_register_account_endpoint_title_filters();
+/**
+ * Register the `woocommerce_endpoint_{endpoint}_title` filter for every
+ * endpoint in blueline_account_endpoint_titles(). One filter per endpoint
+ * (the hook name itself carries the endpoint), each a small closure over
+ * that one endpoint's own label rather than a single generic callback
+ * inspecting current_filter() -- keeps each registration self-contained and
+ * trivially correct regardless of call order.
+ */
+function blueline_register_account_endpoint_title_filters(): void {
+	foreach ( blueline_account_endpoint_titles() as $query_var => $label ) {
+		add_filter(
+			"woocommerce_endpoint_{$query_var}_title",
+			static function () use ( $label ) {
+				return $label;
+			}
+		);
+	}
 }
 
 add_filter( 'woocommerce_account_menu_items', 'blueline_account_menu_items' );

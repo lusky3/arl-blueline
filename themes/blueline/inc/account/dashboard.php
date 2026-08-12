@@ -163,8 +163,14 @@ function blueline_account_render_claim_card( int $user_id ) {
 		</p>
 		<ul class="bl-account-claim__list">
 			<?php foreach ( $candidates as $candidate ) : ?>
+				<?php $detail = blueline_format_candidate_detail( $candidate ); ?>
 				<li class="bl-account-claim__item">
-					<span class="bl-account-claim__name"><?php echo esc_html( $candidate['name'] ); ?></span>
+					<span class="bl-account-claim__identity">
+						<span class="bl-account-claim__name"><?php echo esc_html( $candidate['name'] ); ?></span>
+						<?php if ( '' !== $detail ) : ?>
+							<span class="bl-account-claim__detail"><?php echo esc_html( $detail ); ?></span>
+						<?php endif; ?>
+					</span>
 					<form class="bl-account-claim__form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<?php wp_nonce_field( 'blueline_claim_player' ); ?>
 						<input type="hidden" name="action" value="blueline_claim_player">
@@ -172,7 +178,7 @@ function blueline_account_render_claim_card( int $user_id ) {
 						<button
 							type="submit"
 							class="bl-btn bl-btn--primary bl-account-claim__confirm"
-							aria-label="<?php echo esc_attr( sprintf( /* translators: %s: candidate player name. */ __( 'Yes, that’s me — %s', 'blueline' ), $candidate['name'] ) ); ?>"
+							aria-label="<?php echo esc_attr( blueline_candidate_aria_label( $candidate, $detail ) ); ?>"
 						>
 							<span class="bl-skew"><span aria-hidden="true"><?php esc_html_e( 'Yes, that’s me', 'blueline' ); ?></span></span>
 						</button>
@@ -184,6 +190,61 @@ function blueline_account_render_claim_card( int $user_id ) {
 	}
 
 	blueline_account_module_end();
+}
+
+/**
+ * One human-readable disambiguating line for a claim candidate --
+ * "Team · Season · #Number", each segment included only when present. Two
+ * same-named players are otherwise indistinguishable rows (P4 finding 6);
+ * this is the whole difference between a coin flip and an informed choice.
+ *
+ * @param array{team?:string, season?:string, number?:string} $candidate One row from blueline_find_player_candidates().
+ * @return string Empty if none of the three fields are available.
+ */
+function blueline_format_candidate_detail( array $candidate ): string {
+	$number = $candidate['number'] ?? '';
+
+	$parts = array_filter(
+		array(
+			$candidate['team'] ?? '',
+			$candidate['season'] ?? '',
+			'' !== $number ? sprintf(
+				/* translators: %s: jersey number. */
+				__( '#%s', 'blueline' ),
+				$number
+			) : '',
+		),
+		static fn( $part ) => '' !== $part
+	);
+
+	return implode( ' · ', $parts );
+}
+
+/**
+ * The confirm button's accessible name. Carries the same disambiguating
+ * detail as the visible row: an aria-label that only ever said the player's
+ * name would leave a screen-reader user facing the exact "two Mike Browns"
+ * ambiguity the visible detail line exists to resolve.
+ *
+ * @param array{name:string} $candidate One row from blueline_find_player_candidates().
+ * @param string             $detail    blueline_format_candidate_detail()'s result for the same candidate.
+ * @return string
+ */
+function blueline_candidate_aria_label( array $candidate, string $detail ): string {
+	if ( '' === $detail ) {
+		return sprintf(
+			/* translators: %s: candidate player name. */
+			__( 'Yes, that’s me — %s', 'blueline' ),
+			$candidate['name']
+		);
+	}
+
+	return sprintf(
+		/* translators: 1: candidate player name, 2: disambiguating detail (team, season, jersey number). */
+		__( 'Yes, that’s me — %1$s, %2$s', 'blueline' ),
+		$candidate['name'],
+		$detail
+	);
 }
 
 /**
@@ -569,9 +630,24 @@ function blueline_account_endpoint_url( string $slug ): string {
  * and quieter than the league modules above it -- billing is still
  * reachable in one click, never buried, just no longer the first thing a
  * player sees.
+ *
+ * Labels come from wc_get_account_menu_items() -- the fully filtered
+ * `woocommerce_account_menu_items` chain, the same source the nav rail
+ * renders from -- rather than blueline_account_endpoints()'s own raw
+ * `label` field. P4 finding 7: this used to read the raw label directly,
+ * bypassing that filter chain entirely, so a legacy Code Snippet hooking
+ * `woocommerce_account_menu_items` at priority 999 (renaming edit-address/
+ * edit-account/orders for a YITH setup this theme has already replaced)
+ * changed the nav rail and the on-page <h1> but left these quick-links
+ * showing the theme's original, un-renamed copy -- a third, disagreeing
+ * label for the same two pages. Going through the same filtered list makes
+ * this surface agree with the nav rail regardless of what else is hooked
+ * onto that filter; blueline_account_endpoints()'s own label is kept only
+ * as a defensive fallback if a third-party filter ever drops a key
+ * entirely, which should not normally happen.
  */
 function blueline_account_render_billing_group() {
-	if ( ! function_exists( 'blueline_account_endpoints' ) ) {
+	if ( ! function_exists( 'blueline_account_endpoints' ) || ! function_exists( 'wc_get_account_menu_items' ) ) {
 		return;
 	}
 
@@ -586,15 +662,21 @@ function blueline_account_render_billing_group() {
 
 	uasort( $billing, static fn( $a, $b ) => $a['order'] <=> $b['order'] );
 
+	$menu_items = wc_get_account_menu_items();
+
 	blueline_account_module_start( 'billing', __( 'Account & billing', 'blueline' ) );
 	?>
 	<ul class="bl-account-billing__list">
 		<?php foreach ( $billing as $slug => $config ) : ?>
-			<?php $url = blueline_account_endpoint_url( $slug ); ?>
+			<?php
+			$url       = blueline_account_endpoint_url( $slug );
+			$query_var = blueline_account_slug_query_var( $slug );
+			$label     = $menu_items[ $query_var ] ?? $config['label'];
+			?>
 			<?php if ( ! $url ) : ?>
 				<?php continue; ?>
 			<?php endif; ?>
-			<li><a href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $config['label'] ); ?></a></li>
+			<li><a href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $label ); ?></a></li>
 		<?php endforeach; ?>
 	</ul>
 	<?php

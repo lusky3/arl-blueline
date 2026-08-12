@@ -660,7 +660,7 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
  * blueline_score_player_candidates().
  *
  * @param int $user_id WordPress user ID.
- * @return array<int, array{player_id:int, score:float, name:string}> Sorted descending by score.
+ * @return array<int, array{player_id:int, score:float, name:string, team:string, season:string, number:string}> Sorted descending by score.
  */
 function blueline_find_player_candidates( int $user_id ): array {
 	if ( ! post_type_exists( 'sp_player' ) ) {
@@ -695,7 +695,79 @@ function blueline_find_player_candidates( int $user_id ): array {
 		$ordered_titles[ (int) $player_id ] = (string) ( $titles[ $player_id ] ?? '' );
 	}
 
-	return blueline_score_player_candidates( $name, $ordered_titles );
+	$candidates = blueline_score_player_candidates( $name, $ordered_titles );
+
+	foreach ( $candidates as &$candidate ) {
+		$candidate += blueline_player_candidate_detail( $candidate['player_id'] );
+	}
+	unset( $candidate );
+
+	return $candidates;
+}
+
+/**
+ * Disambiguating detail for one claim candidate -- team, season, jersey
+ * number -- shown alongside the bare name on the claim card (P4 finding 6).
+ * Without it, two players sharing a common name are offered as identical
+ * rows with an identical "Yes, that's me" button, and the user is guessing.
+ *
+ * Presentation only: does not touch blueline_score_player_candidates(),
+ * blueline_name_pair_is_specific_enough(), or the two-token gate, all of
+ * which are settled (see the P4 review's residual-risk record) and out of
+ * scope here. This runs AFTER a candidate has already cleared that gate; it
+ * never influences which players are offered, only how one already-offered
+ * row is described.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return array{team: string, season: string, number: string} Any field may be '' if unavailable.
+ */
+function blueline_player_candidate_detail( int $player_id ): array {
+	$team = function_exists( 'blueline_get_player_team' ) ? blueline_get_player_team( $player_id ) : null;
+
+	$number = function_exists( 'blueline_player_jersey_number' ) ? blueline_player_jersey_number( $player_id ) : null;
+
+	return array(
+		'team'   => $team ? $team['name'] : '',
+		'season' => blueline_player_candidate_season_label( $player_id ),
+		'number' => null !== $number ? $number : '',
+	);
+}
+
+/**
+ * The name of whichever blueline_claim_pool_season_term_ids() term
+ * $player_id actually carries -- the season that made this player a claim
+ * candidate in the first place, not their entire multi-year sp_season tag
+ * history. Pool terms are newest-first, so a player tagged with both the
+ * current and a sparse-pool fallback season reports the current one.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return string Term name, or '' if sp_season is inactive, the pool is
+ *                empty, or the player carries none of the pool's terms.
+ */
+function blueline_player_candidate_season_label( int $player_id ): string {
+	if ( ! taxonomy_exists( 'sp_season' ) ) {
+		return '';
+	}
+
+	$pool_term_ids = blueline_claim_pool_season_term_ids();
+	if ( empty( $pool_term_ids ) ) {
+		return '';
+	}
+
+	$terms = wp_get_post_terms( $player_id, 'sp_season' );
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return '';
+	}
+
+	foreach ( $pool_term_ids as $term_id ) {
+		foreach ( $terms as $term ) {
+			if ( (int) $term->term_id === $term_id ) {
+				return (string) $term->name;
+			}
+		}
+	}
+
+	return '';
 }
 
 /**

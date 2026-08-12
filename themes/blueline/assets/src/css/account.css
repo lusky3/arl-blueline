@@ -207,8 +207,25 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	border-top: 1px solid var(--bl-border);
 }
 
+.bl-account-claim__identity {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bl-space-1);
+}
+
 .bl-account-claim__name {
 	font-weight: 600;
+}
+
+/*
+ * Disambiguating detail (team / season / jersey number) -- P4 finding 6.
+ * Two candidates sharing a name used to render as identical rows; this line
+ * is what turns "Mike Brown" + "Mike Brown" into two distinguishable people.
+ */
+.bl-account-claim__detail {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-weight: 400;
 }
 
 .bl-account-claim__form {

@@ -66,6 +66,45 @@ remove_action( 'woocommerce_after_main_content', 'woocommerce_output_content_wra
 add_action( 'woocommerce_before_main_content', 'blueline_wc_wrapper_start' );
 add_action( 'woocommerce_after_main_content', 'blueline_wc_wrapper_end' );
 
+/*
+ * P4 finding 4 -- both core's default single-product.php and the ported
+ * archive-product.php (see that file's own docblock) call
+ * do_action( 'woocommerce_sidebar' ) AFTER do_action( 'woocommerce_after_main_content' ),
+ * i.e. after blueline_wc_wrapper_end() has already closed .bl-container/
+ * #main. `woocommerce_get_sidebar()` (core's hooked callback, priority 10)
+ * then calls get_sidebar(), and this theme's sidebar.php renders
+ * `<aside class="bl-sidebar">` with no ancestor container at all -- measured
+ * live on /registration/player-registration-w2026-27 at 1280px:
+ * `.bl-sidebar` was x=0/width=1280 while the product above it was
+ * x=64/width=1152. Wrapping the same 'woocommerce_sidebar' action (priority
+ * 5/15, straddling core's own 10) gives it the identical container every
+ * other page uses, without touching sidebar.php itself (not a Task 9 port
+ * file, but shared with every non-WooCommerce template) or restructuring
+ * either ported template.
+ */
+add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_start', 5 );
+add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_end', 15 );
+
+/**
+ * Open a container around whatever `do_action( 'woocommerce_sidebar' )`
+ * renders (core's `woocommerce_get_sidebar()` -> `get_sidebar()` ->
+ * sidebar.php's `.bl-sidebar`), matching the `.bl-container` gutter/max-width
+ * every other page's sidebar sits inside. See the 'woocommerce_sidebar'
+ * registration above for why this can't just live inside
+ * blueline_wc_wrapper_start()/_end() -- the sidebar renders after that
+ * wrapper has already closed.
+ */
+function blueline_wc_sidebar_wrapper_start() {
+	echo '<div class="bl-container bl-container--wc-sidebar">';
+}
+
+/**
+ * Close the container opened by blueline_wc_sidebar_wrapper_start().
+ */
+function blueline_wc_sidebar_wrapper_end() {
+	echo '</div>';
+}
+
 /**
  * Open the WooCommerce content wrapper. Matches the `#main.bl-main` >
  * `.bl-container` structure used by page.php/archive.php so WooCommerce

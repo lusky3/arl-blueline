@@ -316,6 +316,92 @@
 	font-size: var(--bl-text-sm);
 }
 
+/*
+ * Stock badge ("Spots available" etc). Unstyled by this file until now, it
+ * fell through to WooCommerce core's own bundled default -- measured live
+ * on the registration page as `color: rgb(149, 142, 9)`, an olive that is in
+ * no palette here. Brought onto the same success/warning/danger tokens
+ * every other status colour in this theme already uses.
+ */
+.woocommerce div.product p.stock {
+	font-weight: 600;
+}
+
+.woocommerce div.product p.stock.in-stock {
+	color: var(--bl-success);
+}
+
+.woocommerce div.product p.stock.out-of-stock {
+	color: var(--bl-danger);
+}
+
+.woocommerce div.product p.stock.available-on-backorder {
+	color: var(--bl-warning);
+}
+
+/*
+ * Add-to-cart / registration CTA -- P4 finding 5: this is the single most
+ * important button on the site (it IS the ~$500 registration purchase) and
+ * it was rendering as a plain dark rectangle (background #132343,
+ * border-radius 0, no skew) while every other primary CTA in the header and
+ * hero is a skewed ice ribbon. The file-level comment above explains why
+ * WooCommerce's OTHER buttons (place_order, coupon, block-editor buttons)
+ * stay upright on purpose -- a single <button>/<a> has no inner node to
+ * counter-skew without restructuring ported markup. This is the deliberate
+ * exception: the actual purchase action should read as the brand's primary
+ * action, not just another generic WooCommerce button.
+ *
+ * The skew therefore lives on a ::before background layer with its own
+ * skewX() transform, rather than on the button itself: the real <button>
+ * stays a plain, un-skewed rectangle (hit target and :focus-visible ring
+ * both honest, per the skew hard constraint), and the label text is never
+ * transformed at all -- there is nothing to counter-skew back because it
+ * was never skewed in the first place. The visible ice parallelogram
+ * intentionally does not fill the button's own corners (the same "ribbon
+ * bleeds outside its box" look nav.css's .bl-skew ribbon already uses); the
+ * button's own background is transparent so paper shows through there,
+ * matching the page ground.
+ */
+.woocommerce div.product form.cart .single_add_to_cart_button {
+	position: relative;
+	z-index: 0;
+	overflow: visible;
+	background: none;
+	color: var(--bl-ink);
+}
+
+.woocommerce div.product form.cart .single_add_to_cart_button::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	background: var(--bl-ice);
+	border-radius: var(--bl-radius);
+	transform: skewX(var(--bl-skew));
+}
+
+.woocommerce div.product form.cart .single_add_to_cart_button:hover,
+.woocommerce div.product form.cart .single_add_to_cart_button:focus-visible {
+	color: var(--bl-ink);
+}
+
+.woocommerce div.product form.cart .single_add_to_cart_button:hover::before,
+.woocommerce div.product form.cart .single_add_to_cart_button:focus-visible::before {
+
+	/* --bl-ink at 12%, darkening the ice fill for hover/focus feedback without
+	 * introducing a new fill token -- same technique base.css's tap-highlight
+	 * colour uses. */
+	box-shadow: inset 0 0 0 999px rgb(19 35 67 / 12%);
+}
+
+/*
+ * :disabled is deliberately NOT re-dimmed here: the shared
+ * `.woocommerce button.button:disabled { opacity: 0.6; }` rule above already
+ * applies to the whole element, including this ::before pseudo, since
+ * `opacity` composites an element and its pseudo-elements as one group. A
+ * second opacity here would multiply (0.6 x 0.6), dimming the ribbon too far.
+ */
+
 /* ---------------------------------------------------------------------
  * Tables shared by cart, checkout order review, and the My Account
  * store-credit/refund-request partials (dashboard.php itself is replaced
