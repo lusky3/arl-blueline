@@ -644,6 +644,66 @@ table.bl-table-self-scroll {
 	height: 100%;
 }
 
+/* ---- Team colours ----------------------------------------------------
+ *
+ * inc/team-colors.php puts a team's own colour on `.bl-sp-hero--team` as
+ * scoped custom properties, so a team page wears its identity while the
+ * theme keeps owning structure and body copy. Teams with no usable
+ * `sp_colors` get no properties at all and every rule here falls back to a
+ * theme token, rendering exactly as before.
+ *
+ * There is one rule that governs all of this, and it exists because the
+ * stored palettes are unreliable (Canadiens' primary is #ffffff, Outlaws'
+ * is #adadad):
+ *
+ *   FILLS may use --bl-team-primary. Any colour works as a fill, because
+ *   anything sitting on it uses --bl-team-on-primary, which was computed
+ *   against the real contrast formula.
+ *
+ *   BOUNDARIES AND TEXT must use --bl-team-accent, which is the team's hue
+ *   darkened until it clears 4.5:1 on paper. It is deliberately absent for
+ *   achromatic teams (a darkened white is just grey, which is nobody's
+ *   identity), so those fall back to the theme's own accent and stay legible.
+ *
+ * Using --bl-team-primary for a border would put a white 1.04:1 line on
+ * paper for Canadiens. That is the mistake this split prevents.
+ */
+
+/*
+ * The blue-line band device, wearing the team's colour. A fill, so the raw
+ * primary is safe here; the navy rule underneath keeps the band readable
+ * even when a team's colour is near-white.
+ */
+.bl-sp-hero--team {
+	position: relative;
+	border-top: var(--bl-band-ice) solid var(--bl-team-primary, var(--bl-ice));
+	box-shadow: inset 0 var(--bl-band-ink) 0 0 var(--bl-ink);
+}
+
+/*
+ * Crest plate. The fill is the team's colour; the ring is the contrast-safe
+ * accent so it stays visible for pale teams, falling back to the theme's
+ * own steel stroke when a team has no usable accent.
+ */
+.bl-sp-hero--team .bl-sp-hero__crest {
+	padding: var(--bl-space-2);
+	background: var(--bl-team-primary, transparent);
+	border: 2px solid var(--bl-team-accent, var(--bl-steel));
+	border-radius: var(--bl-radius-card);
+}
+
+/* The fallback leaf mark sits ON the plate, so it takes the derived
+   foreground rather than the theme's ice fill. */
+.bl-sp-hero--team .bl-sp-hero__crest--fallback {
+	color: var(--bl-team-on-primary, var(--bl-ice));
+}
+
+/* Division / meta chips pick up the team's accent as their boundary. */
+.bl-sp-hero--team .bl-sp-hero__flag {
+	border-color: var(--bl-team-accent, var(--bl-border-strong));
+	color: var(--bl-team-accent, var(--bl-ink-mid));
+}
+
 .bl-sp-hero__teams {
 	display: flex;
 	flex-wrap: wrap;

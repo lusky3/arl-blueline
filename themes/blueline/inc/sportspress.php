@@ -721,8 +721,18 @@ function blueline_sp_team_hero( $team_id ) {
 			}
 		}
 	}
+
+	/*
+	 * The team's own colour, as scoped custom properties. Returns '' for a
+	 * team with no usable `sp_colors`, in which case every rule below falls
+	 * back to its theme token and the hero renders exactly as it always has.
+	 * See inc/team-colors.php for why the stored palette is not used as-is.
+	 */
+	$team_color_attr = function_exists( 'blueline_team_color_style_attr' )
+		? blueline_team_color_style_attr( $team_id )
+		: '';
 	?>
-	<header class="bl-sp-hero bl-sp-hero--team">
+	<header class="bl-sp-hero bl-sp-hero--team"<?php echo $team_color_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blueline_team_color_style_attr() returns a complete, esc_attr()'d style attribute built only from hex values it validated itself. ?>>
 		<div class="bl-container bl-sp-hero__inner">
 			<?php if ( has_post_thumbnail( $team_id ) ) : ?>
 				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $team_id, 'medium' ); ?></div>

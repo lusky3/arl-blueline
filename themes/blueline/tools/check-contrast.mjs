@@ -131,4 +131,49 @@ if ( parityFailed ) {
 	console.log( `ok   editor.css's ${ editorTokens.size } duplicated tokens match style.css byte-for-byte` );
 }
 
+/*
+ * The same drift problem, one more place: inc/team-colors.php has to compute
+ * WCAG contrast server-side to derive a readable foreground for each team's
+ * own colour, and PHP cannot read a CSS custom property. So it mirrors two
+ * tokens as constants. If style.css changes and those constants do not, every
+ * team page silently derives its foregrounds against the wrong ground -- the
+ * failure would be invisible until someone noticed unreadable text on a team
+ * page, which is exactly what that module exists to prevent.
+ */
+const teamColorsPath = resolve( here, '../inc/team-colors.php' );
+const teamColorsSrc  = readFileSync( teamColorsPath, 'utf8' );
+
+const phpConstant = ( name ) => {
+	const m = teamColorsSrc.match(
+		new RegExp( `const\\s+${ name }\\s*=\\s*'(#[0-9a-fA-F]{6})'` )
+	);
+	if ( ! m ) {
+		throw new Error( `${ name } not found in inc/team-colors.php` );
+	}
+	return m[ 1 ].toLowerCase();
+};
+
+const MIRRORED = [
+	[ 'BLUELINE_TOKEN_INK', '--bl-ink' ],
+	[ 'BLUELINE_TOKEN_PAPER', '--bl-paper' ],
+];
+
+let mirrorFailed = 0;
+for ( const [ constName, tokenName ] of MIRRORED ) {
+	const cssValue = normalizeValue( styleTokens.get( tokenName ) || '' ).toLowerCase();
+	const phpValue = phpConstant( constName );
+	if ( cssValue !== phpValue ) {
+		console.log(
+			`FAIL ${ constName } is ${ phpValue }, but style.css's ${ tokenName } is ${ cssValue }`
+		);
+		mirrorFailed++;
+	}
+}
+
+if ( mirrorFailed ) {
+	failed += mirrorFailed;
+} else {
+	console.log( `ok   team-colors.php's ${ MIRRORED.length } mirrored tokens match style.css` );
+}
+
 process.exit( failed ? 1 : 0 );
