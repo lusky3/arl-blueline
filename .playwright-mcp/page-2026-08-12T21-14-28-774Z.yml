@@ -1,0 +1,167 @@
+- generic [active] [ref=f153e1]:
+  - generic [ref=f153e2]:
+    - link "Skip to main content" [ref=f153e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f153e4]:
+      - generic [ref=f153e6]:
+        - link "ARL – Adult Recreational League" [ref=f153e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary"
+        - generic [ref=f153e10]:
+          - navigation "Account" [ref=f153e11]:
+            - list [ref=f153e12]:
+              - listitem [ref=f153e13]:
+                - link "My ARL Account" [ref=f153e14] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+              - listitem [ref=f153e15]:
+                - link "Log Out" [ref=f153e16] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/wp-login.php?action=logout&_wpnonce=b7c58d9742
+          - link "Schedule" [ref=f153e17] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/schedule
+          - button "Menu" [ref=f153e20] [cursor=pointer]
+    - main [ref=f153e26]:
+      - generic [ref=f153e28]:
+        - paragraph [ref=f153e29]:
+          - generic [ref=f153e30]: Winter 2026-27 · Registration open
+        - heading "Burlington’s beginner league." [level=1] [ref=f153e32]
+        - paragraph [ref=f153e33]: Player $550.00 · Goalie $145.00
+        - paragraph [ref=f153e34]: "Next game: Fri, Aug 14 at 6:00pm — Mr. Lube and Tires Arena — Red"
+        - link "Register now" [ref=f153e35] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/register
+      - generic [ref=f153e41]:
+        - generic [ref=f153e42]:
+          - heading "Next games" [level=2] [ref=f153e43]
+          - link "Full schedule" [ref=f153e44] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/schedule
+            - text: Full schedule →
+        - list [ref=f153e46]:
+          - listitem [ref=f153e47]:
+            - generic [ref=f153e48]: Fri, Aug 14 at 6:00pm
+            - generic [ref=f153e49]: Puck Dynasty vs Hammers
+            - link "Mr. Lube and Tires Arena — Red" [ref=f153e50] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/venue/red
+          - listitem [ref=f153e51]:
+            - generic [ref=f153e52]: Fri, Aug 14 at 6:30pm
+            - generic [ref=f153e53]: TrebleMakers (Musik 7 Studios) vs Train Wreck
+            - link "Mr. Lube and Tires Arena — Black" [ref=f153e54] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/venue/black
+          - listitem [ref=f153e55]:
+            - generic [ref=f153e56]: Fri, Aug 14 at 7:00pm
+            - generic [ref=f153e57]: Replacements vs Kings
+            - link "Mr. Lube and Tires Arena — Red" [ref=f153e58] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/venue/red
+          - listitem [ref=f153e59]:
+            - generic [ref=f153e60]: Fri, Aug 14 at 7:30pm
+            - generic [ref=f153e61]: Spartans (Lusk.Tech) vs Royals
+            - link "Mr. Lube and Tires Arena — Black" [ref=f153e62] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/venue/black
+      - generic [ref=f153e64]:
+        - generic [ref=f153e65]:
+          - heading "Standings" [level=2] [ref=f153e66]
+          - link "Full standings" [ref=f153e67] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/standings
+            - text: Full standings →
+        - generic [ref=f153e70]:
+          - heading "Division 1 | S2026" [level=4] [ref=f153e71]
+          - checkbox "Show full stats" [ref=f153e72]
+          - generic [ref=f153e73] [cursor=pointer]: Show full stats
+          - grid [ref=f153e77]:
+            - rowgroup [ref=f153e78]:
+              - row [ref=f153e79]:
+                - columnheader "Pos" [ref=f153e80] [cursor=pointer]: Pos 
+                - columnheader "Team" [ref=f153e81] [cursor=pointer]: Team 
+                - columnheader "Record" [ref=f153e82] [cursor=pointer]: Record 
+                - text:     
+                - columnheader "PTS" [ref=f153e83] [cursor=pointer]: PTS 
+                - text:     
+            - rowgroup [ref=f153e84]:
+              - row [ref=f153e85]:
+                - gridcell "1" [ref=f153e86]
+                - gridcell [ref=f153e87]:
+                  - link [ref=f153e88] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/team/the-hammers
+                    - img "Hammer" [ref=f153e90]
+                    - text: Hammers
+                - gridcell "10-1-3-0" [ref=f153e91]
+                - gridcell "23" [ref=f153e92]
+              - row [ref=f153e93]:
+                - gridcell "2" [ref=f153e94]
+                - gridcell [ref=f153e95]:
+                  - link [ref=f153e96] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/team/replacements
+                    - img "The Replacements" [ref=f153e98]
+                    - text: Replacements
+                - gridcell "8-4-2-0" [ref=f153e99]
+                - gridcell "18" [ref=f153e100]
+              - row [ref=f153e101]:
+                - gridcell "3" [ref=f153e102]
+                - gridcell [ref=f153e103]:
+                  - link [ref=f153e104] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                    - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f153e106]
+                    - text: Puck Dynasty
+                - gridcell "5-6-3-0" [ref=f153e107]
+                - gridcell "13" [ref=f153e108]
+              - row [ref=f153e109]:
+                - gridcell "4" [ref=f153e110]
+                - gridcell [ref=f153e111]:
+                  - link [ref=f153e112] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/team/kings-2018
+                    - img "Kings Team Logo" [ref=f153e114]
+                    - text: Kings
+                - gridcell "0-12-2-0" [ref=f153e115]
+                - gridcell "2" [ref=f153e116]
+      - generic [ref=f153e118]:
+        - generic [ref=f153e119]:
+          - heading "Never played? Perfect." [level=2] [ref=f153e120]
+          - link "Read the FAQs" [ref=f153e121] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/faqs
+            - text: Read the FAQs →
+        - generic [ref=f153e122]:
+          - paragraph [ref=f153e123]: "Every player on every team here started exactly where you are: never having played an organized game of hockey. That's not the exception in this league. It's most of the room."
+          - generic [ref=f153e124]:
+            - generic [ref=f153e125]:
+              - term [ref=f153e126]: Will I be the worst one out there?
+              - definition [ref=f153e127]: Almost certainly not, and it wouldn't matter if you were. This is a co-ed beginner league by design — no tryouts, no cuts, and teams built to be even, not stacked.
+            - generic [ref=f153e128]:
+              - term [ref=f153e129]: What gear do I actually need?
+              - definition [ref=f153e130]:
+                - text: Less than you'd think, and you can rent most of it nearby before buying a single thing.
+                - link "See the gear guide" [ref=f153e131] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/arl-league-info/equipment
+                - text: .
+            - generic [ref=f153e132]:
+              - term [ref=f153e133]: What if I can't really skate yet?
+              - definition [ref=f153e134]: Then you'll fit right in with half the room. Games are paced for people still finding their edges, not for anyone trying out for the NHL.
+      - generic [ref=f153e136]:
+        - generic [ref=f153e137]:
+          - heading "Latest news" [level=2] [ref=f153e138]
+          - link "All news" [ref=f153e139] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/news
+            - text: All news →
+        - list [ref=f153e141]:
+          - listitem [ref=f153e142]:
+            - link "Winter Season Registration Update – FAQ" [ref=f153e143] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+            - generic [ref=f153e144]: August 8, 2026
+          - listitem [ref=f153e145]:
+            - link "Winter Season Registration Update" [ref=f153e146] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+            - generic [ref=f153e147]: August 6, 2026
+          - listitem [ref=f153e148]:
+            - link "Player Appreciation Night – Summer 2026" [ref=f153e149] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+            - generic [ref=f153e150]: August 1, 2026
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f153e154]
+    - contentinfo [ref=f153e156]:
+      - generic [ref=f153e158]:
+        - figure [ref=f153e161]:
+          - link [ref=f153e162] [cursor=pointer]:
+            - /url: https://arl.link/helpukraine
+            - img "Flag of Ukraine" [ref=f153e163]
+        - paragraph [ref=f153e165]:
+          - strong [ref=f153e166]:
+            - link "WE STAND WITH UKRAINE" [ref=f153e167] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+      - paragraph [ref=f153e172]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f153e173]

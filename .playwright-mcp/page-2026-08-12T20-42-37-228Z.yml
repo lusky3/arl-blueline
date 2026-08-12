@@ -1,0 +1,193 @@
+- generic [active] [ref=f133e1]:
+  - generic [ref=f133e2]:
+    - link "Skip to main content" [ref=f133e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f133e4]:
+      - generic [ref=f133e6]:
+        - link "ARL – Adult Recreational League" [ref=f133e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary"
+        - generic [ref=f133e10]:
+          - navigation "Account" [ref=f133e11]:
+            - list [ref=f133e12]:
+              - listitem [ref=f133e13]:
+                - link "My ARL Account" [ref=f133e14] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+              - listitem [ref=f133e15]:
+                - link "Log Out" [ref=f133e16] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/wp-login.php?action=logout&_wpnonce=b7c58d9742
+          - link "Register to Play" [ref=f133e17] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/register
+          - button "Menu" [ref=f133e20] [cursor=pointer]
+    - main [ref=f133e26]:
+      - generic [ref=f133e28]:
+        - paragraph [ref=f133e29]:
+          - generic [ref=f133e30]: Result pending
+        - generic [ref=f133e32]:
+          - generic [ref=f133e33]:
+            - img "Hammer" [ref=f133e35]
+            - generic [ref=f133e36]: Hammers
+          - generic [ref=f133e37]: vs
+          - generic [ref=f133e38]:
+            - img "Kings Team Logo" [ref=f133e40]
+            - generic [ref=f133e41]: Kings
+        - paragraph [ref=f133e42]:
+          - time [ref=f133e43]: Fri, Aug 7 · 11:00 pm
+          - generic [ref=f133e44]: Mr. Lube and Tires Arena — Red
+      - generic [ref=f133e48]:
+        - generic [ref=f133e50]:
+          - generic [ref=f133e53]:
+            - link [ref=f133e55] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/team/the-hammers
+              - strong [ref=f133e56]: Hammers
+              - img "Hammer" [ref=f133e57]
+            - strong [ref=f133e58]: 11:00 pm
+            - link [ref=f133e60] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/team/kings-2018
+              - img "Kings Team Logo" [ref=f133e61]
+              - strong [ref=f133e62]: Kings
+          - generic [ref=f133e64]:
+            - heading "Details" [level=4] [ref=f133e65]
+            - table [ref=f133e68]:
+              - rowgroup [ref=f133e69]:
+                - row [ref=f133e70]:
+                  - columnheader "Date" [ref=f133e71]
+                  - columnheader "Time" [ref=f133e72]
+                  - columnheader "Division" [ref=f133e73]
+                  - columnheader "Season" [ref=f133e74]
+              - rowgroup [ref=f133e75]:
+                - row [ref=f133e76]:
+                  - cell "August 7, 2026" [ref=f133e77]
+                  - cell "11:00 pm" [ref=f133e78]
+                  - cell "Division 1" [ref=f133e79]
+                  - cell "S2026" [ref=f133e80]
+          - generic [ref=f133e82]:
+            - heading "Arena" [level=4] [ref=f133e83]
+            - table [ref=f133e84]:
+              - rowgroup [ref=f133e85]:
+                - row [ref=f133e86]:
+                  - columnheader [ref=f133e87]:
+                    - link "Red" [ref=f133e88] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/venue/red
+              - rowgroup [ref=f133e89]:
+                - row [ref=f133e90]:
+                  - cell [ref=f133e91]:
+                    - link [ref=f133e92] [cursor=pointer]:
+                      - /url: https://www.google.com/maps/place/43%C2%B021%2740%22N+79%C2%B048%2714%22W/@43.361136007031305,-79.80408132076263,15z
+                      - generic [ref=f133e93]:
+                        - button "Marker" [ref=f133e94]
+                        - generic [ref=f133e95]:
+                          - link "Leaflet" [ref=f133e96]:
+                            - /url: https://leafletjs.com
+                          - text: "| Map data ©"
+                          - link "OpenStreetMap contributors" [ref=f133e101]:
+                            - /url: https://www.openstreetmap.org/
+                - row [ref=f133e102]:
+                  - cell "1179 Northside Rd, Burlington, ON L7M, Canada" [ref=f133e103]
+          - generic [ref=f133e104]:
+            - list [ref=f133e105]:
+              - listitem [ref=f133e106]:
+                - link "Box Score" [ref=f133e107] [cursor=pointer]:
+                  - /url: "#sp-tab-content-performance"
+              - listitem [ref=f133e108]:
+                - link "Past Meetings" [ref=f133e109] [cursor=pointer]:
+                  - /url: "#sp-tab-content-past_meetings"
+            - generic [ref=f133e111]:
+              - generic [ref=f133e112]:
+                - heading "Hammers" [level=4] [ref=f133e113]
+                - grid [ref=f133e117]:
+                  - rowgroup [ref=f133e118]:
+                    - row [ref=f133e119]:
+                      - columnheader "Position" [ref=f133e120] [cursor=pointer]: Position 
+                      - columnheader "G" [ref=f133e121] [cursor=pointer]: G 
+                      - columnheader "A" [ref=f133e122] [cursor=pointer]: A 
+                      - columnheader "PIM" [ref=f133e123] [cursor=pointer]: PIM 
+                      - columnheader "GA" [ref=f133e124] [cursor=pointer]: GA 
+                  - rowgroup [ref=f133e125]:
+                    - row [ref=f133e126]:
+                      - gridcell [ref=f133e127]
+                      - gridcell "0" [ref=f133e128]
+                      - gridcell "0" [ref=f133e129]
+                      - gridcell "0" [ref=f133e130]
+                      - gridcell "0" [ref=f133e131]
+              - generic [ref=f133e132]:
+                - heading "Kings" [level=4] [ref=f133e133]
+                - grid [ref=f133e137]:
+                  - rowgroup [ref=f133e138]:
+                    - row [ref=f133e139]:
+                      - columnheader "Position" [ref=f133e140] [cursor=pointer]: Position 
+                      - columnheader "G" [ref=f133e141] [cursor=pointer]: G 
+                      - columnheader "A" [ref=f133e142] [cursor=pointer]: A 
+                      - columnheader "PIM" [ref=f133e143] [cursor=pointer]: PIM 
+                      - columnheader "GA" [ref=f133e144] [cursor=pointer]: GA 
+                  - rowgroup [ref=f133e145]:
+                    - row [ref=f133e146]:
+                      - gridcell [ref=f133e147]
+                      - gridcell "0" [ref=f133e148]
+                      - gridcell "0" [ref=f133e149]
+                      - gridcell "0" [ref=f133e150]
+                      - gridcell "0" [ref=f133e151]
+        - complementary "Sidebar" [ref=f133e152]:
+          - generic [ref=f133e154]:
+            - heading "The next puck drop" [level=4] [ref=f133e155]
+            - generic [ref=f133e157]:
+              - heading [level=3] [ref=f133e158]:
+                - link [ref=f133e159] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                  - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f133e160]
+                - link [ref=f133e161] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/the-hammers
+                  - img "Hammer" [ref=f133e162]
+                - link "Puck Dynasty vs Hammers" [ref=f133e163] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/event/116466
+                - text: (On time)
+              - paragraph [ref=f133e164]:
+                - time [ref=f133e165]:
+                  - generic [ref=f133e166]:
+                    - text: "02"
+                    - generic [ref=f133e167]: days
+                  - generic [ref=f133e168]:
+                    - text: "01"
+                    - generic [ref=f133e169]: hrs
+                  - generic [ref=f133e170]:
+                    - text: "17"
+                    - generic [ref=f133e171]: mins
+                  - generic [ref=f133e172]:
+                    - text: "23"
+                    - generic [ref=f133e173]: secs
+          - generic [ref=f133e174]:
+            - heading "Recent Posts" [level=2] [ref=f133e175]
+            - list [ref=f133e176]:
+              - listitem [ref=f133e177]:
+                - link "Winter Season Registration Update – FAQ" [ref=f133e178] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+              - listitem [ref=f133e179]:
+                - link "Winter Season Registration Update" [ref=f133e180] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+              - listitem [ref=f133e181]:
+                - link "Player Appreciation Night – Summer 2026" [ref=f133e182] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+              - listitem [ref=f133e183]:
+                - link "Line Dancing at the Raider’s Den – July 17" [ref=f133e184] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+              - listitem [ref=f133e185]:
+                - link "Championship Night for Winter 2025-2026" [ref=f133e186] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+          - generic [ref=f133e190]:
+            - text: Why is a puck called a puck? Because dirty little bastard was taken.
+            - generic [ref=f133e192]:
+              - generic [ref=f133e193]: 
+              - text: Martin Brodeur
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f133e197]
+    - contentinfo [ref=f133e199]:
+      - generic [ref=f133e201]:
+        - figure [ref=f133e204]:
+          - link [ref=f133e205] [cursor=pointer]:
+            - /url: https://arl.link/helpukraine
+            - img "Flag of Ukraine" [ref=f133e206]
+        - paragraph [ref=f133e208]:
+          - strong [ref=f133e209]:
+            - link "WE STAND WITH UKRAINE" [ref=f133e210] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+      - paragraph [ref=f133e215]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f133e216]

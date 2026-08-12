@@ -1,0 +1,155 @@
+- generic [active] [ref=f207e1]:
+  - generic [ref=f207e2]:
+    - link "Skip to main content" [ref=f207e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f207e4]:
+      - generic [ref=f207e6]:
+        - link "ARL – Adult Recreational League" [ref=f207e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary" [ref=f207e12]:
+          - list [ref=f207e13]:
+            - listitem [ref=f207e14]:
+              - link "Home" [ref=f207e15] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/
+            - listitem [ref=f207e18]:
+              - link "News" [ref=f207e19] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news
+            - listitem [ref=f207e22]:
+              - link "League Info" [ref=f207e23] [cursor=pointer]:
+                - /url: "#"
+              - button "Show submenu for League Info" [ref=f207e26] [cursor=pointer]
+            - listitem [ref=f207e30]:
+              - link "Rosters / Stats" [ref=f207e31] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/rosters-and-stats
+              - button "Show submenu for Rosters / Stats" [ref=f207e34] [cursor=pointer]
+            - listitem [ref=f207e38]:
+              - link "Schedule" [ref=f207e39] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/schedule
+            - listitem [ref=f207e42]:
+              - link "Sponsors" [ref=f207e43] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/sponsors
+            - listitem [ref=f207e46]:
+              - link "Standings" [ref=f207e47] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/standings
+              - button "Show submenu for Standings" [ref=f207e50] [cursor=pointer]
+            - listitem [ref=f207e54]:
+              - link "Register to Play" [ref=f207e55] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/register
+        - generic [ref=f207e58]:
+          - navigation "Account" [ref=f207e59]:
+            - list [ref=f207e60]:
+              - listitem [ref=f207e61]:
+                - link "Log In" [ref=f207e62] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+          - link "Schedule" [ref=f207e63] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/schedule
+    - main [ref=f207e73]:
+      - generic [ref=f207e74]:
+        - navigation "Breadcrumb" [ref=f207e75]:
+          - link "Home" [ref=f207e76] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca
+          - text: /
+          - link "Registration" [ref=f207e77] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/registration-category/registration
+          - text: /
+          - link "Winter 2026-27" [ref=f207e78] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/registration-category/registration/winter-2026-27
+          - text: / Player Registration (W2026-27)
+        - generic [ref=f207e79]:
+          - generic [ref=f207e80]:
+            - button "View full-screen image gallery" [ref=f207e81] [cursor=pointer]
+            - img "Player Registration (W2026-27)" [ref=f207e86]
+          - generic [ref=f207e87]:
+            - heading "Player Registration (W2026-27)" [level=1] [ref=f207e88]
+            - paragraph [ref=f207e89]:
+              - deletion [ref=f207e90]:
+                - generic [ref=f207e91]: $575.00
+              - generic [ref=f207e93]: "Original price was: $575.00."
+              - insertion [ref=f207e94]:
+                - generic [ref=f207e95]: $550.00
+              - generic [ref=f207e97]: "Current price is: $550.00."
+            - paragraph [ref=f207e98]: Spots available
+            - generic [ref=f207e99]:
+              - generic: Player Registration (W2026-27) quantity
+              - button "Register Now" [ref=f207e101] [cursor=pointer]
+    - complementary "Sidebar" [ref=f207e103]:
+      - generic [ref=f207e105]:
+        - heading "The next puck drop" [level=4] [ref=f207e106]
+        - generic [ref=f207e108]:
+          - heading [level=3] [ref=f207e109]:
+            - link [ref=f207e110] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+              - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f207e111]
+            - link [ref=f207e112] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/team/the-hammers
+              - img "Hammer" [ref=f207e113]
+            - link "Puck Dynasty vs Hammers" [ref=f207e114] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/event/116466
+            - text: (On time)
+          - paragraph [ref=f207e115]:
+            - time [ref=f207e116]:
+              - generic [ref=f207e117]:
+                - text: "01"
+                - generic [ref=f207e118]: days
+              - generic [ref=f207e119]:
+                - text: "23"
+                - generic [ref=f207e120]: hrs
+              - generic [ref=f207e121]:
+                - text: "47"
+                - generic [ref=f207e122]: mins
+              - generic [ref=f207e123]:
+                - text: "17"
+                - generic [ref=f207e124]: secs
+      - generic [ref=f207e125]:
+        - heading "Recent Posts" [level=2] [ref=f207e126]
+        - list [ref=f207e127]:
+          - listitem [ref=f207e128]:
+            - link "Winter Season Registration Update – FAQ" [ref=f207e129] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+          - listitem [ref=f207e130]:
+            - link "Winter Season Registration Update" [ref=f207e131] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+          - listitem [ref=f207e132]:
+            - link "Player Appreciation Night – Summer 2026" [ref=f207e133] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+          - listitem [ref=f207e134]:
+            - link "Line Dancing at the Raider’s Den – July 17" [ref=f207e135] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+          - listitem [ref=f207e136]:
+            - link "Championship Night for Winter 2025-2026" [ref=f207e137] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+      - generic [ref=f207e141]:
+        - text: "\"You miss 100% of the shots you don't take.\" - Wayne Gretzky"
+        - generic [ref=f207e143]:
+          - generic [ref=f207e144]: 
+          - text: Michael Scott
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f207e148]
+    - contentinfo [ref=f207e150]:
+      - generic [ref=f207e151]:
+        - generic [ref=f207e152]:
+          - heading "The League" [level=2] [ref=f207e153]
+          - paragraph [ref=f207e154]: Burlington, Ontario
+          - list [ref=f207e155]:
+            - listitem [ref=f207e156]:
+              - link "Contact Us" [ref=f207e157] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/arl-league-info/contact-us
+            - listitem [ref=f207e158]:
+              - link "play@rookiehockey.ca" [ref=f207e159] [cursor=pointer]:
+                - /url: mailto:play@rookiehockey.ca
+            - listitem [ref=f207e160]:
+              - link "FAQs" [ref=f207e161] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/faqs
+            - listitem [ref=f207e162]:
+              - link "Privacy Policy & Legal" [ref=f207e163] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/legal
+        - generic [ref=f207e164]:
+          - figure [ref=f207e167]:
+            - link [ref=f207e168] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+              - img "Flag of Ukraine" [ref=f207e169]
+          - paragraph [ref=f207e171]:
+            - strong [ref=f207e172]:
+              - link "WE STAND WITH UKRAINE" [ref=f207e173] [cursor=pointer]:
+                - /url: https://arl.link/helpukraine
+      - paragraph [ref=f207e178]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f207e179]

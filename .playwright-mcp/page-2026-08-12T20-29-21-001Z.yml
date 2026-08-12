@@ -1,0 +1,440 @@
+- generic [active] [ref=f104e1]:
+  - generic [ref=f104e2]:
+    - link "Skip to main content" [ref=f104e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f104e4]:
+      - generic [ref=f104e6]:
+        - link "ARL – Adult Recreational League" [ref=f104e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary"
+        - generic [ref=f104e10]:
+          - navigation "Account" [ref=f104e11]:
+            - list [ref=f104e12]:
+              - listitem [ref=f104e13]:
+                - link "My ARL Account" [ref=f104e14] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+              - listitem [ref=f104e15]:
+                - link "Log Out" [ref=f104e16] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/wp-login.php?action=logout&_wpnonce=b7c58d9742
+          - link "Register to Play" [ref=f104e17] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/register
+          - button "Menu" [ref=f104e20] [cursor=pointer]
+    - main [ref=f104e26]:
+      - generic [ref=f104e28]:
+        - article [ref=f104e30]:
+          - img "ARL-Summer-2018-Page-Header-1120" [ref=f104e32]
+          - heading "Schedule" [level=1] [ref=f104e34]
+          - generic [ref=f104e35]:
+            - paragraph [ref=f104e37]: This page is home to the ARL match Schedule.
+            - paragraph [ref=f104e38]: "Some quick navigation tips:"
+            - list [ref=f104e39]:
+              - listitem [ref=f104e40]: Click a time or date to see the event page.
+              - listitem [ref=f104e41]: Click the team name or logo for the team page.
+              - listitem [ref=f104e42]:
+                - text: Click the ‘
+                - emphasis [ref=f104e43]: View all events
+                - text: ‘ link below to see future events.
+            - paragraph [ref=f104e44]: Check back often as the schedule is frequently updated.
+            - generic [ref=f104e47]:
+              - table [ref=f104e50]:
+                - rowgroup [ref=f104e51]:
+                  - row [ref=f104e52]:
+                    - columnheader "Time" [ref=f104e53]
+                    - columnheader "Home" [ref=f104e54]
+                    - columnheader "Time/Results" [ref=f104e55]
+                    - columnheader "Away" [ref=f104e56]
+                    - columnheader "Arena" [ref=f104e57]
+                - rowgroup [ref=f104e58]:
+                  - row [ref=f104e59]:
+                    - columnheader "August 14, 2026" [ref=f104e60]
+                  - row [ref=f104e61]:
+                    - cell [ref=f104e62]:
+                      - link [ref=f104e63] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116466
+                        - time [ref=f104e64]: 6:00 pm
+                    - cell [ref=f104e65]:
+                      - link [ref=f104e66] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                        - text: Puck Dynasty
+                        - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f104e68]
+                    - cell "—" [ref=f104e69]
+                    - cell [ref=f104e70]:
+                      - link [ref=f104e71] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/the-hammers
+                        - img "Hammer" [ref=f104e73]
+                        - text: Hammers
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e74]
+                  - row [ref=f104e76]:
+                    - cell [ref=f104e77]:
+                      - link [ref=f104e78] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116472
+                        - time [ref=f104e79]: 6:30 pm
+                    - cell [ref=f104e80]:
+                      - link [ref=f104e81] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/treblemakers
+                        - text: TrebleMakers
+                        - img "TrebleMakers Team Logo" [ref=f104e83]
+                    - cell "—" [ref=f104e84]
+                    - cell [ref=f104e85]:
+                      - link [ref=f104e86] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/train-wreck
+                        - img "Train Wreck Team Logo" [ref=f104e88]
+                        - text: Train Wreck
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e89]
+                  - row [ref=f104e91]:
+                    - cell [ref=f104e92]:
+                      - link [ref=f104e93] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116467
+                        - time [ref=f104e94]: 7:00 pm
+                    - cell [ref=f104e95]:
+                      - link [ref=f104e96] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/replacements
+                        - text: Replacements
+                        - img "The Replacements" [ref=f104e98]
+                    - cell "—" [ref=f104e99]
+                    - cell [ref=f104e100]:
+                      - link [ref=f104e101] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/kings-2018
+                        - img "Kings Team Logo" [ref=f104e103]
+                        - text: Kings
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e104]
+                  - row [ref=f104e106]:
+                    - cell [ref=f104e107]:
+                      - link [ref=f104e108] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116473
+                        - time [ref=f104e109]: 7:30 pm
+                    - cell [ref=f104e110]:
+                      - link [ref=f104e111] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/spartans
+                        - text: Spartans
+                        - img "Team Canada Logo" [ref=f104e113]
+                    - cell "—" [ref=f104e114]
+                    - cell [ref=f104e115]:
+                      - link [ref=f104e116] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/royals
+                        - img "Royals Logo" [ref=f104e118]
+                        - text: Royals
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e119]
+                  - row [ref=f104e121]:
+                    - cell [ref=f104e122]:
+                      - link [ref=f104e123] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116468
+                        - time [ref=f104e124]: 8:00 pm
+                    - cell [ref=f104e125]:
+                      - link [ref=f104e126] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/black-bulls-2022
+                        - text: Black Bulls
+                        - img "Black Bulls Team Logo" [ref=f104e128]
+                    - cell "—" [ref=f104e129]
+                    - cell [ref=f104e130]:
+                      - link [ref=f104e131] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lightning
+                        - img "Lightning Logo" [ref=f104e133]
+                        - text: Lightning
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e134]
+                  - row [ref=f104e136]:
+                    - cell [ref=f104e137]:
+                      - link [ref=f104e138] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116474
+                        - time [ref=f104e139]: 8:30 pm
+                    - cell [ref=f104e140]:
+                      - link [ref=f104e141] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/team-canada
+                        - text: Team Canada
+                        - img "Team Canada Logo 2018" [ref=f104e143]
+                    - cell "—" [ref=f104e144]
+                    - cell [ref=f104e145]:
+                      - link [ref=f104e146] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/white-walkers
+                        - img "White Walkers Team Logo" [ref=f104e148]
+                        - text: White Walkers
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e149]
+                  - row [ref=f104e151]:
+                    - cell [ref=f104e152]:
+                      - link [ref=f104e153] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116469
+                        - time [ref=f104e154]: 9:00 pm
+                    - cell [ref=f104e155]:
+                      - link [ref=f104e156] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/cherry-pickers
+                        - text: Cherry Pickers
+                        - img "Cherry Pickers Team Logo" [ref=f104e158]
+                    - cell "—" [ref=f104e159]
+                    - cell [ref=f104e160]:
+                      - link [ref=f104e161] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/btown-bulldogs
+                        - img "B-Town Bullies Logo" [ref=f104e163]
+                        - text: B-Town Bulldogs
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e164]
+                  - row [ref=f104e166]:
+                    - cell [ref=f104e167]:
+                      - link [ref=f104e168] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116475
+                        - time [ref=f104e169]: 9:30 pm
+                    - cell [ref=f104e170]:
+                      - link [ref=f104e171] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/jagrbombers
+                        - text: Jagrbombers
+                        - img "A circular logo for a hockey team with the silhouette of a fighter jet. A red maple leaf ins printed on the cockpit. Above the logo is the team name JAGRBOMBERS." [ref=f104e173]
+                    - cell "—" [ref=f104e174]
+                    - cell [ref=f104e175]:
+                      - link [ref=f104e176] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/knights
+                        - img "Knights Team Logo" [ref=f104e178]
+                        - text: Knights
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e179]
+                  - row [ref=f104e181]:
+                    - cell [ref=f104e182]:
+                      - link [ref=f104e183] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116470
+                        - time [ref=f104e184]: 10:00 pm
+                    - cell [ref=f104e185]:
+                      - link [ref=f104e186] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/canadiens
+                        - text: Canadiens
+                        - img "Tread-Well-Canadiens-logo" [ref=f104e188]
+                    - cell "—" [ref=f104e189]
+                    - cell [ref=f104e190]:
+                      - link [ref=f104e191] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/whalers
+                        - img "Whalers Logo" [ref=f104e193]
+                        - text: Whalers
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e194]
+                  - row [ref=f104e196]:
+                    - cell [ref=f104e197]:
+                      - link [ref=f104e198] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116476
+                        - time [ref=f104e199]: 10:30 pm
+                    - cell [ref=f104e200]:
+                      - link [ref=f104e201] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/mammoth
+                        - text: Mammoth
+                        - img "A hockey team logo featuring a wolly mammoth" [ref=f104e203]
+                    - cell "—" [ref=f104e204]
+                    - cell [ref=f104e205]:
+                      - link [ref=f104e206] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/predators
+                        - img "Predators Team Logo" [ref=f104e208]
+                        - text: Predators
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e209]
+                  - row [ref=f104e211]:
+                    - cell [ref=f104e212]:
+                      - link [ref=f104e213] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116471
+                        - time [ref=f104e214]: 11:00 pm
+                    - cell [ref=f104e215]:
+                      - link [ref=f104e216] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/oilers
+                        - text: Oilers
+                        - img "Oilers Team Logo" [ref=f104e218]
+                    - cell "—" [ref=f104e219]
+                    - cell [ref=f104e220]:
+                      - link [ref=f104e221] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lumberjacks
+                        - img "A logo featuring a silhouette of a tree with the word Lumberjacks over top." [ref=f104e223]
+                        - text: Lumberjacks
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e224]
+                  - row [ref=f104e226]:
+                    - columnheader "August 21, 2026" [ref=f104e227]
+                  - row [ref=f104e228]:
+                    - cell [ref=f104e229]:
+                      - link [ref=f104e230] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116477
+                        - time [ref=f104e231]: 6:00 pm
+                    - cell [ref=f104e232]:
+                      - link [ref=f104e233] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lightning
+                        - text: Lightning
+                        - img "Lightning Logo" [ref=f104e235]
+                    - cell "—" [ref=f104e236]
+                    - cell [ref=f104e237]:
+                      - link [ref=f104e238] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/btown-bulldogs
+                        - img "B-Town Bullies Logo" [ref=f104e240]
+                        - text: B-Town Bulldogs
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e241]
+                  - row [ref=f104e243]:
+                    - cell [ref=f104e244]:
+                      - link [ref=f104e245] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116483
+                        - time [ref=f104e246]: 6:30 pm
+                    - cell [ref=f104e247]:
+                      - link [ref=f104e248] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/mammoth
+                        - text: Mammoth
+                        - img "A hockey team logo featuring a wolly mammoth" [ref=f104e250]
+                    - cell "—" [ref=f104e251]
+                    - cell [ref=f104e252]:
+                      - link [ref=f104e253] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/jagrbombers
+                        - img "A circular logo for a hockey team with the silhouette of a fighter jet. A red maple leaf ins printed on the cockpit. Above the logo is the team name JAGRBOMBERS." [ref=f104e255]
+                        - text: Jagrbombers
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e256]
+                  - row [ref=f104e258]:
+                    - cell [ref=f104e259]:
+                      - link [ref=f104e260] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116478
+                        - time [ref=f104e261]: 7:00 pm
+                    - cell [ref=f104e262]:
+                      - link [ref=f104e263] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/black-bulls-2022
+                        - text: Black Bulls
+                        - img "Black Bulls Team Logo" [ref=f104e265]
+                    - cell "—" [ref=f104e266]
+                    - cell [ref=f104e267]:
+                      - link [ref=f104e268] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/cherry-pickers
+                        - img "Cherry Pickers Team Logo" [ref=f104e270]
+                        - text: Cherry Pickers
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e271]
+                  - row [ref=f104e273]:
+                    - cell [ref=f104e274]:
+                      - link [ref=f104e275] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116484
+                        - time [ref=f104e276]: 7:30 pm
+                    - cell [ref=f104e277]:
+                      - link [ref=f104e278] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/team-canada
+                        - text: Team Canada
+                        - img "Team Canada Logo 2018" [ref=f104e280]
+                    - cell "—" [ref=f104e281]
+                    - cell [ref=f104e282]:
+                      - link [ref=f104e283] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/knights
+                        - img "Knights Team Logo" [ref=f104e285]
+                        - text: Knights
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e286]
+                  - row [ref=f104e288]:
+                    - cell [ref=f104e289]:
+                      - link [ref=f104e290] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116479
+                        - time [ref=f104e291]: 8:00 pm
+                    - cell [ref=f104e292]:
+                      - link [ref=f104e293] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/whalers
+                        - text: Whalers
+                        - img "Whalers Logo" [ref=f104e295]
+                    - cell "—" [ref=f104e296]
+                    - cell [ref=f104e297]:
+                      - link [ref=f104e298] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lumberjacks
+                        - img "A logo featuring a silhouette of a tree with the word Lumberjacks over top." [ref=f104e300]
+                        - text: Lumberjacks
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e301]
+                  - row [ref=f104e303]:
+                    - cell [ref=f104e304]:
+                      - link [ref=f104e305] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116485
+                        - time [ref=f104e306]: 8:30 pm
+                    - cell [ref=f104e307]:
+                      - link [ref=f104e308] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/predators
+                        - text: Predators
+                        - img "Predators Team Logo" [ref=f104e310]
+                    - cell "—" [ref=f104e311]
+                    - cell [ref=f104e312]:
+                      - link [ref=f104e313] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/white-walkers
+                        - img "White Walkers Team Logo" [ref=f104e315]
+                        - text: White Walkers
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e316]
+                  - row [ref=f104e318]:
+                    - cell [ref=f104e319]:
+                      - link [ref=f104e320] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116480
+                        - time [ref=f104e321]: 9:00 pm
+                    - cell [ref=f104e322]:
+                      - link [ref=f104e323] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/oilers
+                        - text: Oilers
+                        - img "Oilers Team Logo" [ref=f104e325]
+                    - cell "—" [ref=f104e326]
+                    - cell [ref=f104e327]:
+                      - link [ref=f104e328] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/canadiens
+                        - img "Tread-Well-Canadiens-logo" [ref=f104e330]
+                        - text: Canadiens
+                    - cell "Mr. Lube and Tires Arena — Red" [ref=f104e331]
+                  - row [ref=f104e333]:
+                    - cell [ref=f104e334]:
+                      - link [ref=f104e335] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116486
+                        - time [ref=f104e336]: 9:30 pm
+                    - cell [ref=f104e337]:
+                      - link [ref=f104e338] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/replacements
+                        - text: Replacements
+                        - img "The Replacements" [ref=f104e340]
+                    - cell "—" [ref=f104e341]
+                    - cell [ref=f104e342]:
+                      - link [ref=f104e343] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/the-hammers
+                        - img "Hammer" [ref=f104e345]
+                        - text: Hammers
+                    - cell "Mr. Lube and Tires Arena — Black" [ref=f104e346]
+              - link "View all games" [ref=f104e349] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/calendar/current-season
+        - complementary "Sidebar" [ref=f104e350]:
+          - generic [ref=f104e352]:
+            - heading "The next puck drop" [level=4] [ref=f104e353]
+            - generic [ref=f104e355]:
+              - heading [level=3] [ref=f104e356]:
+                - link [ref=f104e357] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                  - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f104e358]
+                - link [ref=f104e359] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/the-hammers
+                  - img "Hammer" [ref=f104e360]
+                - link "Puck Dynasty vs Hammers" [ref=f104e361] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/event/116466
+                - text: (On time)
+              - paragraph [ref=f104e362]:
+                - time [ref=f104e363]:
+                  - generic [ref=f104e364]:
+                    - text: "02"
+                    - generic [ref=f104e365]: days
+                  - generic [ref=f104e366]:
+                    - text: "01"
+                    - generic [ref=f104e367]: hrs
+                  - generic [ref=f104e368]:
+                    - text: "30"
+                    - generic [ref=f104e369]: mins
+                  - generic [ref=f104e370]:
+                    - text: "39"
+                    - generic [ref=f104e371]: secs
+          - generic [ref=f104e372]:
+            - heading "Recent Posts" [level=2] [ref=f104e373]
+            - list [ref=f104e374]:
+              - listitem [ref=f104e375]:
+                - link "Winter Season Registration Update – FAQ" [ref=f104e376] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+              - listitem [ref=f104e377]:
+                - link "Winter Season Registration Update" [ref=f104e378] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+              - listitem [ref=f104e379]:
+                - link "Player Appreciation Night – Summer 2026" [ref=f104e380] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+              - listitem [ref=f104e381]:
+                - link "Line Dancing at the Raider’s Den – July 17" [ref=f104e382] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+              - listitem [ref=f104e383]:
+                - link "Championship Night for Winter 2025-2026" [ref=f104e384] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+          - generic [ref=f104e388]:
+            - text: How would you like a job where, every time you make a mistake, a big red light goes on and 18,000 people boo?
+            - generic [ref=f104e390]:
+              - generic [ref=f104e391]: 
+              - text: Jacques Plante
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f104e395]
+    - contentinfo [ref=f104e397]:
+      - generic [ref=f104e400]:
+        - figure [ref=f104e403]:
+          - link [ref=f104e404] [cursor=pointer]:
+            - /url: https://arl.link/helpukraine
+            - img "Flag of Ukraine" [ref=f104e405]
+        - paragraph [ref=f104e407]:
+          - strong [ref=f104e408]:
+            - link "WE STAND WITH UKRAINE" [ref=f104e409] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+      - paragraph [ref=f104e414]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f104e415]

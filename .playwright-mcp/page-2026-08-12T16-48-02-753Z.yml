@@ -1,0 +1,444 @@
+- generic [active] [ref=f24e1]:
+  - generic [ref=f24e4]:
+    - link [ref=f24e6] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/btown-bulldogs
+      - img "B-Town Bullies Logo" [ref=f24e7]
+    - link [ref=f24e8] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/canadiens
+      - img "Tread-Well-Canadiens-logo" [ref=f24e9]
+    - link [ref=f24e10] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/cherry-pickers
+      - img "Cherry Pickers Team Logo" [ref=f24e11]
+    - link [ref=f24e12] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/the-hammers
+      - img "Hammer" [ref=f24e13]
+    - link [ref=f24e14] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/jagrbombers
+      - img "A circular logo for a hockey team with the silhouette of a fighter jet. A red maple leaf ins printed on the cockpit. Above the logo is the team name JAGRBOMBERS." [ref=f24e15]
+    - link [ref=f24e16] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/kings-2018
+      - img "Kings Team Logo" [ref=f24e17]
+    - link [ref=f24e18] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/knights
+      - img "Knights Team Logo" [ref=f24e19]
+    - link [ref=f24e20] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/lightning
+      - img "Lightning Logo" [ref=f24e21]
+    - link [ref=f24e22] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/lumberjacks
+      - img "A logo featuring a silhouette of a tree with the word Lumberjacks over top." [ref=f24e23]
+    - link [ref=f24e24] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/mammoth
+      - img "A hockey team logo featuring a wolly mammoth" [ref=f24e25]
+    - link [ref=f24e26] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/oilers
+      - img "Oilers Team Logo" [ref=f24e27]
+    - link [ref=f24e28] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/predators
+      - img "Predators Team Logo" [ref=f24e29]
+    - link [ref=f24e30] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+      - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f24e31]
+    - link [ref=f24e32] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/replacements
+      - img "The Replacements" [ref=f24e33]
+    - link [ref=f24e34] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/royals
+      - img "Royals Logo" [ref=f24e35]
+    - link [ref=f24e36] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/spartans
+      - img "Team Canada Logo" [ref=f24e37]
+    - link [ref=f24e38] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/tailgaters
+      - img "Tailgaters Team Logo" [ref=f24e39]
+    - link [ref=f24e40] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/team-canada
+      - img "Team Canada Logo 2018" [ref=f24e41]
+    - link [ref=f24e42] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/train-wreck
+      - img "Train Wreck Team Logo" [ref=f24e43]
+    - link [ref=f24e44] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/treblemakers
+      - img "TrebleMakers Team Logo" [ref=f24e45]
+    - link [ref=f24e46] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/whalers
+      - img "Whalers Logo" [ref=f24e47]
+    - link [ref=f24e48] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/white-walkers
+      - img "White Walkers Team Logo" [ref=f24e49]
+  - generic [ref=f24e50]:
+    - link "Skip to main content" [ref=f24e51] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f24e52]:
+      - generic [ref=f24e54]:
+        - link "ARL – Adult Recreational League" [ref=f24e56] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary" [ref=f24e58]:
+          - list [ref=f24e59]:
+            - listitem [ref=f24e60]:
+              - link "Home" [ref=f24e61] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/
+            - listitem [ref=f24e64]:
+              - link "News" [ref=f24e65] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news
+            - listitem [ref=f24e68]:
+              - link "League Info" [ref=f24e69] [cursor=pointer]:
+                - /url: "#"
+              - button "Show submenu for League Info" [ref=f24e72] [cursor=pointer]
+            - listitem [ref=f24e76]:
+              - link "Rosters / Stats" [ref=f24e77] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/rosters-and-stats
+              - button "Show submenu for Rosters / Stats" [ref=f24e80] [cursor=pointer]
+            - listitem [ref=f24e84]:
+              - link "Schedule" [ref=f24e85] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/schedule
+            - listitem [ref=f24e88]:
+              - link "Sponsors" [ref=f24e89] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/sponsors
+            - listitem [ref=f24e92]:
+              - link "Standings" [ref=f24e93] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/standings
+              - button "Show submenu for Standings" [ref=f24e96] [cursor=pointer]
+        - generic [ref=f24e100]:
+          - navigation "Account" [ref=f24e101]:
+            - list [ref=f24e102]:
+              - listitem [ref=f24e103]:
+                - link "My ARL Account" [ref=f24e104] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+              - listitem [ref=f24e105]:
+                - link "Log Out" [ref=f24e106] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/wp-login.php?action=logout&_wpnonce=b7c58d9742
+          - link "Register to Play" [ref=f24e107] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/register
+    - main [ref=f24e113]:
+      - generic [ref=f24e115]:
+        - img "Tread-Well-Canadiens-logo" [ref=f24e117]
+        - generic [ref=f24e118]:
+          - heading "Canadiens (Tread Well)" [level=1] [ref=f24e119]
+          - paragraph [ref=f24e120]: Div 2A, Div 2B, Div 3B, Div 4A, Div 4B, Division 2, Division 3, Division 4
+      - generic [ref=f24e122]:
+        - generic [ref=f24e124]:
+          - img "Tread-Well-Canadiens-logo" [ref=f24e126]
+          - generic [ref=f24e128]:
+            - paragraph [ref=f24e129]:
+              - text: Take your schedule with you.
+              - link [ref=f24e130] [cursor=pointer]:
+                - /url: https://www.google.com/calendar/render?cid=webcal%3A%2F%2Fstaging.rookiehockey.ca%2Fcalendar%2Fcanadiens-arl%3Ffeed%3Dsp-ical
+                - img "GCal" [ref=f24e131]
+                - text: Google Calendar
+              - link [ref=f24e132] [cursor=pointer]:
+                - /url: webcal://staging.rookiehockey.ca/calendar/canadiens-arl?feed=sp-ical
+                - img "iCal" [ref=f24e133]
+                - text: iCal / Outlook
+            - generic [ref=f24e135]:
+              - heading "Upcoming Games" [level=4] [ref=f24e136]
+              - grid [ref=f24e140]:
+                - rowgroup [ref=f24e141]:
+                  - row [ref=f24e142]:
+                    - columnheader "Date" [ref=f24e143] [cursor=pointer]: Date 
+                    - columnheader "Home" [ref=f24e144] [cursor=pointer]: Home 
+                    - columnheader "Time/Results" [ref=f24e145] [cursor=pointer]: Time/Results 
+                    - columnheader "Away" [ref=f24e146] [cursor=pointer]: Away 
+                    - columnheader "Arena" [ref=f24e147] [cursor=pointer]: Arena 
+                - rowgroup [ref=f24e148]:
+                  - row [ref=f24e149]:
+                    - gridcell [ref=f24e150]:
+                      - link "August 14, 2026" [ref=f24e151] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116470
+                    - gridcell [ref=f24e152]:
+                      - link [ref=f24e153] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/canadiens
+                        - text: Canadiens
+                        - img "Tread-Well-Canadiens-logo" [ref=f24e155]
+                    - gridcell [ref=f24e156]:
+                      - link "10:00 pm" [ref=f24e157] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116470
+                    - gridcell [ref=f24e158]:
+                      - link [ref=f24e159] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/whalers
+                        - img "Whalers Logo" [ref=f24e161]
+                        - text: Whalers
+                    - gridcell [ref=f24e162]:
+                      - link "Red" [ref=f24e164] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/venue/red
+                  - row [ref=f24e165]:
+                    - gridcell [ref=f24e166]:
+                      - link "August 21, 2026" [ref=f24e167] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116480
+                    - gridcell [ref=f24e168]:
+                      - link [ref=f24e169] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/oilers
+                        - text: Oilers
+                        - img "Oilers Team Logo" [ref=f24e171]
+                    - gridcell [ref=f24e172]:
+                      - link "9:00 pm" [ref=f24e173] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/event/116480
+                    - gridcell [ref=f24e174]:
+                      - link [ref=f24e175] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/canadiens
+                        - img "Tread-Well-Canadiens-logo" [ref=f24e177]
+                        - text: Canadiens
+                    - gridcell [ref=f24e178]:
+                      - link "Red" [ref=f24e180] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/venue/red
+              - link "View all games" [ref=f24e182] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/calendar/canadiens-arl
+          - list [ref=f24e184]:
+            - listitem [ref=f24e185]:
+              - link "G31 Tim Tanner Goalie" [ref=f24e186] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/tim-tanner
+                - generic [ref=f24e187]: G31
+                - generic [ref=f24e188]: Tim Tanner
+                - generic [ref=f24e189]: Goalie
+            - listitem [ref=f24e190]:
+              - link "4 Michael Olney Skater" [ref=f24e191] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/michael-olney
+                - generic [ref=f24e192]: "4"
+                - generic [ref=f24e193]: Michael Olney
+                - generic [ref=f24e194]: Skater
+            - listitem [ref=f24e195]:
+              - link "11 Gino Rosati (C) Skater" [ref=f24e196] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/gino-rosati
+                - generic [ref=f24e198]: "11"
+                - generic [ref=f24e199]: Gino Rosati (C)
+                - generic [ref=f24e200]: Skater
+            - listitem [ref=f24e201]:
+              - link "13 Douglas Coope Skater" [ref=f24e202] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/doug-coope
+                - generic [ref=f24e203]: "13"
+                - generic [ref=f24e204]: Douglas Coope
+                - generic [ref=f24e205]: Skater
+            - listitem [ref=f24e206]:
+              - link "16 Tyler Sandilands Skater" [ref=f24e207] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/tyler-sandilands
+                - generic [ref=f24e209]: "16"
+                - generic [ref=f24e210]: Tyler Sandilands
+                - generic [ref=f24e211]: Skater
+            - listitem [ref=f24e212]:
+              - link "17 Salvatore Ritacco Skater" [ref=f24e213] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/salvatore-ritacco
+                - generic [ref=f24e215]: "17"
+                - generic [ref=f24e216]: Salvatore Ritacco
+                - generic [ref=f24e217]: Skater
+            - listitem [ref=f24e218]:
+              - link "98 Vernon Arboleda Skater" [ref=f24e219] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/vernon-arboleda
+                - generic [ref=f24e220]: "98"
+                - generic [ref=f24e221]: Vernon Arboleda
+                - generic [ref=f24e222]: Skater
+            - listitem [ref=f24e223]:
+              - link "21 Alan Choi Skater" [ref=f24e224] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/alan-choi
+                - generic [ref=f24e225]: "21"
+                - generic [ref=f24e226]: Alan Choi
+                - generic [ref=f24e227]: Skater
+            - listitem [ref=f24e228]:
+              - link "Darlene Ross 23 Darlene Ross Skater" [ref=f24e229] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/darlene-ross
+                - img "Darlene Ross" [ref=f24e231]
+                - generic [ref=f24e232]: "23"
+                - generic [ref=f24e233]: Darlene Ross
+                - generic [ref=f24e234]: Skater
+            - listitem [ref=f24e235]:
+              - link "24 Kenji Wakabayashi Skater" [ref=f24e236] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/kenji-wakabayashi
+                - generic [ref=f24e237]: "24"
+                - generic [ref=f24e238]: Kenji Wakabayashi
+                - generic [ref=f24e239]: Skater
+            - listitem [ref=f24e240]:
+              - link "7 Michael Howard Skater" [ref=f24e241] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/michael-howard
+                - generic [ref=f24e242]: "7"
+                - generic [ref=f24e243]: Michael Howard
+                - generic [ref=f24e244]: Skater
+            - listitem [ref=f24e245]:
+              - link "48 Michael Milford Skater" [ref=f24e246] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/michael-milford
+                - generic [ref=f24e248]: "48"
+                - generic [ref=f24e249]: Michael Milford
+                - generic [ref=f24e250]: Skater
+            - listitem [ref=f24e251]:
+              - link "68 Mackenzie Ross Skater" [ref=f24e252] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/mackenzie-ross
+                - generic [ref=f24e253]: "68"
+                - generic [ref=f24e254]: Mackenzie Ross
+                - generic [ref=f24e255]: Skater
+            - listitem [ref=f24e256]:
+              - link "77 Alexander Ross Skater" [ref=f24e257] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/alexander-ross
+                - generic [ref=f24e258]: "77"
+                - generic [ref=f24e259]: Alexander Ross
+                - generic [ref=f24e260]: Skater
+            - listitem [ref=f24e261]:
+              - link "87 Doug Ross Skater" [ref=f24e262] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/doug-ross
+                - generic [ref=f24e263]: "87"
+                - generic [ref=f24e264]: Doug Ross
+                - generic [ref=f24e265]: Skater
+            - listitem [ref=f24e266]:
+              - link "92 Ves Sobot Skater" [ref=f24e267] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/ves-sobot
+                - generic [ref=f24e268]: "92"
+                - generic [ref=f24e269]: Ves Sobot
+                - generic [ref=f24e270]: Skater
+            - listitem [ref=f24e271]:
+              - link "97 David Dear Skater" [ref=f24e272] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/player/david-dear
+                - generic [ref=f24e273]: "97"
+                - generic [ref=f24e274]: David Dear
+                - generic [ref=f24e275]: Skater
+          - generic [ref=f24e276]:
+            - list [ref=f24e277]:
+              - listitem [ref=f24e278]:
+                - link "Division Table" [ref=f24e279] [cursor=pointer]:
+                  - /url: "#sp-tab-content-tables"
+              - listitem [ref=f24e280]:
+                - link "Games" [ref=f24e281] [cursor=pointer]:
+                  - /url: "#sp-tab-content-events"
+            - generic [ref=f24e283]:
+              - heading "Division 4 | S2026" [level=4] [ref=f24e284]
+              - grid [ref=f24e288]:
+                - rowgroup [ref=f24e289]:
+                  - row [ref=f24e290]:
+                    - columnheader "Pos" [ref=f24e291] [cursor=pointer]: Pos 
+                    - columnheader "Team" [ref=f24e292] [cursor=pointer]: Team 
+                    - columnheader "GP" [ref=f24e293] [cursor=pointer]: GP 
+                    - columnheader "W" [ref=f24e294] [cursor=pointer]: W 
+                    - columnheader "L" [ref=f24e295] [cursor=pointer]: L 
+                    - columnheader "Tie" [ref=f24e296] [cursor=pointer]: Tie 
+                    - columnheader "OT" [ref=f24e297] [cursor=pointer]: OT 
+                    - columnheader "PTS" [ref=f24e298] [cursor=pointer]: PTS 
+                    - columnheader "GF" [ref=f24e299] [cursor=pointer]: GF 
+                    - columnheader "GA" [ref=f24e300] [cursor=pointer]: GA 
+                    - columnheader "Diff" [ref=f24e301] [cursor=pointer]: Diff 
+                    - columnheader "L10" [ref=f24e302] [cursor=pointer]: L10 
+                    - columnheader "Strk" [ref=f24e303] [cursor=pointer]: Strk 
+                - rowgroup [ref=f24e304]:
+                  - row [ref=f24e305]:
+                    - gridcell "1" [ref=f24e306]
+                    - gridcell [ref=f24e307]:
+                      - link [ref=f24e308] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lumberjacks
+                        - img "A logo featuring a silhouette of a tree with the word Lumberjacks over top." [ref=f24e310]
+                        - text: Lumberjacks
+                    - gridcell "14" [ref=f24e311]
+                    - gridcell "11" [ref=f24e312]
+                    - gridcell "2" [ref=f24e313]
+                    - gridcell "1" [ref=f24e314]
+                    - gridcell "0" [ref=f24e315]
+                    - gridcell "23" [ref=f24e316]
+                    - gridcell "56" [ref=f24e317]
+                    - gridcell "28" [ref=f24e318]
+                    - gridcell "28" [ref=f24e319]
+                    - gridcell "8-1-1-0" [ref=f24e320]
+                    - gridcell "W1" [ref=f24e321]
+                  - row [ref=f24e322]:
+                    - gridcell "2" [ref=f24e323]
+                    - gridcell [ref=f24e324]:
+                      - link [ref=f24e325] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/canadiens
+                        - img "Tread-Well-Canadiens-logo" [ref=f24e327]
+                        - text: Canadiens
+                    - gridcell "14" [ref=f24e328]
+                    - gridcell "10" [ref=f24e329]
+                    - gridcell "3" [ref=f24e330]
+                    - gridcell "1" [ref=f24e331]
+                    - gridcell "0" [ref=f24e332]
+                    - gridcell "21" [ref=f24e333]
+                    - gridcell "60" [ref=f24e334]
+                    - gridcell "32" [ref=f24e335]
+                    - gridcell "28" [ref=f24e336]
+                    - gridcell "7-3-0-0" [ref=f24e337]
+                    - gridcell "W2" [ref=f24e338]
+                  - row [ref=f24e339]:
+                    - gridcell "3" [ref=f24e340]
+                    - gridcell [ref=f24e341]:
+                      - link [ref=f24e342] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/oilers
+                        - img "Oilers Team Logo" [ref=f24e344]
+                        - text: Oilers
+                    - gridcell "14" [ref=f24e345]
+                    - gridcell "4" [ref=f24e346]
+                    - gridcell "9" [ref=f24e347]
+                    - gridcell "1" [ref=f24e348]
+                    - gridcell "0" [ref=f24e349]
+                    - gridcell "9" [ref=f24e350]
+                    - gridcell "36" [ref=f24e351]
+                    - gridcell "57" [ref=f24e352]
+                    - gridcell "-21" [ref=f24e353]
+                    - gridcell "4-5-1-0" [ref=f24e354]
+                    - gridcell "L1" [ref=f24e355]
+                  - row [ref=f24e356]:
+                    - gridcell "4" [ref=f24e357]
+                    - gridcell [ref=f24e358]:
+                      - link [ref=f24e359] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/whalers
+                        - img "Whalers Logo" [ref=f24e361]
+                        - text: Whalers
+                    - gridcell "14" [ref=f24e362]
+                    - gridcell "1" [ref=f24e363]
+                    - gridcell "12" [ref=f24e364]
+                    - gridcell "1" [ref=f24e365]
+                    - gridcell "0" [ref=f24e366]
+                    - gridcell "3" [ref=f24e367]
+                    - gridcell "21" [ref=f24e368]
+                    - gridcell "56" [ref=f24e369]
+                    - gridcell "-35" [ref=f24e370]
+                    - gridcell "0-10-0-0" [ref=f24e371]
+                    - gridcell "L10" [ref=f24e372]
+        - complementary "Sidebar" [ref=f24e373]:
+          - generic [ref=f24e375]:
+            - heading "The next puck drop" [level=4] [ref=f24e376]
+            - generic [ref=f24e378]:
+              - heading [level=3] [ref=f24e379]:
+                - link [ref=f24e380] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                  - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f24e381]
+                - link [ref=f24e382] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/the-hammers
+                  - img "Hammer" [ref=f24e383]
+                - link "Puck Dynasty vs Hammers" [ref=f24e384] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/event/116466
+                - text: (On time)
+              - paragraph [ref=f24e385]:
+                - time [ref=f24e386]:
+                  - generic [ref=f24e387]: 02 days
+                  - generic [ref=f24e388]: 05 hrs
+                  - generic [ref=f24e389]: 11 mins
+                  - generic [ref=f24e390]: 58 secs
+          - generic [ref=f24e391]:
+            - heading "Recent Posts" [level=2] [ref=f24e392]
+            - list [ref=f24e393]:
+              - listitem [ref=f24e394]:
+                - link "Winter Season Registration Update – FAQ" [ref=f24e395] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+              - listitem [ref=f24e396]:
+                - link "Winter Season Registration Update" [ref=f24e397] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+              - listitem [ref=f24e398]:
+                - link "Player Appreciation Night – Summer 2026" [ref=f24e399] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+              - listitem [ref=f24e400]:
+                - link "Line Dancing at the Raider’s Den – July 17" [ref=f24e401] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+              - listitem [ref=f24e402]:
+                - link "Championship Night for Winter 2025-2026" [ref=f24e403] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+          - generic [ref=f24e407]:
+            - text: People would say, 'Girls don't play hockey. Girls don't skate.' I would say, 'Watch this'.
+            - generic [ref=f24e409]:
+              - generic [ref=f24e410]: 
+              - text: Hayley Wickenheiser
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f24e414]
+    - contentinfo [ref=f24e416]:
+      - generic [ref=f24e419]:
+        - figure [ref=f24e422]:
+          - link [ref=f24e423] [cursor=pointer]:
+            - /url: https://arl.link/helpukraine
+            - img "Flag of Ukraine" [ref=f24e424]
+        - paragraph [ref=f24e426]:
+          - strong [ref=f24e427]:
+            - link "WE STAND WITH UKRAINE" [ref=f24e428] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+      - paragraph [ref=f24e435]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f24e436]

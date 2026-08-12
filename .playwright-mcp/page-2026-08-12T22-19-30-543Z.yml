@@ -1,0 +1,291 @@
+- generic [active] [ref=f216e1]:
+  - generic [ref=f216e2]:
+    - link "Skip to main content" [ref=f216e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f216e4]:
+      - generic [ref=f216e6]:
+        - link "ARL – Adult Recreational League" [ref=f216e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary"
+        - generic [ref=f216e12]:
+          - navigation "Account" [ref=f216e13]:
+            - list [ref=f216e14]:
+              - listitem [ref=f216e15]:
+                - link "Log In" [ref=f216e16] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+          - link "Schedule" [ref=f216e17] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/schedule
+          - button "Menu" [ref=f216e20] [cursor=pointer]
+    - main [ref=f216e30]:
+      - generic [ref=f216e31]:
+        - generic [ref=f216e32]:
+          - article [ref=f216e33]:
+            - link [ref=f216e34] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2024/08/arl-jersey-return
+            - generic [ref=f216e36]:
+              - generic [ref=f216e37]:
+                - generic [ref=f216e38]:
+                  - link "Site News" [ref=f216e40] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/site-news
+                  - generic [ref=f216e41]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e42]: August 29, 2024
+                - heading [level=2] [ref=f216e43]:
+                  - link "ARL Jersey Return" [ref=f216e44] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2024/08/arl-jersey-return
+              - paragraph [ref=f216e46]: There’s a new way to drop of your ARL-owned jersey thanks to Al’s Source for Sports.
+              - link "Continue reading ARL Jersey Return" [ref=f216e47] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2024/08/arl-jersey-return
+                - text: Continue reading
+                - generic [ref=f216e48]: ARL Jersey Return
+          - article [ref=f216e49]:
+            - link [ref=f216e50] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+            - generic [ref=f216e52]:
+              - generic [ref=f216e53]:
+                - generic [ref=f216e54]:
+                  - link "Site News" [ref=f216e56] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/site-news
+                  - generic [ref=f216e57]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e58]: August 8, 2026
+                - heading [level=2] [ref=f216e59]:
+                  - link "Winter Season Registration Update – FAQ" [ref=f216e60] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+              - paragraph [ref=f216e62]: Follow our recent registration update for Winter 2026-27, a Frequently Asked Questions section has been added to address some received questions. Visit the FAQ page
+              - link "Continue reading Winter Season Registration Update – FAQ" [ref=f216e63] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+                - text: Continue reading
+                - generic [ref=f216e64]: Winter Season Registration Update – FAQ
+          - article [ref=f216e65]:
+            - link [ref=f216e66] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+            - generic [ref=f216e68]:
+              - generic [ref=f216e69]:
+                - generic [ref=f216e70]:
+                  - link "Site News" [ref=f216e72] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/site-news
+                  - generic [ref=f216e73]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e74]: August 6, 2026
+                - heading [level=2] [ref=f216e75]:
+                  - link "Winter Season Registration Update" [ref=f216e76] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+              - paragraph [ref=f216e78]: Dear ARL Players, As we gear up for the upcoming winter season, we are making an important change to how registration and team formation will work. We want to be transparent with you about what is happening and why.
+              - link "Continue reading Winter Season Registration Update" [ref=f216e79] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+                - text: Continue reading
+                - generic [ref=f216e80]: Winter Season Registration Update
+          - article [ref=f216e81]:
+            - link [ref=f216e82] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+            - generic [ref=f216e84]:
+              - generic [ref=f216e85]:
+                - generic [ref=f216e86]:
+                  - generic [ref=f216e87]:
+                    - link "Site News" [ref=f216e88] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/category/site-news
+                    - text: ","
+                    - link "Special Events" [ref=f216e89] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/category/special-events
+                  - generic [ref=f216e90]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e91]: August 1, 2026
+                - heading [level=2] [ref=f216e92]:
+                  - link "Player Appreciation Night – Summer 2026" [ref=f216e93] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+              - paragraph [ref=f216e95]: "We want to thank you for always bringing your best to the ice. To recognize the commitment and sportsmanship that defines our league, the food is on us! When: Friday, August 7th (6:30 PM – 11:00 PM)Where: Upstairs at the Raider’s DenThe Perks: All players get a complimentary hot dog, hamburger, or veggie burger. Come […]"
+              - link "Continue reading Player Appreciation Night – Summer 2026" [ref=f216e96] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+                - text: Continue reading
+                - generic [ref=f216e97]: Player Appreciation Night – Summer 2026
+          - article [ref=f216e98]:
+            - link [ref=f216e99] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+            - generic [ref=f216e101]:
+              - generic [ref=f216e102]:
+                - generic [ref=f216e103]:
+                  - link "Site News" [ref=f216e105] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/site-news
+                  - generic [ref=f216e106]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e107]: July 15, 2026
+                - heading [level=2] [ref=f216e108]:
+                  - link "Line Dancing at the Raider’s Den – July 17" [ref=f216e109] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+              - paragraph [ref=f216e111]: Hello Players, We’ve been asked to pass along an open invitation. This Friday, July 17th, the Raider’s Den (upstairs at the Mr. Lube + Tires Arena) will be hosting a Line Dancing event from 8-11PM. Hosted by Urban Cowboy Line Dancing, everyone is welcome and lessons will be available. During the event, there will be […]
+              - link "Continue reading Line Dancing at the Raider’s Den – July 17" [ref=f216e112] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+                - text: Continue reading
+                - generic [ref=f216e113]: Line Dancing at the Raider’s Den – July 17
+          - article [ref=f216e114]:
+            - link [ref=f216e115] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+            - generic [ref=f216e117]:
+              - generic [ref=f216e118]:
+                - generic [ref=f216e119]:
+                  - generic [ref=f216e120]:
+                    - link "Playoffs" [ref=f216e121] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/category/regular-season/playoffs
+                    - text: ","
+                    - link "Site News" [ref=f216e122] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/category/site-news
+                  - generic [ref=f216e123]:
+                    - text: By Michael Durrant on
+                    - time [ref=f216e124]: March 23, 2026
+                - heading [level=2] [ref=f216e125]:
+                  - link "Championship Night for Winter 2025-2026" [ref=f216e126] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+              - paragraph [ref=f216e128]: Hello ARL Players, With Championship Night taking place this weekend, we would like to remind all teams of the procedures that will be used to determine a winner in the event of a tie.
+              - link "Continue reading Championship Night for Winter 2025-2026" [ref=f216e129] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+                - text: Continue reading
+                - generic [ref=f216e130]: Championship Night for Winter 2025-2026
+          - article [ref=f216e131]:
+            - link [ref=f216e132] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/03/registration-open-for-summer-2026
+            - generic [ref=f216e134]:
+              - generic [ref=f216e135]:
+                - generic [ref=f216e136]:
+                  - link "Regular Season" [ref=f216e138] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/regular-season
+                  - generic [ref=f216e139]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e140]: March 9, 2026
+                - heading [level=2] [ref=f216e141]:
+                  - link "Registration Open for Summer 2026" [ref=f216e142] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/03/registration-open-for-summer-2026
+              - paragraph [ref=f216e144]: Registration is now open for the ARL’s Spring/Summer 2026 season. The season will begin on April 24th, 2026. Games are played every Friday night at the Mr Lube + Tires Arena (formerly the Wave Twin Rinks). Open to ages 21+. See the registration page linked above for more info.
+              - link "Continue reading Registration Open for Summer 2026" [ref=f216e145] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/03/registration-open-for-summer-2026
+                - text: Continue reading
+                - generic [ref=f216e146]: Registration Open for Summer 2026
+          - article [ref=f216e147]:
+            - link [ref=f216e148] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2026/02/player-appreciation-night-winter-2026
+            - generic [ref=f216e150]:
+              - generic [ref=f216e151]:
+                - generic [ref=f216e152]:
+                  - link "Special Events" [ref=f216e154] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/special-events
+                  - generic [ref=f216e155]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e156]: February 12, 2026
+                - heading [level=2] [ref=f216e157]:
+                  - link "Player Appreciation Night – Winter 2026" [ref=f216e158] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2026/02/player-appreciation-night-winter-2026
+              - paragraph [ref=f216e160]: This Friday night (Feb 13th), we are celebrating our players and thanking you for everything you bring to the league. Join us for Player Appreciation Night as we recognize the sportsmanship and commitment that make the ARL great. All players receive a choice of a complimentary hot dog or hamburger upstairs at the Raider’s Den […]
+              - link "Continue reading Player Appreciation Night – Winter 2026" [ref=f216e161] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2026/02/player-appreciation-night-winter-2026
+                - text: Continue reading
+                - generic [ref=f216e162]: Player Appreciation Night – Winter 2026
+          - article [ref=f216e163]:
+            - generic [ref=f216e164]:
+              - generic [ref=f216e165]:
+                - generic [ref=f216e166]:
+                  - link "Regular Season" [ref=f216e168] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/regular-season
+                  - generic [ref=f216e169]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e170]: January 24, 2026
+                - heading [level=2] [ref=f216e171]:
+                  - 'link "Postponement Notice: Jan 25, 2026" [ref=f216e172] [cursor=pointer]':
+                    - /url: https://staging.rookiehockey.ca/2026/01/postponement-notice-jan-25-2026
+              - paragraph [ref=f216e174]: "The City of Burlington (COB) has closed Mountainside arena for Sunday, January 25th, in anticipation of a winter storm. The following game has been postponed: A make up date will be provided to the captains once it is available. Please note that, as of the time of this notice, all games at the Mr. Lube […]"
+              - 'link "Continue reading Postponement Notice: Jan 25, 2026" [ref=f216e175] [cursor=pointer]':
+                - /url: https://staging.rookiehockey.ca/2026/01/postponement-notice-jan-25-2026
+                - text: Continue reading
+                - generic [ref=f216e176]: "Postponement Notice: Jan 25, 2026"
+          - article [ref=f216e177]:
+            - generic [ref=f216e178]:
+              - generic [ref=f216e179]:
+                - generic [ref=f216e180]:
+                  - link "Regular Season" [ref=f216e182] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/category/regular-season
+                  - generic [ref=f216e183]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e184]: October 31, 2025
+                - heading [level=2] [ref=f216e185]:
+                  - link "Schedule for October 31, 2025" [ref=f216e186] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2025/10/schedule-for-october-31-2025
+              - paragraph [ref=f216e188]: Due to cancellations, the schedule tonight has been modified. Captains have been notified. 6:45 Bull Dogs v Kings D2 7:00 Arcturus Stars v Ice Bears D3 8:00 Lightning v Rangers D3 9:00 Ravens v Pylons D5 10:00 Black Bulls v Canucks D2 11:00 Jagr Bombers v Oilers D4
+              - link "Continue reading Schedule for October 31, 2025" [ref=f216e189] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2025/10/schedule-for-october-31-2025
+                - text: Continue reading
+                - generic [ref=f216e190]: Schedule for October 31, 2025
+          - article [ref=f216e191]:
+            - link [ref=f216e192] [cursor=pointer]:
+              - /url: https://staging.rookiehockey.ca/2025/07/registration-open-for-winter-2025
+            - generic [ref=f216e194]:
+              - generic [ref=f216e195]:
+                - generic [ref=f216e196]:
+                  - generic [ref=f216e197]:
+                    - link "Regular Season" [ref=f216e198] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/category/regular-season
+                    - text: ","
+                    - link "Site News" [ref=f216e199] [cursor=pointer]:
+                      - /url: https://staging.rookiehockey.ca/category/site-news
+                  - generic [ref=f216e200]:
+                    - text: By Cody Lusk on
+                    - time [ref=f216e201]: July 29, 2025
+                - heading [level=2] [ref=f216e202]:
+                  - link "Registration Open for Winter 2025" [ref=f216e203] [cursor=pointer]:
+                    - /url: https://staging.rookiehockey.ca/2025/07/registration-open-for-winter-2025
+              - paragraph [ref=f216e205]: Hello Everyone, Registration for the ARL’s Winter 2025-2026 season is now open. Get the full details on the registration page at rookiehockey.ca/register.
+              - link "Continue reading Registration Open for Winter 2025" [ref=f216e206] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/2025/07/registration-open-for-winter-2025
+                - text: Continue reading
+                - generic [ref=f216e207]: Registration Open for Winter 2025
+        - navigation "Posts navigation" [ref=f216e208]:
+          - list [ref=f216e209]:
+            - listitem [ref=f216e210]:
+              - generic "Page 1" [ref=f216e211]: "1"
+            - listitem [ref=f216e212]:
+              - link "Page 2" [ref=f216e213] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news/page/2
+                - text: "2"
+            - listitem [ref=f216e214]:
+              - link "Page 3" [ref=f216e215] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news/page/3
+                - text: "3"
+            - listitem [ref=f216e216]:
+              - generic [ref=f216e217]: …
+            - listitem [ref=f216e218]:
+              - link "Page 13" [ref=f216e219] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news/page/13
+                - text: "13"
+            - listitem [ref=f216e220]:
+              - link "Older" [ref=f216e221] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news/page/2
+                - text: Older
+                - generic [ref=f216e222]: →
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f216e226]
+    - contentinfo [ref=f216e228]:
+      - generic [ref=f216e229]:
+        - generic [ref=f216e230]:
+          - heading "The League" [level=2] [ref=f216e231]
+          - paragraph [ref=f216e232]: Burlington, Ontario
+          - list [ref=f216e233]:
+            - listitem [ref=f216e234]:
+              - link "Contact Us" [ref=f216e235] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/arl-league-info/contact-us
+            - listitem [ref=f216e236]:
+              - link "play@rookiehockey.ca" [ref=f216e237] [cursor=pointer]:
+                - /url: mailto:play@rookiehockey.ca
+            - listitem [ref=f216e238]:
+              - link "FAQs" [ref=f216e239] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/faqs
+            - listitem [ref=f216e240]:
+              - link "Privacy Policy & Legal" [ref=f216e241] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/legal
+        - generic [ref=f216e242]:
+          - figure [ref=f216e245]:
+            - link [ref=f216e246] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+              - img "Flag of Ukraine" [ref=f216e247]
+          - paragraph [ref=f216e249]:
+            - strong [ref=f216e250]:
+              - link "WE STAND WITH UKRAINE" [ref=f216e251] [cursor=pointer]:
+                - /url: https://arl.link/helpukraine
+      - paragraph [ref=f216e256]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f216e257]

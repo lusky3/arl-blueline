@@ -98,22 +98,37 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
  * success notice invisible.
  * ------------------------------------------------------------------- */
 
+/*
+ * Semantic state is carried by a full border plus a tint of the same hue,
+ * not by a thick coloured stripe down one edge.
+ *
+ * This previously used `border-inline-start: 4px solid`, which is a pattern
+ * the project's design rules ban outright on cards, callouts and alerts.
+ * Neither the visual review nor the UX review caught it, because both could
+ * only see the site logged out and this notice only ever renders to a
+ * signed-in player after a claim attempt.
+ *
+ * The tint is mixed from the semantic token itself rather than hard-coded,
+ * so the two can never drift apart, and at 8% it stays far enough from the
+ * white ground that --bl-ink body text keeps its full contrast on top.
+ */
 .bl-account-notice {
 	margin-block-end: var(--bl-space-5);
 	padding: var(--bl-space-4) var(--bl-space-5);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
-	border-inline-start: 4px solid var(--bl-steel);
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	border: 1px solid var(--bl-steel);
 	border-radius: var(--bl-radius-card);
 	color: var(--bl-ink);
 }
 
 .bl-account-notice--success {
-	border-inline-start-color: var(--bl-success);
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
+	border-color: var(--bl-success);
 }
 
 .bl-account-notice--error {
-	border-inline-start-color: var(--bl-danger);
+	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-white));
+	border-color: var(--bl-danger);
 	color: var(--bl-danger);
 }
 

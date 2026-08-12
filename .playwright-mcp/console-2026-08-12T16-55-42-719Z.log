@@ -1,0 +1,30 @@
+[     754ms] [LOG] JQMIGRATE: Migrate is installed, version 3.4.1 @ https://staging.rookiehockey.ca/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1:1
+[    1313ms] [LOG] PayPal lib loaded, initialize buttons. @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
+[    1319ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1352ms] [LOG] apple sdk loaded @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
+[    1359ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1367ms] [LOG] google sdk loaded @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
+[    1367ms] [LOG] all libs loaded @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
+[    1368ms] [LOG] initSmartButtons @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
+[    1368ms] [LOG] render smart buttons @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-angelleye-common-functions.min.js?ver=4.6.15:0
+[    1373ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1401ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1413ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1477ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1539ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1584ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1769ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1791ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1804ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1832ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1849ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1903ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1931ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1949ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    1979ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    1995ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    2040ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    2061ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0
+[    2081ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    2137ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-32x32.png:0
+[    2159ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://staging.rookiehockey.ca/wp-content/uploads/2026/08/ARL2026-Logo-Final-Small-100x100.png:0

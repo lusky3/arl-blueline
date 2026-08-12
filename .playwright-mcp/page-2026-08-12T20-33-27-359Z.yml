@@ -1,0 +1,216 @@
+- generic [active] [ref=f107e1]:
+  - generic [ref=f107e2]:
+    - link "Skip to main content" [ref=f107e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f107e4]:
+      - generic [ref=f107e6]:
+        - link "ARL – Adult Recreational League" [ref=f107e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary" [ref=f107e10]:
+          - list [ref=f107e11]:
+            - listitem [ref=f107e12]:
+              - link "Home" [ref=f107e13] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/
+            - listitem [ref=f107e16]:
+              - link "News" [ref=f107e17] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news
+            - listitem [ref=f107e20]:
+              - link "League Info" [ref=f107e21] [cursor=pointer]:
+                - /url: "#"
+              - button "Show submenu for League Info" [ref=f107e24] [cursor=pointer]
+            - listitem [ref=f107e28]:
+              - link "Rosters / Stats" [ref=f107e29] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/rosters-and-stats
+              - button "Show submenu for Rosters / Stats" [ref=f107e32] [cursor=pointer]
+            - listitem [ref=f107e36]:
+              - link "Schedule" [ref=f107e37] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/schedule
+            - listitem [ref=f107e40]:
+              - link "Sponsors" [ref=f107e41] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/sponsors
+            - listitem [ref=f107e44]:
+              - link "Standings" [ref=f107e45] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/standings
+              - button "Show submenu for Standings" [ref=f107e48] [cursor=pointer]
+        - generic [ref=f107e52]:
+          - navigation "Account" [ref=f107e53]:
+            - list [ref=f107e54]:
+              - listitem [ref=f107e55]:
+                - link "My ARL Account" [ref=f107e56] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+              - listitem [ref=f107e57]:
+                - link "Log Out" [ref=f107e58] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/wp-login.php?action=logout&_wpnonce=b7c58d9742
+          - link "Register to Play" [ref=f107e59] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/register
+    - main [ref=f107e65]:
+      - generic [ref=f107e71]:
+        - heading "Alec Lehto" [level=1] [ref=f107e72]
+        - paragraph
+      - generic [ref=f107e74]:
+        - generic [ref=f107e76]:
+          - generic [ref=f107e78]:
+            - generic [ref=f107e79]: Jump to a teammate
+            - combobox "Jump to a teammate" [ref=f107e80]:
+              - option "G29. Mitchell Penas"
+              - option "00. Pete Mlekuz"
+              - option "G34. Ryan Kuzyk"
+              - option "G19. Sean Anderson"
+              - option "2. Alexander Gracie"
+              - option "2. Cameron Matthews"
+              - option "3. Daniel Chin"
+              - option "5. Imen El-shater"
+              - option "5. Katie Milligan"
+              - option "6. Huy Nguyen"
+              - option "6. James Douketis"
+              - option "7. Alan Nagatakiya"
+              - option "7. Carol Nakagawa"
+              - option "7. James Porter"
+              - option "7. Thuyanh Le-capling"
+              - option "8. Kevin Scott"
+              - option "9. Claire Penstone"
+              - option "9. Tarah Scott"
+              - option "10. Dale Jung"
+              - option "10. Jacques Lapierre"
+              - option "10. Ryan Foote"
+              - option "10. Ryan Smith"
+              - option "11. Kevin Yan"
+              - option "12. Fernando De Ferraris"
+              - option "12. Heather Kennedy"
+              - option "12. Jeff Kondo"
+              - option "12. Kyle Murray"
+              - option "13. Rob Lamberti"
+              - option "14. Mitchell Que"
+              - option "16. Jason Gauci"
+              - option "18. Kevin Harris"
+              - option "19. David Ashton"
+              - option "19. Patrick Howie"
+              - option "20. Ted Doyle"
+              - option "23. Brad Skillings"
+              - option "23. Steven Lord"
+              - option "24. Kenji Wakabayashi"
+              - option "24. Scott Maynard"
+              - option "27. Andrew Dick"
+              - option "29. Travis Mather"
+              - option "30. Carter-James Hills"
+              - option "32. Nick De Baseggio"
+              - option "33. Darren Green"
+              - option "34. Adam Nunnaro"
+              - option "35. Nolan Coyle"
+              - option "36. Blair Peto"
+              - option "37. Kevin Jani"
+              - option "37. Travis Wood"
+              - option "39. Matthew Lareau"
+              - option "41. Bryce Lawrence"
+              - option "41. Liam Mccarthy"
+              - option "45. Brad Fitzpatrick"
+              - option "46. Richard Noble"
+              - option "55. Jay Tuck"
+              - option "66. Korey Reid"
+              - option "80. Vince Boissoin"
+              - option "88. Adam Davis"
+              - option "88. Andrew Capling"
+              - option "88. Jack Douketis"
+              - option "88. Mike Dunkey"
+              - option "88. Peter Morreale"
+              - option "91. Aaron Bruce"
+              - option "91. John Schooley"
+              - option "91. Peter Luxemburger"
+              - option "92. Damen Hibbard"
+              - option "96. Paul Babic"
+              - option "Adam Ballance"
+              - option "Adam Pellegrin"
+              - option "Alec Lehto" [selected]
+              - option "Brad Smith"
+              - option "Braedon Breese"
+              - option "Connor Forster"
+              - option "Dennis Arnold"
+              - option "Eric Kim"
+              - option "Gino Rosati"
+              - option "Jeremy Gabriel"
+              - option "Katelin Forster"
+              - option "Kevin Holman"
+              - option "Laura Forster"
+              - option "Matt Kennedy"
+              - option "Michael Nagatakiya"
+              - option "Nic Truong"
+              - option "Peter Kondo"
+              - option "Richard Forster"
+              - option "Ryan Immesberger"
+              - option "Scott Williams"
+              - option "Shaun Guest"
+              - option "Steve Greb"
+              - option "Steven Ho"
+              - option "Veso Sobot"
+          - generic [ref=f107e84]:
+            - term [ref=f107e85]: "#"
+            - definition [ref=f107e86]
+            - term [ref=f107e87]: Name
+            - definition [ref=f107e88]: Alec Lehto
+            - term [ref=f107e89]: Seasons
+            - definition [ref=f107e90]: W2026-27
+          - paragraph [ref=f107e95]: Career Total not recorded yet.
+        - complementary "Sidebar" [ref=f107e96]:
+          - generic [ref=f107e98]:
+            - heading "The next puck drop" [level=4] [ref=f107e99]
+            - generic [ref=f107e101]:
+              - heading [level=3] [ref=f107e102]:
+                - link [ref=f107e103] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                  - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f107e104]
+                - link [ref=f107e105] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/the-hammers
+                  - img "Hammer" [ref=f107e106]
+                - link "Puck Dynasty vs Hammers" [ref=f107e107] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/event/116466
+                - text: (On time)
+              - paragraph [ref=f107e108]:
+                - time [ref=f107e109]:
+                  - generic [ref=f107e110]:
+                    - text: "02"
+                    - generic [ref=f107e111]: days
+                  - generic [ref=f107e112]:
+                    - text: "01"
+                    - generic [ref=f107e113]: hrs
+                  - generic [ref=f107e114]:
+                    - text: "26"
+                    - generic [ref=f107e115]: mins
+                  - generic [ref=f107e116]:
+                    - text: "32"
+                    - generic [ref=f107e117]: secs
+          - generic [ref=f107e118]:
+            - heading "Recent Posts" [level=2] [ref=f107e119]
+            - list [ref=f107e120]:
+              - listitem [ref=f107e121]:
+                - link "Winter Season Registration Update – FAQ" [ref=f107e122] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+              - listitem [ref=f107e123]:
+                - link "Winter Season Registration Update" [ref=f107e124] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+              - listitem [ref=f107e125]:
+                - link "Player Appreciation Night – Summer 2026" [ref=f107e126] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+              - listitem [ref=f107e127]:
+                - link "Line Dancing at the Raider’s Den – July 17" [ref=f107e128] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+              - listitem [ref=f107e129]:
+                - link "Championship Night for Winter 2025-2026" [ref=f107e130] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+          - generic [ref=f107e134]:
+            - text: That's what.
+            - generic [ref=f107e136]:
+              - generic [ref=f107e137]: 
+              - text: She
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f107e141]
+    - contentinfo [ref=f107e143]:
+      - generic [ref=f107e146]:
+        - figure [ref=f107e149]:
+          - link [ref=f107e150] [cursor=pointer]:
+            - /url: https://arl.link/helpukraine
+            - img "Flag of Ukraine" [ref=f107e151]
+        - paragraph [ref=f107e153]:
+          - strong [ref=f107e154]:
+            - link "WE STAND WITH UKRAINE" [ref=f107e155] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+      - paragraph [ref=f107e162]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f107e163]

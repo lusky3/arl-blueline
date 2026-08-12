@@ -1,0 +1,111 @@
+- generic [active] [ref=f182e1]:
+  - generic [ref=f182e2]:
+    - link "Skip to main content" [ref=f182e3] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f182e4]:
+      - generic [ref=f182e6]:
+        - link "ARL – Adult Recreational League" [ref=f182e8] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary" [ref=f182e12]:
+          - list [ref=f182e13]:
+            - listitem [ref=f182e14]:
+              - link "Home" [ref=f182e15] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/
+            - listitem [ref=f182e18]:
+              - link "News" [ref=f182e19] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news
+            - listitem [ref=f182e22]:
+              - link "League Info" [ref=f182e23] [cursor=pointer]:
+                - /url: "#"
+              - button "Show submenu for League Info" [ref=f182e26] [cursor=pointer]
+            - listitem [ref=f182e30]:
+              - link "Rosters / Stats" [ref=f182e31] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/rosters-and-stats
+              - button "Show submenu for Rosters / Stats" [ref=f182e34] [cursor=pointer]
+            - listitem [ref=f182e38]:
+              - link "Schedule" [ref=f182e39] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/schedule
+            - listitem [ref=f182e42]:
+              - link "Sponsors" [ref=f182e43] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/sponsors
+            - listitem [ref=f182e46]:
+              - link "Standings" [ref=f182e47] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/standings
+              - button "Show submenu for Standings" [ref=f182e50] [cursor=pointer]
+            - listitem [ref=f182e54]:
+              - link "Register to Play" [ref=f182e55] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/register
+        - generic [ref=f182e58]:
+          - navigation "Account" [ref=f182e59]:
+            - list [ref=f182e60]:
+              - listitem [ref=f182e61]:
+                - link "Log In" [ref=f182e62] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+          - link "Schedule" [ref=f182e63] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/schedule
+    - main [ref=f182e73]:
+      - article [ref=f182e75]:
+        - heading "My ARL Account" [level=1] [ref=f182e77]
+        - generic [ref=f182e79]:
+          - heading "Login" [level=2] [ref=f182e80]
+          - generic [ref=f182e81]:
+            - paragraph [ref=f182e82]:
+              - generic [ref=f182e83]:
+                - text: Username or email address *
+                - generic [ref=f182e84]: Required
+              - textbox "Username or email address Required" [ref=f182e85]
+            - paragraph [ref=f182e86]:
+              - generic [ref=f182e87]:
+                - text: Password *
+                - generic [ref=f182e88]: Required
+              - generic [ref=f182e89]:
+                - textbox "Password Required" [ref=f182e90]
+                - button "Show password" [ref=f182e91] [cursor=pointer]
+            - paragraph [ref=f182e92]:
+              - generic [ref=f182e93]:
+                - checkbox "Remember me" [ref=f182e94]
+                - text: Remember me
+              - button "Log in" [ref=f182e95] [cursor=pointer]
+            - paragraph [ref=f182e96]:
+              - link "Lost your password?" [ref=f182e97] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/account/lost-password
+            - generic [ref=f182e98]:
+              - paragraph [ref=f182e99]: Use a social account for faster login or easy registration.
+              - link "Log in with Twitter" [ref=f182e100] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/?wc-api=auth&start=twitter&return=https%3A%2F%2Fstaging.rookiehockey.ca%2Faccount
+              - link "Log in with Google" [ref=f182e102] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/?wc-api=auth&start=google&return=https%3A%2F%2Fstaging.rookiehockey.ca%2Faccount
+              - link "Log in with LinkedIn" [ref=f182e104] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/?wc-api=auth&start=linkedin&return=https%3A%2F%2Fstaging.rookiehockey.ca%2Faccount
+              - link "Log in with PayPal" [ref=f182e106] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/?wc-api=auth&start=paypal&return=https%3A%2F%2Fstaging.rookiehockey.ca%2Faccount
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f182e111]
+    - contentinfo [ref=f182e113]:
+      - generic [ref=f182e114]:
+        - generic [ref=f182e115]:
+          - heading "The League" [level=2] [ref=f182e116]
+          - paragraph [ref=f182e117]: Burlington, Ontario
+          - list [ref=f182e118]:
+            - listitem [ref=f182e119]:
+              - link "Contact Us" [ref=f182e120] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/arl-league-info/contact-us
+            - listitem [ref=f182e121]:
+              - link "play@rookiehockey.ca" [ref=f182e122] [cursor=pointer]:
+                - /url: mailto:play@rookiehockey.ca
+            - listitem [ref=f182e123]:
+              - link "FAQs" [ref=f182e124] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/faqs
+            - listitem [ref=f182e125]:
+              - link "Privacy Policy & Legal" [ref=f182e126] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/legal
+        - generic [ref=f182e127]:
+          - figure [ref=f182e130]:
+            - link [ref=f182e131] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+              - img "Flag of Ukraine" [ref=f182e132]
+          - paragraph [ref=f182e134]:
+            - strong [ref=f182e135]:
+              - link "WE STAND WITH UKRAINE" [ref=f182e136] [cursor=pointer]:
+                - /url: https://arl.link/helpukraine
+      - paragraph [ref=f182e141]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f182e142]

@@ -46,11 +46,28 @@
 	margin: 0 0 var(--bl-space-5);
 	padding: var(--bl-space-4) var(--bl-space-5);
 	list-style: none;
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
-	border-inline-start: 4px solid var(--bl-steel);
+
+	/*
+	 * Full border plus a tint of the same hue, not a thick coloured stripe
+	 * down one edge -- that pattern is banned on callouts and alerts by the
+	 * project's design rules. Mixed from the token itself so the border and
+	 * the tint can never drift apart. See account.css's own notice component
+	 * for the matching treatment.
+	 */
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	border: 1px solid var(--bl-steel);
 	border-radius: var(--bl-radius-card);
 	color: var(--bl-ink);
+}
+
+.woocommerce-message {
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
+	border-color: var(--bl-success);
+}
+
+.woocommerce-error {
+	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-white));
+	border-color: var(--bl-danger);
 }
 
 .woocommerce-error li {

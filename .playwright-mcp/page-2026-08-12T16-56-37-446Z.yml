@@ -1,0 +1,665 @@
+- generic [active] [ref=f59e1]:
+  - generic [ref=f59e4]:
+    - link [ref=f59e6] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/btown-bulldogs
+      - img "B-Town Bullies Logo" [ref=f59e7]
+    - link [ref=f59e8] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/canadiens
+      - img "Tread-Well-Canadiens-logo" [ref=f59e9]
+    - link [ref=f59e10] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/cherry-pickers
+      - img "Cherry Pickers Team Logo" [ref=f59e11]
+    - link [ref=f59e12] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/the-hammers
+      - img "Hammer" [ref=f59e13]
+    - link [ref=f59e14] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/jagrbombers
+      - img "A circular logo for a hockey team with the silhouette of a fighter jet. A red maple leaf ins printed on the cockpit. Above the logo is the team name JAGRBOMBERS." [ref=f59e15]
+    - link [ref=f59e16] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/kings-2018
+      - img "Kings Team Logo" [ref=f59e17]
+    - link [ref=f59e18] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/knights
+      - img "Knights Team Logo" [ref=f59e19]
+    - link [ref=f59e20] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/lightning
+      - img "Lightning Logo" [ref=f59e21]
+    - link [ref=f59e22] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/lumberjacks
+      - img "A logo featuring a silhouette of a tree with the word Lumberjacks over top." [ref=f59e23]
+    - link [ref=f59e24] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/mammoth
+      - img "A hockey team logo featuring a wolly mammoth" [ref=f59e25]
+    - link [ref=f59e26] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/oilers
+      - img "Oilers Team Logo" [ref=f59e27]
+    - link [ref=f59e28] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/predators
+      - img "Predators Team Logo" [ref=f59e29]
+    - link [ref=f59e30] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+      - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f59e31]
+    - link [ref=f59e32] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/replacements
+      - img "The Replacements" [ref=f59e33]
+    - link [ref=f59e34] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/royals
+      - img "Royals Logo" [ref=f59e35]
+    - link [ref=f59e36] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/spartans
+      - img "Team Canada Logo" [ref=f59e37]
+    - link [ref=f59e38] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/tailgaters
+      - img "Tailgaters Team Logo" [ref=f59e39]
+    - link [ref=f59e40] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/team-canada
+      - img "Team Canada Logo 2018" [ref=f59e41]
+    - link [ref=f59e42] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/train-wreck
+      - img "Train Wreck Team Logo" [ref=f59e43]
+    - link [ref=f59e44] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/treblemakers
+      - img "TrebleMakers Team Logo" [ref=f59e45]
+    - link [ref=f59e46] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/whalers
+      - img "Whalers Logo" [ref=f59e47]
+    - link [ref=f59e48] [cursor=pointer]:
+      - /url: https://staging.rookiehockey.ca/team/white-walkers
+      - img "White Walkers Team Logo" [ref=f59e49]
+  - generic [ref=f59e50]:
+    - link "Skip to main content" [ref=f59e51] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f59e52]:
+      - generic [ref=f59e54]:
+        - link "ARL – Adult Recreational League" [ref=f59e56] [cursor=pointer]:
+          - /url: https://staging.rookiehockey.ca/
+        - navigation "Primary" [ref=f59e58]:
+          - list [ref=f59e59]:
+            - listitem [ref=f59e60]:
+              - link "Home" [ref=f59e61] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/
+            - listitem [ref=f59e64]:
+              - link "News" [ref=f59e65] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/news
+            - listitem [ref=f59e68]:
+              - link "League Info" [ref=f59e69] [cursor=pointer]:
+                - /url: "#"
+              - button "Show submenu for League Info" [ref=f59e72] [cursor=pointer]
+            - listitem [ref=f59e76]:
+              - link "Rosters / Stats" [ref=f59e77] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/rosters-and-stats
+              - button "Show submenu for Rosters / Stats" [ref=f59e80] [cursor=pointer]
+            - listitem [ref=f59e84]:
+              - link "Schedule" [ref=f59e85] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/schedule
+            - listitem [ref=f59e88]:
+              - link "Sponsors" [ref=f59e89] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/sponsors
+            - listitem [ref=f59e92]:
+              - link "Standings" [ref=f59e93] [cursor=pointer]:
+                - /url: https://staging.rookiehockey.ca/standings
+              - button "Show submenu for Standings" [ref=f59e96] [cursor=pointer]
+        - generic [ref=f59e100]:
+          - navigation "Account" [ref=f59e101]:
+            - list [ref=f59e102]:
+              - listitem [ref=f59e103]:
+                - link "My ARL Account" [ref=f59e104] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/account
+              - listitem [ref=f59e105]:
+                - link "Log Out" [ref=f59e106] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/wp-login.php?action=logout&_wpnonce=b7c58d9742
+          - link "Register to Play" [ref=f59e107] [cursor=pointer]:
+            - /url: https://staging.rookiehockey.ca/register
+    - main [ref=f59e113]:
+      - generic [ref=f59e115]:
+        - article [ref=f59e117]:
+          - heading "Standings" [level=1] [ref=f59e119]
+          - generic [ref=f59e120]:
+            - paragraph [ref=f59e121]: Below are the current league standings for the ARL.
+            - generic [ref=f59e123]:
+              - heading "Division 1 | S2026" [level=4] [ref=f59e124]
+              - grid [ref=f59e128]:
+                - rowgroup [ref=f59e129]:
+                  - row [ref=f59e130]:
+                    - columnheader "Pos" [ref=f59e131] [cursor=pointer]: Pos 
+                    - columnheader "Team" [ref=f59e132] [cursor=pointer]: Team 
+                    - columnheader "GP" [ref=f59e133] [cursor=pointer]: GP 
+                    - columnheader "W" [ref=f59e134] [cursor=pointer]: W 
+                    - columnheader "L" [ref=f59e135] [cursor=pointer]: L 
+                    - columnheader "Tie" [ref=f59e136] [cursor=pointer]: Tie 
+                    - columnheader "OT" [ref=f59e137] [cursor=pointer]: OT 
+                    - columnheader "PTS" [ref=f59e138] [cursor=pointer]: PTS 
+                    - columnheader "GF" [ref=f59e139] [cursor=pointer]: GF 
+                    - columnheader "GA" [ref=f59e140] [cursor=pointer]: GA 
+                    - columnheader "Diff" [ref=f59e141] [cursor=pointer]: Diff 
+                    - columnheader "L10" [ref=f59e142] [cursor=pointer]: L10 
+                    - columnheader "Strk" [ref=f59e143] [cursor=pointer]: Strk 
+                - rowgroup [ref=f59e144]:
+                  - row [ref=f59e145]:
+                    - gridcell "1" [ref=f59e146]
+                    - gridcell [ref=f59e147]:
+                      - link [ref=f59e148] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/the-hammers
+                        - img "Hammer" [ref=f59e150]
+                        - text: Hammers
+                    - gridcell "14" [ref=f59e151]
+                    - gridcell "10" [ref=f59e152]
+                    - gridcell "1" [ref=f59e153]
+                    - gridcell "3" [ref=f59e154]
+                    - gridcell "0" [ref=f59e155]
+                    - gridcell "23" [ref=f59e156]
+                    - gridcell "42" [ref=f59e157]
+                    - gridcell "17" [ref=f59e158]
+                    - gridcell "25" [ref=f59e159]
+                    - gridcell "6-1-3-0" [ref=f59e160]
+                    - gridcell "T1" [ref=f59e161]
+                  - row [ref=f59e162]:
+                    - gridcell "2" [ref=f59e163]
+                    - gridcell [ref=f59e164]:
+                      - link [ref=f59e165] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/replacements
+                        - img "The Replacements" [ref=f59e167]
+                        - text: Replacements
+                    - gridcell "14" [ref=f59e168]
+                    - gridcell "8" [ref=f59e169]
+                    - gridcell "4" [ref=f59e170]
+                    - gridcell "2" [ref=f59e171]
+                    - gridcell "0" [ref=f59e172]
+                    - gridcell "18" [ref=f59e173]
+                    - gridcell "37" [ref=f59e174]
+                    - gridcell "27" [ref=f59e175]
+                    - gridcell "10" [ref=f59e176]
+                    - gridcell "5-3-2-0" [ref=f59e177]
+                    - gridcell "T1" [ref=f59e178]
+                  - row [ref=f59e179]:
+                    - gridcell "3" [ref=f59e180]
+                    - gridcell [ref=f59e181]:
+                      - link [ref=f59e182] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                        - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f59e184]
+                        - text: Puck Dynasty
+                    - gridcell "14" [ref=f59e185]
+                    - gridcell "5" [ref=f59e186]
+                    - gridcell "6" [ref=f59e187]
+                    - gridcell "3" [ref=f59e188]
+                    - gridcell "0" [ref=f59e189]
+                    - gridcell "13" [ref=f59e190]
+                    - gridcell "34" [ref=f59e191]
+                    - gridcell "39" [ref=f59e192]
+                    - gridcell "-5" [ref=f59e193]
+                    - gridcell "4-3-3-0" [ref=f59e194]
+                    - gridcell "W1" [ref=f59e195]
+                  - row [ref=f59e196]:
+                    - gridcell "4" [ref=f59e197]
+                    - gridcell [ref=f59e198]:
+                      - link [ref=f59e199] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/kings-2018
+                        - img "Kings Team Logo" [ref=f59e201]
+                        - text: Kings
+                    - gridcell "14" [ref=f59e202]
+                    - gridcell "0" [ref=f59e203]
+                    - gridcell "12" [ref=f59e204]
+                    - gridcell "2" [ref=f59e205]
+                    - gridcell "0" [ref=f59e206]
+                    - gridcell "2" [ref=f59e207]
+                    - gridcell "20" [ref=f59e208]
+                    - gridcell "50" [ref=f59e209]
+                    - gridcell "-30" [ref=f59e210]
+                    - gridcell "0-8-2-0" [ref=f59e211]
+                    - gridcell "L2" [ref=f59e212]
+            - generic [ref=f59e214]:
+              - heading "Division 2 | S2026" [level=4] [ref=f59e215]
+              - grid [ref=f59e219]:
+                - rowgroup [ref=f59e220]:
+                  - row [ref=f59e221]:
+                    - columnheader "Pos" [ref=f59e222] [cursor=pointer]: Pos 
+                    - columnheader "Team" [ref=f59e223] [cursor=pointer]: Team 
+                    - columnheader "GP" [ref=f59e224] [cursor=pointer]: GP 
+                    - columnheader "W" [ref=f59e225] [cursor=pointer]: W 
+                    - columnheader "L" [ref=f59e226] [cursor=pointer]: L 
+                    - columnheader "Tie" [ref=f59e227] [cursor=pointer]: Tie 
+                    - columnheader "OT" [ref=f59e228] [cursor=pointer]: OT 
+                    - columnheader "PTS" [ref=f59e229] [cursor=pointer]: PTS 
+                    - columnheader "GF" [ref=f59e230] [cursor=pointer]: GF 
+                    - columnheader "GA" [ref=f59e231] [cursor=pointer]: GA 
+                    - columnheader "Diff" [ref=f59e232] [cursor=pointer]: Diff 
+                    - columnheader "L10" [ref=f59e233] [cursor=pointer]: L10 
+                    - columnheader "Strk" [ref=f59e234] [cursor=pointer]: Strk 
+                - rowgroup [ref=f59e235]:
+                  - row [ref=f59e236]:
+                    - gridcell "1" [ref=f59e237]
+                    - gridcell [ref=f59e238]:
+                      - link [ref=f59e239] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/btown-bulldogs
+                        - img "B-Town Bullies Logo" [ref=f59e241]
+                        - text: B-Town Bulldogs
+                    - gridcell "14" [ref=f59e242]
+                    - gridcell "7" [ref=f59e243]
+                    - gridcell "4" [ref=f59e244]
+                    - gridcell "3" [ref=f59e245]
+                    - gridcell "0" [ref=f59e246]
+                    - gridcell "17" [ref=f59e247]
+                    - gridcell "42" [ref=f59e248]
+                    - gridcell "31" [ref=f59e249]
+                    - gridcell "11" [ref=f59e250]
+                    - gridcell "5-4-1-0" [ref=f59e251]
+                    - gridcell "L1" [ref=f59e252]
+                  - row [ref=f59e253]:
+                    - gridcell "2" [ref=f59e254]
+                    - gridcell [ref=f59e255]:
+                      - link [ref=f59e256] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lightning
+                        - img "Lightning Logo" [ref=f59e258]
+                        - text: Lightning
+                    - gridcell "14" [ref=f59e259]
+                    - gridcell "6" [ref=f59e260]
+                    - gridcell "5" [ref=f59e261]
+                    - gridcell "3" [ref=f59e262]
+                    - gridcell "0" [ref=f59e263]
+                    - gridcell "15" [ref=f59e264]
+                    - gridcell "40" [ref=f59e265]
+                    - gridcell "43" [ref=f59e266]
+                    - gridcell "-3" [ref=f59e267]
+                    - gridcell "4-3-3-0" [ref=f59e268]
+                    - gridcell "W2" [ref=f59e269]
+                  - row [ref=f59e270]:
+                    - gridcell "3" [ref=f59e271]
+                    - gridcell [ref=f59e272]:
+                      - link [ref=f59e273] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/black-bulls-2022
+                        - img "Black Bulls Team Logo" [ref=f59e275]
+                        - text: Black Bulls
+                    - gridcell "14" [ref=f59e276]
+                    - gridcell "4" [ref=f59e277]
+                    - gridcell "6" [ref=f59e278]
+                    - gridcell "4" [ref=f59e279]
+                    - gridcell "0" [ref=f59e280]
+                    - gridcell "12" [ref=f59e281]
+                    - gridcell "38" [ref=f59e282]
+                    - gridcell "41" [ref=f59e283]
+                    - gridcell "-3" [ref=f59e284]
+                    - gridcell "2-4-4-0" [ref=f59e285]
+                    - gridcell "T1" [ref=f59e286]
+                  - row [ref=f59e287]:
+                    - gridcell "4" [ref=f59e288]
+                    - gridcell [ref=f59e289]:
+                      - link [ref=f59e290] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/cherry-pickers
+                        - img "Cherry Pickers Team Logo" [ref=f59e292]
+                        - text: Cherry Pickers
+                    - gridcell "14" [ref=f59e293]
+                    - gridcell "3" [ref=f59e294]
+                    - gridcell "5" [ref=f59e295]
+                    - gridcell "6" [ref=f59e296]
+                    - gridcell "0" [ref=f59e297]
+                    - gridcell "12" [ref=f59e298]
+                    - gridcell "36" [ref=f59e299]
+                    - gridcell "41" [ref=f59e300]
+                    - gridcell "-5" [ref=f59e301]
+                    - gridcell "3-3-4-0" [ref=f59e302]
+                    - gridcell "T1" [ref=f59e303]
+            - generic [ref=f59e305]:
+              - heading "Division 3 | S2026" [level=4] [ref=f59e306]
+              - grid [ref=f59e310]:
+                - rowgroup [ref=f59e311]:
+                  - row [ref=f59e312]:
+                    - columnheader "Pos" [ref=f59e313] [cursor=pointer]: Pos 
+                    - columnheader "Team" [ref=f59e314] [cursor=pointer]: Team 
+                    - columnheader "GP" [ref=f59e315] [cursor=pointer]: GP 
+                    - columnheader "W" [ref=f59e316] [cursor=pointer]: W 
+                    - columnheader "L" [ref=f59e317] [cursor=pointer]: L 
+                    - columnheader "Tie" [ref=f59e318] [cursor=pointer]: Tie 
+                    - columnheader "OT" [ref=f59e319] [cursor=pointer]: OT 
+                    - columnheader "PTS" [ref=f59e320] [cursor=pointer]: PTS 
+                    - columnheader "GF" [ref=f59e321] [cursor=pointer]: GF 
+                    - columnheader "GA" [ref=f59e322] [cursor=pointer]: GA 
+                    - columnheader "Diff" [ref=f59e323] [cursor=pointer]: Diff 
+                    - columnheader "L10" [ref=f59e324] [cursor=pointer]: L10 
+                    - columnheader "Strk" [ref=f59e325] [cursor=pointer]: Strk 
+                - rowgroup [ref=f59e326]:
+                  - row [ref=f59e327]:
+                    - gridcell "1" [ref=f59e328]
+                    - gridcell [ref=f59e329]:
+                      - link [ref=f59e330] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/mammoth
+                        - img "A hockey team logo featuring a wolly mammoth" [ref=f59e332]
+                        - text: Mammoth
+                    - gridcell "14" [ref=f59e333]
+                    - gridcell "13" [ref=f59e334]
+                    - gridcell "0" [ref=f59e335]
+                    - gridcell "1" [ref=f59e336]
+                    - gridcell "0" [ref=f59e337]
+                    - gridcell "27" [ref=f59e338]
+                    - gridcell "51" [ref=f59e339]
+                    - gridcell "14" [ref=f59e340]
+                    - gridcell "37" [ref=f59e341]
+                    - gridcell "9-0-1-0" [ref=f59e342]
+                    - gridcell "W5" [ref=f59e343]
+                  - row [ref=f59e344]:
+                    - gridcell "2" [ref=f59e345]
+                    - gridcell [ref=f59e346]:
+                      - link [ref=f59e347] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/team-canada
+                        - img "Team Canada Logo 2018" [ref=f59e349]
+                        - text: Team Canada
+                    - gridcell "14" [ref=f59e350]
+                    - gridcell "7" [ref=f59e351]
+                    - gridcell "5" [ref=f59e352]
+                    - gridcell "2" [ref=f59e353]
+                    - gridcell "0" [ref=f59e354]
+                    - gridcell "16" [ref=f59e355]
+                    - gridcell "48" [ref=f59e356]
+                    - gridcell "33" [ref=f59e357]
+                    - gridcell "15" [ref=f59e358]
+                    - gridcell "5-4-1-0" [ref=f59e359]
+                    - gridcell "T1" [ref=f59e360]
+                  - row [ref=f59e361]:
+                    - gridcell "3" [ref=f59e362]
+                    - gridcell [ref=f59e363]:
+                      - link [ref=f59e364] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/knights
+                        - img "Knights Team Logo" [ref=f59e366]
+                        - text: Knights
+                    - gridcell "14" [ref=f59e367]
+                    - gridcell "7" [ref=f59e368]
+                    - gridcell "5" [ref=f59e369]
+                    - gridcell "2" [ref=f59e370]
+                    - gridcell "0" [ref=f59e371]
+                    - gridcell "16" [ref=f59e372]
+                    - gridcell "38" [ref=f59e373]
+                    - gridcell "35" [ref=f59e374]
+                    - gridcell "3" [ref=f59e375]
+                    - gridcell "5-3-2-0" [ref=f59e376]
+                    - gridcell "T1" [ref=f59e377]
+                  - row [ref=f59e378]:
+                    - gridcell "4" [ref=f59e379]
+                    - gridcell [ref=f59e380]:
+                      - link [ref=f59e381] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/white-walkers
+                        - img "White Walkers Team Logo" [ref=f59e383]
+                        - text: White Walkers
+                    - gridcell "14" [ref=f59e384]
+                    - gridcell "5" [ref=f59e385]
+                    - gridcell "6" [ref=f59e386]
+                    - gridcell "3" [ref=f59e387]
+                    - gridcell "0" [ref=f59e388]
+                    - gridcell "13" [ref=f59e389]
+                    - gridcell "30" [ref=f59e390]
+                    - gridcell "33" [ref=f59e391]
+                    - gridcell "-3" [ref=f59e392]
+                    - gridcell "4-4-2-0" [ref=f59e393]
+                    - gridcell "L2" [ref=f59e394]
+                  - row [ref=f59e395]:
+                    - gridcell "5" [ref=f59e396]
+                    - gridcell [ref=f59e397]:
+                      - link [ref=f59e398] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/predators
+                        - img "Predators Team Logo" [ref=f59e400]
+                        - text: Predators
+                    - gridcell "14" [ref=f59e401]
+                    - gridcell "4" [ref=f59e402]
+                    - gridcell "7" [ref=f59e403]
+                    - gridcell "3" [ref=f59e404]
+                    - gridcell "0" [ref=f59e405]
+                    - gridcell "11" [ref=f59e406]
+                    - gridcell "29" [ref=f59e407]
+                    - gridcell "48" [ref=f59e408]
+                    - gridcell "-19" [ref=f59e409]
+                    - gridcell "3-5-2-0" [ref=f59e410]
+                    - gridcell "W1" [ref=f59e411]
+                  - row [ref=f59e412]:
+                    - gridcell "6" [ref=f59e413]
+                    - gridcell [ref=f59e414]:
+                      - link [ref=f59e415] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/jagrbombers
+                        - img "A circular logo for a hockey team with the silhouette of a fighter jet. A red maple leaf ins printed on the cockpit. Above the logo is the team name JAGRBOMBERS." [ref=f59e417]
+                        - text: Jagrbombers
+                    - gridcell "14" [ref=f59e418]
+                    - gridcell "0" [ref=f59e419]
+                    - gridcell "13" [ref=f59e420]
+                    - gridcell "1" [ref=f59e421]
+                    - gridcell "0" [ref=f59e422]
+                    - gridcell "1" [ref=f59e423]
+                    - gridcell "27" [ref=f59e424]
+                    - gridcell "60" [ref=f59e425]
+                    - gridcell "-33" [ref=f59e426]
+                    - gridcell "0-10-0-0" [ref=f59e427]
+                    - gridcell "L10" [ref=f59e428]
+            - generic [ref=f59e430]:
+              - heading "Division 4 | S2026" [level=4] [ref=f59e431]
+              - grid [ref=f59e435]:
+                - rowgroup [ref=f59e436]:
+                  - row [ref=f59e437]:
+                    - columnheader "Pos" [ref=f59e438] [cursor=pointer]: Pos 
+                    - columnheader "Team" [ref=f59e439] [cursor=pointer]: Team 
+                    - columnheader "GP" [ref=f59e440] [cursor=pointer]: GP 
+                    - columnheader "W" [ref=f59e441] [cursor=pointer]: W 
+                    - columnheader "L" [ref=f59e442] [cursor=pointer]: L 
+                    - columnheader "Tie" [ref=f59e443] [cursor=pointer]: Tie 
+                    - columnheader "OT" [ref=f59e444] [cursor=pointer]: OT 
+                    - columnheader "PTS" [ref=f59e445] [cursor=pointer]: PTS 
+                    - columnheader "GF" [ref=f59e446] [cursor=pointer]: GF 
+                    - columnheader "GA" [ref=f59e447] [cursor=pointer]: GA 
+                    - columnheader "Diff" [ref=f59e448] [cursor=pointer]: Diff 
+                    - columnheader "L10" [ref=f59e449] [cursor=pointer]: L10 
+                    - columnheader "Strk" [ref=f59e450] [cursor=pointer]: Strk 
+                - rowgroup [ref=f59e451]:
+                  - row [ref=f59e452]:
+                    - gridcell "1" [ref=f59e453]
+                    - gridcell [ref=f59e454]:
+                      - link [ref=f59e455] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/lumberjacks
+                        - img "A logo featuring a silhouette of a tree with the word Lumberjacks over top." [ref=f59e457]
+                        - text: Lumberjacks
+                    - gridcell "14" [ref=f59e458]
+                    - gridcell "11" [ref=f59e459]
+                    - gridcell "2" [ref=f59e460]
+                    - gridcell "1" [ref=f59e461]
+                    - gridcell "0" [ref=f59e462]
+                    - gridcell "23" [ref=f59e463]
+                    - gridcell "56" [ref=f59e464]
+                    - gridcell "28" [ref=f59e465]
+                    - gridcell "28" [ref=f59e466]
+                    - gridcell "8-1-1-0" [ref=f59e467]
+                    - gridcell "W1" [ref=f59e468]
+                  - row [ref=f59e469]:
+                    - gridcell "2" [ref=f59e470]
+                    - gridcell [ref=f59e471]:
+                      - link [ref=f59e472] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/canadiens
+                        - img "Tread-Well-Canadiens-logo" [ref=f59e474]
+                        - text: Canadiens
+                    - gridcell "14" [ref=f59e475]
+                    - gridcell "10" [ref=f59e476]
+                    - gridcell "3" [ref=f59e477]
+                    - gridcell "1" [ref=f59e478]
+                    - gridcell "0" [ref=f59e479]
+                    - gridcell "21" [ref=f59e480]
+                    - gridcell "60" [ref=f59e481]
+                    - gridcell "32" [ref=f59e482]
+                    - gridcell "28" [ref=f59e483]
+                    - gridcell "7-3-0-0" [ref=f59e484]
+                    - gridcell "W2" [ref=f59e485]
+                  - row [ref=f59e486]:
+                    - gridcell "3" [ref=f59e487]
+                    - gridcell [ref=f59e488]:
+                      - link [ref=f59e489] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/oilers
+                        - img "Oilers Team Logo" [ref=f59e491]
+                        - text: Oilers
+                    - gridcell "14" [ref=f59e492]
+                    - gridcell "4" [ref=f59e493]
+                    - gridcell "9" [ref=f59e494]
+                    - gridcell "1" [ref=f59e495]
+                    - gridcell "0" [ref=f59e496]
+                    - gridcell "9" [ref=f59e497]
+                    - gridcell "36" [ref=f59e498]
+                    - gridcell "57" [ref=f59e499]
+                    - gridcell "-21" [ref=f59e500]
+                    - gridcell "4-5-1-0" [ref=f59e501]
+                    - gridcell "L1" [ref=f59e502]
+                  - row [ref=f59e503]:
+                    - gridcell "4" [ref=f59e504]
+                    - gridcell [ref=f59e505]:
+                      - link [ref=f59e506] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/whalers
+                        - img "Whalers Logo" [ref=f59e508]
+                        - text: Whalers
+                    - gridcell "14" [ref=f59e509]
+                    - gridcell "1" [ref=f59e510]
+                    - gridcell "12" [ref=f59e511]
+                    - gridcell "1" [ref=f59e512]
+                    - gridcell "0" [ref=f59e513]
+                    - gridcell "3" [ref=f59e514]
+                    - gridcell "21" [ref=f59e515]
+                    - gridcell "56" [ref=f59e516]
+                    - gridcell "-35" [ref=f59e517]
+                    - gridcell "0-10-0-0" [ref=f59e518]
+                    - gridcell "L10" [ref=f59e519]
+            - generic [ref=f59e521]:
+              - heading "Division 5 | S2026" [level=4] [ref=f59e522]
+              - grid [ref=f59e526]:
+                - rowgroup [ref=f59e527]:
+                  - row [ref=f59e528]:
+                    - columnheader "Pos" [ref=f59e529] [cursor=pointer]: Pos 
+                    - columnheader "Team" [ref=f59e530] [cursor=pointer]: Team 
+                    - columnheader "GP" [ref=f59e531] [cursor=pointer]: GP 
+                    - columnheader "W" [ref=f59e532] [cursor=pointer]: W 
+                    - columnheader "L" [ref=f59e533] [cursor=pointer]: L 
+                    - columnheader "Tie" [ref=f59e534] [cursor=pointer]: Tie 
+                    - columnheader "OT" [ref=f59e535] [cursor=pointer]: OT 
+                    - columnheader "PTS" [ref=f59e536] [cursor=pointer]: PTS 
+                    - columnheader "GF" [ref=f59e537] [cursor=pointer]: GF 
+                    - columnheader "GA" [ref=f59e538] [cursor=pointer]: GA 
+                    - columnheader "Diff" [ref=f59e539] [cursor=pointer]: Diff 
+                    - columnheader "L10" [ref=f59e540] [cursor=pointer]: L10 
+                    - columnheader "Strk" [ref=f59e541] [cursor=pointer]: Strk 
+                - rowgroup [ref=f59e542]:
+                  - row [ref=f59e543]:
+                    - gridcell "1" [ref=f59e544]
+                    - gridcell [ref=f59e545]:
+                      - link [ref=f59e546] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/royals
+                        - img "Royals Logo" [ref=f59e548]
+                        - text: Royals
+                    - gridcell "14" [ref=f59e549]
+                    - gridcell "9" [ref=f59e550]
+                    - gridcell "0" [ref=f59e551]
+                    - gridcell "5" [ref=f59e552]
+                    - gridcell "0" [ref=f59e553]
+                    - gridcell "23" [ref=f59e554]
+                    - gridcell "57" [ref=f59e555]
+                    - gridcell "32" [ref=f59e556]
+                    - gridcell "25" [ref=f59e557]
+                    - gridcell "5-0-5-0" [ref=f59e558]
+                    - gridcell "T2" [ref=f59e559]
+                  - row [ref=f59e560]:
+                    - gridcell "2" [ref=f59e561]
+                    - gridcell [ref=f59e562]:
+                      - link [ref=f59e563] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/train-wreck
+                        - img "Train Wreck Team Logo" [ref=f59e565]
+                        - text: Train Wreck
+                    - gridcell "14" [ref=f59e566]
+                    - gridcell "6" [ref=f59e567]
+                    - gridcell "4" [ref=f59e568]
+                    - gridcell "4" [ref=f59e569]
+                    - gridcell "0" [ref=f59e570]
+                    - gridcell "16" [ref=f59e571]
+                    - gridcell "33" [ref=f59e572]
+                    - gridcell "34" [ref=f59e573]
+                    - gridcell "-1" [ref=f59e574]
+                    - gridcell "4-3-3-0" [ref=f59e575]
+                    - gridcell "T1" [ref=f59e576]
+                  - row [ref=f59e577]:
+                    - gridcell "3" [ref=f59e578]
+                    - gridcell [ref=f59e579]:
+                      - link [ref=f59e580] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/spartans
+                        - img "Team Canada Logo" [ref=f59e582]
+                        - text: Spartans
+                    - gridcell "14" [ref=f59e583]
+                    - gridcell "4" [ref=f59e584]
+                    - gridcell "6" [ref=f59e585]
+                    - gridcell "4" [ref=f59e586]
+                    - gridcell "0" [ref=f59e587]
+                    - gridcell "12" [ref=f59e588]
+                    - gridcell "47" [ref=f59e589]
+                    - gridcell "44" [ref=f59e590]
+                    - gridcell "3" [ref=f59e591]
+                    - gridcell "3-4-3-0" [ref=f59e592]
+                    - gridcell "L1" [ref=f59e593]
+                  - row [ref=f59e594]:
+                    - gridcell "4" [ref=f59e595]
+                    - gridcell [ref=f59e596]:
+                      - link [ref=f59e597] [cursor=pointer]:
+                        - /url: https://staging.rookiehockey.ca/team/treblemakers
+                        - img "TrebleMakers Team Logo" [ref=f59e599]
+                        - text: TrebleMakers
+                    - gridcell "14" [ref=f59e600]
+                    - gridcell "2" [ref=f59e601]
+                    - gridcell "11" [ref=f59e602]
+                    - gridcell "1" [ref=f59e603]
+                    - gridcell "0" [ref=f59e604]
+                    - gridcell "5" [ref=f59e605]
+                    - gridcell "26" [ref=f59e606]
+                    - gridcell "53" [ref=f59e607]
+                    - gridcell "-27" [ref=f59e608]
+                    - gridcell "2-7-1-0" [ref=f59e609]
+                    - gridcell "W1" [ref=f59e610]
+        - complementary "Sidebar" [ref=f59e611]:
+          - generic [ref=f59e613]:
+            - heading "The next puck drop" [level=4] [ref=f59e614]
+            - generic [ref=f59e616]:
+              - heading [level=3] [ref=f59e617]:
+                - link [ref=f59e618] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/puck-dynasty
+                  - img "An image of a cartoon duck with beard, sunglasses, and hockey sticks above 'Puck Dynasty' text logo." [ref=f59e619]
+                - link [ref=f59e620] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/team/the-hammers
+                  - img "Hammer" [ref=f59e621]
+                - link "Puck Dynasty vs Hammers" [ref=f59e622] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/event/116466
+                - text: (On time)
+              - paragraph [ref=f59e623]:
+                - time [ref=f59e624]:
+                  - generic [ref=f59e625]: 02 days
+                  - generic [ref=f59e626]: 05 hrs
+                  - generic [ref=f59e627]: 03 mins
+                  - generic [ref=f59e628]: 23 secs
+          - generic [ref=f59e629]:
+            - heading "Recent Posts" [level=2] [ref=f59e630]
+            - list [ref=f59e631]:
+              - listitem [ref=f59e632]:
+                - link "Winter Season Registration Update – FAQ" [ref=f59e633] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update-faq
+              - listitem [ref=f59e634]:
+                - link "Winter Season Registration Update" [ref=f59e635] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/winter-season-registration-update
+              - listitem [ref=f59e636]:
+                - link "Player Appreciation Night – Summer 2026" [ref=f59e637] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/08/player-appreciation-night-summer-2026
+              - listitem [ref=f59e638]:
+                - link "Line Dancing at the Raider’s Den – July 17" [ref=f59e639] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/07/line-dancing-at-the-raiders-den-july-17
+              - listitem [ref=f59e640]:
+                - link "Championship Night for Winter 2025-2026" [ref=f59e641] [cursor=pointer]:
+                  - /url: https://staging.rookiehockey.ca/2026/03/hello-arl-players
+          - generic [ref=f59e645]:
+            - text: Some people skate to the puck. I skate to where the puck is going to be.
+            - generic [ref=f59e647]:
+              - generic [ref=f59e648]: 
+              - text: Wayne Gretzky
+    - heading "The ARL extends a very special thanks to..." [level=3] [ref=f59e652]
+    - contentinfo [ref=f59e654]:
+      - generic [ref=f59e657]:
+        - figure [ref=f59e660]:
+          - link [ref=f59e661] [cursor=pointer]:
+            - /url: https://arl.link/helpukraine
+            - img "Flag of Ukraine" [ref=f59e662]
+        - paragraph [ref=f59e664]:
+          - strong [ref=f59e665]:
+            - link "WE STAND WITH UKRAINE" [ref=f59e666] [cursor=pointer]:
+              - /url: https://arl.link/helpukraine
+      - paragraph [ref=f59e673]: © 2026 ARL – Adult Recreational League. All rights reserved.
+  - status [ref=f59e674]
