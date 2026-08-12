@@ -81,34 +81,49 @@
 	padding-block: var(--bl-space-3);
 }
 
+/*
+ * P3 finding 1: the brand mark is the design system (DESIGN.md), but with
+ * no Customizer logo set this box used to render nothing but a hard-
+ * truncated site title ("ARL – ADU…") at EVERY viewport, including ones
+ * with 200px of empty navy to spare. The brand no longer shrinks itself
+ * to make room — .bl-nav is the flex sibling that gives way (min-width: 0
+ * there, see nav.css's `@media (min-width: 880px) .bl-nav` rule; this box
+ * stays flex: 0 0 auto, its natural size). Below 880px .bl-nav is a
+ * hidden drawer instead, so .bl-header__inner's own flex-wrap (see above)
+ * is what protects the row at narrow widths, backed by the ellipsis
+ * fallback confined to .bl-header__site-title below for the rare viewport
+ * still too narrow for the full lockup.
+ */
 .bl-header__brand {
 	display: flex;
-	flex: 0 1 auto;
+	flex: 0 0 auto;
 	align-items: center;
-
-	/*
-	 * min-width: 0 lets this flex item shrink below its text's natural
-	 * width instead of forcing the row to overflow — but without a cap
-	 * on the title itself, that shrink has no floor and the box (and its
-	 * text) can collapse to nothing while siblings keep their full size.
-	 * The max-width + ellipsis on .bl-header__site-title below is the
-	 * floor: it truncates gracefully instead of vanishing.
-	 */
-	min-width: 0;
 }
 
 .bl-header__logo,
 .custom-logo-link {
 	display: inline-flex;
 	align-items: center;
+	gap: var(--bl-space-2);
 	min-width: 0;
 	color: var(--bl-paper);
 }
 
+/*
+ * The mark (device #4 -- the blue leaf) is decorative and duplicates the
+ * wordmark's meaning, so it stays aria-hidden (blueline_leaf_mark()) with
+ * no separate accessible name of its own; the link's visible text
+ * (.bl-header__site-title) is the one thing a screen reader announces.
+ */
+.bl-header__mark {
+	width: 32px;
+	height: 32px;
+	flex: 0 0 auto;
+	color: var(--bl-ice);
+}
+
 .bl-header__site-title {
 	display: inline-block;
-	overflow: hidden;
-	max-width: 8rem;
 	font-family: var(--bl-font-display);
 	font-weight: 800;
 	font-style: italic;
@@ -116,7 +131,25 @@
 	font-size: var(--bl-text-xl);
 	line-height: 1;
 	white-space: nowrap;
-	text-overflow: ellipsis;
+}
+
+/*
+ * Narrow-viewport-only fallback: below 880px .bl-nav is a hidden drawer
+ * (see nav.css), so the header row is just brand + CTA + hamburger with no
+ * shrinking sibling to yield room. .bl-header__inner's flex-wrap already
+ * protects against overflow by dropping the row onto two lines, but on the
+ * narrowest phones that reads worse than a graceful truncation of the
+ * (long) site name -- this is the ONE place an ellipsis is allowed, scoped
+ * to exactly the viewport where there is nowhere else for the width to
+ * come from. Confirmed no horizontal scroll at 360px with this in place.
+ */
+@media (max-width: 479.98px) {
+
+	.bl-header__site-title {
+		max-width: 9rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 }
 
 .custom-logo-link img,
@@ -134,22 +167,33 @@
 }
 
 /*
- * Utility menu (account links -- "My ARL Account", "Log Out"): visually
- * secondary to the primary row and the Register CTA. Plain body font, no
- * skew/pill treatment, no bold/italic/uppercase. --bl-pale on
- * --bl-ink-deep is 10.46:1 (tools/check-contrast.mjs), comfortably above
- * the 4.5:1 AA text minimum.
+ * Utility menu (account links -- "My ARL Account", "Log Out", or "Log In"
+ * when logged out -- see blueline_utility_nav_auth_state() in
+ * inc/template-tags.php): visually secondary to the primary row and the
+ * Register CTA. Plain body font, no skew/pill treatment, no
+ * bold/italic/uppercase. --bl-pale on --bl-ink-deep is 10.46:1
+ * (tools/check-contrast.mjs), comfortably above the 4.5:1 AA text minimum.
+ *
+ * P3 finding 4: "My ARL Account" measured 94x15px at 360px -- well under
+ * WCAG 2.2's 24x24 minimum target size, sitting directly beside "Log Out"
+ * (a mis-tap there logs someone out). The gap between items and the
+ * padding/min-height on each link both grew to fix this: a taller box AND
+ * more separation, not just one or the other.
  */
 .bl-utility-nav__menu {
 	display: flex;
 	align-items: center;
-	gap: var(--bl-space-2);
+	gap: var(--bl-space-3);
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
 
 .bl-utility-nav__menu a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+	padding-block: var(--bl-space-2);
 	color: var(--bl-pale);
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-xs);
@@ -199,18 +243,83 @@
  * that fills `.sp-sponsors-loader` turns out to be genuinely empty (a slot
  * that's on but currently has nothing to show).
  */
+
+/*
+ * P3 finding 6: this slot is intentional (the league sells it), but its
+ * reserved box was ~130px of near-empty navy for one raster with its own
+ * background -- the max-width below is a DISPLAY cap only (the underlying
+ * aspect-ratio, tied to the real sportspress_header_sponsor_* options,
+ * stays 2:1 so the box remains a correctly-proportioned reservation and
+ * the layout-shift fix above this comment block is untouched); the
+ * sponsor image itself (.sp-sponsor-logo, sportspress.css: max-width:100%)
+ * simply scales down to fit. The "Sponsors" title SP prints above the logo
+ * is hidden in this slot specifically -- it doubled the box's height for
+ * no information a small header strip needs.
+ */
 .bl-header__sponsors {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	width: 100%;
-	max-width: 256px; /* sportspress_header_sponsor_width option */
+	max-width: 176px;
 	margin-inline: auto;
 	aspect-ratio: 256 / 128; /* sportspress_header_sponsor_height ratio (2:1) */
 }
 
+/*
+ * `.sp-header-sponsors` (SportsPress's own inline script prepends this),
+ * and everything it wraps down to `.sp-sponsors-loader`, is a chain of
+ * unstyled block elements with no width of their own -- a flex item
+ * defaults to sizing itself from its CONTENT (here, the 256px-wide real
+ * sponsor image), not from the flex container's box, so shrinking
+ * max-width above did nothing on its own: measured live, the image kept
+ * rendering at its full natural width and simply overflowed the smaller
+ * box instead of scaling down with it. Forcing the immediate child to
+ * 100% gives every descendant underneath it (`.sp-sponsors-loader`'s own
+ * `width: 100%; max-width: 256px` among them, sportspress.css) a real,
+ * definite width to resolve their own percentages against, so the whole
+ * chain -- and the image inside it -- finally shrinks to fit this box.
+ */
+.bl-header__sponsors > * {
+	width: 100%;
+}
+
+/*
+ * SportsPress prints this specific image with its own INLINE
+ * `style="max-width:256px; max-height:128px"` (confirmed live) -- an
+ * inline style attribute always wins over any external stylesheet
+ * selector regardless of specificity, `.sp-sponsor-logo { max-width:100% }`
+ * (sportspress.css) included, so the image stayed hard-capped at 256px
+ * and OVERFLOWED this now-smaller box instead of shrinking with it.
+ * `!important` here is the only thing that can out-rank an inline style,
+ * and it's scoped to exactly this one image, in exactly this one slot --
+ * not a global override of `.sp-sponsor-logo` itself, which stays
+ * untouched (and correctly sized at its own default 256px) everywhere
+ * else it's used (e.g. the footer sponsor band, sportspress.css).
+ */
+.bl-header__sponsors img {
+	max-width: 100% !important;
+	height: auto !important;
+}
+
+.bl-header__sponsors .sp-sponsors-title {
+	display: none;
+}
+
 .bl-header__sponsors.is-empty {
 	display: none;
+}
+
+/*
+ * Less prominence on small viewports, per the brief: this slot was eating
+ * above-the-fold space on a phone before an existing player reaches their
+ * own schedule link. Still present (the league sells it) but smaller.
+ */
+@media (max-width: 479.98px) {
+
+	.bl-header__sponsors {
+		max-width: 120px;
+	}
 }
 
 /*

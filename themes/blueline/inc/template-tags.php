@@ -308,6 +308,150 @@ function blueline_header_cta(): array {
 }
 
 /**
+ * Resolves the destination a logged-out visitor's "Log In" link should use:
+ * WooCommerce's myaccount page when available (it renders a login form
+ * there for a logged-out visitor and the account dashboard once logged in
+ * -- verified live, and it's the exact URL this site's own "My ARL
+ * Account" menu item already points at), falling back to wp_login_url()
+ * when WooCommerce isn't active.
+ *
+ * @return string
+ */
+function blueline_utility_login_url() {
+	$url = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : '';
+	return $url ? $url : wp_login_url();
+}
+
+/**
+ * Reduces a URL to a comparable path -- lower-cased, no trailing slash,
+ * scheme/host/query/fragment stripped. Mirrors
+ * Blueline_Nav_Walker::normalize_path()'s identical logic (kept separate
+ * rather than shared: that method is protected and scoped to the
+ * Register-CTA de-dup, a different feature that happens to need the same
+ * comparison).
+ *
+ * @param string $url URL to normalize.
+ * @return string
+ */
+function blueline_utility_normalize_path( $url ) {
+	$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+	return rtrim( strtolower( $path ), '/' );
+}
+
+add_filter( 'wp_nav_menu_objects', 'blueline_utility_nav_auth_state', 10, 2 );
+/**
+ * Makes the header's utility nav (account links) state-aware.
+ *
+ * The 'utility' theme location is a static, admin-managed wp_nav_menu: on
+ * this site it holds "My ARL Account" (-> /account) and "Log Out" (a
+ * custom link with a baked-in _wpnonce), and both rendered unconditionally
+ * -- a logged-OUT visitor was shown a live "Log Out" link sitewide,
+ * including on /account itself while that page renders its own login
+ * form, with nothing to actually get logged in with. Verified live: the
+ * menu carries no separate "Log In" item at all.
+ *
+ * This filters the resolved items for the 'utility' location only, and
+ * only for a logged-out visitor: any item whose URL is a logout action
+ * (`action=logout`, matching both wp_logout_url() and the site's own
+ * wp-login.php?action=logout link) is dropped -- there is nothing to log
+ * out of. An item that already points at the resolved login destination
+ * (on this site, "My ARL Account" -- both it and the login link resolve
+ * to the same /account page) is RELABELLED to "Log In" rather than left
+ * alone: an early version of this fix appended a separate "Log In" item
+ * whenever the menu had no item whose TITLE already said "log in", which
+ * left "My ARL Account" and "Log In" rendering side by side, both
+ * pointing at the identical URL -- confirmed live. Only when no item
+ * points at the login URL at all is a new one appended. A logged-in
+ * visitor's menu is returned completely untouched.
+ *
+ * @param WP_Post[]|object[] $items Nav menu items resolved for this call.
+ * @param stdClass           $args  wp_nav_menu() args object.
+ * @return WP_Post[]|object[]
+ */
+function blueline_utility_nav_auth_state( $items, $args ) {
+	if ( empty( $args->theme_location ) || 'utility' !== $args->theme_location ) {
+		return $items;
+	}
+
+	if ( is_user_logged_in() ) {
+		return $items;
+	}
+
+	$login_url  = blueline_utility_login_url();
+	$login_path = blueline_utility_normalize_path( $login_url );
+
+	$has_login_link = false;
+	$filtered       = array();
+
+	foreach ( $items as $item ) {
+		$url = isset( $item->url ) ? (string) $item->url : '';
+
+		// Nothing to log out of when logged out -- and a stale baked-in
+		// _wpnonce on a static menu item would fail anyway.
+		if ( false !== strpos( $url, 'action=logout' ) ) {
+			continue;
+		}
+
+		if ( '' !== $login_path && blueline_utility_normalize_path( $url ) === $login_path ) {
+			// Same destination as the login link this filter would
+			// otherwise append -- relabel in place instead of duplicating.
+			$item->title    = __( 'Log In', 'blueline' );
+			$has_login_link = true;
+		} else {
+			$title = isset( $item->title ) ? wp_strip_all_tags( (string) $item->title ) : '';
+			if ( false !== stripos( $title, 'log in' ) || false !== stripos( $title, 'sign in' ) ) {
+				$has_login_link = true;
+			}
+		}
+
+		$filtered[] = $item;
+	}
+
+	if ( ! $has_login_link ) {
+		$filtered[] = blueline_utility_login_menu_item( $login_url );
+	}
+
+	return $filtered;
+}
+
+/**
+ * Builds a fake-but-complete nav menu item object for a "Log In" link, in
+ * the same shape Walker_Nav_Menu::start_el() (and any 'nav_menu_css_class'/
+ * 'nav_menu_item_title' filter a plugin has attached) expects a real one to
+ * have -- every property a normal wp_setup_nav_menu_item() result carries,
+ * not just the handful this theme's own walker happens to read, so a
+ * plugin filter touching an unrelated property (e.g. ->object_id) never
+ * hits an undefined-property notice.
+ *
+ * @param string $url Resolved login destination (blueline_utility_login_url()).
+ * @return object
+ */
+function blueline_utility_login_menu_item( $url ) {
+	return (object) array(
+		'ID'                    => 0,
+		'db_id'                 => 0,
+		'title'                 => __( 'Log In', 'blueline' ),
+		'url'                   => $url,
+		'menu_item_parent'      => 0,
+		'object_id'             => 0,
+		'object'                => 'custom',
+		'type'                  => 'custom',
+		'type_label'            => __( 'Custom Link', 'blueline' ),
+		'target'                => '',
+		'attr_title'            => '',
+		'description'           => '',
+		'classes'               => array( 'bl-utility-nav__login' ),
+		'xfn'                   => '',
+		'current'               => false,
+		'current_item_ancestor' => false,
+		'current_item_parent'   => false,
+		'post_type'             => 'nav_menu_item',
+		'post_status'           => 'publish',
+		'menu_order'            => 999,
+	);
+}
+
+/**
  * Output the site header: skip link, navy bar (logo, primary nav, sponsors
  * placeholder, season-aware CTA, mobile toggle), then the paired blue-line
  * bands that separate the header from the paper-white content body.
@@ -330,7 +474,20 @@ function blueline_site_header() {
 					<?php if ( has_custom_logo() ) : ?>
 						<?php the_custom_logo(); ?>
 					<?php else : ?>
+						<?php
+						/*
+						 * Fallback lockup when no Customizer logo is set (staging
+						 * today -- its custom_logo attachment 404s, a known clone
+						 * artifact; production has a real logo and takes the
+						 * has_custom_logo() branch above). DESIGN.md: "the brand
+						 * mark is the design system", so the fallback is the mark
+						 * itself (blueline_leaf_mark(), device #4) plus the
+						 * wordmark -- never bare text alone, and never hard-
+						 * truncated (see .bl-header__site-title in header.css).
+						 */
+						?>
 						<a class="bl-header__logo" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home">
+							<?php blueline_leaf_mark( 'bl-header__mark' ); ?>
 							<span class="bl-header__site-title"><?php bloginfo( 'name' ); ?></span>
 						</a>
 					<?php endif; ?>
@@ -390,19 +547,39 @@ function blueline_site_header() {
 }
 
 /**
- * Output the site footer: four widget columns on the deep-navy ground,
- * then a bottom bar with the leaf mark and copyright line.
+ * Output the site footer: a permanent "The League" trust column (contact,
+ * location, FAQs, legal -- there was previously none of this anywhere in
+ * the footer), any populated widget columns, then a bottom bar with the
+ * leaf mark and copyright line.
+ *
+ * Widget columns that have nothing assigned are skipped entirely rather
+ * than rendered as an empty `.bl-footer__column` -- previously all four
+ * always rendered, so on this site's real configuration (only footer-2
+ * has widgets) three of the four columns were empty containers, against
+ * DESIGN.md's own "never an empty container" rule. footer.css's grid
+ * collapses to however many columns actually render.
  */
 function blueline_site_footer() {
 	?>
 	<footer class="bl-footer">
 		<div class="bl-container bl-footer__columns">
+			<div class="bl-footer__column bl-footer__column--trust">
+				<h2 class="widget-title"><?php esc_html_e( 'The League', 'blueline' ); ?></h2>
+				<p class="bl-footer__location"><?php esc_html_e( 'Burlington, Ontario', 'blueline' ); ?></p>
+				<ul class="bl-footer__trust-links">
+					<li><a href="<?php echo esc_url( home_url( '/arl-league-info/contact-us' ) ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( 'mailto:play@rookiehockey.ca' ); ?>"><?php esc_html_e( 'play@rookiehockey.ca', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( home_url( '/faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( home_url( '/legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
+				</ul>
+			</div>
+
 			<?php for ( $i = 1; $i <= 4; $i++ ) : ?>
-				<div class="bl-footer__column">
-					<?php if ( is_active_sidebar( 'footer-' . $i ) ) : ?>
+				<?php if ( is_active_sidebar( 'footer-' . $i ) ) : ?>
+					<div class="bl-footer__column">
 						<?php dynamic_sidebar( 'footer-' . $i ); ?>
-					<?php endif; ?>
-				</div>
+					</div>
+				<?php endif; ?>
 			<?php endfor; ?>
 		</div>
 

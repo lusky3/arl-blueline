@@ -53,11 +53,11 @@
 	color: var(--bl-pale);
 }
 
-/* Hard constraint: active item is paper-on-ink with an ice underline,
-   never white/paper text directly on the --bl-steel fill. */
+/* Active item's link colour; the chip fill/text itself is set on .bl-skew
+   below, after the base .bl-nav .bl-skew layout rule (selector-order,
+   ascending specificity, matches stylelint's no-descending-specificity). */
 .bl-nav__link[aria-current="page"] {
 	color: var(--bl-paper);
-	border-bottom-color: var(--bl-ice);
 }
 
 /*
@@ -92,8 +92,23 @@
 	line-height: 1.2;
 }
 
+/*
+ * P3 finding 2: the active chip's fill used to be --bl-ink on this bar's
+ * own --bl-ink-deep ground -- 1.28:1, so the only thing that actually read
+ * as "active" was the underline that used to sit on .bl-nav__link[aria-
+ * current="page"], which is not one of the four signature devices. The
+ * chip now uses the palette's documented accent-as-fill pairing instead:
+ * --bl-ice fill with --bl-ink text, 7.69:1 (tools/check-contrast.mjs's
+ * "ink on ice fill" rule already asserts this exact pair). The underline
+ * is dropped in favour of the chip alone -- it was compensating for the
+ * fill not reading, and doubling ice fill + ice underline on the same
+ * active item looked like a single thick block once the fill itself was
+ * visible. Hard constraint unaffected: --bl-ice still never appears as
+ * unfilled text on light.
+ */
 .bl-nav__link[aria-current="page"] .bl-skew {
-	background: var(--bl-ink);
+	background: var(--bl-ice);
+	color: var(--bl-ink);
 }
 
 /*
@@ -281,11 +296,22 @@
 		min-width: 0;
 	}
 
+	/*
+	 * P3 finding 2: .bl-nav .bl-skew's padding/negative-margin pair (above)
+	 * deliberately adds no layout width, so the active item's ribbon
+	 * bleeds ~12px plus ~5px of slant beyond its own link box -- with zero
+	 * gap between adjacent <li>s that bleed ran straight into the next
+	 * item's box (measured live: the active chip visibly collided with
+	 * "SPONSORS" on /standings). This gap gives the bleed room on both
+	 * sides without adding any width to the (already tight, see below)
+	 * per-item footprint itself.
+	 */
 	.bl-nav__menu {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: stretch;
 		justify-content: flex-end;
+		gap: var(--bl-space-4);
 	}
 
 	/*

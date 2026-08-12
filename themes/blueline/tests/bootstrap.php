@@ -323,6 +323,30 @@ if ( ! function_exists( 'get_current_user_id' ) ) {
 		return (int) $state['current_user_id'];
 	}
 }
+if ( ! function_exists( 'is_user_logged_in' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' is_user_logged_in(): matches core's
+	 * own definition -- true whenever there is a non-zero current user id.
+	 * Reuses blueline_test_state()'s existing 'current_user_id' field
+	 * rather than a second flag, so a test only has one thing to set.
+	 *
+	 * @return bool
+	 */
+	function is_user_logged_in() {
+		return get_current_user_id() > 0;
+	}
+}
+if ( ! function_exists( 'wp_login_url' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_login_url().
+	 *
+	 * @param string $redirect Optional post-login redirect (unused, kept for signature parity).
+	 * @return string
+	 */
+	function wp_login_url( $redirect = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; no test needs the redirect param honoured.
+		return 'https://example.test/wp-login.php';
+	}
+}
 if ( ! function_exists( 'current_user_can' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' current_user_can(): only capabilities a

@@ -1,14 +1,46 @@
 /*
  * Blueline — site footer.
- * Four widget columns on --bl-ink-deep, then a bottom bar with the leaf
- * mark and copyright. Everything here sits on a dark ground, so text
- * uses --bl-pale or --bl-paper only, per the contrast guard.
+ * A static trust column plus any populated widget columns on --bl-ink-deep,
+ * then a bottom bar with the leaf mark and copyright. Text on the dark
+ * ground itself uses --bl-pale or --bl-paper only, per the contrast guard
+ * -- the one exception is a widget that sets its own (light) background,
+ * scoped separately below.
  */
 
+/*
+ * P3 finding 7: chrome/content boundaries get the paired blue-line band
+ * (device #2) instead of a generic hairline, same device Package 2 already
+ * uses between homepage modules (homepage.css's `.bl-module + .bl-module`)
+ * -- reused here via the identical margin + ::before/::after technique
+ * rather than the literal .bl-band/.bl-band--ink markup, since this is a
+ * decorative divider at an already-labelled boundary (content ending,
+ * footer chrome starting), not new content needing its own DOM nodes.
+ */
 .bl-footer {
+	position: relative;
 	background: var(--bl-ink-deep);
 	color: var(--bl-pale);
+	margin-block-start: calc(var(--bl-band-ice) + var(--bl-band-ink));
 	padding-block: var(--bl-space-7) var(--bl-space-6);
+}
+
+.bl-footer::before,
+.bl-footer::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+}
+
+.bl-footer::before {
+	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
+	height: var(--bl-band-ice);
+	background: var(--bl-ice);
+}
+
+.bl-footer::after {
+	inset-block-start: calc(-1 * var(--bl-band-ink));
+	height: var(--bl-band-ink);
+	background: var(--bl-ink);
 }
 
 .bl-footer a {
@@ -21,24 +53,55 @@
 	color: var(--bl-paper);
 }
 
+/*
+ * P3 finding 5: a widget/block that sets its own background (WordPress
+ * core block editor's `.has-background` convention -- e.g. this footer's
+ * own yellow "WE STAND WITH UKRAINE" block, a paragraph with an inline
+ * `background-color` style) is opting OUT of the footer's dark ground.
+ * `.bl-footer a`'s blanket --bl-pale doesn't know that: measured live,
+ * that link rendered at ~1.5:1 on the widget's yellow background, and
+ * --bl-pale is documented as "text only on dark" for exactly this reason.
+ * --bl-ink is used rather than `inherit`: a widget that sets ONLY a
+ * background (no text colour of its own) would otherwise still inherit
+ * --bl-pale from .bl-footer above, leaving the same failure. A block that
+ * DOES set its own inline text colour (`has-text-color`, e.g. the Ukraine
+ * block above) keeps it regardless -- an inline `style` attribute always
+ * wins over any external stylesheet rule, this one included.
+ */
+.bl-footer .has-background,
+.bl-footer .has-background a {
+	color: var(--bl-ink);
+}
+
+.bl-footer .has-background a:hover,
+.bl-footer .has-background a:focus-visible {
+	color: var(--bl-ink-mid);
+}
+
+/*
+ * P3 finding 5: four columns always rendered even when three had nothing
+ * assigned (measured live: three with innerHTML.length === 0, each still
+ * occupying 282px of grid) -- against DESIGN.md's "never an empty
+ * container" rule. blueline_site_footer() now skips an unpopulated widget
+ * column entirely rather than rendering it empty, and always renders one
+ * static trust column (contact/location/FAQs/legal -- finding 5's other
+ * half: there was no contact, address, phone or policy link anywhere in
+ * the footer). auto-fit collapses whatever tracks end up with no column in
+ * them instead of reserving all four regardless of how many actually
+ * render, so the grid always matches what's really there.
+ */
 .bl-footer__columns {
 	display: grid;
-	grid-template-columns: repeat(1, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 	gap: var(--bl-space-6);
 }
 
-@media (min-width: 700px) {
-
-	.bl-footer__columns {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
+.bl-footer__column--trust {
+	max-width: 320px;
 }
 
-@media (min-width: 960px) {
-
-	.bl-footer__columns {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
+.bl-footer__location {
+	margin-block: 0 var(--bl-space-3);
 }
 
 .bl-footer__column .widget-title,
