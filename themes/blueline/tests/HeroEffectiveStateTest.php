@@ -89,7 +89,7 @@ final class HeroEffectiveStateTest extends TestCase {
 	 * silently render nothing for it.
 	 */
 	public function test_every_ordered_module_name_is_a_real_renderable_module(): void {
-		$known_modules = array( 'next_games', 'standings_snippet', 'new_here', 'latest_news', 'sponsors' );
+		$known_modules = array( 'next_games', 'standings_snippet', 'new_here', 'latest_news' );
 
 		foreach ( array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' ) as $state ) {
 			foreach ( blueline_homepage_module_order( $state ) as $module ) {

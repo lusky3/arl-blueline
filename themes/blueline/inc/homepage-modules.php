@@ -448,16 +448,26 @@ function blueline_render_hero( string $state ): string {
  * Any state outside the five known values falls back to the offseason
  * order: the smallest, least "sell registration" set of modules.
  *
+ * 'sponsors' was removed from every order below (a later fix): SportsPress
+ * Pro's own footer sponsors block (SportsPress_Sponsors::footer(), hooked
+ * to get_footer sitewide) already renders directly above <footer> on every
+ * page, homepage included, carrying the league's own configured title --
+ * this module was rendering a second, redundant sponsors section only on
+ * the homepage. Removing it here (rather than removing SportsPress's own
+ * sitewide block) keeps sponsors showing on every other page; see
+ * assets/src/css/sportspress.css for the styling now applied to
+ * SportsPress's block instead.
+ *
  * @param string $state Season state.
  * @return string[] Module names, in render order.
  */
 function blueline_homepage_module_order( string $state ): array {
 	$orders = array(
-		'registration_open' => array( 'new_here', 'next_games', 'standings_snippet', 'latest_news', 'sponsors' ),
-		'preseason'         => array( 'next_games', 'new_here', 'latest_news', 'sponsors' ),
-		'in_season'         => array( 'next_games', 'standings_snippet', 'latest_news', 'sponsors' ),
-		'playoffs'          => array( 'next_games', 'standings_snippet', 'latest_news', 'sponsors' ),
-		'offseason'         => array( 'latest_news', 'new_here', 'sponsors' ),
+		'registration_open' => array( 'new_here', 'next_games', 'standings_snippet', 'latest_news' ),
+		'preseason'         => array( 'next_games', 'new_here', 'latest_news' ),
+		'in_season'         => array( 'next_games', 'standings_snippet', 'latest_news' ),
+		'playoffs'          => array( 'next_games', 'standings_snippet', 'latest_news' ),
+		'offseason'         => array( 'latest_news', 'new_here' ),
 	);
 
 	return $orders[ $state ] ?? $orders['offseason'];
@@ -774,44 +784,17 @@ function blueline_homepage_module_latest_news() {
 }
 
 /**
- * The sponsors module: SportsPress's own [sponsors] shortcode. No link/see-more
- * -- sponsors are logos, not a list with a fuller page to browse.
- *
- * Emptiness is checked against the underlying sp_sponsor posts directly,
- * not by stripping tags from the shortcode's own HTML: every real sponsor
- * here renders as a bare `<img>` with an empty alt (decorative logo, no
- * fallback text), so wp_strip_all_tags() on genuinely non-empty markup
- * still returns '' -- that check would misreport real sponsors as absent.
- */
-function blueline_homepage_module_sponsors() {
-	blueline_homepage_module_start( 'sponsors', __( 'Our sponsors', 'blueline' ) );
-
-	$has_sponsors = post_type_exists( 'sp_sponsor' ) && ! empty(
-		get_posts(
-			array(
-				'post_type'      => 'sp_sponsor',
-				'post_status'    => 'publish',
-				'posts_per_page' => 1,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-			)
-		)
-	);
-
-	if ( $has_sponsors && shortcode_exists( 'sponsors' ) ) {
-		echo wp_kses_post( do_shortcode( '[sponsors]' ) );
-	} else {
-		blueline_homepage_module_empty_state( __( 'Sponsor spotlights are coming soon.', 'blueline' ) );
-	}
-
-	blueline_homepage_module_end();
-}
-
-/**
  * Render one named homepage module. Unknown names are a silent no-op -- the
- * brief names exactly five modules and this theme must not invent more.
+ * brief names exactly four modules and this theme must not invent more.
  *
- * @param string $name One of next_games|standings_snippet|new_here|latest_news|sponsors.
+ * A fifth module, 'sponsors', existed here through Task 7 (rendering
+ * SportsPress's own [sponsors] shortcode a second time). It was removed as
+ * a duplicate-content fix: SportsPress Pro's own footer sponsors block
+ * already renders sitewide, homepage included, directly above <footer> --
+ * see blueline_homepage_module_order()'s own comment for the full
+ * reasoning.
+ *
+ * @param string $name One of next_games|standings_snippet|new_here|latest_news.
  */
 function blueline_render_module( string $name ) {
 	$modules = array(
@@ -819,7 +802,6 @@ function blueline_render_module( string $name ) {
 		'standings_snippet' => 'blueline_homepage_module_standings_snippet',
 		'new_here'          => 'blueline_homepage_module_new_here',
 		'latest_news'       => 'blueline_homepage_module_latest_news',
-		'sponsors'          => 'blueline_homepage_module_sponsors',
 	);
 
 	if ( isset( $modules[ $name ] ) ) {

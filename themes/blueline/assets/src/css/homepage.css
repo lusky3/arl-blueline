@@ -95,10 +95,6 @@
 	border-top: 1px solid var(--bl-border);
 }
 
-.bl-module--sponsors {
-	background: var(--bl-surface-sunken);
-}
-
 .bl-module__header {
 	display: flex;
 	flex-wrap: wrap;
@@ -239,19 +235,12 @@
 	white-space: nowrap;
 }
 
-/* standings_snippet / sponsors -- SportsPress's own shortcode markup needs
-   only spacing/overflow guards here; its own CSS (enqueued site-wide by
+/* standings_snippet -- SportsPress's own shortcode markup needs only
+   spacing/overflow guards here; its own CSS (enqueued site-wide by
    SportsPress Pro) supplies the rest. */
 
 .bl-module--standings_snippet .bl-module__body {
 	overflow-x: auto;
-}
-
-.bl-module--sponsors .bl-module__body {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bl-space-5);
-	align-items: center;
 }
 
 @media (min-width: 700px) {

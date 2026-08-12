@@ -100,6 +100,51 @@ function blueline_header_sponsors_selector( $selector ) { // phpcs:ignore Generi
 	return '.bl-header__sponsors';
 }
 
+add_filter( 'option_sportspress_header_sponsors_top', 'blueline_sp_blank_frontend_option' );
+add_filter( 'option_sportspress_header_sponsors_right', 'blueline_sp_blank_frontend_option' );
+add_filter( 'option_sportspress_footer_sponsors_css_background', 'blueline_sp_blank_frontend_option' );
+add_filter( 'option_sportspress_footer_sponsors_css_text', 'blueline_sp_blank_frontend_option' );
+/**
+ * Blank one of SportsPress Sponsors' own decorative option values on the
+ * front end only, so this theme's own token-based CSS is the only styling
+ * that reaches the browser for these two surfaces -- consistent with
+ * DESIGN.md's stated constraint that the theme supplies the only styling
+ * SportsPress surfaces get.
+ *
+ * SportsPress_Sponsors::header() prints
+ * `style="margin-top: {$top}px; margin-right: {$right}px;"` directly on
+ * `.sp-header-sponsors` as an inline HTML attribute -- no CSS selector,
+ * however specific, can ever override that from an external stylesheet.
+ * Blanking the two option values makes it print `style="margin-top: px;
+ * margin-right: px;"`; a value-less declaration like `margin-top: px;` is
+ * invalid CSS and is simply dropped by the browser, which is equivalent to
+ * 0 for this purpose. The offset it would otherwise apply exists to nudge
+ * a sponsor logo away from a generic theme's own header edge --
+ * `.bl-header__sponsors`/`.sp-sponsors-loader` (header.css/sportspress.css)
+ * already reserve and center that exact space, so the extra offset only
+ * pushes the logo outside the box those rules size to.
+ *
+ * SportsPress_Sponsors::footer() prints a real `<style>` block containing
+ * `.sp-footer-sponsors { background: ...; color: ...; }` directly into the
+ * page (not gated by sportspress_enable_frontend_css, which this site
+ * otherwise leaves off) -- an external stylesheet rule of matching
+ * specificity loses to it purely because that block appears later in the
+ * document. Blanking the two colour option values makes those two
+ * declarations value-less and equally droppable, leaving
+ * assets/src/css/sportspress.css's own `.sp-footer-sponsors` rule as the
+ * only one that applies.
+ *
+ * Scoped to the front end only (is_admin() passes the real value straight
+ * through) so the Sponsors settings screen's own colour pickers and
+ * position fields keep showing/editing the site's actual saved values.
+ *
+ * @param mixed $value Stored option value.
+ * @return mixed
+ */
+function blueline_sp_blank_frontend_option( $value ) {
+	return is_admin() ? $value : '';
+}
+
 add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
 /**
  * Guarantee every SportsPress <table> in rendered content either sits

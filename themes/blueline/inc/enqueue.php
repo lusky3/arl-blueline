@@ -81,7 +81,13 @@ function blueline_enqueue_assets() {
 	wp_enqueue_script(
 		'blueline',
 		BLUELINE_URI . '/assets/dist/index.js',
-		array(),
+		// jquery: assets/src/js/sponsors.js listens for jQuery's own global
+		// ajaxComplete event to know when SportsPress's sponsor-loader AJAX
+		// call has settled. `defer` already guarantees this script runs
+		// after any classic (non-deferred) script -- which is how
+		// SportsPress enqueues jQuery -- so this dependency is declared for
+		// correctness rather than to fix an observed ordering bug.
+		array( 'jquery' ),
 		blueline_dist_version( 'index' ),
 		array(
 			'in_footer' => true,

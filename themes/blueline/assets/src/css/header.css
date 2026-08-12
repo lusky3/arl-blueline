@@ -161,8 +161,55 @@
 	color: var(--bl-paper);
 }
 
-/* Task 8 hooks sportspress_header_sponsors_selector at this container. */
-.bl-header__sponsors:empty {
+/*
+ * Task 8 hooks sportspress_header_sponsors_selector at this container.
+ * SportsPress's own inline script (wp_footer, SportsPress_Sponsors::header())
+ * prepends `.sp-header-sponsors` into this element on document ready -- see
+ * sportspress.css's own comment on `.sp-sponsors-loader` for the matching
+ * (AJAX-fill) half of this fix.
+ *
+ * This container reserves its final 256x128 (2:1) box
+ * (sportspress_header_sponsor_width/height, both 256/128 on this site,
+ * verified live) UNCONDITIONALLY, from the very first layout, rather than
+ * only once JS has confirmed a sponsor is actually coming. A first version
+ * of this fix gated the reservation behind a class added by
+ * assets/src/js/sponsors.js on script load; measured live, that class
+ * still landed too late -- `blueline`'s script runs with `defer`, which
+ * only guarantees it runs before DOMContentLoaded, and the browser had
+ * already painted the header at its unreserved (0-height) size well
+ * before that point (confirmed: this element was still childless with the
+ * reservation class absent 200ms after navigation, on a page where the
+ * eventual sponsor image was already visible by 500ms) -- so the class
+ * being added at all was itself a layout shift, the exact defect this is
+ * meant to fix. Reserving unconditionally in plain CSS applies during the
+ * very first layout pass, before any script runs, and removes that
+ * dependency on JS timing entirely -- the prepend then lands into an
+ * already-sized box with no further growth, on every load.
+ *
+ * The cost is the mirror case: on a page where the header sponsor slot is
+ * off site-wide (sportspress_header_sponsors_limit is 0, so
+ * `.sp-header-sponsors` never renders anywhere), this box still reserves
+ * its space at first paint, then assets/src/js/sponsors.js adds .is-empty
+ * to collapse it back to nothing once it confirms (by checking for
+ * `.sp-header-sponsors` elsewhere in the document) that nothing is ever
+ * coming. That is a real, but small and rare, one-time collapse on a page
+ * state this site is not currently even in -- traded deliberately against
+ * eliminating the shift on the common, currently-live state where sponsors
+ * ARE configured. The same script also adds .is-empty if the AJAX response
+ * that fills `.sp-sponsors-loader` turns out to be genuinely empty (a slot
+ * that's on but currently has nothing to show).
+ */
+.bl-header__sponsors {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	max-width: 256px; /* sportspress_header_sponsor_width option */
+	margin-inline: auto;
+	aspect-ratio: 256 / 128; /* sportspress_header_sponsor_height ratio (2:1) */
+}
+
+.bl-header__sponsors.is-empty {
 	display: none;
 }
 

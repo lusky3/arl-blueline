@@ -14,13 +14,19 @@
  *   .sp-scrollable-table, .sp-event-blocks, .sp-event-calendar,
  *   .sp-player-list, .sp-player-statistics, .sp-event-details,
  *   .sp-event-venue, .sp-table-caption, .sp-highlight, .sp-heading,
- *   .sp-view-all-link, .team-logo, .data-rank, .data-name, .data-number.
+ *   .sp-view-all-link, .team-logo, .data-rank, .data-name, .data-number,
+ *   .sp-sponsors, .sp-sponsors-title, .sp-sponsors-loader,
+ *   .sp-header-sponsors, .sp-footer-sponsors, .sponsor, .sp-sponsor-logo
+ *   (all from the SportsPress Sponsors sub-plugin's sponsors.php/
+ *   sponsors-content.php templates and SportsPress_Sponsors::header()/
+ *   footer()).
  *   Theme-owned classes (this task's own markup, in inc/sportspress.php
  *   and sportspress/team-lists.php): .bl-table-scroll, .bl-table-self-scroll,
  *   .sp-scoreboard, .sp-team-list, .bl-sp-hero, .bl-sp-event-teaser,
  *   .bl-sp-empty, .sp-statistic / .sp-statistic-bar (declared for the
  *   brief's named selector; no shipped SP template in this install
- *   currently emits it).
+ *   currently emits it), .is-empty (a state class
+ *   assets/src/js/sponsors.js toggles on the sponsor markup above).
  */
 
 /* ---- Sidebar-aware full-bleed shell for hero-bearing entity pages ---- */
@@ -731,4 +737,152 @@ table.bl-table-self-scroll {
 	.bl-sp-event-teaser__date {
 		grid-column: auto;
 	}
+}
+
+/* ---- Sponsors: [sponsors] shortcode (header slot, footer band) ----
+ *
+ * SportsPress Sponsors renders every instance of `.sp-sponsors` the same
+ * way regardless of where it appears (SP_Shortcode_Sponsors, sponsors.php);
+ * these rules apply to both the header instance
+ * (SportsPress_Sponsors::header(), moved into .bl-header__sponsors by its
+ * own inline script) and the footer band (SportsPress_Sponsors::footer(),
+ * hooked to get_footer, sitewide) below.
+ */
+
+.sp-sponsors {
+	text-align: center;
+}
+
+.sp-sponsors-title {
+	margin-block: 0 var(--bl-space-4);
+	color: var(--bl-ink);
+}
+
+.sponsor {
+	display: inline-block;
+	margin: var(--bl-space-2);
+	vertical-align: middle;
+}
+
+.sp-sponsor-logo {
+	display: block;
+	max-width: 100%;
+	height: auto;
+
+	/* Sponsor logos sit on light ground here -- never invert them, same
+	   rule as .team-logo img above. */
+	filter: none;
+}
+
+/*
+ * [sponsors] with orderby="rand" -- this site's configured order for both
+ * the header and footer sponsor slots (sportspress_header_sponsors_orderby/
+ * sportspress_footer_sponsors_orderby options, verified live) -- renders
+ * this element empty and fills it by AJAX after first paint
+ * (sportspress-pro's own sportspress-sponsors.js:
+ * $('.sp-sponsors-loader').each(...).post(...)). With no size of its own,
+ * the arriving logo used to push the rest of the page down. The
+ * placeholder already carries the intended box as its own data-width/
+ * data-height attributes -- 256x128 for both slots on this site
+ * (sportspress_header_sponsor_width/height and
+ * sportspress_footer_sponsor_width/height options, verified live) -- so
+ * reserving that same 2:1 ratio, capped at 256px, from first paint closes
+ * the gap instead of starting from zero height.
+ *
+ * assets/src/js/sponsors.js watches this element for the AJAX response and
+ * adds .is-empty if it resolves with genuinely nothing (a slot that is
+ * enabled but currently has no matching sponsor) -- so an empty slot
+ * collapses back to nothing instead of sitting as a permanent blank box.
+ * See header.css's own `.bl-header__sponsors` comment for the header
+ * instance's second (DOM-move) half of this fix -- the footer instance
+ * never moves, so this element's own box reservation is the only fix it
+ * needs.
+ */
+.sp-sponsors-loader {
+	display: block;
+	width: 100%;
+	max-width: 256px; /* sportspress_{header,footer}_sponsor_width option */
+	margin-inline: auto;
+	aspect-ratio: 256 / 128; /* sportspress_{header,footer}_sponsor_height ratio (2:1) */
+}
+
+.sp-sponsors-loader.is-empty {
+	width: 0;
+	max-width: 0;
+	aspect-ratio: auto;
+	margin: 0;
+}
+
+.sp-sponsors.is-empty,
+.sp-footer-sponsors.is-empty {
+	display: none;
+}
+
+/* ---- Footer sponsors band ----
+ *
+ * SportsPress Pro's own footer sponsors block, injected sitewide (every
+ * page, not just the homepage) directly above <footer> by
+ * SportsPress_Sponsors::footer(). The theme's own homepage sponsors module
+ * was removed as a duplicate (inc/homepage-modules.php) -- this is now the
+ * only sponsor surface anywhere on the site, so it gets full token-based
+ * treatment rather than the plugin's own hard-coded #f4f4f4/#363f48
+ * (neutralised on the front end by blueline_sp_blank_frontend_option() in
+ * inc/sportspress.php).
+ *
+ * On the homepage this band sits directly under the last module and above
+ * .bl-footer -- the same paper-to-navy transition the header's own hero
+ * makes into the module stack -- so it closes with the same paired
+ * blue-line band device (Device #2, DESIGN.md) rather than the modules'
+ * own plain 1px border-top.
+ */
+.sp-footer-sponsors {
+	position: relative;
+	background: var(--bl-surface-sunken);
+	padding-block: calc(var(--bl-band-ice) + var(--bl-band-ink) + var(--bl-space-8)) var(--bl-space-8);
+}
+
+.sp-footer-sponsors::before,
+.sp-footer-sponsors::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+}
+
+.sp-footer-sponsors::before {
+	top: 0;
+	height: var(--bl-band-ice);
+	background: var(--bl-ice);
+}
+
+.sp-footer-sponsors::after {
+	top: var(--bl-band-ice);
+	height: var(--bl-band-ink);
+	background: var(--bl-ink);
+}
+
+/* .bl-container's own formula (base.css) -- SportsPress's markup has no
+   wrapper element this theme can attach that class to, so the same
+   max-width/centering/side-padding is applied directly here instead. */
+.sp-footer-sponsors .sp-sponsors {
+	max-width: var(--bl-container);
+	margin-inline: auto;
+	padding-inline: var(--bl-space-5);
+}
+
+/*
+ * `body` is load-bearing here, not decorative: SportsPress's own enqueued
+ * sportspress-sponsors.css (confirmed loading on this site -- see the
+ * top-of-file comment's correction below) hard-codes
+ * `.sp-footer-sponsors .sp-sponsors .sp-sponsors-title { color: #ffffff; }`,
+ * a three-class (0,3,0) selector. Matching it at the same three classes
+ * would still lose on a tie (the plugin's stylesheet and this one are both
+ * enqueued in <head>; which prints second is not something this theme
+ * controls or should depend on) -- confirmed live: without the extra
+ * qualifier this rule loses and the title renders invisible white text on
+ * this band's light background. The element qualifier pushes specificity
+ * to (0,3,1), which wins outright regardless of source order.
+ */
+body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
+	color: var(--bl-ink);
+	font-size: var(--bl-text-2xl);
 }
