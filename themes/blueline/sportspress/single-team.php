@@ -7,6 +7,13 @@
  * highlighted), and schedule (fixtures and results, both status-correct --
  * see event-fixtures-results.php's own 'future'-status fixtures query).
  *
+ * Finding 13: the team's colour custom properties are printed a second time
+ * here, on <main> itself, so they are visible to the_content()'s own
+ * league-table markup too -- a SIBLING of the hero <header>, not one of its
+ * descendants, so a property declared only on the header could never reach
+ * it. blueline_team_color_style_attr() itself (inc/team-colors.php) is
+ * untouched -- same derivation, same guard, just read from a wider scope.
+ *
  * @package blueline
  */
 
@@ -14,9 +21,12 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 
-$has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
+$has_sidebar     = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
+$team_color_attr = function_exists( 'blueline_team_color_style_attr' )
+	? blueline_team_color_style_attr( get_queried_object_id() )
+	: '';
 ?>
-<main id="main" class="bl-main bl-main--sp bl-main--sp-hero" tabindex="-1">
+<main id="main" class="bl-main bl-main--sp bl-main--sp-hero" tabindex="-1"<?php echo $team_color_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blueline_team_color_style_attr() returns a complete, esc_attr()'d style attribute built only from hex values it validated itself. ?>>
 	<?php
 	while ( have_posts() ) :
 		the_post();

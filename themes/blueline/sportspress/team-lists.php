@@ -1,7 +1,18 @@
 <?php
 /**
- * Team roster override -- a CSS grid of player cards instead of
- * SportsPress's own <table class="sp-player-list"> markup.
+ * Team roster override -- a compact roster LIST instead of SportsPress's own
+ * <table class="sp-player-list"> markup, and (finding 8) instead of this
+ * theme's own earlier 16-up identical-card grid, which review flagged as
+ * the exact "banned pattern" DESIGN.md warns against: a big jersey number as
+ * the dominant element, the name shrunk to an afterthought, and the word
+ * "SKATER" repeated on every single non-goalie card. A roster is scanned for
+ * NAMES, so the name is now the largest, most prominent thing in each row
+ * (~18px, the same accent-coloured link treatment team names already get in
+ * the standings/schedule tables below), the number is a small fixed-width
+ * column (still present, still useful, just no longer shouting), and
+ * position is shown only when it is not "Skater" -- i.e. only the goalie
+ * actually needs the label, since "Skater" describes almost the entire
+ * roster and adds nothing fifteen times over.
  *
  * This is a partial, not a page template: SportsPress's own team_content()
  * (SP_Template_Loader, hooked to the_content) calls
@@ -100,7 +111,7 @@ foreach ( $lists as $list_post ) :
 			echo '<h5 class="sp-table-caption bl-sp-team-list__group">' . esc_html( $group->name ) . '</h5>';
 		}
 		?>
-		<ul class="sp-team-list bl-sp-team-list">
+		<ul class="bl-sp-roster">
 			<?php
 			foreach ( $rows as $player_id => $row ) :
 				$name = ! empty( $row['name'] ) ? wp_strip_all_tags( $row['name'] ) : (string) get_post_field( 'post_title', $player_id, 'raw' );
@@ -113,6 +124,10 @@ foreach ( $lists as $list_post ) :
 					? $row['number']
 					: get_post_meta( $player_id, 'sp_number', true );
 
+				// Only computed when the list isn't already grouped by
+				// position (a group heading of "Goalie" would make a
+				// per-row repeat of the same word redundant) -- unchanged
+				// from before this finding.
 				$position_label = '';
 				if ( ! $group && taxonomy_exists( 'sp_position' ) ) {
 					$position_terms = wp_get_post_terms( $player_id, 'sp_position' );
@@ -120,20 +135,24 @@ foreach ( $lists as $list_post ) :
 						$position_label = $position_terms[0]->name;
 					}
 				}
+
+				// "Skater" describes nearly the whole roster on a beginner
+				// co-ed league -- showing it on every row is the repeated-
+				// caption problem this finding exists to fix. Anything else
+				// (Goalie, etc.) is genuinely informative and stays.
+				$show_position = ( '' !== $position_label && 0 !== strcasecmp( $position_label, 'Skater' ) );
 				?>
-				<li class="bl-sp-team-list__card">
-					<a class="bl-sp-team-list__link" href="<?php echo esc_url( get_permalink( $player_id ) ); ?>">
+				<li class="bl-sp-roster__row">
+					<span class="bl-sp-roster__number"><?php echo ( '' !== $number && null !== $number ) ? esc_html( $number ) : ''; ?></span>
+					<a class="bl-sp-roster__name" href="<?php echo esc_url( get_permalink( $player_id ) ); ?>">
 						<?php if ( has_post_thumbnail( $player_id ) ) : ?>
-							<span class="bl-sp-team-list__photo"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail' ); ?></span>
+							<span class="bl-sp-roster__photo"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail' ); ?></span>
 						<?php endif; ?>
-						<?php if ( '' !== $number && null !== $number ) : ?>
-							<span class="bl-sp-team-list__number"><?php echo esc_html( $number ); ?></span>
-						<?php endif; ?>
-						<span class="bl-sp-team-list__name"><?php echo esc_html( $name ); ?></span>
-						<?php if ( $position_label ) : ?>
-							<span class="bl-sp-team-list__position"><?php echo esc_html( $position_label ); ?></span>
-						<?php endif; ?>
+						<?php echo esc_html( $name ); ?>
 					</a>
+					<?php if ( $show_position ) : ?>
+						<span class="bl-sp-roster__position"><?php echo esc_html( $position_label ); ?></span>
+					<?php endif; ?>
 				</li>
 				<?php
 			endforeach;

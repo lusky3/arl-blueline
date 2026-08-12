@@ -176,4 +176,63 @@ if ( mirrorFailed ) {
 	console.log( `ok   team-colors.php's ${ MIRRORED.length } mirrored tokens match style.css` );
 }
 
+/*
+ * Finding 11: SportsPress's OWN output, not this theme's tokens, printed a
+ * WCAG failure straight onto the page -- SP_League_Table::data() emits the
+ * STRK column as raw `<span style="color:#888888">`, 3.40:1 on white, below
+ * the 4.5:1 AA floor. This is not a --bl-* token, so it cannot be asserted
+ * the way the palette above is; sportspress.css instead carries a scoped,
+ * `!important` override (the one thing that can still beat an inline style
+ * attribute) neutralising it. This section is the guard: it asserts that
+ * override still exists, still targets the right cell, and still resolves
+ * to an AA-passing colour -- so the rule can't be quietly deleted, retargeted,
+ * or drift toward a token that itself fails contrast, without this build
+ * catching it. This is "sample rendered SportsPress output" in the sense
+ * this toolchain can support without a browser dependency: a known-real
+ * fixture of what the plugin actually emits (confirmed live on /standings),
+ * checked against both its own raw value AND this theme's neutralising fix.
+ */
+const spCssPath = resolve( here, '../assets/src/css/sportspress.css' );
+const spCss = readFileSync( spCssPath, 'utf8' );
+
+const SP_INLINE_COLOR_FIXTURES = [
+	{
+		description: 'league table STRK column outcome span (SP_League_Table::data(), confirmed live on /standings)',
+		selectorHint: 'data-strk',
+		rawColor: '#888888',
+		background: 'bl-paper',
+	},
+];
+
+let spFailed = 0;
+for ( const fixture of SP_INLINE_COLOR_FIXTURES ) {
+	const rawRatio = ratio( fixture.rawColor, token( fixture.background ) );
+	console.log( `--   ${ fixture.description }: raw inline colour is ${ rawRatio.toFixed( 2 ) } on paper (min 4.5) -- expected to fail, that's the bug` );
+
+	// Find the CSS rule block whose selector mentions the fixture's hint and
+	// declares `color: ... !important` -- the neutralising override.
+	const ruleRe = new RegExp( `[^{}]*${ fixture.selectorHint }[^{}]*\\{([^}]*)\\}`, 'g' );
+	let matchedRatio = null;
+	let m;
+	while ( ( m = ruleRe.exec( spCss ) ) !== null ) {
+		const decl = m[ 1 ].match( /color\s*:\s*(var\(\s*--([\w-]+)\s*\)|#[0-9a-fA-F]{6})\s*!important/ );
+		if ( ! decl ) continue;
+		const resolved = decl[ 2 ] ? token( decl[ 2 ] ) : decl[ 1 ];
+		matchedRatio = ratio( resolved, token( fixture.background ) );
+		break;
+	}
+
+	if ( null === matchedRatio ) {
+		console.log( `FAIL no !important colour override found in sportspress.css for a selector matching "${ fixture.selectorHint }" -- the ${ fixture.rawColor } inline-style failure is unguarded again` );
+		spFailed++;
+		continue;
+	}
+
+	const ok = matchedRatio >= 4.5;
+	console.log( `${ ok ? 'ok  ' : 'FAIL' } sportspress.css neutralises it to ${ matchedRatio.toFixed( 2 ) } on paper (min 4.5)` );
+	if ( ! ok ) spFailed++;
+}
+
+failed += spFailed;
+
 process.exit( failed ? 1 : 0 );

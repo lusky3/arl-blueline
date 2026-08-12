@@ -5,14 +5,23 @@
  * arena split into named pads at the same address (e.g. term 14 "Red" and
  * term 13 "Black" both sit at 1179 Northside Rd) -- a cross-link to any
  * sibling pad so a player who lands on the wrong one can find the right
- * game. The venue term's own name already carries the pad distinction; this
- * template does not invent a second "Twin Rinks" label that could drift out
- * of sync with the taxonomy.
+ * game. The page's own H1 (get_the_archive_title(), filtered by
+ * blueline_sp_venue_archive_title() in inc/sportspress.php) already names
+ * the arena via blueline_venue_label(); this template does not invent a
+ * second, differently-derived label of its own.
  *
- * The main query here is patched via blueline_sp_venue_archive_include_future()
- * (inc/sportspress.php) to include 'future'-status events -- WordPress's
- * default main-query post_status is 'publish' only, which would otherwise
- * silently drop every upcoming game at this venue.
+ * P0 finding 3: the main WP_Query that used to drive this template applies
+ * WordPress's default `post_date DESC` the moment
+ * blueline_sp_venue_archive_include_future() (inc/sportspress.php) adds
+ * 'future' to its post_status -- confirmed live, /venue/red opened on the
+ * single farthest-future event, five more at that same date, then the next-
+ * farthest, with 2,168 mostly-historical events sitting behind all of it.
+ * This template now runs two of its OWN WP_Query objects instead of relying
+ * on the main query at all: upcoming events (including 'future' status)
+ * ordered ascending (soonest first, the way a player actually wants to see
+ * what's next), and past events ordered descending (most recent first,
+ * paginated) -- the same split single-team.php's own the_content() already
+ * gets correct via SportsPress's own event-fixtures-results.php.
  *
  * @package blueline
  */
@@ -90,22 +99,122 @@ if ( $term_id && $address && taxonomy_exists( 'sp_venue' ) ) {
 					<?php the_archive_description( '<div class="bl-archive-header__description">', '</div>' ); ?>
 				</header>
 
-				<?php if ( have_posts() ) : ?>
+				<?php
+				$now_mysql       = current_time( 'mysql' );
+				$venue_tax_query = array(
+					array(
+						'taxonomy' => 'sp_venue',
+						'field'    => 'term_id',
+						'terms'    => $term_id,
+					),
+				);
+
+				// Soonest first. Includes 'future' status -- the hard
+				// constraint that upcoming games are post_status = 'future',
+				// not 'publish' -- capped rather than paginated, since a
+				// venue realistically has a short list of what's coming up,
+				// not thousands of rows.
+				$upcoming_query = new WP_Query(
+					array(
+						'post_type'      => 'sp_event',
+						'post_status'    => array( 'publish', 'future' ),
+						'tax_query'      => $venue_tax_query, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- taxonomy archive template; equivalent cost to the main query this replaces.
+						'orderby'        => 'date',
+						'order'          => 'ASC',
+						'date_query'     => array(
+							array(
+								'column'    => 'post_date',
+								'after'     => $now_mysql,
+								'inclusive' => true,
+							),
+						),
+						'posts_per_page' => 50,
+						'no_found_rows'  => true,
+					)
+				);
+
+				// Most recent first, paginated -- this is the "2,168 mostly-
+				// historical events" bucket, so it gets real pagination
+				// rather than dumping the entire history on one page.
+				$bl_paged   = max( 1, (int) get_query_var( 'paged' ) );
+				$past_query = new WP_Query(
+					array(
+						'post_type'      => 'sp_event',
+						'post_status'    => 'publish',
+						'tax_query'      => $venue_tax_query, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- taxonomy archive template; equivalent cost to the main query this replaces.
+						'orderby'        => 'date',
+						'order'          => 'DESC',
+						'date_query'     => array(
+							array(
+								'column'    => 'post_date',
+								'before'    => $now_mysql,
+								'inclusive' => false,
+							),
+						),
+						'paged'          => $bl_paged,
+						'posts_per_page' => (int) get_option( 'posts_per_page' ),
+					)
+				);
+
+				$has_any_events = $upcoming_query->have_posts() || $past_query->have_posts();
+				?>
+
+				<?php if ( ! $has_any_events ) : ?>
+					<?php get_template_part( 'content', 'none' ); ?>
+				<?php endif; ?>
+
+				<?php if ( $upcoming_query->have_posts() ) : ?>
+					<h2 class="bl-sp-venue-header__section"><?php esc_html_e( 'Upcoming games', 'blueline' ); ?></h2>
 					<ul class="bl-sp-event-teaser-list">
 						<?php
-						while ( have_posts() ) :
-							the_post();
+						while ( $upcoming_query->have_posts() ) :
+							$upcoming_query->the_post();
 							if ( function_exists( 'blueline_sp_event_teaser' ) ) {
 								?>
 								<li><?php blueline_sp_event_teaser( get_the_ID() ); ?></li>
 								<?php
 							}
 						endwhile;
+						wp_reset_postdata();
 						?>
 					</ul>
-					<?php blueline_pagination(); ?>
-				<?php else : ?>
-					<?php get_template_part( 'content', 'none' ); ?>
+				<?php endif; ?>
+
+				<?php if ( $past_query->have_posts() ) : ?>
+					<h2 class="bl-sp-venue-header__section"><?php esc_html_e( 'Past games', 'blueline' ); ?></h2>
+					<ul class="bl-sp-event-teaser-list">
+						<?php
+						while ( $past_query->have_posts() ) :
+							$past_query->the_post();
+							if ( function_exists( 'blueline_sp_event_teaser' ) ) {
+								?>
+								<li><?php blueline_sp_event_teaser( get_the_ID() ); ?></li>
+								<?php
+							}
+						endwhile;
+						wp_reset_postdata();
+						?>
+					</ul>
+					<?php
+					$pagination_links = paginate_links(
+						array(
+							'base'      => str_replace( 999999999, '%#%', esc_url( get_pagenum_link( 999999999 ) ) ),
+							'format'    => '?paged=%#%',
+							'current'   => $bl_paged,
+							'total'     => (int) $past_query->max_num_pages,
+							'prev_text' => '<span aria-hidden="true">&larr;</span> ' . __( 'Newer', 'blueline' ),
+							'next_text' => __( 'Older', 'blueline' ) . ' <span aria-hidden="true">&rarr;</span>',
+							'type'      => 'list',
+						)
+					);
+					if ( $pagination_links ) :
+						?>
+						<nav class="bl-pagination" aria-label="<?php esc_attr_e( 'Past games navigation', 'blueline' ); ?>">
+							<?php echo wp_kses_post( $pagination_links ); ?>
+						</nav>
+						<?php
+					endif;
+					?>
 				<?php endif; ?>
 
 			</div>

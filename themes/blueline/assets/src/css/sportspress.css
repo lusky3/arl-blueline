@@ -1,12 +1,18 @@
 /*
  * Blueline — SportsPress data surfaces.
  *
- * sportspress_enable_frontend_css is unset (defaults to "no") on this site,
- * so SportsPress emits no CSS of its own: every rule below is the ONLY
- * styling any of these classes ever receive, not an override of an
- * existing SP colour system. Reuses base.css utilities (.bl-container,
- * .bl-skew, .bl-band/.bl-band--ink, table defaults) rather than
- * redefining them.
+ * Correction (P0/P1 pass): sportspress_enable_frontend_css is unset
+ * (defaults to "no"), which does turn off the plugin's big, TOGGLE-gated
+ * frontend stylesheet -- but a SEPARATE, small, always-loaded core
+ * stylesheet (includes/sportspress/assets/css/sportspress.css, confirmed
+ * live regardless of that option) ships with the plugin unconditionally.
+ * It supplies structural rules this file relies on rather than repeats --
+ * `.sp-header{z-index:10000}` (the P0 finding 1 bug), `.data-home`/
+ * `.data-away` text-align, `.team-logo` base sizing, `date{display:none}`
+ * inside .sp-event-list -- so "SportsPress emits no CSS" is not quite true;
+ * "SportsPress emits no VISUAL/colour styling" is the accurate version.
+ * Reuses base.css utilities (.bl-container, .bl-skew, .bl-band/.bl-band--ink,
+ * table defaults) rather than redefining them.
  *
  * Class provenance, so a future edit doesn't guess wrong:
  *   Real SportsPress markup (confirmed by reading the installed plugin's
@@ -19,14 +25,19 @@
  *   .sp-header-sponsors, .sp-footer-sponsors, .sponsor, .sp-sponsor-logo
  *   (all from the SportsPress Sponsors sub-plugin's sponsors.php/
  *   sponsors-content.php templates and SportsPress_Sponsors::header()/
- *   footer()).
- *   Theme-owned classes (this task's own markup, in inc/sportspress.php
- *   and sportspress/team-lists.php): .bl-table-scroll, .bl-table-self-scroll,
- *   .sp-scoreboard, .sp-team-list, .bl-sp-hero, .bl-sp-event-teaser,
- *   .bl-sp-empty, .sp-statistic / .sp-statistic-bar (declared for the
- *   brief's named selector; no shipped SP template in this install
- *   currently emits it), .is-empty (a state class
- *   assets/src/js/sponsors.js toggles on the sponsor markup above).
+ *   footer()), .sp-countdown-wrapper/.sp-event-name/.sp-countdown (the
+ *   countdown widget template), .gallery-item/.gallery-icon/.gallery-caption
+ *   ([team_gallery]'s own team-gallery-thumbnail.php).
+ *   Theme-owned classes (in inc/sportspress.php and sportspress/*.php
+ *   overrides): .bl-table-scroll, .bl-table-self-scroll, .sp-scoreboard,
+ *   .bl-sp-roster (finding 8's roster list, replacing the earlier
+ *   .sp-team-list card grid), .bl-sp-hero, .bl-sp-event-teaser,
+ *   .bl-sp-empty, .bl-sp-schedule/.bl-sp-date-heading (finding 9's
+ *   event-list.php override), .bl-sp-standings-toggle-* /.bl-sp-col-*
+ *   (finding 14's league-table.php override), .sp-statistic /
+ *   .sp-statistic-bar (declared for the brief's named selector; no shipped
+ *   SP template in this install currently emits it), .is-empty (a state
+ *   class assets/src/js/sponsors.js toggles on the sponsor markup above).
  */
 
 /* ---- Sidebar-aware full-bleed shell for hero-bearing entity pages ---- */
@@ -162,10 +173,19 @@ table.bl-table-self-scroll {
 /* Real, currently-emitted highlight class: today's calendar cell, a
    player/team's own row in a trimmed table, the active-season stat column.
    Fill only, ink text on top -- the same vetted 7.69:1 pairing as
-   .bl-btn--primary's ice fill (tools/check-contrast.mjs). */
+   .bl-btn--primary's ice fill (tools/check-contrast.mjs).
+
+   Finding 13: on a team's own single page, --bl-team-primary/-on-primary are
+   declared on <main> itself (single-team.php), which is an ANCESTOR of this
+   cell (the_content()'s own league-table markup) -- so a team's own division
+   row picks up ITS colour here instead of the theme's generic ice fill,
+   purely through custom-property inheritance. Everywhere else on the site
+   (standings page, calendars, any other .sp-highlight) those properties are
+   simply undefined and this falls back to the ice/ink pair exactly as
+   before. */
 .sp-highlight {
-	background: var(--bl-ice);
-	color: var(--bl-ink);
+	background: var(--bl-team-primary, var(--bl-ice));
+	color: var(--bl-team-on-primary, var(--bl-ink));
 	font-weight: 700;
 }
 
@@ -349,71 +369,85 @@ table.bl-table-self-scroll {
 	}
 }
 
-/* ---- Theme-owned roster grid override: sportspress/team-lists.php ---- */
+/* ---- Theme-owned roster list override: sportspress/team-lists.php ----
+ *
+ * Finding 8: replaces the earlier 16-up identical-card grid (banned pattern
+ * -- big number, small name, "SKATER" repeated on almost every card) with a
+ * compact list. A roster is scanned for NAMES, so the name is now the
+ * largest, most prominent element in each row (~18px, the same link colour
+ * team names get in the tables below -- .sp-data-table's own default `a`
+ * styling, not overridden to plain ink the way the old card grid did), the
+ * number is a small fixed-width tabular column, and position shows only
+ * when it isn't "Skater".
+ */
 
-.sp-team-list {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-	gap: var(--bl-space-3);
+.bl-sp-team-list__group {
+	margin-block: var(--bl-space-5) var(--bl-space-2);
+}
+
+.bl-sp-roster {
 	margin: 0 0 var(--bl-space-5);
 	padding: 0;
 	list-style: none;
+	border-top: 1px solid var(--bl-border);
 }
 
-.bl-sp-team-list__card {
-	border: 1px solid var(--bl-border);
-	border-radius: var(--bl-radius-card);
-}
-
-.bl-sp-team-list__link {
-	display: flex;
-	flex-direction: column;
+.bl-sp-roster__row {
+	display: grid;
+	grid-template-columns: 2.5rem 1fr auto;
 	align-items: center;
-	gap: var(--bl-space-1);
-	padding: var(--bl-space-4) var(--bl-space-3);
-	color: var(--bl-ink);
-	text-align: center;
-	text-decoration: none;
+	gap: var(--bl-space-3);
+	padding-block: var(--bl-space-2);
+	border-bottom: 1px solid var(--bl-border);
 }
 
-.bl-sp-team-list__link:hover,
-.bl-sp-team-list__link:focus-visible {
-	color: var(--bl-accent-text);
+.bl-sp-roster__row:hover,
+.bl-sp-roster__row:focus-within {
+	background: var(--bl-surface-sunken);
 }
 
-.bl-sp-team-list__photo {
+.bl-sp-roster__number {
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	color: var(--bl-ink-mid);
+	text-align: end;
+}
+
+.bl-sp-roster__name {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	font-size: var(--bl-text-lg);
+	font-weight: 600;
+	min-width: 0;
+}
+
+.bl-sp-roster__photo {
 	display: block;
-	width: 56px;
-	height: 56px;
-	margin-block-end: var(--bl-space-2);
+	width: 32px;
+	height: 32px;
+	flex: 0 0 auto;
 	border-radius: 50%;
 	overflow: hidden;
 }
 
 /* stylelint-disable-next-line no-descending-specificity -- img thumb */
-.bl-sp-team-list__photo img {
+.bl-sp-roster__photo img {
 	display: block;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 }
 
-.bl-sp-team-list__number {
-	font-family: var(--bl-font-display);
-	font-weight: 800;
-	font-style: italic;
-	font-size: var(--bl-text-xl);
-	color: var(--bl-accent-text);
-}
-
-.bl-sp-team-list__name {
-	font-weight: 600;
-}
-
-.bl-sp-team-list__position {
+.bl-sp-roster__position {
+	justify-self: end;
+	padding: 1px var(--bl-space-2);
+	border: 1px solid var(--bl-border-strong);
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-xs);
 	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
 }
 
 /* ---- Theme-owned stat chip (declared per the brief; no shipped SP
@@ -644,6 +678,23 @@ table.bl-table-self-scroll {
 	height: 100%;
 }
 
+/* Finding 7: players get the same photo/fallback treatment teams get
+   (previously the player hero had no image slot at all) -- circular rather
+   than the team's rounded-square plate, so a player photo and a team crest
+   never read as the same kind of object at a glance. */
+.bl-sp-hero__crest--player {
+	overflow: hidden;
+	border: 1px solid var(--bl-border-strong);
+	border-radius: 50%;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- img thumb */
+.bl-sp-hero__crest--player img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
 /* ---- Team colours ----------------------------------------------------
  *
  * inc/team-colors.php puts a team's own colour on `.bl-sp-hero--team` as
@@ -670,32 +721,50 @@ table.bl-table-self-scroll {
  */
 
 /*
- * The blue-line band device, wearing the team's colour. A fill, so the raw
- * primary is safe here; the navy rule underneath keeps the band readable
- * even when a team's colour is near-white.
+ * Finding 13: the hero itself is now the coloured band -- a fill, so the
+ * raw primary is safe here (the same "any colour works as a fill" rule the
+ * top-of-section comment states) -- with the derived on-primary foreground
+ * for its own text. The paired blue-line band (Device #2) underneath, in
+ * team primary + ink, replaces the old border-top/box-shadow approximation
+ * with the real .bl-band/.bl-band--ink elements every other hero already
+ * uses (see blueline_sp_team_hero(), inc/sportspress.php).
  */
 .bl-sp-hero--team {
 	position: relative;
-	border-top: var(--bl-band-ice) solid var(--bl-team-primary, var(--bl-ice));
-	box-shadow: inset 0 var(--bl-band-ink) 0 0 var(--bl-ink);
+	background: var(--bl-team-primary, transparent);
+	color: var(--bl-team-on-primary, inherit);
+}
+
+.bl-sp-hero--team .bl-band {
+	background: var(--bl-team-primary, var(--bl-ice));
+}
+
+.bl-sp-hero--team .bl-sp-hero__meta {
+	color: var(--bl-team-on-primary, var(--bl-ink-mid));
 }
 
 /*
- * Crest plate. The fill is the team's colour; the ring is the contrast-safe
- * accent so it stays visible for pale teams, falling back to the theme's
- * own steel stroke when a team has no usable accent.
+ * Crest plate. Filled with the derived on-primary colour -- NOT the raw
+ * team primary -- so the plate stays visible against a hero band that is
+ * now ALSO the team's primary colour; using the same colour for both would
+ * make the crest plate invisible against its own background. The ring uses
+ * the same on-primary colour, guaranteed (by construction) to contrast
+ * against the primary-filled band regardless of how light or dark that
+ * primary is, unlike --bl-team-accent (which is only derived against the
+ * theme's paper ground, not against a team's own colour).
  */
 .bl-sp-hero--team .bl-sp-hero__crest {
 	padding: var(--bl-space-2);
-	background: var(--bl-team-primary, transparent);
-	border: 2px solid var(--bl-team-accent, var(--bl-steel));
+	background: var(--bl-team-on-primary, transparent);
+	border: 2px solid var(--bl-team-on-primary, var(--bl-steel));
 	border-radius: var(--bl-radius-card);
 }
 
-/* The fallback leaf mark sits ON the plate, so it takes the derived
-   foreground rather than the theme's ice fill. */
+/* The fallback leaf mark sits ON the plate, so it takes the team's primary
+   colour back again -- the plate is on-primary, the mark is primary, the
+   pair always contrasts by construction. */
 .bl-sp-hero--team .bl-sp-hero__crest--fallback {
-	color: var(--bl-team-on-primary, var(--bl-ice));
+	color: var(--bl-team-primary, var(--bl-ice));
 }
 
 /* Division / meta chips pick up the team's accent as their boundary. */
@@ -719,6 +788,17 @@ table.bl-table-self-scroll {
 .bl-sp-venue-header__siblings {
 	margin: 0 0 var(--bl-space-2);
 	color: var(--bl-ink-mid);
+}
+
+/* Finding 3: the upcoming/past section split. */
+.bl-sp-venue-header__section {
+	margin-block: var(--bl-space-6) var(--bl-space-3);
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-lg);
+	color: var(--bl-ink);
 }
 
 /* ---- Compact event teaser rows (venue archive, generic SP archive) ---- */
@@ -753,6 +833,12 @@ table.bl-table-self-scroll {
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-sm);
 	font-variant-numeric: tabular-nums;
+}
+
+/* Finding 10: the venue label ("Arena — Pad") riding along on the teaser's
+   own date line. */
+.bl-sp-event-teaser__venue {
+	font-variant-numeric: normal;
 }
 
 .bl-sp-event-teaser__title {
@@ -927,6 +1013,25 @@ table.bl-table-self-scroll {
 	max-width: var(--bl-container);
 	margin-inline: auto;
 	padding-inline: var(--bl-space-5);
+
+	/* Finding 6: every other heading on the site is left-aligned;
+	   .sp-sponsors's own base rule (above) centres itself and everything
+	   that inherits from it, which is correct for the SMALL header slot but
+	   wrong for this full-width band. Scoped to the footer instance only --
+	   the header sponsors slot keeps its own, differently-sized treatment
+	   in header.css. */
+	text-align: left;
+
+	/* SportsPress's own markup (sponsors.php/sponsors-content.php) has no
+	   wrapper element around the individual sponsor links -- .sp-sponsors
+	   itself holds the optional <h3> title AND every `.sponsor` <a> as
+	   direct siblings -- so THIS element is the grid; the title is pulled
+	   back out of the column flow below rather than requiring a wrapper
+	   this theme has no hook to add. */
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	align-items: center;
+	gap: var(--bl-space-5);
 }
 
 /*
@@ -945,4 +1050,452 @@ table.bl-table-self-scroll {
 body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	color: var(--bl-ink);
 	font-size: var(--bl-text-2xl);
+
+	/* Pulled out of the logo grid below -- see .sp-footer-sponsors
+	   .sp-sponsors's own comment for why the title is a grid sibling of
+	   the logos rather than living in a separate wrapper. */
+	grid-column: 1 / -1;
+}
+
+/*
+ * Finding 6: logos stacked vertically in a ~640px-tall band for three
+ * sponsors (each `.sponsor` is `display: inline-block`, so three near-
+ * 256px-wide logos simply wrap onto their own lines at most viewport
+ * widths) with no shared sizing, no shared background, and each carrying
+ * its own inline `style="max-width:256px; max-height:128px;"` (rendered by
+ * SportsPress's own sponsors-content.php from the
+ * sportspress_footer_sponsor_width/height options). A uniform grid with a
+ * uniform logo max-height fixes both -- 1-4 sponsors sit in one row of
+ * even columns instead of a tall stack, regardless of how many more get
+ * added later.
+ *
+ * `!important` on the logo's max-height is deliberate, not a shortcut:
+ * SportsPress hard-codes `style="max-height:{option}px"` directly on the
+ * <img> tag itself (see the docblock above blueline_sp_blank_frontend_option()
+ * in inc/sportspress.php for the general rule this follows) -- an inline
+ * style attribute beats any external stylesheet rule regardless of
+ * specificity, `!important` is the one thing that still wins. Blanking the
+ * driving option instead (this file's usual pattern) was ruled out here
+ * because that SAME option also sizes the AJAX loader's reserved
+ * placeholder box (.sp-sponsors-loader, below) -- blanking it would reopen
+ * the layout-shift bug that box exists to prevent.
+ */
+.sp-footer-sponsors .sponsor {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+}
+
+.sp-footer-sponsors .sp-sponsor-logo {
+	width: auto;
+	height: auto;
+	max-width: 100% !important;
+	max-height: 96px !important;
+	object-fit: contain;
+}
+
+/*
+ * This site's actual configuration (sportspress_footer_sponsors_orderby =
+ * "rand", verified live) means the sponsor links above never render as
+ * direct children of .sp-sponsors at all -- SportsPress's own AJAX loader
+ * (.sp-sponsors-loader, documented in full below) injects them INSIDE
+ * itself client-side (`self.html(response)`, sportspress-sponsors.js), so
+ * the loader itself -- not .sp-sponsors -- is the real grid container once
+ * populated. `:not(:empty)` is the signal: the loader has zero children
+ * before that response arrives, so this cannot apply to the still-loading
+ * placeholder box (sized separately below), only to one that has actually
+ * received sponsor markup. Scoped to the footer band only -- the header
+ * slot's loader stays the small single-logo box it already is.
+ */
+.sp-footer-sponsors .sp-sponsors-loader {
+
+	/* Spans the full band width rather than sitting in one column of
+	   .sp-sponsors's own outer grid (alongside the title) -- it becomes ITS
+	   OWN grid of logos below once populated, and needs the full row to lay
+	   them out in. */
+	grid-column: 1 / -1;
+}
+
+.sp-footer-sponsors .sp-sponsors-loader:not(:empty) {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	align-items: center;
+	gap: var(--bl-space-5);
+	width: 100%;
+	max-width: none;
+	aspect-ratio: auto;
+}
+
+/* ---- Countdown widget (finding 4) ----
+ *
+ * sidebar-1 renders on all seven sportspress/*.php templates, and the
+ * countdown widget is the one thing that historically lives there -- but
+ * nothing anywhere styled .sp-countdown-wrapper/.sp-event-name/.sp-countdown,
+ * so it rendered as bare, unstyled text, and its own <time> re-rendered
+ * every second with variable-width digits (no tabular-nums), reflowing the
+ * sidebar continuously. Fixed-width tabular figures on one line stop that:
+ * the four <span> blocks (days/hrs/mins/secs) never change width as their
+ * numbers change, so the layout around them can't shift either.
+ */
+.sp-countdown-wrapper {
+	padding: var(--bl-space-4);
+	border: 1px solid var(--bl-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.sp-event-name {
+	margin: 0 0 var(--bl-space-2);
+	font-size: var(--bl-text-base);
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.sp-event-name a {
+	color: var(--bl-ink);
+}
+
+.sp-event-name .team-logo {
+	margin-inline-end: var(--bl-space-1);
+}
+
+.sp-event-venue,
+.sp-event-league {
+	margin: 0 0 var(--bl-space-1);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
+.sp-countdown {
+	display: flex;
+	flex-wrap: nowrap;
+	gap: var(--bl-space-3);
+	margin: var(--bl-space-2) 0 0;
+	overflow-x: auto;
+}
+
+.sp-countdown time {
+	display: flex;
+	gap: var(--bl-space-3);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- countdown digit */
+.sp-countdown time span {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 2.25ch;
+	font-variant-numeric: tabular-nums;
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	font-size: var(--bl-text-lg);
+	color: var(--bl-ink);
+}
+
+.sp-countdown time span small {
+	font-family: var(--bl-font-body, inherit);
+	font-weight: 600;
+	font-style: normal;
+	font-size: var(--bl-text-xs);
+	color: var(--bl-ink-mid);
+	text-transform: uppercase;
+}
+
+/* ---- Team gallery: [team_gallery] (finding 5) ----
+ *
+ * SportsPress's own team-gallery.php/team-gallery-thumbnail.php templates
+ * (used on /rosters-and-stats) render a bare <dl class="gallery-item"> per
+ * team with dead Foundation classes (small-3 columns) and no styling of any
+ * kind -- the theme declares html5 gallery support (inc/setup.php), so the
+ * plugin's own inline <style> fallback never even prints. This is CSS-only:
+ * the markup itself needs no structural override, just real layout.
+ */
+.sp-team-gallery-wrapper {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+	gap: var(--bl-space-4) var(--bl-space-3);
+	margin: var(--bl-space-4) 0;
+	padding: 0;
+}
+
+.sp-team-gallery-wrapper .gallery-item {
+	margin: 0;
+	text-align: center;
+}
+
+.sp-team-gallery-wrapper .gallery-icon a {
+	display: block;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- img thumb */
+.sp-team-gallery-wrapper .gallery-icon img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1;
+	object-fit: contain;
+	margin-inline: auto;
+}
+
+.sp-team-gallery-wrapper .gallery-caption {
+	margin: var(--bl-space-1) 0 0;
+	font-size: var(--bl-text-xs);
+	font-weight: 600;
+	color: var(--bl-ink-mid);
+}
+
+.sp-team-gallery-wrapper .gallery-caption a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.sp-team-gallery-wrapper .gallery-caption a:hover,
+.sp-team-gallery-wrapper .gallery-caption a:focus-visible {
+	color: var(--bl-accent-text);
+	text-decoration: underline;
+}
+
+/* ---- Player details / selector (finding 7) ---- */
+
+.sp-template-details .sp-list-wrapper {
+	max-width: 32rem;
+}
+
+.sp-player-details {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: var(--bl-space-1) var(--bl-space-4);
+	margin: var(--bl-space-4) 0;
+}
+
+.sp-player-details dt {
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+.sp-player-details dd {
+	margin: 0;
+	color: var(--bl-ink);
+}
+
+.bl-sp-player-selector {
+	margin: 0 0 var(--bl-space-5);
+}
+
+.bl-sp-player-selector__label {
+	display: block;
+	margin-block-end: var(--bl-space-1);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-xs);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+.sp-player-selector {
+	width: 100%;
+	max-width: 24rem;
+	padding: var(--bl-space-2) var(--bl-space-3);
+	border: 1px solid var(--bl-border-strong);
+	border-radius: var(--bl-radius-card);
+	background: var(--bl-white);
+	color: var(--bl-ink);
+	font-size: var(--bl-text-base);
+}
+
+.sp-player-selector:hover,
+.sp-player-selector:focus-visible {
+	border-color: var(--bl-accent-text);
+}
+
+/* ---- Schedule table override: sportspress/event-list.php (finding 9) ----
+ *
+ * .sp-event-list's own base alignment/logo rules (.data-home/.data-away
+ * text-align, .team-logo sizing) come from SportsPress's own always-loaded
+ * core stylesheet -- see the top-of-file correction -- and are left alone;
+ * these rules only add what that stylesheet doesn't: the date-group
+ * heading row, de-emphasised (not link-blue) date/arena, and a tighter row.
+ */
+/* stylelint-disable no-descending-specificity -- this whole block is one
+   unrelated component (the schedule override); ordering it purely to
+   satisfy the linter against distant, unrelated generic rules elsewhere in
+   this file would not make either more readable. */
+.bl-sp-date-heading th {
+	padding: var(--bl-space-2) var(--bl-space-3);
+	background: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-base);
+	color: var(--bl-ink);
+	text-align: start;
+	border-bottom: 2px solid var(--bl-border-strong);
+}
+
+.bl-sp-schedule td,
+.bl-sp-schedule th {
+	padding-block: var(--bl-space-1);
+}
+
+.bl-sp-schedule .bl-sp-schedule__time,
+.bl-sp-schedule .bl-sp-schedule__time a {
+	color: var(--bl-ink-mid);
+	font-variant-numeric: tabular-nums;
+}
+
+.bl-sp-schedule .bl-sp-schedule__time a {
+	text-decoration: none;
+}
+
+.bl-sp-schedule .bl-sp-schedule__time a:hover,
+.bl-sp-schedule .bl-sp-schedule__time a:focus-visible {
+	text-decoration: underline;
+}
+/* stylelint-enable no-descending-specificity */
+
+.bl-sp-schedule .data-venue {
+	color: var(--bl-ink-mid);
+}
+
+/* ---- Data-table row hover + mobile scroll cue (finding 12) ----
+ *
+ * No .sp-data-table anywhere had a hover state; on a 30-row schedule the
+ * eye tracks ~790px across a row with no highlight to anchor it. Paired
+ * with a focus-within state so keyboard traversal through a row's own link
+ * gets the same feedback a mouse hover does.
+ */
+.sp-data-table tbody tr:hover,
+.sp-data-table tbody tr:focus-within {
+	background: var(--bl-surface-sunken);
+}
+
+.sp-data-table tbody tr.odd:hover,
+.sp-data-table tbody tr.even:hover,
+.sp-data-table tbody tr.odd:focus-within,
+.sp-data-table tbody tr.even:focus-within {
+	background: var(--bl-surface-sunken);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+	.sp-data-table tbody tr {
+		transition: background-color 0.12s ease;
+	}
+}
+
+/*
+ * Edge fade on the mobile scroll wrapper -- a visual cue that the table
+ * keeps going sideways, discoverable without first accidentally swiping.
+ * A background gradient on the wrapper would be painted UNDER every row's
+ * own opaque zebra background (.sp-data-table tbody tr.odd/.even) and never
+ * actually be visible -- `mask-image` instead fades the wrapper's own FINAL
+ * composited rendering (rows and all), which is unaffected by anything
+ * being opaque underneath it. Masked against the wrapper's own box, not
+ * against scroll position, so it's a permanent "there's more here" hint
+ * rather than a shadow that reacts as you scroll -- simpler, and sufficient
+ * for the job of being discoverable in the first place. Degrades to no
+ * mask (full opacity, no cue, no harm) in a browser without mask-image
+ * support.
+ *
+ * .sp-scrollable-table-wrapper is SportsPress's OWN always-loaded core JS
+ * (`$(".sp-scrollable-table").wrap(...)`, confirmed live) -- the ACTUAL
+ * scroll container for any table still carrying that class is this one, not
+ * .bl-table-scroll around it (that outer wrapper never itself overflows,
+ * since its one child -- this inner wrapper -- already clips to the same
+ * width). Both get the cue so it appears regardless of which of the two
+ * actually ends up doing the scrolling for a given table.
+ */
+.bl-table-scroll,
+.sp-scrollable-table-wrapper,
+table.bl-table-self-scroll {
+	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+	mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
+/* ---- SportsPress inline-style neutralisation (finding 11) ----
+ *
+ * SP_League_Table::data() prints the STRK column as raw
+ * `<span style="color:{outcome-colour}">` -- #888888 for any outcome with
+ * no colour configured, 3.40:1 on white, below the 4.5:1 AA floor. An
+ * inline style attribute beats any external rule regardless of selector
+ * specificity except one marked !important, which is the one thing that
+ * still wins -- see tools/check-contrast.mjs's own new section asserting
+ * this rule keeps existing and keeps passing AA, so this class of failure
+ * cannot silently regress.
+ */
+.sp-data-table td.data-strk span[style] {
+	color: var(--bl-ink-mid) !important;
+}
+
+/* ---- Standings "full stats" toggle: sportspress/league-table.php
+   (finding 14) ----
+ *
+ * No JavaScript: a visually-hidden checkbox plus a `~` sibling selector
+ * against the table's own column classes. Pos / Team / Record / Points
+ * show by default; checking it reveals every raw SportsPress column (GP, W,
+ * L, Tie, OT, GF, GA, Diff, L10, Strk) and hides the now-redundant
+ * synthesised Record column in their place. Unique per table instance
+ * (league-table.php's own $identifier) so /standings's five division
+ * tables each keep their own independent toggle state.
+ */
+.bl-sp-standings-toggle-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+}
+
+.bl-sp-standings-toggle-label {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	margin-block-end: var(--bl-space-3);
+	padding: var(--bl-space-1) var(--bl-space-3);
+	border: 1px solid var(--bl-border-strong);
+	border-radius: 999px;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	user-select: none;
+}
+
+.bl-sp-standings-toggle-label::before {
+	content: "";
+	display: inline-block;
+	width: 0.9em;
+	height: 0.9em;
+	border: 1px solid var(--bl-border-strong);
+	border-radius: 3px;
+	background: var(--bl-white);
+}
+
+.bl-sp-standings-toggle-input:checked ~ .bl-sp-standings-toggle-label {
+	color: var(--bl-ink);
+	border-color: var(--bl-steel);
+}
+
+.bl-sp-standings-toggle-input:checked ~ .bl-sp-standings-toggle-label::before {
+	background: var(--bl-ice);
+	border-color: var(--bl-steel);
+}
+
+.bl-sp-standings-toggle-input:focus-visible ~ .bl-sp-standings-toggle-label {
+	outline: var(--bl-focus);
+	outline-offset: var(--bl-focus-offset);
+}
+
+.bl-sp-standings-toggle-input:not(:checked) ~ .sp-table-wrapper .bl-sp-col-extra {
+	display: none;
+}
+
+.bl-sp-standings-toggle-input:checked ~ .sp-table-wrapper .bl-sp-col-record {
+	display: none;
 }
