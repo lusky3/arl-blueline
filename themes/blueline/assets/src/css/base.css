@@ -63,6 +63,37 @@ h4 {
 	font-style: italic;
 	text-transform: uppercase;
 	line-height: 0.92;
+
+	/*
+	 * Even out the line lengths of display headings rather than letting the
+	 * last line drop a single orphan word. This matters more here than on a
+	 * typical site: the display face is heavy italic caps at up to
+	 * --bl-text-4xl, so one stranded word is a very loud mistake. Falls back
+	 * to normal wrapping where unsupported.
+	 */
+	text-wrap: balance;
+
+	/*
+	 * Team and sponsor names come from league-entered content and are not
+	 * length-checked anywhere. A single long unbroken token (a hyphen-free
+	 * sponsor name, a pasted URL) would otherwise push its container wider
+	 * than the viewport, which the site-wide "body never scrolls
+	 * horizontally" rule forbids.
+	 */
+	overflow-wrap: anywhere;
+
+	/*
+	 * Anchored headings clear any sticky element above them (the My Account
+	 * rail is sticky) instead of landing underneath it.
+	 */
+	scroll-margin-top: var(--bl-space-6);
+}
+
+/* Long-form prose: avoid orphans without the tighter balancing above. */
+p,
+li,
+dd {
+	text-wrap: pretty;
 }
 
 a {
@@ -73,6 +104,30 @@ a {
 :focus-visible {
 	outline: var(--bl-focus);
 	outline-offset: var(--bl-focus-offset);
+}
+
+/*
+ * Touch behaviour for everything interactive.
+ *
+ * `touch-action: manipulation` drops the ~300ms delay mobile browsers add
+ * while they wait to see whether a tap is a double-tap-to-zoom. This site's
+ * in-season audience is overwhelmingly on a phone, checking one fact, so
+ * that delay is felt on the taps that matter most.
+ *
+ * The tap highlight is set deliberately rather than left to the UA default,
+ * which is a translucent black box that reads as a rendering glitch on the
+ * navy chrome. Tinting it with the brand's own ice hue keeps the feedback
+ * but makes it look intentional. Zoom itself is untouched -- the viewport
+ * meta never disables it.
+ */
+a,
+button,
+summary,
+[role="button"],
+input[type="submit"],
+input[type="button"] {
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: rgb(116 192 225 / 25%); /* --bl-ice at 25% */
 }
 
 table {

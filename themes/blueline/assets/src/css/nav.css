@@ -225,7 +225,21 @@
 		scrollbar-color: var(--bl-steel) transparent;
 		overscroll-behavior: contain;
 		background: var(--bl-ink-deep);
-		padding: var(--bl-space-8) var(--bl-space-5) var(--bl-space-6);
+
+		/*
+		 * Full-bleed fixed overlay, so it has to respect the device's own
+		 * unsafe regions: on a notched phone the top padding otherwise puts
+		 * the first menu item under the notch, and the bottom one puts the
+		 * last item under the home indicator, where it is both hard to read
+		 * and hard to tap. env() resolves to 0 everywhere else, so this
+		 * costs nothing on hardware without insets.
+		 */
+		padding-block:
+			calc(var(--bl-space-8) + env(safe-area-inset-top))
+			calc(var(--bl-space-6) + env(safe-area-inset-bottom));
+		padding-inline:
+			calc(var(--bl-space-5) + env(safe-area-inset-left))
+			calc(var(--bl-space-5) + env(safe-area-inset-right));
 	}
 
 	body.bl-nav-open .bl-nav__menu {
