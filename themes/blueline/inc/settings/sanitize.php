@@ -165,24 +165,51 @@ function blueline_percent_is_safe( string $text ): bool {
 
 /**
  * Produce a corrected version of $text that a volunteer can paste straight
- * back into the field: every "%" that could not fatal (a recognised "%%"
- * escape, or a complete conversion specification) is left exactly as
- * written, and every "%" that WOULD fatal -- the ones blueline_percent_is_safe()
- * flags -- is doubled into a literal "%%" escape.
+ * back into the field: a "%%" escape is always left exactly as written, and
+ * every OTHER "%" -- a bare one that cannot complete any specification at
+ * all, or a complete conversion spec that is not in $wanted -- is escaped by
+ * prefixing it with an extra "%", turning it into a literal percent sign
+ * followed by whatever text came after it (e.g. "% o" becomes "%% o", which
+ * sprintf() renders back as the literal text "% o", consuming no argument).
  *
- * Scans with the same three-way pattern as the two functions above, tried in
- * the same order (recognised "%%" first, then a complete spec, then a bare
- * "%" as the fallback that only matches what neither of those could), so a
- * bare "%" is corrected without disturbing a "%%" or a spec already present
- * elsewhere in the same string.
+ * Scans with the same three-way pattern as the functions above, tried in the
+ * same order (recognised "%%" first, then a complete spec, then a bare "%"
+ * as the fallback that only matches what neither of those could), so a fix
+ * touches only the "%" that actually needs it.
  *
- * @param string $text Text to correct.
- * @return string $text with every unsafe "%" escaped to "%%".
+ * $wanted defaults to "every complete spec already present in $text" --
+ * i.e. touch nothing but a genuinely bare, unparseable "%" -- which is the
+ * right default when the caller already knows $text failed
+ * blueline_percent_is_safe() and just wants that failure corrected without
+ * relitigating which specs are declared. Passing the field's OWN declared
+ * `placeholders` array instead (see blueline_sanitize_field()) additionally
+ * escapes a complete-but-UNDECLARED spec -- the "hides in ordinary prose"
+ * case from BLUELINE_SPRINTF_SPEC's docblock, where blueline_percent_is_safe()
+ * alone would report the text as "safe" because the spec parses fine; it is
+ * just not one this field ever asked for.
+ *
+ * @param string        $text   Text to correct.
+ * @param string[]|null $wanted Conversion specs to leave untouched even
+ *                              though they are not "%%". Defaults to every
+ *                              spec already found in $text.
+ * @return string $text with every unwanted "%" escaped to a literal "%%".
  */
-function blueline_escape_stray_percents( string $text ): string {
+function blueline_escape_stray_percents( string $text, ?array $wanted = null ): string {
+	$wanted ??= blueline_extract_placeholders( $text );
+
 	return (string) preg_replace_callback(
 		'/%%|' . BLUELINE_SPRINTF_SPEC . '|%/',
-		static fn( array $m ): string => '%' === $m[0] ? '%%' : $m[0],
+		static function ( array $m ) use ( $wanted ): string {
+			if ( '%%' === $m[0] ) {
+				return $m[0];
+			}
+
+			if ( '%' === $m[0] ) {
+				return '%%';
+			}
+
+			return in_array( $m[0], $wanted, true ) ? $m[0] : '%' . $m[0];
+		},
 		$text
 	);
 }
@@ -219,37 +246,57 @@ function blueline_escape_stray_percents( string $text ): string {
  * contains one it doesn't recognise. That is an instantly-recoverable false
  * positive -- typing "%%" instead of "%" fixes it, and the error message
  * below says so and hands back the corrected string -- traded deliberately
- * against the alternative false negative: a stray "%" that silently
- * corrupts the rendered output or fatals the public site, verified on this
- * runtime (see BLUELINE_SPRINTF_SPEC's docblock and the task report):
+ * against the alternative false negative: a stray "%" that, depending on
+ * arity, either silently corrupts the rendered output or fatals the public
+ * site (see the worked example a few paragraphs down). Given that choice,
+ * false positive wins.
+ *
+ * The full check, run unconditionally for every string-valued field, ends in
+ * one of two DISTINCT rejection messages -- not one generic one -- because
+ * they call for different fixes and a volunteer should not have to work out
+ * which applies:
+ *
+ * (a) STRAY PERCENT -- `blueline_unsafe_format_specifier`. Either
+ *     blueline_percent_is_safe() found a "%" that cannot complete any valid
+ *     specification at all, or the field declares NO placeholders at all
+ *     (`placeholders => array()`) yet the value contains one anyway -- which
+ *     can only mean an ordinary "%" a volunteer meant literally was
+ *     accidentally read as a formatting instruction (see
+ *     BLUELINE_SPRINTF_SPEC's docblock for how easily "% off" becomes a real
+ *     `% o` spec). Both read the same to the person who has to fix them: a
+ *     stray "%" that must become "%%". The message names the offending
+ *     sequence when there is one to name, explains what PHP does with it,
+ *     and hands back the corrected string via blueline_escape_stray_percents()
+ *     rather than leaving a volunteer to guess.
+ * (b) CONTRACT MISMATCH -- `blueline_placeholder_mismatch`. The field DOES
+ *     declare specific required placeholders, and the value's actual set
+ *     differs from them -- a required one was dropped, an unexpected one was
+ *     added, or both. Nothing here is "accidental" in the same sense as (a):
+ *     these are real, valid conversion specs, just the wrong ones for this
+ *     field's call site. The message names which placeholder is missing
+ *     and/or which one is unexpected, in whichever direction(s) apply,
+ *     rather than printing the whole required list and leaving the reader to
+ *     diff it against what they typed.
+ *
+ * Either way: a value missing a required spec would ArgumentCountError at
+ * the real call site for lack of an argument to fill it; a value containing
+ * an extra spec the schema did not declare would ArgumentCountError or
+ * silently misuse an argument for exactly the same reason, just from the
+ * other direction -- verified on this runtime (see BLUELINE_SPRINTF_SPEC's
+ * docblock and the task report):
  *
  *   sprintf( 'Save 50% off', 'X' )  -> 'Save 500ff'      (silent corruption)
  *   sprintf( 'Save 50% off' )       -> ArgumentCountError (public-site fatal)
- *
- * Given that choice, false positive wins.
- *
- * The full check, run unconditionally for every string-valued field:
- *
- * 1. Contain no "%" that would fatal in sprintf()/printf() -- see
- *    blueline_percent_is_safe(). Rejection names the fix: write a literal
- *    percent as "%%", and shows the corrected string
- *    (blueline_escape_stray_percents()) rather than leaving a volunteer to
- *    guess.
- * 2. Contain EXACTLY the declared set of conversion specifications (`array()`
- *    when `placeholders` is absent), as a multiset (same specs, same count
- *    each, order-independent) -- not merely "contains at least these". A
- *    value missing a required spec would ArgumentCountError at the real call
- *    site for lack of an argument to fill it; a value containing an EXTRA
- *    spec the schema did not declare -- including an accidental one hiding
- *    in ordinary prose, see BLUELINE_SPRINTF_SPEC's docblock -- would
- *    ArgumentCountError or silently misuse an argument for exactly the same
- *    reason, just from the other direction.
  *
  * A field failing either check returns a WP_Error rather than the sanitized
  * value, so register_setting()'s sanitize_callback (a later task's wiring)
  * can refuse to store it and report the failure back to the admin screen
  * that submitted it, instead of writing a value that fatals the next time
- * its call site runs.
+ * its call site runs. Both messages interpolate field-controlled data (the
+ * schema's own `label`) and value-derived data (the corrected string, the
+ * offending specs) that a caller echoing this message MUST still esc_html()
+ * at the point of output -- this function returns plain text, not
+ * pre-escaped markup.
  *
  * @param mixed $value The raw, as-submitted field value.
  * @param array $field The field's schema entry (inc/settings/defaults.php's
@@ -259,7 +306,8 @@ function blueline_escape_stray_percents( string $text ): string {
  *               submitted value was rejected.
  */
 function blueline_sanitize_field( $value, array $field ) {
-	$type = $field['type'] ?? 'text';
+	$type  = $field['type'] ?? 'text';
+	$label = $field['label'] ?? '';
 
 	if ( 'bool' === $type ) {
 		return (bool) $value;
@@ -276,30 +324,76 @@ function blueline_sanitize_field( $value, array $field ) {
 			'blueline_unsafe_format_specifier',
 			sprintf(
 				/* translators: 1: the field's label, 2: the value corrected to a saveable form. */
-				__( '"%1$s" can\'t be saved as written -- it contains a "%%" that PHP would treat as a broken placeholder and crash the site on. To write a literal percent sign, use "%%%%" instead. Try: %2$s', 'blueline' ),
-				$field['label'] ?? '',
+				__( '"%1$s" contains a "%%" that PHP can\'t parse as a formatting instruction -- depending on the value, this can silently corrupt the saved text or crash the page. To show a percent sign, double it: %2$s', 'blueline' ),
+				$label,
 				blueline_escape_stray_percents( $sanitized )
 			)
 		);
 	}
 
 	$required = (array) ( $field['placeholders'] ?? array() );
-	sort( $required );
+	$found    = blueline_extract_placeholders( $sanitized );
 
-	$found = blueline_extract_placeholders( $sanitized );
-	sort( $found );
+	$required_sorted = $required;
+	sort( $required_sorted );
+	$found_sorted = $found;
+	sort( $found_sorted );
 
-	if ( $required !== $found ) {
+	if ( $required_sorted === $found_sorted ) {
+		return $sanitized;
+	}
+
+	// From here, $required and $found differ. array_diff() is set-based
+	// (it does not weigh duplicate counts), which is fine for naming specs
+	// in a message -- the sorted-array compare above is what already made
+	// the reject decision correctly for the (rare, currently unreachable)
+	// case of a required spec repeated a different number of times than it
+	// appears.
+	$missing = array_values( array_diff( $required, $found ) );
+	$extra   = array_values( array_diff( $found, $required ) );
+
+	if ( empty( $required ) && ! empty( $extra ) ) {
+		// This field declares NO placeholders at all, yet the value
+		// contains one -- there is no legitimate reading of that: it can
+		// only be an ordinary "%" a volunteer meant literally, accidentally
+		// completing a real conversion spec (see BLUELINE_SPRINTF_SPEC's
+		// docblock). Treated as a stray percent, not a "contract mismatch",
+		// because that is what it actually is.
 		return new WP_Error(
-			'blueline_placeholder_mismatch',
+			'blueline_unsafe_format_specifier',
 			sprintf(
-				/* translators: 1: the field's label, 2: comma-separated list of required placeholders, or "none" when the field permits no conversion specs at all. */
-				__( '"%1$s" must contain exactly these placeholders: %2$s', 'blueline' ),
-				$field['label'] ?? '',
-				$required ? implode( ', ', $required ) : __( 'none', 'blueline' )
+				/* translators: 1: the field's label, 2: the accidental conversion spec(s) found, 3: the value corrected to a saveable form. */
+				__( '"%1$s" contains "%2$s", which PHP reads as a formatting instruction rather than a literal percent sign -- depending on the value, this can silently corrupt the saved text or crash the page. To show a percent sign, double it: %3$s', 'blueline' ),
+				$label,
+				implode( ', ', $extra ),
+				blueline_escape_stray_percents( $sanitized, $required )
 			)
 		);
 	}
 
-	return $sanitized;
+	$reasons = array();
+	if ( $missing ) {
+		$reasons[] = sprintf(
+			/* translators: %s: comma-separated list of required placeholders absent from the value. */
+			__( 'must contain %s -- it\'s missing', 'blueline' ),
+			implode( ', ', $missing )
+		);
+	}
+	if ( $extra ) {
+		$reasons[] = sprintf(
+			/* translators: %s: comma-separated list of placeholders present but not declared by this field. */
+			__( 'contains %s, which is not expected here -- remove it', 'blueline' ),
+			implode( ', ', $extra )
+		);
+	}
+
+	return new WP_Error(
+		'blueline_placeholder_mismatch',
+		sprintf(
+			/* translators: 1: the field's label, 2: what is missing and/or unexpected, already assembled into one clause. */
+			__( '"%1$s" %2$s.', 'blueline' ),
+			$label,
+			implode( '; ', $reasons )
+		)
+	);
 }

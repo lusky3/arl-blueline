@@ -198,6 +198,17 @@ final class SettingsSanitizeTest extends TestCase {
 		);
 		$result = blueline_sanitize_field( 'Save 50% off, %s!', $field );
 		$this->assertWPError( $result, 'the % in "% off" is itself a valid, undeclared conversion spec' );
+
+		// Fix round 2: this field DOES declare a contract (%s), so the
+		// undeclared "% o" is a contract-mismatch message ("contains X,
+		// remove it"), not the stray-percent wording -- the field's real
+		// declared placeholder (%s) is still present and correct, only the
+		// extra one is the problem. Named specifically, not just "here is
+		// the full required list, go diff it yourself".
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( '% o', $message, 'must name the specific undeclared spec, not just say something is wrong' );
+		$this->assertStringContainsString( 'not expected', $message );
+		$this->assertStringContainsString( 'remove', strtolower( $message ) );
 	}
 
 	/**
@@ -265,10 +276,10 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * The rejection message itself must be actionable, not just true: a
-	 * volunteer hitting this must not have to guess what "%%" means or
-	 * where to put it. Asserts the exact wording, including the corrected
-	 * string handed back ready to paste in.
+	 * Fix round 2, case (a) genuinely-malformed subtype: the rejection
+	 * message itself must be actionable, not just true. Asserts the exact
+	 * wording, including the corrected string handed back ready to paste
+	 * in, for a "%" that cannot complete any specification at all.
 	 */
 	public function test_the_unsafe_percent_error_names_the_fix_and_shows_the_correction(): void {
 		$field  = array(
@@ -286,6 +297,124 @@ final class SettingsSanitizeTest extends TestCase {
 			'Save 50%% today',
 			$message,
 			'must show the corrected, ready-to-paste string, not just describe the fix'
+		);
+	}
+
+	/**
+	 * Fix round 2, case (a) accidental-valid-spec subtype -- the coordinator's
+	 * own reported bug: a field declaring NO placeholders at all
+	 * (`placeholders => array()`) rejects "Save 50% off" because "% off"
+	 * hides a real `% o` spec, but the message used to be the generic
+	 * contract-mismatch wording ("must contain exactly these placeholders:
+	 * none"), which never mentions "%%", never says what was wrong with what
+	 * was typed, and never shows the fix. This asserts the corrected
+	 * wording: names the offending spec, explains PHP reads it as a
+	 * formatting instruction rather than a literal percent sign, states the
+	 * silent-corruption risk, and hands back the corrected string.
+	 */
+	public function test_an_accidental_placeholder_in_a_no_placeholder_field_gets_the_stray_percent_message(): void {
+		$field  = array(
+			'type'         => 'text',
+			'label'        => 'Footer heading',
+			'placeholders' => array(),
+		);
+		$result = blueline_sanitize_field( 'Save 50% off', $field );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'blueline_unsafe_format_specifier', $result->get_error_code() );
+
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( 'Footer heading', $message );
+		$this->assertStringContainsString( '% o', $message, 'must name the specific accidental spec found, e.g. "% o"' );
+		$this->assertStringContainsString( 'formatting instruction', $message );
+		$this->assertStringContainsString(
+			'Save 50%% off',
+			$message,
+			'must show the corrected, ready-to-paste string'
+		);
+	}
+
+	/**
+	 * Fix round 2, case (b) missing: a field that DOES declare a required
+	 * placeholder must name it specifically when a replacement drops it,
+	 * not just say "here is the full required list, go work out what's
+	 * wrong" -- this is the "%s" example from the coordinator's brief.
+	 */
+	public function test_the_dropped_placeholder_error_names_which_one_is_missing(): void {
+		$field  = array(
+			'type'         => 'text',
+			'label'        => 'Off-season CTA',
+			'placeholders' => array( '%s' ),
+		);
+		$result = blueline_sanitize_field( 'Back on the ice.', $field );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'blueline_placeholder_mismatch', $result->get_error_code() );
+
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( 'Off-season CTA', $message );
+		$this->assertStringContainsString( '%s', $message, 'must name the specific missing placeholder' );
+		$this->assertStringContainsString( 'missing', strtolower( $message ) );
+	}
+
+	/**
+	 * Fix round 2, case (b) extra, isolated from the "hides in ordinary
+	 * prose" scenario covered elsewhere: a genuinely-intentional-looking
+	 * extra placeholder (not one accidentally spelled out of plain English)
+	 * on a field that DOES have its own real contract must still be named
+	 * specifically and told to be removed.
+	 */
+	public function test_an_unexpected_extra_placeholder_error_names_it_and_says_remove(): void {
+		$field  = array(
+			'type'         => 'text',
+			'label'        => 'Off-season CTA',
+			'placeholders' => array( '%s' ),
+		);
+		$result = blueline_sanitize_field( 'Back on the ice %s, week %d!', $field );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'blueline_placeholder_mismatch', $result->get_error_code() );
+
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( 'Off-season CTA', $message );
+		$this->assertStringContainsString( '%d', $message, 'must name the specific unexpected placeholder' );
+		$this->assertStringContainsString( 'not expected', $message );
+		$this->assertStringContainsString( 'remove', strtolower( $message ) );
+	}
+
+	/**
+	 * Both directions at once: a required placeholder dropped AND an extra,
+	 * undeclared one added in the same replacement. The message must name
+	 * both, not silently report only whichever one the implementation
+	 * happens to check first.
+	 */
+	public function test_a_replacement_that_both_drops_and_adds_a_placeholder_names_both(): void {
+		$field  = array(
+			'type'         => 'text',
+			'label'        => 'Season banner',
+			'placeholders' => array( '%s', '%d' ),
+		);
+		$result = blueline_sanitize_field( 'Week %d, %1$s', $field );
+
+		$this->assertWPError( $result );
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( '%s', $message, 'must name the missing placeholder' );
+		$this->assertStringContainsString( '%1$s', $message, 'must name the unexpected extra placeholder' );
+		$this->assertStringContainsString( 'missing', strtolower( $message ) );
+		$this->assertStringContainsString( 'remove', strtolower( $message ) );
+	}
+
+	/**
+	 * The escape helper, called with an explicit $wanted list, must escape a
+	 * complete, syntactically valid spec that is not in $wanted -- not just
+	 * a genuinely bare, unparseable "%" -- since this is what builds the
+	 * corrected suggestion for the "hides in ordinary prose" case, where the
+	 * offending "%" completes a real spec PHP would happily parse.
+	 */
+	public function test_escape_stray_percents_with_explicit_wanted_list_escapes_undeclared_specs(): void {
+		$this->assertSame(
+			'Save 50%% off, %s!',
+			blueline_escape_stray_percents( 'Save 50% off, %s!', array( '%s' ) )
 		);
 	}
 
