@@ -115,15 +115,44 @@ if ( ! function_exists( 'wp_strip_all_tags' ) ) {
 }
 if ( ! function_exists( 'wp_kses' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' wp_kses(): strips every tag, since no
-	 * test in this suite needs an allowed-tags allowlist honoured.
+	 * Minimal stand-in for WordPress' wp_kses(): strips every tag not present
+	 * in the allowlist, so tests can assert that markup actually survives (or
+	 * is stripped by) escaping rather than passing vacuously either way.
+	 *
+	 * Core wp_kses() special-cases <script> and <style>: it removes the whole
+	 * element, tags AND enclosed content, regardless of the allowlist -- a
+	 * plain strip_tags() would leave the enclosed text behind as inert-looking
+	 * (but still attacker-controlled) output. That removal is replicated here
+	 * before the allowlist-based strip_tags() runs.
 	 *
 	 * @param string $t            String to sanitize.
-	 * @param array  $allowed_html Unused; kept for signature parity.
+	 * @param array  $allowed_html Map of allowed tag name => attributes.
 	 * @return string
 	 */
-	function wp_kses( $t, $allowed_html = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- stub always strips; no test asserts on an allowlist.
-		return preg_replace( '/<[^>]*>/', '', (string) $t );
+	function wp_kses( $t, $allowed_html = array() ) {
+		$t       = (string) preg_replace( '@<(script|style)[^>]*?>.*?</\1>@si', '', (string) $t );
+		$allowed = array_keys( is_array( $allowed_html ) ? $allowed_html : array() );
+		return $allowed
+			? strip_tags( $t, '<' . implode( '><', $allowed ) . '>' )
+			: strip_tags( $t ); // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- this stub IS wp_kses(), which wp_strip_all_tags() above delegates to; calling wp_strip_all_tags() here would recurse infinitely.
+	}
+}
+if ( ! function_exists( 'wp_kses_post' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_kses_post(): the same "post" tag
+	 * allowlist core ships, expressed via this stub's wp_kses().
+	 *
+	 * @param string $t String to sanitize.
+	 * @return string
+	 */
+	function wp_kses_post( $t ) {
+		return wp_kses(
+			$t,
+			array_fill_keys(
+				array( 'a', 'strong', 'em', 'b', 'i', 'br', 'p', 'span', 'ul', 'ol', 'li', 'code' ),
+				array()
+			)
+		);
 	}
 }
 if ( ! function_exists( 'sanitize_text_field' ) ) {
@@ -465,42 +494,141 @@ if ( ! function_exists( 'get_the_date' ) ) {
 		return 'Aug 20';
 	}
 }
-if ( ! function_exists( 'apply_filters' ) ) {
-	/**
-	 * Minimal stand-in for WordPress' apply_filters() -- no filters are ever
-	 * registered in this stub environment, so the value passes through
-	 * unchanged regardless of how many extra arguments the real signature
-	 * would forward to callbacks.
-	 *
-	 * @param string $tag   Filter name (unused, kept for signature parity).
-	 * @param mixed  $value Value to filter.
-	 * @return mixed
-	 */
-	function apply_filters( $tag, $value ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- no filter is ever registered in this stub environment.
-		return $value;
-	}
+$GLOBALS['bl_test_hooks']   = array();
+$GLOBALS['bl_test_options'] = array();
+
+/**
+ * Reset the in-memory option store. Call from setUp().
+ */
+function blueline_test_reset_options(): void {
+	$GLOBALS['bl_test_options'] = array();
 }
+
 if ( ! function_exists( 'add_filter' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' add_filter() -- a no-op; nothing in
-	 * this suite unit-tests hook registration itself.
+	 * Minimal stand-in for WordPress' add_filter(): registers the callback
+	 * against the in-memory hook store, bucketed by priority.
 	 *
-	 * @param mixed ...$args Arguments (unused, kept for signature parity).
+	 * @param string   $tag           Filter name.
+	 * @param callable $callback      Callback to run.
+	 * @param int      $priority      Priority; lower runs first.
+	 * @param int      $accepted_args Number of arguments the callback accepts.
 	 * @return true
 	 */
-	function add_filter( ...$args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- intentional no-op stub; hook registration is not under test.
+	function add_filter( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
+		$GLOBALS['bl_test_hooks'][ $tag ][ $priority ][] = array(
+			'cb'   => $callback,
+			'args' => $accepted_args,
+		);
+		ksort( $GLOBALS['bl_test_hooks'][ $tag ] );
 		return true;
 	}
 }
+
+if ( ! function_exists( 'apply_filters' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' apply_filters(): actually dispatches to
+	 * every callback registered via add_filter(), in priority order, honouring
+	 * each callback's own accepted_args.
+	 *
+	 * @param string $tag   Filter name.
+	 * @param mixed  $value Value to filter.
+	 * @param mixed  ...$args Extra arguments forwarded per accepted_args.
+	 * @return mixed
+	 */
+	function apply_filters( $tag, $value, ...$args ) {
+		foreach ( $GLOBALS['bl_test_hooks'][ $tag ] ?? array() as $bucket ) {
+			foreach ( $bucket as $hook ) {
+				$params = array_merge(
+					array( $value ),
+					array_slice( $args, 0, max( 0, $hook['args'] - 1 ) )
+				);
+				$value  = call_user_func_array( $hook['cb'], $params );
+			}
+		}
+		return $value;
+	}
+}
+
 if ( ! function_exists( 'add_action' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' add_action() -- a no-op; nothing in
-	 * this suite unit-tests hook registration itself.
+	 * Minimal stand-in for WordPress' add_action(): actions and filters share
+	 * the same hook store in this stub environment.
 	 *
-	 * @param mixed ...$args Arguments (unused, kept for signature parity).
+	 * @param string   $tag           Action name.
+	 * @param callable $callback      Callback to run.
+	 * @param int      $priority      Priority; lower runs first.
+	 * @param int      $accepted_args Number of arguments the callback accepts.
 	 * @return true
 	 */
-	function add_action( ...$args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- intentional no-op stub; hook registration is not under test.
+	function add_action( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
+		return add_filter( $tag, $callback, $priority, $accepted_args );
+	}
+}
+
+if ( ! function_exists( 'do_action' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' do_action(): runs every callback
+	 * registered via add_action()/add_filter() against this tag, in priority
+	 * order, discarding return values as core does.
+	 *
+	 * @param string $tag     Action name.
+	 * @param mixed  ...$args Arguments forwarded per accepted_args.
+	 * @return void
+	 */
+	function do_action( $tag, ...$args ) {
+		foreach ( $GLOBALS['bl_test_hooks'][ $tag ] ?? array() as $bucket ) {
+			foreach ( $bucket as $hook ) {
+				call_user_func_array( $hook['cb'], array_slice( $args, 0, $hook['args'] ) );
+			}
+		}
+	}
+}
+
+if ( ! function_exists( 'get_option' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_option() over an in-memory store.
+	 *
+	 * @param string $option        Option name.
+	 * @param mixed  $default_value Default to return when the option is unset.
+	 * @return mixed
+	 */
+	function get_option( $option, $default_value = false ) {
+		return array_key_exists( $option, $GLOBALS['bl_test_options'] )
+			? $GLOBALS['bl_test_options'][ $option ]
+			: $default_value;
+	}
+}
+
+if ( ! function_exists( 'update_option' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' update_option(): mirrors core by
+	 * running the sanitize_option_{$option} filter on every write -- this is
+	 * the hook register_setting()'s sanitize_callback attaches to, and the
+	 * behaviour P1's settings layer depends on to guarantee WP-CLI and JSON
+	 * import cannot bypass validation.
+	 *
+	 * @param string $option   Option name.
+	 * @param mixed  $value    New value.
+	 * @param mixed  $autoload Unused; kept for signature parity.
+	 * @return true
+	 */
+	function update_option( $option, $value, $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs autoload honoured.
+		$value                                 = apply_filters( "sanitize_option_{$option}", $value, $option );
+		$GLOBALS['bl_test_options'][ $option ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_option' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' delete_option().
+	 *
+	 * @param string $option Option name.
+	 * @return true
+	 */
+	function delete_option( $option ) {
+		unset( $GLOBALS['bl_test_options'][ $option ] );
 		return true;
 	}
 }
