@@ -113,6 +113,17 @@ a {
 	 * adds no layout size.
 	 */
 	box-shadow: 0 0 0 calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px) var(--bl-focus-halo);
+
+	/*
+	 * Under forced-colors (Windows High Contrast), the browser strips
+	 * box-shadow -- so the halo disappears, even though it's the half that
+	 * carries the 3:1 on dark chrome. This is acceptable: the outline
+	 * survives forced-colors, and its colour is force-mapped by the OS to a
+	 * system colour the OS itself guarantees is visible against its own
+	 * forced background. Do NOT add a @media (forced-colors: active)
+	 * override here -- that would replace the OS's guaranteed mapping with
+	 * a colour it has not guaranteed.
+	 */
 }
 
 /*
