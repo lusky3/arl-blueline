@@ -123,14 +123,42 @@ if ( ! function_exists( 'wp_kses' ) ) {
 	 * element, tags AND enclosed content, regardless of the allowlist -- a
 	 * plain strip_tags() would leave the enclosed text behind as inert-looking
 	 * (but still attacker-controlled) output. That removal is replicated here
-	 * before the allowlist-based strip_tags() runs.
+	 * before the allowlist-based strip_tags() runs, in two steps:
+	 *
+	 * 1. A greedy same-tag pattern, reapplied until the string stops
+	 *    changing, so a nested same-tag block (e.g. a <script> containing
+	 *    another <script>, which is invalid HTML but not something an
+	 *    attacker is obliged to avoid) collapses to nothing rather than
+	 *    leaking the inner tag's trailing text once the outer match is
+	 *    removed. NOTE: because the pattern is greedy and \1 only pins the
+	 *    tag NAME, two separate same-tag blocks with real content between
+	 *    them (e.g. "<script>a</script>safe text<script>b</script>") will
+	 *    also collapse into one match and take that safe text with them.
+	 *    That is a known, deliberate over-strip: for a test STUB, erring
+	 *    toward removing too much is the safe failure mode, and under
+	 *    removing too little is the dangerous one.
+	 * 2. A cleanup pass for an UNTERMINATED <script>/<style> tag -- one
+	 *    with no matching closing tag for step 1 to find -- which strips
+	 *    the opening tag and everything after it, rather than leaving a
+	 *    dangling, possibly attacker-controlled tail behind.
+	 *
+	 * This function is a TEST STUB, not a security boundary: it exists so a
+	 * unit test can assert "markup survived" or "markup was stripped"
+	 * meaningfully. Production code must never rely on it; only WordPress
+	 * core's real wp_kses() is a security boundary.
 	 *
 	 * @param string $t            String to sanitize.
 	 * @param array  $allowed_html Map of allowed tag name => attributes.
 	 * @return string
 	 */
 	function wp_kses( $t, $allowed_html = array() ) {
-		$t       = (string) preg_replace( '@<(script|style)[^>]*?>.*?</\1>@si', '', (string) $t );
+		$t = (string) $t;
+		do {
+			$before = $t;
+			$t      = (string) preg_replace( '@<(script|style)[^>]*>.*</\1>@si', '', $t );
+		} while ( $t !== $before );
+		$t = (string) preg_replace( '@<(?:script|style)\b[^>]*>.*@si', '', $t );
+
 		$allowed = array_keys( is_array( $allowed_html ) ? $allowed_html : array() );
 		return $allowed
 			? strip_tags( $t, '<' . implode( '><', $allowed ) . '>' )
@@ -498,10 +526,54 @@ $GLOBALS['bl_test_hooks']   = array();
 $GLOBALS['bl_test_options'] = array();
 
 /**
- * Reset the in-memory option store. Call from setUp().
+ * Reset the in-memory option store. Call from setUp() (directly, or via the
+ * combined blueline_test_reset()) in any test that touches options.
  */
 function blueline_test_reset_options(): void {
 	$GLOBALS['bl_test_options'] = array();
+}
+
+/**
+ * Reset the in-memory hook store to the state it was in immediately after
+ * PHPUnit finished loading every test file -- NOT to empty.
+ *
+ * Why not empty: production code registers real hooks at file scope (e.g.
+ * inc/sportspress.php's `add_filter( 'body_class', ... )`,
+ * inc/template-tags.php's `add_filter( 'wp_nav_menu_objects', ... )`). Those
+ * files are require_once'd once, from the top of whichever test file needs
+ * them, and PHPUnit requires every test file (which is where that
+ * require_once lives) while building the test suite -- before any test's
+ * setUp() runs. So the FIRST time this function is ever called, in the
+ * very first test's setUp(), the hook store already contains every one of
+ * those production registrations and nothing a test has added yet: that is
+ * captured as the baseline. If this cleared the store to empty instead,
+ * production's file-scope add_filter()/add_action() calls would be gone for
+ * the rest of the run, because require_once will not execute them a second
+ * time to re-register.
+ *
+ * Call from setUp() (directly, or via the combined blueline_test_reset())
+ * in any test that calls add_filter()/add_action() itself, so one test's
+ * registration cannot leak into the next.
+ */
+function blueline_test_reset_hooks(): void {
+	static $baseline = null;
+
+	if ( null === $baseline ) {
+		$baseline = $GLOBALS['bl_test_hooks'];
+		return;
+	}
+
+	$GLOBALS['bl_test_hooks'] = $baseline;
+}
+
+/**
+ * Reset both in-memory stores. The common case for a test that touches
+ * hooks and/or options is this single call rather than remembering both
+ * blueline_test_reset_hooks() and blueline_test_reset_options() separately.
+ */
+function blueline_test_reset(): void {
+	blueline_test_reset_hooks();
+	blueline_test_reset_options();
 }
 
 if ( ! function_exists( 'add_filter' ) ) {
