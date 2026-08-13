@@ -20,6 +20,19 @@
     { "id": "focus-halo-on-deep", "description": "focus halo on ink-deep",  "fg": "--bl-focus-halo",  "bg": "--bl-ink-deep",  "min": 3.0 },
     { "id": "focus-two-tone",     "description": "focus ring vs its halo",  "fg": "--bl-focus-color", "bg": "--bl-focus-halo","min": 3.0 },
     { "id": "border-strong-on-white", "description": "strong border on white", "fg": "--bl-border-strong", "bg": "--bl-white", "min": 3.0 },
-    { "id": "border-strong-on-paper", "description": "strong border on paper", "fg": "--bl-border-strong", "bg": "--bl-paper", "min": 3.0 }
+    { "id": "border-strong-on-paper", "description": "strong border on paper", "fg": "--bl-border-strong", "bg": "--bl-paper", "min": 3.0 },
+
+    { "id": "success-on-white",  "description": "success text on white", "fg": "--bl-success", "bg": "--bl-white", "min": 4.5 },
+    { "id": "warning-on-white",  "description": "warning text on white", "fg": "--bl-warning", "bg": "--bl-white", "min": 4.5 },
+    { "id": "danger-on-white",   "description": "danger text on white",  "fg": "--bl-danger",  "bg": "--bl-white", "min": 4.5 },
+
+    { "id": "success-on-its-tint", "description": "success text on its own 8% tint", "fg": "--bl-success", "bg": { "mix": [ "--bl-success", 8, "--bl-white" ] }, "min": 4.5 },
+    { "id": "warning-on-its-tint", "description": "warning text on its own 8% tint", "fg": "--bl-warning", "bg": { "mix": [ "--bl-warning", 8, "--bl-white" ] }, "min": 4.5 },
+    { "id": "danger-on-its-tint",  "description": "danger text on its own 8% tint",  "fg": "--bl-danger",  "bg": { "mix": [ "--bl-danger",  8, "--bl-white" ] }, "min": 4.5 },
+    { "id": "ink-on-steel-tint",   "description": "body text on the neutral notice tint", "fg": "--bl-ink", "bg": { "mix": [ "--bl-steel", 8, "--bl-white" ] }, "min": 4.5 },
+
+    { "id": "body-on-white",      "description": "body text on white (cards, zebra rows)",      "fg": "--bl-ink",         "bg": "--bl-white", "min": 4.5 },
+    { "id": "secondary-on-white", "description": "secondary text on white (STRK, table meta)",  "fg": "--bl-ink-mid",     "bg": "--bl-white", "min": 4.5 },
+    { "id": "accent-on-white",    "description": "accent text on white",                        "fg": "--bl-accent-text", "bg": "--bl-white", "min": 4.5 }
   ]
 }
