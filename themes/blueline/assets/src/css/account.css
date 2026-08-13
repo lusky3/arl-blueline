@@ -394,12 +394,12 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
  * ~5.1:1 and ~5.5:1 respectively), not hugging the AA line at a higher
  * opacity. */
 .bl-account-registration__status--paid {
-	background: rgba(31, 122, 77, 0.08);
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
 	color: var(--bl-success);
 }
 
 .bl-account-registration__status--unpaid {
-	background: rgba(138, 90, 0, 0.08);
+	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-white));
 	color: var(--bl-warning);
 }
 

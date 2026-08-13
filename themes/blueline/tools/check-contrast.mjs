@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { extractRootTokens, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
@@ -167,5 +167,42 @@ for ( const fixture of SP_INLINE_COLOR_FIXTURES ) {
 }
 
 failed += spFailed;
+
+/*
+ * Finding: four CSS rules hard-coded the RGB channels of a token instead of
+ * referencing it, so overriding the token moved the text colour while its
+ * background stayed put -- breaking a pairing one of those files claimed in a
+ * comment had been "verified by hand". This forbids reintroducing that.
+ */
+const cssDir = resolve( here, '../assets/src/css' );
+const tokenRgbs = new Map();
+for ( const [ name, raw ] of styleTokens ) {
+	const value = normalizeValue( raw );
+	if ( /^#[0-9a-f]{6}$/.test( value ) ) {
+		const n = parseInt( value.slice( 1 ), 16 );
+		tokenRgbs.set( `${ ( n >> 16 ) & 255 },${ ( n >> 8 ) & 255 },${ n & 255 }`, name );
+	}
+}
+
+let literalRgba = 0;
+for ( const file of readdirSync( cssDir ).filter( ( f ) => f.endsWith( '.css' ) ) ) {
+	const src = readFileSync( resolve( cssDir, file ), 'utf8' );
+	const re = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/g;
+	let m;
+	while ( ( m = re.exec( src ) ) !== null ) {
+		const key = `${ +m[ 1 ] },${ +m[ 2 ] },${ +m[ 3 ] }`;
+		if ( tokenRgbs.has( key ) ) {
+			console.log(
+				`FAIL ${ file } hard-codes the channels of ${ tokenRgbs.get( key ) } -- use color-mix() with the token`
+			);
+			literalRgba++;
+		}
+	}
+}
+if ( literalRgba ) {
+	failed += literalRgba;
+} else {
+	console.log( 'ok   no CSS file hard-codes a token\'s RGB channels' );
+}
 
 process.exit( failed ? 1 : 0 );

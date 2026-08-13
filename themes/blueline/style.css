@@ -75,6 +75,19 @@ Text Domain: blueline
 
 	--bl-radius: 0px;
 	--bl-radius-card: 14px;
+
+	/*
+	 * Both shadows keep a literal rgba() rather than color-mix() with a
+	 * token: a shadow composites over whatever ground it happens to fall on,
+	 * which varies per placement, so alpha (not an opaque mix against
+	 * --bl-white) is the construct that is actually correct here.
+	 *
+	 * --bl-shadow-card's channels (19, 35, 67) are --bl-ink's exactly, on
+	 * purpose. --bl-shadow-raised's (10, 20, 40) are a manually darkened,
+	 * ink-like navy for a heavier shadow -- deliberately close to --bl-ink
+	 * but not equal to it or to any other token, so it is not a case of the
+	 * same bug this task fixes elsewhere.
+	 */
 	--bl-shadow-card: 0 6px 20px rgba(19, 35, 67, 0.06);
 	--bl-shadow-raised: 0 10px 34px rgba(10, 20, 40, 0.18);
 

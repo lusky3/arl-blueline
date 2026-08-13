@@ -147,7 +147,13 @@ summary,
 input[type="submit"],
 input[type="button"] {
 	touch-action: manipulation;
-	-webkit-tap-highlight-color: rgb(116 192 225 / 25%); /* --bl-ice at 25% */
+
+	/* --bl-ice at 25%. This rule applies to links and buttons across every
+	 * kind of ground the site has (navy chrome, white cards, the paper page),
+	 * so the mix is against transparent, not --bl-white -- the translucent
+	 * form is what reproduces the old rgb()'s composited result regardless of
+	 * what is actually behind any given element. */
+	-webkit-tap-highlight-color: color-mix(in srgb, var(--bl-ice) 25%, transparent);
 }
 
 table {

@@ -407,8 +407,10 @@
 
 	/* --bl-ink at 12%, darkening the ice fill for hover/focus feedback without
 	 * introducing a new fill token -- same technique base.css's tap-highlight
-	 * colour uses. */
-	box-shadow: inset 0 0 0 999px rgb(19 35 67 / 12%);
+	 * colour uses. Mixed against transparent, not --bl-white: this shadow
+	 * darkens the ::before's own --bl-ice fill, so the translucent form is
+	 * what actually reproduces the old rgb()'s composited result. */
+	box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--bl-ink) 12%, transparent);
 }
 
 /*

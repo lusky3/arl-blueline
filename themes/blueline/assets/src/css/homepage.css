@@ -206,8 +206,12 @@
 	position: relative;
 
 	/* --bl-ice at low opacity: a fill use, per DESIGN.md -- no text sits
-	   directly on it that isn't already an AA-passing token colour. */
-	background: rgba(116, 192, 225, 0.08);
+	   directly on it that isn't already an AA-passing token colour. Mixed
+	   against transparent, not --bl-white: this section paints straight over
+	   the page's own --bl-paper background (see the "all-paper rhythm"
+	   comment above), not a white one, so the translucent form is the one
+	   that actually reproduces the old rgba()'s composited result. */
+	background: color-mix(in srgb, var(--bl-ice) 8%, transparent);
 }
 
 .bl-module--new_here .bl-module__title {
