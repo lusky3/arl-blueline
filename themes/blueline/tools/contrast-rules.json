@@ -1,6 +1,11 @@
 {
   "$comment": "Shared contrast contract. Consumers: tools/check-contrast.mjs (build gate), the PHP save-time validator (P1), and the panel's advisory readout (P2). Adding a rule here must not require editing any consumer.",
   "version": 1,
+  "thresholds": {
+    "$comment": "The declared AA floor, read verbatim by inc/team-colors.php's blueline_contrast_threshold(). This used to be INFERRED from rules[].min (body = max of all mins, large = min of all mins) -- a heuristic over data that any future rule could silently move. Adding an AAA-strength rule with \"min\": 7.0 below would have raised 'body' to 7.0 for every team-colour computation on the site with no change anywhere near team-colors.php. Declaring the floor here instead means rules can carry any min/max they need without ever affecting what \"AA\" means elsewhere.",
+    "body": 4.5,
+    "large": 3.0
+  },
   "rules": [
     { "id": "body-on-paper",        "description": "body text on paper",       "fg": "--bl-ink",         "bg": "--bl-paper",    "min": 4.5 },
     { "id": "secondary-on-paper",   "description": "secondary text on paper",  "fg": "--bl-ink-mid",     "bg": "--bl-paper",    "min": 4.5 },

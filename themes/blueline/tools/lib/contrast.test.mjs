@@ -194,9 +194,10 @@ test( 'evaluateRule resolves a mix background', () => {
 // style.css -- not hand-built fixtures. Tasks 6-8 add 18 more rules to this
 // exact file, so these guard the table itself, not just the code that reads it.
 const here = dirname( fileURLToPath( import.meta.url ) );
-const { rules } = JSON.parse(
+const contrastRulesJson = JSON.parse(
 	readFileSync( resolve( here, '../contrast-rules.json' ), 'utf8' )
 );
+const { rules } = contrastRulesJson;
 const styleTokens = extractRootTokens(
 	readFileSync( resolve( here, '../../style.css' ), 'utf8' )
 );
@@ -239,3 +240,19 @@ test( 'every fg/bg token in contrast-rules.json resolves against style.css', () 
 		}
 	}
 } );
+
+// contrast-rules.json declares an explicit top-level "thresholds" object,
+// read verbatim by inc/team-colors.php's blueline_contrast_threshold()
+// (Fix 1). It used to be inferred as body = max(rules[].min), large =
+// min(rules[].min) -- a heuristic over data that any future rule could
+// silently move. These pin the declared contract itself, not just the code
+// that reads it.
+test( 'contrast-rules.json declares explicit top-level thresholds', () => {
+	assert.ok(
+		contrastRulesJson.thresholds && typeof contrastRulesJson.thresholds === 'object',
+		'contrast-rules.json must declare a top-level "thresholds" object'
+	);
+	assert.equal( contrastRulesJson.thresholds.body, 4.5 );
+	assert.equal( contrastRulesJson.thresholds.large, 3.0 );
+} );
+

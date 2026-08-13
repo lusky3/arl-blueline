@@ -291,20 +291,144 @@ final class TeamColorsTest extends TestCase {
 
 	/**
 	 * Asserts blueline_contrast_threshold() resolves 'body' and 'large' from
-	 * the shared tools/contrast-rules.json table, and that the table itself
-	 * still contains the 4.5 / 3.0 minimums this derivation depends on.
+	 * the shared tools/contrast-rules.json table's explicit, declared
+	 * top-level "thresholds" key -- not inferred from rules[].min, which a
+	 * single unrelated rule addition could silently move.
 	 */
 	public function test_thresholds_come_from_the_shared_rules_table(): void {
 		$json = json_decode(
 			file_get_contents( __DIR__ . '/../tools/contrast-rules.json' ), // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo fixture, not a remote URL.
 			true
 		);
-		$mins = array_column( $json['rules'], 'min' );
 
-		$this->assertContains( 4.5, $mins, 'the shared table must define a 4.5 body minimum' );
-		$this->assertContains( 3.0, $mins, 'the shared table must define a 3.0 large/non-text minimum' );
+		$this->assertArrayHasKey(
+			'thresholds',
+			$json,
+			'the shared table must declare its AA thresholds explicitly, not leave them to be inferred from rules[].min'
+		);
+		$this->assertSame( 4.5, $json['thresholds']['body'] );
+		$this->assertSame( 3.0, $json['thresholds']['large'] );
 		$this->assertSame( 4.5, blueline_contrast_threshold( 'body' ) );
 		$this->assertSame( 3.0, blueline_contrast_threshold( 'large' ) );
+	}
+
+	/**
+	 * Asserts a rule carrying an unusual `min` (e.g. an AAA-strength 7.0)
+	 * cannot move the declared thresholds. This is the exact failure this
+	 * task's Fix 1 closes: the previous derivation took
+	 * body = max(rules[].min), so adding any rule with `"min": 7.0` would
+	 * have silently raised the AA floor used by blueline_readable_foreground()
+	 * and blueline_team_color_set() for every team page on the site.
+	 */
+	public function test_an_unusual_rule_min_does_not_move_the_declared_thresholds(): void {
+		$fallback = array(
+			'body'  => 4.5,
+			'large' => 3.0,
+		);
+
+		$json = array(
+			'thresholds' => array(
+				'body'  => 4.5,
+				'large' => 3.0,
+			),
+			'rules'      => array(
+				array(
+					'id'  => 'hypothetical-aaa-rule',
+					'fg'  => '--bl-ink',
+					'bg'  => '--bl-paper',
+					'min' => 7.0,
+				),
+			),
+		);
+
+		$thresholds = blueline_contrast_thresholds_from_json( $json, $fallback, 'test-fixture.json' );
+
+		$this->assertSame( 4.5, $thresholds['body'], 'a rule min of 7.0 must not raise the declared body threshold' );
+		$this->assertSame( 3.0, $thresholds['large'], 'a rule min of 7.0 must not move the declared large threshold either' );
+	}
+
+	/**
+	 * Asserts a missing or malformed "thresholds" key falls back to sane
+	 * hard-coded defaults rather than fataling or returning nonsense.
+	 */
+	public function test_missing_thresholds_key_falls_back_to_defaults(): void {
+		$fallback = array(
+			'body'  => 4.5,
+			'large' => 3.0,
+		);
+
+		$this->assertSame( $fallback, blueline_contrast_thresholds_from_json( array( 'rules' => array() ), $fallback ) );
+		$this->assertSame( $fallback, blueline_contrast_thresholds_from_json( array( 'thresholds' => 'not-an-object' ), $fallback ) );
+		$this->assertSame( $fallback, blueline_contrast_thresholds_from_json( null, $fallback ) );
+		$this->assertSame( $fallback, blueline_contrast_thresholds_from_json( 'not even an array', $fallback ) );
+	}
+
+	/**
+	 * Asserts a "thresholds" object with a non-numeric value falls back to
+	 * that one value's default while still logging -- never a fatal, never
+	 * a silently wrong number.
+	 */
+	public function test_non_numeric_threshold_value_falls_back_for_that_value_only(): void {
+		$fallback = array(
+			'body'  => 4.5,
+			'large' => 3.0,
+		);
+
+		$thresholds = blueline_contrast_thresholds_from_json(
+			array(
+				'thresholds' => array(
+					'body'  => 'not-a-number',
+					'large' => 3.0,
+				),
+			),
+			$fallback
+		);
+
+		$this->assertSame( 4.5, $thresholds['body'] );
+		$this->assertSame( 3.0, $thresholds['large'] );
+	}
+
+	/**
+	 * Asserts blueline_load_contrast_thresholds() never fatals against a
+	 * nonexistent file and returns the sane fallback -- the "unreadable"
+	 * half of Fix 2 (the file is unreadable or malformed must still return
+	 * sane values, never fatal).
+	 */
+	public function test_load_thresholds_falls_back_when_file_is_unreadable(): void {
+		$thresholds = blueline_load_contrast_thresholds( '/nonexistent/path/contrast-rules.json' );
+
+		$this->assertSame( 4.5, $thresholds['body'] );
+		$this->assertSame( 3.0, $thresholds['large'] );
+	}
+
+	/**
+	 * Asserts blueline_load_contrast_thresholds() never fatals against a
+	 * file that exists but is not valid JSON -- the "malformed" half of
+	 * Fix 2.
+	 */
+	public function test_load_thresholds_falls_back_when_file_is_malformed_json(): void {
+		$path = sys_get_temp_dir() . '/blueline-malformed-' . uniqid( '', true ) . '.json';
+		file_put_contents( $path, '{ not valid json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- local test fixture, not a remote URL.
+
+		try {
+			$thresholds = blueline_load_contrast_thresholds( $path );
+
+			$this->assertSame( 4.5, $thresholds['body'] );
+			$this->assertSame( 3.0, $thresholds['large'] );
+		} finally {
+			unlink( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- local test fixture cleanup, not a remote resource.
+		}
+	}
+
+	/**
+	 * Asserts the read-failure trace hook never fatals and is safe to call
+	 * repeatedly (it is called on every request where the file is broken).
+	 */
+	public function test_read_failure_hook_never_fatals(): void {
+		blueline_contrast_rules_read_failure( '/nonexistent/path.json', 'missing or unreadable' );
+		blueline_contrast_rules_read_failure( '/nonexistent/path.json', 'missing or unreadable' );
+
+		$this->addToAssertionCount( 1 );
 	}
 
 	/**

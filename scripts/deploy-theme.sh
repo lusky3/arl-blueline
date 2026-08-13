@@ -21,6 +21,16 @@ case "$TARGET" in
 esac
 
 ssh -p "$PORT" "$HOST" "mkdir -p '$DEST'"
+# NOTE: tools/ is intentionally NOT excluded below. It looks like a build-only
+# directory, but inc/team-colors.php reads tools/contrast-rules.json at
+# RUNTIME on every front-end team page (blueline_contrast_threshold()) to
+# derive each team's readable foreground colour. Excluding tools/ here would
+# not fail loudly -- the PHP falls back to hard-coded 4.5/3.0 AA thresholds
+# and logs the fact (see blueline_contrast_rules_read_failure() in
+# inc/team-colors.php) -- so a future tidy-up of this list that adds
+# tools/ (or contrast-rules.json specifically) would silently degrade every
+# team page's colour derivation on the deployed site with nothing in this
+# script or its output telling you why.
 rsync -az --delete -e "ssh -p $PORT" \
   --exclude node_modules --exclude vendor --exclude tests \
   --exclude .git --exclude '*.map' \

@@ -42,6 +42,131 @@ const BLUELINE_TOKEN_INK   = '#132343';
 const BLUELINE_TOKEN_PAPER = '#F7FBFC';
 
 /**
+ * Log, at most once per call site, that tools/contrast-rules.json could not
+ * be used as the source of truth for AA thresholds and PHP fell back to the
+ * hard-coded 4.5 / 3.0 defaults.
+ *
+ * This runs on the public front end (blueline_team_color_set() is called
+ * while rendering team pages for anonymous visitors), so it deliberately
+ * does NOT use _doing_it_wrong(): that function is meant for admin-facing
+ * "you called this API wrong" notices and, depending on WP_DEBUG_DISPLAY,
+ * can print its message straight into the page source -- acceptable for a
+ * developer mistake, not for an operational fault visible to every visitor
+ * of a broken install. error_log() writes to the server log only, costs
+ * nothing when logging is off, and is the standard place to look for a
+ * silently-degraded fallback like this one.
+ *
+ * The caller (blueline_contrast_threshold()) already memoises its result
+ * for the lifetime of the request, so in practice this fires at most once
+ * per page load; the local static guard here is a second, independent
+ * backstop for any future caller that does not share that cache.
+ *
+ * @param string $path   The contrast-rules.json path that could not be used.
+ * @param string $reason Human-readable reason, for the log line.
+ * @return void
+ */
+function blueline_contrast_rules_read_failure( string $path, string $reason ): void {
+	static $logged = false;
+
+	if ( $logged ) {
+		return;
+	}
+	$logged = true;
+
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- deliberate: see the docblock above for why this is the one place we want a silent fallback to leave a server-log trace instead of staying invisible.
+	error_log(
+		sprintf(
+			'Blueline: contrast-rules.json unusable (%s) at %s -- falling back to the hard-coded 4.5/3.0 AA thresholds.',
+			$reason,
+			$path
+		)
+	);
+}
+
+/**
+ * Derive {body, large} thresholds from a decoded contrast-rules.json.
+ *
+ * Reads the explicit top-level `thresholds` object -- the single declared
+ * source of truth -- rather than inferring anything from `rules[].min`.
+ * Previously this scanned every rule's `min` and took body = max(mins),
+ * large = min(mins): a heuristic over data that a future rule could silently
+ * break. Adding an AAA-strength rule with `"min": 7.0` would have raised the
+ * body floor used by blueline_readable_foreground() and
+ * blueline_team_color_set() for every one of this site's 142 team pages,
+ * pushing AA-passing team colours into the "no usable colour" fallback with
+ * no code change anywhere near this file. Reading a declared key cannot be
+ * moved by an unrelated rule addition, by construction.
+ *
+ * Split out from blueline_contrast_threshold() so it is unit-testable
+ * against arbitrary decoded JSON without touching the filesystem.
+ *
+ * @param mixed  $json     Decoded contrast-rules.json (or anything, if the
+ *                         file was missing/unreadable/malformed).
+ * @param array  $fallback array{body:float,large:float} used for any value
+ *                         that cannot be read.
+ * @param string $path     Source path, for the failure trace only.
+ * @return array{body:float,large:float}
+ */
+function blueline_contrast_thresholds_from_json( $json, array $fallback, string $path = 'contrast-rules.json' ): array {
+	if ( ! is_array( $json ) || empty( $json['thresholds'] ) || ! is_array( $json['thresholds'] ) ) {
+		blueline_contrast_rules_read_failure( $path, 'missing or non-object top-level "thresholds"' );
+		return $fallback;
+	}
+
+	$thresholds = $json['thresholds'];
+	$body       = isset( $thresholds['body'] ) && is_numeric( $thresholds['body'] ) ? (float) $thresholds['body'] : null;
+	$large      = isset( $thresholds['large'] ) && is_numeric( $thresholds['large'] ) ? (float) $thresholds['large'] : null;
+
+	if ( null === $body || null === $large ) {
+		blueline_contrast_rules_read_failure( $path, '"thresholds.body" and/or "thresholds.large" missing or non-numeric' );
+	}
+
+	return array(
+		'body'  => $body ?? $fallback['body'],
+		'large' => $large ?? $fallback['large'],
+	);
+}
+
+/**
+ * Load {body, large} thresholds from tools/contrast-rules.json on disk,
+ * falling back to sane hard-coded defaults -- never fatally -- if the file
+ * is missing, unreadable, or malformed.
+ *
+ * @param string|null $path_override Explicit path, for tests. Defaults to
+ *                                   the real tools/contrast-rules.json next
+ *                                   to this theme.
+ * @return array{body:float,large:float}
+ */
+function blueline_load_contrast_thresholds( ?string $path_override = null ): array {
+	$fallback = array(
+		'body'  => 4.5,
+		'large' => 3.0,
+	);
+
+	if ( null !== $path_override ) {
+		$path = $path_override;
+	} else {
+		$dir  = defined( 'BLUELINE_DIR' ) ? BLUELINE_DIR : dirname( __DIR__ );
+		$path = $dir . '/tools/contrast-rules.json';
+	}
+
+	if ( ! is_readable( $path ) ) {
+		blueline_contrast_rules_read_failure( $path, 'file is missing or unreadable' );
+		return $fallback;
+	}
+
+	$raw  = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo file, not a remote URL; wp_remote_get() is for HTTP requests.
+	$json = json_decode( (string) $raw, true );
+
+	if ( null === $json && JSON_ERROR_NONE !== json_last_error() ) {
+		blueline_contrast_rules_read_failure( $path, 'invalid JSON (' . json_last_error_msg() . ')' );
+		return $fallback;
+	}
+
+	return blueline_contrast_thresholds_from_json( $json, $fallback, $path );
+}
+
+/**
  * A contrast threshold, read from the shared rule table so PHP and the build
  * guard cannot disagree about what "AA" means.
  *
@@ -56,26 +181,7 @@ function blueline_contrast_threshold( string $which ): float {
 	static $cache = null;
 
 	if ( null === $cache ) {
-		$cache = array(
-			'body'  => 4.5,
-			'large' => 3.0,
-		);
-
-		$dir  = defined( 'BLUELINE_DIR' ) ? BLUELINE_DIR : dirname( __DIR__ );
-		$path = $dir . '/tools/contrast-rules.json';
-		if ( is_readable( $path ) ) {
-			$json = json_decode( (string) file_get_contents( $path ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo file, not a remote URL; wp_remote_get() is for HTTP requests.
-			if ( is_array( $json ) && ! empty( $json['rules'] ) ) {
-				$mins = array_filter(
-					array_column( $json['rules'], 'min' ),
-					'is_numeric'
-				);
-				if ( $mins ) {
-					$cache['body']  = (float) max( $mins );
-					$cache['large'] = (float) min( $mins );
-				}
-			}
-		}
+		$cache = blueline_load_contrast_thresholds();
 	}
 
 	return $cache[ $which ] ?? 4.5;
