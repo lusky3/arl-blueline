@@ -73,3 +73,59 @@ export function extractRootTokens( source ) {
 	}
 	return tokens;
 }
+
+/**
+ * Resolve a token to a literal value, following var() references.
+ *
+ * style.css defines four tokens by reference rather than by literal
+ * (--bl-surface, --bl-surface-sunken, --bl-surface-inverse, --bl-focus).
+ * Contrast rules need the resolved value, and the previous hex-only reader
+ * threw on all four -- which is why none of them could ever appear in a
+ * rule.
+ *
+ * @param {Map<string,string>} tokens Map from extractRootTokens().
+ * @param {string}             name   Token name, e.g. '--bl-surface'.
+ * @param {Set<string>}        [seen] Internal: names already visited.
+ * @return {string} Fully-resolved, normalised value.
+ */
+export function resolveToken( tokens, name, seen = new Set() ) {
+	if ( seen.has( name ) ) {
+		throw new Error( `var() reference cycle at ${ name }` );
+	}
+	if ( ! tokens.has( name ) ) {
+		throw new Error( `token ${ name } is not defined` );
+	}
+	seen.add( name );
+
+	const resolved = tokens
+		.get( name )
+		.replace(
+			/var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)/g,
+			( _match, ref, fallback ) => {
+				if ( tokens.has( ref ) ) {
+					return resolveToken( tokens, ref, seen );
+				}
+				if ( fallback !== undefined ) {
+					return fallback.trim();
+				}
+				throw new Error( `token ${ ref } is not defined` );
+			}
+		);
+
+	return normalizeValue( resolved );
+}
+
+/**
+ * Resolve a token that must be a plain 6-digit hex colour.
+ *
+ * @param {Map<string,string>} tokens Map from extractRootTokens().
+ * @param {string}             name   Token name.
+ * @return {string} Lowercase `#rrggbb`.
+ */
+export function resolveColorToken( tokens, name ) {
+	const value = resolveToken( tokens, name );
+	if ( ! /^#[0-9a-f]{6}$/.test( value ) ) {
+		throw new Error( `token ${ name } resolved to "${ value }", not a hex colour` );
+	}
+	return value;
+}

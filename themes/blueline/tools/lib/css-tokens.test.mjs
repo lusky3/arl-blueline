@@ -57,3 +57,52 @@ test( 'extractRootTokens accepts a grouped selector', () => {
 test( 'extractRootTokens throws when there is no :root rule', () => {
 	assert.throws( () => extractRootTokens( 'body { color: red; }' ), /no :root/ );
 } );
+
+import { resolveToken } from './css-tokens.mjs';
+
+test( 'resolveToken returns a literal unchanged but normalised', () => {
+	const tokens = new Map( [ [ '--bl-white', '#FFFFFF' ] ] );
+	assert.equal( resolveToken( tokens, '--bl-white' ), '#ffffff' );
+} );
+
+test( 'resolveToken follows a single var() alias', () => {
+	const tokens = new Map( [
+		[ '--bl-white', '#FFFFFF' ],
+		[ '--bl-surface', 'var(--bl-white)' ],
+	] );
+	assert.equal( resolveToken( tokens, '--bl-surface' ), '#ffffff' );
+} );
+
+test( 'resolveToken follows a chain of aliases', () => {
+	const tokens = new Map( [
+		[ '--bl-white', '#FFFFFF' ],
+		[ '--bl-surface', 'var(--bl-white)' ],
+		[ '--bl-card', 'var(--bl-surface)' ],
+	] );
+	assert.equal( resolveToken( tokens, '--bl-card' ), '#ffffff' );
+} );
+
+test( 'resolveToken uses the var() fallback when the target is undefined', () => {
+	const tokens = new Map( [ [ '--bl-x', 'var(--bl-missing, #123456)' ] ] );
+	assert.equal( resolveToken( tokens, '--bl-x' ), '#123456' );
+} );
+
+test( 'resolveToken throws on a reference cycle', () => {
+	const tokens = new Map( [
+		[ '--bl-a', 'var(--bl-b)' ],
+		[ '--bl-b', 'var(--bl-a)' ],
+	] );
+	assert.throws( () => resolveToken( tokens, '--bl-a' ), /cycle/ );
+} );
+
+test( 'resolveToken throws on an unknown token', () => {
+	assert.throws( () => resolveToken( new Map(), '--bl-nope' ), /not defined/ );
+} );
+
+test( 'resolveToken leaves a composite shorthand alone after resolving its parts', () => {
+	const tokens = new Map( [
+		[ '--bl-accent-text', '#3F6E9D' ],
+		[ '--bl-focus', '3px solid var(--bl-accent-text)' ],
+	] );
+	assert.equal( resolveToken( tokens, '--bl-focus' ), '3px solid #3f6e9d' );
+} );
