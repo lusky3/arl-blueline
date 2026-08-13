@@ -67,7 +67,7 @@ defined( 'ABSPATH' ) || exit;
 			<td><?php wc_cart_totals_subtotal_html(); ?></td>
 		</tr>
 
-		<?php do_action( "arl_review_order_after_subtotal" ); ?>
+		<?php do_action( 'arl_review_order_after_subtotal' ); ?>
 
 		<?php foreach ( WC()->cart->get_coupons() as $code => $coupon ) : ?>
 			<tr class="cart-discount coupon-<?php echo esc_attr( sanitize_title( $code ) ); ?>">

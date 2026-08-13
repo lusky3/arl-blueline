@@ -31,7 +31,7 @@ defined( 'ABSPATH' ) || exit;
 			<td data-title="<?php esc_attr_e( 'Subtotal', 'woocommerce' ); ?>"><?php wc_cart_totals_subtotal_html(); ?></td>
 		</tr>
 
-		<?php do_action( "arl_cart_totals_after_subtotal" ); ?>
+		<?php do_action( 'arl_cart_totals_after_subtotal' ); ?>
 
 		<?php foreach ( WC()->cart->get_coupons() as $code => $coupon ) : ?>
 			<tr class="cart-discount coupon-<?php echo esc_attr( sanitize_title( $code ) ); ?>">

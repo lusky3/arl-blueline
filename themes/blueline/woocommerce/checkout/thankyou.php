@@ -1,5 +1,6 @@
 <?php
 /**
+ * Thank-you / order-received page.
  *
  * @see https://docs.woocommerce.com/document/template-structure/
  * @package WooCommerce/Templates
