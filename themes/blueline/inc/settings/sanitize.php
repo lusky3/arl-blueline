@@ -60,9 +60,13 @@ defined( 'ABSPATH' ) || exit;
  * - width / precision: plain digit runs, precision introduced by ".".
  *   Verified `%05.2f`, `%-10s`, `%+d` all sanitize correctly with this
  *   grammar rather than being mis-split into "width" vs "flag" wrong.
- * - type: one of `bcdeEfFgGosuxX`, verified individually as accepted by
- *   sprintf(); every other letter (a, n, t, z, ...) verified to throw
- *   ValueError "Unknown format specifier".
+ * - type: one of `bcdeEfFgGhHosuxX`, verified individually as accepted by
+ *   sprintf() -- including "h"/"H" (PHP 8.0's locale-independent shortest
+ *   float representation), easy to miss because they are rarely used and
+ *   absent from many quick references. Every other letter (a, n, t, z,
+ *   ...) verified to throw ValueError "Unknown format specifier" --
+ *   notably "n" is NOT a valid PHP sprintf() type despite being one in
+ *   some other languages' printf().
  *
  * The type set deliberately does NOT include a bare "%" (that is the
  * separate %% literal-escape branch) or "$" (that only appears as part of
@@ -87,7 +91,7 @@ defined( 'ABSPATH' ) || exit;
  * is invisible to a "does it contain %s" check but still fatal in
  * production.
  */
-const BLUELINE_SPRINTF_SPEC = '%(?:[1-9][0-9]*\$)?(?:[-+ 0]|\'.)*[0-9]*(?:\.[0-9]+)?[bcdeEfFgGosuxX]';
+const BLUELINE_SPRINTF_SPEC = '%(?:[1-9][0-9]*\$)?(?:[-+ 0]|\'.)*[0-9]*(?:\.[0-9]+)?[bcdeEfFgGhHosuxX]';
 
 /**
  * Extract every sprintf()/printf() conversion specification actually present

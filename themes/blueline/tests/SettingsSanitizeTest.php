@@ -57,6 +57,20 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
+	 * "h" and "H" (PHP 8.0's locale-independent shortest float
+	 * representation) are valid conversion types -- verified
+	 * `sprintf( '%h', 3.14159265358979 )` does not throw -- but are absent
+	 * from many quick references and easy to omit from a type character
+	 * class written from memory rather than verified. A field declaring
+	 * `%h`/`%H` as a required placeholder must not have its own contract
+	 * treated as an invalid, would-fatal specifier.
+	 */
+	public function test_extract_placeholders_recognises_the_h_and_capital_h_types(): void {
+		$this->assertSame( array( '%h' ), blueline_extract_placeholders( 'Distance: %h' ) );
+		$this->assertSame( array( '%H' ), blueline_extract_placeholders( 'Distance: %H' ) );
+	}
+
+	/**
 	 * A format string may freely mix a positional spec with a plain one --
 	 * PHP accepts this syntactically (verified: it does not throw, though it
 	 * silently reuses argument 1 for both, a separate footgun this
