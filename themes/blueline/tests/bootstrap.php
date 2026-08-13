@@ -369,6 +369,37 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 		return $thing instanceof WP_Error;
 	}
 }
+
+if ( ! trait_exists( 'Blueline_Assert_WP_Error' ) ) {
+	/**
+	 * Minimal stand-in for the assertWPError() assertion WP_UnitTestCase
+	 * provides in a full WordPress test install. This suite's tests extend
+	 * plain PHPUnit\Framework\TestCase rather than WP_UnitTestCase (there is
+	 * no WordPress install here for it to depend on), so a test that wants
+	 * this one assertion pulls it in with `use Blueline_Assert_WP_Error;`
+	 * rather than every test in the suite inheriting a heavier base class it
+	 * does not need.
+	 *
+	 * Mirrors core's own implementation exactly: a plain instanceof check
+	 * against the WP_Error stub above, surfaced through PHPUnit's own
+	 * assertInstanceOf() so failures report the normal PHPUnit diff/message
+	 * rather than a bespoke one.
+	 */
+	trait Blueline_Assert_WP_Error {
+
+		/**
+		 * Assert that a value is a WP_Error instance.
+		 *
+		 * @param mixed  $actual  Value under test.
+		 * @param string $message Optional failure message.
+		 * @return void
+		 */
+		public function assertWPError( $actual, string $message = '' ): void { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid -- must match WP_UnitTestCase::assertWPError()'s exact name; a snake_case rename would silently stop satisfying the assertWPError() calls the brief's own tests (and PHPUnit\Framework\TestCase's assertion-name convention generally) require.
+			self::assertInstanceOf( WP_Error::class, $actual, $message );
+		}
+	}
+}
+
 if ( ! function_exists( 'get_current_user_id' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_current_user_id().
