@@ -85,7 +85,13 @@ export function extractRootTokens( source ) {
  *
  * @param {Map<string,string>} tokens Map from extractRootTokens().
  * @param {string}             name   Token name, e.g. '--bl-surface'.
- * @param {Set<string>}        [seen] Internal: names already visited.
+ * @param {Set<string>}        [seen] Internal: names on the current resolution
+ *                                    path (ancestors of `name`), not every
+ *                                    token ever visited -- a diamond such as
+ *                                    A -> B -> D and A -> C -> D is two
+ *                                    independent, non-circular paths, so D
+ *                                    must not still look "seen" once the
+ *                                    B branch has finished with it.
  * @return {string} Fully-resolved, normalised value.
  */
 export function resolveToken( tokens, name, seen = new Set() ) {
@@ -111,6 +117,11 @@ export function resolveToken( tokens, name, seen = new Set() ) {
 				throw new Error( `token ${ ref } is not defined` );
 			}
 		);
+
+	// Backtrack: `name` is only an ancestor while its own recursion is on the
+	// stack. Removing it here lets a sibling branch re-visit the same
+	// downstream token without tripping the cycle check above.
+	seen.delete( name );
 
 	return normalizeValue( resolved );
 }

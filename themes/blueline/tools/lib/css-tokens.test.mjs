@@ -106,3 +106,16 @@ test( 'resolveToken leaves a composite shorthand alone after resolving its parts
 	] );
 	assert.equal( resolveToken( tokens, '--bl-focus' ), '3px solid #3f6e9d' );
 } );
+
+test( 'resolveToken does not mistake a diamond dependency for a cycle', () => {
+	const tokens = new Map( [
+		[ '--bl-d', '#123456' ],
+		[ '--bl-b', 'var(--bl-d)' ],
+		[ '--bl-c', 'var(--bl-d)' ],
+		[ '--bl-a', 'linear-gradient(var(--bl-b), var(--bl-c))' ],
+	] );
+	assert.equal(
+		resolveToken( tokens, '--bl-a' ),
+		'linear-gradient(#123456, #123456)'
+	);
+} );
