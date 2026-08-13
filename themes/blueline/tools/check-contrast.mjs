@@ -1,87 +1,27 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { extractRootTokens, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
+import { contrastRatio, evaluateRule } from './lib/contrast.mjs';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
 const css = readFileSync( resolve( here, '../style.css' ), 'utf8' );
+const styleTokens = extractRootTokens( css );
+const token = ( name ) => resolveColorToken( styleTokens, `--${ name }` );
 
-const token = ( name ) => {
-	const m = css.match( new RegExp( `--${ name }:\\s*(#[0-9a-fA-F]{6})` ) );
-	if ( ! m ) throw new Error( `token --${ name } not found in style.css` );
-	return m[ 1 ];
-};
-
-/**
- * Extracts every `--bl-*: value;` declaration from the first `:root { ... }`
- * (or `:root, <selector> { ... }`) block found in a CSS source string, as a
- * Map of token name -> trimmed value string (e.g. "#132343", or
- * `clamp(1.125rem, 0.5vw + 1rem, 1.25rem)`).
- *
- * @param {string} source CSS source text.
- * @returns {Map<string, string>}
- */
-function extractRootTokens( source ) {
-	const rootStart = source.indexOf( ':root' );
-	if ( rootStart === -1 ) throw new Error( 'no :root block found' );
-
-	const braceStart = source.indexOf( '{', rootStart );
-	let depth = 0;
-	let i = braceStart;
-	for ( ; i < source.length; i++ ) {
-		if ( source[ i ] === '{' ) depth++;
-		else if ( source[ i ] === '}' ) {
-			depth--;
-			if ( depth === 0 ) break;
-		}
-	}
-	const block = source.slice( braceStart + 1, i );
-
-	const tokens = new Map();
-	const re = /(--bl-[\w-]+)\s*:\s*([^;]+);/g;
-	let m;
-	while ( ( m = re.exec( block ) ) !== null ) {
-		tokens.set( m[ 1 ], m[ 2 ].trim().toLowerCase() );
-	}
-	return tokens;
-}
-
-const lin = ( c ) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow( ( c + 0.055 ) / 1.055, 2.4 ); };
-const lum = ( hex ) => {
-	const n = parseInt( hex.slice( 1 ), 16 );
-	return 0.2126 * lin( n >> 16 & 255 ) + 0.7152 * lin( n >> 8 & 255 ) + 0.0722 * lin( n & 255 );
-};
-const ratio = ( a, b ) => { const x = lum( a ), y = lum( b ); const hi = Math.max( x, y ), lo = Math.min( x, y ); return ( hi + 0.05 ) / ( lo + 0.05 ); };
-
-// [ description, fg token, bg token, minimum ]
-const RULES = [
-	[ 'body text on paper',        'bl-ink',         'bl-paper', 4.5 ],
-	[ 'secondary text on paper',   'bl-ink-mid',     'bl-paper', 4.5 ],
-	[ 'accent text on paper',      'bl-accent-text', 'bl-paper', 4.5 ],
-	[ 'ink on ice fill (button)',  'bl-ink',         'bl-ice',   4.5 ],
-	[ 'paper text on ink',         'bl-paper',       'bl-ink',   4.5 ],
-	[ 'pale text on ink',          'bl-pale',        'bl-ink',   4.5 ],
-	[ 'ice text on ink',           'bl-ice',         'bl-ink',   4.5 ],
-	[ 'steel border on paper',     'bl-steel',       'bl-paper', 3.0 ],
-	// bl-ink-deep is first used (header/nav/footer chrome) in Task 4.
-	[ 'paper text on ink-deep',    'bl-paper',       'bl-ink-deep', 4.5 ],
-	[ 'pale text on ink-deep',     'bl-pale',        'bl-ink-deep', 4.5 ],
-];
+const { rules } = JSON.parse(
+	readFileSync( resolve( here, 'contrast-rules.json' ), 'utf8' )
+);
 
 let failed = 0;
-for ( const [ desc, fg, bg, min ] of RULES ) {
-	const r = ratio( token( fg ), token( bg ) );
-	const ok = r >= min;
-	if ( ! ok ) failed++;
-	console.log( `${ ok ? 'ok  ' : 'FAIL' } ${ desc }: ${ r.toFixed( 2 ) } (min ${ min })` );
-}
-
-// Guard the rule that is easy to violate by accident.
-const iceOnPaper = ratio( token( 'bl-ice' ), token( 'bl-paper' ) );
-if ( iceOnPaper >= 3.0 ) {
-	console.log( `FAIL --bl-ice is ${ iceOnPaper.toFixed( 2 ) } on paper; it is a FILL token and must stay decorative` );
-	failed++;
-} else {
-	console.log( `ok   --bl-ice correctly unusable as light-bg text (${ iceOnPaper.toFixed( 2 ) })` );
+for ( const rule of rules ) {
+	const result = evaluateRule( rule, styleTokens );
+	if ( ! result.ok ) {
+		failed++;
+	}
+	console.log(
+		`${ result.ok ? 'ok  ' : 'FAIL' } ${ result.description }: ${ result.ratio.toFixed( 2 ) } (${ result.bound })`
+	);
 }
 
 /*
@@ -99,16 +39,9 @@ if ( iceOnPaper >= 3.0 ) {
  * but every token it DOES declare must exactly match style.css's value, and
  * it must not invent a --bl-* name style.css doesn't define at all.
  */
-const styleTokens  = extractRootTokens( css );
 const editorCssPath = resolve( here, '../assets/src/css/editor.css' );
 const editorCss     = readFileSync( editorCssPath, 'utf8' );
 const editorTokens  = extractRootTokens( editorCss );
-
-const normalizeValue = ( value ) => {
-	const hex3 = value.match( /^#([0-9a-f])([0-9a-f])([0-9a-f])$/ );
-	if ( hex3 ) return `#${ hex3[ 1 ] }${ hex3[ 1 ] }${ hex3[ 2 ] }${ hex3[ 2 ] }${ hex3[ 3 ] }${ hex3[ 3 ] }`;
-	return value.replace( /\s+/g, ' ' );
-};
 
 let parityFailed = 0;
 for ( const [ name, editorValue ] of editorTokens ) {
@@ -206,7 +139,7 @@ const SP_INLINE_COLOR_FIXTURES = [
 
 let spFailed = 0;
 for ( const fixture of SP_INLINE_COLOR_FIXTURES ) {
-	const rawRatio = ratio( fixture.rawColor, token( fixture.background ) );
+	const rawRatio = contrastRatio( fixture.rawColor, token( fixture.background ) );
 	console.log( `--   ${ fixture.description }: raw inline colour is ${ rawRatio.toFixed( 2 ) } on paper (min 4.5) -- expected to fail, that's the bug` );
 
 	// Find the CSS rule block whose selector mentions the fixture's hint and
@@ -218,7 +151,7 @@ for ( const fixture of SP_INLINE_COLOR_FIXTURES ) {
 		const decl = m[ 1 ].match( /color\s*:\s*(var\(\s*--([\w-]+)\s*\)|#[0-9a-fA-F]{6})\s*!important/ );
 		if ( ! decl ) continue;
 		const resolved = decl[ 2 ] ? token( decl[ 2 ] ) : decl[ 1 ];
-		matchedRatio = ratio( resolved, token( fixture.background ) );
+		matchedRatio = contrastRatio( resolved, token( fixture.background ) );
 		break;
 	}
 

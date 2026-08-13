@@ -1,0 +1,17 @@
+{
+  "$comment": "Shared contrast contract. Consumers: tools/check-contrast.mjs (build gate), the PHP save-time validator (P1), and the panel's advisory readout (P2). Adding a rule here must not require editing any consumer.",
+  "version": 1,
+  "rules": [
+    { "id": "body-on-paper",        "description": "body text on paper",       "fg": "--bl-ink",         "bg": "--bl-paper",    "min": 4.5 },
+    { "id": "secondary-on-paper",   "description": "secondary text on paper",  "fg": "--bl-ink-mid",     "bg": "--bl-paper",    "min": 4.5 },
+    { "id": "accent-on-paper",      "description": "accent text on paper",     "fg": "--bl-accent-text", "bg": "--bl-paper",    "min": 4.5 },
+    { "id": "ink-on-ice",           "description": "ink on ice fill (button)", "fg": "--bl-ink",         "bg": "--bl-ice",      "min": 4.5 },
+    { "id": "paper-on-ink",         "description": "paper text on ink",        "fg": "--bl-paper",       "bg": "--bl-ink",      "min": 4.5 },
+    { "id": "pale-on-ink",          "description": "pale text on ink",         "fg": "--bl-pale",        "bg": "--bl-ink",      "min": 4.5 },
+    { "id": "ice-on-ink",           "description": "ice text on ink",          "fg": "--bl-ice",         "bg": "--bl-ink",      "min": 4.5 },
+    { "id": "steel-border-paper",   "description": "steel border on paper",    "fg": "--bl-steel",       "bg": "--bl-paper",    "min": 3.0 },
+    { "id": "paper-on-ink-deep",    "description": "paper text on ink-deep",   "fg": "--bl-paper",       "bg": "--bl-ink-deep", "min": 4.5 },
+    { "id": "pale-on-ink-deep",     "description": "pale text on ink-deep",    "fg": "--bl-pale",        "bg": "--bl-ink-deep", "min": 4.5 },
+    { "id": "ice-not-text-on-light","description": "--bl-ice correctly unusable as light-bg text", "fg": "--bl-ice", "bg": "--bl-paper", "max": 3.0 }
+  ]
+}
