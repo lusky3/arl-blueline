@@ -27,7 +27,14 @@ Text Domain: blueline
 	--bl-surface-sunken:   var(--bl-paper);
 	--bl-surface-inverse:  var(--bl-ink);
 	--bl-border:           #DBE7F0;
-	--bl-border-strong:    #C3D6E4;
+	/*
+	 * 3.18 on white, 3.06 on paper. This is the ONLY thing identifying a form
+	 * field, select, textarea, search box or pagination chip -- their fill is
+	 * --bl-white against a --bl-paper page, which is 1.05:1, so the boundary
+	 * carries the whole affordance. SC 1.4.11 requires 3:1 for exactly this.
+	 * The previous #C3D6E4 was 1.49.
+	 */
+	--bl-border-strong:    #7C93A8;
 
 	/* Semantic */
 	--bl-success: #1F7A4D;
