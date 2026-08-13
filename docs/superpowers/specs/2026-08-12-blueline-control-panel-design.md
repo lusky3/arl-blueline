@@ -1,6 +1,10 @@
 # Blueline Control Panel — Design Spec
 
-**Status:** DRAFT — under review, not yet approved
+**Status:** DRAFT — **REVIEWED AND REJECTED. Do not implement.**
+Five independent reviews found critical defects, platform errors and internal
+contradictions. See `2026-08-12-blueline-control-panel-review.md`. This file is
+retained only as the record of what was reviewed; it will be replaced once the
+scope decision in that document's §7 is taken.
 **Date:** 2026-08-12
 **Theme:** `themes/blueline` (standalone, text-domain `blueline`)
 **Depends on:** `docs/DESIGN.md`, `docs/PRODUCT.md`, `docs/superpowers/specs/2026-08-11-arl-blueline-theme-design.md`
