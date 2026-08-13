@@ -419,6 +419,132 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
+	 * Fix round 3, bug (1): the coordinator's exact reproduction. A field
+	 * declaring `placeholders => array()` rejects a value containing BOTH a
+	 * genuinely-broken "%" ("% and", where "a" is not a valid type) AND a
+	 * separate, undeclared "%s" -- and the suggested correction must be one
+	 * that would actually be ACCEPTED if pasted straight back in, not one
+	 * that only fixes the first problem and leaves the second to fail on
+	 * resubmission with a different, confusing error. Before this fix, the
+	 * suggestion was built without consulting $required and so still
+	 * contained the undeclared "%s", which the placeholder-contract check
+	 * would then reject a second time.
+	 */
+	public function test_the_stray_percent_correction_is_always_resubmittable(): void {
+		$field = array(
+			'type'         => 'text',
+			'label'        => 'Footer heading',
+			'placeholders' => array(),
+		);
+
+		$result = blueline_sanitize_field( 'ends in % and has %s too', $field );
+		$this->assertWPError( $result );
+
+		$message = $result->get_error_message();
+		$this->assertStringContainsString(
+			'ends in %% and has %%s too',
+			$message,
+			'the suggested correction must escape BOTH the broken % and the separate undeclared %s'
+		);
+
+		// The actual proof: paste the exact suggested string back in, and
+		// it must be ACCEPTED, not rejected a second time.
+		$resubmitted = blueline_sanitize_field( 'ends in %% and has %%s too', $field );
+		$this->assertFalse(
+			is_wp_error( $resubmitted ),
+			'the suggested correction must not itself be rejected on resubmission'
+		);
+		$this->assertSame( 'ends in %% and has %%s too', $resubmitted );
+	}
+
+	/**
+	 * Fix round 3, bug (1), the genuinely-unfixable-by-escaping-alone case:
+	 * when a value has a broken "%" AND is separately missing a required
+	 * placeholder that escaping cannot fabricate (there is no way to know
+	 * WHERE a volunteer meant to place a dropped "%s"), the message must
+	 * say so plainly rather than offering a "corrected" string that would
+	 * still fail. Proves both halves: the message names the residual
+	 * problem, AND the offered snippet -- honestly presented as partial --
+	 * is still rejected if resubmitted alone, which is exactly why the
+	 * message must not claim it as a complete fix.
+	 */
+	public function test_a_compound_stray_percent_and_missing_placeholder_says_so_plainly(): void {
+		$field = array(
+			'type'         => 'text',
+			'label'        => 'Off-season CTA',
+			'placeholders' => array( '%s' ),
+		);
+
+		$result = blueline_sanitize_field( 'Hi 50% today', $field );
+		$this->assertWPError( $result );
+
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( 'not enough by itself', $message, 'must not claim the escaped snippet alone fixes everything' );
+		$this->assertStringContainsString( '%s', $message, 'must still name the separately-missing required placeholder' );
+		$this->assertStringContainsString( 'missing', strtolower( $message ) );
+
+		// The escaped-but-incomplete snippet, resubmitted alone, must still
+		// be rejected -- proving the message's honesty that it is not a
+		// complete fix by itself.
+		$partial = blueline_sanitize_field( 'Hi 50%% today', $field );
+		$this->assertWPError( $partial, 'the partial correction alone is still missing the required %s' );
+	}
+
+	/**
+	 * Fix round 3, bug (2): a declared contract that repeats a spec a
+	 * different number of times than the value supplies must produce a
+	 * message that actually says so, not a blank clause. Before this fix,
+	 * array_diff()'s set semantics saw "%s" in both $required and $found
+	 * and reported no difference in either direction, rendering the
+	 * message as literally `"Season banner" .`.
+	 */
+	public function test_repeated_placeholder_count_mismatch_names_the_count_problem(): void {
+		$field  = array(
+			'type'         => 'text',
+			'label'        => 'Season banner',
+			'placeholders' => array( '%s', '%s' ),
+		);
+		$result = blueline_sanitize_field( 'Week %s', $field );
+
+		$this->assertWPError( $result );
+		$message = $result->get_error_message();
+
+		$this->assertNotSame( '"Season banner" .', $message, 'must not render as a blank clause' );
+		$this->assertStringContainsString( 'Season banner', $message );
+		$this->assertStringContainsString( '%s', $message );
+		$this->assertStringContainsString( 'twice', $message, 'must name how many times the spec is required' );
+		$this->assertStringContainsString( 'once', $message, 'must name how many times the spec actually appears' );
+	}
+
+	/**
+	 * Direct unit coverage of the count-aware reasons builder itself,
+	 * independent of blueline_sanitize_field(): a spec present MORE times
+	 * than declared (the mirror image of the "declared twice, supplied
+	 * once" case) must also be named with its actual counts, not treated as
+	 * a generic "not expected here" as if it were wholly undeclared.
+	 */
+	public function test_placeholder_mismatch_reasons_names_an_over_supplied_spec(): void {
+		$reasons = blueline_placeholder_mismatch_reasons( array( '%s' ), array( '%s', '%s' ) );
+
+		$this->assertCount( 1, $reasons );
+		$this->assertStringContainsString( '%s', $reasons[0] );
+		$this->assertStringContainsString( 'once', $reasons[0] );
+		$this->assertStringContainsString( 'twice', $reasons[0] );
+		$this->assertStringContainsString( 'remove', strtolower( $reasons[0] ) );
+	}
+
+	/**
+	 * The count-phrasing helper must read naturally for the common small
+	 * counts and fall back to a plain numeral otherwise.
+	 */
+	public function test_times_phrase_reads_naturally(): void {
+		$this->assertSame( 'once', blueline_times_phrase( 1 ) );
+		$this->assertSame( 'twice', blueline_times_phrase( 2 ) );
+		$this->assertSame( '3 times', blueline_times_phrase( 3 ) );
+		$this->assertSame( '0 times', blueline_times_phrase( 0 ) );
+	}
+
+	/**
 	 * Integration check against the real schema, not a hand-built fixture:
 	 * every one of Task 1's 13 existing field defaults must still validate
 	 * through blueline_sanitize_field() unchanged now that `text` fields

@@ -215,6 +215,111 @@ function blueline_escape_stray_percents( string $text, ?array $wanted = null ): 
 }
 
 /**
+ * Render a count as a short English phrase for a rejection message --
+ * "once", "twice", or "N times" -- rather than the grammatically awkward
+ * "1 times" a plain sprintf( '%d times', $n ) would produce for the single
+ * most common case.
+ *
+ * @param int $n Count to phrase.
+ * @return string
+ */
+function blueline_times_phrase( int $n ): string {
+	if ( 1 === $n ) {
+		return __( 'once', 'blueline' );
+	}
+
+	if ( 2 === $n ) {
+		return __( 'twice', 'blueline' );
+	}
+
+	return sprintf(
+		/* translators: %d: a count of 0, or 3 or more. */
+		__( '%d times', 'blueline' ),
+		$n
+	);
+}
+
+/**
+ * Build the human-readable list of placeholder-contract problems between
+ * $required and $found -- one clause per mismatched spec, ready to
+ * implode( '; ', ... ) into a single message. Empty when $required and
+ * $found are the same multiset (nothing to report).
+ *
+ * COUNT-AWARE, unlike a plain array_diff( $required, $found ): array_diff()
+ * is set-based, so a spec repeated a different number of times than
+ * declared (e.g. `placeholders => array( '%s', '%s' )` but the value has
+ * only one `%s`) diffs to nothing in EITHER direction -- `$missing` and
+ * `$extra` both come back empty even though the reject decision (a proper
+ * sorted-array multiset compare, done by the caller) correctly refused the
+ * value. A blank message ('"Season banner" .') is worse than no message:
+ * this function exists so that case has something real to say ("must
+ * contain %s twice, but the value only has it once").
+ *
+ * @param string[] $required Declared placeholder contract (may contain
+ *                            duplicates on purpose, e.g. a spec used twice).
+ * @param string[] $found    Placeholders actually present in the value.
+ * @return string[] One already-punctuated clause per spec whose required
+ *                   and actual counts differ, in a stable order (every
+ *                   `$required` spec first, then any spec found but never
+ *                   declared at all).
+ */
+function blueline_placeholder_mismatch_reasons( array $required, array $found ): array {
+	$required_counts = array_count_values( $required );
+	$found_counts    = array_count_values( $found );
+
+	$specs = array_unique( array_merge( array_keys( $required_counts ), array_keys( $found_counts ) ) );
+
+	$reasons = array();
+	foreach ( $specs as $spec ) {
+		$needed = $required_counts[ $spec ] ?? 0;
+		$have   = $found_counts[ $spec ] ?? 0;
+
+		if ( $needed === $have ) {
+			continue; // This spec's count matches; nothing wrong with it.
+		}
+
+		if ( 0 === $have ) {
+			// Declared, but does not appear in the value at all -- the
+			// simple "dropped a placeholder" case, wording unchanged from
+			// before this function existed.
+			$reasons[] = sprintf(
+				/* translators: %s: the missing placeholder token. */
+				__( 'must contain %s -- it\'s missing', 'blueline' ),
+				$spec
+			);
+		} elseif ( 0 === $needed ) {
+			// Present, but never declared at all -- the simple "extra
+			// placeholder" case, wording unchanged from before this
+			// function existed.
+			$reasons[] = sprintf(
+				/* translators: %s: the unexpected placeholder token. */
+				__( 'contains %s, which is not expected here -- remove it', 'blueline' ),
+				$spec
+			);
+		} elseif ( $have < $needed ) {
+			// Declared AND present, just not the right number of times.
+			$reasons[] = sprintf(
+				/* translators: 1: placeholder token, 2: how many times required, 3: how many times actually present. */
+				__( 'must contain %1$s %2$s, but the value only has it %3$s', 'blueline' ),
+				$spec,
+				blueline_times_phrase( $needed ),
+				blueline_times_phrase( $have )
+			);
+		} else {
+			$reasons[] = sprintf(
+				/* translators: 1: placeholder token, 2: how many times required, 3: how many times actually present. */
+				__( 'must contain %1$s %2$s, but the value has it %3$s -- remove the extra', 'blueline' ),
+				$spec,
+				blueline_times_phrase( $needed ),
+				blueline_times_phrase( $have )
+			);
+		}
+	}
+
+	return $reasons;
+}
+
+/**
  * Sanitize one settings-panel field value according to its schema type,
  * enforcing the `placeholders` sprintf() contract for every string-valued
  * field.
@@ -266,17 +371,31 @@ function blueline_escape_stray_percents( string $text, ?array $wanted = null ): 
  *     `% o` spec). Both read the same to the person who has to fix them: a
  *     stray "%" that must become "%%". The message names the offending
  *     sequence when there is one to name, explains what PHP does with it,
- *     and hands back the corrected string via blueline_escape_stray_percents()
- *     rather than leaving a volunteer to guess.
+ *     and hands back a corrected string via blueline_escape_stray_percents()
+ *     -- ALWAYS built against $required, never the escape helper's own
+ *     "every spec already present" default, and ALWAYS verified (by
+ *     re-running it through blueline_extract_placeholders() and comparing
+ *     to $required) before it is offered, so the suggestion handed back is
+ *     never one that would itself be rejected on resubmission. A value can
+ *     have a genuinely-broken "%" AND separately fail the placeholder
+ *     contract (most often: a required spec is simply absent, unrelated to
+ *     the broken "%"); when escaping alone cannot also satisfy the
+ *     contract, the message says so explicitly and names the remaining
+ *     problem via blueline_placeholder_mismatch_reasons() rather than
+ *     silently handing back a "fix" that fails a second time.
  * (b) CONTRACT MISMATCH -- `blueline_placeholder_mismatch`. The field DOES
  *     declare specific required placeholders, and the value's actual set
  *     differs from them -- a required one was dropped, an unexpected one was
- *     added, or both. Nothing here is "accidental" in the same sense as (a):
- *     these are real, valid conversion specs, just the wrong ones for this
- *     field's call site. The message names which placeholder is missing
- *     and/or which one is unexpected, in whichever direction(s) apply,
- *     rather than printing the whole required list and leaving the reader to
- *     diff it against what they typed.
+ *     added, a spec was repeated the wrong number of times, or some
+ *     combination. Nothing here is "accidental" in the same sense as (a):
+ *     these are real, valid conversion specs, just the wrong ones (or the
+ *     wrong count) for this field's call site. The message names which
+ *     placeholder is missing and/or which one is unexpected, COUNT-AWARE
+ *     (blueline_placeholder_mismatch_reasons() uses array_count_values(),
+ *     not array_diff(), specifically so a spec declared twice but supplied
+ *     once has something real to say rather than rendering blank), rather
+ *     than printing the whole required list and leaving the reader to diff
+ *     it against what they typed.
  *
  * Either way: a value missing a required spec would ArgumentCountError at
  * the real call site for lack of an argument to fill it; a value containing
@@ -318,21 +437,56 @@ function blueline_sanitize_field( $value, array $field ) {
 	}
 
 	$sanitized = sanitize_text_field( (string) $value );
+	$required  = (array) ( $field['placeholders'] ?? array() );
 
 	if ( ! blueline_percent_is_safe( $sanitized ) ) {
+		// Escaping MUST be checked against $required, not left at
+		// blueline_escape_stray_percents()'s "every spec already present"
+		// default: a value can have a genuinely-broken "%" AND separately
+		// fail the placeholder contract (e.g. this field requires nothing,
+		// but the value also happens to contain a real, undeclared "%s").
+		// Escaping with the default would leave that undeclared spec in
+		// place, so the "corrected" string offered back would itself be
+		// rejected on resubmission -- exactly the trust-destroying failure
+		// mode this message exists to prevent.
+		$corrected = blueline_escape_stray_percents( $sanitized, $required );
+
+		$required_sorted = $required;
+		sort( $required_sorted );
+		$corrected_found = blueline_extract_placeholders( $corrected );
+		sort( $corrected_found );
+
+		if ( $corrected_found === $required_sorted ) {
+			return new WP_Error(
+				'blueline_unsafe_format_specifier',
+				sprintf(
+					/* translators: 1: the field's label, 2: the value corrected to a saveable form. */
+					__( '"%1$s" contains a "%%" that PHP can\'t parse as a formatting instruction -- depending on the value, this can silently corrupt the saved text or crash the page. To show a percent sign, double it: %2$s', 'blueline' ),
+					$label,
+					$corrected
+				)
+			);
+		}
+
+		// Escaping the stray "%" is not enough by itself: the placeholder
+		// contract is ALSO violated (typically a required spec is simply
+		// absent, which no amount of escaping can fabricate -- there is no
+		// way to know where a volunteer meant to place it). Say so
+		// explicitly rather than handing back $corrected as if it were a
+		// complete fix; it is only a partial one.
 		return new WP_Error(
 			'blueline_unsafe_format_specifier',
 			sprintf(
-				/* translators: 1: the field's label, 2: the value corrected to a saveable form. */
-				__( '"%1$s" contains a "%%" that PHP can\'t parse as a formatting instruction -- depending on the value, this can silently corrupt the saved text or crash the page. To show a percent sign, double it: %2$s', 'blueline' ),
+				/* translators: 1: the field's label, 2: the value with the stray percent escaped (not a complete fix by itself), 3: the separate placeholder-contract problem(s), already assembled into one clause. */
+				__( '"%1$s" contains a "%%" that PHP can\'t parse as a formatting instruction. Escaping it -- e.g. "%2$s" -- is not enough by itself: it also %3$s.', 'blueline' ),
 				$label,
-				blueline_escape_stray_percents( $sanitized )
+				$corrected,
+				implode( '; ', blueline_placeholder_mismatch_reasons( $required, $corrected_found ) )
 			)
 		);
 	}
 
-	$required = (array) ( $field['placeholders'] ?? array() );
-	$found    = blueline_extract_placeholders( $sanitized );
+	$found = blueline_extract_placeholders( $sanitized );
 
 	$required_sorted = $required;
 	sort( $required_sorted );
@@ -343,47 +497,26 @@ function blueline_sanitize_field( $value, array $field ) {
 		return $sanitized;
 	}
 
-	// From here, $required and $found differ. array_diff() is set-based
-	// (it does not weigh duplicate counts), which is fine for naming specs
-	// in a message -- the sorted-array compare above is what already made
-	// the reject decision correctly for the (rare, currently unreachable)
-	// case of a required spec repeated a different number of times than it
-	// appears.
-	$missing = array_values( array_diff( $required, $found ) );
-	$extra   = array_values( array_diff( $found, $required ) );
-
-	if ( empty( $required ) && ! empty( $extra ) ) {
+	if ( empty( $required ) && ! empty( $found ) ) {
 		// This field declares NO placeholders at all, yet the value
 		// contains one -- there is no legitimate reading of that: it can
 		// only be an ordinary "%" a volunteer meant literally, accidentally
 		// completing a real conversion spec (see BLUELINE_SPRINTF_SPEC's
 		// docblock). Treated as a stray percent, not a "contract mismatch",
-		// because that is what it actually is.
+		// because that is what it actually is. Escaping with $required
+		// (empty here) always fully resolves this case -- every found spec
+		// gets escaped, leaving nothing for the placeholder check to trip
+		// on -- so, unlike the branch above, there is no compound case to
+		// worry about here.
 		return new WP_Error(
 			'blueline_unsafe_format_specifier',
 			sprintf(
 				/* translators: 1: the field's label, 2: the accidental conversion spec(s) found, 3: the value corrected to a saveable form. */
 				__( '"%1$s" contains "%2$s", which PHP reads as a formatting instruction rather than a literal percent sign -- depending on the value, this can silently corrupt the saved text or crash the page. To show a percent sign, double it: %3$s', 'blueline' ),
 				$label,
-				implode( ', ', $extra ),
+				implode( ', ', $found ),
 				blueline_escape_stray_percents( $sanitized, $required )
 			)
-		);
-	}
-
-	$reasons = array();
-	if ( $missing ) {
-		$reasons[] = sprintf(
-			/* translators: %s: comma-separated list of required placeholders absent from the value. */
-			__( 'must contain %s -- it\'s missing', 'blueline' ),
-			implode( ', ', $missing )
-		);
-	}
-	if ( $extra ) {
-		$reasons[] = sprintf(
-			/* translators: %s: comma-separated list of placeholders present but not declared by this field. */
-			__( 'contains %s, which is not expected here -- remove it', 'blueline' ),
-			implode( ', ', $extra )
 		);
 	}
 
@@ -393,7 +526,7 @@ function blueline_sanitize_field( $value, array $field ) {
 			/* translators: 1: the field's label, 2: what is missing and/or unexpected, already assembled into one clause. */
 			__( '"%1$s" %2$s.', 'blueline' ),
 			$label,
-			implode( '; ', $reasons )
+			implode( '; ', blueline_placeholder_mismatch_reasons( $required, $found ) )
 		)
 	);
 }
