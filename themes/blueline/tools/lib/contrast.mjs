@@ -36,6 +36,55 @@ export function contrastRatio( a, b ) {
 }
 
 /**
+ * Validate the shape of one rule from contrast-rules.json.
+ *
+ * This is a cross-language contract: a PHP validator (P1) and a panel readout
+ * (P2) will each independently read the same JSON, and Tasks 6-8 add 18 more
+ * rules to this exact file. A malformed rule must fail loudly, at the point
+ * every consumer shares, rather than silently doing the wrong thing (honouring
+ * only `max` when both bounds are present) or producing `undefined` in output
+ * (when neither bound, or `id`/`fg`/`bg`, is present).
+ *
+ * @param {Object} rule Rule object as parsed from contrast-rules.json.
+ * @throws {Error} If the rule is missing a required field, or carries both
+ *                 `min` and `max`, or neither.
+ */
+export function validateRule( rule ) {
+	if ( ! rule || typeof rule !== 'object' ) {
+		throw new Error( `contrast rule is not an object: ${ JSON.stringify( rule ) }` );
+	}
+
+	if ( typeof rule.id !== 'string' || ! rule.id ) {
+		throw new Error(
+			`contrast rule ${ JSON.stringify( rule ) } is missing a string "id"`
+		);
+	}
+
+	if ( typeof rule.fg !== 'string' || ! rule.fg ) {
+		throw new Error( `contrast rule "${ rule.id }" is missing a string "fg" token` );
+	}
+
+	if ( typeof rule.bg !== 'string' || ! rule.bg ) {
+		throw new Error( `contrast rule "${ rule.id }" is missing a string "bg" token` );
+	}
+
+	const hasMin = typeof rule.min === 'number';
+	const hasMax = typeof rule.max === 'number';
+
+	if ( hasMin && hasMax ) {
+		throw new Error(
+			`contrast rule "${ rule.id }" carries both "min" and "max" -- exactly one is required, not both`
+		);
+	}
+
+	if ( ! hasMin && ! hasMax ) {
+		throw new Error(
+			`contrast rule "${ rule.id }" carries neither "min" nor "max" as a number -- exactly one is required`
+		);
+	}
+}
+
+/**
  * Evaluate one rule from contrast-rules.json against a token map.
  *
  * A rule carries either `min` (the usual case: this pairing must be at least
@@ -47,6 +96,8 @@ export function contrastRatio( a, b ) {
  * @return {{id:string,description:string,ok:boolean,ratio:number,bound:string}}
  */
 export function evaluateRule( rule, tokens ) {
+	validateRule( rule );
+
 	const fg = resolveColorToken( tokens, rule.fg );
 	const bg = resolveColorToken( tokens, rule.bg );
 	const ratio = contrastRatio( fg, bg );
