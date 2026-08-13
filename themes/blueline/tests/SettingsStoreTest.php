@@ -88,6 +88,135 @@ final class SettingsStoreTest extends TestCase {
 	}
 
 	/**
+	 * Direct unit coverage of blueline_settings_merge()'s `_posted_fields`
+	 * contract: a field named in `_posted_fields` but absent from the
+	 * submission is a deliberate delete (an unchecked checkbox), while a
+	 * field named in NEITHER the submission nor `_posted_fields` still
+	 * belongs to a tab this submission didn't touch, and survives.
+	 */
+	public function test_merge_posted_fields_deletes_a_named_absent_field_but_keeps_an_unnamed_one(): void {
+		$old = array(
+			'newsletter_enabled' => true,
+			'contact_email'      => 'kept@example.com',
+		);
+		$new = array(
+			'_posted_fields' => array( 'newsletter_enabled' ),
+		);
+
+		$merged = blueline_settings_merge( $new, $old );
+
+		$this->assertArrayNotHasKey(
+			'newsletter_enabled',
+			$merged,
+			'named in _posted_fields but absent from the submission must be deleted, not carried forward'
+		);
+		$this->assertSame(
+			'kept@example.com',
+			$merged['contact_email'],
+			'not named in _posted_fields and absent must still be carried forward -- it belongs to another tab'
+		);
+	}
+
+	/**
+	 * A field actually present in the submission is kept regardless of
+	 * whether it is also named in `_posted_fields` -- naming a field only
+	 * disambiguates an OMISSION; it never overrides a value the submission
+	 * did include.
+	 */
+	public function test_merge_posted_fields_does_not_override_a_value_actually_submitted(): void {
+		$old = array( 'newsletter_enabled' => false );
+		$new = array(
+			'newsletter_enabled' => true,
+			'_posted_fields'     => array( 'newsletter_enabled' ),
+		);
+
+		$this->assertTrue( blueline_settings_merge( $new, $old )['newsletter_enabled'] );
+	}
+
+	/**
+	 * Without `_posted_fields` at all, behaviour is unchanged from before
+	 * this contract existed: every key absent from the submission is
+	 * carried forward. This is the fallback every caller gets until the
+	 * renderer that emits `_posted_fields` exists (a later task), so
+	 * nothing already working breaks in the meantime.
+	 */
+	public function test_merge_carries_everything_forward_when_posted_fields_is_absent(): void {
+		$old = array(
+			'newsletter_enabled' => true,
+			'contact_email'      => 'kept@example.com',
+		);
+		$new = array( 'contact_email' => 'changed@example.com' );
+
+		$merged = blueline_settings_merge( $new, $old );
+
+		$this->assertTrue(
+			$merged['newsletter_enabled'],
+			'no _posted_fields means carry-forward-everything, unchanged from before this contract existed'
+		);
+		$this->assertSame( 'changed@example.com', $merged['contact_email'] );
+	}
+
+	/**
+	 * `_posted_fields` is reserved bookkeeping for this one merge decision
+	 * -- it must never itself land in the stored option, whether read
+	 * straight off the merge's return value or round-tripped through
+	 * update_option()/get_option().
+	 */
+	public function test_merge_never_persists_the_posted_fields_key_itself(): void {
+		$merged = blueline_settings_merge(
+			array(
+				'contact_email'  => 'a@example.com',
+				'_posted_fields' => array( 'contact_email' ),
+			),
+			array( 'contact_email' => 'old@example.com' )
+		);
+		$this->assertArrayNotHasKey( '_posted_fields', $merged );
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'contact_email'  => 'b@example.com',
+				'_posted_fields' => array( 'contact_email' ),
+			)
+		);
+		$this->assertArrayNotHasKey( '_posted_fields', get_option( BLUELINE_SETTINGS_OPTION ) );
+	}
+
+	/**
+	 * The same delete-vs-carry-forward disambiguation, exercised through
+	 * the full update_option()/get_option() round trip rather than calling
+	 * blueline_settings_merge() directly -- proving the contract holds on
+	 * the actual write path a real tab save (or WP-CLI, or an import) uses,
+	 * not just the merge function in isolation.
+	 */
+	public function test_saving_with_posted_fields_deletes_an_unchecked_field_but_keeps_an_untouched_one(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'newsletter_enabled' => true,
+				'contact_email'      => 'a@example.com',
+			)
+		);
+
+		// A Sections-tab submission that owns `newsletter_enabled` and this
+		// time unchecked it -- HTML omits an unchecked checkbox from
+		// $_POST entirely, so the field it owns is named explicitly instead.
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array( '_posted_fields' => array( 'newsletter_enabled' ) )
+		);
+
+		$stored = get_option( BLUELINE_SETTINGS_OPTION );
+		$this->assertArrayNotHasKey( 'newsletter_enabled', $stored, 'named-but-absent must be deleted' );
+		$this->assertSame(
+			'a@example.com',
+			$stored['contact_email'],
+			'unnamed-and-absent must survive -- it belongs to a tab this submission did not touch'
+		);
+		$this->assertArrayNotHasKey( '_posted_fields', $stored );
+	}
+
+	/**
 	 * The read accessor must return every schema field with its default
 	 * value when the option has never been saved.
 	 */

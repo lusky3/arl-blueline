@@ -701,8 +701,8 @@ if ( ! function_exists( 'update_option' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' update_option(): mirrors core's
 	 * documented dispatch order -- sanitize_option_{$option}, then
-	 * pre_update_option_{$option}, then pre_update_option, then the write,
-	 * then update_option_{$option}.
+	 * pre_update_option_{$option}, then pre_update_option, then (if the
+	 * value actually changed) the write, then update_option_{$option}.
 	 *
 	 * The sanitize step is the hook register_setting()'s sanitize_callback
 	 * attaches to, and the behaviour P1's settings layer depends on to
@@ -716,20 +716,45 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * lands, exactly as core reads it from the DB/cache before its own
 	 * write -- never the value this same call is about to write.
 	 *
+	 * The two pre_update_option* filters do NOT share an argument order --
+	 * a well-known WordPress footgun this stub must reproduce faithfully
+	 * rather than "fix":
+	 *
+	 *   pre_update_option_{$option} -> ( $value, $old_value, $option )
+	 *   pre_update_option (generic) -> ( $value, $option, $old_value )
+	 *
+	 * $option and $old_value are swapped between the two. A callback
+	 * written for one and reused on the other silently reads the wrong
+	 * argument, which is exactly the bug this stub exists to be able to
+	 * catch (see BootstrapFidelityTest::
+	 * test_update_option_dispatches_hooks_in_core_order(), which asserts
+	 * each hook's arguments individually, not merely that each fires).
+	 *
+	 * Also matches core's short-circuit: if the option already exists and
+	 * the value survives sanitizing/the pre_update_option* filters
+	 * unchanged, nothing is written and update_option_{$option} does not
+	 * fire -- an unconditional write/fire here would let a test believe a
+	 * merge or migration guard runs on every save when core would in fact
+	 * skip a no-op one.
+	 *
 	 * @param string $option   Option name.
 	 * @param mixed  $value    New value.
 	 * @param mixed  $autoload Unused; kept for signature parity.
-	 * @return true
+	 * @return bool True if the value was written, false if the option
+	 *              already held this exact value and nothing changed.
 	 */
 	function update_option( $option, $value, $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs autoload honoured.
 		$value = apply_filters( "sanitize_option_{$option}", $value, $option );
 
-		$old_value = array_key_exists( $option, $GLOBALS['bl_test_options'] )
-			? $GLOBALS['bl_test_options'][ $option ]
-			: false;
+		$exists    = array_key_exists( $option, $GLOBALS['bl_test_options'] );
+		$old_value = $exists ? $GLOBALS['bl_test_options'][ $option ] : false;
 
 		$value = apply_filters( "pre_update_option_{$option}", $value, $old_value, $option );
-		$value = apply_filters( 'pre_update_option', $value, $old_value, $option );
+		$value = apply_filters( 'pre_update_option', $value, $option, $old_value );
+
+		if ( $exists && $value === $old_value ) {
+			return false;
+		}
 
 		$GLOBALS['bl_test_options'][ $option ] = $value;
 

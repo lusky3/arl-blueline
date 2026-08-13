@@ -78,45 +78,63 @@ final class BootstrapFidelityTest extends TestCase {
 	/**
 	 * Pins update_option()'s hook dispatch to core's documented order:
 	 * sanitize_option_{$option} -> pre_update_option_{$option} ->
-	 * pre_update_option -> write -> update_option_{$option}.
+	 * pre_update_option -> write -> update_option_{$option}. Also pins each
+	 * hook's ARGUMENTS, not just its position in the sequence.
 	 *
-	 * This is the ORDER, not just presence -- a callback on each hook
-	 * appends its own name to a shared array, so a future edit to the
-	 * update_option() stub that fires these in the wrong sequence (or drops
-	 * one) fails this test even though each hook still individually "fires".
-	 * That distinction is exactly what let this stub previously fire only
-	 * sanitize_option_* and never pre_update_option_*, silently, since a
-	 * presence-only test could not have told the difference.
+	 * The argument assertion is the point of this test, not a bonus: the
+	 * two pre_update_option* filters do not share an argument order in
+	 * core -- pre_update_option_{$option} is ( $value, $old_value, $option )
+	 * but the generic pre_update_option is ( $value, $option, $old_value ),
+	 * $option and $old_value swapped. A stub that fires both hooks in the
+	 * right SEQUENCE but with the generic hook's arguments transposed would
+	 * pass an order-only version of this test while still being wrong in a
+	 * way a real callback (e.g. one written against core's docs and reused
+	 * on the wrong hook) would silently misread. Asserting each hook's
+	 * arguments individually is what closes that gap.
+	 *
+	 * Seeds an old value first so $old_value and $option are never the same
+	 * string as $value, which would let a transposed-argument bug hide
+	 * behind coincidentally-equal assertions.
 	 */
 	public function test_update_option_dispatches_hooks_in_core_order(): void {
-		$order = array();
+		update_option( 'bl_order', 'was' );
+
+		$calls = array();
 
 		add_filter(
 			'sanitize_option_bl_order',
-			static function ( $value ) use ( &$order ) {
-				$order[] = 'sanitize_option_bl_order';
+			static function ( $value, $option ) use ( &$calls ) {
+				$calls[] = array( 'sanitize_option_bl_order', array( $value, $option ) );
 				return $value;
-			}
+			},
+			10,
+			2
 		);
 		add_filter(
 			'pre_update_option_bl_order',
-			static function ( $value ) use ( &$order ) {
-				$order[] = 'pre_update_option_bl_order';
+			static function ( $value, $old_value, $option ) use ( &$calls ) {
+				$calls[] = array( 'pre_update_option_bl_order', array( $value, $old_value, $option ) );
 				return $value;
-			}
+			},
+			10,
+			3
 		);
 		add_filter(
 			'pre_update_option',
-			static function ( $value ) use ( &$order ) {
-				$order[] = 'pre_update_option';
+			static function ( $value, $option, $old_value ) use ( &$calls ) {
+				$calls[] = array( 'pre_update_option', array( $value, $option, $old_value ) );
 				return $value;
-			}
+			},
+			10,
+			3
 		);
 		add_action(
 			'update_option_bl_order',
-			static function () use ( &$order ) {
-				$order[] = 'update_option_bl_order';
-			}
+			static function ( $old_value, $new_value, $option ) use ( &$calls ) {
+				$calls[] = array( 'update_option_bl_order', array( $old_value, $new_value, $option ) );
+			},
+			10,
+			3
 		);
 
 		update_option( 'bl_order', 'x' );
@@ -128,8 +146,56 @@ final class BootstrapFidelityTest extends TestCase {
 				'pre_update_option',
 				'update_option_bl_order',
 			),
-			$order
+			array_column( $calls, 0 ),
+			'hook dispatch order'
 		);
+
+		$this->assertSame(
+			array( 'x', 'bl_order' ),
+			$calls[0][1],
+			'sanitize_option_{$option} must receive ( $value, $option )'
+		);
+		$this->assertSame(
+			array( 'x', 'was', 'bl_order' ),
+			$calls[1][1],
+			'pre_update_option_{$option} must receive ( $value, $old_value, $option )'
+		);
+		$this->assertSame(
+			array( 'x', 'bl_order', 'was' ),
+			$calls[2][1],
+			'the GENERIC pre_update_option filter must receive ( $value, $option, $old_value ) -- $option and ' .
+			'$old_value are swapped relative to the option-specific hook above; this is a well-known WordPress footgun'
+		);
+		$this->assertSame(
+			array( 'was', 'x', 'bl_order' ),
+			$calls[3][1],
+			'update_option_{$option} must fire with ( $old_value, $new_value, $option )'
+		);
+	}
+
+	/**
+	 * Matches core's short-circuit: writing the exact value an option
+	 * already holds must not perform a write, must not fire
+	 * update_option_{$option}, and must report false -- not the true an
+	 * unconditional-write stub would report regardless of whether anything
+	 * actually changed.
+	 */
+	public function test_update_option_short_circuits_when_the_value_is_unchanged(): void {
+		update_option( 'bl_same', 'value' );
+
+		$fired = false;
+		add_action(
+			'update_option_bl_same',
+			static function () use ( &$fired ) {
+				$fired = true;
+			}
+		);
+
+		$result = update_option( 'bl_same', 'value' );
+
+		$this->assertFalse( $result, 'update_option() must report false when nothing changed' );
+		$this->assertFalse( $fired, 'update_option_{$option} must not fire when nothing changed' );
+		$this->assertSame( 'value', get_option( 'bl_same' ) );
 	}
 
 	/**

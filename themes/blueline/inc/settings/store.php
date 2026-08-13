@@ -27,7 +27,8 @@ defined( 'ABSPATH' ) || exit;
 add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_merge', 10, 2 );
 
 /**
- * Carry forward any top-level key this submission did not post.
+ * Carry forward any top-level key this submission did not post -- except a
+ * key this submission OWNS but chose to omit, which is a deliberate delete.
  *
  * The Settings API hands update_option() exactly what was in $_POST for this
  * option -- and a per-tab form only contains its own tab's fields. Without
@@ -37,6 +38,35 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
  * filter and not on sanitize_option_* (where it would need its own
  * get_option() call and a subtler race).
  *
+ * Plain "absent from the submission means carry it forward" is right for a
+ * field owned by another tab, but wrong for an unchecked checkbox: HTML
+ * omits an unchecked checkbox from $_POST entirely, so a naive carry-forward
+ * can never durably turn a toggle back off -- the stale "on" value from
+ * $old_value would simply be restored on every subsequent save, from any
+ * tab. Relying on the renderer to always post an explicit `false` for an
+ * unchecked box was considered and rejected: that is a convention the first
+ * person to add a toggle would not know to follow, which is exactly how
+ * this bug would recur.
+ *
+ * Instead, a submission that wants deletion semantics for some of its own
+ * absent keys names them in a reserved `_posted_fields` key: the list of
+ * field keys THIS submission owns (typically: every field the posting tab's
+ * form renders, checked or not). That reserved key is never written to the
+ * option -- it exists only to disambiguate this one merge decision:
+ *
+ * - A key present in $new_value: keep the submitted value, regardless of
+ *   whether it is also named in `_posted_fields`.
+ * - A key named in `_posted_fields` but absent from $new_value: the
+ *   submission owns this field and chose not to include it -- an unchecked
+ *   checkbox. Deleted: NOT carried forward.
+ * - A key present in $old_value but named in neither: belongs to a tab this
+ *   submission didn't touch. Carried forward untouched.
+ * - `_posted_fields` absent entirely: today's behaviour, unchanged -- every
+ *   key absent from $new_value is carried forward from $old_value. This is
+ *   the fallback every caller gets until the renderer that emits
+ *   `_posted_fields` exists (a later task), so nothing already working
+ *   breaks in the meantime.
+ *
  * @param mixed $new_value The value about to be written.
  * @param mixed $old_value The value currently stored.
  * @return mixed
@@ -45,14 +75,40 @@ function blueline_settings_merge( $new_value, $old_value ) {
 	if ( ! is_array( $new_value ) ) {
 		return $old_value;
 	}
+
+	$posted_fields = null;
+	if ( array_key_exists( '_posted_fields', $new_value ) ) {
+		$posted_fields = (array) $new_value['_posted_fields'];
+	}
+	unset( $new_value['_posted_fields'] );
+
 	if ( ! is_array( $old_value ) ) {
 		return $new_value;
 	}
+
 	foreach ( $old_value as $key => $stored ) {
-		if ( ! array_key_exists( $key, $new_value ) ) {
-			$new_value[ $key ] = $stored;
+		if ( array_key_exists( $key, $new_value ) ) {
+			continue; // Posted this submission -- keep the new value.
 		}
+
+		if ( null !== $posted_fields && in_array( $key, $posted_fields, true ) ) {
+			// Owned by this submission but omitted: a deliberate delete
+			// (e.g. an unchecked checkbox). Do not restore it.
+			continue;
+		}
+
+		// Belongs to a tab this submission didn't touch -- carry it
+		// forward. Also the whole-array fallback when `_posted_fields`
+		// itself is absent.
+		$new_value[ $key ] = $stored;
 	}
+
+	// Defence in depth: the loop above carries forward any $old_value key
+	// not otherwise accounted for, and `_posted_fields` is such a key if it
+	// were ever (incorrectly) persisted by an earlier bug or a write that
+	// bypassed this filter. Strip it again so that can never resurface.
+	unset( $new_value['_posted_fields'] );
+
 	return $new_value;
 }
 
