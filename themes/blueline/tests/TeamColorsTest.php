@@ -112,7 +112,7 @@ final class TeamColorsTest extends TestCase {
 		foreach ( array( '#002d62', '#55bfd2', '#f8c63f', '#ffffff', '#adadad', '#e2b85e', '#032a95' ) as $primary ) {
 			$fg = blueline_readable_foreground( $primary );
 			$this->assertGreaterThanOrEqual(
-				BLUELINE_CONTRAST_BODY,
+				blueline_contrast_threshold( 'body' ),
 				blueline_contrast_ratio( $fg, $primary ),
 				"foreground for $primary is not legible"
 			);
@@ -128,14 +128,14 @@ final class TeamColorsTest extends TestCase {
 	public function test_darkening_makes_a_pale_team_colour_readable_as_text(): void {
 		// Sharks #55bfd2 is only ~2:1 on paper and must not be used as text raw.
 		$this->assertLessThan(
-			BLUELINE_CONTRAST_BODY,
+			blueline_contrast_threshold( 'body' ),
 			blueline_contrast_ratio( '#55bfd2', BLUELINE_TOKEN_PAPER )
 		);
 
-		$darkened = blueline_darken_to_contrast( '#55bfd2', BLUELINE_TOKEN_PAPER, BLUELINE_CONTRAST_BODY );
+		$darkened = blueline_darken_to_contrast( '#55bfd2', BLUELINE_TOKEN_PAPER, blueline_contrast_threshold( 'body' ) );
 
 		$this->assertGreaterThanOrEqual(
-			BLUELINE_CONTRAST_BODY,
+			blueline_contrast_threshold( 'body' ),
 			blueline_contrast_ratio( $darkened, BLUELINE_TOKEN_PAPER )
 		);
 	}
@@ -146,7 +146,7 @@ final class TeamColorsTest extends TestCase {
 	 */
 	public function test_darkening_preserves_hue_order(): void {
 		// A cyan must stay cyan: blue channel highest, red lowest.
-		$darkened = blueline_darken_to_contrast( '#55bfd2', BLUELINE_TOKEN_PAPER, BLUELINE_CONTRAST_BODY );
+		$darkened = blueline_darken_to_contrast( '#55bfd2', BLUELINE_TOKEN_PAPER, blueline_contrast_threshold( 'body' ) );
 
 		$r = hexdec( substr( $darkened, 1, 2 ) );
 		$g = hexdec( substr( $darkened, 3, 2 ) );
@@ -163,7 +163,7 @@ final class TeamColorsTest extends TestCase {
 	public function test_already_dark_colour_is_returned_untouched(): void {
 		$this->assertSame(
 			'#002d62',
-			blueline_darken_to_contrast( '#002d62', BLUELINE_TOKEN_PAPER, BLUELINE_CONTRAST_BODY )
+			blueline_darken_to_contrast( '#002d62', BLUELINE_TOKEN_PAPER, blueline_contrast_threshold( 'body' ) )
 		);
 	}
 
@@ -246,7 +246,7 @@ final class TeamColorsTest extends TestCase {
 			}
 
 			$this->assertGreaterThanOrEqual(
-				BLUELINE_CONTRAST_BODY,
+				blueline_contrast_threshold( 'body' ),
 				blueline_contrast_ratio( $set['accent'], BLUELINE_TOKEN_PAPER ),
 				"accent derived from $primary is not legible on paper"
 			);
@@ -285,5 +285,50 @@ final class TeamColorsTest extends TestCase {
 		blueline_test_state()['post_meta'][123]['sp_colors'] = array( 'primary' => '#ffffff' );
 
 		$this->assertStringNotContainsString( '--bl-team-accent', blueline_team_color_style_attr( 123 ) );
+	}
+
+	/* ---------------------------------------------------- shared thresholds */
+
+	/**
+	 * Asserts blueline_contrast_threshold() resolves 'body' and 'large' from
+	 * the shared tools/contrast-rules.json table, and that the table itself
+	 * still contains the 4.5 / 3.0 minimums this derivation depends on.
+	 */
+	public function test_thresholds_come_from_the_shared_rules_table(): void {
+		$json = json_decode(
+			file_get_contents( __DIR__ . '/../tools/contrast-rules.json' ), // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo fixture, not a remote URL.
+			true
+		);
+		$mins = array_column( $json['rules'], 'min' );
+
+		$this->assertContains( 4.5, $mins, 'the shared table must define a 4.5 body minimum' );
+		$this->assertContains( 3.0, $mins, 'the shared table must define a 3.0 large/non-text minimum' );
+		$this->assertSame( 4.5, blueline_contrast_threshold( 'body' ) );
+		$this->assertSame( 3.0, blueline_contrast_threshold( 'large' ) );
+	}
+
+	/**
+	 * Asserts blueline_readable_foreground() reports failure via its
+	 * by-reference $passes parameter when neither ink nor paper reaches AA
+	 * on the given background, rather than failing silently.
+	 */
+	public function test_readable_foreground_reports_when_neither_option_passes(): void {
+		// #808080 has no AA-passing foreground from {ink, paper}: best is ~3.9.
+		$passes = null;
+		$fg     = blueline_readable_foreground( '#808080', $passes );
+
+		$this->assertNotNull( $fg, 'it must still return a colour to render' );
+		$this->assertFalse( $passes, 'but it must report that the colour fails' );
+	}
+
+	/**
+	 * Asserts blueline_readable_foreground() reports success via $passes
+	 * for a background where a fully AA-passing foreground exists.
+	 */
+	public function test_readable_foreground_reports_success_for_a_usable_colour(): void {
+		$passes = null;
+		blueline_readable_foreground( '#FFFFFF', $passes );
+
+		$this->assertTrue( $passes );
 	}
 }

@@ -41,11 +41,45 @@ defined( 'ABSPATH' ) || exit;
 const BLUELINE_TOKEN_INK   = '#132343';
 const BLUELINE_TOKEN_PAPER = '#F7FBFC';
 
-/** Body-text minimum. WCAG 2.2 AA, SC 1.4.3. */
-const BLUELINE_CONTRAST_BODY = 4.5;
+/**
+ * A contrast threshold, read from the shared rule table so PHP and the build
+ * guard cannot disagree about what "AA" means.
+ *
+ * The tools/contrast-rules.json file is the single contract; this file used
+ * to duplicate 4.5 and 3.0 as constants, which made it a fourth place the
+ * numbers could drift.
+ *
+ * @param string $which 'body' (4.5) or 'large' (3.0, also non-text/UI).
+ * @return float
+ */
+function blueline_contrast_threshold( string $which ): float {
+	static $cache = null;
 
-/** Large-text / UI-boundary minimum. WCAG 2.2 AA, SC 1.4.3 and 1.4.11. */
-const BLUELINE_CONTRAST_LARGE = 3.0;
+	if ( null === $cache ) {
+		$cache = array(
+			'body'  => 4.5,
+			'large' => 3.0,
+		);
+
+		$dir  = defined( 'BLUELINE_DIR' ) ? BLUELINE_DIR : dirname( __DIR__ );
+		$path = $dir . '/tools/contrast-rules.json';
+		if ( is_readable( $path ) ) {
+			$json = json_decode( (string) file_get_contents( $path ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo file, not a remote URL; wp_remote_get() is for HTTP requests.
+			if ( is_array( $json ) && ! empty( $json['rules'] ) ) {
+				$mins = array_filter(
+					array_column( $json['rules'], 'min' ),
+					'is_numeric'
+				);
+				if ( $mins ) {
+					$cache['body']  = (float) max( $mins );
+					$cache['large'] = (float) min( $mins );
+				}
+			}
+		}
+	}
+
+	return $cache[ $which ] ?? 4.5;
+}
 
 /**
  * Normalise a user-entered colour to `#rrggbb`, or '' if it is not one.
@@ -115,18 +149,24 @@ function blueline_contrast_ratio( string $a, string $b ): float {
 }
 
 /**
- * Whichever of ink / paper is legible on top of the given colour.
+ * The more readable of ink/paper on the given background.
  *
- * Returns the better of the two even when neither reaches the requested
- * threshold, so a caller always gets the most readable option available
- * rather than nothing; callers that care check the ratio themselves.
+ * Returns a colour even when NEITHER option reaches the body threshold --
+ * something must render -- but now reports that via $passes so the caller can
+ * fall back to theme tokens instead of shipping unreadable text. Previously
+ * this failure was silent, which is the opposite of what this module exists
+ * to do.
  *
- * @param string $background Validated `#rrggbb`.
+ * @param string    $background Validated `#rrggbb`.
+ * @param bool|null $passes     Out: whether the returned colour clears AA.
  * @return string Validated `#rrggbb`.
  */
-function blueline_readable_foreground( string $background ): string {
+function blueline_readable_foreground( string $background, ?bool &$passes = null ): string {
 	$on_ink   = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $background );
 	$on_paper = blueline_contrast_ratio( BLUELINE_TOKEN_PAPER, $background );
+
+	$best   = max( $on_ink, $on_paper );
+	$passes = $best >= blueline_contrast_threshold( 'body' );
 
 	return $on_ink >= $on_paper ? BLUELINE_TOKEN_INK : BLUELINE_TOKEN_PAPER;
 }
@@ -232,7 +272,14 @@ function blueline_team_color_set( $team_id ): array {
 		return array();
 	}
 
-	$on_primary = blueline_readable_foreground( $primary );
+	$on_primary = blueline_readable_foreground( $primary, $passes );
+
+	// Neither ink nor paper reaches AA on this primary: there is no readable
+	// foreground to pair with it, so treat it the same as "no usable colour"
+	// rather than shipping the least-bad option silently.
+	if ( ! $passes ) {
+		return array();
+	}
 
 	/*
 	 * The accent is the team's colour used as *text* on the paper ground.
@@ -252,7 +299,7 @@ function blueline_team_color_set( $team_id ): array {
 		$accent = blueline_darken_to_contrast(
 			$primary,
 			BLUELINE_TOKEN_PAPER,
-			BLUELINE_CONTRAST_BODY
+			blueline_contrast_threshold( 'body' )
 		);
 	}
 
