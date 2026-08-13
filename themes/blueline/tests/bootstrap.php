@@ -522,8 +522,10 @@ if ( ! function_exists( 'get_the_date' ) ) {
 		return 'Aug 20';
 	}
 }
-$GLOBALS['bl_test_hooks']   = array();
-$GLOBALS['bl_test_options'] = array();
+$GLOBALS['bl_test_hooks']      = array();
+$GLOBALS['bl_test_options']    = array();
+$GLOBALS['bl_test_transients'] = array();
+$GLOBALS['bl_test_cache']      = array();
 
 /**
  * Reset the in-memory option store. Call from setUp() (directly, or via the
@@ -531,6 +533,25 @@ $GLOBALS['bl_test_options'] = array();
  */
 function blueline_test_reset_options(): void {
 	$GLOBALS['bl_test_options'] = array();
+}
+
+/**
+ * Reset the in-memory transient store. Call from setUp() (directly, or via
+ * the combined blueline_test_reset()) in any test that touches transients.
+ */
+function blueline_test_reset_transients(): void {
+	$GLOBALS['bl_test_transients'] = array();
+}
+
+/**
+ * Reset the in-memory object-cache store. Call from setUp() (directly, or
+ * via the combined blueline_test_reset()) in any test that touches
+ * wp_cache_*() -- most importantly a test exercising a wp_cache_add() lock
+ * (e.g. the settings migration guard), since without a reset the first test
+ * to acquire that lock would hold it, unreleased, for the rest of the run.
+ */
+function blueline_test_reset_cache(): void {
+	$GLOBALS['bl_test_cache'] = array();
 }
 
 /**
@@ -567,13 +588,17 @@ function blueline_test_reset_hooks(): void {
 }
 
 /**
- * Reset both in-memory stores. The common case for a test that touches
- * hooks and/or options is this single call rather than remembering both
- * blueline_test_reset_hooks() and blueline_test_reset_options() separately.
+ * Reset every in-memory store. The common case for a test that touches
+ * hooks, options, transients and/or the object cache is this single call
+ * rather than remembering each of blueline_test_reset_hooks(),
+ * blueline_test_reset_options(), blueline_test_reset_transients() and
+ * blueline_test_reset_cache() separately.
  */
 function blueline_test_reset(): void {
 	blueline_test_reset_hooks();
 	blueline_test_reset_options();
+	blueline_test_reset_transients();
+	blueline_test_reset_cache();
 }
 
 if ( ! function_exists( 'add_filter' ) ) {
@@ -674,11 +699,22 @@ if ( ! function_exists( 'get_option' ) ) {
 
 if ( ! function_exists( 'update_option' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' update_option(): mirrors core by
-	 * running the sanitize_option_{$option} filter on every write -- this is
-	 * the hook register_setting()'s sanitize_callback attaches to, and the
-	 * behaviour P1's settings layer depends on to guarantee WP-CLI and JSON
-	 * import cannot bypass validation.
+	 * Minimal stand-in for WordPress' update_option(): mirrors core's
+	 * documented dispatch order -- sanitize_option_{$option}, then
+	 * pre_update_option_{$option}, then pre_update_option, then the write,
+	 * then update_option_{$option}.
+	 *
+	 * The sanitize step is the hook register_setting()'s sanitize_callback
+	 * attaches to, and the behaviour P1's settings layer depends on to
+	 * guarantee WP-CLI and JSON import cannot bypass validation. The two
+	 * pre_update_option* filters are what a cross-tab merge lives on: they
+	 * are the only point in this sequence that receives the value CURRENTLY
+	 * in storage as a plain parameter, with no get_option() call and no
+	 * race, which sanitize_option_* does not get.
+	 *
+	 * $old_value is read from the in-memory store before this call's write
+	 * lands, exactly as core reads it from the DB/cache before its own
+	 * write -- never the value this same call is about to write.
 	 *
 	 * @param string $option   Option name.
 	 * @param mixed  $value    New value.
@@ -686,7 +722,43 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * @return true
 	 */
 	function update_option( $option, $value, $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs autoload honoured.
-		$value                                 = apply_filters( "sanitize_option_{$option}", $value, $option );
+		$value = apply_filters( "sanitize_option_{$option}", $value, $option );
+
+		$old_value = array_key_exists( $option, $GLOBALS['bl_test_options'] )
+			? $GLOBALS['bl_test_options'][ $option ]
+			: false;
+
+		$value = apply_filters( "pre_update_option_{$option}", $value, $old_value, $option );
+		$value = apply_filters( 'pre_update_option', $value, $old_value, $option );
+
+		$GLOBALS['bl_test_options'][ $option ] = $value;
+
+		do_action( "update_option_{$option}", $old_value, $value, $option );
+
+		return true;
+	}
+}
+
+if ( ! function_exists( 'add_option' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' add_option(): applies
+	 * sanitize_option_{$option} unconditionally, exactly as core does --
+	 * before the exists check, so the filter still runs even on a call that
+	 * ends up returning false because the option is already there.
+	 *
+	 * @param string $option     Option name.
+	 * @param mixed  $value      Option value.
+	 * @param string $deprecated Unused; kept for signature parity.
+	 * @param mixed  $autoload   Unused; kept for signature parity.
+	 * @return bool True on add, false if the option already exists.
+	 */
+	function add_option( $option, $value = '', $deprecated = '', $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
+		$value = apply_filters( "sanitize_option_{$option}", $value, $option );
+
+		if ( array_key_exists( $option, $GLOBALS['bl_test_options'] ) ) {
+			return false;
+		}
+
 		$GLOBALS['bl_test_options'][ $option ] = $value;
 		return true;
 	}
@@ -702,5 +774,98 @@ if ( ! function_exists( 'delete_option' ) ) {
 	function delete_option( $option ) {
 		unset( $GLOBALS['bl_test_options'][ $option ] );
 		return true;
+	}
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_transient() over an in-memory
+	 * store -- no expiry is modelled, so a transient set by set_transient()
+	 * is visible until delete_transient() or blueline_test_reset_transients()
+	 * removes it.
+	 *
+	 * @param string $transient Transient name.
+	 * @return mixed
+	 */
+	function get_transient( $transient ) {
+		return array_key_exists( $transient, $GLOBALS['bl_test_transients'] )
+			? $GLOBALS['bl_test_transients'][ $transient ]
+			: false;
+	}
+}
+
+if ( ! function_exists( 'set_transient' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' set_transient().
+	 *
+	 * @param string $transient  Transient name.
+	 * @param mixed  $value      Value to store.
+	 * @param int    $expiration Expiration in seconds (unused; this stub models no elapsed time).
+	 * @return true
+	 */
+	function set_transient( $transient, $value, $expiration = 0 ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; this stub has no notion of elapsed time to expire against.
+		$GLOBALS['bl_test_transients'][ $transient ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_transient' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' delete_transient().
+	 *
+	 * @param string $transient Transient name.
+	 * @return true
+	 */
+	function delete_transient( $transient ) {
+		unset( $GLOBALS['bl_test_transients'][ $transient ] );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_add' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_cache_add() over an in-memory store,
+	 * keyed by group:key -- true (and stores) only if that pair is not
+	 * already present, exactly like core's "add if absent" semantics.
+	 *
+	 * $expire is accepted for signature parity but not enforced: this stub
+	 * models no elapsed time, so a lock acquired here holds until
+	 * wp_cache_delete() or blueline_test_reset_cache() releases it. Any test
+	 * exercising a wp_cache_add() lock across multiple cases must reset the
+	 * cache store between them (blueline_test_reset() does this) or the
+	 * first acquisition will appear to hold forever, unlike production where
+	 * $expire eventually reclaims it.
+	 *
+	 * @param string $key    Cache key.
+	 * @param mixed  $data   Value to store.
+	 * @param string $group  Cache group.
+	 * @param int    $expire Expiration in seconds (unused; kept for signature parity).
+	 * @return bool
+	 */
+	function wp_cache_add( $key, $data, $group = '', $expire = 0 ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; this stub has no notion of elapsed time to expire against.
+		$cache_key = $group . ':' . $key;
+
+		if ( array_key_exists( $cache_key, $GLOBALS['bl_test_cache'] ) ) {
+			return false;
+		}
+
+		$GLOBALS['bl_test_cache'][ $cache_key ] = $data;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_cache_delete().
+	 *
+	 * @param string $key   Cache key.
+	 * @param string $group Cache group.
+	 * @return bool True if the key existed and was removed, false otherwise.
+	 */
+	function wp_cache_delete( $key, $group = '' ) {
+		$cache_key = $group . ':' . $key;
+		$existed   = array_key_exists( $cache_key, $GLOBALS['bl_test_cache'] );
+		unset( $GLOBALS['bl_test_cache'][ $cache_key ] );
+		return $existed;
 	}
 }
