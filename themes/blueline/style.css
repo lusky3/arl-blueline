@@ -63,6 +63,17 @@ Text Domain: blueline
 	--bl-shadow-raised: 0 10px 34px rgba(10, 20, 40, 0.18);
 
 	--bl-container: 1200px;
-	--bl-focus: 3px solid var(--bl-accent-text);
+	/*
+	 * Two-tone focus indicator. The ring is drawn on grounds ranging from
+	 * --bl-white to --bl-ink-deep, and NO single colour clears 3:1 against all
+	 * of them (--bl-ice in the middle defeats every candidate). So the
+	 * indicator is a dark ring plus a light halo: whichever ground it lands
+	 * on, one of the two carries the contrast. Both are rule-guarded, as is
+	 * the 3:1 between them. See WCAG 2.2 SC 1.4.11.
+	 */
+	--bl-focus-width:  3px;
+	--bl-focus-style:  solid;
+	--bl-focus-color:  #0D1729;
+	--bl-focus-halo:   #FFFFFF;
 	--bl-focus-offset: 2px;
 }

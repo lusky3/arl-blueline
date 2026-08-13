@@ -139,7 +139,7 @@
 .bl-comments .comment-form input[type="email"]:focus-visible,
 .bl-comments .comment-form input[type="url"]:focus-visible,
 .bl-comments .comment-form textarea:focus-visible {
-	outline: var(--bl-focus);
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
 }
 

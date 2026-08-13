@@ -1488,7 +1488,7 @@ table.bl-table-self-scroll {
 }
 
 .bl-sp-standings-toggle-input:focus-visible ~ .bl-sp-standings-toggle-label {
-	outline: var(--bl-focus);
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
 }
 

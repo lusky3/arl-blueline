@@ -102,8 +102,17 @@ a {
 }
 
 :focus-visible {
-	outline: var(--bl-focus);
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
+
+	/*
+	 * The halo sits immediately outside the outline, so on a dark ground --
+	 * header, nav drawer, footer, hero, scoreboard -- the light ring provides
+	 * the 3:1 the dark outline cannot. box-shadow is used rather than a second
+	 * outline because an element has only one outline, and unlike a border it
+	 * adds no layout size.
+	 */
+	box-shadow: 0 0 0 calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px) var(--bl-focus-halo);
 }
 
 /*

@@ -12,6 +12,12 @@
     { "id": "steel-border-paper",   "description": "steel border on paper",    "fg": "--bl-steel",       "bg": "--bl-paper",    "min": 3.0 },
     { "id": "paper-on-ink-deep",    "description": "paper text on ink-deep",   "fg": "--bl-paper",       "bg": "--bl-ink-deep", "min": 4.5 },
     { "id": "pale-on-ink-deep",     "description": "pale text on ink-deep",    "fg": "--bl-pale",        "bg": "--bl-ink-deep", "min": 4.5 },
-    { "id": "ice-not-text-on-light","description": "--bl-ice correctly unusable as light-bg text", "fg": "--bl-ice", "bg": "--bl-paper", "max": 3.0 }
+    { "id": "ice-not-text-on-light","description": "--bl-ice correctly unusable as light-bg text", "fg": "--bl-ice", "bg": "--bl-paper", "max": 3.0 },
+    { "id": "focus-on-paper",     "description": "focus ring on paper",     "fg": "--bl-focus-color", "bg": "--bl-paper",     "min": 3.0 },
+    { "id": "focus-on-white",     "description": "focus ring on white",     "fg": "--bl-focus-color", "bg": "--bl-white",     "min": 3.0 },
+    { "id": "focus-on-ice",       "description": "focus ring on ice fill",  "fg": "--bl-focus-color", "bg": "--bl-ice",       "min": 3.0 },
+    { "id": "focus-halo-on-ink",  "description": "focus halo on ink",       "fg": "--bl-focus-halo",  "bg": "--bl-ink",       "min": 3.0 },
+    { "id": "focus-halo-on-deep", "description": "focus halo on ink-deep",  "fg": "--bl-focus-halo",  "bg": "--bl-ink-deep",  "min": 3.0 },
+    { "id": "focus-two-tone",     "description": "focus ring vs its halo",  "fg": "--bl-focus-color", "bg": "--bl-focus-halo","min": 3.0 }
   ]
 }
