@@ -4,7 +4,58 @@
 #   git config core.hooksPath .githooks
 set -e
 
-if git diff --cached --name-only | grep -q '^themes/blueline/'; then
+CHANGED_LIST=$(mktemp)
+trap 'rm -f "$CHANGED_LIST"' EXIT
+
+git diff --cached --name-only -- themes/blueline > "$CHANGED_LIST"
+
+if [ -s "$CHANGED_LIST" ]; then
+
+	# KNOWN LIMITATION, read before "fixing" this by stashing:
+	#
+	# `npm run check` below runs against the WORKING TREE. The gate above it
+	# only checked `git diff --cached` -- what is STAGED. With `git add -p`,
+	# or any edit made to a file after staging it, those two can differ for
+	# THAT file: the check can pass against working-tree content that will
+	# never be committed, or fail on edits that are not part of this commit
+	# at all.
+	#
+	# The textbook fix is `git stash push --keep-index` around the check.
+	# This repo's git stash stack is SHARED across the main checkout and
+	# every worktree (this hook has no way to tell which checkout it is
+	# running in), and other sessions may be using it concurrently. A hook
+	# that stashes and then dies partway through -- `npm run check` itself
+	# throwing, the process being killed, disk full -- leaves whoever holds
+	# the stash's changes looking like they vanished from their working
+	# tree, in a shared stack a different session may also be pushing to or
+	# popping from at the same moment. That failure mode is worse than the
+	# problem it would fix, so this hook does not attempt it.
+	#
+	# Instead, it refuses to give a false pass/fail -- but ONLY for the
+	# files actually in this commit. It deliberately does NOT check the
+	# whole themes/blueline tree for dirt: a normal multi-commit session
+	# (stage file A, commit; edit file B, commit) leaves plenty of other
+	# themes/blueline files dirty at any given moment, and none of that is
+	# this commit's business.
+	DIRTY=""
+	while IFS= read -r f; do
+		[ -n "$f" ] || continue
+		if ! git diff --quiet -- "$f"; then
+			DIRTY="yes"
+			echo "blueline: staged file has additional unstaged changes: $f" >&2
+		fi
+	done < "$CHANGED_LIST"
+
+	if [ -n "$DIRTY" ]; then
+		echo "blueline: refusing to commit -- one or more staged files above" >&2
+		echo "also have unstaged edits on top of what's staged (e.g. from" >&2
+		echo "'git add -p'). 'npm run check' tests the working tree, so it" >&2
+		echo "cannot validate only what this commit actually contains. Stage" >&2
+		echo "the rest of each file, or revert/stash just the extra edits," >&2
+		echo "then retry." >&2
+		exit 1
+	fi
+
 	echo "blueline: running quality gate..."
 	( cd themes/blueline && npm run check )
 fi
