@@ -10,10 +10,10 @@
   },
   "scripts": {
     "test": "phpunit",
-    "lint": "phpcs --standard=WordPress --extensions=php --ignore=vendor,node_modules,assets/dist,woocommerce ."
+    "lint": "phpcs --standard=WordPress --extensions=php --ignore=vendor,node_modules,assets/dist,woocommerce/* ."
   },
   "scripts-descriptions": {
-    "lint": "woocommerce/ is excluded because it holds unmodified WooCommerce core template overrides copied from the plugin for structural overriding only -- they were never authored to WordPress Coding Standards and are not this theme's code. Excluding them keeps the gate scoped to code this theme actually owns."
+    "lint": "woocommerce/* is excluded because that directory holds unmodified WooCommerce core template overrides copied from the plugin for structural overriding only -- they were never authored to WordPress Coding Standards and are not this theme's code. The trailing /* anchors the match to that directory only (phpcs --ignore matches as an unanchored substring, so a bare 'woocommerce' would also exclude inc/woocommerce.php, a theme-authored file). Excluding the directory keeps the gate scoped to code this theme actually owns."
   },
   "config": { "allow-plugins": { "dealerdirect/phpcodesniffer-composer-installer": true } }
 }
