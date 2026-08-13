@@ -1,7 +1,0 @@
-[     432ms] [LOG] JQMIGRATE: Migrate is installed, version 3.4.1 @ https://staging.rookiehockey.ca/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1:1
-[     563ms] [LOG] PayPal lib loaded, initialize buttons. @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
-[     568ms] [LOG] apple sdk loaded @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
-[     570ms] [LOG] google sdk loaded @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
-[     570ms] [LOG] all libs loaded @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
-[     570ms] [LOG] initSmartButtons @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-gateway-ppcp-angelleye-public.min.js?ver=4.6.15:0
-[     571ms] [LOG] render smart buttons @ https://staging.rookiehockey.ca/wp-content/plugins/paypal-for-woocommerce/ppcp-gateway/js/wc-angelleye-common-functions.min.js?ver=4.6.15:0

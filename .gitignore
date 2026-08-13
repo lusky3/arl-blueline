@@ -1,0 +1,4 @@
+
+# Browser-automation scratch output (console logs, screenshots) from MCP
+# verification runs. Never part of a commit.
+.playwright-mcp/
