@@ -84,3 +84,53 @@ No bounce, no elastic.
   the theme supplies the only styling that exists for SP surfaces.
 - The `simple-css` plugin injects sitewide CSS that survives theme changes. It was pruned during
   R1; anything re-added there can override tokens with `!important`.
+
+## Contributing
+
+There is **no CI** in this repository — no `.github`, no `.gitlab-ci.yml`, no `Jenkinsfile`. The
+checks below are the only quality gate that exists; they only run if you run them.
+
+**Setup, from a fresh clone, in `themes/blueline/`:**
+
+```
+npm install
+composer install
+```
+
+`node_modules/` and `vendor/` are both gitignored, so both installs are required before any of
+the commands below will work — there is nothing partially usable straight out of `git clone`.
+
+**Enable the pre-commit hook** (also from the repo root, once per clone — this is local git
+config, not something committed, so a fresh clone or a new worktree does not inherit it):
+
+```
+git config core.hooksPath .githooks
+```
+
+With that set, committing anything under `themes/blueline/` runs the full check automatically
+(`.githooks/pre-commit`) and blocks the commit if it fails. Without it, nothing enforces these
+gates at all — they become purely a "run it yourself before you push" convention.
+
+**Run every gate by hand** at any time with:
+
+```
+npm run check
+```
+
+which chains, in order:
+
+1. `lint:css` — `wp-scripts lint-style` over `assets/src/css/**/*.css`.
+2. `lint:js` — `wp-scripts lint-js` over `assets/src/js/**/*.js`.
+3. `test:js` — the Node test runner over `tools/**/*.test.mjs` (the CSS-token/contrast-maths
+   unit tests).
+4. `tokens:check` — `tools/check-contrast.mjs`, the WCAG contrast guard: every pairing in
+   `tools/contrast-rules.json` re-derived from the real `style.css`, plus the editor.css /
+   team-colors.php token-parity checks and the anti-`rgba()`-hardcoding lint.
+5. `composer test` — the PHPUnit suite.
+6. `composer lint` — `phpcs --standard=WordPress` over the theme's PHP (see `composer.json`'s
+   `scripts-descriptions.lint` for exactly which `woocommerce/` paths are excluded as vendor
+   code, and why).
+
+All six must exit 0. Because there is no CI, that is a statement about your own working tree
+right now, not a promise anyone else has verified — re-run it after pulling, and before every
+commit if the hook above is not enabled.
