@@ -19,11 +19,22 @@
  * those call sites therefore cannot accept arbitrary admin input: a volunteer
  * typing an ordinary sentence containing a stray "%" can take the public site
  * down for every anonymous visitor, from a screen that reported success. The
- * schema (inc/settings/defaults.php) opts a field into this protection by
- * declaring a `placeholders` array -- the exact conversion specs (e.g. '%s')
- * its value is required to contain, because the call site sprintf()s it with
- * exactly that many arguments. A field with no `placeholders` key is never
- * used as a format string and is not subject to either check below.
+ * schema (inc/settings/defaults.php) declares a `placeholders` array on every
+ * `text`/`textarea` field -- the exact conversion specs (e.g. '%s') its value
+ * is required to contain, because the call site sprintf()s it with exactly
+ * that many arguments; `array()` for a field whose call site takes none.
+ *
+ * There is deliberately no third state where a field opts OUT of this check
+ * by omitting `placeholders` entirely: SettingsDefaultsTest enforces that
+ * every `text`/`textarea` field declares the key (even as `array()`), so
+ * omission is a broken build, not a silent gap -- and blueline_sanitize_field()
+ * below treats a missing key exactly like `placeholders => array()` (see its
+ * own docblock) rather than skipping the check, so even a field the schema
+ * test somehow missed still gets the safe default: reject any conversion
+ * spec at all, rather than trust an absent key to mean "never a format
+ * string". A field that legitimately never feeds sprintf() therefore still
+ * declares `placeholders => array()`, and a literal "%" in its value must be
+ * written "%%" -- the error message below says so and shows the fix.
  *
  * The sanitizer is sanitize_text_field(), never wp_kses_post(): every one of
  * these fields is echoed through esc_html()/esc_attr() at its call site (29
@@ -153,32 +164,86 @@ function blueline_percent_is_safe( string $text ): bool {
 }
 
 /**
+ * Produce a corrected version of $text that a volunteer can paste straight
+ * back into the field: every "%" that could not fatal (a recognised "%%"
+ * escape, or a complete conversion specification) is left exactly as
+ * written, and every "%" that WOULD fatal -- the ones blueline_percent_is_safe()
+ * flags -- is doubled into a literal "%%" escape.
+ *
+ * Scans with the same three-way pattern as the two functions above, tried in
+ * the same order (recognised "%%" first, then a complete spec, then a bare
+ * "%" as the fallback that only matches what neither of those could), so a
+ * bare "%" is corrected without disturbing a "%%" or a spec already present
+ * elsewhere in the same string.
+ *
+ * @param string $text Text to correct.
+ * @return string $text with every unsafe "%" escaped to "%%".
+ */
+function blueline_escape_stray_percents( string $text ): string {
+	return (string) preg_replace_callback(
+		'/%%|' . BLUELINE_SPRINTF_SPEC . '|%/',
+		static fn( array $m ): string => '%' === $m[0] ? '%%' : $m[0],
+		$text
+	);
+}
+
+/**
  * Sanitize one settings-panel field value according to its schema type,
- * enforcing the `placeholders` sprintf() contract when the field declares
- * one.
+ * enforcing the `placeholders` sprintf() contract for every string-valued
+ * field.
  *
  * `page_id`/`term_id` fields sanitize to a non-negative integer (`0` means
  * "use the fallback", per the schema's own docblock); `bool` fields sanitize
- * to a real boolean. Every other type -- `text`, `email`, `textarea` today --
- * sanitizes through sanitize_text_field(): see this file's docblock for why
- * wp_kses_post() is deliberately not used.
+ * to a real boolean -- neither passes through a sprintf() format string
+ * ever, so neither runs the checks below. Every other type -- `text`,
+ * `email`, `textarea` today -- sanitizes through sanitize_text_field(): see
+ * this file's docblock for why wp_kses_post() is deliberately not used.
  *
- * A field that declares a `placeholders` key (checked with
- * array_key_exists(), so an explicitly empty array() still opts in -- that
- * is how a field asserts "my value is used as a sprintf() format string with
- * zero required arguments") is additionally required to:
+ * Every such string-valued field is REQUIRED to contain exactly its declared
+ * `placeholders` contract, with no third "unchecked" state: `$field['placeholders']`
+ * missing entirely is treated exactly like `placeholders => array()` --
+ * zero conversion specs permitted -- rather than skipping the check. This
+ * is deliberate, not an oversight: earlier this validator only ran when a
+ * field opted in by declaring the key, which meant a field that SHOULD have
+ * declared a contract but didn't (a schema-authoring mistake, or a future
+ * field that starts feeding a sprintf() call site nobody updated the schema
+ * for) was invisibly unprotected -- reproducing the exact class of fatal
+ * this task exists to prevent, just one step removed. Requiring the key on
+ * every `text`/`textarea` field (enforced by SettingsDefaultsTest, a broken
+ * build rather than a silent gap) and defaulting an absent key to `array()`
+ * closes that hole from both directions at once.
+ *
+ * The trade this accepts: a field that never touches sprintf() and simply
+ * contains an ordinary "%" (e.g. "Save 50% today" in a heading) is now
+ * rejected too, because `array()` permits zero specs and this string
+ * contains one it doesn't recognise. That is an instantly-recoverable false
+ * positive -- typing "%%" instead of "%" fixes it, and the error message
+ * below says so and hands back the corrected string -- traded deliberately
+ * against the alternative false negative: a stray "%" that silently
+ * corrupts the rendered output or fatals the public site, verified on this
+ * runtime (see BLUELINE_SPRINTF_SPEC's docblock and the task report):
+ *
+ *   sprintf( 'Save 50% off', 'X' )  -> 'Save 500ff'      (silent corruption)
+ *   sprintf( 'Save 50% off' )       -> ArgumentCountError (public-site fatal)
+ *
+ * Given that choice, false positive wins.
+ *
+ * The full check, run unconditionally for every string-valued field:
  *
  * 1. Contain no "%" that would fatal in sprintf()/printf() -- see
- *    blueline_percent_is_safe().
- * 2. Contain EXACTLY the declared set of conversion specifications, as a
- *    multiset (same specs, same count each, order-independent) -- not
- *    merely "contains at least these". A value missing a required spec
- *    would ArgumentCountError at the real call site for lack of an argument
- *    to fill it; a value containing an EXTRA spec the schema did not declare
- *    -- including an accidental one hiding in ordinary prose, see
- *    BLUELINE_SPRINTF_SPEC's docblock -- would ArgumentCountError or
- *    silently misuse an argument for exactly the same reason, just from the
- *    other direction.
+ *    blueline_percent_is_safe(). Rejection names the fix: write a literal
+ *    percent as "%%", and shows the corrected string
+ *    (blueline_escape_stray_percents()) rather than leaving a volunteer to
+ *    guess.
+ * 2. Contain EXACTLY the declared set of conversion specifications (`array()`
+ *    when `placeholders` is absent), as a multiset (same specs, same count
+ *    each, order-independent) -- not merely "contains at least these". A
+ *    value missing a required spec would ArgumentCountError at the real call
+ *    site for lack of an argument to fill it; a value containing an EXTRA
+ *    spec the schema did not declare -- including an accidental one hiding
+ *    in ordinary prose, see BLUELINE_SPRINTF_SPEC's docblock -- would
+ *    ArgumentCountError or silently misuse an argument for exactly the same
+ *    reason, just from the other direction.
  *
  * A field failing either check returns a WP_Error rather than the sanitized
  * value, so register_setting()'s sanitize_callback (a later task's wiring)
@@ -206,22 +271,19 @@ function blueline_sanitize_field( $value, array $field ) {
 
 	$sanitized = sanitize_text_field( (string) $value );
 
-	if ( ! array_key_exists( 'placeholders', $field ) ) {
-		return $sanitized;
-	}
-
 	if ( ! blueline_percent_is_safe( $sanitized ) ) {
 		return new WP_Error(
 			'blueline_unsafe_format_specifier',
 			sprintf(
-				/* translators: %s: the field's label. */
-				__( '"%s" contains a "%%" that is not a valid format placeholder and would crash the site if saved.', 'blueline' ),
-				$field['label'] ?? ''
+				/* translators: 1: the field's label, 2: the value corrected to a saveable form. */
+				__( '"%1$s" can\'t be saved as written -- it contains a "%%" that PHP would treat as a broken placeholder and crash the site on. To write a literal percent sign, use "%%%%" instead. Try: %2$s', 'blueline' ),
+				$field['label'] ?? '',
+				blueline_escape_stray_percents( $sanitized )
 			)
 		);
 	}
 
-	$required = (array) $field['placeholders'];
+	$required = (array) ( $field['placeholders'] ?? array() );
 	sort( $required );
 
 	$found = blueline_extract_placeholders( $sanitized );
@@ -231,10 +293,10 @@ function blueline_sanitize_field( $value, array $field ) {
 		return new WP_Error(
 			'blueline_placeholder_mismatch',
 			sprintf(
-				/* translators: 1: the field's label, 2: comma-separated list of required placeholders. */
+				/* translators: 1: the field's label, 2: comma-separated list of required placeholders, or "none" when the field permits no conversion specs at all. */
 				__( '"%1$s" must contain exactly these placeholders: %2$s', 'blueline' ),
 				$field['label'] ?? '',
-				implode( ', ', (array) $field['placeholders'] )
+				$required ? implode( ', ', $required ) : __( 'none', 'blueline' )
 			)
 		);
 	}

@@ -14,16 +14,27 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
  * defaults (blueline_settings_defaults()) — the contract every later part
  * of the Appearance → Blueline control panel is built on.
  *
- * The third test here is the one that matters most: it proves that any
- * field declaring a `placeholders` contract has a default value that
- * actually contains every one of those conversion specs, so a contract can
- * never ship wrong from birth. No field declares placeholders yet (Task 1
- * deliberately excludes every field whose current literal has one — see
- * defaults.php's docblock), so today that test's per-field loop finds
- * nothing to check -- but it still asserts the schema itself is non-empty
- * and reports a real (non-risky) assertion either way, so it cannot go
- * quietly inert. It stays in place and green so Task 8, which adds those
- * fields, is held to the same guarantee without needing to touch this file.
+ * The last two tests here are the ones that matter most, together closing
+ * the placeholder contract from both ends:
+ *
+ * - test_every_text_and_textarea_field_declares_a_placeholders_key() makes
+ *   omission of the `placeholders` key itself a red build for any
+ *   `text`/`textarea` field, rather than a silent gap a schema author could
+ *   forget — see inc/settings/sanitize.php's blueline_sanitize_field() for
+ *   why an omitted key being invisible to this validator was exactly the
+ *   fatal Task 3 exists to prevent, one step removed.
+ * - test_placeholder_contracts_match_the_declared_default() proves that any
+ *   field declaring a NON-EMPTY `placeholders` contract has a default value
+ *   that actually contains every one of those conversion specs, so a
+ *   contract can never ship wrong from birth. No field declares a non-empty
+ *   contract yet (every current theme literal with a real sprintf()
+ *   placeholder is deliberately excluded until Task 8 adds it against the
+ *   validator Task 3 built — see defaults.php's docblock), so today that
+ *   test's per-field loop finds nothing to check for non-empty contracts --
+ *   but it still asserts the schema itself is non-empty and reports a real
+ *   (non-risky) assertion either way, so it cannot go quietly inert. It
+ *   stays in place and green so Task 8 is held to the same guarantee
+ *   without needing to touch this file.
  */
 final class SettingsDefaultsTest extends TestCase {
 
@@ -53,6 +64,39 @@ final class SettingsDefaultsTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 		foreach ( blueline_settings_schema() as $key => $field ) {
 			$this->assertArrayHasKey( $key, $defaults, "$key has no default" );
+		}
+	}
+
+	/**
+	 * Every `text`/`textarea` field MUST declare a `placeholders` key, even
+	 * as an explicit `array()` for a field that feeds no sprintf() call
+	 * site. Without this test, a schema author could add a new text field
+	 * and simply forget the key -- and
+	 * inc/settings/sanitize.php's blueline_sanitize_field() would have no
+	 * way to tell "this field was never meant to be checked" apart from
+	 * "this field should have declared a contract and didn't", which is
+	 * exactly the gap that let an unprotected sprintf()-format-string field
+	 * reach production invisibly. Making the omission itself a failing
+	 * assertion turns that mistake into a red build instead of a silent one.
+	 *
+	 * `email`, `page_id`, `term_id` and `bool` fields are outside this
+	 * requirement: none of them is ever used as a raw sprintf() format
+	 * string the way a `text`/`textarea` field's value can be.
+	 */
+	public function test_every_text_and_textarea_field_declares_a_placeholders_key(): void {
+		$schema = blueline_settings_schema();
+		$this->assertNotEmpty( $schema, 'blueline_settings_schema() returned no fields' );
+
+		foreach ( $schema as $key => $field ) {
+			if ( ! in_array( $field['type'] ?? '', array( 'text', 'textarea' ), true ) ) {
+				continue;
+			}
+
+			$this->assertArrayHasKey(
+				'placeholders',
+				$field,
+				"$key is a '{$field['type']}' field and must declare a placeholders key -- array() if it feeds no sprintf() call site"
+			);
 		}
 	}
 

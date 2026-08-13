@@ -7,6 +7,7 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 
 /**
@@ -82,16 +83,31 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * A field that never declares a `placeholders` key is never used as a
-	 * sprintf() format string, so a stray "%" in its value is inert and
-	 * must sail through unsanitized-for-percent (still plain-text sanitized)
-	 * -- rejecting it would be a false positive against every ordinary copy
-	 * field on the site ("Save 50% today" in a heading, for instance).
+	 * There is no longer a third, unchecked state: a field that omits
+	 * `placeholders` entirely is treated exactly like `placeholders =>
+	 * array()`, not skipped. This is the fix-round-1 hole close -- the
+	 * earlier "no key means skip" behaviour meant a field that SHOULD have
+	 * declared a contract but didn't (a schema-authoring mistake, or a
+	 * future field that starts feeding sprintf() without the schema being
+	 * updated) was invisibly unprotected, reproducing the exact fatal this
+	 * task exists to prevent, one step removed. A stray "%" is rejected
+	 * regardless of whether the key is present.
 	 */
-	public function test_fields_without_a_placeholders_key_are_not_checked_for_sprintf_safety(): void {
+	public function test_fields_without_a_placeholders_key_still_get_the_safety_check(): void {
 		$field  = array( 'type' => 'text' );
 		$result = blueline_sanitize_field( 'Save 50% today', $field );
-		$this->assertSame( 'Save 50% today', $result );
+		$this->assertWPError( $result, 'omitting placeholders must not be a way to skip the check' );
+	}
+
+	/**
+	 * The companion accept path for the same field shape: a value with no
+	 * "%" at all satisfies the implicit `array()` contract and sanitizes
+	 * normally.
+	 */
+	public function test_fields_without_a_placeholders_key_accept_a_value_with_no_percent(): void {
+		$field  = array( 'type' => 'text' );
+		$result = blueline_sanitize_field( 'Save big today', $field );
+		$this->assertSame( 'Save big today', $result );
 	}
 
 	/**
@@ -230,5 +246,70 @@ final class SettingsSanitizeTest extends TestCase {
 		$this->assertSame( 42, blueline_sanitize_field( '42', array( 'type' => 'page_id' ) ) );
 		$this->assertSame( 5, blueline_sanitize_field( '-5', array( 'type' => 'term_id' ) ) );
 		$this->assertSame( 0, blueline_sanitize_field( 'not-a-number', array( 'type' => 'term_id' ) ) );
+	}
+
+	/**
+	 * The escape helper must leave a recognised "%%" escape and a complete
+	 * conversion spec untouched, and double ONLY the "%" that could not
+	 * complete either -- so the suggestion it produces is safe to paste
+	 * straight back into the field without disturbing an already-valid
+	 * part of the string.
+	 */
+	public function test_escape_stray_percents_only_touches_the_unsafe_percent(): void {
+		$this->assertSame( 'save 50%% today', blueline_escape_stray_percents( 'save 50% today' ) );
+		$this->assertSame( 'ends in %%', blueline_escape_stray_percents( 'ends in %' ) );
+		// Already-safe input is returned unchanged: an existing "%%" escape
+		// and an existing valid spec must not be re-escaped or duplicated.
+		$this->assertSame( 'save 50%% today', blueline_escape_stray_percents( 'save 50%% today' ) );
+		$this->assertSame( 'Back on the ice %s!', blueline_escape_stray_percents( 'Back on the ice %s!' ) );
+	}
+
+	/**
+	 * The rejection message itself must be actionable, not just true: a
+	 * volunteer hitting this must not have to guess what "%%" means or
+	 * where to put it. Asserts the exact wording, including the corrected
+	 * string handed back ready to paste in.
+	 */
+	public function test_the_unsafe_percent_error_names_the_fix_and_shows_the_correction(): void {
+		$field  = array(
+			'type'         => 'text',
+			'label'        => 'Footer location line',
+			'placeholders' => array(),
+		);
+		$result = blueline_sanitize_field( 'Save 50% today', $field );
+
+		$this->assertWPError( $result );
+		$message = $result->get_error_message();
+		$this->assertStringContainsString( 'Footer location line', $message );
+		$this->assertStringContainsString( '%%', $message, 'must tell the volunteer a literal percent is written as %%' );
+		$this->assertStringContainsString(
+			'Save 50%% today',
+			$message,
+			'must show the corrected, ready-to-paste string, not just describe the fix'
+		);
+	}
+
+	/**
+	 * Integration check against the real schema, not a hand-built fixture:
+	 * every one of Task 1's 13 existing field defaults must still validate
+	 * through blueline_sanitize_field() unchanged now that `text` fields
+	 * carry an explicit `placeholders => array()` contract. A default that
+	 * failed here would mean the panel ships an un-saveable field the
+	 * moment an admin opens its own tab and re-submits the form untouched.
+	 */
+	public function test_every_schema_default_validates_through_the_sanitizer(): void {
+		$schema   = blueline_settings_schema();
+		$defaults = blueline_settings_defaults();
+
+		$this->assertNotEmpty( $schema );
+		$this->assertCount( 13, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+
+		foreach ( $schema as $key => $field ) {
+			$result = blueline_sanitize_field( $defaults[ $key ], $field );
+			$this->assertFalse(
+				is_wp_error( $result ),
+				"$key's own default value was rejected by its own field contract: " . ( is_wp_error( $result ) ? $result->get_error_message() : '' )
+			);
+		}
 	}
 }

@@ -36,14 +36,22 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * ID the theme uses today when the stored value is `0` ("use the theme
  * default" rather than "point at this specific post/term").
  *
- * A text field that feeds `sprintf()` also carries a `placeholders` array
- * naming the exact conversion specs (e.g. `%s`) the value must contain;
+ * Every `text`/`textarea` field MUST carry a `placeholders` array naming the
+ * exact sprintf() conversion specs (e.g. `%s`) its value is required to
+ * contain — `array()` for a field whose value never reaches a sprintf()
+ * call site. This is enforced, not merely documented:
+ * SettingsDefaultsTest::test_every_text_and_textarea_field_declares_a_placeholders_key()
+ * fails the build if any `text`/`textarea` field omits the key, and
  * blueline_settings_defaults() must supply a default containing every spec
- * a field declares here — see SettingsDefaultsTest for the assertion that
- * keeps that contract honest. No field in this task declares placeholders
- * yet: every current theme literal with a sprintf() placeholder is
- * deliberately excluded until the placeholder validator (Task 3) exists to
- * guard it; those fields are added in Task 8.
+ * a field declares here (a separate assertion in the same test file). No
+ * field declares a non-empty `placeholders` contract yet: every current
+ * theme literal with a real sprintf() placeholder is deliberately excluded
+ * until Task 8 adds it, one field at a time, against the validator Task 3
+ * built. Every existing `text` field below declares `placeholders => array()`
+ * in the meantime — not "no contract yet", but "the contract IS zero
+ * placeholders" — so a stray "%" in an existing field's value is rejected by
+ * inc/settings/sanitize.php's blueline_sanitize_field() today, before Task 8
+ * ever exists, rather than only once a future task remembers to protect it.
  *
  * @return array<string, array<string, mixed>>
  */
@@ -56,19 +64,22 @@ function blueline_settings_schema(): array {
 			'label' => 'Contact email',
 		),
 		'footer_heading'     => array(
-			'type'  => 'text',
-			'tab'   => 'content',
-			'label' => 'Footer column heading',
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Footer column heading',
+			'placeholders' => array(),
 		),
 		'footer_location'    => array(
-			'type'  => 'text',
-			'tab'   => 'content',
-			'label' => 'Footer location line',
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Footer location line',
+			'placeholders' => array(),
 		),
 		'hero_offseason_cta' => array(
-			'type'  => 'text',
-			'tab'   => 'content',
-			'label' => 'Off-season CTA label',
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Off-season CTA label',
+			'placeholders' => array(),
 		),
 		// Links tab — every value is a page ID; 0 means "use the built-in path".
 		'page_schedule'      => array(
