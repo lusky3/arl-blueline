@@ -547,6 +547,25 @@ function blueline_site_header() {
 }
 
 /**
+ * The league's Contact Us page URL.
+ *
+ * This exists because the two places that linked to "contact us" disagreed:
+ * the footer used /arl-league-info/contact-us (the real page, id 6379) while
+ * the offseason hero's "Join the mailing list" CTA used /contact-us -- and
+ * NO page exists at that slug, verified against all 100 published pages on
+ * the live site. That CTA was a 404 waiting to ship.
+ *
+ * Both callers now read this one function, so they cannot drift apart again.
+ * When the control panel's Links tab lands, this is the single place that
+ * needs to consult the configured page ID; until then it stays a literal.
+ *
+ * @return string Absolute URL to the Contact Us page.
+ */
+function blueline_contact_url(): string {
+	return home_url( '/arl-league-info/contact-us' );
+}
+
+/**
  * Output the site footer: a permanent "The League" trust column (contact,
  * location, FAQs, legal -- there was previously none of this anywhere in
  * the footer), any populated widget columns, then a bottom bar with the
@@ -567,7 +586,7 @@ function blueline_site_footer() {
 				<h2 class="widget-title"><?php esc_html_e( 'The League', 'blueline' ); ?></h2>
 				<p class="bl-footer__location"><?php esc_html_e( 'Burlington, Ontario', 'blueline' ); ?></p>
 				<ul class="bl-footer__trust-links">
-					<li><a href="<?php echo esc_url( home_url( '/arl-league-info/contact-us' ) ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( blueline_contact_url() ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
 					<li><a href="<?php echo esc_url( 'mailto:play@rookiehockey.ca' ); ?>"><?php esc_html_e( 'play@rookiehockey.ca', 'blueline' ); ?></a></li>
 					<li><a href="<?php echo esc_url( home_url( '/faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
 					<li><a href="<?php echo esc_url( home_url( '/legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
