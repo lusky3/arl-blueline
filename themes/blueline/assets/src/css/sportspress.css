@@ -767,11 +767,19 @@ table.bl-table-self-scroll {
 	color: var(--bl-team-primary, var(--bl-ice));
 }
 
-/* Division / meta chips pick up the team's accent as their boundary. */
-.bl-sp-hero--team .bl-sp-hero__flag {
-	border-color: var(--bl-team-accent, var(--bl-border-strong));
-	color: var(--bl-team-accent, var(--bl-ink-mid));
-}
+/*
+ * Deliberately no .bl-sp-hero--team .bl-sp-hero__flag rule.
+ *
+ * The team hero emits no flag element -- .bl-sp-hero__flag comes only from the
+ * PLAYER hero (inc/sportspress.php) -- so the rule that used to sit here
+ * matched nothing. It was also unsound: it painted --bl-team-accent, which is
+ * derived for contrast against --bl-paper, on top of a --bl-team-primary fill.
+ * For any dark team colour blueline_darken_to_contrast() returns its input
+ * unchanged, so the chip rendered at 1.00:1 against its own background.
+ *
+ * If the team hero ever gains division chips, derive a SECOND accent against
+ * --bl-team-primary rather than reusing the paper-derived one.
+ */
 
 .bl-sp-hero__teams {
 	display: flex;
