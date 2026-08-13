@@ -10,7 +10,10 @@
   },
   "scripts": {
     "test": "phpunit",
-    "lint": "phpcs --standard=WordPress --extensions=php --ignore=vendor,node_modules,assets/dist ."
+    "lint": "phpcs --standard=WordPress --extensions=php --ignore=vendor,node_modules,assets/dist,woocommerce ."
+  },
+  "scripts-descriptions": {
+    "lint": "woocommerce/ is excluded because it holds unmodified WooCommerce core template overrides copied from the plugin for structural overriding only -- they were never authored to WordPress Coding Standards and are not this theme's code. Excluding them keeps the gate scoped to code this theme actually owns."
   },
   "config": { "allow-plugins": { "dealerdirect/phpcodesniffer-composer-installer": true } }
 }

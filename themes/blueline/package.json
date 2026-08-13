@@ -7,7 +7,9 @@
     "start": "wp-scripts start",
     "lint:css": "wp-scripts lint-style 'assets/src/css/**/*.css'",
     "lint:js": "wp-scripts lint-js 'assets/src/js/**/*.js'",
-    "tokens:check": "node tools/check-contrast.mjs"
+    "tokens:check": "node tools/check-contrast.mjs",
+    "test:js": "node --test 'tools/**/*.test.mjs'",
+    "check": "npm run lint:css && npm run lint:js && npm run test:js && npm run tokens:check && composer test && composer lint"
   },
   "devDependencies": {
     "@wordpress/scripts": "^34.0.0"

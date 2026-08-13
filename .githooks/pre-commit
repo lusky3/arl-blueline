@@ -1,0 +1,10 @@
+#!/bin/sh
+# Blueline quality gate. This repo has no CI and no remote, so this hook is
+# the only automatic enforcement point. Enable with:
+#   git config core.hooksPath .githooks
+set -e
+
+if git diff --cached --name-only | grep -q '^themes/blueline/'; then
+	echo "blueline: running quality gate..."
+	( cd themes/blueline && npm run check )
+fi

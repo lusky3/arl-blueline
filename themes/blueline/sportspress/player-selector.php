@@ -48,8 +48,8 @@ $team       = get_post_meta( $id, 'sp_current_team', true );
 
 $args = array(
 	'post_type'      => 'sp_player',
-	'numberposts'    => 500,
-	'posts_per_page' => 500,
+	'numberposts'    => 500, // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_numberposts -- player selector deliberately loads all players for a single dropdown; there is no pagination UI to page through.
+	'posts_per_page' => 500, // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- same: the dropdown needs every player in one query, not a paginated subset.
 	'orderby'        => 'title',
 	'order'          => 'ASC',
 	'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- same shape as the stock template this overrides.
