@@ -26,6 +26,8 @@
     { "id": "focus-two-tone",     "description": "focus ring vs its halo",  "fg": "--bl-focus-color", "bg": "--bl-focus-halo","min": 3.0 },
     { "id": "border-strong-on-white", "description": "strong border on white", "fg": "--bl-border-strong", "bg": "--bl-white", "min": 3.0 },
     { "id": "border-strong-on-paper", "description": "strong border on paper", "fg": "--bl-border-strong", "bg": "--bl-paper", "min": 3.0 },
+    { "id": "border-not-text-on-white", "description": "--bl-border correctly unusable as text on white (decorative dividers/edges only)", "fg": "--bl-border", "bg": "--bl-white", "max": 3.0 },
+    { "id": "border-not-text-on-paper", "description": "--bl-border correctly unusable as text on paper (decorative dividers/edges only)", "fg": "--bl-border", "bg": "--bl-paper", "max": 3.0 },
 
     { "id": "success-on-white",  "description": "success text on white", "fg": "--bl-success", "bg": "--bl-white", "min": 4.5 },
     { "id": "warning-on-white",  "description": "warning text on white", "fg": "--bl-warning", "bg": "--bl-white", "min": 4.5 },

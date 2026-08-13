@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { extractRootTokens, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
 import { contrastRatio, evaluateRule } from './lib/contrast.mjs';
 
@@ -173,8 +173,27 @@ failed += spFailed;
  * referencing it, so overriding the token moved the text colour while its
  * background stayed put -- breaking a pairing one of those files claimed in a
  * comment had been "verified by hand". This forbids reintroducing that.
+ *
+ * Two follow-up gaps in the original version of this lint:
+ *
+ * 1. It only scanned assets/src/css, non-recursively. Spec P0.6 named FOUR
+ *    offenders, one of which -- style.css's --bl-shadow-card /
+ *    --bl-shadow-raised -- lives outside that directory entirely, so the
+ *    file the spec actually named was never covered by the guard meant to
+ *    stop it being reintroduced. readdirSync() was also flat, so a future
+ *    subdirectory under assets/src/css would go unscanned with no warning.
+ * 2. style.css DOES still contain --bl-shadow-card's rgba(19, 35, 67, ...),
+ *    but that one is intentional (see style.css's own comment there): a
+ *    shadow composites over whatever ground it happens to land on, which
+ *    varies per placement, so alpha-blending against a token via
+ *    color-mix() -- which always mixes toward one fixed second colour --
+ *    would be the wrong tool, not a fix. That single line is the only
+ *    documented exemption this lint carries; anything else matching a
+ *    token's channels still fails.
  */
 const cssDir = resolve( here, '../assets/src/css' );
+const stylePath = resolve( here, '../style.css' );
+
 const tokenRgbs = new Map();
 for ( const [ name, raw ] of styleTokens ) {
 	const value = normalizeValue( raw );
@@ -184,25 +203,65 @@ for ( const [ name, raw ] of styleTokens ) {
 	}
 }
 
+/**
+ * Recursively collect every `.css` file under `dir`.
+ *
+ * @param {string} dir Directory to walk.
+ * @return {string[]} Absolute file paths.
+ */
+function collectCssFiles( dir ) {
+	const out = [];
+	for ( const entry of readdirSync( dir, { withFileTypes: true } ) ) {
+		const full = resolve( dir, entry.name );
+		if ( entry.isDirectory() ) {
+			out.push( ...collectCssFiles( full ) );
+		} else if ( entry.isFile() && entry.name.endsWith( '.css' ) ) {
+			out.push( full );
+		}
+	}
+	return out;
+}
+
+// Explicit, commented allowlist: `${relative-path}::${r,g,b}` entries that
+// are PERMITTED to keep a token's literal channels inside an rgba(), with
+// the reason recorded right here rather than only in a CSS comment a lint
+// exception can't see.
+const RGBA_LINT_ALLOWLIST = new Map( [
+	[
+		'style.css::19,35,67',
+		"--bl-shadow-card's alpha-composited shadow intentionally keeps --bl-ink's literal channels -- a shadow composites over whatever ground it falls on, so color-mix() against one fixed ground would be wrong here. See style.css's own comment above --bl-shadow-card/--bl-shadow-raised.",
+	],
+] );
+
+const themeRoot = resolve( here, '..' );
+const scanTargets = [ ...collectCssFiles( cssDir ), stylePath ];
+
 let literalRgba = 0;
-for ( const file of readdirSync( cssDir ).filter( ( f ) => f.endsWith( '.css' ) ) ) {
-	const src = readFileSync( resolve( cssDir, file ), 'utf8' );
+for ( const filePath of scanTargets ) {
+	const relPath = relative( themeRoot, filePath );
+	const src = readFileSync( filePath, 'utf8' );
 	const re = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/g;
 	let m;
 	while ( ( m = re.exec( src ) ) !== null ) {
 		const key = `${ +m[ 1 ] },${ +m[ 2 ] },${ +m[ 3 ] }`;
-		if ( tokenRgbs.has( key ) ) {
-			console.log(
-				`FAIL ${ file } hard-codes the channels of ${ tokenRgbs.get( key ) } -- use color-mix() with the token`
-			);
-			literalRgba++;
+		if ( ! tokenRgbs.has( key ) ) {
+			continue;
 		}
+		if ( RGBA_LINT_ALLOWLIST.has( `${ relPath }::${ key }` ) ) {
+			continue;
+		}
+		console.log(
+			`FAIL ${ relPath } hard-codes the channels of ${ tokenRgbs.get( key ) } -- use color-mix() with the token`
+		);
+		literalRgba++;
 	}
 }
 if ( literalRgba ) {
 	failed += literalRgba;
 } else {
-	console.log( 'ok   no CSS file hard-codes a token\'s RGB channels' );
+	console.log(
+		`ok   no CSS file hard-codes a token's RGB channels outside the ${ RGBA_LINT_ALLOWLIST.size } documented exemption(s)`
+	);
 }
 
 process.exit( failed ? 1 : 0 );

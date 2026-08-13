@@ -256,3 +256,18 @@ test( 'contrast-rules.json declares explicit top-level thresholds', () => {
 	assert.equal( contrastRulesJson.thresholds.large, 3.0 );
 } );
 
+// Spec P0.4/§10: every tunable colour token must be covered by at least one
+// rule. --bl-border-strong was covered; --bl-border (the plain, non-strong
+// border token, 27 uses, all decorative) was not (Fix 3).
+test( 'contrast-rules.json covers --bl-border with a max-style "stays decorative" rule', () => {
+	const borderRules = rules.filter( ( rule ) => rule.fg === '--bl-border' );
+	assert.ok(
+		borderRules.length > 0,
+		'--bl-border must be covered by at least one rule (spec §10: every tunable token needs >= 1 rule)'
+	);
+	for ( const rule of borderRules ) {
+		assert.equal( typeof rule.max, 'number', `--bl-border rule "${ rule.id }" should be a max-style guard, not a min` );
+		const result = evaluateRule( rule, styleTokens );
+		assert.equal( result.ok, true, `--bl-border rule "${ rule.id }" should currently pass (${ result.ratio } vs max ${ rule.max })` );
+	}
+} );
