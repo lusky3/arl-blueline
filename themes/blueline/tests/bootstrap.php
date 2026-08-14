@@ -592,9 +592,45 @@ if ( ! function_exists( 'current_user_can' ) ) {
 		return ! empty( $state['caps'][ (string) $capability ] );
 	}
 }
+if ( ! class_exists( 'Blueline_Test_Meta_Rows' ) ) {
+	/**
+	 * Marks a post_meta entry as SEVERAL rows sharing one meta_key, which is
+	 * how WordPress actually stores repeated meta and what SportsPress does for
+	 * sp_current_team / sp_past_team / sp_team.
+	 *
+	 * Needed because a bare array in the post_meta store is a single row whose
+	 * VALUE is an array (sp_colors is exactly that), so array-ness alone cannot
+	 * distinguish "one array value" from "many rows". Without this marker the
+	 * double could not express the shape that broke blueline_get_player_team():
+	 * a leading '0' placeholder row followed by the real team id, which
+	 * get_post_meta( ..., true ) resolves to '0' because WordPress returns the
+	 * FIRST row by meta_id.
+	 */
+	class Blueline_Test_Meta_Rows {
+		/**
+		 * Row values in meta_id order.
+		 *
+		 * @var array<int,mixed>
+		 */
+		public array $rows;
+
+		/**
+		 * Build a multi-row meta entry.
+		 *
+		 * @param array<int,mixed> $rows Row values, lowest meta_id first.
+		 */
+		public function __construct( array $rows ) {
+			$this->rows = array_values( $rows );
+		}
+	}
+}
 if ( ! function_exists( 'get_post_meta' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' get_post_meta() (single-value form only).
+	 * Minimal stand-in for WordPress' get_post_meta().
+	 *
+	 * Mirrors core's single-value contract: $single === true returns the FIRST
+	 * row, not a merge and not the last, so a placeholder row shadows the real
+	 * value exactly as it does in production.
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $key     Meta key.
@@ -604,6 +640,15 @@ if ( ! function_exists( 'get_post_meta' ) ) {
 	function get_post_meta( $post_id, $key = '', $single = false ) {
 		$state = &blueline_test_state();
 		$value = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? '';
+
+		if ( $value instanceof Blueline_Test_Meta_Rows ) {
+			if ( ! $single ) {
+				return $value->rows;
+			}
+			// Core returns '' for a key with no rows, else the first row.
+			return $value->rows ? $value->rows[0] : '';
+		}
+
 		return $single ? $value : array( $value );
 	}
 }
@@ -756,6 +801,73 @@ if ( ! function_exists( 'get_post_status' ) ) {
 		$id    = (int) $post;
 
 		return $state['posts'][ $id ]['status'] ?? false;
+	}
+}
+if ( ! function_exists( 'get_post_type' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_post_type(): the post type a test
+	 * registered via blueline_test_register_post(), or `false` for an ID no
+	 * test ever registered -- core's own return for a post that does not
+	 * exist. Tests that never set a type get `''`, which is falsy but still a
+	 * string, so an `in_array( get_post_type( $id ), array( ... ), true )`
+	 * caller behaves as it would against a real post of an unlisted type.
+	 *
+	 * @param int|object $post Post ID (only the int form is exercised by this suite).
+	 * @return string|false
+	 */
+	function get_post_type( $post = null ) {
+		$state = &blueline_test_state();
+		$id    = (int) $post;
+
+		if ( ! isset( $state['posts'][ $id ] ) ) {
+			return false;
+		}
+
+		return $state['posts'][ $id ]['type'] ?? '';
+	}
+}
+if ( ! function_exists( 'get_the_title' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_the_title(): the title a test
+	 * registered, or `''` for an unknown ID -- core returns an empty string
+	 * rather than false here, so callers that concatenate the result do not
+	 * see the string "1" from a boolean.
+	 *
+	 * @param int|object $post Post ID (only the int form is exercised by this suite).
+	 * @return string
+	 */
+	function get_the_title( $post = 0 ) {
+		$state = &blueline_test_state();
+		$id    = (int) $post;
+
+		return (string) ( $state['posts'][ $id ]['title'] ?? '' );
+	}
+}
+if ( ! function_exists( 'has_post_thumbnail' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' has_post_thumbnail().
+	 *
+	 * @param int|object $post Post ID (only the int form is exercised by this suite).
+	 * @return bool
+	 */
+	function has_post_thumbnail( $post = null ) {
+		$state = &blueline_test_state();
+
+		return ! empty( $state['posts'][ (int) $post ]['thumbnail_id'] );
+	}
+}
+if ( ! function_exists( 'get_post_thumbnail_id' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_post_thumbnail_id(): core returns
+	 * `0` (not false) for a post with no featured image.
+	 *
+	 * @param int|object $post Post ID (only the int form is exercised by this suite).
+	 * @return int
+	 */
+	function get_post_thumbnail_id( $post = null ) {
+		$state = &blueline_test_state();
+
+		return (int) ( $state['posts'][ (int) $post ]['thumbnail_id'] ?? 0 );
 	}
 }
 if ( ! function_exists( 'get_permalink' ) ) {

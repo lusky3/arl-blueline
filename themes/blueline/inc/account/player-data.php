@@ -11,13 +11,20 @@
  * sp_current_team denominator), and an unlinked or half-populated player is
  * still a routine case a reader must not assume away.
  *
- * STICKY FIELD WARNING: the three readers below key off `sp_current_team`
- * unqualified, and that field is "last team this player was ever rostered
- * onto", never season-scoped -- so a player who last skated in 2019 legitimately
- * resolves to that 2019 team here, with "Record not available yet" and no next
- * game. That is honest degradation (an old team, plainly empty of current
- * data), not a wrong answer, and is deliberately left as-is; do not read these
- * as "this season's team" without adding a season qualifier yourself.
+ * MULTI-ROW FIELD: `sp_current_team` is a repeated meta key, never a scalar --
+ * read it through blueline_player_current_team_ids()/_id(), never with
+ * get_post_meta( ..., true ). Reading it single-value returns the leading '0'
+ * placeholder row that 728 of this database's 754 multi-row players carry,
+ * which resolved every one of them to team 0 and blanked their whole dashboard.
+ *
+ * STICKY FIELD WARNING: `sp_current_team` is "last team this player was ever
+ * rostered onto", never season-scoped -- so a player who last skated in 2019
+ * legitimately resolves to that 2019 team here, with "Record not available yet"
+ * and no next game. That is honest degradation (an old team, plainly empty of
+ * current data), not a wrong answer, and is deliberately left as-is; do not
+ * read these as "this season's team" without adding a season qualifier
+ * yourself. `sp_leagues` ([ league_id => [ season_id => team_id ] ]) is the
+ * season-scoped alternative if a future reader needs one.
  *
  * @package blueline
  */
@@ -206,11 +213,72 @@ function blueline_player_jersey_number( int $player_id ) {
 }
 
 /**
- * $player_id's current team (sp_current_team), bundled with the fields the
- * brief's interface names for this reader: crest, division, and the
- * player's own jersey number. Division is resolved through the team's
- * current-season sp_table (blueline_player_division_name()), not the
- * team's or player's own accumulated sp_league terms directly.
+ * Every team id stored against $player_id under `sp_current_team`, in meta_id
+ * order, with placeholders and non-numeric junk dropped.
+ *
+ * MULTI-ROW FIELD: `sp_current_team` is a repeated meta key, not a scalar.
+ * SportsPress reads it as `get_post_meta( $id, 'sp_current_team', false )`
+ * (SP_Player::current_teams()) and renders `array_filter()` of that, so a
+ * player may legitimately hold several current teams. On this database 754
+ * players carry more than one row and 728 of those lead with a literal '0'
+ * placeholder, so reading the field single-value returns 0 for the great
+ * majority of the league and silently blanks their account dashboard. Read it
+ * through here; never with get_post_meta( ..., true ).
+ *
+ * @param int $player_id Player post id.
+ * @return int[] Positive team ids, first-stored first; empty when unrostered.
+ */
+function blueline_player_current_team_ids( int $player_id ): array {
+	if ( $player_id <= 0 ) {
+		return array();
+	}
+
+	$rows = get_post_meta( $player_id, 'sp_current_team', false );
+
+	if ( ! is_array( $rows ) ) {
+		return array();
+	}
+
+	$ids = array();
+
+	foreach ( $rows as $row ) {
+		if ( is_array( $row ) || is_object( $row ) ) {
+			continue;
+		}
+
+		$id = absint( $row );
+
+		if ( $id > 0 && ! in_array( $id, $ids, true ) ) {
+			$ids[] = $id;
+		}
+	}
+
+	return $ids;
+}
+
+/**
+ * The first of $player_id's current teams that is actually published, so a
+ * draft or deleted team cannot shadow a live one behind it.
+ *
+ * @param int $player_id Player post id.
+ * @return int Team post id, or 0 when the player has no published current team.
+ */
+function blueline_player_current_team_id( int $player_id ): int {
+	foreach ( blueline_player_current_team_ids( $player_id ) as $team_id ) {
+		if ( 'publish' === get_post_status( $team_id ) ) {
+			return $team_id;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * $player_id's current team, bundled with the fields the brief's interface
+ * names for this reader: crest, division, and the player's own jersey number.
+ * Division is resolved through the team's current-season sp_table
+ * (blueline_player_division_name()), not the team's or player's own
+ * accumulated sp_league terms directly.
  *
  * "Record" is deliberately NOT part of this return shape -- the brief's
  * interface for THIS function lists exactly team_id/name/logo_id/
@@ -230,9 +298,9 @@ function blueline_get_player_team( int $player_id ): ?array {
 		return null;
 	}
 
-	$team_id = absint( get_post_meta( $player_id, 'sp_current_team', true ) );
+	$team_id = blueline_player_current_team_id( $player_id );
 
-	if ( ! $team_id || 'publish' !== get_post_status( $team_id ) ) {
+	if ( ! $team_id ) {
 		return null;
 	}
 
@@ -315,7 +383,7 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 		return null;
 	}
 
-	$team_id = absint( get_post_meta( $player_id, 'sp_current_team', true ) );
+	$team_id = blueline_player_current_team_id( $player_id );
 
 	if ( ! $team_id ) {
 		return null;
@@ -381,46 +449,99 @@ function blueline_get_player_next_event( int $player_id ): ?array {
  * $player_id's normalized stat line for their current team in the season
  * currently driving the schedule (blueline_current_sp_season_term_id()).
  *
- * SportsPress stores sp_statistics on the player as [ team_id =>
- * [ season_id => [ 'gp'=>, 'g'=>, 'a'=>, 'pim'=>, 'p'=> ] ] ] -- confirmed live on
- * staging (player 683: team 8 / season 57 held real g/a/pim/p/gp values).
- * Every team a player has EVER been on, and every season that ever
- * existed, gets a placeholder row (usually all empty strings), so the
- * common case for a player with no recorded stats this season is a
- * present-but-blank nested array, not a missing key -- both are handled
- * identically here via blueline_normalize_player_stats().
+ * READ THROUGH SPORTSPRESS, NOT sp_statistics. `sp_statistics` looks like the
+ * obvious source and is shaped [ team_id => [ season_id => [ 'gp'=>, 'g'=>,
+ * ... ] ] ], but it is only SportsPress' MANUAL OVERRIDE store: real totals are
+ * computed from each event's performance rows at read time by
+ * SP_Player::data(). Measured on this database, 300 of 300 current-season
+ * players carry an sp_statistics array and exactly 2 hold a single non-empty
+ * value anywhere in it -- both for a 2013 season. Reading it directly returned
+ * gp/g/a/pim = 0 for essentially the whole league, which is what blanked this
+ * module (player 66 reads 0-0-0 from sp_statistics and gp 14, g 2, a 3 from
+ * SP_Player::data()).
+ *
+ * data() is not cheap -- it queries every sp_performance post and walks the
+ * player's events -- so the result is memoised per request; the dashboard asks
+ * for the same player two or three times per page render.
  *
  * @param int $player_id sp_player post ID.
  * @return array{gp:int, g:int, a:int, pim:int} Always the four keys, zero-filled if unavailable.
  */
 function blueline_get_player_season_stats( int $player_id ): array {
+	static $memo = array();
+
 	$zero = blueline_normalize_player_stats( array() );
 
 	if ( $player_id <= 0 || ! post_type_exists( 'sp_player' ) ) {
 		return $zero;
 	}
 
-	$team_id = absint( get_post_meta( $player_id, 'sp_current_team', true ) );
-
-	if ( ! $team_id ) {
-		return $zero;
+	if ( isset( $memo[ $player_id ] ) ) {
+		return $memo[ $player_id ];
 	}
 
 	$season_id = blueline_current_sp_season_term_id();
 
-	if ( ! $season_id ) {
+	if ( ! $season_id || ! class_exists( 'SP_Player' ) ) {
 		return $zero;
 	}
 
-	$stats = get_post_meta( $player_id, 'sp_statistics', true );
+	$player = new SP_Player( $player_id );
 
-	if ( ! is_array( $stats )
-		|| empty( $stats[ $team_id ][ $season_id ] )
-		|| ! is_array( $stats[ $team_id ][ $season_id ] ) ) {
+	if ( ! is_callable( array( $player, 'data' ) ) ) {
 		return $zero;
 	}
 
-	return blueline_normalize_player_stats( $stats[ $team_id ][ $season_id ] );
+	$row = $player->data( blueline_player_stats_league_id( $player_id, $season_id ) );
+
+	if ( ! is_array( $row ) || empty( $row[ $season_id ] ) || ! is_array( $row[ $season_id ] ) ) {
+		return $zero;
+	}
+
+	$memo[ $player_id ] = blueline_normalize_player_stats( $row[ $season_id ] );
+
+	return $memo[ $player_id ];
+}
+
+/**
+ * The sp_league id to ask SP_Player::data() for.
+ *
+ * `sp_leagues` on a player is a [ league_id => [ season_id => team_id ] ] map
+ * (-1 where the player did not play that league that season), so the league
+ * that matches this season's team is the one whose figures belong beside the
+ * team this dashboard is already showing. A player can appear in more than one
+ * league in a season with different teams, which is exactly why this is not
+ * hard-coded.
+ *
+ * Falls back to 0, SportsPress' own all-leagues bucket, which on this data
+ * returns the same per-season totals but without a team link.
+ *
+ * @param int $player_id sp_player post ID.
+ * @param int $season_id sp_season term id.
+ * @return int League id, or 0 for the all-leagues bucket.
+ */
+function blueline_player_stats_league_id( int $player_id, int $season_id ): int {
+	$team_id = blueline_player_current_team_id( $player_id );
+
+	if ( ! $team_id ) {
+		return 0;
+	}
+
+	$leagues = get_post_meta( $player_id, 'sp_leagues', true );
+
+	if ( ! is_array( $leagues ) ) {
+		return 0;
+	}
+
+	foreach ( $leagues as $league_id => $seasons ) {
+		if ( is_array( $seasons )
+			&& isset( $seasons[ $season_id ] )
+			&& (int) $seasons[ $season_id ] === $team_id ) {
+			return (int) $league_id;
+		}
+	}
+
+	return 0;
 }
 
 /**
