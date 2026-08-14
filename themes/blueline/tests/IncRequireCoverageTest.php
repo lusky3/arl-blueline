@@ -38,22 +38,45 @@ use PHPUnit\Framework\TestCase;
  * functions.php, guarded or not. What this test cannot tolerate is a file
  * that exists on disk and is never mentioned in functions.php at all --
  * which is exactly the bug it exists to catch.
+ *
+ * Comments do not count as "written down": the source is run through
+ * PHP's own tokenizer first and every T_COMMENT/T_DOC_COMMENT token is
+ * discarded before the path scan runs, so
+ * `// require_once BLUELINE_DIR . '/inc/settings/sanitize.php';` -- a file
+ * present on disk, not actually loaded, which is precisely the failure
+ * mode this guard exists to catch -- fails this test rather than quietly
+ * satisfying it. token_get_all() is used rather than a regex-based
+ * comment stripper because it already understands PHP's own lexical
+ * grammar (a `//` inside a string literal is not a comment; `token_get_all()`
+ * never mistakes the two the way a hand-rolled regex could).
  */
 final class IncRequireCoverageTest extends TestCase {
 
 	/**
-	 * Reads inc/ off disk and functions.php's own require_once chain, then
-	 * asserts the two agree -- naming any file present on disk but absent
-	 * from functions.php.
+	 * Reads inc/ off disk and functions.php's own require_once chain (with
+	 * comments discarded first), then asserts the two agree -- naming any
+	 * file present on disk but absent from functions.php's live code.
 	 */
 	public function test_every_inc_file_is_required_from_functions_php(): void {
 		$root          = dirname( __DIR__ );
 		$functions_src = (string) file_get_contents( $root . '/functions.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test; wp_remote_get() is for HTTP.
 
-		// Every '/inc/...php' quoted string literal in functions.php, whatever
-		// require_once expression it's embedded in and whatever conditional
-		// (if any) wraps that expression.
-		preg_match_all( "#['\"](/inc/[^'\"]+\.php)['\"]#", $functions_src, $matches );
+		$live_src = '';
+		foreach ( token_get_all( $functions_src ) as $token ) {
+			if ( is_array( $token ) ) {
+				if ( T_COMMENT === $token[0] || T_DOC_COMMENT === $token[0] ) {
+					continue; // Drop comments -- a commented-out require must not count as "referenced".
+				}
+				$live_src .= $token[1];
+			} else {
+				$live_src .= $token;
+			}
+		}
+
+		// Every '/inc/...php' quoted string literal in functions.php's live
+		// (non-comment) code, whatever require_once expression it's embedded
+		// in and whatever conditional (if any) wraps that expression.
+		preg_match_all( "#['\"](/inc/[^'\"]+\.php)['\"]#", $live_src, $matches );
 		$referenced = array_flip( $matches[1] );
 
 		$inc_dir = $root . '/inc';
