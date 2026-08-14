@@ -40,6 +40,24 @@
 	max-width: 70ch;
 }
 
+/*
+ * ...but not inside a SportsPress template, where headings are captions and
+ * fixture titles rather than running prose.
+ *
+ * The measure above assumes a heading starts at the content's left edge, so
+ * capping it is invisible. A CENTRED heading in a container wider than 70ch is
+ * a different matter: the cap shrinks its box, the box stays left, and the text
+ * centres inside the shrunken box instead of the container. Measured on an
+ * event page's Past Meetings tab, the "Team vs Team" title was capped to 490px
+ * inside a 788px cell and its text landed 137px left of centre, while the date
+ * directly above it -- not a heading, so uncapped -- sat correctly on the
+ * middle. The same block looks fine on a team page only because the column
+ * there is 384px, narrower than the cap, so it never engages.
+ */
+.entry-content .sp-template :where(h1, h2, h3, h4, h5, h6) {
+	max-width: none;
+}
+
 /* Paragraph -- core/paragraph has no wrapper class, the block IS the <p>. */
 .entry-content p {
 	margin: 0;

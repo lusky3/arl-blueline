@@ -328,6 +328,26 @@
 	font-weight: 600;
 }
 
+/*
+ * The fixture links to its own event page. Same treatment as the venue link
+ * beside it -- both are real destinations from this row, so neither should
+ * look more clickable than the other. Underlined rather than colour-only,
+ * because "Puck Dynasty vs Hammers" sitting in a list of dates and arenas
+ * gives no other signal that it is interactive.
+ */
+a.bl-next-games__title {
+	color: inherit;
+	text-decoration: underline;
+	text-decoration-color: var(--bl-border);
+	text-underline-offset: 2px;
+}
+
+a.bl-next-games__title:hover,
+a.bl-next-games__title:focus-visible {
+	color: var(--bl-accent-text);
+	text-decoration-color: currentcolor;
+}
+
 .bl-next-games__venue {
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-sm);

@@ -790,11 +790,25 @@ function blueline_homepage_module_next_games() {
 					$venue_url = ( ! is_wp_error( $term_link ) ) ? $term_link : '';
 				}
 				?>
+				<?php
+				// The fixture itself links to its event page (box score, past
+				// meetings, the arena map). The venue link below stays separate
+				// and keeps going to the arena -- two destinations a reader
+				// genuinely wants from this row, so this is deliberately NOT a
+				// single row-wide link: an <a> wrapping the whole <li> could
+				// not contain the venue's own <a>, since nested anchors are
+				// invalid and browsers drop the inner one.
+				$event_permalink = get_permalink( $event );
+				?>
 				<li class="bl-next-games__item">
 					<span class="bl-next-games__date">
 						<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event ) ); ?>
 					</span>
-					<span class="bl-next-games__title"><?php echo esc_html( get_the_title( $event ) ); ?></span>
+					<?php if ( $event_permalink ) : ?>
+						<a class="bl-next-games__title bl-next-games__title--link" href="<?php echo esc_url( $event_permalink ); ?>"><?php echo esc_html( get_the_title( $event ) ); ?></a>
+					<?php else : ?>
+						<span class="bl-next-games__title"><?php echo esc_html( get_the_title( $event ) ); ?></span>
+					<?php endif; ?>
 					<?php if ( $venue_label && $venue_url ) : ?>
 						<a class="bl-next-games__venue" href="<?php echo esc_url( $venue_url ); ?>"><?php echo esc_html( $venue_label ); ?></a>
 					<?php elseif ( $venue_label ) : ?>
