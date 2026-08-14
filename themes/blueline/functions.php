@@ -26,6 +26,7 @@ require_once BLUELINE_DIR . '/inc/settings/store.php';
 require_once BLUELINE_DIR . '/inc/settings/links.php';
 require_once BLUELINE_DIR . '/inc/settings/sanitize.php';
 require_once BLUELINE_DIR . '/inc/settings/cache.php';
+require_once BLUELINE_DIR . '/inc/settings/commerce.php';
 require_once BLUELINE_DIR . '/inc/settings/page.php';
 require_once BLUELINE_DIR . '/inc/setup.php';
 require_once BLUELINE_DIR . '/inc/enqueue.php';

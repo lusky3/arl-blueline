@@ -480,8 +480,11 @@ function blueline_find_registration_order( int $user_id, array $product_ids ) {
 /**
  * $user_id's registration for the current season: the most recent
  * WooCommerce order containing a product in the newest child product_cat
- * of Registration (term 91 -- the same season-resolution rule Season
- * State uses, see BLUELINE_REGISTRATION_TERM_ID in inc/season-state.php).
+ * of Registration -- the same season-resolution rule Season State uses, now
+ * via blueline_resolve_registration_term() (inc/settings/commerce.php),
+ * which verifies the admin-configured term (or its documented fallback, term
+ * 91 -- see BLUELINE_REGISTRATION_TERM_ID in inc/season-state.php) actually
+ * exists before trusting it.
  *
  * @param int $user_id WordPress user ID.
  * @return array{season:string, order_id:int, status:string, paid:bool}|null
@@ -496,10 +499,20 @@ function blueline_get_user_registration_status( int $user_id ): ?array {
 		return null;
 	}
 
+	$registration_term = blueline_resolve_registration_term();
+
+	if ( $registration_term <= 0 ) {
+		// Neither the configured term nor the documented fallback resolves
+		// to a real product_cat term -- nothing to query. See
+		// blueline_resolve_registration_term()'s docblock for why 0 must
+		// never be forwarded into get_terms()'s `parent` argument.
+		return null;
+	}
+
 	$season_terms = get_terms(
 		array(
 			'taxonomy'   => 'product_cat',
-			'parent'     => BLUELINE_REGISTRATION_TERM_ID,
+			'parent'     => $registration_term,
 			'orderby'    => 'term_id',
 			'order'      => 'DESC',
 			'number'     => 1,

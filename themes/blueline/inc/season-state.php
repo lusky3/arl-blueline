@@ -89,6 +89,20 @@ function blueline_decide_season_state( array $signals ): string {
  * Term ID of the "Registration" product_cat parent. Each season's products
  * live in a child term of this one (e.g. "Winter 2026-27"); the newest
  * child by term_id is the current season.
+ *
+ * This is the DOCUMENTED FALLBACK, not a value any code should read
+ * directly any more: an inventory pass could not confirm 91 by numeric ID
+ * (the available tooling filters product categories by slug, and
+ * `category: 91` returned nothing while `category: "registration"` returned
+ * the live products correctly), so 91 is plausible but unverified. Every
+ * call site now resolves the actual term to use through
+ * blueline_resolve_registration_term() (inc/settings/commerce.php), which
+ * checks the admin-configured `registration_term` setting AND this constant
+ * against get_term() before trusting either. The constant stays defined
+ * (and this is still its fallback value in the schema, inc/settings/
+ * defaults.php) because other code guards on defined( 'BLUELINE_REGISTRATION_TERM_ID' )
+ * as a "is season-state.php loaded" sanity check (see
+ * inc/account/player-data.php).
  */
 const BLUELINE_REGISTRATION_TERM_ID = 91;
 
@@ -130,10 +144,21 @@ function blueline_registration_season_product_ids(): array {
 		return array();
 	}
 
+	$registration_term = blueline_resolve_registration_term();
+
+	if ( $registration_term <= 0 ) {
+		// Neither the configured term nor the documented fallback resolves
+		// to a real product_cat term (see blueline_resolve_registration_term()'s
+		// docblock) -- nothing to query. Returning early here is what keeps
+		// a 0 from ever reaching get_terms()'s `parent` argument, where it
+		// would mean something else entirely ("top-level terms").
+		return array();
+	}
+
 	$season_terms = get_terms(
 		array(
 			'taxonomy'   => 'product_cat',
-			'parent'     => BLUELINE_REGISTRATION_TERM_ID,
+			'parent'     => $registration_term,
 			'orderby'    => 'term_id',
 			'order'      => 'DESC',
 			'number'     => 1,

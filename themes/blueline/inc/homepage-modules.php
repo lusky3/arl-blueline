@@ -191,8 +191,20 @@ function blueline_homepage_registration_season_label( int $product_id ): string 
 		return '';
 	}
 
+	$registration_term = blueline_resolve_registration_term();
+
+	if ( $registration_term <= 0 ) {
+		// Neither the configured term nor the documented fallback resolves
+		// to a real product_cat term -- there is nothing valid to compare
+		// $term->parent against. Guarding here (rather than comparing
+		// against 0) is what keeps an ordinary top-level product category
+		// from being mistaken for the registration season's parent -- see
+		// blueline_resolve_registration_term()'s docblock.
+		return '';
+	}
+
 	foreach ( $terms as $term ) {
-		if ( defined( 'BLUELINE_REGISTRATION_TERM_ID' ) && BLUELINE_REGISTRATION_TERM_ID === (int) $term->parent ) {
+		if ( $registration_term === (int) $term->parent ) {
 			return $term->name;
 		}
 	}

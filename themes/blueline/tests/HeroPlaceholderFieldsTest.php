@@ -11,42 +11,24 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/settings/commerce.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/season-state.php';
 require_once __DIR__ . '/../inc/homepage-modules.php';
 
-if ( ! function_exists( 'wp_get_post_terms' ) ) {
-	/**
-	 * Minimal stand-in for WordPress' wp_get_post_terms() -- neither this
-	 * function nor wp_get_object_terms() below is stubbed anywhere else in
-	 * this suite (every other test that reaches a taxonomy-guarded call site
-	 * keeps the guarding taxonomy unregistered specifically to avoid needing
-	 * one). This file is the first to actually need the season-truthy branch
-	 * of blueline_homepage_registration_season_label() exercised end-to-end,
-	 * so it carries its own -- same trade-off RegistrationPricingTest.php's
-	 * own docblock makes for BluelineFakeProduct: a one-off stub has nowhere
-	 * more useful to live than beside the one test file that needs it.
-	 *
-	 * Returns whatever a test registered for ($post_id, $taxonomy) in
-	 * $GLOBALS['bl_test_post_terms'], or an empty array -- the real call
-	 * site (blueline_homepage_registration_season_label()) never passes
-	 * 'fields', so this always hands back full term-like objects.
-	 *
-	 * @param int    $post_id  Post ID.
-	 * @param string $taxonomy Taxonomy name.
-	 * @param array  $args     Unused; kept for signature parity with WP core.
-	 * @return array
-	 */
-	function wp_get_post_terms( $post_id, $taxonomy, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; this stub's one caller never varies $args.
-		return $GLOBALS['bl_test_post_terms'][ $taxonomy ][ (int) $post_id ] ?? array();
-	}
-}
-
+// wp_get_post_terms() is no longer stubbed here -- tests/bootstrap.php now
+// provides a shared stand-in (added for Task 9's registration-term
+// resolver tests), backed by blueline_test_register_term()/
+// blueline_test_set_post_terms() rather than this file's own
+// $GLOBALS['bl_test_post_terms']. wp_get_object_terms() below is still
+// this file's own: nothing else in the suite needs it.
 if ( ! function_exists( 'wp_get_object_terms' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' wp_get_object_terms() -- see
-	 * wp_get_post_terms() above for why this file defines its own. Returns
-	 * whatever a test registered for ($object_id, $taxonomy) in
+	 * Minimal stand-in for WordPress' wp_get_object_terms() -- unlike
+	 * wp_get_post_terms() above, nothing else in this suite is stubbed
+	 * anywhere else, so this file still carries its own. Returns whatever a
+	 * test registered for ($object_id, $taxonomy) in
 	 * $GLOBALS['bl_test_object_terms'], or an empty array. The real call
 	 * site (blueline_homepage_event_season_label()) always passes
 	 * 'fields' => 'names', so this always hands back plain strings.
@@ -117,12 +99,13 @@ final class BluelineHeroFieldFakeProduct {
 final class HeroPlaceholderFieldsTest extends TestCase {
 
 	/**
-	 * Reset the shared fake-WordPress state, plus this file's own two term
-	 * stub stores, before every test.
+	 * Reset the shared fake-WordPress state (including the shared
+	 * post-terms store wp_get_post_terms() now reads from), plus this
+	 * file's own object-terms stub store, before every test.
 	 */
 	protected function setUp(): void {
+		blueline_test_reset();
 		blueline_test_reset_state();
-		$GLOBALS['bl_test_post_terms']   = array();
 		$GLOBALS['bl_test_object_terms'] = array();
 	}
 
@@ -300,20 +283,19 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 	 * Rendering regression check: the registration eyebrow's season-truthy
 	 * branch (the one that actually reaches hero_registration_eyebrow) is
 	 * byte-identical to what the hardcoded literal produced before this
-	 * task. Requires this file's own wp_get_post_terms() stub -- see its
-	 * docblock -- since no other test in this suite ever registers
-	 * 'product_cat'.
+	 * task. Since Task 9, blueline_homepage_registration_season_label()
+	 * resolves the registration term through
+	 * blueline_resolve_registration_term() rather than reading
+	 * BLUELINE_REGISTRATION_TERM_ID directly, so the fixture registers a
+	 * real, verifiable parent term (91, the schema's documented fallback --
+	 * no `registration_term` setting is configured here) and a real child
+	 * season term, via tests/bootstrap.php's shared
+	 * blueline_test_register_term()/blueline_test_set_post_terms() helpers.
 	 */
 	public function test_registration_eyebrow_renders_unchanged_with_a_resolved_season(): void {
-		$state                 = &blueline_test_state();
-		$state['taxonomies'][] = 'product_cat';
-
-		$GLOBALS['bl_test_post_terms']['product_cat'][7] = array(
-			(object) array(
-				'name'   => 'Winter 2026-27',
-				'parent' => BLUELINE_REGISTRATION_TERM_ID,
-			),
-		);
+		blueline_test_register_term( 91, 'product_cat', 'Registration' );
+		blueline_test_register_term( 300, 'product_cat', 'Winter 2026-27', 91 );
+		blueline_test_set_post_terms( 7, 'product_cat', array( 300 ) );
 
 		$offers = array(
 			array(

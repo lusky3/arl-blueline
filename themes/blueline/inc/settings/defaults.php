@@ -34,7 +34,13 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  *
  * `page_id`/`term_id` fields carry a `fallback` — the built-in path or term
  * ID the theme uses today when the stored value is `0` ("use the theme
- * default" rather than "point at this specific post/term").
+ * default" rather than "point at this specific post/term"). A `term_id`
+ * field additionally carries `taxonomy` when it should render as a real term
+ * picker (wp_dropdown_categories()) rather than a raw number box — see
+ * inc/settings/page.php's blueline_settings_render_field() and
+ * inc/settings/commerce.php's blueline_resolve_registration_term(), which
+ * reads this same key to know which taxonomy to validate the stored/fallback
+ * ID against.
  *
  * Every `text`/`textarea` field MUST carry a `placeholders` array naming the
  * exact sprintf() conversion specs (e.g. `%s`) its value is required to
@@ -184,6 +190,14 @@ function blueline_settings_schema(): array {
 			'tab'      => 'commerce',
 			'label'    => 'Registration product category',
 			'fallback' => 91,
+			// `taxonomy` is what makes this a term PICKER (a dropdown of real
+			// product_cat terms, rendered via wp_dropdown_categories() -- see
+			// inc/settings/page.php's blueline_settings_render_field()) rather
+			// than a raw number box an admin has to already know the ID for.
+			// A future `term_id` field that genuinely has no taxonomy to pick
+			// from would simply omit this key and fall back to the number
+			// input, per blueline_settings_render_field()'s own branching.
+			'taxonomy' => 'product_cat',
 		),
 	);
 }

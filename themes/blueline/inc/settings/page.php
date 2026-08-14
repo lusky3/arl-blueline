@@ -600,12 +600,16 @@ function blueline_settings_render_page(): void {
 /**
  * Render one field's table row: a real `<label for>`, the input itself
  * (a wp_dropdown_pages()-style select for `page_id` fields -- an admin
- * picks "FAQs", never types a raw post ID -- a number input for `term_id`,
- * text/email otherwise), and, when this field failed the last save,
- * `aria-invalid`, `aria-describedby` and a visible error paragraph that
- * does not rely on colour alone (an explicit "Error:" prefix plus text, in
- * addition to the `bl-settings-field--error` class a stylesheet may use for
- * a colour treatment).
+ * picks "FAQs", never types a raw post ID; a wp_dropdown_categories()-style
+ * select for a `term_id` field that declares a `taxonomy` -- an admin picks
+ * "Registration", never types a raw term ID; a plain number input for a
+ * `term_id` field that does NOT declare a taxonomy (no such field exists
+ * today, but the branch stays available for one that has no taxonomy to
+ * pick from); text/email otherwise), and, when this field failed the last
+ * save, `aria-invalid`, `aria-describedby` and a visible error paragraph
+ * that does not rely on colour alone (an explicit "Error:" prefix plus
+ * text, in addition to the `bl-settings-field--error` class a stylesheet
+ * may use for a colour treatment).
  *
  * `page_id`/`term_id` fields never fail validation -- blueline_sanitize_field()
  * sanitizes both with absint(), which cannot return a WP_Error -- so
@@ -640,6 +644,20 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 						'selected'          => (int) $value,
 						'show_option_none'  => esc_html__( '— Use built-in page —', 'blueline' ),
 						'option_none_value' => 0,
+					)
+				);
+				?>
+			<?php elseif ( 'term_id' === $type && ! empty( $field['taxonomy'] ) ) : ?>
+				<?php
+				wp_dropdown_categories(
+					array(
+						'taxonomy'          => $field['taxonomy'],
+						'name'              => esc_attr( $name ),
+						'id'                => esc_attr( $input_id ),
+						'selected'          => (int) $value,
+						'show_option_none'  => esc_html__( '— Use built-in category —', 'blueline' ),
+						'option_none_value' => 0,
+						'hide_empty'        => false,
 					)
 				);
 				?>

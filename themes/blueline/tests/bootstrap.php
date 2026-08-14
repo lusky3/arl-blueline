@@ -298,7 +298,7 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
  * which reproduces the old always-false behaviour exactly, so tests written
  * against the previous stubs are unaffected.
  *
- * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>}
+ * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>, terms:array<int,object>, post_terms:array<int,array<string,int[]>>}
  */
 function &blueline_test_state(): array {
 	static $state = array(
@@ -310,6 +310,8 @@ function &blueline_test_state(): array {
 		'caps'            => array(),
 		'current_user_id' => 0,
 		'posts'           => array(),
+		'terms'           => array(),
+		'post_terms'      => array(),
 	);
 
 	return $state;
@@ -343,6 +345,60 @@ function blueline_test_register_post( int $id, string $status, ?string $permalin
 }
 
 /**
+ * Register a fake taxonomy term in the in-memory store, so get_term() and
+ * get_terms() can be exercised for a specific ID/taxonomy/parent
+ * combination -- "term 91 exists in product_cat with parent 0", or (by
+ * simply never calling this for an ID) "term 91 doesn't exist".
+ *
+ * Also registers $taxonomy itself in the taxonomy registry (see
+ * taxonomy_exists() below), since a term cannot meaningfully exist in a
+ * taxonomy the fake environment doesn't otherwise know about -- mirroring
+ * how blueline_test_register_post() doesn't require a separate post_type
+ * registration step, but unlike that helper, get_term()/get_terms() below
+ * both consult taxonomy_exists() first (faithful to core, which refuses an
+ * unregistered taxonomy outright), so a test that specifically wants to
+ * exercise "the taxonomy itself is missing" must NOT call this helper at
+ * all for that taxonomy.
+ *
+ * @param int    $id        Term ID.
+ * @param string $taxonomy  Taxonomy this term belongs to (e.g. 'product_cat').
+ * @param string $name      Term name/label.
+ * @param int    $parent_id Parent term ID (0 for a top-level term).
+ * @return void
+ */
+function blueline_test_register_term( int $id, string $taxonomy, string $name = '', int $parent_id = 0 ): void {
+	$state = &blueline_test_state();
+
+	if ( ! in_array( $taxonomy, $state['taxonomies'], true ) ) {
+		$state['taxonomies'][] = $taxonomy;
+	}
+
+	$state['terms'][ $id ] = (object) array(
+		'term_id'  => $id,
+		'taxonomy' => $taxonomy,
+		'name'     => '' !== $name ? $name : ( 'Term ' . $id ),
+		'slug'     => 'term-' . $id,
+		'parent'   => $parent_id,
+	);
+}
+
+/**
+ * Associate a fake post with fake terms (registered via
+ * blueline_test_register_term()) in a given taxonomy, so wp_get_post_terms()
+ * below has something to return.
+ *
+ * @param int    $post_id  Post ID.
+ * @param string $taxonomy Taxonomy the term IDs belong to.
+ * @param int[]  $term_ids Term IDs to associate with this post.
+ * @return void
+ */
+function blueline_test_set_post_terms( int $post_id, string $taxonomy, array $term_ids ): void {
+	$state = &blueline_test_state();
+
+	$state['post_terms'][ $post_id ][ $taxonomy ] = array_map( 'intval', $term_ids );
+}
+
+/**
  * Return the fake-WordPress state to its empty default, and clear
  * player-link.php's request-scoped linked-player cache along with it. Call
  * this from setUp() in any test that touches the stateful stubs, so tests
@@ -359,6 +415,8 @@ function blueline_test_reset_state(): void {
 		'caps'            => array(),
 		'current_user_id' => 0,
 		'posts'           => array(),
+		'terms'           => array(),
+		'post_terms'      => array(),
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -720,6 +778,135 @@ if ( ! function_exists( 'get_permalink' ) ) {
 		$id    = (int) $post;
 
 		return $state['posts'][ $id ]['permalink'] ?? false;
+	}
+}
+if ( ! function_exists( 'get_term' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_term(): a term a test explicitly
+	 * registered via blueline_test_register_term(), or `null` for an ID no
+	 * test ever registered -- exactly like core's own return for a term
+	 * that does not exist. Faithful to a second real core distinction too:
+	 * a registered term ID whose actual taxonomy does not match the
+	 * `$taxonomy` argument returns a WP_Error (`'invalid_taxonomy'`), not
+	 * `null` and not the term anyway -- callers relying on
+	 * `$term && ! is_wp_error( $term )` (e.g.
+	 * blueline_term_id_exists(), inc/settings/commerce.php) must see the
+	 * same "does not exist for my purposes" outcome from either case,
+	 * never a truthy object for either.
+	 *
+	 * @param int|object $term     Term ID (only the int form is exercised by this suite).
+	 * @param string     $taxonomy Optional taxonomy to constrain the lookup to.
+	 * @return object|WP_Error|null
+	 */
+	function get_term( $term, $taxonomy = '' ) {
+		$state = &blueline_test_state();
+		$id    = (int) $term;
+
+		if ( ! isset( $state['terms'][ $id ] ) ) {
+			return null;
+		}
+
+		$found = $state['terms'][ $id ];
+
+		if ( '' !== $taxonomy && $found->taxonomy !== $taxonomy ) {
+			return new WP_Error( 'invalid_taxonomy', 'Invalid taxonomy.' );
+		}
+
+		return $found;
+	}
+}
+if ( ! function_exists( 'get_terms' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_terms(): filters
+	 * blueline_test_state()'s registered terms (blueline_test_register_term())
+	 * by `taxonomy` and, when present in `$args`, `parent` -- enough to
+	 * exercise blueline_registration_season_product_ids() and
+	 * blueline_get_user_registration_status() (both season-term lookups by
+	 * parent) against a fake term tree, without a real WordPress/WooCommerce
+	 * install. `orderby` (only 'term_id' is exercised by this suite),
+	 * `order` ('ASC'/'DESC') and `number` are honoured; `hide_empty` is
+	 * accepted but ignored -- nothing in this suite registers WooCommerce
+	 * product counts for a term to filter on.
+	 *
+	 * Faithful to core on the one thing every real call site here already
+	 * guards against directly (taxonomy_exists() before calling): an
+	 * unregistered taxonomy returns a WP_Error, never an empty array a
+	 * caller might mistake for "taxonomy fine, nothing found".
+	 *
+	 * @param array $args Query args.
+	 * @return object[]|WP_Error
+	 */
+	function get_terms( $args = array() ) {
+		$taxonomy = (string) ( $args['taxonomy'] ?? '' );
+
+		if ( '' === $taxonomy || ! taxonomy_exists( $taxonomy ) ) {
+			return new WP_Error( 'invalid_taxonomy', 'Invalid taxonomy.' );
+		}
+
+		$state   = &blueline_test_state();
+		$matches = array();
+
+		foreach ( $state['terms'] as $candidate ) {
+			if ( $candidate->taxonomy !== $taxonomy ) {
+				continue;
+			}
+
+			if ( array_key_exists( 'parent', $args ) && (int) $candidate->parent !== (int) $args['parent'] ) {
+				continue;
+			}
+
+			$matches[] = $candidate;
+		}
+
+		usort(
+			$matches,
+			static function ( $a, $b ) {
+				return $a->term_id <=> $b->term_id;
+			}
+		);
+
+		if ( 'DESC' === strtoupper( (string) ( $args['order'] ?? 'ASC' ) ) ) {
+			$matches = array_reverse( $matches );
+		}
+
+		$number = (int) ( $args['number'] ?? 0 );
+		if ( $number > 0 ) {
+			$matches = array_slice( $matches, 0, $number );
+		}
+
+		return $matches;
+	}
+}
+if ( ! function_exists( 'wp_get_post_terms' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_post_terms(): the term objects
+	 * a test associated with a fake post via blueline_test_set_post_terms(),
+	 * or an empty array for a post/taxonomy no test ever associated any
+	 * terms with (faithful to core's own contract: an empty array, never
+	 * `false` or `null`, is a normal "no terms" result -- only an actually
+	 * invalid taxonomy returns a WP_Error).
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $taxonomy Taxonomy to fetch terms from.
+	 * @param array  $args     Unused; kept for signature parity with core.
+	 * @return object[]|WP_Error
+	 */
+	function wp_get_post_terms( $post_id, $taxonomy, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs args-based filtering (fields, orderby, ...).
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return new WP_Error( 'invalid_taxonomy', 'Invalid taxonomy.' );
+		}
+
+		$state    = &blueline_test_state();
+		$term_ids = $state['post_terms'][ (int) $post_id ][ $taxonomy ] ?? array();
+
+		$terms = array();
+		foreach ( $term_ids as $term_id ) {
+			if ( isset( $state['terms'][ $term_id ] ) ) {
+				$terms[] = $state['terms'][ $term_id ];
+			}
+		}
+
+		return $terms;
 	}
 }
 $GLOBALS['bl_test_hooks']      = array();
@@ -1487,4 +1674,65 @@ function blueline_test_register_page_with_title( int $id, string $status, string
 	blueline_test_register_post( $id, $status );
 	$state                          = &blueline_test_state();
 	$state['posts'][ $id ]['title'] = $title;
+}
+
+if ( ! function_exists( 'wp_dropdown_categories' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_dropdown_categories(): builds a
+	 * <select> from blueline_test_state()'s registered terms
+	 * (blueline_test_register_term()), scoped to the requested `taxonomy` --
+	 * enough for a test to assert the selected option and that term names
+	 * (not raw IDs) are what an admin sees. Deliberately the same shape as
+	 * the wp_dropdown_pages() stub immediately above, since
+	 * blueline_settings_render_field() (inc/settings/page.php) uses both the
+	 * same way for their respective field types.
+	 *
+	 * @param array $args Same shape as core's own args; 'taxonomy', 'name',
+	 *                     'id', 'selected', 'show_option_none',
+	 *                     'option_none_value' and 'echo' are honoured.
+	 * @return string|void Markup when 'echo' => false, otherwise void (echoes).
+	 */
+	function wp_dropdown_categories( $args = array() ) {
+		$defaults = array(
+			'taxonomy'          => 'category',
+			'name'              => 'cat',
+			'id'                => '',
+			'selected'          => 0,
+			'show_option_none'  => '',
+			'option_none_value' => '',
+			'echo'              => 1,
+		);
+		$r        = array_merge( $defaults, $args );
+
+		$state = &blueline_test_state();
+		$terms = array();
+		foreach ( $state['terms'] as $id => $term ) {
+			if ( $term->taxonomy === $r['taxonomy'] ) {
+				$terms[ $id ] = $term->name;
+			}
+		}
+		ksort( $terms );
+
+		$id_attr = '' !== $r['id'] ? ' id="' . esc_attr( $r['id'] ) . '"' : '';
+		$output  = '<select name="' . esc_attr( $r['name'] ) . '"' . $id_attr . '>' . "\n";
+
+		if ( '' !== $r['show_option_none'] ) {
+			$none_selected = (int) $r['selected'] === (int) $r['option_none_value'];
+			$output       .= '<option value="' . esc_attr( (string) $r['option_none_value'] ) . '"' . ( $none_selected ? ' selected="selected"' : '' ) . '>' . esc_html( $r['show_option_none'] ) . "</option>\n";
+		}
+
+		foreach ( $terms as $id => $name ) {
+			$selected = (int) $r['selected'] === (int) $id;
+			$output  .= '<option value="' . esc_attr( (string) $id ) . '"' . ( $selected ? ' selected="selected"' : '' ) . '>' . esc_html( $name ) . "</option>\n";
+		}
+
+		$output .= "</select>\n";
+
+		if ( $r['echo'] ) {
+			echo $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for wp_dropdown_categories(); every dynamic part above is individually escaped when $output was built.
+			return null;
+		}
+
+		return $output;
+	}
 }

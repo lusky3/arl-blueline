@@ -36,12 +36,15 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
  * a documented, visible gap (this test still names it every run), never a
  * silent one.
  *
- * - `registration_term`: a `term_id` field Task 9 owns wiring. The theme
- *   still resolves the registration product category via the hardcoded
- *   `BLUELINE_REGISTRATION_TERM_ID` constant (inc/season-state.php), not
- *   yet through this schema field.
+ * Empty as of Task 9: `registration_term` was the last (and only) entry --
+ * it is now read via `blueline_settings( 'registration_term' )` inside
+ * blueline_resolve_registration_term() (inc/settings/commerce.php), which
+ * every one of its call sites (inc/season-state.php,
+ * inc/account/player-data.php, inc/homepage-modules.php) goes through
+ * instead of reading the hardcoded BLUELINE_REGISTRATION_TERM_ID constant
+ * directly.
  */
-const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array( 'registration_term' );
+const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array();
 
 /**
  * Fails, naming every offending field, if any schema key is never read
@@ -141,11 +144,22 @@ final class SchemaFieldCoverageTest extends TestCase {
 	/**
 	 * The exemption list must name only real, current schema keys -- a typo
 	 * or a stale entry (a field since renamed or removed) would silently
-	 * widen this guard's blind spot instead of narrowing it to exactly one
-	 * documented, temporary gap.
+	 * widen this guard's blind spot instead of narrowing it to exactly the
+	 * documented, temporary gaps. As of Task 9 the list is empty (see its
+	 * own docblock), so the assertion below is on the list itself, not a
+	 * per-key loop -- an empty foreach body would otherwise leave this test
+	 * making zero assertions, which is not "vacuously passing", it is
+	 * PHPUnit correctly flagging the test as risky for asserting nothing at
+	 * all.
 	 */
 	public function test_exempt_keys_are_real_schema_fields(): void {
 		$schema = blueline_settings_schema();
+
+		$this->assertSame(
+			array(),
+			BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS,
+			'this list must stay empty for the remainder of P1a -- see the const\'s own docblock'
+		);
 
 		foreach ( BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS as $key ) {
 			$this->assertArrayHasKey( $key, $schema, "exempt key '$key' is not (or no longer) a real schema field" );
