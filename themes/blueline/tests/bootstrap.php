@@ -241,7 +241,7 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
  * which reproduces the old always-false behaviour exactly, so tests written
  * against the previous stubs are unaffected.
  *
- * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int}
+ * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>}
  */
 function &blueline_test_state(): array {
 	static $state = array(
@@ -252,9 +252,37 @@ function &blueline_test_state(): array {
 		'users'           => array(),
 		'caps'            => array(),
 		'current_user_id' => 0,
+		'posts'           => array(),
 	);
 
 	return $state;
+}
+
+/**
+ * Register a fake post in the in-memory store, so get_post_status() and
+ * get_permalink() can be exercised for a specific ID/status combination --
+ * "page 42 is published", "page 43 is trashed", or (by simply never calling
+ * this for an ID) "page 44 doesn't exist".
+ *
+ * The permalink defaults to a plausible, well-formed URL derived from the
+ * ID, deliberately generated regardless of $status -- this mirrors core's
+ * real get_permalink(), which does NOT check post_status and will happily
+ * hand back a permalink for a trashed or draft post. A test that needs to
+ * assert against a specific URL may pass one explicitly.
+ *
+ * @param int         $id        Post ID.
+ * @param string      $status    Post status (e.g. 'publish', 'trash', 'draft').
+ * @param string|null $permalink Optional explicit permalink; defaults to a
+ *                               generated, plausible URL for this ID.
+ * @return void
+ */
+function blueline_test_register_post( int $id, string $status, ?string $permalink = null ): void {
+	$state = &blueline_test_state();
+
+	$state['posts'][ $id ] = array(
+		'status'    => $status,
+		'permalink' => $permalink ?? ( 'https://example.test/?page_id=' . $id ),
+	);
 }
 
 /**
@@ -273,6 +301,7 @@ function blueline_test_reset_state(): void {
 		'users'           => array(),
 		'caps'            => array(),
 		'current_user_id' => 0,
+		'posts'           => array(),
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -551,6 +580,48 @@ if ( ! function_exists( 'get_the_date' ) ) {
 	 */
 	function get_the_date( $format = '', $post = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- fixed stub value; no test needs real date formatting.
 		return 'Aug 20';
+	}
+}
+if ( ! function_exists( 'get_post_status' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_post_status(): the status string of
+	 * a post a test registered via blueline_test_register_post(), or `false`
+	 * for an ID no test ever registered -- exactly like core's own return for
+	 * a post that does not exist. Never returns `null` or `''` for an unknown
+	 * ID; a caller relying on a strict `false` check (e.g.
+	 * blueline_resolve_link()'s `'publish' === get_post_status( $id )`) must
+	 * see the same falsy-but-typed value core would produce.
+	 *
+	 * @param int|object $post Post ID (only the int form is exercised by this suite).
+	 * @return string|false
+	 */
+	function get_post_status( $post = 0 ) {
+		$state = &blueline_test_state();
+		$id    = (int) $post;
+
+		return $state['posts'][ $id ]['status'] ?? false;
+	}
+}
+if ( ! function_exists( 'get_permalink' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_permalink(): deliberately faithful
+	 * to a real footgun core has -- this does NOT check post_status. A post
+	 * registered as 'trash' (or 'draft', or any other status) still returns
+	 * its plausible permalink here, exactly as core's real get_permalink()
+	 * does. Callers that need "is this actually safe to link to" MUST check
+	 * get_post_status() themselves; that is the whole point of
+	 * blueline_resolve_link() existing. Only an ID no test ever registered
+	 * (the "post is gone" case) returns `false`.
+	 *
+	 * @param int|object $post      Post ID (only the int form is exercised by this suite).
+	 * @param bool       $leavename Unused; kept for signature parity with core.
+	 * @return string|false
+	 */
+	function get_permalink( $post = 0, $leavename = false ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs %pagename% resolution.
+		$state = &blueline_test_state();
+		$id    = (int) $post;
+
+		return $state['posts'][ $id ]['permalink'] ?? false;
 	}
 }
 $GLOBALS['bl_test_hooks']      = array();
