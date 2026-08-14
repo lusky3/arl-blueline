@@ -54,6 +54,22 @@
  *    allow-list model Task 7 restored, never reintroduced as
  *    "forward anything unrecognised".
  *
+ *    That callback drops an unrecognised key with a bare `continue` and
+ *    never calls add_settings_error() -- it has no CLI to report to, and
+ *    is not this command's only caller. Silently reporting `Success.` for
+ *    a file that partly didn't apply is exactly the "a silent skip is how
+ *    bad settings arrive unnoticed" failure mode this command exists to
+ *    avoid, so `import` (and `validate`, its dry-run twin) computes the
+ *    same drop decision independently, on the CLI side --
+ *    blueline_settings_cli_dropped_keys() -- and names each dropped key via
+ *    `WP_CLI::warning()` before reporting overall success. A dropped key
+ *    does NOT make the command exit non-zero: it is not evidence of a
+ *    broken import (most often a typo, or a field an older/newer theme
+ *    version simply doesn't declare), and every other recognised key in
+ *    the same file still needs to be applied -- the schema-version guard
+ *    above is what actually catches the more serious "this file doesn't
+ *    belong on this install at all" case.
+ *
  * `_posted_fields` and `_tab` are request-scoped bookkeeping the panel's own
  * render loop emits for ONE specific purpose (telling
  * blueline_settings_merge() which absent keys are a deliberate delete vs.
@@ -185,6 +201,41 @@ function blueline_settings_cli_validate_payload( array $payload, array $schema )
 }
 
 /**
+ * Which top-level keys in $payload the schema does not declare -- exactly
+ * the keys blueline_settings_sanitize_callback() (inc/settings/page.php)
+ * drops with a bare `continue`, never surfacing them via
+ * add_settings_error(), because that callback also runs on ordinary
+ * wp-admin saves and has no business emitting CLI-shaped output. `import`
+ * calls this SEPARATELY, on the CLI side, so an operator importing a file
+ * with a typo'd or stale key is actually told which key was silently
+ * ignored, rather than seeing an unqualified "Success." that implies the
+ * whole file applied -- fixing exactly the "silent skip is how bad
+ * settings arrive unnoticed" failure mode this command is a trust boundary
+ * against.
+ *
+ * Deliberately a pure, static comparison against the schema -- NOT a
+ * before/after diff of the actually-stored option -- because that is
+ * exactly the same test blueline_settings_sanitize_callback() itself
+ * applies (`! isset( $schema[ $key ] )`) to decide what to drop; re-deriving
+ * it here needs no database round-trip, and it cannot be confused with a
+ * DIFFERENT, already-separately-reported outcome: a key the schema DOES
+ * recognise but whose value failed validation (surfaced instead via
+ * get_settings_errors(), a distinct code path both `import` and `validate`
+ * already read from).
+ *
+ * @param array<string, mixed>                $payload Payload already run
+ *                                                       through
+ *                                                       blueline_settings_cli_prepare_import().
+ * @param array<string, array<string, mixed>> $schema  blueline_settings_schema().
+ * @return string[] Keys present in $payload that $schema does not declare,
+ *                   in the order they appear in $payload. Empty when every
+ *                   key is a real schema field.
+ */
+function blueline_settings_cli_dropped_keys( array $payload, array $schema ): array {
+	return array_keys( array_diff_key( $payload, $schema ) );
+}
+
+/**
  * `wp blueline settings export|import|validate|reset`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
@@ -289,12 +340,36 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 			return;
 		}
 
+		// Which keys the schema will drop, computed BEFORE the write -- see
+		// blueline_settings_cli_dropped_keys()'s own docblock for why this
+		// lives here rather than inside the sanitize callback itself: that
+		// callback runs on ordinary wp-admin saves too and has no business
+		// emitting CLI-shaped output, so this command surfaces the drop
+		// itself instead of trusting the (silent) callback to have done so.
+		// A dropped key is reported as a warning, not an error -- it is not
+		// evidence the import went wrong, only that one key in the file
+		// wasn't recognised (most often a typo, or a field this version of
+		// the theme no longer declares); every OTHER recognised key still
+		// needs to be applied, and the schema-version guard above already
+		// catches the more serious "this file is from a newer theme"
+		// case. This intentionally does NOT make the command exit non-zero.
+		foreach ( blueline_settings_cli_dropped_keys( $prepared, blueline_settings_schema() ) as $dropped_key ) {
+			WP_CLI::warning(
+				sprintf(
+					/* translators: %s: the unrecognised key name. */
+					__( '"%s" is not a recognised Blueline setting and was not imported.', 'blueline' ),
+					$dropped_key
+				)
+			);
+		}
+
 		// The SAME sanitize_option_{$option} callback the panel's own save
 		// request runs -- registered unconditionally at file scope by
 		// inc/settings/page.php, never conditioned on admin_init -- so this
 		// path is validated identically, not by a second validator this
 		// file would have to keep in sync by hand. A rejected field keeps
-		// its currently-stored value; an unrecognised key is dropped.
+		// its currently-stored value; an unrecognised key is dropped (and
+		// already warned about, above).
 		update_option( BLUELINE_SETTINGS_OPTION, $prepared );
 
 		foreach ( get_settings_errors( BLUELINE_SETTINGS_OPTION ) as $error ) {
@@ -342,6 +417,20 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		if ( is_wp_error( $prepared ) ) {
 			WP_CLI::error( $prepared->get_error_message() );
 			return;
+		}
+
+		// Same dropped-key warning `import` surfaces (see
+		// blueline_settings_cli_dropped_keys()'s docblock) -- `validate` is
+		// a preview of what `import` would do, so it must not stay silent
+		// about something `import` itself now warns about.
+		foreach ( blueline_settings_cli_dropped_keys( $prepared, blueline_settings_schema() ) as $dropped_key ) {
+			WP_CLI::warning(
+				sprintf(
+					/* translators: %s: the unrecognised key name. */
+					__( '"%s" is not a recognised Blueline setting and would not be imported.', 'blueline' ),
+					$dropped_key
+				)
+			);
 		}
 
 		$errors = blueline_settings_cli_validate_payload( $prepared, blueline_settings_schema() );

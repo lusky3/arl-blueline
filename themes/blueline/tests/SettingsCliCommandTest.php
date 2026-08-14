@@ -278,6 +278,69 @@ final class SettingsCliCommandTest extends TestCase {
 	}
 
 	/**
+	 * The load-bearing fix for the review's Finding 1: a dropped, unknown
+	 * key must not be a SILENT drop -- the operator is named the exact key
+	 * that was ignored, via WP_CLI::warning(), even though the command
+	 * still reports overall success (a dropped key is not itself evidence
+	 * of a broken import -- see inc/cli/settings-command.php's own
+	 * docblock for the full reasoning).
+	 */
+	public function test_import_warns_by_name_about_a_dropped_key_but_still_reports_success(): void {
+		$this->grant_manage_options();
+
+		$path = $this->write_temp_json(
+			array(
+				'contact_email'     => 'known@example.test',
+				'some_future_field' => 'should never be stored',
+			)
+		);
+
+		( new Blueline_Settings_Command() )->import( array( $path ), array() );
+
+		$warnings = array_column(
+			array_filter( $this->cli_log(), static fn( $e ) => 'warning' === $e['type'] ),
+			'message'
+		);
+		$this->assertNotEmpty(
+			array_filter( $warnings, static fn( $m ) => str_contains( $m, 'some_future_field' ) ),
+			'expected a warning naming the dropped key "some_future_field"; got: ' . implode( ' | ', $warnings )
+		);
+
+		$successes = array_filter( $this->cli_log(), static fn( $e ) => 'success' === $e['type'] );
+		$this->assertNotEmpty( $successes, 'a dropped-but-unrecognised key should not itself make import fail' );
+
+		$errors = array_filter( $this->cli_log(), static fn( $e ) => 'error' === $e['type'] );
+		$this->assertSame( array(), array_values( $errors ), 'a dropped key must not make import exit non-zero' );
+	}
+
+	/**
+	 * `validate` (the dry-run preview of `import`) must warn about the same
+	 * dropped key `import` itself would -- it would be worse than useless
+	 * for a preview to stay silent about something the real import now
+	 * reports.
+	 */
+	public function test_validate_also_warns_by_name_about_a_dropped_key(): void {
+		$path = $this->write_temp_json(
+			array(
+				'contact_email'     => 'known@example.test',
+				'some_future_field' => 'should never be imported',
+			)
+		);
+
+		( new Blueline_Settings_Command() )->validate( array( $path ), array() );
+
+		$warnings = array_column(
+			array_filter( $this->cli_log(), static fn( $e ) => 'warning' === $e['type'] ),
+			'message'
+		);
+		$this->assertNotEmpty(
+			array_filter( $warnings, static fn( $m ) => str_contains( $m, 'some_future_field' ) ),
+			'expected a warning naming the dropped key "some_future_field"; got: ' . implode( ' | ', $warnings )
+		);
+		$this->assertSame( false, get_option( BLUELINE_SETTINGS_OPTION, false ), 'validate must never write' );
+	}
+
+	/**
 	 * A value that violates the placeholder contract (Task 3/8) is rejected
 	 * by the SAME sanitizer the panel uses -- the existing value survives,
 	 * a warning is surfaced, and the command still reports success for the
