@@ -57,17 +57,20 @@
  * {$option} filter's role in that) at all -- see
  * tests/fixtures/wp-core-option-contract.json's "scope" key.
  *
- * This task discovered ONE further, previously-unknown divergence while
- * building this guard: tests/fixtures/wp-core-option-contract.json's
- * `known_gaps` documents it (real core's sanitize_option_{$option} filter
- * takes 3 args, this stub's inlined version passes only 2; and three
- * generic action hooks -- 'update_option', 'updated_option', 'add_option'
- * -- fire unconditionally in real core but are not fired by this stub at
- * all). Per this task's brief, that finding is deliberately reported here
- * (and in the fixture) rather than silently patched into the stub, so it
- * gets a proper decision. This test class PINS the current, documented gap
- * (asserting the stub's actual, imperfect behaviour) rather than ignoring
- * it, so that behaviour cannot drift further without this test noticing.
+ * Building this guard surfaced two further, previously-unknown divergences:
+ * the stub's inlined sanitize_option_{$option} call passed only 2 args
+ * where core's real sanitize_option() passes 3 ($value, $option,
+ * $original_value); and three generic action hooks -- 'update_option',
+ * 'updated_option', 'add_option' -- fire unconditionally in real core
+ * alongside their option-specific counterparts but were not fired by this
+ * stub at all. Both were first reported rather than silently patched, per
+ * this task's brief -- then, on review, fixed directly in
+ * tests/bootstrap.php rather than left as recorded exceptions: this whole
+ * exercise exists because prior "it doesn't bite today" divergences have
+ * silently invalidated a green suite five times, and a known, unfixed gap
+ * is that same bet, not a different one. tests/fixtures/wp-core-option-
+ * contract.json's `known_gaps` is therefore empty; every scenario below
+ * asserts `stub_matches_core: true` throughout.
  *
  * @package blueline
  */
@@ -269,9 +272,16 @@ final class WpCoreContractTest extends TestCase {
 		}
 
 		$map = array(
-			'option'    => $option_name,
-			'value'     => self::SCENARIO_NEW_VALUE,
-			'old_value' => 'update_option_subsequent_write' === $scenario_key ? self::SCENARIO_OLD_VALUE : false,
+			'option'         => $option_name,
+			'value'          => self::SCENARIO_NEW_VALUE,
+			// The value as it arrived at whichever function dispatched
+			// sanitize_option_{$option} -- in every scenario here nothing
+			// upstream mutates the value (all recorders pass it through
+			// unchanged), so original_value is always the same concrete
+			// value as 'value', for both the update_option()-side and the
+			// add_option()-side dispatch on a first write.
+			'original_value' => self::SCENARIO_NEW_VALUE,
+			'old_value'      => 'update_option_subsequent_write' === $scenario_key ? self::SCENARIO_OLD_VALUE : false,
 		);
 
 		return array_map(

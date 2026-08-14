@@ -1185,6 +1185,37 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * not something this stub should paper over by only firing the hooks
 	 * without the double dispatch that produces them.
 	 *
+	 * sanitize_option_{$option} dispatches with THREE arguments, matching
+	 * core's real sanitize_option() (wp-includes/formatting.php) exactly:
+	 * ( $value, $option, $original_value ) -- $original_value is the value
+	 * as it arrived at this function, captured before any filter has had a
+	 * chance to touch it. This stub does not model core's per-option
+	 * built-in switch-based sanitization (the case blocks inside core's
+	 * sanitize_option() for e.g. 'blogname', 'siteurl', etc.) at all -- it
+	 * has no notion of any specific option name needing bespoke coercion --
+	 * so here $original_value is simply $value at entry, which is exactly
+	 * what core's sanitize_option() itself does before ITS switch statement
+	 * runs. A callback that reads $original_value to recover the raw
+	 * pre-sanitize input (something the 2-argument version of this filter
+	 * could never let it do) now behaves identically here and in
+	 * production. This was a real, previously-undiscovered gap between this
+	 * stub and core, found while building tests/WpCoreContractTest.php, and
+	 * closed on review rather than left as a recorded exception -- see that
+	 * fixture's now-empty `known_gaps`.
+	 *
+	 * The generic 'update_option' action fires immediately before the write
+	 * on every write to an option that ALREADY exists -- i.e. only on this
+	 * function's subsequent-write branch below, never on a first-ever write
+	 * (which returns via add_option()'s delegation before reaching it), and
+	 * 'updated_option' fires immediately after update_option_{$option}, on
+	 * that same branch. Both are core's generic, option-name-agnostic
+	 * counterparts to update_option_{$option} -- a callback hooked onto
+	 * either generically (an audit log, for instance) rather than a
+	 * specific option name now runs here exactly as it would in production;
+	 * previously this stub did not fire either at all. See this function's
+	 * own docblock note above on sanitize_option_{$option} for why this,
+	 * too, is a closed gap rather than a documented one.
+	 *
 	 * @param string $option   Option name.
 	 * @param mixed  $value    New value.
 	 * @param mixed  $autoload Unused; kept for signature parity.
@@ -1192,7 +1223,8 @@ if ( ! function_exists( 'update_option' ) ) {
 	 *              already held this exact value and nothing changed.
 	 */
 	function update_option( $option, $value, $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs autoload honoured.
-		$value = apply_filters( "sanitize_option_{$option}", $value, $option );
+		$original_value = $value;
+		$value          = apply_filters( "sanitize_option_{$option}", $value, $option, $original_value );
 
 		$exists    = array_key_exists( $option, $GLOBALS['bl_test_options'] );
 		$old_value = $exists ? $GLOBALS['bl_test_options'][ $option ] : false;
@@ -1212,9 +1244,12 @@ if ( ! function_exists( 'update_option' ) ) {
 			return add_option( $option, $value );
 		}
 
+		do_action( 'update_option', $option, $old_value, $value );
+
 		$GLOBALS['bl_test_options'][ $option ] = $value;
 
 		do_action( "update_option_{$option}", $old_value, $value, $option );
+		do_action( 'updated_option', $option, $old_value, $value );
 
 		return true;
 	}
@@ -1230,6 +1265,19 @@ if ( ! function_exists( 'add_option' ) ) {
 	 * first-write branch fires above, since in real core both paths are
 	 * this same function.
 	 *
+	 * The sanitize_option_{$option} filter dispatches with THREE arguments
+	 * here too -- ( $value, $option, $original_value ), $original_value
+	 * being $value as it arrived at THIS call to add_option() (whether
+	 * called directly, or reached via update_option()'s first-write
+	 * delegation, in which case it is whatever value that delegation passed
+	 * in, not the original caller's raw input) -- see update_option()'s
+	 * docblock for the fuller rationale, which applies identically here.
+	 *
+	 * The generic 'add_option' action fires immediately before the write,
+	 * on every add that actually happens -- core's option-name-agnostic
+	 * counterpart to add_option_{$option}, previously not fired by this
+	 * stub at all.
+	 *
 	 * @param string $option     Option name.
 	 * @param mixed  $value      Option value.
 	 * @param string $deprecated Unused; kept for signature parity.
@@ -1237,11 +1285,14 @@ if ( ! function_exists( 'add_option' ) ) {
 	 * @return bool True on add, false if the option already exists.
 	 */
 	function add_option( $option, $value = '', $deprecated = '', $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
-		$value = apply_filters( "sanitize_option_{$option}", $value, $option );
+		$original_value = $value;
+		$value          = apply_filters( "sanitize_option_{$option}", $value, $option, $original_value );
 
 		if ( array_key_exists( $option, $GLOBALS['bl_test_options'] ) ) {
 			return false;
 		}
+
+		do_action( 'add_option', $option, $value );
 
 		$GLOBALS['bl_test_options'][ $option ] = $value;
 
