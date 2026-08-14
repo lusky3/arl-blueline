@@ -403,6 +403,20 @@ add_action( 'admin_notices', 'blueline_render_cache_purge_notice' );
  * blueline_srcache_purge_attempt() applies before it will attempt the
  * automated purge, applied here to the manual instruction instead.
  *
+ * Rendered as a `<section>`, deliberately NOT a `<div>` -- a real browser
+ * check (Task 7's fix rounds) found a third-party plugin active on this
+ * install (Capabilities Pro's admin-notices "declutter" module) removes,
+ * on every wp-admin screen, any `<div>` whose class attribute contains
+ * "notice", "error", "warning", "info" or "updated" as a substring. This
+ * notice's own `notice notice-warning` classes match that pattern
+ * exactly -- and with the guarded Redis purge shipped OFF by default (see
+ * this file's own docblock), this notice, including its dismiss button,
+ * IS the entire shipped behaviour of the cache-purge requirement: the
+ * only thing that would ever tell an admin the front end is stale. A
+ * `<section>` carries the identical classes (wp-admin's `.notice` CSS is
+ * a plain class selector with no tag qualifier, so styling is unaffected)
+ * and is never matched by that plugin's `div[...]`-scoped selector.
+ *
  * @return void
  */
 function blueline_render_cache_purge_notice(): void {
@@ -418,7 +432,7 @@ function blueline_render_cache_purge_notice(): void {
 	$command = blueline_cache_purge_command( blueline_cache_purge_host() );
 	$dismiss = wp_nonce_url( admin_url( 'admin-post.php?action=blueline_dismiss_cache_purge_notice' ), 'blueline_dismiss_cache_purge_notice' );
 	?>
-	<div class="notice notice-warning bl-cache-purge-notice">
+	<section class="notice notice-warning bl-cache-purge-notice">
 		<p><?php echo esc_html( $message ); ?></p>
 		<?php if ( '' !== $command ) : ?>
 			<p><code><?php echo esc_html( $command ); ?></code></p>
@@ -430,7 +444,7 @@ function blueline_render_cache_purge_notice(): void {
 				<?php esc_html_e( "I've purged the cache manually -- dismiss this notice", 'blueline' ); ?>
 			</a>
 		</p>
-	</div>
+	</section>
 	<?php
 }
 

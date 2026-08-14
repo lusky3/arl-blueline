@@ -95,8 +95,22 @@ require_once __DIR__ . '/../inc/settings/page.php';
  * was fully present in the server's actual response every time, and
  * disappeared only afterward, in the live DOM. See
  * blueline_settings_render_page()'s own docblock (the "Never a `<div>`"
- * section) and this file's test_error_summary_is_never_a_div() for the fix
- * and its regression test.
+ * section) for the fix.
+ *
+ * Fix round 5: the same plugin was also eating the "Settings saved."
+ * success notice (page.php) and the manual page-cache-purge notice
+ * (cache.php) -- both were still plain `<div class="notice ...">`, so a
+ * genuinely successful save gave an admin no feedback at all, and the
+ * purge notice (the entire shipped behaviour of the cache-purge
+ * requirement, since the guarded automatic purge ships off) never
+ * rendered either. Both fixed to `<section>` alongside the round-4 fix
+ * this file's docblock describes above. The narrow, single-element
+ * regression test this file used to carry (pinning only the error
+ * summary's own id) was replaced with tests/NoticeDivGuardTest.php -- a
+ * source scan across every theme PHP file for ANY `<div>` whose class
+ * contains "notice", "error", "warning", "info" or "updated", which is
+ * what should have existed from round 4 and would have caught these two
+ * on its own.
  */
 final class SettingsPageTest extends TestCase {
 
@@ -425,25 +439,50 @@ final class SettingsPageTest extends TestCase {
 	 */
 	public function test_sanitize_callback_lets_schema_survive_a_programmatic_write(): void {
 		$output = blueline_settings_sanitize_callback(
-			array( '_schema' => 3 )
+			array( '_schema' => BLUELINE_SETTINGS_SCHEMA_VERSION )
 		);
 
 		$this->assertArrayHasKey( '_schema', $output );
-		$this->assertSame( 3, $output['_schema'] );
+		$this->assertSame( BLUELINE_SETTINGS_SCHEMA_VERSION, $output['_schema'] );
+	}
+
+	/**
+	 * Task-7 fix-round-5 finding: `_schema` must be clamped to
+	 * BLUELINE_SETTINGS_SCHEMA_VERSION, matching the limit
+	 * inc/cli/settings-command.php enforces on an import. Without this, a
+	 * `_schema` written above the running code's version (reachable via
+	 * any direct update_option() call this reserved-key branch lets
+	 * through) would make blueline_settings_migrate()'s forward-only guard
+	 * treat the install as already current, permanently and silently
+	 * skipping every future migration.
+	 */
+	public function test_sanitize_callback_clamps_schema_to_the_current_version(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( '_schema' => BLUELINE_SETTINGS_SCHEMA_VERSION + 5 )
+		);
+
+		$this->assertSame(
+			BLUELINE_SETTINGS_SCHEMA_VERSION,
+			$output['_schema'],
+			'_schema must never be allowed to exceed the running code\'s own schema version'
+		);
 	}
 
 	/**
 	 * `_schema` is sanitized like everything else this callback handles
 	 * (absint()), never trusted as opaque data just because it's on the
 	 * reserved allow-list -- a negative or non-numeric value must not
-	 * survive verbatim.
+	 * survive verbatim. Uses a value that int-casts to something at or
+	 * below BLUELINE_SETTINGS_SCHEMA_VERSION, so this test isolates the
+	 * int-cast from the separate clamp
+	 * test_sanitize_callback_clamps_schema_to_the_current_version() covers.
 	 */
 	public function test_sanitize_callback_integer_casts_schema_on_a_programmatic_write(): void {
 		$output = blueline_settings_sanitize_callback(
-			array( '_schema' => '7abc' )
+			array( '_schema' => '0abc' )
 		);
 
-		$this->assertSame( 7, $output['_schema'] );
+		$this->assertSame( 0, $output['_schema'] );
 	}
 
 	/**
@@ -753,50 +792,6 @@ final class SettingsPageTest extends TestCase {
 		$this->assertStringContainsString( 'id="blueline-settings-error-summary"', $html );
 		$this->assertStringContainsString( 'tabindex="-1"', $html );
 		$this->assertStringContainsString( 'href="#blueline-field-footer_heading"', $html );
-	}
-
-	/**
-	 * Fix-round-4 regression: the error summary must be a `<section>`, never
-	 * a `<div>` -- a real browser click-through (not a unit test) found a
-	 * third-party plugin active on staging (Capabilities Pro's own
-	 * admin-notices "declutter" feature) removes every `<div>` whose class
-	 * attribute contains "notice", "error", "warning", "info" or "updated"
-	 * as a substring, on every wp-admin screen, which matched this
-	 * element's own WP-admin `.notice`/`.notice-error` classes exactly.
-	 * That plugin's selector is scoped to `div[...]` only, so a `<section>`
-	 * carrying the identical classes (same styling -- see this file's own
-	 * docblock) is never touched by it. This test cannot verify the
-	 * third-party plugin's behaviour itself (see this class's docblock for
-	 * where that was actually confirmed -- the raw HTTP response body of a
-	 * real failed save, and the plugin's own JS source, both read directly
-	 * off staging); it only pins the element choice this fix depends on.
-	 */
-	public function test_error_summary_is_never_a_div(): void {
-		$this->grant_manage_options();
-
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array(
-				'footer_heading' => 'Save 50% off',
-				'_posted_fields' => array( 'footer_heading' ),
-			)
-		);
-
-		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
-
-		ob_start();
-		blueline_settings_render_page();
-		$html = ob_get_clean();
-
-		$this->assertMatchesRegularExpression(
-			'/<section\s[^>]*id="blueline-settings-error-summary"/',
-			$html,
-			'the error summary must be a <section>, not a <div>'
-		);
-		$this->assertDoesNotMatchRegularExpression(
-			'/<div\s[^>]*id="blueline-settings-error-summary"/',
-			$html
-		);
 	}
 
 	/**

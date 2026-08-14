@@ -374,9 +374,25 @@ final class SettingsCliCommandTest extends TestCase {
 	 * `_posted_fields`/`_tab` are request-scoped bookkeeping a file must
 	 * never carry weight for -- present in a file, they are stripped before
 	 * the sanitizer ever runs and never persisted.
+	 *
+	 * Seeds the option with an unrelated prior write first so the import's
+	 * own update_option() call is not the option's first-ever write: core's
+	 * real update_option() delegates a first-ever write to add_option(),
+	 * which independently re-applies sanitize_option_{$option} to a value
+	 * that has already been through the merge once (and so no longer has
+	 * `_posted_fields` in it) -- re-adding an EMPTY `_posted_fields` array
+	 * that nothing then strips a second time, since add_option()'s own
+	 * write path has no merge stage at all
+	 * (BootstrapFidelityTest::test_update_option_first_write_sanitizes_twice_but_merges_once()
+	 * pins this exact core quirk in isolation). That is a real, if
+	 * cosmetic and self-healing, fact about every WordPress option -- not
+	 * something this test's OWN CLI-specific stripping logic could ever
+	 * prevent -- so this test seeds a normal, steady-state write first to
+	 * isolate the behaviour it actually exists to cover.
 	 */
 	public function test_import_never_honours_posted_fields_or_tab_from_a_file(): void {
 		$this->grant_manage_options();
+		update_option( BLUELINE_SETTINGS_OPTION, array() ); // Not the first-ever write -- see this test's own docblock.
 
 		$path = $this->write_temp_json(
 			array(

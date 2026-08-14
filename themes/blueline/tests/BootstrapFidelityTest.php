@@ -293,6 +293,77 @@ final class BootstrapFidelityTest extends TestCase {
 	}
 
 	/**
+	 * Task-7 fix-round-5 finding, pinned directly: on a genuine first-ever
+	 * write, update_option() delegates to add_option() (see the test
+	 * above) -- a REAL re-entrant call, not merely firing the same hooks
+	 * inline. Because add_option() is a fully independent function that
+	 * unconditionally re-applies sanitize_option_{$option} to whatever
+	 * value it is given, that filter runs TWICE on a first write: once
+	 * inside update_option() itself (on the raw input), and again inside
+	 * add_option() (on the value update_option()'s own
+	 * pre_update_option_{$option}/pre_update_option filters already
+	 * produced). Those two pre_update_option* filters -- where a cross-tab
+	 * merge such as blueline_settings_merge() lives -- run only ONCE, here,
+	 * strictly BEFORE the delegation; add_option()'s own write path has no
+	 * equivalent filter at all. A sanitize callback that unconditionally
+	 * re-adds bookkeeping to every value it returns (e.g.
+	 * inc/settings/page.php's `_posted_fields`) will therefore have that
+	 * bookkeeping restored by the second, unmerged pass and persisted
+	 * verbatim on a first write -- a real, if cosmetic and self-healing
+	 * (the next save's merge strips it again), fact about core itself, not
+	 * a defect in this stub to paper over. See
+	 * SettingsStoreTest::test_merge_never_persists_the_posted_fields_key_itself()
+	 * and SettingsCliCommandTest::test_import_never_honours_posted_fields_or_tab_from_a_file()
+	 * for where this exact quirk now surfaces in this suite, and both
+	 * tests' own docblocks for why they seed the option first rather than
+	 * "fixing" it.
+	 */
+	public function test_update_option_first_write_sanitizes_twice_but_merges_once(): void {
+		$sanitize_calls          = array();
+		$pre_update_option_calls = array();
+
+		add_filter(
+			'sanitize_option_bl_first_double',
+			static function ( $value ) use ( &$sanitize_calls ) {
+				$sanitize_calls[] = $value;
+				return $value;
+			}
+		);
+		add_filter(
+			'pre_update_option_bl_first_double',
+			static function ( $value, $old_value ) use ( &$pre_update_option_calls ) {
+				$pre_update_option_calls[] = array( $value, $old_value );
+				return $value;
+			},
+			10,
+			2
+		);
+
+		update_option( 'bl_first_double', 'x' ); // First-ever write: the option does not exist yet.
+
+		$this->assertCount(
+			2,
+			$sanitize_calls,
+			'sanitize_option_{$option} must fire twice on a first-ever write: once in update_option(), once again inside the add_option() it delegates to'
+		);
+		$this->assertCount(
+			1,
+			$pre_update_option_calls,
+			'pre_update_option_{$option} (where a cross-tab merge lives) must fire only ONCE on a first-ever write -- add_option()\'s own write path has no equivalent filter'
+		);
+		$this->assertSame(
+			'x',
+			$sanitize_calls[0],
+			'the first sanitize pass receives the raw input'
+		);
+		$this->assertSame(
+			'x',
+			$sanitize_calls[1],
+			'the second sanitize pass (inside add_option()) receives whatever pre_update_option_{$option} already produced -- here unchanged, but this is the exact seam a merge-then-resanitize callback can lose bookkeeping through'
+		);
+	}
+
+	/**
 	 * Test case: add_option() must run sanitize_option_{$option}
 	 * unconditionally, exactly as core does.
 	 */

@@ -1163,6 +1163,28 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * merge or migration guard runs on every save when core would in fact
 	 * skip a no-op one.
 	 *
+	 * First-write delegation is a REAL re-entrant call into this stub's own
+	 * add_option() below, not merely a comment saying so -- a task-7
+	 * fix-round-5 finding caught this stub previously writing $value and
+	 * firing the add_option_{$option}/added_option pair directly inline,
+	 * which is faithful to WHICH hooks fire but not to HOW core gets
+	 * there. Core's real add_option() is a fully independent public
+	 * function that re-applies sanitize_option_{$option} to whatever it is
+	 * given, regardless of who calls it or why -- so on a genuine first
+	 * write, the sanitize callback runs TWICE (once here, once again
+	 * inside add_option()) while pre_update_option_{$option} (where a
+	 * cross-tab merge, if one is registered, lives) runs only ONCE, here,
+	 * BEFORE the delegation -- never again inside add_option(), which has
+	 * no equivalent filter of its own. A sanitize callback that
+	 * unconditionally appends bookkeeping (e.g. inc/settings/page.php's
+	 * `_posted_fields`) to every value it returns will therefore have that
+	 * bookkeeping re-added by the second, unmerged pass and persisted
+	 * verbatim into the stored option on a first write -- a real, if
+	 * currently cosmetic, quirk of core's own documented behaviour (see
+	 * BootstrapFidelityTest::test_update_option_first_write_sanitizes_twice_but_merges_once()),
+	 * not something this stub should paper over by only firing the hooks
+	 * without the double dispatch that produces them.
+	 *
 	 * @param string $option   Option name.
 	 * @param mixed  $value    New value.
 	 * @param mixed  $autoload Unused; kept for signature parity.
@@ -1182,14 +1204,15 @@ if ( ! function_exists( 'update_option' ) ) {
 			return false;
 		}
 
-		$GLOBALS['bl_test_options'][ $option ] = $value;
-
 		if ( ! $exists ) {
-			// First-ever write: core delegates to add_option() here, not its
-			// own UPDATE path -- see this function's docblock.
-			blueline_test_fire_added_option_hooks( $option, $value );
-			return true;
+			// First-ever write: core delegates to add_option() here, not
+			// its own UPDATE path -- a real re-entrant call, not an inline
+			// approximation of it; see this function's own docblock for
+			// why that distinction is load-bearing.
+			return add_option( $option, $value );
 		}
+
+		$GLOBALS['bl_test_options'][ $option ] = $value;
 
 		do_action( "update_option_{$option}", $old_value, $value, $option );
 

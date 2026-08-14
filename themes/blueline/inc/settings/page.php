@@ -111,8 +111,15 @@
  * any key that is neither a real schema field nor on that list is
  * dropped, exactly as it would be if it were never declared at all.
  * `_schema` itself is still sanitized like everything else (absint(),
- * matching every other integer-valued field this callback handles), and
- * is additionally dropped outright when the submission carries a `_tab`
+ * matching every other integer-valued field this callback handles) AND
+ * additionally clamped to `BLUELINE_SETTINGS_SCHEMA_VERSION` -- matching
+ * the limit inc/cli/settings-command.php enforces on an import's own
+ * `_schema` (there, by refusing the import outright; here, by clamping,
+ * since a direct update_option() call has no "abort" to fall back to) --
+ * so a `_schema` at or above the running code's version can never survive
+ * a write and permanently defeat blueline_settings_migrate()'s
+ * forward-only guard. It is additionally dropped outright when the
+ * submission carries a `_tab`
  * -- i.e. came from this file's own rendered form. No tab's form has (or
  * should ever have) a `_schema` field, so its presence alongside a `_tab`
  * can only mean tampering, never a legitimate use of the panel; a
@@ -361,7 +368,8 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today just `_schema`),
  *    never forwarded merely for being unrecognised -- see this file's
  *    docblock's `_schema` section for why "forward anything unrecognised"
- *    was rejected. A reserved key is still sanitized (absint()) and is
+ *    was rejected. A reserved key is still sanitized (absint()), `_schema`
+ *    specifically also clamped to BLUELINE_SETTINGS_SCHEMA_VERSION, and
  *    dropped outright when the submission carries a `_tab` (came from
  *    this file's own form, which never legitimately submits one).
  *
@@ -431,7 +439,27 @@ function blueline_settings_sanitize_callback( $input ): array {
 			// the path a reserved key like `_schema` needs to keep
 			// surviving. Still sanitized like everything else, never
 			// trusted as opaque data.
-			$output[ $key ] = absint( $value );
+			$sanitized_reserved = absint( $value );
+
+			if ( '_schema' === $key ) {
+				// Clamped to BLUELINE_SETTINGS_SCHEMA_VERSION, matching
+				// the limit inc/cli/settings-command.php enforces on an
+				// import's own `_schema` (there, by refusing the whole
+				// import outright; here, by clamping, since this path
+				// returns a value to store rather than an all-or-nothing
+				// operation to abort). Without this, a `_schema` at or
+				// above the running code's version -- written via any
+				// direct update_option() call this reserved-key branch
+				// lets through -- would make
+				// blueline_settings_migrate()'s forward-only guard
+				// (inc/settings/store.php) treat the install as already
+				// current, permanently and silently skipping every
+				// future migration, recoverable only via WP-CLI or the
+				// database directly.
+				$sanitized_reserved = min( $sanitized_reserved, BLUELINE_SETTINGS_SCHEMA_VERSION );
+			}
+
+			$output[ $key ] = $sanitized_reserved;
 			continue;
 		}
 
@@ -636,10 +664,22 @@ function blueline_settings_render_page(): void {
 	<div class="wrap bl-settings">
 		<h1><?php echo esc_html( __( 'Blueline', 'blueline' ) ); ?></h1>
 
+		<?php
+		/*
+		 * <section>, deliberately NOT a <div> -- see this file's own
+		 * docblock's "Never a <div> for the error summary" section: the
+		 * same third-party plugin (Capabilities Pro's admin-notices
+		 * "declutter" module) that swept the error summary from the DOM
+		 * also removes any <div> whose class contains "notice", and a
+		 * genuinely successful save's own "Settings saved." notice carries
+		 * exactly that class. Confirmed live: a real successful save on
+		 * staging rendered no feedback at all until this was fixed.
+		 */
+		?>
 		<?php foreach ( $notices as $notice ) : ?>
-			<div class="notice notice-<?php echo esc_attr( 'success' === $notice['type'] ? 'success' : $notice['type'] ); ?>">
+			<section class="notice notice-<?php echo esc_attr( 'success' === $notice['type'] ? 'success' : $notice['type'] ); ?>">
 				<p><?php echo $notice['message']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already esc_html()'d in blueline_settings_maybe_flag_saved() at the point add_settings_error() was called; re-escaping here would double-encode entities. ?></p>
-			</div>
+			</section>
 		<?php endforeach; ?>
 
 		<?php

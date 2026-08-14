@@ -102,6 +102,18 @@ function blueline_account_module_empty_state( string $message ) {
  * moves focus to it on load, the standard "you just navigated here, read
  * this" pattern, without pretending this is a live-region interruption it
  * is not.
+ *
+ * Rendered as a `<section>`, not a `<div>` -- tests/NoticeDivGuardTest.php
+ * (Task 7's fix rounds, inc/settings/page.php and inc/settings/cache.php)
+ * bans any theme-emitted `<div>` whose class contains "notice", "error",
+ * "warning", "info" or "updated" as a substring, since a third-party
+ * wp-admin plugin on the production install sweeps exactly that pattern
+ * from the DOM. This element is front-end only, so that specific plugin
+ * was never actually a risk to it, but the guard is deliberately blanket
+ * (no per-file exceptions) rather than trusted to be re-scoped correctly
+ * by hand every time -- see that test's own docblock. `.bl-account-notice`
+ * is a plain class selector in account.css with no tag qualifier, so
+ * styling is unaffected.
  */
 function blueline_account_render_claim_notice() {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only status flag from our own post-claim redirect, not a state-changing request.
@@ -126,9 +138,9 @@ function blueline_account_render_claim_notice() {
 
 	list( $type, $text ) = $messages[ $status ];
 	?>
-	<div class="bl-account-notice bl-account-notice--<?php echo esc_attr( $type ); ?>" role="alert" tabindex="-1">
+	<section class="bl-account-notice bl-account-notice--<?php echo esc_attr( $type ); ?>" role="alert" tabindex="-1">
 		<?php echo esc_html( $text ); ?>
-	</div>
+	</section>
 	<?php
 }
 

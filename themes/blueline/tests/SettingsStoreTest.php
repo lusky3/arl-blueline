@@ -169,9 +169,25 @@ final class SettingsStoreTest extends TestCase {
 
 	/**
 	 * `_posted_fields` is reserved bookkeeping for this one merge decision
-	 * -- it must never itself land in the stored option, whether read
-	 * straight off the merge's return value or round-tripped through
-	 * update_option()/get_option().
+	 * -- it must never itself land in the stored option on a normal,
+	 * steady-state save, whether read straight off the merge's return
+	 * value or round-tripped through update_option()/get_option().
+	 *
+	 * The round-trip half seeds the option with a prior write first so the
+	 * save under test is not the option's first-ever write: core's real
+	 * update_option() delegates a first-ever write to add_option(), which
+	 * independently re-applies sanitize_option_{$option} to a value that
+	 * has already been through this very merge once (and so no longer has
+	 * `_posted_fields` in it) -- re-adding an EMPTY `_posted_fields` array
+	 * that nothing then strips a second time, since add_option()'s own
+	 * write path has no merge stage at all
+	 * (BootstrapFidelityTest::test_update_option_first_write_sanitizes_twice_but_merges_once()
+	 * pins this exact core quirk in isolation, and
+	 * inc/settings/page.php's own docblock explains why production leaves
+	 * it as a real, cosmetic, self-healing fact about every WordPress
+	 * option rather than working around it). That first-write case is not
+	 * what this test exists to cover; seeding isolates the steady-state
+	 * guarantee instead.
 	 */
 	public function test_merge_never_persists_the_posted_fields_key_itself(): void {
 		$merged = blueline_settings_merge(
@@ -182,6 +198,8 @@ final class SettingsStoreTest extends TestCase {
 			array( 'contact_email' => 'old@example.com' )
 		);
 		$this->assertArrayNotHasKey( '_posted_fields', $merged );
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'old@example.com' ) ); // Not the first-ever write -- see this test's own docblock.
 
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
@@ -280,12 +298,24 @@ final class SettingsStoreTest extends TestCase {
 	/**
 	 * A stored `_schema` newer than the running code must refuse to write --
 	 * a rolled-back theme must never downgrade a newer install's data.
+	 *
+	 * Writes the newer `_schema` value directly to the in-memory option
+	 * store, bypassing update_option() (and therefore
+	 * inc/settings/page.php's sanitize_option_ callback) on purpose: since
+	 * Task 7 that callback clamps any `_schema` it sanitizes to THIS
+	 * running code's own BLUELINE_SETTINGS_SCHEMA_VERSION -- the correct
+	 * behaviour for a real write reachable through the panel, WP-CLI, or an
+	 * import, none of which can legitimately claim a schema newer than the
+	 * code actually running. A genuinely newer value in this test needs to
+	 * simulate data a DIFFERENT (newer) deploy already wrote, before this
+	 * process's code -- and therefore this process's own version constant
+	 * and clamp -- ever existed, which going through that same sanitize
+	 * path cannot represent. Same technique already used in
+	 * FooterAndHeroSettingsRenderTest.php to simulate pre-existing/direct-DB
+	 * data bypassing the sanitizer entirely.
 	 */
 	public function test_migration_refuses_to_downgrade_a_newer_schema(): void {
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array( '_schema' => BLUELINE_SETTINGS_SCHEMA_VERSION + 5 )
-		);
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array( '_schema' => BLUELINE_SETTINGS_SCHEMA_VERSION + 5 );
 		blueline_settings_migrate();
 		$stored = get_option( BLUELINE_SETTINGS_OPTION );
 		$this->assertSame(
