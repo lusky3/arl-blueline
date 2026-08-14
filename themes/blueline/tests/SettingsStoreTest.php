@@ -188,26 +188,40 @@ final class SettingsStoreTest extends TestCase {
 	 * blueline_settings_merge() directly -- proving the contract holds on
 	 * the actual write path a real tab save (or WP-CLI, or an import) uses,
 	 * not just the merge function in isolation.
+	 *
+	 * Uses a REAL schema field (`footer_heading`) rather than a fictional
+	 * one: since Task 7, the actual write path also runs
+	 * inc/settings/page.php's blueline_settings_sanitize_callback()
+	 * (wired unconditionally at file scope, exactly like this file's own
+	 * blueline_settings_merge()), which filters `_posted_fields` to keys
+	 * the schema actually declares -- a fictional field name would be
+	 * dropped by that filtering before the merge ever saw it, which is
+	 * correct there but would make this test assert nothing meaningful
+	 * about the real write path.
 	 */
 	public function test_saving_with_posted_fields_deletes_an_unchecked_field_but_keeps_an_untouched_one(): void {
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
-				'newsletter_enabled' => true,
-				'contact_email'      => 'a@example.com',
+				'footer_heading' => 'The League',
+				'contact_email'  => 'a@example.com',
 			)
 		);
 
-		// A Sections-tab submission that owns `newsletter_enabled` and this
-		// time unchecked it -- HTML omits an unchecked checkbox from
-		// $_POST entirely, so the field it owns is named explicitly instead.
+		// A Content-tab submission that owns `footer_heading` and this
+		// time omitted it -- the same mechanism a real unchecked checkbox
+		// (HTML omits it from $_POST entirely) would rely on, so the field
+		// the tab owns is named explicitly instead.
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
-			array( '_posted_fields' => array( 'newsletter_enabled' ) )
+			array(
+				'_tab'           => 'content',
+				'_posted_fields' => array( 'footer_heading' ),
+			)
 		);
 
 		$stored = get_option( BLUELINE_SETTINGS_OPTION );
-		$this->assertArrayNotHasKey( 'newsletter_enabled', $stored, 'named-but-absent must be deleted' );
+		$this->assertArrayNotHasKey( 'footer_heading', $stored, 'named-but-absent must be deleted' );
 		$this->assertSame(
 			'a@example.com',
 			$stored['contact_email'],

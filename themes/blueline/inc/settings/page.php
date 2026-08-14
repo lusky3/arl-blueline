@@ -10,9 +10,32 @@
  * (settings_fields()), a capability check on the actual save request
  * (options.php itself refuses a non-manage_options user before this file's
  * code ever runs), and the sanitize/merge pipeline Tasks 2-6 already built
- * (register_setting()'s sanitize_callback wires straight into
- * sanitize_option_{$option}, and inc/settings/store.php's
- * blueline_settings_merge() already lives on pre_update_option_{$option}).
+ * (blueline_settings_sanitize_callback() below wires onto
+ * sanitize_option_{$option} UNCONDITIONALLY, at file scope -- see "Every
+ * write path is validated" below for why that is not the same thing as
+ * register_setting()'s own sanitize_callback wiring -- and
+ * inc/settings/store.php's blueline_settings_merge() already lives on
+ * pre_update_option_{$option}).
+ *
+ * ## Every write path is validated, not just wp-admin's
+ *
+ * `admin_init` -- the hook register_setting() runs on -- never fires for
+ * WP-CLI or for a script calling update_option() directly. If
+ * `sanitize_option_{$option}` were wired ONLY via register_setting()'s
+ * `sanitize_callback` argument (i.e. only inside an admin_init-hooked
+ * function), every write reachable outside wp-admin would bypass
+ * blueline_sanitize_field() entirely -- including the placeholder contract
+ * inc/settings/sanitize.php exists to enforce, silently reintroducing the
+ * exact sprintf()-format-string fatal that file was built to prevent, the
+ * moment a `wp option update`/import script carries a stray "%". This
+ * theme's own blueline_settings_merge() (inc/settings/store.php) is
+ * already registered unconditionally at file scope for exactly this
+ * reason; the line below mirrors that pattern for validation. This is why
+ * blueline_settings_register() (still admin_init-hooked, purely for the
+ * Settings API's own UI/whitelist wiring) deliberately does NOT pass a
+ * `sanitize_callback` in its register_setting() call -- the filter below
+ * is the only place that argument would ever be wired from, and wiring it
+ * twice would be redundant at best.
  *
  * Tabs are plain links (?page=blueline&tab=content), NOT an ARIA tab
  * widget: a real page load per tab is simpler, linkable, back-button
@@ -41,7 +64,7 @@
  * phpcs:ignore explaining why: escaping again at that point would
  * double-encode entities the sanitize callback already escaped once.
  *
- * ## `_posted_fields` -- required, not optional
+ * ## `_posted_fields` -- required, not optional, and tab-scoped
  *
  * blueline_settings_merge() treats a field absent from a submission as
  * "belongs to another tab, carry it forward" UNLESS that field's key is
@@ -53,6 +76,19 @@
  * -- omitting this array does not merely miss an edge case, it makes
  * clearing ANY of this tab's fields silently revert on the very next save,
  * from ANY tab, forever.
+ *
+ * `_posted_fields` alone is not enough, though: every tab shares one
+ * settings_fields() nonce group, so the nonce does not bind a submission
+ * to any particular tab. Without a further check, a request merely SHAPED
+ * like the Content tab's form -- but naming a Links-tab field (e.g.
+ * `page_faqs`) in `_posted_fields` without posting that field's own value
+ * -- would make the merge read that absence as "owned but omitted --
+ * delete", clearing a field the submission never rendered and does not
+ * own. Every tab's form therefore also emits a hidden `_tab` input naming
+ * the tab actually being submitted, and blueline_settings_sanitize_callback()
+ * drops any `_posted_fields` entry whose OWN schema `tab` does not match
+ * it -- so naming a foreign field only ever fails silently, never deletes
+ * it.
  *
  * ## Never an autoload argument
  *
@@ -102,13 +138,16 @@ function blueline_settings_add_page(): void {
 
 add_action( 'admin_init', 'blueline_settings_register' );
 /**
- * Wire BLUELINE_SETTINGS_OPTION into the Settings API. This is what makes
- * options.php (WordPress core, not this theme) actually accept a POST to
- * this option at all, and what routes every save -- from this admin page,
- * WP-CLI, or a JSON import -- through blueline_settings_sanitize_callback()
- * via the `sanitize_option_{$option}` filter register_setting() attaches
- * it to, with no way for a caller to reach update_option() for this option
- * and skip validation.
+ * Wire BLUELINE_SETTINGS_OPTION into the Settings API's UI/whitelist
+ * machinery -- what makes options.php (WordPress core, not this theme)
+ * accept a POST to this option at all from a settings_fields()-rendered
+ * form. Deliberately does NOT pass a `sanitize_callback`: that would wire
+ * blueline_settings_sanitize_callback() onto `sanitize_option_{$option}`
+ * only while `admin_init` has fired, which WP-CLI and a direct
+ * update_option() call from a script never do. The unconditional,
+ * file-scope add_filter() a few lines below this function is what actually
+ * wires validation, on every path -- see this file's own docblock ("Every
+ * write path is validated") for why that distinction matters.
  *
  * @return void
  */
@@ -117,18 +156,21 @@ function blueline_settings_register(): void {
 		BLUELINE_SETTINGS_OPTION_GROUP,
 		BLUELINE_SETTINGS_OPTION,
 		array(
-			'type'              => 'array',
-			'sanitize_callback' => 'blueline_settings_sanitize_callback',
-			'default'           => blueline_settings_defaults(),
+			'type'    => 'array',
+			'default' => blueline_settings_defaults(),
 		)
 	);
 }
 
+add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sanitize_callback' );
 /**
- * The register_setting() sanitize_callback for BLUELINE_SETTINGS_OPTION --
- * the single choke point every save passes through, immediately before
- * blueline_settings_merge() (inc/settings/store.php) runs on
- * `pre_update_option_{$option}`.
+ * The sanitize_option_{$option} callback for BLUELINE_SETTINGS_OPTION --
+ * registered UNCONDITIONALLY above, at file scope, exactly the way
+ * inc/settings/store.php registers blueline_settings_merge() on
+ * `pre_update_option_{$option}` -- so this runs on every write reachable
+ * through update_option(), not only ones that pass through wp-admin's
+ * `admin_init`. This is the single choke point every save passes through,
+ * immediately before blueline_settings_merge() runs.
  *
  * Three responsibilities, each described in this file's own docblock in
  * more depth:
@@ -139,11 +181,12 @@ function blueline_settings_register(): void {
  *    in the same submission still saves normally.
  * 2. Escape every WP_Error message with esc_html() before it is handed to
  *    add_settings_error() -- see this file's docblock's Escaping section.
- * 3. Forward `_posted_fields` (filtered to known schema keys only) so
+ * 3. Forward `_posted_fields` (filtered to known schema keys AND to keys
+ *    whose OWN schema `tab` matches the submission's `_tab`) so
  *    blueline_settings_merge() can tell "this tab cleared a field it
- *    owns" from "this field belongs to an untouched tab". This function
- *    does not interpret that list itself; it only relays what the render
- *    layer emitted.
+ *    owns" from "this field belongs to an untouched tab". A submission
+ *    naming a foreign tab's field is not honoured for that field -- see
+ *    this file's docblock's `_posted_fields` section.
  *
  * @param mixed $input Raw value from $_POST[BLUELINE_SETTINGS_OPTION], as
  *                      WordPress' sanitize_option_{$option} filter hands it
@@ -157,28 +200,53 @@ function blueline_settings_sanitize_callback( $input ): array {
 	$schema  = blueline_settings_schema();
 	$current = blueline_settings();
 
+	$submitted_tab = isset( $input['_tab'] ) ? (string) $input['_tab'] : '';
+
 	$posted_fields = array();
 	if ( isset( $input['_posted_fields'] ) && is_array( $input['_posted_fields'] ) ) {
 		foreach ( $input['_posted_fields'] as $posted_key ) {
 			$posted_key = (string) $posted_key;
-			if ( isset( $schema[ $posted_key ] ) ) {
-				$posted_fields[] = $posted_key;
+			if ( ! isset( $schema[ $posted_key ] ) ) {
+				continue; // Not a real field at all.
 			}
+			if ( ( $schema[ $posted_key ]['tab'] ?? '' ) !== $submitted_tab ) {
+				// Named by a submission that does not own it -- a request
+				// merely SHAPED like another tab's form (or a tampered
+				// one) naming a foreign field here must never be able to
+				// delete it. Silently dropped, not honoured.
+				continue;
+			}
+			$posted_fields[] = $posted_key;
 		}
 	}
 
 	$output = array();
 
-	foreach ( $schema as $key => $field ) {
-		if ( ! array_key_exists( $key, $input ) ) {
-			// Not posted by this submission: not this function's decision --
-			// blueline_settings_merge() decides whether that means "carry
-			// forward" (another tab's field) or "delete" (named in
-			// $posted_fields above).
+	foreach ( $input as $key => $value ) {
+		if ( '_posted_fields' === $key || '_tab' === $key ) {
+			// Reserved bookkeeping, both already consumed above -- neither
+			// is ever persisted verbatim (`_tab` is request-scoped only;
+			// `_posted_fields` is rebuilt, filtered, below).
 			continue;
 		}
 
-		$result = blueline_sanitize_field( $input[ $key ], $field );
+		if ( ! isset( $schema[ $key ] ) ) {
+			// Not a field this callback knows how to validate -- most
+			// notably inc/settings/store.php's own `_schema` migration
+			// bookkeeping key, which is deliberately NOT part of the
+			// schema (see blueline_settings()'s own docblock) and must
+			// still survive a write untouched. This function's job is to
+			// validate the fields it DOES recognise, not to decide the
+			// fate of data it doesn't -- silently dropping an unrecognised
+			// key here would have broken blueline_settings_migrate()'s own
+			// update_option() call the moment this callback started
+			// running unconditionally (see this file's "Every write path
+			// is validated" docblock section).
+			$output[ $key ] = $value;
+			continue;
+		}
+
+		$result = blueline_sanitize_field( $value, $schema[ $key ] );
 
 		if ( is_wp_error( $result ) ) {
 			add_settings_error(
@@ -436,6 +504,15 @@ function blueline_settings_render_page(): void {
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
 			<?php settings_fields( BLUELINE_SETTINGS_OPTION_GROUP ); ?>
+
+			<!--
+				`_tab` names which tab owns this submission -- every tab
+				shares one settings_fields() nonce group, so the nonce
+				alone cannot tell the sanitize callback that. Without it, a
+				`_posted_fields` entry naming a field from a DIFFERENT tab
+				could delete that field (see this file's own docblock).
+			-->
+			<input type="hidden" name="<?php echo esc_attr( BLUELINE_SETTINGS_OPTION . '[_tab]' ); ?>" value="<?php echo esc_attr( $current_tab ); ?>">
 
 			<?php foreach ( blueline_settings_fields_for_tab( $current_tab ) as $field_key => $field ) : ?>
 				<input type="hidden" name="<?php echo esc_attr( BLUELINE_SETTINGS_OPTION . '[_posted_fields][]' ); ?>" value="<?php echo esc_attr( $field_key ); ?>">

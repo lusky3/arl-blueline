@@ -33,22 +33,40 @@ require_once __DIR__ . '/../inc/settings/page.php';
  *   blueline_settings_merge() instead of actually clearing --
  *   test_saving_one_tab_clears_a_field_without_disturbing_another_tab()
  *   proves the full save path (this file's sanitize_callback plus
- *   inc/settings/store.php's merge) gets this right end-to-end.
+ *   inc/settings/store.php's merge) gets this right end-to-end. Its
+ *   entries are also tab-scoped: a submission cannot name a field from a
+ *   DIFFERENT tab in `_posted_fields` and have that honoured --
+ *   test_posted_fields_naming_a_different_tabs_field_is_ignored() and
+ *   test_sanitize_callback_drops_posted_fields_entries_belonging_to_a_different_tab()
+ *   cover the round trip and the callback's own filtering directly.
+ * - Every write path is validated, not only ones that pass through
+ *   wp-admin's `admin_init`: blueline_settings_sanitize_callback() is wired
+ *   onto `sanitize_option_{$option}` unconditionally, at file scope (see
+ *   page.php's own docblock) -- not only inside the admin_init-hooked
+ *   blueline_settings_register(). None of this file's setUp() fires
+ *   `admin_init` at all, which is itself part of the proof: every test
+ *   below that saves through update_option() is already demonstrating
+ *   validation running without it;
+ *   test_validation_applies_to_a_direct_update_option_call_with_no_admin_init()
+ *   makes that explicit, and
+ *   test_admin_init_still_registers_the_setting_for_the_ui() confirms
+ *   admin_init still does its own, separate job.
  */
 final class SettingsPageTest extends TestCase {
 
 	/**
-	 * Reset every in-memory store, then re-register the settings-panel
-	 * option with the Settings API exactly as a real `admin_init` request
-	 * would -- required because blueline_settings_reset()'s hook reset
-	 * restores only the file-scope `add_action( 'admin_init', ... )`
-	 * registration itself (captured in the baseline the first time any test
-	 * runs), not the `sanitize_option_{$option}` filter that registration
-	 * only adds once admin_init actually fires.
+	 * Reset every in-memory store. Deliberately does NOT fire `admin_init`
+	 * -- every test below therefore exercises the write path exactly as
+	 * WP-CLI or an import script would (admin_init never fires for
+	 * either), which is the whole point of wiring
+	 * blueline_settings_sanitize_callback() unconditionally at file scope
+	 * rather than inside blueline_settings_register(). A test that
+	 * specifically needs admin_init to have fired (there is exactly one:
+	 * test_admin_init_still_registers_the_setting_for_the_ui()) fires it
+	 * itself.
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
-		do_action( 'admin_init' );
 		unset( $_GET['tab'], $_GET['settings-updated'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture cleanup of superglobals between cases, not a real request.
 	}
 
@@ -158,17 +176,21 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The register function must wire blueline_settings_sanitize_callback()
-	 * onto the option's sanitize_option_* filter -- proven by actually
-	 * saving through update_option() (the real dispatch path, not a direct
-	 * call to the callback) and observing that an invalid value in it is
-	 * rejected rather than stored verbatim.
+	 * The sanitize callback must be wired onto sanitize_option_{$option}
+	 * -- proven by actually saving through
+	 * update_option() (the real dispatch path, not a direct call to the
+	 * callback) and observing that an invalid value in it is rejected
+	 * rather than stored verbatim. setUp() never fires `admin_init`, so
+	 * this already proves the wiring does not depend on it -- see
+	 * test_validation_applies_to_a_direct_update_option_call_with_no_admin_init()
+	 * for the same point made explicitly.
 	 */
-	public function test_register_wires_the_sanitize_callback_into_the_settings_api(): void {
+	public function test_sanitize_callback_is_wired_into_the_settings_api(): void {
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
 				'footer_heading' => 'Save 50% off', // A bare "%" with no valid spec: rejected.
+				'_tab'           => 'content',
 				'_posted_fields' => array( 'footer_heading' ),
 			)
 		);
@@ -179,6 +201,45 @@ final class SettingsPageTest extends TestCase {
 			'an invalid value must never be written, proving the sanitize_callback actually ran'
 		);
 		$this->assertNotEmpty( blueline_settings_field_errors() );
+	}
+
+	/**
+	 * The task-7 fix-round finding this directly addresses: `admin_init`
+	 * never fires for WP-CLI or a script calling update_option() directly,
+	 * so if blueline_settings_sanitize_callback() were wired ONLY inside
+	 * the admin_init-hooked blueline_settings_register(), every write
+	 * reachable outside wp-admin would bypass validation entirely --
+	 * including the placeholder contract, reintroducing the exact
+	 * sprintf()-format-string fatal inc/settings/sanitize.php exists to
+	 * prevent. This test's setUp() never fires `admin_init` (see the class
+	 * docblock), so a straight update_option() call here IS that scenario.
+	 */
+	public function test_validation_applies_to_a_direct_update_option_call_with_no_admin_init(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'Save 50% off' ) );
+
+		$this->assertSame(
+			blueline_settings_defaults()['footer_heading'],
+			blueline_settings( 'footer_heading' ),
+			'a direct update_option() call, with admin_init never fired, must still reject an invalid value'
+		);
+	}
+
+	/**
+	 * The admin_init hook still has its own job: registering the option with the
+	 * Settings API's UI/whitelist machinery so a settings_fields()-rendered
+	 * form can actually post to options.php. blueline_settings_register()
+	 * deliberately no longer passes a `sanitize_callback` (see page.php's
+	 * own docblock for why), so this only checks the registration itself,
+	 * not sanitize wiring -- that is covered by the tests above instead.
+	 */
+	public function test_admin_init_still_registers_the_setting_for_the_ui(): void {
+		do_action( 'admin_init' );
+
+		$this->assertArrayHasKey(
+			BLUELINE_SETTINGS_OPTION,
+			$GLOBALS['bl_test_registered_settings'][ BLUELINE_SETTINGS_OPTION_GROUP ] ?? array(),
+			'register_setting() must still run on admin_init for the Settings API UI wiring'
+		);
 	}
 
 	/**
@@ -228,7 +289,31 @@ final class SettingsPageTest extends TestCase {
 	 */
 	public function test_sanitize_callback_drops_unknown_keys_from_posted_fields(): void {
 		$output = blueline_settings_sanitize_callback(
-			array( '_posted_fields' => array( 'footer_heading', 'not_a_real_field' ) )
+			array(
+				'_tab'           => 'content',
+				'_posted_fields' => array( 'footer_heading', 'not_a_real_field' ),
+			)
+		);
+
+		$this->assertSame( array( 'footer_heading' ), $output['_posted_fields'] );
+	}
+
+	/**
+	 * The other half of Task 7's fix-round finding: `_posted_fields` is
+	 * ALSO filtered to keys whose own schema `tab` matches the submission's
+	 * `_tab` -- `page_faqs` belongs to 'links', so naming it from a
+	 * submission declaring `_tab => 'content'` must never be honoured, even
+	 * though `page_faqs` is a perfectly real schema key. Every tab shares
+	 * one settings_fields() nonce group, so nothing else disambiguates
+	 * "which tab does this submission actually own" -- see page.php's own
+	 * docblock.
+	 */
+	public function test_sanitize_callback_drops_posted_fields_entries_belonging_to_a_different_tab(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'           => 'content',
+				'_posted_fields' => array( 'footer_heading', 'page_faqs' ), // page_faqs belongs to 'links'.
+			)
 		);
 
 		$this->assertSame( array( 'footer_heading' ), $output['_posted_fields'] );
@@ -245,7 +330,10 @@ final class SettingsPageTest extends TestCase {
 	 */
 	public function test_sanitize_callback_omits_a_field_named_but_not_posted(): void {
 		$output = blueline_settings_sanitize_callback(
-			array( '_posted_fields' => array( 'footer_heading' ) )
+			array(
+				'_tab'           => 'content',
+				'_posted_fields' => array( 'footer_heading' ),
+			)
 		);
 
 		$this->assertArrayNotHasKey( 'footer_heading', $output );
@@ -278,6 +366,7 @@ final class SettingsPageTest extends TestCase {
 				'footer_heading'     => '', // Cleared.
 				'footer_location'    => 'Burlington, Ontario',
 				'hero_offseason_cta' => 'Join the mailing list',
+				'_tab'               => 'content',
 				'_posted_fields'     => array( 'contact_email', 'footer_heading', 'footer_location', 'hero_offseason_cta' ),
 			)
 		);
@@ -285,6 +374,38 @@ final class SettingsPageTest extends TestCase {
 		$stored = get_option( BLUELINE_SETTINGS_OPTION );
 		$this->assertSame( '', $stored['footer_heading'], 'the cleared Content-tab field must actually be cleared' );
 		$this->assertSame( 42, $stored['page_faqs'], 'the untouched Links-tab field must survive' );
+	}
+
+	/**
+	 * The fix-round finding, exercised as a full round trip rather than a
+	 * direct call to the callback: a request shaped like a Content-tab
+	 * submission (`_tab => 'content'`) names `page_faqs` -- a LINKS-tab
+	 * field -- in `_posted_fields` without posting `page_faqs` itself.
+	 * Before the tab-scoping fix, blueline_settings_merge() would read
+	 * that absence as "owned but omitted -- delete", wiping a field this
+	 * submission never rendered and does not own. Every tab shares one
+	 * settings_fields() nonce group, so nothing else would have stopped
+	 * this.
+	 */
+	public function test_posted_fields_naming_a_different_tabs_field_is_ignored(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'page_faqs' => 42 ) );
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'footer_heading' => 'Updated heading',
+				'_tab'           => 'content',
+				'_posted_fields' => array( 'footer_heading', 'page_faqs' ),
+			)
+		);
+
+		$stored = get_option( BLUELINE_SETTINGS_OPTION );
+		$this->assertSame(
+			42,
+			$stored['page_faqs'],
+			'a field belonging to a different tab must survive even when named in _posted_fields'
+		);
+		$this->assertSame( 'Updated heading', $stored['footer_heading'] );
 	}
 
 	/**
