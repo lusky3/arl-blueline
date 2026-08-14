@@ -170,16 +170,115 @@ add_action( 'admin_menu', 'blueline_settings_add_page' );
  * same check, so a direct hit on the URL cannot bypass it even if this
  * registration were ever changed to a looser capability by mistake.
  *
+ * Captures add_theme_page()'s own return value (the hook suffix WordPress
+ * assigns this specific screen) via blueline_settings_page_hook(), so
+ * blueline_settings_maybe_enqueue_focus_script() -- hooked to
+ * `admin_enqueue_scripts`, which fires for every admin screen, not just
+ * this one -- can tell whether the screen currently loading is this one.
+ *
  * @return void
  */
 function blueline_settings_add_page(): void {
-	add_theme_page(
+	$hook = add_theme_page(
 		__( 'Blueline', 'blueline' ),
 		__( 'Blueline', 'blueline' ),
 		'manage_options',
 		BLUELINE_SETTINGS_PAGE_SLUG,
 		'blueline_settings_render_page'
 	);
+
+	blueline_settings_page_hook( $hook );
+}
+
+/**
+ * Stores (and returns) the hook suffix add_theme_page() assigned this
+ * screen. A plain module-level static rather than a global: the only two
+ * callers are blueline_settings_add_page() (which sets it, once, from
+ * admin_menu) and blueline_settings_maybe_enqueue_focus_script() (which
+ * reads it, from the later admin_enqueue_scripts), and both always run
+ * within the same request.
+ *
+ * @param string|null $hook Set once, from blueline_settings_add_page(). Omit to read.
+ * @return string|null
+ */
+function blueline_settings_page_hook( ?string $hook = null ): ?string {
+	static $stored = null;
+	if ( null !== $hook ) {
+		$stored = $hook;
+	}
+	return $stored;
+}
+
+add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_focus_script' );
+/**
+ * Enqueues the error-summary focus script (see blueline_settings_focus_summary_script()'s
+ * own docblock for why this exists at all), scoped to this page only via
+ * the $hook_suffix WordPress passes every `admin_enqueue_scripts`
+ * callback -- every other admin screen returns immediately.
+ *
+ * Attached to the always-already-loaded `jquery` handle via
+ * wp_add_inline_script() (a WordPress-blessed enqueue API, not a raw
+ * echoed `<script>` tag) rather than a new webpack entry -- this file's
+ * own docblock's "no webpack entry" constraint is about not adding a
+ * build step for the theme's UI, not about never enqueuing any script at
+ * all, and one inline snippet doing exactly one thing does not need one.
+ *
+ * @param string $hook_suffix The current admin screen's hook suffix.
+ * @return void
+ */
+function blueline_settings_maybe_enqueue_focus_script( string $hook_suffix ): void {
+	if ( blueline_settings_page_hook() !== $hook_suffix ) {
+		return;
+	}
+
+	wp_add_inline_script( 'jquery', blueline_settings_focus_summary_script() );
+}
+
+/**
+ * The inline script blueline_settings_maybe_enqueue_focus_script() enqueues:
+ * moves focus to the error summary (if the current page load actually has
+ * one -- the element may not exist, in which case this is a no-op) once
+ * the page has finished loading.
+ *
+ * This exists because the HTML5 living standard defines `autofocus` as a
+ * global attribute valid on any focusable element, not only form
+ * controls -- which is what this file relied on before a live browser
+ * check (not just a unit test, which cannot see this class of bug at
+ * all -- see blueline_settings_render_page()'s docblock) proved Chromium
+ * does NOT actually move focus to a plain `<div autofocus>` on page load,
+ * despite the spec allowing it: confirmed directly by loading this
+ * exact page's own rendered markup, alongside WordPress core's real
+ * wp-admin/js/common.js (which independently relocates every `.notice`
+ * element to just after the page's own `<h1>` on every admin screen, on
+ * `jQuery(document).ready()`), in an actual browser -- `document.activeElement`
+ * stayed `<body>` with `autofocus` alone, and only moved to the summary
+ * once this explicit `.focus()` call ran.
+ *
+ * The `setTimeout( fn, 0 )` deference is deliberate, not decorative: it
+ * defers this call to the NEXT event-loop tick, which runs after every
+ * other script's own sole `jQuery(document).ready()` handler -- including
+ * WordPress core's own notice-relocation in common.js -- has already
+ * finished running, regardless of which handler happened to be
+ * registered first. Without it, a focus call issued from INSIDE this
+ * script's own ready() handler could run before common.js relocates the
+ * summary element to its final DOM position, which is exactly the kind
+ * of ordering bug that would pass in isolation and fail on a real page.
+ *
+ * `tabindex="-1"` (in the summary's own markup, blueline_settings_render_page())
+ * is still required for `.focus()` to work on a `<div>` at all -- unlike
+ * `autofocus`, a plain negative tabindex making an element programmatically
+ * focusable (without adding it to the normal tab order) is reliably
+ * supported everywhere.
+ *
+ * @return string
+ */
+function blueline_settings_focus_summary_script(): string {
+	return 'jQuery( function ( $ ) {'
+		. ' setTimeout( function () {'
+		. " var el = document.getElementById( 'blueline-settings-error-summary' );"
+		. ' if ( el ) { el.focus(); }'
+		. ' }, 0 );'
+		. ' } );';
 }
 
 add_action( 'admin_init', 'blueline_settings_register' );
@@ -518,23 +617,23 @@ function blueline_settings_render_page(): void {
 			</div>
 		<?php endforeach; ?>
 
+		<?php
+		/*
+		 * tabindex="-1" makes this a valid focus target without adding it
+		 * to the normal tab order; blueline_settings_maybe_enqueue_focus_script()
+		 * actually moves focus here on page load, via an explicit .focus()
+		 * call -- see this file's own docblock and
+		 * blueline_settings_focus_summary_script()'s docblock for why a
+		 * plain HTML attribute alone was tried first and does not work in
+		 * the target browser. This explanation is a PHP comment, not an
+		 * HTML one, so it is never sent to the browser at all.
+		 */
+		?>
 		<?php if ( ! empty( $field_errors ) ) : ?>
-			<!--
-				tabindex="-1" + a global `autofocus` attribute is the
-				zero-JavaScript way to move focus to this summary on the
-				page load that follows a failed save (spec 6.5's "a save
-				that fails must move focus to an error summary"): `autofocus`
-				is a global HTML attribute, valid on any focusable element,
-				not only form controls, and this attribute is only ever
-				rendered when there is something to focus (never on an
-				ordinary page load), so it cannot steal focus at any other
-				time.
-			-->
 			<div
 				id="blueline-settings-error-summary"
 				class="notice notice-error bl-settings-error-summary"
 				tabindex="-1"
-				autofocus
 				role="alert"
 			>
 				<h2><?php echo esc_html( __( 'There is a problem', 'blueline' ) ); ?></h2>

@@ -51,6 +51,29 @@ require_once __DIR__ . '/../inc/settings/page.php';
  *   makes that explicit, and
  *   test_admin_init_still_registers_the_setting_for_the_ui() confirms
  *   admin_init still does its own, separate job.
+ *
+ * Fix round 3 (a real browser click-through, not a unit test, found this):
+ * the error summary's focus-on-failed-save behaviour previously relied
+ * solely on the `autofocus` HTML attribute, reasoned to be "the
+ * zero-JavaScript way" because the living standard defines it as a global
+ * attribute valid on any element. A live browser check disproved that --
+ * Chromium does not move focus to a plain `<div autofocus>` -- so this is
+ * exactly the class of bug a PHPUnit test checking only rendered markup
+ * cannot see: the markup was correct (the attribute was there), and only a
+ * real browser's actual focus behaviour exposed that it does nothing.
+ * blueline_settings_focus_summary_script() (an explicit `.focus()` call,
+ * enqueued via wp_add_inline_script()) replaces it.
+ * test_focus_summary_script_is_enqueued_only_for_this_page() and
+ * test_focus_summary_script_content_targets_the_summary_element() are the
+ * part of this fix that PHPUnit CAN verify -- the right script, scoped to
+ * the right screen, with the right content -- not proof that a browser
+ * actually moves focus when it runs. That was verified separately, outside
+ * this suite, by loading this page's own rendered HTML plus WordPress
+ * core's real wp-admin/js/common.js (fetched from the exact same running
+ * WordPress install) in an actual Chromium instance and observing
+ * `document.activeElement` move from `<body>` to the summary only once the
+ * explicit `.focus()` call ran -- see the task report for the full
+ * transcript, since no unit test can stand in for that check.
  */
 final class SettingsPageTest extends TestCase {
 
@@ -676,10 +699,16 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * An error summary must exist, be a valid focus target (`tabindex="-1"`)
-	 * and `autofocus` (the zero-JavaScript way this page moves focus to it
-	 * on the page load after a failed save), and link to the failed
-	 * field's own input id.
+	 * An error summary must exist, be a valid focus target (`tabindex="-1"`),
+	 * and link to the failed field's own input id. It must NOT rely on the
+	 * `autofocus` attribute alone -- a live browser check (see this test
+	 * class's own docblock and blueline_settings_focus_summary_script()'s
+	 * docblock) found Chromium does not honour `autofocus` on a plain
+	 * `<div>` despite the HTML living standard allowing it; the fix-round-3
+	 * regression test for that is
+	 * test_focus_summary_script_is_enqueued_only_for_this_page() below,
+	 * which is the part of this bug a render-output assertion alone cannot
+	 * catch (see this class's docblock).
 	 */
 	public function test_error_summary_is_focusable_and_links_to_the_failed_field(): void {
 		$this->grant_manage_options();
@@ -700,14 +729,38 @@ final class SettingsPageTest extends TestCase {
 
 		$this->assertStringContainsString( 'id="blueline-settings-error-summary"', $html );
 		$this->assertStringContainsString( 'tabindex="-1"', $html );
-		$this->assertStringContainsString( 'autofocus', $html );
 		$this->assertStringContainsString( 'href="#blueline-field-footer_heading"', $html );
 	}
 
 	/**
-	 * No error summary (and no `autofocus`) on an ordinary page load with
-	 * nothing to report -- the attribute must never steal focus on a
-	 * routine visit.
+	 * `autofocus` must never appear in this file's markup at all -- proven
+	 * non-functional for this exact purpose (see this class's docblock),
+	 * its presence would be actively misleading about how focus is
+	 * actually moved (blueline_settings_focus_summary_script(), an
+	 * explicit .focus() call).
+	 */
+	public function test_rendered_page_never_uses_the_autofocus_attribute(): void {
+		$this->grant_manage_options();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'footer_heading' => 'Save 50% off',
+				'_posted_fields' => array( 'footer_heading' ),
+			)
+		);
+
+		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = ob_get_clean();
+
+		$this->assertStringNotContainsString( 'autofocus', $html );
+	}
+
+	/**
+	 * No error summary on an ordinary page load with nothing to report.
 	 */
 	public function test_no_error_summary_when_nothing_failed(): void {
 		$this->grant_manage_options();
@@ -718,7 +771,50 @@ final class SettingsPageTest extends TestCase {
 		$html = ob_get_clean();
 
 		$this->assertStringNotContainsString( 'blueline-settings-error-summary', $html );
-		$this->assertStringNotContainsString( 'autofocus', $html );
+	}
+
+	/**
+	 * The fix-round-3 regression coverage: blueline_settings_maybe_enqueue_focus_script()
+	 * must enqueue the focus script for THIS page's own hook suffix, and
+	 * must do nothing for any other admin screen -- admin_enqueue_scripts
+	 * fires for every screen, not just this one.
+	 *
+	 * This is the part of the underlying bug a PHPUnit test genuinely CAN
+	 * verify: that the right script, with the right content, is wired to
+	 * the right screen. What it cannot verify -- and what a passing test
+	 * here must not be mistaken for -- is that a real browser actually
+	 * moves focus when this script runs; only a live browser check can
+	 * prove that (see this class's own docblock for the one that already
+	 * caught this bug, and blueline_settings_focus_summary_script()'s
+	 * docblock for the evidence that `autofocus` alone does not).
+	 */
+	public function test_focus_summary_script_is_enqueued_only_for_this_page(): void {
+		blueline_settings_add_page();
+		$own_hook = blueline_settings_page_hook();
+		$this->assertNotNull( $own_hook, 'blueline_settings_add_page() must have captured a hook suffix' );
+
+		blueline_settings_maybe_enqueue_focus_script( 'some-other-admin-page' );
+		$this->assertSame( array(), $GLOBALS['bl_test_inline_scripts'], 'a different admin screen must not get this script' );
+
+		blueline_settings_maybe_enqueue_focus_script( $own_hook );
+		$this->assertCount( 1, $GLOBALS['bl_test_inline_scripts'] );
+		$this->assertSame( 'jquery', $GLOBALS['bl_test_inline_scripts'][0]['handle'] );
+	}
+
+	/**
+	 * The enqueued script's own content: it must look for the exact
+	 * summary element id and call .focus() on it, deferred (not run
+	 * synchronously inside the ready handler) so it runs after any other
+	 * script's own ready() handler -- including WordPress core's
+	 * wp-admin/js/common.js, which independently relocates every
+	 * `.notice` element on every admin screen -- has already finished.
+	 */
+	public function test_focus_summary_script_content_targets_the_summary_element(): void {
+		$script = blueline_settings_focus_summary_script();
+
+		$this->assertStringContainsString( "getElementById( 'blueline-settings-error-summary' )", $script );
+		$this->assertStringContainsString( '.focus()', $script );
+		$this->assertStringContainsString( 'setTimeout', $script, 'must defer past other ready() handlers, not run synchronously inside its own' );
 	}
 
 	/**

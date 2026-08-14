@@ -988,6 +988,7 @@ function blueline_test_reset(): void {
 	blueline_test_reset_cache();
 	blueline_test_reset_settings_errors();
 	blueline_test_reset_admin_pages();
+	blueline_test_reset_inline_scripts();
 }
 
 if ( ! function_exists( 'add_filter' ) ) {
@@ -1734,5 +1735,42 @@ if ( ! function_exists( 'wp_dropdown_categories' ) ) {
 		}
 
 		return $output;
+	}
+}
+
+$GLOBALS['bl_test_inline_scripts'] = array();
+
+/**
+ * Reset the in-memory wp_add_inline_script() call log. Call from setUp()
+ * (directly, or via blueline_test_reset()) in any test that asserts
+ * against it.
+ *
+ * @return void
+ */
+function blueline_test_reset_inline_scripts(): void {
+	$GLOBALS['bl_test_inline_scripts'] = array();
+}
+
+if ( ! function_exists( 'wp_add_inline_script' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_add_inline_script(): records the
+	 * call (handle, data, position) so a test can assert a script was
+	 * enqueued for the right handle and that its content does what it
+	 * claims to. Does not model actually attaching the snippet to a real
+	 * `<script>` tag -- no test needs that; the target of these calls is
+	 * always the browser's own runtime, verified separately.
+	 *
+	 * @param string $handle   Script handle to attach the inline code to.
+	 * @param string $data     The inline JavaScript.
+	 * @param string $position 'before' or 'after' the handle's own script.
+	 * @return bool
+	 */
+	function wp_add_inline_script( $handle, $data, $position = 'after' ) {
+		$GLOBALS['bl_test_inline_scripts'][] = array(
+			'handle'   => $handle,
+			'data'     => $data,
+			'position' => $position,
+		);
+		return true;
 	}
 }
