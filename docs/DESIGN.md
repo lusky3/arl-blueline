@@ -134,3 +134,32 @@ which chains, in order:
 All six must exit 0. Because there is no CI, that is a statement about your own working tree
 right now, not a promise anyone else has verified — re-run it after pulling, and before every
 commit if the hook above is not enabled.
+
+### Before turning on `BLUELINE_SRCACHE_PURGE`
+
+`inc/settings/cache.php` implements a guarded Redis `SCAN`/`UNLINK` purge of the nginx srcache
+page cache on settings save, but ships with the `BLUELINE_SRCACHE_PURGE` constant **off** by
+default. The reasoning is in that file's own docblock; the short version:
+
+The WordPress object cache (via the Redis Object Cache drop-in's `redis_instance()`) and
+nginx's srcache module may not point at the **same Redis server and logical DB index** —
+hardened production setups routinely separate them. If they differ, the purge connects fine,
+`SCAN`s an empty keyspace, and reports success while purging nothing — worse than not purging,
+because it lies to the admin who just saved. Staging has no page-cache layer at all, so a green
+staging run cannot tell "the purge worked" from "there was nothing to purge either way" — this
+is the one component staging structurally cannot validate.
+
+Before ever defining `BLUELINE_SRCACHE_PURGE` as `true` (e.g. in `wp-config.php`), confirm on
+the actual server:
+
+1. Which Redis server/DB index nginx's srcache module writes into — `nginx.conf`'s
+   `srcache_store`/`redis2_query` (or equivalent) directives.
+2. Which Redis server/DB index the WordPress object cache connects to —
+   `wp-config.php`'s `WP_REDIS_HOST`/`WP_REDIS_PORT`/`WP_REDIS_DATABASE` (or equivalent).
+3. That (1) and (2) name the **same host AND the same DB index** — not merely the same host.
+4. Only then flip the constant, and verify by hand that a save actually evicts a known cached
+   page before trusting it unattended.
+
+Until that verification happens, the panel shows a persistent, dismissible admin notice naming
+the exact manual purge command instead — see `blueline_cache_purge_notice_message()` and
+`blueline_cache_purge_command()`.
