@@ -260,6 +260,60 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
+	 * Fix round 1 (Task 8): `type => 'email'` must actually GUARANTEE the
+	 * value is a real email address -- before this fix it fell through to
+	 * the exact same sanitize_text_field()-only path as a plain `text`
+	 * field, meaning the schema's `email` type was purely decorative. A
+	 * valid address is accepted unchanged.
+	 */
+	public function test_email_fields_accept_a_valid_address(): void {
+		$field = array(
+			'type'  => 'email',
+			'label' => 'Contact email',
+		);
+		$this->assertSame( 'play@rookiehockey.ca', blueline_sanitize_field( 'play@rookiehockey.ca', $field ) );
+	}
+
+	/**
+	 * A value that is not a real email address -- plain prose, a bare
+	 * word, an empty string -- is rejected with an actionable message
+	 * naming the field, not silently coerced or accepted.
+	 */
+	public function test_email_fields_reject_a_value_that_is_not_an_email_address(): void {
+		$field  = array(
+			'type'  => 'email',
+			'label' => 'Contact email',
+		);
+		$result = blueline_sanitize_field( 'not an email address', $field );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'blueline_invalid_email', $result->get_error_code() );
+		$this->assertStringContainsString( 'Contact email', $result->get_error_message() );
+
+		$this->assertInstanceOf( WP_Error::class, blueline_sanitize_field( '', $field ) );
+	}
+
+	/**
+	 * The concrete reason this validation exists: contact_email is echoed
+	 * into a `mailto:` href (inc/template-tags.php). A value carrying the
+	 * exact characters that attack would need -- a space and a double quote,
+	 * to break out of the href="" attribute -- is not a real email address
+	 * either, so is_email() rejects it and it can never reach storage, let
+	 * alone the render site, regardless of what esc_url() alone would or
+	 * would not neutralise.
+	 */
+	public function test_email_fields_reject_a_value_shaped_like_an_href_injection_attempt(): void {
+		$field  = array(
+			'type'  => 'email',
+			'label' => 'Contact email',
+		);
+		$result = blueline_sanitize_field( 'foo@bar.com" onclick="alert(1)', $field );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'blueline_invalid_email', $result->get_error_code() );
+	}
+
+	/**
 	 * The escape helper must leave a recognised "%%" escape and a complete
 	 * conversion spec untouched, and double ONLY the "%" that could not
 	 * complete either -- so the suggestion it produces is safe to paste

@@ -583,11 +583,11 @@ function blueline_site_footer() {
 	<footer class="bl-footer">
 		<div class="bl-container bl-footer__columns">
 			<div class="bl-footer__column bl-footer__column--trust">
-				<h2 class="widget-title"><?php esc_html_e( 'The League', 'blueline' ); ?></h2>
-				<p class="bl-footer__location"><?php esc_html_e( 'Burlington, Ontario', 'blueline' ); ?></p>
+				<h2 class="widget-title"><?php echo esc_html( blueline_settings( 'footer_heading' ) ); ?></h2>
+				<p class="bl-footer__location"><?php echo esc_html( blueline_settings( 'footer_location' ) ); ?></p>
 				<ul class="bl-footer__trust-links">
 					<li><a href="<?php echo esc_url( blueline_contact_url() ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( 'mailto:play@rookiehockey.ca' ); ?>"><?php esc_html_e( 'play@rookiehockey.ca', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( 'mailto:' . blueline_settings( 'contact_email' ) ); ?>"><?php echo esc_html( blueline_settings( 'contact_email' ) ); ?></a></li>
 					<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
 					<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
 				</ul>

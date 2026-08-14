@@ -480,7 +480,7 @@ function blueline_homepage_hero_offseason_content(): array {
 			blueline_settings( 'hero_offseason_headline' ),
 			__( 'soon', 'blueline' )
 		),
-		'cta_label'     => __( 'Join the mailing list', 'blueline' ),
+		'cta_label'     => blueline_settings( 'hero_offseason_cta' ),
 		'cta_url'       => blueline_contact_url(),
 		'cta_variant'   => 'secondary',
 	);

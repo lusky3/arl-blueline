@@ -54,13 +54,24 @@ if ( ! function_exists( 'esc_attr' ) ) {
 }
 if ( ! function_exists( 'esc_url' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' esc_url().
+	 * A faithful-enough stand-in for WordPress' esc_url() -- Task 8's fix
+	 * round found the previous filter_var( FILTER_SANITIZE_URL ) version did
+	 * NOT strip a literal `"`, unlike real core (wp-includes/formatting.php),
+	 * which replaces every character outside an explicit allow-list. That
+	 * gap mattered concretely: a test asserting an href="" built from this
+	 * stub is safe against a `"`-carrying hostile value would have passed
+	 * for the wrong reason (the stub happened to be more permissive than
+	 * production, not because production is unsafe). This mirrors core's
+	 * real allow-list regex, so a character real WordPress strips (`"`,
+	 * `<`, `>`, space) is stripped here too, and a test proving safety
+	 * against this stub is proving something true of the real function.
 	 *
 	 * @param string $t URL to sanitize.
 	 * @return string
 	 */
 	function esc_url( $t ) {
-		return filter_var( (string) $t, FILTER_SANITIZE_URL );
+		$url = str_replace( ' ', '%20', ltrim( (string) $t ) );
+		return (string) preg_replace( '/[^a-z0-9\-~+_.?#=!&;,\/:%@$|*\'()\[\]\x80-\xff]/i', '', $url );
 	}
 }
 if ( ! function_exists( 'home_url' ) ) {
@@ -192,6 +203,52 @@ if ( ! function_exists( 'sanitize_text_field' ) ) {
 	 */
 	function sanitize_text_field( $t ) {
 		return trim( wp_strip_all_tags( (string) $t ) );
+	}
+}
+if ( ! function_exists( 'is_email' ) ) {
+	/**
+	 * A faithful-enough stand-in for WordPress' is_email() -- close enough to
+	 * core's real local-part/domain character-class and structure checks
+	 * (wp-includes/formatting.php) that a test asserting a hostile string is
+	 * rejected is asserting something true of the real function too, not
+	 * just of a permissive stub. In particular: neither the local part nor
+	 * any domain label may contain a space, quote, or angle bracket -- the
+	 * exact characters an attack aimed at an unescaped `mailto:` href would
+	 * need.
+	 *
+	 * @param string $email Candidate email address.
+	 * @return string|false The email unchanged if it looks valid, false otherwise.
+	 */
+	function is_email( $email ) {
+		$email = (string) $email;
+
+		if ( strlen( $email ) < 6 || false === strpos( $email, '@', 1 ) ) {
+			return false;
+		}
+
+		list( $local, $domain ) = explode( '@', $email, 2 );
+
+		if ( ! preg_match( '/^[a-zA-Z0-9!#$%&\'*+\/=?^_`{|}~.-]+$/', $local ) ) {
+			return false;
+		}
+
+		if ( '' === $domain || trim( $domain, " \t\n\r\0\x0B." ) !== $domain || preg_match( '/\.{2,}/', $domain ) ) {
+			return false;
+		}
+
+		$subs = explode( '.', $domain );
+
+		if ( count( $subs ) < 2 ) {
+			return false;
+		}
+
+		foreach ( $subs as $sub ) {
+			if ( '' === $sub || trim( $sub, " \t\n\r\0\x0B-" ) !== $sub || ! preg_match( '/^[a-z0-9-]+$/i', $sub ) ) {
+				return false;
+			}
+		}
+
+		return $email;
 	}
 }
 if ( ! function_exists( 'sanitize_html_class' ) ) {
@@ -567,6 +624,47 @@ if ( ! function_exists( 'get_posts' ) ) {
 		$limit = (int) ( $args['posts_per_page'] ?? -1 );
 
 		return ( $limit > 0 ) ? array_slice( $found, 0, $limit ) : $found;
+	}
+}
+if ( ! function_exists( 'is_active_sidebar' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' is_active_sidebar(): always false --
+	 * no test in this suite registers or populates a real sidebar, so every
+	 * caller sees "no widgets configured" (matching this suite's existing
+	 * convention: e.g. blueline_homepage_module_new_here() always falls
+	 * through to its own default content for the identical reason).
+	 *
+	 * @param string|int $index Sidebar ID (unused, kept for signature parity).
+	 * @return bool
+	 */
+	function is_active_sidebar( $index ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; always false in this stub environment.
+		return false;
+	}
+}
+if ( ! function_exists( 'dynamic_sidebar' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' dynamic_sidebar(): a no-op, since
+	 * is_active_sidebar() above always reports false -- nothing in this
+	 * suite ever needs it to actually render widget output.
+	 *
+	 * @param string|int $index Sidebar ID (unused, kept for signature parity).
+	 * @return bool
+	 */
+	function dynamic_sidebar( $index ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; unreachable while is_active_sidebar() is always false.
+		return false;
+	}
+}
+if ( ! function_exists( 'bloginfo' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' bloginfo(): echoes a fixed,
+	 * recognisable string regardless of $show, so a test can assert the
+	 * real call site actually ran without a real site configured.
+	 *
+	 * @param string $show Which piece of info to echo (unused, kept for signature parity).
+	 * @return void
+	 */
+	function bloginfo( $show = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; fixed stub value regardless of $show.
+		echo 'Blueline Test Site'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub: a fixed, non-user-controlled string, not real render output.
 	}
 }
 if ( ! function_exists( 'get_the_date' ) ) {

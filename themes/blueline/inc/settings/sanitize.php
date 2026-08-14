@@ -43,6 +43,16 @@
  * than as markup -- the opposite of what an admin typing "<strong>" would
  * expect, and no safer for it.
  *
+ * `email`-typed fields are the one exception to "sanitize_text_field() plus
+ * the placeholder check": before Task 8's fix round, `type => 'email'` was
+ * purely decorative -- an email field fell through to the exact same path
+ * as a plain `text` field, guaranteeing nothing about the value's actual
+ * shape. That mattered concretely for `contact_email`, echoed into a
+ * `mailto:` href: rather than trust esc_url() alone to neutralise whatever a
+ * volunteer typed, blueline_sanitize_field() now runs an `email` value
+ * through core's own is_email() and rejects anything it would reject --
+ * closing the gap at the value's source rather than only at its render site.
+ *
  * @package blueline
  */
 
@@ -434,6 +444,35 @@ function blueline_sanitize_field( $value, array $field ) {
 
 	if ( 'page_id' === $type || 'term_id' === $type ) {
 		return absint( $value );
+	}
+
+	if ( 'email' === $type ) {
+		// Fix round 1 (Task 8): before this, an `email`-typed field fell
+		// through to the exact same sanitize_text_field() + placeholder-only
+		// path as a plain `text` field -- meaning the schema's `email` type
+		// was purely decorative, guaranteeing NOTHING about the value's
+		// shape. That matters here specifically because contact_email is
+		// echoed into a `mailto:` href: a value is_email() would reject
+		// (stray quotes, angle brackets, spaces -- none of which are legal
+		// in either the local-part or domain WordPress' own is_email()
+		// accepts) can never be assembled into that attribute in the first
+		// place, rather than trusting esc_url() alone to neutralise
+		// whatever a volunteer typed. is_email() is core's own validator,
+		// already used elsewhere in this theme (inc/account/avatars.php).
+		$sanitized = sanitize_text_field( (string) $value );
+
+		if ( '' === $sanitized || ! is_email( $sanitized ) ) {
+			return new WP_Error(
+				'blueline_invalid_email',
+				sprintf(
+					/* translators: %s: the field's label. */
+					__( '"%s" must be a valid email address.', 'blueline' ),
+					$label
+				)
+			);
+		}
+
+		return $sanitized;
 	}
 
 	$sanitized = sanitize_text_field( (string) $value );
