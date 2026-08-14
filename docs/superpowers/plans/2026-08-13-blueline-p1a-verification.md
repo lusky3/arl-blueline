@@ -79,8 +79,57 @@ Eight now exist. Each was written after something got through:
 | `ContactUrlTest` | the specific 404ing slug |
 | `IncTopLevelCallGuardTest` | a bare file-scope call executing at require time |
 | `NoticeDivGuardTest` | a `<div>` notice this install's plugin stack would delete |
-| `BootstrapFidelityTest` | the harness diverging from core |
+| `BootstrapFidelityTest` | the harness behaving as its author intended |
+| `WpCoreContractTest` | the harness diverging from **real WordPress core** |
 | contrast rules + placeholder contracts | AA regressions; `sprintf` fatals |
+
+## The root-cause fix, added after the phase closed
+
+The recurring failure below was three causes, not one. Only the third was actually fixed during the
+phase; the others were fixed instance by instance.
+
+| Class | Cause | Fixed by |
+|---|---|---|
+| **A** | Hand-written stubs of a real system, asserting nothing about their own fidelity | `WpCoreContractTest` (below) |
+| **B** | Verifying at a layer where the failure cannot manifest — WP-CLI cannot see a plugin deleting DOM nodes | **Unfixed.** Needs a browser against a real install with the real plugin stack; this repo has no CI |
+| **C** | Connectivity rather than behaviour — tests call units directly, never observing whether anything calls them | `IncRequireCoverageTest`, `SchemaFieldCoverageTest` |
+
+**The uncomfortable part:** a full WordPress core checkout was at `/home/cody/arl-local/`, and the
+harness referenced it nowhere. All four Class-A bugs were guesses about behaviour readable from a file
+on the same machine.
+
+`WpCoreContractTest` closes Class A in three pieces, deliberately **not** "a test that reads core at
+runtime" — that would skip without an oracle, and a silently skipped test is the very failure mode
+being eliminated:
+
+1. **A committed fixture** (`tests/fixtures/wp-core-option-contract.json`) recording hook order and
+   argument order for `update_option()`/`add_option()`/`sanitize_option()`, plus the core version it
+   came from. Extracted from staging's live **6.9.4**, cross-checked against the local 6.8.7.
+2. **A generator** under `tests/tools/` (deploy-excluded), which fails loudly and never emits a partial
+   contract — verified against six malformed inputs.
+3. **Two test jobs.** One always runs with no external dependency, asserting the stub's observed hook
+   sequence and argument order match the fixture. One runs only with an explicitly configured oracle,
+   asserting the fixture has not gone stale.
+
+**It found two more divergences on its first run** — `sanitize_option_{$option}` dispatching 2 args
+where core passes 3, and the generic `update_option`/`updated_option`/`add_option` actions never firing
+at all. Both fixed; `known_gaps` is empty.
+
+Independently confirmed not circular: a reviewer fetched core from WordPress' GitHub and the developer
+docs and matched every hook name, order and argument list — including the non-obvious asymmetry where
+`pre_update_option_{$option}` takes `( $value, $old_value, $option )` while the generic
+`pre_update_option` takes `( $value, $option, $old_value )`.
+
+### The guard's own known limits
+
+- **It nearly repeated the bug it exists to prevent.** Job 2 originally defaulted to the local 6.8.7
+  checkout while the fixture recorded staging's 6.9.4 — so a core upgrade would have left it passing
+  against a stale oracle. It now requires an explicit `BLUELINE_WP_CORE_INCLUDES_DIR` and **fails**,
+  never skips, on any version mismatch in either direction.
+- It verifies **structural** contract — which hooks, in what order, with what arguments. Behavioural
+  divergence (the `esc_url()` class) is out of reach of source extraction.
+- Job 2 only runs when someone sets the env var. In a repo with no CI that is a documented manual step,
+  same as every other gate here.
 
 ## Known limits of those guards
 
