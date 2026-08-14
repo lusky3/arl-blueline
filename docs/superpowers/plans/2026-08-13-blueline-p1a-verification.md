@@ -91,7 +91,7 @@ phase; the others were fixed instance by instance.
 | Class | Cause | Fixed by |
 |---|---|---|
 | **A** | Hand-written stubs of a real system, asserting nothing about their own fidelity | `WpCoreContractTest` (below) |
-| **B** | Verifying at a layer where the failure cannot manifest — WP-CLI cannot see a plugin deleting DOM nodes | **Unfixed.** Needs a browser against a real install with the real plugin stack; this repo has no CI |
+| **B** | Verifying at a layer where the failure cannot manifest — WP-CLI cannot see a plugin deleting DOM nodes | `tests-browser/panel-dom-persistence.spec.js` (below) |
 | **C** | Connectivity rather than behaviour — tests call units directly, never observing whether anything calls them | `IncRequireCoverageTest`, `SchemaFieldCoverageTest` |
 
 **The uncomfortable part:** a full WordPress core checkout was at `/home/cody/arl-local/`, and the
@@ -130,6 +130,46 @@ docs and matched every hook name, order and argument list — including the non-
   divergence (the `esc_url()` class) is out of reach of source extraction.
 - Job 2 only runs when someone sets the env var. In a repo with no CI that is a documented manual step,
   same as every other gate here.
+
+## Class B — the browser guard (`npm run test:browser`)
+
+Written after the phase closed, once it was pointed out that "no CI" is not the same as "cannot
+automate": `scripts/smoke-staging.sh` is already a manually-invoked 25-check suite, and Playwright was
+**already installed** (transitively via `@wordpress/scripts`, which ships `test-playwright.js`). No new
+dependency was needed. The capability had been in the repo all along.
+
+**Target: local ddev** (`~/arl-local`), which carries `capabilities-pro` — the exact plugin responsible —
+plus `automatic-login`, and has no Cloudflare challenge. `scripts/deploy-theme.sh` gained a `local`
+target. Kept **out of `npm run check`**, which must stay fast and dependency-free.
+
+**The assertion is deliberately general.** It does not check that the error summary exists — that guards
+the instance, and instance-guards are exactly what let two further notices slip past the source scan. It
+captures the raw HTTP response at navigation time, extracts what the theme rendered, compares against
+the live DOM after scripts run, and fails naming anything that vanished. Unlike the source scan it
+cannot be defeated by single quotes, `printf` templating or helper indirection, because it observes the
+outcome rather than the source.
+
+### It proves the hazard is live before trusting itself
+
+A review found the guard would go **fully green against any install lacking the plugin** — nothing
+vanishes when nothing removes it — so a green run could mean "the panel is safe" or "the failure mode
+was never exercised", indistinguishably.
+
+It now injects a canary `<div class="notice">` via an **init script** and requires it to be *removed*
+before any other assertion is trusted. Asserting the hazard rather than the plugin slug survives the
+site swapping plugins. (The first canary attempt was injected via `page.evaluate()` after load — which
+would have arrived too late to test anything. Caught during implementation.)
+
+### The pattern this phase kept re-proving
+
+Four separate times a verification layer needed the same correction: the test harness diverged from
+core; the contract guard's oracle could itself go stale; the browser guard re-fetched a URL whose
+response was no longer the one under test; and the browser guard could pass against an environment where
+the bug was impossible.
+
+**The checker inherits the blind spots of whoever built it.** Every one of those was caught by someone
+other than the author deliberately trying to make the check pass when it should not. That adversarial
+pass is not optional polish — on this branch it was the only thing that reliably worked.
 
 ## Known limits of those guards
 
