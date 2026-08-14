@@ -24,17 +24,17 @@ get_header();
 
 			<ul class="bl-empty-state__links">
 				<li>
-					<a class="bl-btn bl-btn--secondary" href="<?php echo esc_url( home_url( '/schedule' ) ); ?>">
+					<a class="bl-btn bl-btn--secondary" href="<?php echo esc_url( blueline_resolve_link( 'page_schedule' ) ); ?>">
 						<span class="bl-skew"><span><?php esc_html_e( 'Schedule', 'blueline' ); ?></span></span>
 					</a>
 				</li>
 				<li>
-					<a class="bl-btn bl-btn--secondary" href="<?php echo esc_url( home_url( '/standings' ) ); ?>">
+					<a class="bl-btn bl-btn--secondary" href="<?php echo esc_url( blueline_resolve_link( 'page_standings' ) ); ?>">
 						<span class="bl-skew"><span><?php esc_html_e( 'Standings', 'blueline' ); ?></span></span>
 					</a>
 				</li>
 				<li>
-					<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( home_url( '/register' ) ); ?>">
+					<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( blueline_resolve_link( 'page_register' ) ); ?>">
 						<span class="bl-skew"><span><?php esc_html_e( 'Register to Play', 'blueline' ); ?></span></span>
 					</a>
 				</li>

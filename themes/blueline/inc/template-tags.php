@@ -293,7 +293,7 @@ function blueline_header_cta(): array {
 	if ( $show_register ) {
 		return array(
 			'label'       => __( 'Register to Play', 'blueline' ),
-			'url'         => home_url( '/register' ),
+			'url'         => blueline_resolve_link( 'page_register' ),
 			'class'       => 'bl-btn--primary',
 			'is_register' => true,
 		);
@@ -301,7 +301,7 @@ function blueline_header_cta(): array {
 
 	return array(
 		'label'       => __( 'Schedule', 'blueline' ),
-		'url'         => home_url( '/schedule' ),
+		'url'         => blueline_resolve_link( 'page_schedule' ),
 		'class'       => 'bl-btn--secondary',
 		'is_register' => false,
 	);
@@ -562,7 +562,7 @@ function blueline_site_header() {
  * @return string Absolute URL to the Contact Us page.
  */
 function blueline_contact_url(): string {
-	return home_url( '/arl-league-info/contact-us' );
+	return blueline_resolve_link( 'page_contact' );
 }
 
 /**
@@ -588,8 +588,8 @@ function blueline_site_footer() {
 				<ul class="bl-footer__trust-links">
 					<li><a href="<?php echo esc_url( blueline_contact_url() ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
 					<li><a href="<?php echo esc_url( 'mailto:play@rookiehockey.ca' ); ?>"><?php esc_html_e( 'play@rookiehockey.ca', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( home_url( '/faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( home_url( '/legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
+					<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
 				</ul>
 			</div>
 

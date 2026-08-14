@@ -374,7 +374,7 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 		),
 		'subcopy_lines' => $subcopy_lines,
 		'cta_label'     => $cta_label,
-		'cta_url'       => home_url( '/register' ),
+		'cta_url'       => blueline_resolve_link( 'page_register' ),
 		'cta_variant'   => 'primary',
 	);
 }
@@ -407,7 +407,7 @@ function blueline_homepage_hero_preseason_content( array $state_data ): array {
 		'eyebrow'       => $eyebrow,
 		'headline_html' => $headline_html,
 		'cta_label'     => __( 'View schedule', 'blueline' ),
-		'cta_url'       => home_url( '/schedule' ),
+		'cta_url'       => blueline_resolve_link( 'page_schedule' ),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -444,7 +444,7 @@ function blueline_homepage_hero_in_season_content( array $state_data ): array {
 		'eyebrow'       => $eyebrow,
 		'headline_html' => $headline_html,
 		'cta_label'     => __( 'My next game', 'blueline' ),
-		'cta_url'       => home_url( '/schedule' ),
+		'cta_url'       => blueline_resolve_link( 'page_schedule' ),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -468,7 +468,7 @@ function blueline_homepage_hero_playoffs_content( array $state_data ): array {
 		'eyebrow'       => $eyebrow,
 		'headline_html' => blueline_hero_highlight( __( 'Playoffs.', 'blueline' ) ),
 		'cta_label'     => __( 'View bracket', 'blueline' ),
-		'cta_url'       => home_url( '/standings' ),
+		'cta_url'       => blueline_resolve_link( 'page_standings' ),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -752,7 +752,7 @@ function blueline_homepage_module_next_games() {
 		$events = $query->posts;
 	}
 
-	blueline_homepage_module_start( 'next_games', __( 'Next games', 'blueline' ), home_url( '/schedule' ), __( 'Full schedule', 'blueline' ) );
+	blueline_homepage_module_start( 'next_games', __( 'Next games', 'blueline' ), blueline_resolve_link( 'page_schedule' ), __( 'Full schedule', 'blueline' ) );
 
 	if ( empty( $events ) ) {
 		blueline_homepage_module_empty_state( __( 'No games on the schedule yet — check back soon.', 'blueline' ) );
@@ -921,7 +921,7 @@ function blueline_homepage_module_standings_snippet() {
 	$state    = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
 	$table_id = blueline_homepage_current_standings_table_id( $state );
 
-	blueline_homepage_module_start( 'standings_snippet', __( 'Standings', 'blueline' ), home_url( '/standings' ), __( 'Full standings', 'blueline' ) );
+	blueline_homepage_module_start( 'standings_snippet', __( 'Standings', 'blueline' ), blueline_resolve_link( 'page_standings' ), __( 'Full standings', 'blueline' ) );
 
 	$table_html = $table_id && shortcode_exists( 'league_table' )
 		? do_shortcode( '[league_table id="' . absint( $table_id ) . '"]' )
@@ -1023,7 +1023,7 @@ function blueline_homepage_new_here_default_content() {
 						__( 'Less than you\'d think, and you can rent most of it nearby before buying a single thing. %1$sSee the gear guide%2$s.', 'blueline' ),
 						array( 'a' => array( 'href' => array() ) )
 					),
-					'<a href="' . esc_url( home_url( '/arl-league-info/equipment' ) ) . '">',
+					'<a href="' . esc_url( blueline_resolve_link( 'page_equipment' ) ) . '">',
 					'</a>'
 				);
 				?>
@@ -1044,7 +1044,7 @@ function blueline_homepage_new_here_default_content() {
  * the theme's own default copy instead.
  */
 function blueline_homepage_module_new_here() {
-	blueline_homepage_module_start( 'new_here', __( 'Never played? Perfect.', 'blueline' ), home_url( '/faqs' ), __( 'Read the FAQs', 'blueline' ) );
+	blueline_homepage_module_start( 'new_here', __( 'Never played? Perfect.', 'blueline' ), blueline_resolve_link( 'page_faqs' ), __( 'Read the FAQs', 'blueline' ) );
 
 	if ( function_exists( 'blueline_leaf_mark' ) ) {
 		blueline_leaf_mark( 'bl-new-here__watermark' );
@@ -1075,7 +1075,7 @@ function blueline_homepage_module_latest_news() {
 		)
 	);
 
-	blueline_homepage_module_start( 'latest_news', __( 'Latest news', 'blueline' ), home_url( '/news' ), __( 'All news', 'blueline' ) );
+	blueline_homepage_module_start( 'latest_news', __( 'Latest news', 'blueline' ), blueline_resolve_link( 'page_news' ), __( 'All news', 'blueline' ) );
 
 	if ( empty( $posts ) ) {
 		blueline_homepage_module_empty_state( __( 'No news posted yet.', 'blueline' ) );
