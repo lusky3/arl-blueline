@@ -41,28 +41,39 @@ final class SettingsStoreTest extends TestCase {
 	 * The load-bearing test. Without blueline_settings_merge() registered on
 	 * pre_update_option_{$option}, the second update_option() call below
 	 * would overwrite the option with only its own posted key, and
-	 * $stored['links'] would not exist at all.
+	 * $stored['page_faqs'] would not exist at all.
+	 *
+	 * Uses REAL, flat schema keys (`contact_email`, `page_faqs`) rather
+	 * than a fictional nested `content`/`links` shape: since Task 7, the
+	 * actual write path also runs inc/settings/page.php's
+	 * blueline_settings_sanitize_callback() (wired unconditionally at file
+	 * scope, exactly like this file's own blueline_settings_merge()),
+	 * which only lets a real schema field (or a reserved bookkeeping key)
+	 * survive a write -- a fictional top-level key would be dropped by
+	 * that filtering before the merge ever saw it, which is correct there
+	 * but would make this test assert nothing meaningful about the real
+	 * write path.
 	 */
 	public function test_saving_one_tab_does_not_wipe_another(): void {
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
-				'content' => array( 'contact_email' => 'a@example.com' ),
-				'links'   => array( 'page_faqs' => 42 ),
+				'contact_email' => 'a@example.com',
+				'page_faqs'     => 42,
 			)
 		);
 
-		// A Content-tab submission posts only its own subkey.
+		// A Content-tab submission posts only its own field.
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
-				'content' => array( 'contact_email' => 'b@example.com' ),
+				'contact_email' => 'b@example.com',
 			)
 		);
 
 		$stored = get_option( BLUELINE_SETTINGS_OPTION );
-		$this->assertSame( 'b@example.com', $stored['content']['contact_email'] );
-		$this->assertSame( 42, $stored['links']['page_faqs'], 'the Links tab was wiped' );
+		$this->assertSame( 'b@example.com', $stored['contact_email'] );
+		$this->assertSame( 42, $stored['page_faqs'], 'the Links tab was wiped' );
 	}
 
 	/**

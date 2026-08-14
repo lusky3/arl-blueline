@@ -341,6 +341,118 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
+	 * Task-7 fix-round-2 finding: the sanitize callback must not forward
+	 * ANY unrecognised top-level key merely because it doesn't recognise
+	 * it -- that was a real weakening of the allow-list model Tasks 2-6
+	 * built. A key that is neither a real schema field nor on
+	 * BLUELINE_SETTINGS_RESERVED_KEYS must be dropped, exactly as if it
+	 * had never been declared at all.
+	 */
+	public function test_sanitize_callback_drops_an_unrecognised_key_that_is_not_reserved(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( 'some_made_up_key' => 'anything' )
+		);
+
+		$this->assertArrayNotHasKey( 'some_made_up_key', $output );
+	}
+
+	/**
+	 * The one thing that MUST keep working after tightening the allow-list:
+	 * inc/settings/store.php's `_schema` migration bookkeeping key still
+	 * has to survive a programmatic update_option() call (no `_tab`
+	 * present, i.e. not this file's own rendered form) -- this is exactly
+	 * the case that broke the first time the callback went from "forward
+	 * unrecognised keys" back to a strict allow-list, since `_schema` is
+	 * deliberately not a real schema field either.
+	 */
+	public function test_sanitize_callback_lets_schema_survive_a_programmatic_write(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( '_schema' => 3 )
+		);
+
+		$this->assertArrayHasKey( '_schema', $output );
+		$this->assertSame( 3, $output['_schema'] );
+	}
+
+	/**
+	 * `_schema` is sanitized like everything else this callback handles
+	 * (absint()), never trusted as opaque data just because it's on the
+	 * reserved allow-list -- a negative or non-numeric value must not
+	 * survive verbatim.
+	 */
+	public function test_sanitize_callback_integer_casts_schema_on_a_programmatic_write(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( '_schema' => '7abc' )
+		);
+
+		$this->assertSame( 7, $output['_schema'] );
+	}
+
+	/**
+	 * The other half of the fix: a submission carrying `_tab` came from
+	 * this file's own rendered form, which never legitimately has a
+	 * `_schema` field on any tab -- its presence there can only be
+	 * tampering (accidental or otherwise), never a real use of the panel.
+	 * An admin sending `blueline_settings[_schema]` at or above
+	 * BLUELINE_SETTINGS_SCHEMA_VERSION through the form must not be able
+	 * to make blueline_settings_migrate()'s forward-only guard treat the
+	 * install as already current -- so `_schema` is dropped outright here,
+	 * not merely sanitized.
+	 */
+	public function test_sanitize_callback_drops_schema_from_a_form_submission(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'    => 'content',
+				'_schema' => 999,
+			)
+		);
+
+		$this->assertArrayNotHasKey( '_schema', $output );
+	}
+
+	/**
+	 * Migration must still behave correctly after all of the above: a
+	 * fresh update_option() call (no `_tab`, matching
+	 * blueline_settings_migrate()'s own write shape) carrying `_schema`
+	 * survives through the full sanitize_option_/pre_update_option_
+	 * dispatch chain, and blueline_settings_migrate() reads it back
+	 * correctly -- proving the reserved-key allow-list didn't quietly
+	 * break the migration guard it exists to protect.
+	 */
+	public function test_migration_still_works_through_the_tightened_allow_list(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array( '_schema' => BLUELINE_SETTINGS_SCHEMA_VERSION )
+		);
+
+		$before = get_option( BLUELINE_SETTINGS_OPTION );
+		$this->assertSame(
+			BLUELINE_SETTINGS_SCHEMA_VERSION,
+			$before['_schema'],
+			'sanity check: _schema must have actually been written before migrate() runs'
+		);
+
+		blueline_settings_migrate();
+
+		// Already current: blueline_settings_migrate() must be a true no-op
+		// (SettingsStoreTest::test_migration_is_a_no_op_once_already_current()
+		// already covers this in isolation; repeated here through the full
+		// write path this fix round changed).
+		$this->assertSame( $before, get_option( BLUELINE_SETTINGS_OPTION ) );
+
+		// The forward path: an unversioned option is bumped to current and
+		// backfilled with defaults.
+		delete_option( BLUELINE_SETTINGS_OPTION );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'kept-through-migration@example.com' ) );
+
+		blueline_settings_migrate();
+
+		$stored = get_option( BLUELINE_SETTINGS_OPTION );
+		$this->assertSame( BLUELINE_SETTINGS_SCHEMA_VERSION, $stored['_schema'] );
+		$this->assertSame( 'kept-through-migration@example.com', $stored['contact_email'] );
+	}
+
+	/**
 	 * The full round trip the task brief calls out explicitly: saving the
 	 * Content tab with `footer_heading` cleared to an empty string must
 	 * actually clear it, while the Links tab's own value -- never posted by

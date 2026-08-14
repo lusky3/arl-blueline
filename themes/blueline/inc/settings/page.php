@@ -90,6 +90,40 @@
  * it -- so naming a foreign field only ever fails silently, never deletes
  * it.
  *
+ * ## `_schema` is reserved, not "unrecognised" -- and never from a form
+ *
+ * blueline_settings_sanitize_callback() must let inc/settings/store.php's
+ * `_schema` migration bookkeeping key survive a write (it is deliberately
+ * NOT part of the schema -- see blueline_settings()'s own docblock -- yet
+ * blueline_settings_migrate() writes it directly via update_option(),
+ * which now runs through this same callback on every path). That is NOT
+ * the same thing as forwarding every unrecognised key unchanged: doing
+ * that once let ANY top-level key in a submission persist, silently
+ * weakening the allow-list model Tasks 2-6 built, and specifically let
+ * `_schema` itself be set from an ordinary POST -- an admin (accidentally
+ * or otherwise) sending `blueline_settings[_schema]` at or above
+ * BLUELINE_SETTINGS_SCHEMA_VERSION would make blueline_settings_migrate()'s
+ * forward-only guard treat the install as already current, permanently
+ * and silently skipping a real future migration.
+ *
+ * The fix is an explicit reserved-key allow-list -- today exactly
+ * `array( '_schema' )` -- rather than "forward anything unrecognised":
+ * any key that is neither a real schema field nor on that list is
+ * dropped, exactly as it would be if it were never declared at all.
+ * `_schema` itself is still sanitized like everything else (absint(),
+ * matching every other integer-valued field this callback handles), and
+ * is additionally dropped outright when the submission carries a `_tab`
+ * -- i.e. came from this file's own rendered form. No tab's form has (or
+ * should ever have) a `_schema` field, so its presence alongside a `_tab`
+ * can only mean tampering, never a legitimate use of the panel; a
+ * programmatic write (blueline_settings_migrate()'s own update_option()
+ * call, WP-CLI, an import script) never carries `_tab` at all, which is
+ * exactly the path `_schema` needs to keep surviving. This is not a hard
+ * security boundary against a deliberately crafted request (both paths
+ * already require `manage_options`, the same capability that can write
+ * every schema field directly), only a deliberate narrowing of what the
+ * UI's own form can ever legitimately submit.
+ *
  * ## Never an autoload argument
  *
  * Nothing in this file calls update_option()/register_setting() with an
@@ -115,6 +149,18 @@ const BLUELINE_SETTINGS_PAGE_SLUG = 'blueline';
  * and the <form> settings_fields() call in blueline_settings_render_page().
  */
 const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
+
+/**
+ * Top-level option keys that are neither a real schema field nor the two
+ * request-scoped bookkeeping keys (`_posted_fields`, `_tab`) this file's
+ * own form emits, but which a write still needs to be able to carry --
+ * today exactly inc/settings/store.php's `_schema` migration version.
+ * blueline_settings_sanitize_callback() checks every unrecognised key
+ * against this explicit allow-list rather than forwarding it merely for
+ * being unrecognised -- see this file's own docblock's `_schema` section
+ * for why that distinction is load-bearing.
+ */
+const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema' );
 
 add_action( 'admin_menu', 'blueline_settings_add_page' );
 /**
@@ -187,6 +233,13 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    owns" from "this field belongs to an untouched tab". A submission
  *    naming a foreign tab's field is not honoured for that field -- see
  *    this file's docblock's `_posted_fields` section.
+ * 4. Every OTHER key is checked against an explicit reserved-key
+ *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today just `_schema`),
+ *    never forwarded merely for being unrecognised -- see this file's
+ *    docblock's `_schema` section for why "forward anything unrecognised"
+ *    was rejected. A reserved key is still sanitized (absint()) and is
+ *    dropped outright when the submission carries a `_tab` (came from
+ *    this file's own form, which never legitimately submits one).
  *
  * @param mixed $input Raw value from $_POST[BLUELINE_SETTINGS_OPTION], as
  *                      WordPress' sanitize_option_{$option} filter hands it
@@ -231,18 +284,30 @@ function blueline_settings_sanitize_callback( $input ): array {
 		}
 
 		if ( ! isset( $schema[ $key ] ) ) {
-			// Not a field this callback knows how to validate -- most
-			// notably inc/settings/store.php's own `_schema` migration
-			// bookkeeping key, which is deliberately NOT part of the
-			// schema (see blueline_settings()'s own docblock) and must
-			// still survive a write untouched. This function's job is to
-			// validate the fields it DOES recognise, not to decide the
-			// fate of data it doesn't -- silently dropping an unrecognised
-			// key here would have broken blueline_settings_migrate()'s own
-			// update_option() call the moment this callback started
-			// running unconditionally (see this file's "Every write path
-			// is validated" docblock section).
-			$output[ $key ] = $value;
+			if ( ! in_array( $key, BLUELINE_SETTINGS_RESERVED_KEYS, true ) ) {
+				// Not a real field and not on the reserved allow-list:
+				// dropped, exactly as if it had never been declared at
+				// all -- see this file's docblock's `_schema` section for
+				// why this is an explicit allow-list rather than "forward
+				// anything unrecognised".
+				continue;
+			}
+
+			if ( '' !== $submitted_tab ) {
+				// Reserved, but this submission carries `_tab` -- it came
+				// from this file's own rendered form, which never
+				// legitimately submits a reserved key. Dropped, not
+				// honoured, rather than trusted just because it's on the
+				// allow-list.
+				continue;
+			}
+
+			// A programmatic write (blueline_settings_migrate()'s own
+			// update_option() call, WP-CLI, an import script) -- exactly
+			// the path a reserved key like `_schema` needs to keep
+			// surviving. Still sanitized like everything else, never
+			// trusted as opaque data.
+			$output[ $key ] = absint( $value );
 			continue;
 		}
 

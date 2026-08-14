@@ -291,7 +291,7 @@ final class SettingsCacheTest extends TestCase {
 
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
-			array( 'content' => array( 'contact_email' => 'a@example.com' ) )
+			array( 'contact_email' => 'a@example.com' )
 		);
 
 		$this->assertTrue( blueline_cache_purge_needed(), 'the honest manual-purge notice must be recorded on a real settings save, including the very first one' );
@@ -303,12 +303,22 @@ final class SettingsCacheTest extends TestCase {
 	 * itself), rather than add_option_{$option} -- both must reach the same
 	 * policy. Without inc/settings/cache.php hooking update_option_{$option}
 	 * at all, this is the case that would have silently stopped working.
+	 *
+	 * Uses a REAL schema key (`contact_email`) rather than a fictional
+	 * nested `content` shape: since Task 7, the actual write path also
+	 * runs inc/settings/page.php's blueline_settings_sanitize_callback()
+	 * (wired unconditionally at file scope), which drops any key that is
+	 * neither a real schema field nor a reserved bookkeeping key -- a
+	 * fictional `content` key would be dropped identically on both calls
+	 * below, making the two update_option() calls resolve to the same
+	 * stored value and short-circuit as a no-op (so update_option_{$option}
+	 * would never fire, and this test would assert nothing real).
 	 */
 	public function test_default_off_path_records_notice_on_a_later_save_too(): void {
-		update_option( BLUELINE_SETTINGS_OPTION, array( 'content' => array( 'contact_email' => 'a@example.com' ) ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
 		blueline_clear_cache_purge_needed(); // Undo the first save's own notice so this assertion is about the SECOND save only.
 
-		update_option( BLUELINE_SETTINGS_OPTION, array( 'content' => array( 'contact_email' => 'b@example.com' ) ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'b@example.com' ) );
 
 		$this->assertTrue( blueline_cache_purge_needed(), 'a save that is not the option\'s first write must also record the manual-purge notice' );
 	}
