@@ -260,10 +260,18 @@ final class SettingsCacheTest extends TestCase {
 	}
 
 	/**
-	 * Saving settings with the default (off) constant, via the real
-	 * update_option_{$option} hook dispatch, must record the manual-purge
-	 * notice and must never call redis_instance() at all -- proven here by
-	 * a fake object cache whose redis_instance() would throw if called.
+	 * Saving settings with the default (off) constant, via a REAL
+	 * update_option() call -- not a direct function call -- must record the
+	 * manual-purge notice and must never call redis_instance() at all,
+	 * proven here by a fake object cache whose redis_instance() would throw
+	 * if called.
+	 *
+	 * This is deliberately the option's very FIRST-EVER write in this test
+	 * (setUp() resets the option store before every test), so it fires
+	 * add_option_{$option} -- and blueline_flush_page_cache_on_first_save()
+	 * -- not update_option_{$option}; see
+	 * test_default_off_path_records_notice_on_a_later_save_too() below for
+	 * the update_option_{$option} branch on a save that isn't the first.
 	 */
 	public function test_default_off_path_records_notice_and_never_touches_redis(): void {
 		global $wp_object_cache;
@@ -286,7 +294,23 @@ final class SettingsCacheTest extends TestCase {
 			array( 'content' => array( 'contact_email' => 'a@example.com' ) )
 		);
 
-		$this->assertTrue( blueline_cache_purge_needed(), 'the honest manual-purge notice must be recorded on a real settings save' );
+		$this->assertTrue( blueline_cache_purge_needed(), 'the honest manual-purge notice must be recorded on a real settings save, including the very first one' );
+	}
+
+	/**
+	 * The companion to the test above: a save that is NOT the option's
+	 * first write fires update_option_{$option} (blueline_flush_page_cache()
+	 * itself), rather than add_option_{$option} -- both must reach the same
+	 * policy. Without inc/settings/cache.php hooking update_option_{$option}
+	 * at all, this is the case that would have silently stopped working.
+	 */
+	public function test_default_off_path_records_notice_on_a_later_save_too(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'content' => array( 'contact_email' => 'a@example.com' ) ) );
+		blueline_clear_cache_purge_needed(); // Undo the first save's own notice so this assertion is about the SECOND save only.
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'content' => array( 'contact_email' => 'b@example.com' ) ) );
+
+		$this->assertTrue( blueline_cache_purge_needed(), 'a save that is not the option\'s first write must also record the manual-purge notice' );
 	}
 
 	/**
@@ -508,6 +532,48 @@ final class SettingsCacheTest extends TestCase {
 	 */
 	public function test_cache_purge_host_derives_from_home_url(): void {
 		$this->assertSame( 'example.test', blueline_cache_purge_host() );
+	}
+
+	/**
+	 * Calling blueline_cache_purge_command( '' ) must NEVER build the unsafe
+	 * `nginx-cache:**` pattern -- an empty host would otherwise produce a
+	 * command that matches (and UNLINKs) every key in that Redis, not just
+	 * this site's, including any other site sharing the instance. It must
+	 * return '' instead, which is what tells the notice renderer to show
+	 * blueline_cache_purge_unresolvable_host_message() rather than a
+	 * command at all.
+	 */
+	public function test_purge_command_refuses_to_build_a_pattern_for_an_empty_host(): void {
+		$command = blueline_cache_purge_command( '' );
+
+		$this->assertSame( '', $command );
+		$this->assertStringNotContainsString( 'nginx-cache:', $command );
+	}
+
+	/**
+	 * The notice-path guard the reviewer asked for, proven at the exact
+	 * decision point blueline_render_cache_purge_notice() branches on: with
+	 * an unresolvable host, the admin must see the plain "could not be
+	 * parsed" explanation and NOTHING that looks like a command -- never a
+	 * command built from an empty pattern, and never the ordinary command
+	 * either (there is no safe one to show).
+	 */
+	public function test_notice_path_with_unresolvable_host_shows_no_command(): void {
+		$unresolvable_host = ''; // What blueline_cache_purge_host() returns when home_url() can't be parsed.
+
+		$command = blueline_cache_purge_command( $unresolvable_host );
+		$this->assertSame( '', $command, 'no command must be generated for an unresolvable host' );
+
+		$shown_to_admin = ( '' !== $command )
+			? $command
+			: blueline_cache_purge_unresolvable_host_message();
+
+		$this->assertSame(
+			"This site's URL could not be parsed, so a safe purge command could not be generated. Contact your host to purge the Redis-backed page cache manually.",
+			$shown_to_admin
+		);
+		$this->assertStringNotContainsString( 'nginx-cache:**', $shown_to_admin );
+		$this->assertStringNotContainsString( 'redis-cli', $shown_to_admin, 'no command of any shape must appear when the host is unresolvable' );
 	}
 
 	/**

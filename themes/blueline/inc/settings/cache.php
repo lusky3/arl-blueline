@@ -83,12 +83,16 @@ if ( ! defined( 'BLUELINE_SRCACHE_PURGE' ) ) {
 const BLUELINE_CACHE_PURGE_NEEDED_OPTION = 'blueline_cache_purge_needed';
 
 add_action( 'update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_flush_page_cache', 10, 3 );
+add_action( 'add_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_flush_page_cache_on_first_save', 10, 2 );
 
 /**
  * Hooked to `update_option_{BLUELINE_SETTINGS_OPTION}` -- fires after the
- * settings panel's one option is actually written (core's own post-write
- * hook), so this runs once per save that changed something, never on a
- * no-op save the Settings API short-circuited.
+ * settings panel's one option is actually written, PROVIDED the option
+ * already existed before this save (core's own post-write hook for that
+ * case). Never fires on a no-op save the Settings API short-circuited, and
+ * -- this is the one core footgun this pair of hooks exists to work around
+ * -- never fires on the very FIRST write to the option either; see
+ * blueline_flush_page_cache_on_first_save()'s docblock for that case.
  *
  * All the decision logic lives in blueline_apply_cache_purge_policy(),
  * which takes the enabled/disabled flag as a plain parameter rather than
@@ -105,6 +109,48 @@ add_action( 'update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_flush_page_ca
  * @return void
  */
 function blueline_flush_page_cache( $old_value, $new_value, $option ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with the update_option_{$option} hook's 3-argument dispatch; the purge decision itself needs none of them.
+	blueline_maybe_purge_page_cache();
+}
+
+/**
+ * Hooked to `add_option_{BLUELINE_SETTINGS_OPTION}` -- covers the ONE case
+ * blueline_flush_page_cache() above cannot: core's real update_option()
+ * does not fire `update_option_{$option}` on the very first write to an
+ * option that does not already exist in the database. Internally it
+ * delegates that first write to add_option(), which fires
+ * `add_option_{$option}` instead (verified against a faithful stub in
+ * BootstrapFidelityTest::test_update_option_fires_add_option_hook_on_first_write_only()).
+ * Without this second hook, the settings panel's very first-ever save on a
+ * fresh install -- when `BLUELINE_SETTINGS_OPTION` genuinely does not
+ * exist yet -- would silently skip the purge-or-notice policy entirely.
+ *
+ * That is not a negligible edge case: a fresh install can already have
+ * visitor-facing pages cached against the schema's DEFAULTS (nothing
+ * about a persistent page cache requires the settings option to exist
+ * first), and the first real save is exactly the moment those defaults
+ * change under already-cached HTML -- precisely the scenario this whole
+ * file exists to catch. Hooking both `add_option_{$option}` and
+ * `update_option_{$option}` (rather than leaving the gap documented) is
+ * the safer of the two defensible choices for that reason.
+ *
+ * @param string $option The option name (unused; see
+ *                        blueline_flush_page_cache()'s docblock for why).
+ * @param mixed  $value  The value just added (unused; see above).
+ * @return void
+ */
+function blueline_flush_page_cache_on_first_save( $option, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with the add_option_{$option} hook's 2-argument dispatch; the purge decision itself needs neither.
+	blueline_maybe_purge_page_cache();
+}
+
+/**
+ * Shared entry point for both blueline_flush_page_cache() (any save after
+ * the option already exists) and blueline_flush_page_cache_on_first_save()
+ * (the very first save) -- see blueline_apply_cache_purge_policy() for the
+ * actual decision either one triggers.
+ *
+ * @return void
+ */
+function blueline_maybe_purge_page_cache(): void {
 	blueline_apply_cache_purge_policy( BLUELINE_SRCACHE_PURGE );
 }
 
@@ -155,6 +201,11 @@ function blueline_apply_cache_purge_policy( bool $purge_enabled ): void {
  *    cache backend (or no drop-in) does not.
  * 3. `is_object( $redis )` -- redis_instance() returning something falls
  *    short of proving it returned a usable client object.
+ * 4. A non-empty `blueline_cache_purge_host()` -- an unparseable
+ *    `home_url()` would otherwise build the pattern `nginx-cache:**`,
+ *    which matches (and would purge) EVERY key in that Redis, not just
+ *    this site's -- see blueline_cache_purge_command()'s docblock for the
+ *    matching guard on the manual-purge notice's command text.
  *
  * Any guard failing returns `false` immediately -- no partial purge is
  * attempted, and nothing here can fatal a save on a site that simply
@@ -246,14 +297,43 @@ function blueline_cache_purge_host(): string {
  * kept in the same SCAN-based shape as the guarded purge above (never
  * KEYS) so it is safe to run against a large production keyspace too.
  *
+ * Refuses, on principle, to ever build a command with an empty `$host`:
+ * `nginx-cache:**` (the pattern an unguarded sprintf() would produce)
+ * matches -- and this command would UNLINK -- every key in that Redis,
+ * not just this site's, including any other site sharing the same
+ * instance. Unlike blueline_srcache_purge_attempt()'s equivalent guard,
+ * this one matters MORE here, not less: this command is copy-pasted and
+ * run by a human who trusts what the panel told them, so a wrong command
+ * shown here has a worse blast radius than the same wrong precondition
+ * silently skipping the automated path.
+ *
  * @param string $host Host to scope the purge to (see blueline_cache_purge_host()).
- * @return string The command, ready to paste into a shell on the server.
+ * @return string The command, ready to paste into a shell on the server, or
+ *                '' if $host is empty -- callers MUST treat '' as "no safe
+ *                command exists" and show blueline_cache_purge_unresolvable_host_message()
+ *                instead, never fall back to an empty-host pattern.
  */
 function blueline_cache_purge_command( string $host ): string {
+	if ( '' === $host ) {
+		return '';
+	}
+
 	return sprintf(
 		"redis-cli --scan --pattern 'nginx-cache:*%s*' | xargs -r redis-cli unlink",
 		$host
 	);
+}
+
+/**
+ * Shown in place of the purge command when blueline_cache_purge_host()
+ * could not resolve a host -- see blueline_cache_purge_command()'s
+ * docblock for why a command is never shown in that case, even though the
+ * unsafe pattern could technically still be built.
+ *
+ * @return string
+ */
+function blueline_cache_purge_unresolvable_host_message(): string {
+	return __( 'This site\'s URL could not be parsed, so a safe purge command could not be generated. Contact your host to purge the Redis-backed page cache manually.', 'blueline' );
 }
 
 /**
@@ -317,6 +397,12 @@ add_action( 'admin_notices', 'blueline_render_cache_purge_notice' );
  * esc_html(): this is wp-admin output, and unescaped content there is
  * stored XSS.
  *
+ * When the host can't be resolved, NO command is rendered at all -- see
+ * blueline_cache_purge_command()'s docblock for why an empty-host command
+ * must never be shown, even as a fallback. This is the same guard
+ * blueline_srcache_purge_attempt() applies before it will attempt the
+ * automated purge, applied here to the manual instruction instead.
+ *
  * @return void
  */
 function blueline_render_cache_purge_notice(): void {
@@ -334,7 +420,11 @@ function blueline_render_cache_purge_notice(): void {
 	?>
 	<div class="notice notice-warning bl-cache-purge-notice">
 		<p><?php echo esc_html( $message ); ?></p>
-		<p><code><?php echo esc_html( $command ); ?></code></p>
+		<?php if ( '' !== $command ) : ?>
+			<p><code><?php echo esc_html( $command ); ?></code></p>
+		<?php else : ?>
+			<p><?php echo esc_html( blueline_cache_purge_unresolvable_host_message() ); ?></p>
+		<?php endif; ?>
 		<p>
 			<a class="button" href="<?php echo esc_url( $dismiss ); ?>">
 				<?php esc_html_e( "I've purged the cache manually -- dismiss this notice", 'blueline' ); ?>

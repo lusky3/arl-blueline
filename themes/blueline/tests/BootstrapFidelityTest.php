@@ -248,6 +248,51 @@ final class BootstrapFidelityTest extends TestCase {
 	}
 
 	/**
+	 * Pins the asymmetry a task-6 code review caught this stub getting
+	 * wrong: core's real update_option() does NOT fire
+	 * update_option_{$option} on the very FIRST write to an option that
+	 * does not exist yet -- it delegates internally to add_option(), which
+	 * fires add_option_{$option} (and added_option) instead. Only a
+	 * SUBSEQUENT write, to an option that already exists, fires
+	 * update_option_{$option}. A callback hooked only to
+	 * update_option_{$option} silently never runs on that first save --
+	 * exactly the gap inc/settings/cache.php's purge trigger originally had
+	 * (see its blueline_flush_page_cache_on_first_save()).
+	 */
+	public function test_update_option_fires_add_option_hook_on_first_write_only(): void {
+		$calls = array();
+
+		add_action(
+			'add_option_bl_first',
+			static function ( $option, $value ) use ( &$calls ) {
+				$calls[] = array( 'add_option_bl_first', $option, $value );
+			},
+			10,
+			2
+		);
+		add_action(
+			'update_option_bl_first',
+			static function ( $old_value, $new_value, $option ) use ( &$calls ) {
+				$calls[] = array( 'update_option_bl_first', $old_value, $new_value, $option );
+			},
+			10,
+			3
+		);
+
+		update_option( 'bl_first', 'one' ); // First-ever write: the option does not exist yet.
+		update_option( 'bl_first', 'two' ); // Second write: the option already exists.
+
+		$this->assertSame(
+			array(
+				array( 'add_option_bl_first', 'bl_first', 'one' ),
+				array( 'update_option_bl_first', 'one', 'two', 'bl_first' ),
+			),
+			$calls,
+			'the first write must fire add_option_{$option}, never update_option_{$option}; only the second write may fire the latter'
+		);
+	}
+
+	/**
 	 * Test case: add_option() must run sanitize_option_{$option}
 	 * unconditionally, exactly as core does.
 	 */

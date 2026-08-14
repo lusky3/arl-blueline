@@ -799,12 +799,33 @@ if ( ! function_exists( 'get_option' ) ) {
 	}
 }
 
+if ( ! function_exists( 'blueline_test_fire_added_option_hooks' ) ) {
+	/**
+	 * Fires the pair of hooks core's real add_option() fires once a brand
+	 * new option has actually been written -- shared by update_option()'s
+	 * first-write branch below and add_option() itself, since core's own
+	 * update_option() literally delegates to add_option() internally for
+	 * that case (see update_option()'s docblock for why that matters).
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value  Value just added.
+	 * @return void
+	 */
+	function blueline_test_fire_added_option_hooks( $option, $value ) {
+		do_action( "add_option_{$option}", $option, $value );
+		do_action( 'added_option', $option, $value );
+	}
+}
+
 if ( ! function_exists( 'update_option' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' update_option(): mirrors core's
 	 * documented dispatch order -- sanitize_option_{$option}, then
 	 * pre_update_option_{$option}, then pre_update_option, then (if the
-	 * value actually changed) the write, then update_option_{$option}.
+	 * value actually changed) the write, then EITHER
+	 * add_option_{$option}/added_option (first-ever write) OR
+	 * update_option_{$option} (every subsequent write) -- never both, and
+	 * never the wrong one for which case this is.
 	 *
 	 * The sanitize step is the hook register_setting()'s sanitize_callback
 	 * attaches to, and the behaviour P1's settings layer depends on to
@@ -831,6 +852,21 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * catch (see BootstrapFidelityTest::
 	 * test_update_option_dispatches_hooks_in_core_order(), which asserts
 	 * each hook's arguments individually, not merely that each fires).
+	 *
+	 * The add_option_{$option}-vs-update_option_{$option} branch below is a
+	 * SEPARATE fidelity fix, added after a task-6 code review caught this
+	 * stub firing update_option_{$option} unconditionally, including on an
+	 * option's first-ever write. Core's real update_option() does not: when
+	 * the option does not already exist, $old_value equals the (usually
+	 * `false`) registered default, and update_option() short-circuits into
+	 * calling add_option() internally -- which fires add_option_{$option}
+	 * and added_option, NOT update_option_{$option}/updated_option. A
+	 * callback hooked only to update_option_{$option} (as
+	 * inc/settings/cache.php's purge trigger originally was) would silently
+	 * never run on that first save. See BootstrapFidelityTest::
+	 * test_update_option_fires_add_option_hook_on_first_write_only() for the
+	 * pinning test, and inc/settings/cache.php's blueline_flush_page_cache_on_first_save()
+	 * for the production callback this asymmetry required.
 	 *
 	 * Also matches core's short-circuit: if the option already exists and
 	 * the value survives sanitizing/the pre_update_option* filters
@@ -860,6 +896,13 @@ if ( ! function_exists( 'update_option' ) ) {
 
 		$GLOBALS['bl_test_options'][ $option ] = $value;
 
+		if ( ! $exists ) {
+			// First-ever write: core delegates to add_option() here, not its
+			// own UPDATE path -- see this function's docblock.
+			blueline_test_fire_added_option_hooks( $option, $value );
+			return true;
+		}
+
 		do_action( "update_option_{$option}", $old_value, $value, $option );
 
 		return true;
@@ -871,7 +914,10 @@ if ( ! function_exists( 'add_option' ) ) {
 	 * Minimal stand-in for WordPress' add_option(): applies
 	 * sanitize_option_{$option} unconditionally, exactly as core does --
 	 * before the exists check, so the filter still runs even on a call that
-	 * ends up returning false because the option is already there.
+	 * ends up returning false because the option is already there. Fires
+	 * the same add_option_{$option}/added_option pair update_option()'s
+	 * first-write branch fires above, since in real core both paths are
+	 * this same function.
 	 *
 	 * @param string $option     Option name.
 	 * @param mixed  $value      Option value.
@@ -887,6 +933,9 @@ if ( ! function_exists( 'add_option' ) ) {
 		}
 
 		$GLOBALS['bl_test_options'][ $option ] = $value;
+
+		blueline_test_fire_added_option_hooks( $option, $value );
+
 		return true;
 	}
 }
