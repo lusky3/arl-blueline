@@ -374,7 +374,7 @@ function blueline_remap_account_query_vars( array $vars ): array {
 	return $vars;
 }
 
-blueline_register_account_endpoint_title_filters();
+add_action( 'init', 'blueline_register_account_endpoint_title_filters' );
 /**
  * Register the `woocommerce_endpoint_{endpoint}_title` filter for every
  * endpoint in blueline_account_endpoint_titles(). One filter per endpoint
@@ -382,6 +382,26 @@ blueline_register_account_endpoint_title_filters();
  * that one endpoint's own label rather than a single generic callback
  * inspecting current_filter() -- keeps each registration self-contained and
  * trivially correct regardless of call order.
+ *
+ * Hooked to `init` rather than called directly at file scope: this file is
+ * `require_once`'d from functions.php while WordPress is still loading the
+ * theme (functions.php runs before `after_setup_theme` even fires), so a
+ * bare call here ran blueline_account_endpoint_titles() -> ... -> __() for
+ * the `blueline` text domain before ANY action had fired at all -- confirmed
+ * live via a `doing_it_wrong_run` backtrace against staging (see the Task 10
+ * report): every frame led back to this file's own top-level
+ * `blueline_register_account_endpoint_title_filters();` call, not (as
+ * initially suspected) inc/setup.php's register_nav_menus()/register_sidebar()
+ * calls, which run ON `after_setup_theme`/`widgets_init` and so already
+ * satisfy _load_textdomain_just_in_time()'s "not before after_setup_theme"
+ * check. That file-scope call is what produced WP 6.7's
+ * "Translation loading for the `blueline` domain was triggered too early"
+ * notice on every request, including a plain `wp user create`. The filters
+ * this registers only need to exist before WooCommerce actually renders an
+ * endpoint title -- always well after `init` -- so deferring the whole
+ * registration one tick, exactly like the sibling
+ * blueline_register_account_rewrite_endpoints() a few lines up, costs
+ * nothing and fixes the timing outright.
  */
 function blueline_register_account_endpoint_title_filters(): void {
 	foreach ( blueline_account_endpoint_titles() as $query_var => $label ) {
