@@ -475,6 +475,16 @@ Record that verification as an explicit checklist item for cutover.
 
 Accessibility is not optional here (spec §6.5): colour/text inputs with real `<label for>`; errors carrying `aria-invalid` and `aria-describedby`; save failures moving focus to an error summary; nothing conveyed by colour alone.
 
+**Escaping — carried forward from Task 3, and load-bearing.** Task 3's validator returns `WP_Error`
+messages that **interpolate the admin's own input** (the offending placeholder, the corrected string).
+Nothing escapes them yet, because no renderer existed. This task is that renderer. Every one of those
+messages must be escaped at the point of output — an unescaped settings error rendered in wp-admin is
+**stored XSS**, triggerable by anyone who can reach the panel.
+
+`add_settings_error()`'s `$message` is echoed by `settings_errors()` without escaping, so escaping is
+the caller's job. Add a test that saves a field whose value contains `<script>` and asserts the
+rendered notice contains no executable markup.
+
 **Do not pass an autoload argument** anywhere the option is written. `'auto'` is not a valid input — it is an internal DB state, and the string would likely coerce to `true`. Passing nothing lets `wp_max_autoloaded_option_size` decide.
 
 - [ ] Steps as above, ending with a staging deploy and a real save of each tab, confirming no tab wipes another.
