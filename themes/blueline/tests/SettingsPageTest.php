@@ -111,7 +111,19 @@ final class SettingsPageTest extends TestCase {
 		$content_keys = array_keys( blueline_settings_fields_for_tab( 'content' ) );
 		sort( $content_keys );
 		$this->assertSame(
-			array( 'contact_email', 'footer_heading', 'footer_location', 'hero_offseason_cta' ),
+			array(
+				'contact_email',
+				'footer_heading',
+				'footer_location',
+				'hero_in_season_headline',
+				'hero_offseason_cta',
+				'hero_offseason_headline',
+				'hero_playoffs_eyebrow',
+				'hero_preseason_headline',
+				'hero_registration_cta',
+				'hero_registration_eyebrow',
+				'hero_registration_headline',
+			),
 			$content_keys
 		);
 

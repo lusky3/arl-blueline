@@ -546,18 +546,19 @@ final class SettingsSanitizeTest extends TestCase {
 
 	/**
 	 * Integration check against the real schema, not a hand-built fixture:
-	 * every one of Task 1's 13 existing field defaults must still validate
-	 * through blueline_sanitize_field() unchanged now that `text` fields
-	 * carry an explicit `placeholders => array()` contract. A default that
-	 * failed here would mean the panel ships an un-saveable field the
-	 * moment an admin opens its own tab and re-submits the form untouched.
+	 * every schema field's own default -- Task 1's original 13 fields with a
+	 * zero-placeholder contract, plus Task 8's 7 hero fields each carrying a
+	 * real, non-empty `placeholders` contract -- must still validate through
+	 * blueline_sanitize_field() unchanged. A default that failed here would
+	 * mean the panel ships an un-saveable field the moment an admin opens its
+	 * own tab and re-submits the form untouched.
 	 */
 	public function test_every_schema_default_validates_through_the_sanitizer(): void {
 		$schema   = blueline_settings_schema();
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 13, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 20, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );

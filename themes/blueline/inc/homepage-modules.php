@@ -335,15 +335,13 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 	$season = blueline_homepage_registration_season_label( $offers[0]['product']->get_id() );
 
 	$eyebrow = $season
-		/* translators: %s: current season label, e.g. "Winter 2026-27". */
-		? sprintf( __( '%s · Registration open', 'blueline' ), $season )
+		? sprintf( blueline_settings( 'hero_registration_eyebrow' ), $season )
 		: __( 'Registration open', 'blueline' );
 
 	$pricing = blueline_homepage_registration_cta_pricing( $offers );
 
 	$cta_label = $pricing['cta_price_label']
-		/* translators: %s: formatted price, e.g. "$550.00". */
-		? sprintf( __( 'Register — %s', 'blueline' ), $pricing['cta_price_label'] )
+		? sprintf( blueline_settings( 'hero_registration_cta' ), $pricing['cta_price_label'] )
 		: __( 'Register now', 'blueline' );
 
 	$subcopy_lines = array();
@@ -368,8 +366,7 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 	return array(
 		'eyebrow'       => $eyebrow,
 		'headline_html' => blueline_hero_headline(
-			/* translators: %s: the highlighted word "beginner". */
-			__( 'Burlington’s %s league.', 'blueline' ),
+			blueline_settings( 'hero_registration_headline' ),
 			__( 'beginner', 'blueline' )
 		),
 		'subcopy_lines' => $subcopy_lines,
@@ -397,8 +394,7 @@ function blueline_homepage_hero_preseason_content( array $state_data ): array {
 
 	$headline_html = $date
 		? blueline_hero_headline(
-			/* translators: %s: the highlighted start date. */
-			__( 'Puck drops %s.', 'blueline' ),
+			blueline_settings( 'hero_preseason_headline' ),
 			$date
 		)
 		: esc_html__( 'Puck drops soon.', 'blueline' );
@@ -434,8 +430,7 @@ function blueline_homepage_hero_in_season_content( array $state_data ): array {
 	// separately-escaped substitution alongside the highlighted number,
 	// not passed through blueline_hero_headline()'s single-highlight helper.
 	$headline_html = sprintf(
-		/* translators: 1: the highlighted game count number, 2: "game" or "games". */
-		__( '%1$s %2$s this week.', 'blueline' ),
+		blueline_settings( 'hero_in_season_headline' ),
 		blueline_hero_highlight( (string) $count ),
 		esc_html( _n( 'game', 'games', $count, 'blueline' ) )
 	);
@@ -460,8 +455,7 @@ function blueline_homepage_hero_playoffs_content( array $state_data ): array {
 	$season   = blueline_homepage_event_season_label( $event_id );
 
 	$eyebrow = $season
-		/* translators: %s: current season label. */
-		? sprintf( __( '%s · Playoffs', 'blueline' ), $season )
+		? sprintf( blueline_settings( 'hero_playoffs_eyebrow' ), $season )
 		: __( 'Playoffs', 'blueline' );
 
 	return array(
@@ -483,8 +477,7 @@ function blueline_homepage_hero_offseason_content(): array {
 	return array(
 		'eyebrow'       => __( 'Off-season', 'blueline' ),
 		'headline_html' => blueline_hero_headline(
-			/* translators: %s: the highlighted word "soon". */
-			__( 'Back on the ice %s.', 'blueline' ),
+			blueline_settings( 'hero_offseason_headline' ),
 			__( 'soon', 'blueline' )
 		),
 		'cta_label'     => __( 'Join the mailing list', 'blueline' ),

@@ -26,15 +26,16 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
  * - test_placeholder_contracts_match_the_declared_default() proves that any
  *   field declaring a NON-EMPTY `placeholders` contract has a default value
  *   that actually contains every one of those conversion specs, so a
- *   contract can never ship wrong from birth. No field declares a non-empty
- *   contract yet (every current theme literal with a real sprintf()
- *   placeholder is deliberately excluded until Task 8 adds it against the
- *   validator Task 3 built — see defaults.php's docblock), so today that
- *   test's per-field loop finds nothing to check for non-empty contracts --
- *   but it still asserts the schema itself is non-empty and reports a real
- *   (non-risky) assertion either way, so it cannot go quietly inert. It
- *   stays in place and green so Task 8 is held to the same guarantee
- *   without needing to touch this file.
+ *   contract can never ship wrong from birth. Before Task 8, no field
+ *   declared a non-empty contract (every current theme literal with a real
+ *   sprintf() placeholder was deliberately excluded until Task 8 added it
+ *   against the validator Task 3 built — see defaults.php's docblock), so
+ *   this test's own $checked/addToAssertionCount() guard existed purely so
+ *   the test could not go quietly inert while nothing exercised it. Task 8's
+ *   seven hero fields now give the per-field loop real, non-empty contracts
+ *   to check on every run; the guard stays in place regardless, so the test
+ *   still reports a real assertion even if a future schema change ever drops
+ *   back to zero non-empty contracts.
  */
 final class SettingsDefaultsTest extends TestCase {
 

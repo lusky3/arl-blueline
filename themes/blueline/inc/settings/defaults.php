@@ -43,95 +43,143 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * SettingsDefaultsTest::test_every_text_and_textarea_field_declares_a_placeholders_key()
  * fails the build if any `text`/`textarea` field omits the key, and
  * blueline_settings_defaults() must supply a default containing every spec
- * a field declares here (a separate assertion in the same test file). No
- * field declares a non-empty `placeholders` contract yet: every current
- * theme literal with a real sprintf() placeholder is deliberately excluded
- * until Task 8 adds it, one field at a time, against the validator Task 3
- * built. Every existing `text` field below declares `placeholders => array()`
- * in the meantime — not "no contract yet", but "the contract IS zero
- * placeholders" — so a stray "%" in an existing field's value is rejected by
- * inc/settings/sanitize.php's blueline_sanitize_field() today, before Task 8
- * ever exists, rather than only once a future task remembers to protect it.
+ * a field declares here (a separate assertion in the same test file). Every
+ * field below that never reaches a sprintf() call site declares
+ * `placeholders => array()` — not "no contract yet", but "the contract IS
+ * zero placeholders" — so a stray "%" in its value is rejected by
+ * inc/settings/sanitize.php's blueline_sanitize_field() exactly like any
+ * other violation. The seven `hero_*` fields below (Task 8) are the first to
+ * carry a real, non-empty contract, added one field at a time against the
+ * validator Task 3 built and verified against the actual sprintf()/printf()
+ * call site each replaces — see inc/homepage-modules.php and the Task 8
+ * report for the call-site-by-call-site verification.
  *
  * @return array<string, array<string, mixed>>
  */
 function blueline_settings_schema(): array {
 	return array(
 		// Content tab.
-		'contact_email'      => array(
+		'contact_email'              => array(
 			'type'  => 'email',
 			'tab'   => 'content',
 			'label' => 'Contact email',
 		),
-		'footer_heading'     => array(
+		'footer_heading'             => array(
 			'type'         => 'text',
 			'tab'          => 'content',
 			'label'        => 'Footer column heading',
 			'placeholders' => array(),
 		),
-		'footer_location'    => array(
+		'footer_location'            => array(
 			'type'         => 'text',
 			'tab'          => 'content',
 			'label'        => 'Footer location line',
 			'placeholders' => array(),
 		),
-		'hero_offseason_cta' => array(
+		'hero_offseason_cta'         => array(
 			'type'         => 'text',
 			'tab'          => 'content',
 			'label'        => 'Off-season CTA label',
 			'placeholders' => array(),
 		),
+		// Hero copy carrying a live sprintf() placeholder contract (Task 8).
+		// Each label spells out what the placeholder becomes so a volunteer
+		// editing the field cannot omit or reorder it without understanding
+		// why -- see inc/settings/sanitize.php's blueline_sanitize_field()
+		// for what happens if they do anyway.
+		'hero_registration_headline' => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero headline — registration open (%s becomes the highlighted word, e.g. "beginner")',
+			'placeholders' => array( '%s' ),
+		),
+		'hero_registration_eyebrow'  => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero eyebrow — registration open (%s becomes the current season label, e.g. "Winter 2026-27")',
+			'placeholders' => array( '%s' ),
+		),
+		'hero_registration_cta'      => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero CTA — registration open, priced (%s becomes the formatted price, e.g. "$550.00")',
+			'placeholders' => array( '%s' ),
+		),
+		'hero_preseason_headline'    => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero headline — preseason (%s becomes the highlighted season-start date, e.g. "September 6")',
+			'placeholders' => array( '%s' ),
+		),
+		'hero_in_season_headline'    => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero headline — in season (%1$s becomes the highlighted game count; %2$s becomes "game" or "games")',
+			'placeholders' => array( '%1$s', '%2$s' ),
+		),
+		'hero_playoffs_eyebrow'      => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero eyebrow — playoffs (%s becomes the current season label)',
+			'placeholders' => array( '%s' ),
+		),
+		'hero_offseason_headline'    => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero headline — off-season (%s becomes the highlighted word, e.g. "soon")',
+			'placeholders' => array( '%s' ),
+		),
 		// Links tab — every value is a page ID; 0 means "use the built-in path".
-		'page_schedule'      => array(
+		'page_schedule'              => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'Schedule page',
 			'fallback' => '/schedule',
 		),
-		'page_standings'     => array(
+		'page_standings'             => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'Standings page',
 			'fallback' => '/standings',
 		),
-		'page_register'      => array(
+		'page_register'              => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'Register page',
 			'fallback' => '/register',
 		),
-		'page_faqs'          => array(
+		'page_faqs'                  => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'FAQs page',
 			'fallback' => '/faqs',
 		),
-		'page_news'          => array(
+		'page_news'                  => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'News page',
 			'fallback' => '/news',
 		),
-		'page_legal'         => array(
+		'page_legal'                 => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'Legal page',
 			'fallback' => '/legal',
 		),
-		'page_contact'       => array(
+		'page_contact'               => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'Contact page',
 			'fallback' => '/arl-league-info/contact-us',
 		),
-		'page_equipment'     => array(
+		'page_equipment'             => array(
 			'type'     => 'page_id',
 			'tab'      => 'links',
 			'label'    => 'Equipment page',
 			'fallback' => '/arl-league-info/equipment',
 		),
 		// Commerce tab.
-		'registration_term'  => array(
+		'registration_term'          => array(
 			'type'     => 'term_id',
 			'tab'      => 'commerce',
 			'label'    => 'Registration product category',
@@ -151,18 +199,25 @@ function blueline_settings_schema(): array {
  */
 function blueline_settings_defaults(): array {
 	return array(
-		'contact_email'      => 'play@rookiehockey.ca',
-		'footer_heading'     => 'The League',
-		'footer_location'    => 'Burlington, Ontario',
-		'hero_offseason_cta' => 'Join the mailing list',
-		'page_schedule'      => 0,
-		'page_standings'     => 0,
-		'page_register'      => 0,
-		'page_faqs'          => 0,
-		'page_news'          => 0,
-		'page_legal'         => 0,
-		'page_contact'       => 0,
-		'page_equipment'     => 0,
-		'registration_term'  => 0,
+		'contact_email'              => 'play@rookiehockey.ca',
+		'footer_heading'             => 'The League',
+		'footer_location'            => 'Burlington, Ontario',
+		'hero_offseason_cta'         => 'Join the mailing list',
+		'hero_registration_headline' => 'Burlington’s %s league.',
+		'hero_registration_eyebrow'  => '%s · Registration open',
+		'hero_registration_cta'      => 'Register — %s',
+		'hero_preseason_headline'    => 'Puck drops %s.',
+		'hero_in_season_headline'    => '%1$s %2$s this week.',
+		'hero_playoffs_eyebrow'      => '%s · Playoffs',
+		'hero_offseason_headline'    => 'Back on the ice %s.',
+		'page_schedule'              => 0,
+		'page_standings'             => 0,
+		'page_register'              => 0,
+		'page_faqs'                  => 0,
+		'page_news'                  => 0,
+		'page_legal'                 => 0,
+		'page_contact'               => 0,
+		'page_equipment'             => 0,
+		'registration_term'          => 0,
 	);
 }
