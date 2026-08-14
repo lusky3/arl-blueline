@@ -124,6 +124,31 @@
  * every schema field directly), only a deliberate narrowing of what the
  * UI's own form can ever legitimately submit.
  *
+ * ## Never a `<div>` for the error summary
+ *
+ * blueline_settings_render_page()'s error summary is a `<section>`, not a
+ * `<div>`, despite carrying the WP-admin `.notice`/`.notice-error` classes
+ * (a plain class selector in wp-admin/css/common.css, with no tag
+ * qualifier, so a `<section>` gets the exact same styling a `<div>` would).
+ * This is deliberate, found by an actual browser click-through against a
+ * real save on staging (a unit test cannot see this class of bug at all --
+ * the server-side render is, and was always, correct): this WordPress
+ * install has a third-party plugin active (Capabilities Pro's own
+ * admin-notices "declutter" module) whose JS removes -- via
+ * `$(element).remove()` -- every `<div>` on any wp-admin screen whose
+ * `class` attribute contains "notice", "error", "warning", "info" or
+ * "updated" as a SUBSTRING anywhere, sweeping it into a "Notice Center"
+ * panel instead. That selector is scoped to `div[...]` only; the per-field
+ * inline error (a `<p>`) was never touched by it, which is exactly why
+ * that part of this page always worked while the summary silently
+ * vanished. Confirmed directly: the raw HTTP response body of a real
+ * failed save DID contain the summary `<div>`, fully formed, every time --
+ * this file's own PHP was never the problem -- but it was gone from the
+ * live DOM by the time anything queried it. Changing the tag to
+ * `<section>` (this plugin's selector never matches it) is a complete fix
+ * with no loss of styling or of the `role="alert"` semantics that already
+ * override whatever implicit role the tag itself would otherwise carry.
+ *
  * ## Never an autoload argument
  *
  * Nothing in this file calls update_option()/register_setting() with an
@@ -630,7 +655,30 @@ function blueline_settings_render_page(): void {
 		 */
 		?>
 		<?php if ( ! empty( $field_errors ) ) : ?>
-			<div
+			<?php
+			/*
+			 * A <section>, deliberately NOT a <div> -- see this file's own
+			 * docblock's "Never a <div> for the error summary" section for
+			 * why: a real browser click-through (not a unit test) found a
+			 * THIRD-PARTY plugin active on this install (Capabilities Pro's
+			 * admin-notices module) removes every <div> whose class
+			 * attribute contains "notice", "error", "warning", "info" or
+			 * "updated" as a SUBSTRING, anywhere on any wp-admin screen, as
+			 * part of its own notice-decluttering feature. This element's
+			 * classes (kept for their free WP-admin `.notice`/`.notice-error`
+			 * styling, itself a plain class selector with no tag
+			 * qualifier) match that pattern exactly, so as a <div> it was
+			 * removed from the DOM by that plugin on every real page load,
+			 * despite this file's own PHP emitting it correctly every
+			 * time -- confirmed by inspecting the raw HTTP response body of
+			 * an actual failed save, which DID contain it. A <section>
+			 * (with the same classes, so identical styling) is never
+			 * selected by that plugin's `div[...]` jQuery selector, and
+			 * `role="alert"` below already overrides its implicit ARIA
+			 * role, so nothing about the accessible semantics changes.
+			 */
+			?>
+			<section
 				id="blueline-settings-error-summary"
 				class="notice notice-error bl-settings-error-summary"
 				tabindex="-1"
@@ -648,7 +696,7 @@ function blueline_settings_render_page(): void {
 						</li>
 					<?php endforeach; ?>
 				</ul>
-			</div>
+			</section>
 		<?php endif; ?>
 
 		<h2 class="nav-tab-wrapper">

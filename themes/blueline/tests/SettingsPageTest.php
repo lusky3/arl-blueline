@@ -74,6 +74,29 @@ require_once __DIR__ . '/../inc/settings/page.php';
  * `document.activeElement` move from `<body>` to the summary only once the
  * explicit `.focus()` call ran -- see the task report for the full
  * transcript, since no unit test can stand in for that check.
+ *
+ * Fix round 4 (a REAL admin session on staging, not a simulation, found
+ * this -- round 3's own simulation reached the wrong conclusion): the
+ * error summary still never rendered after a genuine failed save. The
+ * round-3 simulation was directionally right about `autofocus` not
+ * working on a `<div>` (that finding still stands -- the explicit
+ * `.focus()` call is still needed and still correct) but wrong about why
+ * the summary was missing, because it never included every piece of the
+ * real environment: this WordPress install runs a third-party plugin
+ * (Capabilities Pro's admin-notices module) that removes any `<div>`
+ * matching a broad notice/error/warning/info/updated class substring on
+ * every wp-admin screen -- something no amount of simulating WordPress
+ * core's own common.js alone was ever going to surface, because it isn't
+ * core's behaviour, it's a different, unrelated plugin's. Confirmed by
+ * reading the plugin's own JS source directly off staging, and by
+ * inspecting the RAW HTTP response body of a genuine failed save (fetched
+ * via Playwright's network inspection, not a DOM query) -- which showed
+ * this file's PHP was correct and had NEVER been the problem: the summary
+ * was fully present in the server's actual response every time, and
+ * disappeared only afterward, in the live DOM. See
+ * blueline_settings_render_page()'s own docblock (the "Never a `<div>`"
+ * section) and this file's test_error_summary_is_never_a_div() for the fix
+ * and its regression test.
  */
 final class SettingsPageTest extends TestCase {
 
@@ -730,6 +753,50 @@ final class SettingsPageTest extends TestCase {
 		$this->assertStringContainsString( 'id="blueline-settings-error-summary"', $html );
 		$this->assertStringContainsString( 'tabindex="-1"', $html );
 		$this->assertStringContainsString( 'href="#blueline-field-footer_heading"', $html );
+	}
+
+	/**
+	 * Fix-round-4 regression: the error summary must be a `<section>`, never
+	 * a `<div>` -- a real browser click-through (not a unit test) found a
+	 * third-party plugin active on staging (Capabilities Pro's own
+	 * admin-notices "declutter" feature) removes every `<div>` whose class
+	 * attribute contains "notice", "error", "warning", "info" or "updated"
+	 * as a substring, on every wp-admin screen, which matched this
+	 * element's own WP-admin `.notice`/`.notice-error` classes exactly.
+	 * That plugin's selector is scoped to `div[...]` only, so a `<section>`
+	 * carrying the identical classes (same styling -- see this file's own
+	 * docblock) is never touched by it. This test cannot verify the
+	 * third-party plugin's behaviour itself (see this class's docblock for
+	 * where that was actually confirmed -- the raw HTTP response body of a
+	 * real failed save, and the plugin's own JS source, both read directly
+	 * off staging); it only pins the element choice this fix depends on.
+	 */
+	public function test_error_summary_is_never_a_div(): void {
+		$this->grant_manage_options();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'footer_heading' => 'Save 50% off',
+				'_posted_fields' => array( 'footer_heading' ),
+			)
+		);
+
+		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = ob_get_clean();
+
+		$this->assertMatchesRegularExpression(
+			'/<section\s[^>]*id="blueline-settings-error-summary"/',
+			$html,
+			'the error summary must be a <section>, not a <div>'
+		);
+		$this->assertDoesNotMatchRegularExpression(
+			'/<div\s[^>]*id="blueline-settings-error-summary"/',
+			$html
+		);
 	}
 
 	/**
