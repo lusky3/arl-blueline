@@ -701,6 +701,8 @@ function blueline_test_reset(): void {
 	blueline_test_reset_options();
 	blueline_test_reset_transients();
 	blueline_test_reset_cache();
+	blueline_test_reset_settings_errors();
+	blueline_test_reset_admin_pages();
 }
 
 if ( ! function_exists( 'add_filter' ) ) {
@@ -1044,4 +1046,347 @@ if ( ! function_exists( 'wp_cache_delete' ) ) {
 		unset( $GLOBALS['bl_test_cache'][ $cache_key ] );
 		return $existed;
 	}
+}
+
+// -----------------------------------------------------------------------
+// Task 7 (Appearance -> Blueline admin page) additions below. Every stub
+// in this block exists because inc/settings/page.php is the first file in
+// this theme to touch wp-admin's Settings API and page-registration
+// surface -- none of it was needed before. Each mirrors core's real
+// signature/behaviour closely enough for a unit test to exercise the
+// production code path directly (register_setting()'s wiring of
+// sanitize_option_{$option}, add_settings_error()'s "no escaping, that's
+// the caller's job" contract, etc.) without pretending to be a faithful
+// full reimplementation of wp-admin.
+// -----------------------------------------------------------------------
+
+$GLOBALS['bl_test_settings_errors']     = array();
+$GLOBALS['bl_test_registered_settings'] = array();
+$GLOBALS['bl_test_admin_pages']         = array();
+
+/**
+ * Reset the in-memory settings-errors store. Call from setUp() (directly,
+ * or via blueline_test_reset()) in any test that calls add_settings_error()
+ * or reads get_settings_errors(), so one test's errors cannot leak into the
+ * next.
+ *
+ * @return void
+ */
+function blueline_test_reset_settings_errors(): void {
+	$GLOBALS['bl_test_settings_errors'] = array();
+}
+
+/**
+ * Reset the in-memory registered-admin-pages store (add_theme_page()'s
+ * call log). Call from setUp() in any test that asserts against it.
+ *
+ * @return void
+ */
+function blueline_test_reset_admin_pages(): void {
+	$GLOBALS['bl_test_admin_pages'] = array();
+}
+
+if ( ! function_exists( 'wp_unslash' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_unslash().
+	 *
+	 * @param mixed $value Value to strip slashes from.
+	 * @return mixed
+	 */
+	function wp_unslash( $value ) {
+		return is_array( $value ) ? array_map( 'wp_unslash', $value ) : stripslashes( (string) $value );
+	}
+}
+
+if ( ! function_exists( 'sanitize_key' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' sanitize_key().
+	 *
+	 * @param string $key Key to sanitize.
+	 * @return string
+	 */
+	function sanitize_key( $key ) {
+		return (string) preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+	}
+}
+
+if ( ! function_exists( 'esc_html__' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' esc_html__().
+	 *
+	 * @param string $text Text to translate (not) and escape.
+	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @return string
+	 */
+	function esc_html__( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to __() (its own definition just returns $t unchanged anyway -- see above -- and calling it here would be a translation-function call site with a non-literal argument, which is exactly the pattern WordPress.WP.I18n exists to flag in REAL plugin code; delegating adds no behaviour a direct return doesn't already have in this stub environment).
+		return esc_html( (string) $text );
+	}
+}
+
+if ( ! function_exists( 'esc_html_e' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' esc_html_e().
+	 *
+	 * @param string $text Text to translate (not), escape, and echo.
+	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @return void
+	 */
+	function esc_html_e( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to esc_html__() -- calling a same-named-pattern i18n function with a variable argument from inside another stub's body is exactly what WordPress.WP.I18n exists to flag in real plugin code, so this escapes directly instead.
+		echo esc_html( (string) $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for esc_html_e(); esc_html() directly above already escapes.
+	}
+}
+
+if ( ! function_exists( 'esc_attr__' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' esc_attr__().
+	 *
+	 * @param string $text Text to translate (not) and escape.
+	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @return string
+	 */
+	function esc_attr__( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to __() -- see esc_html__()'s own comment above for why.
+		return esc_attr( (string) $text );
+	}
+}
+
+if ( ! function_exists( 'admin_url' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' admin_url().
+	 *
+	 * @param string $path Path relative to wp-admin/.
+	 * @return string
+	 */
+	function admin_url( $path = '' ) {
+		return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+	}
+}
+
+if ( ! class_exists( 'Blueline_Test_WP_Die_Exception' ) ) {
+	/**
+	 * Thrown by the wp_die() stub below instead of actually terminating the
+	 * process -- lets a test assert a capability guard fired via
+	 * expectException() rather than killing the PHPUnit run, matching the
+	 * pattern WP_UnitTestCase's own real wp_die() override uses.
+	 */
+	class Blueline_Test_WP_Die_Exception extends \RuntimeException {}
+}
+
+if ( ! function_exists( 'wp_die' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_die(): throws rather than exits, so
+	 * a capability-guard test can assert on it.
+	 *
+	 * @param string $message Message (unused beyond the thrown exception).
+	 * @param string $title   Title (unused, kept for signature parity).
+	 * @param array  $args    Args (unused, kept for signature parity).
+	 * @return void
+	 * @throws Blueline_Test_WP_Die_Exception Always.
+	 */
+	function wp_die( $message = '', $title = '', $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
+		$text = is_string( $message ) ? wp_strip_all_tags( $message ) : 'wp_die';
+		throw new Blueline_Test_WP_Die_Exception( $text ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- not output at all: this is a thrown exception's message in a test-only stub, never echoed; wp_die()'s real implementation is what would eventually echo something, and that happens in WordPress core, not here.
+	}
+}
+
+if ( ! function_exists( 'add_theme_page' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' add_theme_page(): records the call so
+	 * a test can assert the capability and slug it registered with, and
+	 * returns a plausible hook suffix.
+	 *
+	 * @param string   $page_title Page title.
+	 * @param string   $menu_title Menu title.
+	 * @param string   $capability Required capability.
+	 * @param string   $menu_slug  Menu slug.
+	 * @param callable $callback   Render callback.
+	 * @return string The hook suffix.
+	 */
+	function add_theme_page( $page_title, $menu_title, $capability, $menu_slug, $callback = '' ) {
+		$hook = 'appearance_page_' . $menu_slug;
+
+		$GLOBALS['bl_test_admin_pages'][] = array(
+			'page_title' => $page_title,
+			'menu_title' => $menu_title,
+			'capability' => $capability,
+			'menu_slug'  => $menu_slug,
+			'callback'   => $callback,
+			'hook'       => $hook,
+		);
+
+		return $hook;
+	}
+}
+
+if ( ! function_exists( 'register_setting' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' register_setting(): the one piece of
+	 * its behaviour Task 7 actually depends on -- wiring $args['sanitize_callback']
+	 * onto the `sanitize_option_{$option_name}` filter, exactly as core's
+	 * real implementation does, so a test can exercise the full
+	 * update_option() -> sanitize_option_* -> pre_update_option_* dispatch
+	 * chain (see the update_option() stub above) with the real production
+	 * sanitize callback wired up the same way it is in wp-admin.
+	 *
+	 * @param string $option_group Settings group name.
+	 * @param string $option_name  Option name.
+	 * @param array  $args         Registration args; only 'sanitize_callback' is honoured.
+	 * @return void
+	 */
+	function register_setting( $option_group, $option_name, $args = array() ) {
+		$GLOBALS['bl_test_registered_settings'][ $option_group ][ $option_name ] = $args;
+
+		if ( ! empty( $args['sanitize_callback'] ) ) {
+			add_filter( "sanitize_option_{$option_name}", $args['sanitize_callback'] );
+		}
+	}
+}
+
+if ( ! function_exists( 'add_settings_error' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' add_settings_error(): stores the
+	 * message VERBATIM, deliberately not escaping it -- matching core's
+	 * real contract exactly (escaping is documented as the caller's job,
+	 * enforced at the point $message is constructed, not here).
+	 *
+	 * @param string $setting Settings group/option the error belongs to.
+	 * @param string $code    Error code (also used as the field key by
+	 *                         blueline_settings_sanitize_callback()).
+	 * @param string $message Error message.
+	 * @param string $type    'error', 'success', 'warning', or 'info'.
+	 * @return void
+	 */
+	function add_settings_error( $setting, $code, $message, $type = 'error' ) {
+		$GLOBALS['bl_test_settings_errors'][] = array(
+			'setting' => $setting,
+			'code'    => $code,
+			'message' => $message,
+			'type'    => $type,
+		);
+	}
+}
+
+if ( ! function_exists( 'get_settings_errors' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_settings_errors().
+	 *
+	 * @param string $setting  Optional. Filter to errors for this setting only.
+	 * @param bool   $sanitize Unused; kept for signature parity.
+	 * @return array<int, array{setting:string, code:string, message:string, type:string}>
+	 */
+	function get_settings_errors( $setting = '', $sanitize = false ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; this stub does not model the sanitize-on-read transient quirk.
+		$errors = $GLOBALS['bl_test_settings_errors'] ?? array();
+
+		if ( '' === $setting ) {
+			return $errors;
+		}
+
+		return array_values(
+			array_filter(
+				$errors,
+				static fn( $error ) => $setting === $error['setting']
+			)
+		);
+	}
+}
+
+if ( ! function_exists( 'settings_fields' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' settings_fields(): echoes the hidden
+	 * `option_page` field a real submission needs; deliberately does not
+	 * model the nonce core's real version adds (production relies on the
+	 * real WordPress function for that; this stub only needs to let a
+	 * render-output test see a well-formed <form>).
+	 *
+	 * @param string $option_group Settings group name.
+	 * @return void
+	 */
+	function settings_fields( $option_group ) {
+		echo '<input type="hidden" name="option_page" value="' . esc_attr( $option_group ) . '" />' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for settings_fields(), whose real implementation self-escapes; esc_attr() is applied inline above.
+		echo '<input type="hidden" name="action" value="update" />' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static literal, nothing to escape.
+	}
+}
+
+if ( ! function_exists( 'submit_button' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' submit_button().
+	 *
+	 * @param string $text Button text.
+	 * @param string $type Button type (unused beyond a CSS class).
+	 * @param string $name Button name attribute.
+	 * @return void
+	 */
+	function submit_button( $text = 'Save Changes', $type = 'primary', $name = 'submit' ) {
+		echo '<p class="submit"><button type="submit" name="' . esc_attr( $name ) . '" class="button button-' . esc_attr( $type ) . '">' . esc_html( $text ) . '</button></p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for submit_button(); every dynamic part above is individually escaped.
+	}
+}
+
+if ( ! function_exists( 'wp_dropdown_pages' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_dropdown_pages(): builds a <select>
+	 * from blueline_test_state()'s registered posts (blueline_test_register_post()),
+	 * enough for a test to assert the selected option and that page titles
+	 * (not raw IDs) are what an admin sees.
+	 *
+	 * @param array $args Same shape as core's own args; 'name', 'id',
+	 *                     'selected', 'show_option_none', 'option_none_value'
+	 *                     and 'echo' are honoured.
+	 * @return string|void Markup when 'echo' => false, otherwise void (echoes).
+	 */
+	function wp_dropdown_pages( $args = array() ) {
+		$defaults = array(
+			'name'              => 'page_id',
+			'id'                => '',
+			'selected'          => 0,
+			'show_option_none'  => '',
+			'option_none_value' => '',
+			'echo'              => 1,
+		);
+		$r        = array_merge( $defaults, $args );
+
+		$state = &blueline_test_state();
+		$pages = array();
+		foreach ( $state['posts'] as $id => $post ) {
+			$pages[ $id ] = $post['title'] ?? ( 'Page ' . $id );
+		}
+		ksort( $pages );
+
+		$id_attr = '' !== $r['id'] ? ' id="' . esc_attr( $r['id'] ) . '"' : '';
+		$output  = '<select name="' . esc_attr( $r['name'] ) . '"' . $id_attr . '>' . "\n";
+
+		if ( '' !== $r['show_option_none'] ) {
+			$none_selected = (int) $r['selected'] === (int) $r['option_none_value'];
+			$output       .= '<option value="' . esc_attr( (string) $r['option_none_value'] ) . '"' . ( $none_selected ? ' selected="selected"' : '' ) . '>' . esc_html( $r['show_option_none'] ) . "</option>\n";
+		}
+
+		foreach ( $pages as $id => $title ) {
+			$selected = (int) $r['selected'] === (int) $id;
+			$output  .= '<option value="' . esc_attr( (string) $id ) . '"' . ( $selected ? ' selected="selected"' : '' ) . '>' . esc_html( $title ) . "</option>\n";
+		}
+
+		$output .= "</select>\n";
+
+		if ( $r['echo'] ) {
+			echo $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for wp_dropdown_pages(); every dynamic part above is individually escaped when $output was built.
+			return null;
+		}
+
+		return $output;
+	}
+}
+
+/**
+ * Register a fake test page/post with a human-readable title, extending
+ * blueline_test_register_post() (which only carries status + permalink) so
+ * wp_dropdown_pages()'s stub above has something meaningful to label an
+ * option with.
+ *
+ * @param int    $id     Post ID.
+ * @param string $status Post status.
+ * @param string $title  Page title.
+ * @return void
+ */
+function blueline_test_register_page_with_title( int $id, string $status, string $title ): void {
+	blueline_test_register_post( $id, $status );
+	$state                          = &blueline_test_state();
+	$state['posts'][ $id ]['title'] = $title;
 }
