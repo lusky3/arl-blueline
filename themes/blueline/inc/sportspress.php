@@ -124,6 +124,53 @@ add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_o
  * first impression -- not a wall of competitive crests above the fold.
  */
 
+/**
+ * The team ids the league menu is configured with, as the admin actually saved
+ * them.
+ *
+ * The three option_* filters above blank these on the front end to stop
+ * SportsPress' own League Menu module prepending 22-plus crest links to <body>
+ * ahead of the skip link. That blanking is what this theme wants for the
+ * plugin's renderer, and NOT what it wants for its own footer directory, so
+ * this reads the stored value with the filter lifted for exactly one call and
+ * puts it straight back.
+ *
+ * Note the filter is is_admin()-scoped, which means WP-CLI (where is_admin()
+ * is false) sees the blanked value too -- `wp option get
+ * sportspress_league_menu_teams` returns '' on this site and that is the filter
+ * working, not a missing option.
+ *
+ * @return int[] Published sp_team post ids, in the order the admin arranged
+ *               them; empty when the league menu is unconfigured.
+ */
+function blueline_league_menu_team_ids(): array {
+	remove_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
+	$stored = get_option( 'sportspress_league_menu_teams' );
+	add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
+
+	if ( ! is_array( $stored ) ) {
+		return array();
+	}
+
+	$ids = array();
+
+	foreach ( $stored as $value ) {
+		if ( is_array( $value ) || is_object( $value ) ) {
+			continue;
+		}
+
+		$id = absint( $value );
+
+		// De-duplicated because the option is a hand-arranged list and nothing
+		// in SportsPress' own UI stops the same team being added twice.
+		if ( $id > 0 && ! in_array( $id, $ids, true ) && 'publish' === get_post_status( $id ) ) {
+			$ids[] = $id;
+		}
+	}
+
+	return $ids;
+}
+
 add_filter( 'sportspress_header_sponsors_selector', 'blueline_header_sponsors_selector' );
 /**
  * Tell SportsPress which element the header sponsors should be inserted into.

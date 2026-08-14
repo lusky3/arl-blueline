@@ -42,9 +42,93 @@
 	outline-offset: var(--bl-focus-offset);
 }
 
+/*
+ * Sticky header, shrinking on scroll.
+ *
+ * --bl-header-logo is the ONE value the shrink animates; the bar's height is
+ * whatever that plus the padding comes to, so there is a single source of
+ * truth for both states and the spacer below can be derived from it rather
+ * than hard-coded twice.
+ *
+ * position:fixed, not sticky. Sticky keeps the header in flow, so shrinking it
+ * hands 40px back to the document and drags everything below up by that much
+ * at the exact moment the reader is scrolling -- a visible jump. Fixed takes
+ * the header out of flow entirely, .bl-header__spacer holds a CONSTANT
+ * reservation at the resting height, and the shrink therefore moves nothing.
+ * It also means the shrink transition cannot trigger page-level layout: the
+ * only boxes that re-resolve are inside the header.
+ */
+:root {
+	--bl-header-logo: 80px;
+	--bl-header-pad: var(--bl-space-3);
+}
+
+/*
+ * The mark steps down before it starts costing the menu a line. Measured: at
+ * 1024px the 80px mark wraps the primary menu onto two rows where a 48px one
+ * fits on one, and the crossover sits between 1024 and 1100. Below ~960 the
+ * menu takes two rows at any logo size (it is already close to the 880px point
+ * where nav.css turns it into a drawer), so this is not trying to fix that --
+ * only to avoid being the cause of it.
+ */
+@media (max-width: 1099.98px) {
+
+	:root {
+		--bl-header-logo: 60px;
+	}
+}
+
 .bl-header {
+	position: fixed;
+	top: 0;
+	right: 0;
+	left: 0;
+
+	/* Above the full-screen mobile drawer so the toggle stays reachable. */
+	z-index: 60;
 	background: var(--bl-ink-deep);
 	color: var(--bl-paper);
+}
+
+/*
+ * Holds the header's place in flow. Pinned to the RESTING height and never
+ * animated -- see blueline_site_header()'s own note on why this does not track
+ * the current height.
+ *
+ * --bl-header-rest-height is written by assets/src/js/sticky-header.js from the
+ * header's measured un-shrunk height, because that height is not derivable in
+ * CSS: it depends on whether SportsPress injected a sponsor (async, and it may
+ * inject nothing at all), on how many lines the menu takes, and on the fonts
+ * having loaded. The calc() below is the no-JS fallback and the value used for
+ * the very first paint -- logo plus the row's padding, which is the correct
+ * answer whenever the sponsor slot is absent or empty.
+ */
+.bl-header__spacer {
+	height: var(--bl-header-rest-height, calc(var(--bl-header-logo) + (2 * var(--bl-space-3))));
+}
+
+/*
+ * WordPress' own admin bar is itself fixed at top:0 for logged-in users, so a
+ * fixed header has to start below it or the two overlap. Core switches the bar
+ * from 32px to 46px at 783px and drops it to position:absolute below 601px,
+ * where the page scrolls it away and no offset applies.
+ */
+.admin-bar .bl-header {
+	top: 32px;
+}
+
+@media (max-width: 782.98px) {
+
+	.admin-bar .bl-header {
+		top: 46px;
+	}
+}
+
+@media (max-width: 600.98px) {
+
+	.admin-bar .bl-header {
+		top: 0;
+	}
 }
 
 .bl-header a {
@@ -53,10 +137,21 @@
 
 .bl-header__bar {
 	position: relative;
-
-	/* Stays above the full-screen mobile drawer so the toggle stays reachable. */
 	z-index: 60;
 }
+
+/*
+ * The shrunk state. Only the logo and the row padding move, and both are
+ * driven from the two custom properties above, so nothing here needs to know
+ * the resulting pixel height.
+ */
+.bl-header.is-stuck {
+	--bl-header-logo: 48px;
+	--bl-header-pad: var(--bl-space-2);
+
+	box-shadow: 0 2px 12px rgb(0 0 0 / 35%);
+}
+
 
 /*
  * Explicit width:100% is load-bearing, not decorative. .bl-container
@@ -78,7 +173,8 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--bl-space-3);
-	padding-block: var(--bl-space-3);
+	padding-block: var(--bl-header-pad);
+	transition: padding-block var(--bl-header-shrink-speed, 200ms) ease;
 }
 
 /*
@@ -152,11 +248,30 @@
 	}
 }
 
+/*
+ * The mark is square (1:1, a 512px source), so height alone sets both axes and
+ * width:auto keeps it exact at any size. Sized from the custom property so the
+ * resting and stuck states stay in step with .bl-header__spacer's reservation.
+ */
 .custom-logo-link img,
 .bl-header__logo img {
 	display: block;
-	height: 48px;
+	height: var(--bl-header-logo);
 	width: auto;
+	transition: height var(--bl-header-shrink-speed, 200ms) ease;
+}
+
+/*
+ * Honour a reduced-motion preference by cutting the animation, not the
+ * behaviour: the header still shrinks, it just arrives there without the
+ * tween. Anyone who asks the platform for less movement should not have a
+ * header easing up and down under them on every scroll.
+ */
+@media (prefers-reduced-motion: reduce) {
+
+	:root {
+		--bl-header-shrink-speed: 0ms;
+	}
 }
 
 .bl-header__actions {
@@ -245,25 +360,62 @@
  */
 
 /*
- * P3 finding 6: this slot is intentional (the league sells it), but its
- * reserved box was ~130px of near-empty navy for one raster with its own
- * background -- the max-width below is a DISPLAY cap only (the underlying
- * aspect-ratio, tied to the real sportspress_header_sponsor_* options,
- * stays 2:1 so the box remains a correctly-proportioned reservation and
- * the layout-shift fix above this comment block is untouched); the
- * sponsor image itself (.sp-sponsor-logo, sportspress.css: max-width:100%)
- * simply scales down to fit. The "Sponsors" title SP prints above the logo
- * is hidden in this slot specifically -- it doubled the box's height for
- * no information a small header strip needs.
+ * P3 finding 6: this slot is intentional (the league sells it). The "Sponsors"
+ * title SP prints above the logo is hidden in this slot specifically -- it
+ * doubled the box's height for no information a header strip needs.
+ *
+ * WHY THIS IS NOT IN THE BAR ROW, measured rather than assumed: the primary
+ * menu is a flex:1 sibling that expands to consume whatever the row has left,
+ * and .bl-container caps that row at 1200px, so the row has ~10px spare at
+ * EVERY viewport from 1100 to 1680 -- a wider screen does not help, because
+ * the container stops growing. Moving this box into the row wrapped the menu
+ * onto two lines at all of those widths (verified by hiding the box and
+ * re-measuring: 1 row without it, 2 with). Putting it beside the menu needs
+ * the header container widened past the content width, which is a design
+ * decision rather than a styling one.
+ *
+ * So it keeps its own strip under the bar, but sized to the container and
+ * right-aligned instead of a 176px box centred in a band of navy -- which is
+ * what made it read as small and unrelated to anything above it. Aligning it
+ * to the container's end ties it to the CTA cluster directly above.
  */
 .bl-header__sponsors {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	width: 100%;
-	max-width: 176px;
+	justify-content: flex-end;
+
+	/*
+	 * Aligned to the container's right edge -- under the CTA cluster it
+	 * belongs with -- rather than centred, where it floated in the middle of a
+	 * navy band with no relationship to anything above it.
+	 *
+	 * Was capped at 176px, which the brief called out as reading small; the
+	 * cap is now on the inner logo (see `.bl-header__sponsors > *` below) so
+	 * this box can span the row and still place the mark at its end. The 2:1
+	 * aspect-ratio is the real sportspress_header_sponsor_* ratio and still
+	 * does the layout-shift reservation.
+	 */
+	width: min(100%, var(--bl-container, 1200px));
 	margin-inline: auto;
-	aspect-ratio: 256 / 128; /* sportspress_header_sponsor_height ratio (2:1) */
+	padding-inline: var(--bl-space-4);
+	aspect-ratio: auto;
+	height: 64px;
+	transition:
+		height var(--bl-header-shrink-speed, 200ms) ease,
+		opacity var(--bl-header-shrink-speed, 200ms) ease;
+}
+
+/*
+ * Below the breakpoint where nav.css turns .bl-nav into a drawer, the bar is
+ * brand + CTA + hamburger with no slack left, so the sponsor is hidden rather
+ * than allowed to wrap the row onto a second line or squeeze the CTA. The
+ * league still gets its footer sponsor band at these widths.
+ */
+@media (max-width: 879.98px) {
+
+	.bl-header__sponsors {
+		display: none;
+	}
 }
 
 /*
@@ -282,6 +434,15 @@
  */
 .bl-header__sponsors > * {
 	width: 100%;
+
+	/*
+	 * Caps the logo's rendered size now that the slot spans the full row
+	 * width, and margin-start:auto is what actually pushes it to the row's
+	 * end -- justify-content on the flex parent cannot move a child that has
+	 * been given width:100%.
+	 */
+	max-width: 248px;
+	margin-inline-start: auto;
 }
 
 /*
@@ -311,15 +472,22 @@
 }
 
 /*
- * Less prominence on small viewports, per the brief: this slot was eating
- * above-the-fold space on a phone before an existing player reaches their
- * own schedule link. Still present (the league sells it) but smaller.
+ * The sponsor strip collapses away once the header is stuck. Leaving it in
+ * costs ~64px of a header whose entire job, once stuck, is to take as little
+ * of the viewport as possible -- on a laptop that was a third of the shrunk
+ * header still given over to a logo the reader has already scrolled past. It
+ * is fully visible in the resting state at the top of every page, which is
+ * where a header sponsor is actually looked at.
+ *
+ * Collapsed via height rather than display:none so it animates with the rest
+ * of the shrink instead of vanishing between frames. The spacer is unaffected:
+ * sticky-header.js only measures the header while it is NOT stuck, so the
+ * reservation stays at the full resting height and nothing below moves.
  */
-@media (max-width: 479.98px) {
-
-	.bl-header__sponsors {
-		max-width: 120px;
-	}
+.bl-header.is-stuck .bl-header__sponsors {
+	height: 0;
+	overflow: hidden;
+	opacity: 0;
 }
 
 /*

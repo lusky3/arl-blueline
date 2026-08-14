@@ -1124,6 +1124,60 @@ if ( ! function_exists( 'add_filter' ) ) {
 	}
 }
 
+if ( ! function_exists( 'remove_filter' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' remove_filter(): drops the matching
+	 * callback from the priority bucket it was registered against, and reports
+	 * whether anything was actually removed, as core does.
+	 *
+	 * Matching is by callback identity at a specific priority, again like core
+	 * -- removing at the wrong priority is a silent no-op there and must be one
+	 * here too, or a caller that unhooks and re-hooks around a get_option()
+	 * would appear to work in tests while leaving the filter live in
+	 * production.
+	 *
+	 * @param string   $tag      Filter name.
+	 * @param callable $callback Callback to remove.
+	 * @param int      $priority Priority it was registered at.
+	 * @return bool
+	 */
+	function remove_filter( $tag, $callback, $priority = 10 ) {
+		$bucket = &$GLOBALS['bl_test_hooks'][ $tag ][ $priority ];
+
+		if ( ! is_array( $bucket ) ) {
+			return false;
+		}
+
+		$removed = false;
+
+		foreach ( $bucket as $i => $hook ) {
+			if ( $hook['cb'] === $callback ) {
+				unset( $bucket[ $i ] );
+				$removed = true;
+			}
+		}
+
+		$bucket = array_values( $bucket );
+
+		return $removed;
+	}
+}
+
+if ( ! function_exists( 'remove_action' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' remove_action(); actions and filters
+	 * share one hook store here, exactly as they do in core.
+	 *
+	 * @param string   $tag      Action name.
+	 * @param callable $callback Callback to remove.
+	 * @param int      $priority Priority it was registered at.
+	 * @return bool
+	 */
+	function remove_action( $tag, $callback, $priority = 10 ) {
+		return remove_filter( $tag, $callback, $priority );
+	}
+}
+
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' apply_filters(): actually dispatches to
@@ -1605,6 +1659,36 @@ if ( ! function_exists( 'esc_html_e' ) ) {
 	 */
 	function esc_html_e( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to esc_html__() -- calling a same-named-pattern i18n function with a variable argument from inside another stub's body is exactly what WordPress.WP.I18n exists to flag in real plugin code, so this escapes directly instead.
 		echo esc_html( (string) $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for esc_html_e(); esc_html() directly above already escapes.
+	}
+}
+
+if ( ! function_exists( 'esc_attr_e' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' esc_attr_e(): escapes for an attribute
+	 * and echoes, without loading translations.
+	 *
+	 * @param string $text Text to translate (not), escape, and echo.
+	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @return void
+	 */
+	function esc_attr_e( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core, matching esc_html_e() above.
+		echo esc_attr( (string) $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for esc_attr_e(); esc_attr() already escapes.
+	}
+}
+
+if ( ! function_exists( 'is_admin' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' is_admin().
+	 *
+	 * Defaults to false, i.e. the FRONT END -- the context every theme-side
+	 * filter in this codebase is scoped to, and the one whose behaviour the
+	 * tests care about. A test that needs the admin branch sets
+	 * $GLOBALS['bl_test_is_admin'] itself.
+	 *
+	 * @return bool
+	 */
+	function is_admin() {
+		return ! empty( $GLOBALS['bl_test_is_admin'] );
 	}
 }
 

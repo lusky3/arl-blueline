@@ -145,3 +145,74 @@
 	margin: 0;
 	font-size: var(--bl-text-sm);
 }
+
+/*
+ * League team directory (blueline_footer_team_directory()).
+ *
+ * This is the theme's stand-in for SportsPress Pro's League Menu, which is
+ * disabled on the front end -- see inc/sportspress.php for why. Laid out as an
+ * auto-fill grid rather than a fixed column count because the roster is
+ * seasonal: 22 teams in summer, up to 34 in winter. auto-fill means adding or
+ * removing teams re-flows the rows on its own and never leaves a short, ragged
+ * final row the way a hard-coded column count does.
+ */
+.bl-footer__teams {
+	margin-top: var(--bl-space-7);
+	border-top: 1px solid var(--bl-ink-mid);
+	padding-block-start: var(--bl-space-5);
+}
+
+.bl-footer__teams-title {
+	margin: 0 0 var(--bl-space-4);
+	font-family: var(--bl-font-display);
+	font-weight: 800;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-lg);
+}
+
+.bl-footer__teams-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+	gap: var(--bl-space-2) var(--bl-space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-footer__teams-item {
+	margin: 0;
+}
+
+/*
+ * min-height carries the WCAG 2.2 24x24 target minimum for the whole row, so
+ * the hit area does not depend on whether a given team happens to have a crest
+ * uploaded -- several do not.
+ */
+.bl-footer__teams-link {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	min-height: 44px;
+	padding: var(--bl-space-1) var(--bl-space-2);
+	border-radius: var(--bl-radius-sm, 4px);
+	font-size: var(--bl-text-sm);
+	line-height: 1.2;
+}
+
+.bl-footer__teams-link:hover,
+.bl-footer__teams-link:focus-visible {
+	background: var(--bl-ink-mid);
+}
+
+.bl-footer__teams-crest {
+	width: 28px;
+	height: 28px;
+	flex: 0 0 auto;
+	object-fit: contain;
+}
+
+.bl-footer__teams-name {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}

@@ -538,11 +538,38 @@ function blueline_site_header() {
 			</div>
 		</div>
 
+		<?php
+		/*
+		 * Its own strip under the bar, NOT a fourth item in the bar row.
+		 * Measured: the primary menu is a flex:1 sibling that expands to
+		 * consume whatever the row has left, and .bl-container caps that row at
+		 * 1200px, so the row has roughly 10px spare at every viewport from 1100
+		 * to 1680 -- a wider screen does not help, because the container stops
+		 * growing. Moving this box into the row wrapped the menu onto two lines
+		 * at all of those widths. It is bigger and right-aligned here instead
+		 * (header.css); putting it beside the menu needs the header container
+		 * widened past the content width, which is a design decision, not a
+		 * styling one.
+		 */
+		?>
 		<div class="bl-header__sponsors"></div>
 
 		<div class="bl-band" aria-hidden="true"></div>
 		<div class="bl-band--ink" aria-hidden="true"></div>
 	</header>
+	<?php
+	/*
+	 * The header is position:fixed (header.css), so it reserves no space of its
+	 * own and this spacer stands in for it. Its height is pinned to the header's
+	 * RESTING height and never changes -- deliberately not to the current
+	 * height. A shrinking header that still occupied flow (position:sticky)
+	 * would pull every following element up by the 40px it gave back at the
+	 * moment it shrank, which reads as the page jumping under the reader's eyes
+	 * mid-scroll. Holding the reservation at the tall value costs 40px of navy
+	 * behind the shrunk bar and buys zero content shift, ever.
+	 */
+	?>
+	<div class="bl-header__spacer" aria-hidden="true"></div>
 	<?php
 }
 
@@ -602,6 +629,8 @@ function blueline_site_footer() {
 			<?php endfor; ?>
 		</div>
 
+		<?php blueline_footer_team_directory(); ?>
+
 		<div class="bl-footer__bottom">
 			<div class="bl-container bl-footer__bottom-inner">
 				<?php blueline_leaf_mark( 'bl-footer__mark' ); ?>
@@ -611,6 +640,78 @@ function blueline_site_footer() {
 			</div>
 		</div>
 	</footer>
+	<?php
+}
+
+/**
+ * Output the league team directory: one crest link per team the League Menu is
+ * configured with.
+ *
+ * This is the theme's replacement for SportsPress Pro's own League Menu, which
+ * inc/sportspress.php disables on the front end because the plugin prepends it
+ * to <body> ahead of the skip link and, at 360px, on top of the open mobile
+ * drawer. Rendering it here instead keeps the same admin-managed team list and
+ * the same links, in a place where the crest count does not compete with the
+ * page's first screen -- the roster runs to 22 teams in summer and as many as
+ * 34 in winter, which is a wall of logos above the fold and an ordinary,
+ * wrapping directory at the foot of the page.
+ *
+ * Renders nothing at all when the league menu is unconfigured, per DESIGN.md's
+ * "never an empty container" rule.
+ */
+function blueline_footer_team_directory() {
+	if ( ! function_exists( 'blueline_league_menu_team_ids' ) ) {
+		return;
+	}
+
+	$team_ids = blueline_league_menu_team_ids();
+
+	if ( ! $team_ids ) {
+		return;
+	}
+	?>
+	<nav class="bl-footer__teams" aria-label="<?php esc_attr_e( 'Teams', 'blueline' ); ?>">
+		<div class="bl-container">
+			<h2 class="bl-footer__teams-title"><?php esc_html_e( 'Teams', 'blueline' ); ?></h2>
+			<ul class="bl-footer__teams-list">
+				<?php foreach ( $team_ids as $team_id ) : ?>
+					<?php
+					$name = function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $team_id ) : get_the_title( $team_id );
+					$link = get_permalink( $team_id );
+
+					if ( ! $link ) {
+						continue;
+					}
+					?>
+					<li class="bl-footer__teams-item">
+						<a class="bl-footer__teams-link" href="<?php echo esc_url( $link ); ?>">
+							<?php if ( has_post_thumbnail( $team_id ) ) : ?>
+								<?php
+								/*
+								 * The crest is decorative here: the team name
+								 * sits beside it in the same link, so alt text
+								 * would make a screen reader announce the name
+								 * twice.
+								 */
+								echo get_the_post_thumbnail(
+									$team_id,
+									'thumbnail',
+									array(
+										'class'       => 'bl-footer__teams-crest',
+										'alt'         => '',
+										'loading'     => 'lazy',
+										'aria-hidden' => 'true',
+									)
+								);
+								?>
+							<?php endif; ?>
+							<span class="bl-footer__teams-name"><?php echo esc_html( $name ); ?></span>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+	</nav>
 	<?php
 }
 
