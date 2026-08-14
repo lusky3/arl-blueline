@@ -28,6 +28,7 @@ require_once BLUELINE_DIR . '/inc/settings/sanitize.php';
 require_once BLUELINE_DIR . '/inc/settings/cache.php';
 require_once BLUELINE_DIR . '/inc/settings/commerce.php';
 require_once BLUELINE_DIR . '/inc/settings/page.php';
+require_once BLUELINE_DIR . '/inc/settings/site-health.php';
 require_once BLUELINE_DIR . '/inc/setup.php';
 require_once BLUELINE_DIR . '/inc/enqueue.php';
 require_once BLUELINE_DIR . '/inc/template-tags.php';
@@ -41,3 +42,13 @@ require_once BLUELINE_DIR . '/inc/account/player-link.php';
 require_once BLUELINE_DIR . '/inc/account/player-data.php';
 require_once BLUELINE_DIR . '/inc/account/dashboard.php';
 require_once BLUELINE_DIR . '/inc/account/avatars.php';
+
+// WP-CLI only: `wp blueline settings export|import|validate|reset`. Guarded
+// so inc/cli/settings-command.php -- which extends WP_CLI_Command and calls
+// WP_CLI:: directly -- never parses on an ordinary web request, where
+// neither symbol exists. tests/IncRequireCoverageTest.php matches this
+// quoted path regardless of the surrounding `if`, so this guarded require
+// still satisfies that guard.
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once BLUELINE_DIR . '/inc/cli/settings-command.php';
+}
