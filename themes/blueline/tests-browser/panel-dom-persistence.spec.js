@@ -80,6 +80,49 @@
  *     that exact element, which is precisely the shape of gap this file
  *     exists to close rather than repeat.
  *
+ * The manual page-cache-purge notice (inc/settings/cache.php,
+ * `bl-cache-purge-notice`) is covered by (1) generically -- it carries a
+ * `bl-`-prefixed class, scanned across the whole document rather than just
+ * the panel wrap, since `admin_notices` renders it on every wp-admin
+ * screen, not only this one. That coverage is real, but it is also a SIDE
+ * EFFECT of how identifier (1) is scoped, not something the test
+ * specifically targets the way the failed-save and successful-save steps
+ * target the other two notices. Because this notice is, today, the ENTIRE
+ * shipped behaviour of the cache-purge requirement (the guarded automatic
+ * purge ships off by default -- see that file's own docblock), the
+ * successful-save step below asserts it BY NAME too, deliberately and
+ * redundantly with (1): a future refactor that narrows identifier (1)'s
+ * scope to the panel wrap (e.g. "for consistency" with (2)) would silently
+ * stop covering this notice, and nothing but this explicit assertion would
+ * ever say so.
+ *
+ * ## Guarding the guard: proving the hazard is actually live
+ *
+ * Every assertion above only means something if this specific admin
+ * screen, on the target this suite is pointed at, actually has SOMETHING
+ * that strips notice-classed elements client-side. Point
+ * `BLUELINE_E2E_BASE_URL` at a bare `wp-env`, a fresh ddev clone before
+ * plugins are installed, or a future environment where this plugin has
+ * been deactivated, disabled, or swapped for something that no longer
+ * does this, and every assertion above passes -- not because the theme's
+ * markup is safe, but because nothing was ever attempted against it. That
+ * is the exact vacuous-pass failure mode this whole file exists to close,
+ * recreated one level up inside the guard itself.
+ *
+ * `installHazardCanary()` / `assertHazardIsLive()` close that gap the same
+ * way `tests-browser/global-setup.js` closes the "is the target even
+ * reachable" gap: by checking the actual precondition instead of assuming
+ * it. A synthetic `<div class="notice notice-info">` is injected into the
+ * live page and, after the same settle period every other assertion in
+ * this file waits out, must be GONE -- if it survives, this suite fails
+ * loudly, by name, before trusting anything else it observed on this run.
+ * This deliberately checks the BEHAVIOUR (does a plain notice-classed
+ * `<div>` get removed), not the vendor responsible for it today: a
+ * plugin-slug check (`capabilities-pro`) would stop meaning anything the
+ * moment the site swaps plugins or the vendor renames its module, while
+ * the actual mechanism this suite depends on could still be silently
+ * absent either way.
+ *
  * @see tests-browser/global-setup.js for why this suite fails fast, before
  *      any test runs, if the target cannot serve it at all.
  */
@@ -91,6 +134,13 @@ test.describe.configure( { mode: 'serial' } );
 const PANEL_PATH = '/wp-admin/themes.php?page=blueline&tab=content';
 const EMAIL_FIELD_SELECTOR = '#blueline-field-contact_email';
 const ERROR_SUMMARY_ID = 'blueline-settings-error-summary';
+
+/**
+ * id of the synthetic "hazard canary" -- see `installHazardCanary()` and
+ * `assertHazardIsLive()`, and this file's own top docblock's "Guarding the
+ * guard" section.
+ */
+const HAZARD_CANARY_ID = 'blueline-e2e-canary';
 
 /**
  * NoticeDivGuardTest.php's own FORBIDDEN_SUBSTRINGS, duplicated here
@@ -302,6 +352,105 @@ async function assertNothingServerRenderedVanished( page, rawHtml, label ) {
 }
 
 /**
+ * Registers an init script (runs before ANY of the page's own scripts, on
+ * every subsequent navigation of this `page`) that inserts a synthetic
+ * `<div class="notice notice-info">` -- the exact element shape this
+ * whole suite assumes gets stripped -- as early in the page's lifecycle
+ * as `<body>` exists.
+ *
+ * MUST be called BEFORE the `page.goto()` it is meant to cover, and
+ * timing here is the entire point, not an implementation detail: a first
+ * version of this canary was inserted via a plain `page.evaluate()` AFTER
+ * `waitUntil: 'load'` -- and it always survived, on every run, even
+ * against the real target where every other assertion in this file
+ * correctly observes elements being stripped. The reason: Capabilities
+ * Pro's removal pass (like this theme's own focus script -- see
+ * blueline_settings_focus_summary_script()'s docblock) runs ONCE, tied to
+ * `jQuery(document).ready()`/`DOMContentLoaded`, scanning whatever is
+ * already in the DOM AT THAT MOMENT. A real notice qualifies because
+ * PHP put it in the document body BEFORE the browser ever starts
+ * parsing. An element added via `page.evaluate()` after the `load` event
+ * arrives long after that one-time pass already ran and finished, so of
+ * course it was never touched -- that is not the hazard being absent, it
+ * is the canary arriving too late to ever be a real test of it. An init
+ * script, registered before navigation, runs before the response body is
+ * even parsed -- early enough that even `document.documentElement`
+ * (`<html>`) does not exist yet, which is why this polls for `<body>`
+ * with a 1ms `setInterval` rather than a `MutationObserver` (which needs
+ * an existing node to observe and throws if given none). Polling inserts
+ * the canary at essentially the same point in the page's lifecycle a
+ * server-rendered notice would already be there -- in time for the SAME
+ * removal pass that would strip a real one.
+ *
+ * Paired with `assertHazardIsLive()` below; see this file's own top
+ * docblock's "Guarding the guard" section for why this exists at all.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function installHazardCanary( page ) {
+	await page.addInitScript( ( canaryId ) => {
+		const insertCanary = () => {
+			if ( document.getElementById( canaryId ) || ! document.body ) {
+				return false;
+			}
+			const canary = document.createElement( 'div' );
+			canary.id = canaryId;
+			canary.className = 'notice notice-info';
+			canary.textContent =
+				'blueline e2e hazard canary -- if this is still visible, the target environment does not ' +
+				'reproduce the bug class this suite guards.';
+			document.body.insertBefore( canary, document.body.firstChild );
+			return true;
+		};
+
+		if ( insertCanary() ) {
+			return;
+		}
+
+		const intervalId = setInterval( () => {
+			if ( insertCanary() ) {
+				clearInterval( intervalId );
+			}
+		}, 1 );
+	}, HAZARD_CANARY_ID );
+}
+
+/**
+ * The guard-the-guard assertion: if the canary `installHazardCanary()` just
+ * planted is STILL in the DOM after client-side scripts have had their
+ * turn, nothing on this admin screen actually strips notice-classed
+ * elements -- which means every other assertion in this file would pass
+ * VACUOUSLY on this run, having never actually been exercised. Fails
+ * loudly, by name, rather than letting that happen silently. See this
+ * file's own top docblock's "Guarding the guard" section for the full
+ * reasoning, including why this checks the BEHAVIOUR rather than probing
+ * for a specific plugin.
+ *
+ * Must be called after `installHazardCanary()` AND after the same settle
+ * period (`settleAfterClientSideScripts()`) the rest of this file waits
+ * out before reading the DOM.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function assertHazardIsLive( page ) {
+	const canaryStillPresent = await page.evaluate(
+		( canaryId ) => !! document.getElementById( canaryId ),
+		HAZARD_CANARY_ID
+	);
+
+	expect(
+		canaryStillPresent,
+		'HAZARD NOT LIVE: a synthetic <div class="notice notice-info"> canary was injected into this admin ' +
+			'page and survived a real page load untouched. This whole suite depends on a real, active ' +
+			'mechanism (in production, Capabilities Pro\'s admin-notices "declutter" module) that strips ' +
+			'notice-classed elements client-side -- without it, every assertion below would pass VACUOUSLY, ' +
+			'because nothing on this target ever removes anything. Point BLUELINE_E2E_BASE_URL at an ' +
+			'environment that actually reproduces this (see docs/DESIGN.md\'s Contributing section), or ' +
+			'confirm whatever provides this behaviour on the current target is active.'
+	).toBe( false );
+}
+
+/**
  * Capabilities Pro's own admin-notices removal, and this page's own focus
  * script (see blueline_settings_focus_summary_script()'s docblock), both
  * run from a jQuery `ready()`/`setTimeout(fn, 0)` chain rather than
@@ -396,10 +545,18 @@ test( 'the panel survives every third-party script that runs against it', async 
 	} );
 	page.on( 'pageerror', ( err ) => consoleErrors.push( `uncaught page error: ${ err.message }` ) );
 
-	await test.step( 'initial load: nothing the server rendered is missing from the DOM', async () => {
+	await test.step( 'initial load: the hazard is live, and nothing the server rendered is missing from the DOM', async () => {
+		await installHazardCanary( page );
 		const response = await page.goto( PANEL_PATH, { waitUntil: 'load' } );
 		const rawHtml = await response.text();
 		await settleAfterClientSideScripts( page );
+
+		// Prove the hazard this whole suite depends on is actually live on
+		// this target BEFORE trusting any "nothing vanished" result below
+		// -- see this file's own top docblock's "Guarding the guard"
+		// section, and assertHazardIsLive()'s own docblock.
+		await assertHazardIsLive( page );
+
 		await assertNothingServerRenderedVanished( page, rawHtml, 'initial panel load' );
 	} );
 
@@ -453,6 +610,34 @@ test( 'the panel survives every third-party script that runs against it', async 
 		await expect(
 			successNotice,
 			'a successful save must actually display a visible "Settings saved." confirmation -- not merely include it, unrendered, in the response body'
+		).toBeVisible();
+
+		// The manual page-cache-purge notice, asserted BY NAME -- see this
+		// file's own top docblock for why this is deliberately redundant
+		// with assertNothingServerRenderedVanished()'s generic bl- class
+		// coverage above, rather than left as an implicit side effect of
+		// it. blueline_apply_cache_purge_policy() (inc/settings/cache.php)
+		// marks a manual purge as needed on EVERY save while the guarded
+		// automatic purge ships off (the default -- true on every
+		// environment this suite is meant to run against), and the save
+		// this step just performed did exactly that; the notice fires on
+		// every admin screen via `admin_notices`, including the very page
+		// this redirect just landed on.
+		expect(
+			rawHtml.includes( 'bl-cache-purge-notice' ),
+			'expected the server to render the cache-purge notice on this load -- a save was just performed ' +
+				'and the guarded automatic purge ships off by default, so blueline_apply_cache_purge_policy() ' +
+				'should always have marked a manual purge as needed. If this fails, the PRECONDITION this ' +
+				'assertion assumes has changed (e.g. BLUELINE_SRCACHE_PURGE flipped true and the guarded ' +
+				'purge actually ran), not necessarily the bug this file guards -- see inc/settings/cache.php.'
+		).toBe( true );
+
+		const purgeNotice = page.locator( '.bl-cache-purge-notice' );
+		await expect(
+			purgeNotice,
+			'the manual page-cache-purge notice -- today the ENTIRE shipped behaviour of the cache-purge ' +
+				'requirement, since the guarded automatic purge ships off by default -- must survive and ' +
+				'remain visible after a save that sets it needed'
 		).toBeVisible();
 	} );
 
