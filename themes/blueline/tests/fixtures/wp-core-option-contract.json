@@ -1,0 +1,85 @@
+{
+  "$comment": "Committed contract for WordPress core's option-write pipeline: update_option(), add_option(), and the sanitize_option() they both call. Consumers: tests/WpCoreContractTest.php (both its always-on stub-fidelity job and its oracle-dependent staleness job) and tests/tools/generate-wp-core-option-contract.php (the regeneration CLI). This exists because four of ten prior tasks each shipped a green test suite over a stub behaviour that was untrue about real core -- see 'known_gaps' below for a FIFTH, newly-discovered on this task, deliberately left unfixed pending a decision rather than silently patched.",
+
+  "source": {
+    "oracle": "staging (ssh -p SSH_PORT root@staging-host.example, docker exec -u 33 staging-wp sh -lc 'cat /var/www/html/wp-includes/{option,formatting}.php') -- the version actually running production/staging, preferred per this task's instructions",
+    "wp_version": "6.9.4",
+    "extracted_date": "2026-08-14",
+    "cross_checked_against": "local checkout /home/cody/arl-local (WordPress 6.8.7) -- tests/tools/wp-core-option-contract-extractor.php's output is byte-for-byte identical (PHP `===` on the decoded arrays) between the two for every function this contract covers; wp-includes/option.php lines 847-1190 are line-for-line identical between the two checkouts as plain text",
+    "extracted_with": "tests/tools/generate-wp-core-option-contract.php <wp-includes-dir> <wp-version>, then hand-merged into this file's source_truth key"
+  },
+
+  "scope": "Only the hook dispatches lexically inside WordPress core's update_option()/add_option() (wp-includes/option.php) and sanitize_option() (wp-includes/formatting.php) -- the option lifecycle only, per this task's brief. The default_option_{$option} filter both option.php functions also call is deliberately excluded from the hook list (it is an existence/default-value check used to pick a code path, not a change-notification hook), but its presence is still asserted by the extractor's raw-dispatch-count check, so its removal or duplication is not silently invisible either. esc_url()/wp_kses()-class behavioural bugs are explicitly out of reach of this structural approach and are not attempted here.",
+
+  "source_truth": {
+    "$comment": "Mechanically regenerable via tests/tools/generate-wp-core-option-contract.php -- see that file's docblock for exact invocation and the two-step (regenerate, then hand-review sequences/known_gaps) process for updating this after a WordPress core version bump. Each entry is the hook exactly as it is dispatched in core's own source, in the order it appears in that function's body.",
+    "sanitize_option": [
+      { "hook": "sanitize_option_{$option}", "kind": "filter", "dynamic": true, "args": ["value", "option", "original_value"] }
+    ],
+    "update_option": [
+      { "hook": "pre_update_option_{$option}", "kind": "filter", "dynamic": true,  "args": ["value", "old_value", "option"] },
+      { "hook": "pre_update_option",            "kind": "filter", "dynamic": false, "args": ["value", "option", "old_value"] },
+      { "hook": "update_option",                "kind": "action", "dynamic": false, "args": ["option", "old_value", "value"] },
+      { "hook": "update_option_{$option}",       "kind": "action", "dynamic": true,  "args": ["old_value", "value", "option"] },
+      { "hook": "updated_option",                "kind": "action", "dynamic": false, "args": ["option", "old_value", "value"] }
+    ],
+    "add_option": [
+      { "hook": "add_option",          "kind": "action", "dynamic": false, "args": ["option", "value"] },
+      { "hook": "add_option_{$option}", "kind": "action", "dynamic": true,  "args": ["option", "value"] },
+      { "hook": "added_option",         "kind": "action", "dynamic": false, "args": ["option", "value"] }
+    ]
+  },
+
+  "sequences": {
+    "$comment": "Hand-composed test scenarios, each a full ordered walk of every hook dispatch tests/bootstrap.php's update_option()/add_option() stub ACTUALLY produces for a given call pattern (not just the source_truth hooks in isolation) -- this is what tests/WpCoreContractTest.php's always-on job exercises and asserts against. `expected_args` is what the STUB currently passes (which for every `stub_matches_core: true` entry equals source_truth's `args`, and for `stub_matches_core: false` entries differs -- see `note`). `fires: false` entries assert the named hook is NEVER observed for that scenario; they still carry source_truth's true args/kind/dynamic for reference, but there is nothing to compare since nothing fires.",
+
+    "update_option_first_write": [
+      { "hook": "sanitize_option_{$option}",  "kind": "filter", "dynamic": true,  "fires": true,  "expected_args": ["value", "option"],                  "stub_matches_core": false, "note": "core's sanitize_option() (formatting.php) passes a 3rd arg, original_value, which this stub's inlined filter call omits -- see known_gaps." },
+      { "hook": "pre_update_option_{$option}", "kind": "filter", "dynamic": true,  "fires": true,  "expected_args": ["value", "old_value", "option"],     "stub_matches_core": true },
+      { "hook": "pre_update_option",           "kind": "filter", "dynamic": false, "fires": true,  "expected_args": ["value", "option", "old_value"],     "stub_matches_core": true },
+      { "hook": "sanitize_option_{$option}",  "kind": "filter", "dynamic": true,  "fires": true,  "expected_args": ["value", "option"],                  "stub_matches_core": false, "note": "fired a second time inside the add_option() this first write delegates into -- core does the same (sanitize_option() has no memory of who called it), also missing original_value here." },
+      { "hook": "add_option",                  "kind": "action", "dynamic": false, "fires": false, "note": "stub does not fire this hook at all -- see known_gaps." },
+      { "hook": "add_option_{$option}",         "kind": "action", "dynamic": true,  "fires": true,  "expected_args": ["option", "value"],                  "stub_matches_core": true },
+      { "hook": "added_option",                 "kind": "action", "dynamic": false, "fires": true,  "expected_args": ["option", "value"],                  "stub_matches_core": true }
+    ],
+
+    "update_option_subsequent_write": [
+      { "hook": "sanitize_option_{$option}",  "kind": "filter", "dynamic": true,  "fires": true,  "expected_args": ["value", "option"],                     "stub_matches_core": false, "note": "see known_gaps -- missing original_value." },
+      { "hook": "pre_update_option_{$option}", "kind": "filter", "dynamic": true,  "fires": true,  "expected_args": ["value", "old_value", "option"],        "stub_matches_core": true },
+      { "hook": "pre_update_option",           "kind": "filter", "dynamic": false, "fires": true,  "expected_args": ["value", "option", "old_value"],        "stub_matches_core": true },
+      { "hook": "update_option",               "kind": "action", "dynamic": false, "fires": false, "note": "stub does not fire this hook at all -- see known_gaps." },
+      { "hook": "update_option_{$option}",      "kind": "action", "dynamic": true,  "fires": true,  "expected_args": ["old_value", "value", "option"],        "stub_matches_core": true },
+      { "hook": "updated_option",               "kind": "action", "dynamic": false, "fires": false, "note": "stub does not fire this hook at all -- see known_gaps." }
+    ],
+
+    "add_option_direct": [
+      { "hook": "sanitize_option_{$option}", "kind": "filter", "dynamic": true,  "fires": true,  "expected_args": ["value", "option"], "stub_matches_core": false, "note": "see known_gaps -- missing original_value." },
+      { "hook": "add_option",                 "kind": "action", "dynamic": false, "fires": false, "note": "stub does not fire this hook at all -- see known_gaps." },
+      { "hook": "add_option_{$option}",        "kind": "action", "dynamic": true,  "fires": true,  "expected_args": ["option", "value"], "stub_matches_core": true },
+      { "hook": "added_option",                "kind": "action", "dynamic": false, "fires": true,  "expected_args": ["option", "value"], "stub_matches_core": true }
+    ]
+  },
+
+  "known_gaps": [
+    {
+      "hook": "sanitize_option_{$option}",
+      "issue": "real core dispatches this filter with 3 args -- ($value, $option, $original_value) -- via the standalone sanitize_option() function in wp-includes/formatting.php. tests/bootstrap.php's update_option()/add_option() stub inlines the filter call directly (it does not model sanitize_option() as its own function) and passes only 2 args, ($value, $option), permanently omitting $original_value.",
+      "impact": "latent, currently cosmetic: no callback in inc/ (as of this writing, inc/settings/page.php's blueline_settings_sanitize_callback()) declares a 3rd parameter, so nothing currently misbehaves. A future sanitize_option_{$option} callback written against core's documented signature and expecting $original_value would silently receive null in tests while working correctly against real core (or vice versa: written/tested against a hypothetically-fixed stub, then deployed against real core's 3-arg reality -- either direction is a fidelity gap)."
+    },
+    {
+      "hook": "update_option",
+      "issue": "the GENERIC 'update_option' action (distinct from the option-specific update_option_{$option}) is fired unconditionally by real core immediately before its UPDATE query, on every write to an option that already exists (i.e. every subsequent-write call -- never on a first-ever write, which delegates to add_option() before reaching this line). tests/bootstrap.php's stub does not fire this hook at all.",
+      "impact": "a callback hooked generically onto 'update_option' (rather than a specific 'update_option_{$option}') to observe or veto ALL option writes -- e.g. a cross-cutting audit log -- would run against real core but silently never run in this theme's test suite."
+    },
+    {
+      "hook": "updated_option",
+      "issue": "the GENERIC 'updated_option' action (distinct from the option-specific update_option_{$option}, and fired immediately AFTER it) is fired unconditionally by real core on every successful write to an option that already exists. tests/bootstrap.php's stub does not fire this hook at all.",
+      "impact": "same class of gap as 'update_option' above, one hook later in the sequence."
+    },
+    {
+      "hook": "add_option",
+      "issue": "the GENERIC 'add_option' action (distinct from the option-specific add_option_{$option}) is fired unconditionally by real core's add_option(), immediately before its INSERT ... ON DUPLICATE KEY UPDATE query -- whether add_option() was called directly or reached via update_option()'s first-write delegation. tests/bootstrap.php's stub does not fire this hook at all.",
+      "impact": "same class of gap as 'update_option'/'updated_option', on the add side of the pipeline."
+    }
+  ]
+}
