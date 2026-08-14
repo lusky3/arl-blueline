@@ -248,9 +248,20 @@
 		 * last item under the home indicator, where it is both hard to read
 		 * and hard to tap. env() resolves to 0 everywhere else, so this
 		 * costs nothing on hardware without insets.
+		 *
+		 * The top padding also clears the header bar, which is now painted OVER
+		 * this drawer (header.css raises .bl-header__brand/.bl-header__actions
+		 * above it so the hamburger can be tapped to close). It therefore has
+		 * to be the bar's real height, not a fixed token: --bl-space-8 is 64px
+		 * and the bar is ~84px at the current mark size, which would leave the
+		 * first menu item sitting underneath it.
+		 *
+		 * --bl-header-rest-height is published by assets/src/js/sticky-header.js
+		 * from the header's measured un-shrunk height. The fallback is the bar
+		 * at its mobile mark size plus its padding, for no-JS and first paint.
 		 */
 		padding-block:
-			calc(var(--bl-space-8) + env(safe-area-inset-top))
+			calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-4) + env(safe-area-inset-top))
 			calc(var(--bl-space-6) + env(safe-area-inset-bottom));
 		padding-inline:
 			calc(var(--bl-space-5) + env(safe-area-inset-left))
@@ -259,6 +270,37 @@
 
 	body.bl-nav-open .bl-nav__menu {
 		display: block;
+	}
+
+	/*
+	 * The hamburger becomes an X while the drawer is open. Worth having only
+	 * now that the control is actually visible over the drawer -- until this
+	 * commit it sat underneath, so there was nothing to communicate with.
+	 *
+	 * The middle bar is the element itself and the other two are its
+	 * pseudo-elements, so the X is the two pseudo-elements brought to the
+	 * centre and counter-rotated while the middle one goes transparent rather
+	 * than display:none, which would take the ::before/::after with it.
+	 *
+	 * The button's accessible name stays "Menu" and aria-expanded carries the
+	 * state, which is the documented ARIA disclosure pattern; the X is a
+	 * visual affordance on top of that, not a replacement for it.
+	 */
+	body.bl-nav-open .bl-nav__toggle-bars {
+		background: transparent;
+	}
+
+	body.bl-nav-open .bl-nav__toggle-bars::before,
+	body.bl-nav-open .bl-nav__toggle-bars::after {
+		top: 0;
+	}
+
+	body.bl-nav-open .bl-nav__toggle-bars::before {
+		transform: rotate(45deg);
+	}
+
+	body.bl-nav-open .bl-nav__toggle-bars::after {
+		transform: rotate(-45deg);
 	}
 
 	.bl-nav__item {

@@ -416,6 +416,29 @@
 	.bl-header__sponsors {
 		display: none;
 	}
+
+	/*
+	 * Keep the bar's own controls above the open drawer.
+	 *
+	 * The drawer is `.bl-nav__menu` -- position:fixed, z-index:50 (nav.css) --
+	 * and it is a DESCENDANT of `.bl-header__bar`, so that bar's own z-index:60
+	 * orders it against the bar's siblings and does nothing for the bar's
+	 * children. Inside the bar's stacking context the drawer is positioned with
+	 * a z-index and these two are static, so the drawer painted over them: with
+	 * the menu open, elementFromPoint() at the hamburger's own centre returned
+	 * the drawer's UL, i.e. the control that opened the drawer could not be
+	 * tapped to close it. (Escape, outside-click and the focus trap all worked,
+	 * so it was never a trap -- just unusable in the obvious way.)
+	 *
+	 * 55 sits above the drawer's 50 and below the bar's 60. Raising
+	 * `.bl-header__inner` instead would not work: the drawer is inside it and
+	 * would come up too.
+	 */
+	.bl-header__brand,
+	.bl-header__actions {
+		position: relative;
+		z-index: 55;
+	}
 }
 
 /*
