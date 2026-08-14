@@ -183,6 +183,44 @@ function blueline_extract_wp_core_option_contract( string $wp_includes_dir ): ar
 }
 
 /**
+ * Reads the WordPress version string a wp-includes checkout declares in
+ * its own wp-includes/version.php.
+ *
+ * This exists so an oracle's PROVENANCE can be checked mechanically, not
+ * just its structural content: two checkouts can extract to byte-identical
+ * source_truth (as WordPress 6.8.7 and 6.9.4 happen to, for the functions
+ * this contract covers) while one of them is nonetheless the wrong
+ * checkout to be trusting as "the version this fixture was verified
+ * against" -- a coincidence of these two specific versions, not a
+ * guarantee about any future one. tests/WpCoreContractTest.php's
+ * oracle-dependent job uses this to refuse to treat a version-mismatched
+ * checkout as authoritative, even when its extracted data happens to
+ * still match.
+ *
+ * @param string $wp_includes_dir Path to a wp-includes directory.
+ * @return string The version string exactly as core declares it (e.g. "6.9.4").
+ * @throws RuntimeException If version.php is missing/unreadable, or no
+ *                           $wp_version assignment can be found in it.
+ */
+function blueline_wpcc_read_wp_core_version( string $wp_includes_dir ): string {
+	$version_php_path = rtrim( $wp_includes_dir, '/' ) . '/version.php';
+
+	if ( ! is_readable( $version_php_path ) ) {
+		throw new RuntimeException( "version.php not found or unreadable: {$version_php_path}" ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- CLI/test-only tool; never rendered as HTML.
+	}
+
+	$contents = (string) file_get_contents( $version_php_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads a local WordPress core checkout's PHP source; no WordPress runtime loaded to call wp_remote_get() from.
+
+	if ( ! preg_match( '/\$wp_version\s*=\s*\'([^\']+)\'/', $contents, $match ) ) {
+		$message = "could not find a \$wp_version assignment in {$version_php_path} -- has core changed how it declares its own version?";
+
+		throw new RuntimeException( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- CLI/test-only tool; never rendered as HTML.
+	}
+
+	return $match[1];
+}
+
+/**
  * Locates a top-level function's body by finding its declaration and the
  * next top-level `function` declaration after it.
  *

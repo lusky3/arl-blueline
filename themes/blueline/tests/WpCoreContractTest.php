@@ -3,8 +3,8 @@
  * Guards tests/bootstrap.php's option-lifecycle stubs (update_option(),
  * add_option()) against silently diverging from real WordPress core.
  *
- * WHY THIS EXISTS: over ten prior tasks, four separate bugs in these stubs
- * each shipped a fully green test suite over something untrue about
+ * WHY THIS EXISTS: over ten prior tasks, this stub accumulated SIX separate
+ * bugs, each shipping a fully green test suite over something untrue about
  * production --
  *
  *   1. update_option() never fired pre_update_option_{$option} at all.
@@ -18,32 +18,62 @@
  *      real re-entrant call into add_option(), so core's double
  *      sanitize_option_{$option} dispatch on a first write never happened
  *      in tests.
+ *   5. sanitize_option_{$option} dispatched with only 2 args, ($value,
+ *      $option), where core's real sanitize_option() (wp-includes/
+ *      formatting.php) dispatches with 3: ($value, $option,
+ *      $original_value).
+ *   6. Three generic action hooks -- 'update_option', 'updated_option',
+ *      'add_option' -- fire unconditionally in real core alongside their
+ *      option-specific counterparts, but were not fired by this stub at
+ *      all.
+ *
+ * Bugs 1-4 were found and fixed across earlier tasks; building THIS guard
+ * is what surfaced 5 and 6, which were fixed directly rather than recorded
+ * as tolerated exceptions (see tests/fixtures/wp-core-option-contract.json's
+ * `known_gaps`, deliberately empty) -- a documented-but-unfixed gap is the
+ * same bet as an undocumented one, just with better bookkeeping.
  *
  * Every one of those was a guess about core that nobody checked against
  * core's actual source -- despite that source being available. This test
  * class closes that gap with two structurally different jobs:
  *
  * JOB 1 -- test_stub_matches_committed_contract() and its data provider,
- * ALWAYS RUNS, no external dependency: replays the recorded sequences in
+ * plus test_original_value_is_captured_before_any_sanitize_filter_mutates_it(),
+ * ALWAYS RUN, no external dependency: replay the recorded sequences in
  * tests/fixtures/wp-core-option-contract.json's `sequences` section against
- * the live update_option()/add_option() stubs in this test run, and asserts
+ * the live update_option()/add_option() stubs in this test run, and assert
  * the observed hook-dispatch sequence and each hook's argument order match
  * exactly. This is the regression guard -- it is what would have failed on
- * any of the four bugs above, and does fail the moment the stub is edited
- * to reintroduce one. That was verified directly while building this test:
- * temporarily swapping the generic pre_update_option filter's argument order
- * back to bug #2's shape in tests/bootstrap.php made this job fail, naming
- * the exact discrepancy, before the swap was reverted.
+ * any of bugs 1-4 and 6 above, and does fail the moment the stub is edited
+ * to reintroduce one (verified directly while building this test: swapping
+ * the generic pre_update_option filter's argument order back to bug #2's
+ * shape in tests/bootstrap.php made it fail, naming the exact discrepancy,
+ * before the swap was reverted -- see this task's report for that and the
+ * equivalent demonstration for bugs 5 and 6). Bug 5 specifically needs its
+ * own dedicated test: every recorder used by the scenario-driven test is an
+ * identity function, so $original_value and $value are indistinguishable in
+ * every assertion it makes -- test_original_value_is_captured_before_any_
+ * sanitize_filter_mutates_it() closes that blind spot with a genuinely
+ * mutating callback (see its own docblock).
  *
  * JOB 2 -- test_fixture_matches_a_live_wp_core_checkout(), ONLY RUNS WHEN
- * AN ORACLE IS PRESENT: re-extracts the true hook contract from a real
- * WordPress core checkout (via tests/tools/wp-core-option-contract-extractor.php)
- * and asserts it still matches this fixture's `source_truth` section
- * exactly. This catches the fixture itself going stale after a WordPress
- * core version bump. Skipping this job when no oracle is configured is
- * acceptable ONLY because job 1 always runs regardless -- a silently-skipped
- * test is exactly the failure mode this whole exercise exists to eliminate,
- * and job 1 carries that weight unconditionally.
+ * AN ORACLE IS EXPLICITLY CONFIGURED (BLUELINE_WP_CORE_INCLUDES_DIR set to
+ * a wp-includes directory -- there is no implicit fallback default; see
+ * that method's docblock for why): re-extracts the true hook contract from
+ * a real WordPress core checkout (via tests/tools/wp-core-option-contract-
+ * extractor.php) and asserts it still matches this fixture's `source_truth`
+ * section exactly -- but ONLY after first confirming the oracle's own
+ * declared WordPress version matches this fixture's recorded
+ * `source.wp_version`; a version MISMATCH fails the test outright, in
+ * either direction, rather than silently comparing data from the wrong
+ * version and calling it a pass. This catches the fixture itself going
+ * stale after a WordPress core version bump -- including the specific
+ * failure mode of an oracle that was refreshed without anyone re-running
+ * this test, or a fixture nobody updated after staging moved. Skipping this
+ * job when no oracle is configured is acceptable ONLY because job 1 above
+ * always runs regardless -- a silently-skipped test is exactly the failure
+ * mode this whole exercise exists to eliminate, and job 1 carries that
+ * weight unconditionally.
  *
  * SCOPE AND LIMITS -- read before trusting this test for more than it
  * claims: this verifies STRUCTURAL fidelity only -- which hooks fire, in
@@ -56,21 +86,6 @@
  * (register_setting()'s default value machinery, the default_option_
  * {$option} filter's role in that) at all -- see
  * tests/fixtures/wp-core-option-contract.json's "scope" key.
- *
- * Building this guard surfaced two further, previously-unknown divergences:
- * the stub's inlined sanitize_option_{$option} call passed only 2 args
- * where core's real sanitize_option() passes 3 ($value, $option,
- * $original_value); and three generic action hooks -- 'update_option',
- * 'updated_option', 'add_option' -- fire unconditionally in real core
- * alongside their option-specific counterparts but were not fired by this
- * stub at all. Both were first reported rather than silently patched, per
- * this task's brief -- then, on review, fixed directly in
- * tests/bootstrap.php rather than left as recorded exceptions: this whole
- * exercise exists because prior "it doesn't bite today" divergences have
- * silently invalidated a green suite five times, and a known, unfixed gap
- * is that same bet, not a different one. tests/fixtures/wp-core-option-
- * contract.json's `known_gaps` is therefore empty; every scenario below
- * asserts `stub_matches_core: true` throughout.
  *
  * @package blueline
  */
@@ -345,42 +360,98 @@ final class WpCoreContractTest extends TestCase {
 	}
 
 	/**
-	 * JOB 2 (runs only when an oracle is present): re-extracts the true
-	 * option-lifecycle hook contract from a live WordPress core checkout
-	 * and asserts it still matches this fixture's `source_truth` section
-	 * exactly -- catching a STALE fixture after a WordPress core version
-	 * bump, which job 1 (which only knows about this fixture, not core
-	 * itself) cannot.
+	 * JOB 2 (runs only when an oracle is EXPLICITLY configured): re-extracts
+	 * the true option-lifecycle hook contract from a live WordPress core
+	 * checkout and asserts it still matches this fixture's `source_truth`
+	 * section exactly -- but only once the oracle's own declared version
+	 * (read from its wp-includes/version.php) is confirmed to match this
+	 * fixture's recorded `source.wp_version`. A version MISMATCH fails this
+	 * test outright, in EITHER direction -- never a skip, never a silent
+	 * pass -- because `source.wp_version` is a provenance claim ("this is
+	 * what was verified"), and a mismatch means that claim is no longer
+	 * verifiably true of whatever was just checked, independent of whether
+	 * the underlying structural data happens to still agree. An oracle
+	 * OLDER than the fixture can no longer stand in for the version the
+	 * fixture claims; an oracle NEWER than the fixture means core has moved
+	 * and the fixture needs regenerating -- a real finding about drift, not
+	 * a misconfiguration to wave through just because this particular pair
+	 * of versions happens to extract identically.
 	 *
-	 * Skipping this test when no oracle is configured is acceptable only
-	 * because job 1 above always runs unconditionally and carries the
+	 * There is deliberately NO implicit fallback oracle path (earlier
+	 * versions of this test defaulted to a hardcoded local checkout when
+	 * BLUELINE_WP_CORE_INCLUDES_DIR was unset). An unreviewed default that
+	 * everyone's test run silently trusts without anyone having chosen it
+	 * for THIS run is exactly the failure mode this job exists to close --
+	 * gap (1) in this task's own history. Requiring an explicit environment
+	 * variable means whoever configures an oracle (a developer's local
+	 * checkout, or a future CI step that rsyncs staging's live core) is
+	 * making a conscious choice this test can then hold to account, rather
+	 * than inheriting a stale default nobody re-examined.
+	 *
+	 * Skipping this test when no oracle is configured at all is acceptable
+	 * only because job 1 above always runs unconditionally and carries the
 	 * actual regression-guard weight; this job's sole purpose is to prevent
 	 * the fixture itself from silently drifting from a real, current
-	 * WordPress core.
-	 *
-	 * The oracle path is a local WordPress core checkout's wp-includes
-	 * directory, configurable via the BLUELINE_WP_CORE_INCLUDES_DIR
-	 * environment variable (falling back to /home/cody/arl-local/wp-includes,
-	 * this repository's known local checkout) -- pointing that variable at
-	 * a nonexistent path is exactly how this task's verification confirmed
-	 * job 1 keeps running with no oracle present while this job cleanly
-	 * skips.
+	 * WordPress core, and it cannot do that without someone pointing it at
+	 * one.
 	 *
 	 * @return void
 	 */
 	public function test_fixture_matches_a_live_wp_core_checkout(): void {
 		$oracle_dir = getenv( 'BLUELINE_WP_CORE_INCLUDES_DIR' );
+
 		if ( false === $oracle_dir || '' === $oracle_dir ) {
-			$oracle_dir = '/home/cody/arl-local/wp-includes';
+			$this->markTestSkipped(
+				'no oracle configured -- set BLUELINE_WP_CORE_INCLUDES_DIR to a wp-includes directory to run this ' .
+				'staleness check. Skipping here is acceptable ONLY because test_stub_matches_committed_contract() ' .
+				'above always runs unconditionally and requires no oracle -- see this class\'s docblock. There is ' .
+				'deliberately no implicit default path to fall back to (see this method\'s own docblock for why).'
+			);
+			return;
 		}
 
 		if ( ! is_dir( $oracle_dir ) || ! is_readable( $oracle_dir . '/option.php' ) ) {
 			$this->markTestSkipped(
-				"no WordPress core oracle available at '{$oracle_dir}' -- set BLUELINE_WP_CORE_INCLUDES_DIR to a " .
-				'wp-includes directory to run this staleness check. This test skipping is acceptable ONLY because ' .
-				'test_stub_matches_committed_contract() above always runs and requires no oracle -- see this ' .
-				"class's docblock."
+				"BLUELINE_WP_CORE_INCLUDES_DIR ('{$oracle_dir}') does not look like a wp-includes directory " .
+				'(option.php not found or unreadable) -- skipping this staleness check.'
 			);
+			return;
+		}
+
+		$fixture_version = self::$fixture['source']['wp_version'] ?? null;
+		$this->assertIsString( $fixture_version, 'fixture is missing source.wp_version' );
+
+		try {
+			$oracle_version = blueline_wpcc_read_wp_core_version( $oracle_dir );
+		} catch ( RuntimeException $e ) {
+			$this->fail(
+				"could not determine the oracle's own WordPress version from '{$oracle_dir}': {$e->getMessage()}"
+			);
+			return;
+		}
+
+		if ( $oracle_version !== $fixture_version ) {
+			if ( version_compare( $oracle_version, $fixture_version, '>' ) ) {
+				$message = "the oracle at '{$oracle_dir}' reports WordPress {$oracle_version}, NEWER than this " .
+					"fixture's recorded source.wp_version ({$fixture_version}) -- core has moved since this " .
+					'fixture was last verified. This is a real finding, not a misconfiguration: regenerate the ' .
+					"fixture with tests/tools/generate-wp-core-option-contract.php against '{$oracle_dir}', " .
+					'review sequences/known_gaps for anything the newer version changes, and update ' .
+					"source.wp_version/extracted_date to {$oracle_version} -- do this even if the structural " .
+					"data turns out unchanged, because the fixture's version claim must describe what was " .
+					'actually last checked, not merely what still happens to match.';
+			} else {
+				$message = "the oracle at '{$oracle_dir}' reports WordPress {$oracle_version}, OLDER than this " .
+					"fixture's recorded source.wp_version ({$fixture_version}) -- this checkout can no longer " .
+					'stand in for the version this fixture claims to have verified. Point ' .
+					"BLUELINE_WP_CORE_INCLUDES_DIR at a checkout of WordPress {$fixture_version} or newer " .
+					"(staging is the preferred oracle -- see this fixture's source.oracle for how to reach it), " .
+					"or, if {$oracle_version} is now deliberately the reference version, regenerate the fixture " .
+					'from it and update source.wp_version/extracted_date accordingly.';
+			}
+
+			$this->fail( $message );
+			return;
 		}
 
 		try {
@@ -403,6 +474,101 @@ final class WpCoreContractTest extends TestCase {
 			"tests/fixtures/wp-core-option-contract.json's source_truth no longer matches '{$oracle_dir}' -- " .
 			'regenerate it with tests/tools/generate-wp-core-option-contract.php and review sequences/known_gaps ' .
 			'for anything the change affects (see that tool\'s docblock).'
+		);
+	}
+
+	/**
+	 * Canary for the $original_value argument specifically (bug 5): every
+	 * recorder used by test_stub_matches_committed_contract() is an
+	 * identity function that returns whatever it received unchanged, so
+	 * $original_value and $value are indistinguishable in every assertion
+	 * that test makes -- a regression that captured $original_value from
+	 * the value AFTER some upstream mutation (rather than snapshotting it
+	 * BEFORE any sanitize_option_{$option} callback runs, as
+	 * update_option()/add_option() are now written to do) would sail
+	 * through that test unnoticed, since value === original_value in every
+	 * case it exercises.
+	 *
+	 * This test registers a genuinely MUTATING callback on
+	 * sanitize_option_{$option} at a lower priority (runs first) than a
+	 * second, purely-recording callback (runs second) on the same hook and
+	 * option. This stub's apply_filters() fixes $original_value once, as
+	 * whatever the THIRD argument was to this specific apply_filters()
+	 * call -- it is not re-derived per callback in the chain -- so the
+	 * recording callback necessarily observes $value already transformed by
+	 * the mutating callback, while $original_value must still be the raw
+	 * value update_option() was called with, if and only if
+	 * update_option() snapshotted it before calling apply_filters() at all.
+	 * A regression that instead captured $original_value from the
+	 * already-sanitized $value (e.g. reading it back out after the filter
+	 * dispatch, or reusing a stale variable) would make this recording
+	 * callback observe $original_value === $value (both the mutated
+	 * string) instead of them differing -- which is exactly what this test
+	 * asserts does NOT happen.
+	 *
+	 * Uses a subsequent-write call (an option seeded directly into the
+	 * store, bypassing hooks) rather than a first-ever write, so
+	 * sanitize_option_{$option} fires exactly once -- a first write would
+	 * fire it a second time inside the add_option() delegation, with its
+	 * OWN freshly-captured original_value (the already-mutated value
+	 * update_option() passed in), which would only add noise to this
+	 * specific assertion, not additional coverage; that double-dispatch
+	 * nuance is already covered by the 'update_option_first_write' scenario
+	 * in test_stub_matches_committed_contract().
+	 *
+	 * @return void
+	 */
+	public function test_original_value_is_captured_before_any_sanitize_filter_mutates_it(): void {
+		$option = 'bl_contract_original_value_canary';
+
+		$GLOBALS['bl_test_options'][ $option ] = 'seed';
+
+		$observed = array();
+
+		add_filter(
+			"sanitize_option_{$option}",
+			static fn( $value ) => $value . '-mutated',
+			5,
+			1
+		);
+
+		add_filter(
+			"sanitize_option_{$option}",
+			static function ( $value, $option_name, $original_value ) use ( &$observed ) {
+				$observed[] = array(
+					'value'          => $value,
+					'original_value' => $original_value,
+				);
+				return $value;
+			},
+			10,
+			3
+		);
+
+		update_option( $option, 'raw' );
+
+		$this->assertCount(
+			1,
+			$observed,
+			'the recording callback must run exactly once for a subsequent write'
+		);
+		$this->assertNotSame(
+			$observed[0]['original_value'],
+			$observed[0]['value'],
+			'original_value must differ from value once an earlier-priority sanitize_option_{$option} callback ' .
+			'has mutated it -- if they are equal here, original_value is being re-derived from the mutated ' .
+			'value rather than snapshotted before any filter ran'
+		);
+		$this->assertSame(
+			'raw',
+			$observed[0]['original_value'],
+			'original_value must be the raw value update_option() was called with, unaffected by any ' .
+			'sanitize_option_{$option} callback'
+		);
+		$this->assertSame(
+			'raw-mutated',
+			$observed[0]['value'],
+			"value must reflect the earlier-priority callback's mutation by the time the recording callback runs"
 		);
 	}
 }
