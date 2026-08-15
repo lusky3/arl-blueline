@@ -535,9 +535,10 @@ function blueline_settings_tab_slugs(): array {
  */
 function blueline_settings_tab_label( string $tab_slug ): string {
 	$labels = array(
-		'content'  => __( 'Content', 'blueline' ),
-		'links'    => __( 'Links', 'blueline' ),
-		'commerce' => __( 'Commerce', 'blueline' ),
+		'content'    => __( 'Content', 'blueline' ),
+		'links'      => __( 'Links', 'blueline' ),
+		'appearance' => __( 'Appearance', 'blueline' ),
+		'commerce'   => __( 'Commerce', 'blueline' ),
 	);
 
 	return $labels[ $tab_slug ] ?? ucwords( str_replace( array( '-', '_' ), ' ', $tab_slug ) );
@@ -822,7 +823,39 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 		</th>
 		<td>
-			<?php if ( 'page_id' === $type ) : ?>
+			<?php if ( 'band_photos' === $type ) : ?>
+				<?php blueline_settings_render_band_photos( $field_key, $field, $name, $input_id, (array) $value ); ?>
+			<?php elseif ( 'bool' === $type ) : ?>
+				<?php
+				/*
+				 * The hidden input before the checkbox is what makes UNCHECKING
+				 * work: an unchecked box posts nothing at all, so without a
+				 * companion the sanitizer would never see the field and the
+				 * stored `true` would survive the save. The hidden 0 is always
+				 * posted; a checked box overwrites it, because a later value
+				 * wins for the same key.
+				 */
+				?>
+				<input type="hidden" name="<?php echo esc_attr( $name ); ?>" value="0">
+				<?php
+				/*
+				 * No wrapping <label> here: the row header already renders one
+				 * with `for` pointing at this input, so a second would print
+				 * the same sentence twice on screen and announce it twice to a
+				 * screen reader.
+				 */
+				?>
+				<input
+					type="checkbox"
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $name ); ?>"
+					value="1"
+					<?php checked( (bool) $value ); ?>
+				>
+				<?php if ( ! empty( $field['help'] ) ) : ?>
+					<p class="description"><?php echo esc_html( (string) $field['help'] ); ?></p>
+				<?php endif; ?>
+			<?php elseif ( 'page_id' === $type ) : ?>
 				<?php
 				wp_dropdown_pages(
 					array(
@@ -881,4 +914,214 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 		</td>
 	</tr>
 	<?php
+}
+
+/**
+ * Render the repeatable hero-photograph field: a row per photograph carrying
+ * its thumbnail, its own alignment, and a remove control, plus the button that
+ * opens the media library.
+ *
+ * Every row is rendered server-side, including for photographs added in this
+ * session -- assets/src/js/settings-photos.js clones the empty template below
+ * rather than assembling markup of its own, so there is exactly one definition
+ * of what a row looks like and the no-JS state and the JS state cannot drift.
+ *
+ * With JavaScript unavailable the picker button does nothing, but the existing
+ * rows still render, still submit, and their alignment selects still work --
+ * so an admin without JS can reorder priorities and fix alignment even if they
+ * cannot add a new photograph.
+ *
+ * @param string $field_key Schema key.
+ * @param array  $field     Schema entry.
+ * @param string $name      The `name` attribute base for this field.
+ * @param string $input_id  The field's input id.
+ * @param array  $rows      Stored rows: each { id, align }.
+ * @return void
+ */
+function blueline_settings_render_band_photos( string $field_key, array $field, string $name, string $input_id, array $rows ): void {
+	$alignments = function_exists( 'blueline_band_photo_alignments' ) ? blueline_band_photo_alignments() : array();
+	$max        = (int) ( $field['max'] ?? 12 );
+	?>
+	<div
+		class="bl-photos"
+		id="<?php echo esc_attr( $input_id ); ?>"
+		data-bl-photos
+		data-bl-photos-name="<?php echo esc_attr( $name ); ?>"
+		data-bl-photos-max="<?php echo esc_attr( (string) $max ); ?>"
+	>
+		<ul class="bl-photos__list" data-bl-photos-list>
+			<?php foreach ( $rows as $index => $row ) : ?>
+				<?php
+				$photo_id = absint( $row['id'] ?? 0 );
+
+				if ( ! $photo_id ) {
+					continue;
+				}
+
+				$align = (string) ( $row['align'] ?? 'center-center' );
+				?>
+				<li class="bl-photos__item" data-bl-photos-item>
+					<img
+						class="bl-photos__thumb"
+						src="<?php echo esc_url( (string) wp_get_attachment_image_url( $photo_id, 'thumbnail' ) ); ?>"
+						alt=""
+						width="60"
+						height="60"
+					>
+					<input
+						type="hidden"
+						name="<?php echo esc_attr( $name . '[' . $index . '][id]' ); ?>"
+						value="<?php echo esc_attr( (string) $photo_id ); ?>"
+						data-bl-photos-id
+					>
+					<label class="bl-photos__align">
+						<span class="screen-reader-text">
+							<?php
+							printf(
+								/* translators: %s: the photograph's file name. */
+								esc_html__( 'Alignment for %s', 'blueline' ),
+								esc_html( (string) get_the_title( $photo_id ) )
+							);
+							?>
+						</span>
+						<select name="<?php echo esc_attr( $name . '[' . $index . '][align]' ); ?>" data-bl-photos-align>
+							<?php foreach ( $alignments as $key => $unused ) : ?>
+								<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $align, $key ); ?>>
+									<?php echo esc_html( blueline_settings_alignment_label( $key ) ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</label>
+					<button type="button" class="button-link bl-photos__remove" data-bl-photos-remove>
+						<?php esc_html_e( 'Remove', 'blueline' ); ?>
+					</button>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+
+		<p class="bl-photos__empty" data-bl-photos-empty <?php echo $rows ? 'hidden' : ''; ?>>
+			<?php esc_html_e( 'Using the photographs that ship with the theme.', 'blueline' ); ?>
+		</p>
+
+		<p>
+			<button type="button" class="button" data-bl-photos-add>
+				<?php esc_html_e( 'Add photographs', 'blueline' ); ?>
+			</button>
+		</p>
+
+		<?php if ( ! empty( $field['help'] ) ) : ?>
+			<p class="description"><?php echo esc_html( (string) $field['help'] ); ?></p>
+		<?php endif; ?>
+
+		<template data-bl-photos-template>
+			<li class="bl-photos__item" data-bl-photos-item>
+				<img class="bl-photos__thumb" src="" alt="" width="60" height="60">
+				<input type="hidden" name="" value="" data-bl-photos-id>
+				<label class="bl-photos__align">
+					<span class="screen-reader-text"><?php esc_html_e( 'Alignment', 'blueline' ); ?></span>
+					<select name="" data-bl-photos-align>
+						<?php foreach ( $alignments as $key => $unused ) : ?>
+							<option value="<?php echo esc_attr( $key ); ?>" <?php selected( 'center-center', $key ); ?>>
+								<?php echo esc_html( blueline_settings_alignment_label( $key ) ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</label>
+				<button type="button" class="button-link bl-photos__remove" data-bl-photos-remove>
+					<?php esc_html_e( 'Remove', 'blueline' ); ?>
+				</button>
+			</li>
+		</template>
+	</div>
+	<?php
+}
+
+/**
+ * Human-readable label for an alignment key.
+ *
+ * Kept out of blueline_band_photo_alignments() so that map stays a pure
+ * key => CSS-value lookup usable on the front end, where these admin-facing
+ * strings have no business being loaded.
+ *
+ * @param string $key An alignment key.
+ * @return string
+ */
+function blueline_settings_alignment_label( string $key ): string {
+	$labels = array(
+		'left-top'      => __( 'Left top', 'blueline' ),
+		'center-top'    => __( 'Centre top', 'blueline' ),
+		'right-top'     => __( 'Right top', 'blueline' ),
+		'left-center'   => __( 'Left middle', 'blueline' ),
+		'center-center' => __( 'Centre', 'blueline' ),
+		'right-center'  => __( 'Right middle', 'blueline' ),
+		'left-bottom'   => __( 'Left bottom', 'blueline' ),
+		'center-bottom' => __( 'Centre bottom', 'blueline' ),
+		'right-bottom'  => __( 'Right bottom', 'blueline' ),
+	);
+
+	return $labels[ $key ] ?? $key;
+}
+
+add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_photo_picker' );
+/**
+ * Enqueue the media library and the hero-photograph picker, on this page only.
+ *
+ * Enqueued as a PLAIN SOURCE FILE, not a webpack entry, which is a deliberate
+ * continuation of this file's own "no webpack entry" constraint rather than an
+ * oversight: the script has no imports, no JSX and no dependencies beyond
+ * wp.media, so a build step would buy nothing but a build step. It is still
+ * linted (npm run lint:js covers assets/src/js) and still shipped by the same
+ * rsync as everything else.
+ *
+ * wp_enqueue_media() is what actually makes wp.media exist; without it the
+ * picker button renders and does nothing, which is the same graceful state as
+ * having no JavaScript at all.
+ *
+ * Version is blueline_dist_version() on the source file so a changed picker
+ * busts its own cache, matching how every other asset in this theme is
+ * versioned.
+ *
+ * @param string $hook_suffix The current admin screen's hook suffix.
+ * @return void
+ */
+function blueline_settings_maybe_enqueue_photo_picker( string $hook_suffix ): void {
+	if ( blueline_settings_page_hook() !== $hook_suffix ) {
+		return;
+	}
+
+	// Only the Appearance tab has a photograph field; loading the whole media
+	// library on the Content tab would be a large download for nothing.
+	if ( 'appearance' !== blueline_settings_current_tab() ) {
+		return;
+	}
+
+	wp_enqueue_media();
+
+	$relative = '/assets/src/js/settings-photos.js';
+	$path     = BLUELINE_DIR . $relative;
+
+	wp_enqueue_script(
+		'blueline-settings-photos',
+		BLUELINE_URI . $relative,
+		array(),
+		file_exists( $path ) ? (string) filemtime( $path ) : '1',
+		true
+	);
+
+	wp_add_inline_style( 'wp-admin', blueline_settings_photo_picker_styles() );
+}
+
+/**
+ * The picker's own layout. Small enough to inline, and scoped tightly enough
+ * that it cannot reach anything else in wp-admin.
+ *
+ * @return string
+ */
+function blueline_settings_photo_picker_styles(): string {
+	return '.bl-photos__list{margin:0;padding:0;list-style:none;}'
+		. '.bl-photos__item{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #dcdcde;}'
+		. '.bl-photos__thumb{width:60px;height:60px;object-fit:cover;border-radius:3px;background:#f0f0f1;}'
+		. '.bl-photos__align{margin-inline-start:auto;}'
+		. '.bl-photos__remove{color:#b32d2e;}'
+		. '.bl-photos__empty{color:#646970;font-style:italic;}';
 }

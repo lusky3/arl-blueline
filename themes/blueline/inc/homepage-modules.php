@@ -591,41 +591,6 @@ function blueline_band_shots(): array {
 	return array( 'save', 'shot', 'skater', 'race', 'faceoff', 'breakaway' );
 }
 
-/**
- * The CSS custom property that points a band at one of those photographs.
- *
- * Emitted inline rather than written into the stylesheet because WHICH photo a
- * band shows is data, not styling -- the stylesheet holds every rule about how
- * it renders, and a new photo needs no CSS at all.
- *
- * @param string $slug One of blueline_band_shots().
- * @return string A `style` attribute value, or '' when the slug is unknown.
- */
-function blueline_band_photo_style( string $slug ): string {
-	if ( ! in_array( $slug, blueline_band_shots(), true ) ) {
-		return '';
-	}
-
-	return '--bl-band-photo:url(' . esc_url( BLUELINE_URI . '/assets/images/bands/' . $slug . '.webp' ) . ')';
-}
-
-/**
- * Pick a photograph for $seed, the same way every time.
- *
- * Deterministic, not random: a band that changes photograph on every page load
- * draws attention to itself, and a team page that looks different each visit
- * reads as broken rather than lively. crc32 over a caller-chosen seed means a
- * given team, event or section keeps its own photograph for good, while
- * different ones spread across the set.
- *
- * @param string $seed Stable identifier -- a section name, a post ID, anything.
- * @return string A slug from blueline_band_shots().
- */
-function blueline_band_shot_for( string $seed ): string {
-	$shots = blueline_band_shots();
-
-	return $shots[ crc32( $seed ) % count( $shots ) ];
-}
 
 /**
  * Render the season-aware homepage hero: skewed eyebrow, headline with one
@@ -658,20 +623,22 @@ function blueline_render_hero( string $state ): string {
 	?>
 	<?php
 	/*
-	 * 'skater' explicitly, not blueline_band_shot_for(): the hero is the one
-	 * band whose composition is known in advance. Its headline is left-aligned
-	 * and long, and that photograph is the one in the set with the subject to
-	 * the right and open ice on the left -- so the text sits over the emptiest
-	 * part of the frame. The seeded picker exists for bands whose content is
-	 * not known ahead of time.
+	 * The photograph is set on :root by blueline_render_band_photo_head()
+	 * immediately below, NOT inline on this section: an inline style would win
+	 * over :root and defeat the rotation, which has to happen in the browser
+	 * because the page itself is cached (see that function for the full
+	 * reasoning). The section only opts in; it never names a photograph.
 	 *
-	 * .bl-band-photo suppresses the faceoff rings (homepage.css); the rings
-	 * stay the treatment on SportsPress entity heroes, so the two devices
-	 * alternate by page type rather than stacking.
+	 * .bl-band-photo suppresses the faceoff rings (homepage.css) at the widths
+	 * where the photograph actually paints; the rings stay the treatment on
+	 * SportsPress entity heroes and remain the fallback on phones, so the two
+	 * devices alternate by page type rather than stacking.
 	 */
-	$bl_hero_photo = blueline_band_photo_style( 'skater' );
+	$bl_has_photo = (bool) blueline_band_photo_sources();
+
+	blueline_render_band_photo_head();
 	?>
-	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?><?php echo $bl_hero_photo ? ' bl-band-photo' : ''; ?>"<?php echo $bl_hero_photo ? ' style="' . esc_attr( $bl_hero_photo ) . '"' : ''; ?>>
+	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?><?php echo $bl_has_photo ? ' bl-band-photo' : ''; ?>">
 		<?php blueline_render_faceoff_rings(); ?>
 
 		<div class="bl-container bl-hero__inner">
@@ -1212,4 +1179,126 @@ function blueline_render_module( string $name ) {
 	if ( isset( $modules[ $name ] ) ) {
 		call_user_func( $modules[ $name ] );
 	}
+}
+
+/**
+ * Every photograph available to the hero band, as { url, position } pairs.
+ *
+ * The control panel's list wins when it has anything in it; an empty list
+ * means the photographs that ship with the theme, which is what makes the
+ * setting an override rather than a switch (see blueline_settings_schema()).
+ *
+ * Admin-chosen photographs are rendered at the `blueline-band` size, never at
+ * their uploaded original -- see inc/setup.php for why that matters. A chosen
+ * attachment that has since been deleted simply drops out here rather than
+ * emitting a url() pointing at nothing.
+ *
+ * @return array<int,array{url:string,position:string}> Possibly empty.
+ */
+function blueline_band_photo_sources(): array {
+	$alignments = function_exists( 'blueline_band_photo_alignments' )
+		? blueline_band_photo_alignments()
+		: array();
+
+	$configured = function_exists( 'blueline_settings' ) ? blueline_settings( 'hero_photos' ) : array();
+	$sources    = array();
+
+	if ( is_array( $configured ) && $configured ) {
+		foreach ( $configured as $row ) {
+			$id = absint( $row['id'] ?? 0 );
+
+			if ( ! $id ) {
+				continue;
+			}
+
+			$url = wp_get_attachment_image_url( $id, 'blueline-band' );
+
+			if ( ! $url ) {
+				continue;
+			}
+
+			$align = (string) ( $row['align'] ?? 'center-center' );
+
+			$sources[] = array(
+				'url'      => (string) $url,
+				'position' => $alignments[ $align ] ?? 'center 40%',
+			);
+		}
+	}
+
+	if ( $sources ) {
+		return $sources;
+	}
+
+	foreach ( blueline_band_shots() as $slug ) {
+		$sources[] = array(
+			'url'      => BLUELINE_URI . '/assets/images/bands/' . $slug . '.webp',
+			'position' => 'center 40%',
+		);
+	}
+
+	return $sources;
+}
+
+/**
+ * Print the hero band's photograph, and the rotation that picks it.
+ *
+ * WHY THIS IS INLINE AND WHY IT IS HERE. The site sits behind an nginx srcache
+ * page cache in production (staging has none, see DESIGN.md), so a photograph
+ * chosen in PHP is chosen once per cache fill, not once per visitor -- server-
+ * side rotation would look perfect on staging and quietly never rotate in
+ * production, which is precisely the class of divergence DESIGN.md already
+ * warns about for the cache purge. Choosing in the browser is the only way
+ * "different on each page load" can be true of a cached page.
+ *
+ * Printed immediately before the band itself rather than from wp_head: the
+ * <style> establishes the resting value and the <script> overwrites it, both
+ * parsed before the section that reads them, so there is no flash of the first
+ * photograph being replaced. It also means no page that lacks a hero pays for
+ * any of it.
+ *
+ * With JavaScript unavailable the <style> alone is a complete answer: a real
+ * photograph, correctly aligned, chosen deterministically.
+ *
+ * @return void
+ */
+function blueline_render_band_photo_head(): void {
+	$sources = blueline_band_photo_sources();
+
+	if ( ! $sources ) {
+		return;
+	}
+
+	$rotate = function_exists( 'blueline_settings' ) ? (bool) blueline_settings( 'hero_photo_rotate' ) : true;
+
+	// The resting choice is deterministic rather than the first in the list, so
+	// a no-JS visitor and a cache fill do not both always land on the same one.
+	$resting = $sources[ crc32( 'hero' ) % count( $sources ) ];
+
+	printf(
+		'<style id="bl-band-photo">:root{--bl-band-photo:url("%1$s");--bl-band-photo-position:%2$s}</style>',
+		esc_url( $resting['url'] ),
+		esc_html( $resting['position'] )
+	);
+
+	if ( ! $rotate || count( $sources ) < 2 ) {
+		return;
+	}
+
+	/*
+	 * wp_json_encode() and not manual quoting: these strings become JavaScript
+	 * source, where esc_url()/esc_attr() are the wrong escaping entirely -- a
+	 * quote or backslash in a filename would end the string literal and
+	 * everything after it becomes code.
+	 */
+	$payload = wp_json_encode( array_values( $sources ) );
+
+	if ( ! $payload ) {
+		return;
+	}
+
+	printf(
+		'<script id="bl-band-photo-rotate">(function(){try{var s=%1$s,p=s[Math.floor(Math.random()*s.length)],r=document.documentElement.style;r.setProperty("--bl-band-photo","url(\'"+p.url+"\')");r.setProperty("--bl-band-photo-position",p.position);}catch(e){}})();</script>',
+		$payload // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode() output IS the escaping for a JS string literal context; esc_* would corrupt it.
+	);
 }

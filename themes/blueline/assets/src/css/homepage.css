@@ -87,10 +87,17 @@
 	mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
 }
 
+/*
+ * Both custom properties are set on :root by blueline_render_band_photo_head()
+ * (inc/homepage-modules.php) rather than inline on the band, so the rotation
+ * script can replace them in the browser -- an inline style on the section
+ * would outrank :root and the photograph would never change. The fallbacks
+ * below are what renders if that function ever prints nothing.
+ */
 .bl-band-photo::before {
 	background-image: var(--bl-band-photo);
 	background-size: cover;
-	background-position: center 40%;
+	background-position: var(--bl-band-photo-position, center 40%);
 	filter: grayscale(1) contrast(1.15);
 	opacity: var(--bl-band-photo-opacity);
 }

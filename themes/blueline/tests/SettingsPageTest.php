@@ -147,7 +147,10 @@ final class SettingsPageTest extends TestCase {
 	 * schema, not hardcoded, so a future tab needs no edit here.
 	 */
 	public function test_tab_slugs_reflect_schema_order(): void {
-		$this->assertSame( array( 'content', 'links', 'commerce' ), blueline_settings_tab_slugs() );
+		$this->assertSame(
+			array( 'content', 'links', 'appearance', 'commerce' ),
+			blueline_settings_tab_slugs()
+		);
 	}
 
 	/**

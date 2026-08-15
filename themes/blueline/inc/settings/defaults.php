@@ -184,6 +184,26 @@ function blueline_settings_schema(): array {
 			'label'    => 'Equipment page',
 			'fallback' => '/arl-league-info/equipment',
 		),
+		// Appearance tab.
+		'hero_photos'                => array(
+			'type'  => 'band_photos',
+			'tab'   => 'appearance',
+			'label' => 'Hero photographs',
+			// Empty means "use the photographs that ship with the theme"
+			// (blueline_band_shots()), NOT "show no photograph". That is what
+			// makes this setting an override rather than a switch: the hero
+			// works before anyone opens this panel, emptying the list restores
+			// the shipped set instead of blanking the band, and no migration
+			// has to invent attachments for images that are theme files.
+			'help'  => 'Leave empty to use the photographs that ship with the theme. Each photograph keeps its own alignment, so the subject can be kept clear of the headline.',
+			'max'   => 12,
+		),
+		'hero_photo_rotate'          => array(
+			'type'  => 'bool',
+			'tab'   => 'appearance',
+			'label' => 'Show a different photograph on each page load',
+			'help'  => 'Chosen in the browser, so it keeps rotating even when the page itself is cached. With this off, the first photograph in the list is always used.',
+		),
 		// Commerce tab.
 		'registration_term'          => array(
 			'type'     => 'term_id',
@@ -233,5 +253,7 @@ function blueline_settings_defaults(): array {
 		'page_contact'               => 0,
 		'page_equipment'             => 0,
 		'registration_term'          => 0,
+		'hero_photos'                => array(),
+		'hero_photo_rotate'          => true,
 	);
 }

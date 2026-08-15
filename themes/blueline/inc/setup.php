@@ -21,6 +21,22 @@ function blueline_setup() {
 	add_theme_support( 'wc-product-gallery-slider' );
 	add_theme_support( 'title-tag' );
 	add_theme_support( 'post-thumbnails' );
+
+	/*
+	 * The size band photography is rendered at, never the uploaded original.
+	 *
+	 * Without this, the control panel becomes a way to put a multi-megabyte
+	 * phone photograph into the hero of the site's most-visited page: the
+	 * media library holds originals up to 2560px, and a background-image has
+	 * no srcset to save anyone. The theme's own shipped photographs are 720px
+	 * WebP for exactly this reason, and an admin-chosen one has no business
+	 * being larger.
+	 *
+	 * Hard-cropped, so every photograph arrives at the same aspect ratio the
+	 * band is designed around rather than being letterboxed by background-size:
+	 * cover in a way the alignment control then has to fight.
+	 */
+	add_image_size( 'blueline-band', 960, 540, true );
 	add_theme_support( 'automatic-feed-links' );
 	add_theme_support( 'customize-selective-refresh-widgets' );
 	add_theme_support( 'responsive-embeds' );

@@ -446,6 +446,10 @@ function blueline_sanitize_field( $value, array $field ) {
 		return absint( $value );
 	}
 
+	if ( 'band_photos' === $type ) {
+		return blueline_sanitize_band_photos( $value, $field );
+	}
+
 	if ( 'email' === $type ) {
 		// Fix round 1 (Task 8): before this, an `email`-typed field fell
 		// through to the exact same sanitize_text_field() + placeholder-only
@@ -568,4 +572,132 @@ function blueline_sanitize_field( $value, array $field ) {
 			implode( '; ', blueline_placeholder_mismatch_reasons( $required, $found ) )
 		)
 	);
+}
+
+/**
+ * The nine alignments a band photograph may be given, mapped to the
+ * `background-position` each one becomes.
+ *
+ * A FIXED WHITELIST, not a free-text field. The value ends up inside a
+ * stylesheet declaration, so anything an admin could type would be typed
+ * straight into CSS -- a closed set means the render path never has to trust
+ * it, because an unknown key simply is not in the map.
+ *
+ * @return array<string,string> Alignment key => background-position value.
+ */
+function blueline_band_photo_alignments(): array {
+	return array(
+		'left-top'      => 'left 20%',
+		'center-top'    => 'center 20%',
+		'right-top'     => 'right 20%',
+		'left-center'   => 'left 40%',
+		'center-center' => 'center 40%',
+		'right-center'  => 'right 40%',
+		'left-bottom'   => 'left 75%',
+		'center-bottom' => 'center 75%',
+		'right-bottom'  => 'right 75%',
+	);
+}
+
+/**
+ * Sanitize the hero photograph list: rows of { id, align }.
+ *
+ * Rejects rather than repairs anything that is not a real image attachment. A
+ * silently-dropped bad id would leave the admin looking at a list one shorter
+ * than the one they submitted, with no explanation; a rejection names the
+ * field and keeps their input on screen.
+ *
+ * @param mixed $value Raw submitted value: expected to be an array of rows.
+ * @param array $field The field's schema entry.
+ * @return array|WP_Error Sanitized rows, or an error describing the rejection.
+ */
+function blueline_sanitize_band_photos( $value, array $field ) {
+	$label = $field['label'] ?? '';
+	$max   = (int) ( $field['max'] ?? 12 );
+
+	// An untouched field posts nothing at all, which is a legitimately empty
+	// list -- and empty means "use the theme's own photographs", so it is
+	// never an error.
+	if ( '' === $value || null === $value || array() === $value ) {
+		return array();
+	}
+
+	if ( ! is_array( $value ) ) {
+		return new WP_Error(
+			'blueline_band_photos_shape',
+			sprintf(
+				/* translators: %s: the field's label. */
+				__( '"%s" could not be read. Please re-select the photographs and save again.', 'blueline' ),
+				$label
+			)
+		);
+	}
+
+	if ( count( $value ) > $max ) {
+		return new WP_Error(
+			'blueline_band_photos_max',
+			sprintf(
+				/* translators: 1: the field's label, 2: the maximum number of photographs. */
+				__( '"%1$s" is limited to %2$d photographs. Every one of them can be downloaded by a visitor, so the list is capped deliberately.', 'blueline' ),
+				$label,
+				$max
+			)
+		);
+	}
+
+	$alignments = blueline_band_photo_alignments();
+	$rows       = array();
+	$seen       = array();
+
+	foreach ( $value as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$id = absint( $row['id'] ?? 0 );
+
+		if ( ! $id ) {
+			continue;
+		}
+
+		/*
+		 * wp_attachment_is_image(), not merely "does a post with this id
+		 * exist": the id arrives from a form and could name any post on the
+		 * site. Rendering a PDF or an ordinary page id as a background-image
+		 * would emit a broken url() and, for a private attachment, confirm
+		 * that it exists.
+		 */
+		if ( ! wp_attachment_is_image( $id ) ) {
+			return new WP_Error(
+				'blueline_band_photos_not_image',
+				sprintf(
+					/* translators: 1: the field's label, 2: the offending attachment ID. */
+					__( '"%1$s" includes something that is not an image (ID %2$d). Please remove it and save again.', 'blueline' ),
+					$label,
+					$id
+				)
+			);
+		}
+
+		// The same photograph twice makes rotation look broken rather than
+		// random, and doubles its odds for no reason.
+		if ( isset( $seen[ $id ] ) ) {
+			continue;
+		}
+
+		$seen[ $id ] = true;
+
+		$align = (string) ( $row['align'] ?? '' );
+
+		if ( ! isset( $alignments[ $align ] ) ) {
+			$align = 'center-center';
+		}
+
+		$rows[] = array(
+			'id'    => $id,
+			'align' => $align,
+		);
+	}
+
+	return $rows;
 }

@@ -943,6 +943,49 @@ if ( ! function_exists( 'get_the_title' ) ) {
 		return (string) ( $state['posts'][ $id ]['title'] ?? '' );
 	}
 }
+if ( ! function_exists( 'wp_attachment_is_image' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_attachment_is_image(): true only for
+	 * a post a test registered with `is_image`.
+	 *
+	 * Deliberately false for an ID no test registered, matching core's answer
+	 * for a post that does not exist -- the sanitizer that calls this is
+	 * guarding against arbitrary IDs arriving from a form, so "unknown" must
+	 * never read as "fine".
+	 *
+	 * @param int|object $post Attachment ID (only the int form is exercised here).
+	 * @return bool
+	 */
+	function wp_attachment_is_image( $post = null ) {
+		$state = &blueline_test_state();
+
+		return ! empty( $state['posts'][ (int) $post ]['is_image'] );
+	}
+}
+if ( ! function_exists( 'wp_get_attachment_image_url' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_attachment_image_url(): a
+	 * plausible URL for a registered image, `false` otherwise.
+	 *
+	 * Returning false for an unregistered ID is the case that matters: it is
+	 * how a deleted attachment behaves, and callers are expected to drop such
+	 * a photograph rather than emit a url() pointing at nothing.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $size          Requested size name.
+	 * @return string|false
+	 */
+	function wp_get_attachment_image_url( $attachment_id = 0, $size = 'thumbnail' ) {
+		$state = &blueline_test_state();
+		$id    = (int) $attachment_id;
+
+		if ( empty( $state['posts'][ $id ]['is_image'] ) ) {
+			return false;
+		}
+
+		return 'https://example.test/uploads/photo-' . $id . '-' . (string) $size . '.jpg';
+	}
+}
 if ( ! function_exists( 'has_post_thumbnail' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' has_post_thumbnail().

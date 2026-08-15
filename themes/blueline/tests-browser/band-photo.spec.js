@@ -116,6 +116,54 @@ test.describe( 'hero band photography', () => {
 		expect( responses.length ).toBe( 1 );
 	} );
 
+	/*
+	 * The reason rotation happens in the browser at all: production serves this
+	 * page from an nginx srcache page cache, so a photograph chosen in PHP is
+	 * chosen once per cache fill rather than once per visitor. Staging has no
+	 * page cache, so this test cannot prove the production behaviour -- what it
+	 * CAN prove is that the choice is made client-side, which is the property
+	 * that survives caching.
+	 */
+	test( 'the photograph changes between page loads', async ( { page } ) => {
+		const seen = new Set();
+
+		for ( let i = 0; i < 12; i++ ) {
+			await page.setViewportSize( { width: 1440, height: 800 } );
+			await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+
+			const image = await page.evaluate(
+				() =>
+					window.getComputedStyle(
+						document.querySelector( '.bl-hero' ),
+						'::before'
+					).backgroundImage
+			);
+
+			seen.add( image );
+		}
+
+		// Six photographs, twelve loads: landing on one every time is possible
+		// but vanishingly unlikely, and two distinct is enough to prove the
+		// choice is not baked into the markup.
+		expect( seen.size ).toBeGreaterThan( 1 );
+	} );
+
+	/*
+	 * With JavaScript off, page.evaluate() cannot run at all -- so this asserts
+	 * on the SERVED MARKUP instead, which is exactly what a no-JS browser gets:
+	 * an inline <style> setting the custom property the band reads. An earlier
+	 * version of this check used evaluate() with javaScriptEnabled:false and
+	 * reported "no image", which was the test failing, not the page.
+	 */
+	test( 'a real photograph is set without JavaScript', async ( { page } ) => {
+		const response = await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		const html = await response.text();
+
+		expect( html ).toContain( '<style id="bl-band-photo">' );
+		expect( html ).toMatch( /--bl-band-photo:url\("https?:[^"]+"\)/ );
+		expect( html ).toMatch( /--bl-band-photo-position:[a-z0-9 %]+/ );
+	} );
+
 	test( 'the photographer is credited in the footer', async ( { page } ) => {
 		await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
 
