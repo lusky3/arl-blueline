@@ -636,6 +636,21 @@ function blueline_site_footer() {
 				<?php blueline_leaf_mark( 'bl-footer__mark' ); ?>
 				<p class="bl-footer__copyright">
 					&copy; <?php echo esc_html( gmdate( 'Y' ) ); ?> <?php bloginfo( 'name' ); ?>. <?php esc_html_e( 'All rights reserved.', 'blueline' ); ?>
+					<?php
+					/*
+					 * Photography credit, in text, because the treatment removes
+					 * the alternative. The league photographs used as band
+					 * texture carry the photographer's own watermark, and
+					 * desaturating them to ~16% makes it illegible -- so relying
+					 * on it would mean taking the credit off his work by way of
+					 * a design decision. Rendered whether or not a photograph
+					 * happens to be on screen: the credit is for the body of
+					 * work the site draws on, not for one band.
+					 */
+					?>
+					<span class="bl-footer__credit">
+						<?php esc_html_e( 'Photography by Michael Durrant.', 'blueline' ); ?>
+					</span>
 				</p>
 			</div>
 		</div>

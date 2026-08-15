@@ -216,3 +216,14 @@
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
+
+/*
+ * Photography credit. Quieter than the copyright it sits beside -- it is an
+ * attribution, not a claim -- but in the same line rather than tucked away,
+ * since it exists precisely because the treatment renders the photographer's
+ * own watermark illegible.
+ */
+.bl-footer__credit {
+	display: inline-block;
+	color: var(--bl-ink-mid);
+}

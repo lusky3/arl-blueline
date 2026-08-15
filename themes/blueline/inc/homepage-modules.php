@@ -571,6 +571,63 @@ function blueline_render_faceoff_rings() {
 }
 
 /**
+ * The league photographs available as band texture.
+ *
+ * Six of Michael Durrant's league photographs, chosen for how they read at
+ * ~16% opacity rather than how they read as photographs: open ice, legible
+ * silhouettes, the subject off-centre so a headline is not sitting on top of
+ * it. The portraits and tight group shots in the same set are deliberately
+ * absent -- a face reads as a person even at that opacity, which is both
+ * worse design here and a larger ask of the player in it.
+ *
+ * Re-encoded to 720px WebP (assets/images/bands, ~156KB for all six) because
+ * nothing above that survives the treatment. Credit is rendered in the footer:
+ * the photographer's watermark is illegible once desaturated to this level, so
+ * the attribution has to live somewhere the treatment cannot destroy.
+ *
+ * @return string[] Slugs, each matching assets/images/bands/{slug}.webp.
+ */
+function blueline_band_shots(): array {
+	return array( 'save', 'shot', 'skater', 'race', 'faceoff', 'breakaway' );
+}
+
+/**
+ * The CSS custom property that points a band at one of those photographs.
+ *
+ * Emitted inline rather than written into the stylesheet because WHICH photo a
+ * band shows is data, not styling -- the stylesheet holds every rule about how
+ * it renders, and a new photo needs no CSS at all.
+ *
+ * @param string $slug One of blueline_band_shots().
+ * @return string A `style` attribute value, or '' when the slug is unknown.
+ */
+function blueline_band_photo_style( string $slug ): string {
+	if ( ! in_array( $slug, blueline_band_shots(), true ) ) {
+		return '';
+	}
+
+	return '--bl-band-photo:url(' . esc_url( BLUELINE_URI . '/assets/images/bands/' . $slug . '.webp' ) . ')';
+}
+
+/**
+ * Pick a photograph for $seed, the same way every time.
+ *
+ * Deterministic, not random: a band that changes photograph on every page load
+ * draws attention to itself, and a team page that looks different each visit
+ * reads as broken rather than lively. crc32 over a caller-chosen seed means a
+ * given team, event or section keeps its own photograph for good, while
+ * different ones spread across the set.
+ *
+ * @param string $seed Stable identifier -- a section name, a post ID, anything.
+ * @return string A slug from blueline_band_shots().
+ */
+function blueline_band_shot_for( string $seed ): string {
+	$shots = blueline_band_shots();
+
+	return $shots[ crc32( $seed ) % count( $shots ) ];
+}
+
+/**
  * Render the season-aware homepage hero: skewed eyebrow, headline with one
  * --bl-ice highlighted word, primary CTA, and the faceoff-ring/blue-line-band
  * chrome. Falls back to the offseason variant for any value outside the
@@ -599,7 +656,22 @@ function blueline_render_hero( string $state ): string {
 	$effective_state = $content['state'];
 	$cta_class       = 'primary' === $content['cta_variant'] ? 'bl-btn--primary' : 'bl-btn--secondary';
 	?>
-	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?>">
+	<?php
+	/*
+	 * 'skater' explicitly, not blueline_band_shot_for(): the hero is the one
+	 * band whose composition is known in advance. Its headline is left-aligned
+	 * and long, and that photograph is the one in the set with the subject to
+	 * the right and open ice on the left -- so the text sits over the emptiest
+	 * part of the frame. The seeded picker exists for bands whose content is
+	 * not known ahead of time.
+	 *
+	 * .bl-band-photo suppresses the faceoff rings (homepage.css); the rings
+	 * stay the treatment on SportsPress entity heroes, so the two devices
+	 * alternate by page type rather than stacking.
+	 */
+	$bl_hero_photo = blueline_band_photo_style( 'skater' );
+	?>
+	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?><?php echo $bl_hero_photo ? ' bl-band-photo' : ''; ?>"<?php echo $bl_hero_photo ? ' style="' . esc_attr( $bl_hero_photo ) . '"' : ''; ?>>
 		<?php blueline_render_faceoff_rings(); ?>
 
 		<div class="bl-container bl-hero__inner">
