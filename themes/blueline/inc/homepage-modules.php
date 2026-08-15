@@ -691,18 +691,26 @@ function blueline_render_hero( string $state ): string {
  * the standings first, not three bullets of first-timer reassurance ahead
  * of it.
  *
+ * Task 2 (P1b-panel-completion) adds the Sections tab's own say on top of
+ * this table: each module here also has a `module_*` presence toggle
+ * (blueline_section_enabled(), inc/settings/sections.php), and this function
+ * is that toggle's only consumer for the homepage. The two return
+ * statements above used to be genuinely separate exits -- the is_playing
+ * early return skipped the $orders lookup entirely -- which would have let
+ * an admin's toggle choice apply to one branch and not the other purely by
+ * accident of code shape. Both paths now resolve $order first and fall
+ * through to ONE filter, so "which modules are considered" and "does this
+ * state override the order" stay independent questions.
+ *
  * @param string $state      Season state.
  * @param array  $state_data Result of blueline_season_state_data(); optional
  *                            so existing callers/tests passing only $state
  *                            keep working unchanged (empty array reads as
  *                            "not playing", i.e. today's behaviour).
- * @return string[] Module names, in render order.
+ * @return string[] Module names, in render order. Never empty -- see the
+ *                   floor comment below.
  */
 function blueline_homepage_module_order( string $state, array $state_data = array() ): array {
-	if ( 'registration_open' === $state && ! empty( $state_data['is_playing'] ) ) {
-		return array( 'next_games', 'standings_snippet', 'new_here', 'latest_news' );
-	}
-
 	$orders = array(
 		'registration_open' => array( 'new_here', 'next_games', 'standings_snippet', 'latest_news' ),
 		'preseason'         => array( 'next_games', 'new_here', 'latest_news' ),
@@ -711,7 +719,29 @@ function blueline_homepage_module_order( string $state, array $state_data = arra
 		'offseason'         => array( 'latest_news', 'new_here' ),
 	);
 
-	return $orders[ $state ] ?? $orders['offseason'];
+	$order = $orders[ $state ] ?? $orders['offseason'];
+
+	if ( 'registration_open' === $state && ! empty( $state_data['is_playing'] ) ) {
+		$order = array( 'next_games', 'standings_snippet', 'new_here', 'latest_news' );
+	}
+
+	$enabled = array_values(
+		array_filter(
+			$order,
+			static function ( $module ) {
+				return blueline_section_enabled( 'module_' . $module );
+			}
+		)
+	);
+
+	/*
+	 * THE FLOOR. WCAG 2.4.5 wants two ways to find content, and a homepage
+	 * with no modules has none. Rather than refuse the save -- which would
+	 * mean an admin cannot untick the last box even temporarily -- the
+	 * render path keeps the first module of the state's own order. The
+	 * panel says so beside the toggles.
+	 */
+	return $enabled ? $enabled : array_slice( $order, 0, 1 );
 }
 
 /**
