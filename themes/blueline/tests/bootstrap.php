@@ -74,6 +74,31 @@ if ( ! function_exists( 'esc_url' ) ) {
 		return (string) preg_replace( '/[^a-z0-9\-~+_.?#=!&;,\/:%@$|*\'()\[\]\x80-\xff]/i', '', $url );
 	}
 }
+if ( ! function_exists( 'checked' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' checked() -- needed the moment a test
+	 * calls blueline_settings_render_field() for a `bool`/`section` field
+	 * (inc/settings/page.php), which no test did until Task 2's fix round 1
+	 * added tests exercising a `section` field's `help` text: nothing before
+	 * that ever rendered this branch, so the gap was invisible. Loose (`==`)
+	 * comparison and the literal `checked="checked"` string match core's own
+	 * behaviour (wp-includes/general-template.php's __checked_selected_helper()),
+	 * since a test asserting this stub's output is safe/correct should be
+	 * proving something true of the real function, not an easier stand-in.
+	 *
+	 * @param mixed $checked    One of the values to compare.
+	 * @param mixed $current    The other value to compare (default true).
+	 * @param bool  $should_echo Whether to echo the result (default true).
+	 * @return string ` checked="checked"` or an empty string.
+	 */
+	function checked( $checked, $current = true, $should_echo = true ) {
+		$result = ( (string) $checked === (string) $current ) ? ' checked="checked"' : '';
+		if ( $should_echo ) {
+			echo $result; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub mirroring core's own unescaped echo; the literal string is not user input.
+		}
+		return $result;
+	}
+}
 if ( ! function_exists( 'home_url' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' home_url().

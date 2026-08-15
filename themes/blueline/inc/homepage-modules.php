@@ -738,8 +738,15 @@ function blueline_homepage_module_order( string $state, array $state_data = arra
 	 * THE FLOOR. WCAG 2.4.5 wants two ways to find content, and a homepage
 	 * with no modules has none. Rather than refuse the save -- which would
 	 * mean an admin cannot untick the last box even temporarily -- the
-	 * render path keeps the first module of the state's own order. The
-	 * panel says so beside the toggles.
+	 * render path keeps the first module of $order, the array as it stands
+	 * for THIS render (is_playing override already applied above, if any)
+	 * -- deliberately not $orders[ $state ]'s raw, un-overridden table
+	 * entry, which was never going to appear on this page at all. Under
+	 * registration_open + is_playing with every toggle off, that means
+	 * 'next_games' survives, not 'new_here': whichever module the visitor
+	 * in front of them would actually have seen first. The Sections tab
+	 * says so beside the four module_* checkboxes (each one's `help`
+	 * string, inc/settings/sections.php).
 	 */
 	return $enabled ? $enabled : array_slice( $order, 0, 1 );
 }

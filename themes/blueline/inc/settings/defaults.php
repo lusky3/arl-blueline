@@ -243,6 +243,15 @@ function blueline_settings_schema(): array {
 			'label' => $def['label'],
 			'group' => $def['group'],
 		);
+
+		// Only the four module_* entries carry a `help` string (the
+		// floor's explanation -- see blueline_section_definitions()'s own
+		// docblock); everything else's $def has no such key, and this must
+		// not invent an empty one that would make blueline_settings_render_field()'s
+		// `! empty( $field['help'] )` check start rendering a blank <p>.
+		if ( ! empty( $def['help'] ) ) {
+			$schema[ $key ]['help'] = $def['help'];
+		}
 	}
 
 	return $schema;

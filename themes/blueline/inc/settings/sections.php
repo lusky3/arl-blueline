@@ -18,30 +18,47 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Every toggleable section: option key => { label, group }. The single
- * source of truth blueline_settings_schema() and blueline_settings_defaults()
- * (inc/settings/defaults.php) both generate their 'sections'-tab entries
- * from, so a new section needs no second edit in either of those functions.
+ * Every toggleable section: option key => { label, group, help? }. The
+ * single source of truth blueline_settings_schema() and
+ * blueline_settings_defaults() (inc/settings/defaults.php) both generate
+ * their 'sections'-tab entries from, so a new section needs no second edit
+ * in either of those functions.
  *
- * @return array<string,array{label:string,group:string}>
+ * The four `module_*` entries carry a `help` string the other groups
+ * don't: blueline_homepage_module_order() (inc/homepage-modules.php) never
+ * lets unticking every one of them empty the homepage -- it keeps the
+ * first module of that state's order regardless (the floor; WCAG 2.4.5
+ * needs two ways to find content). That is genuinely surprising if an
+ * admin unticks the last box and a module still renders anyway, so the
+ * help text says so at the moment they're doing it. `chrome_*` and
+ * `account_*` have no such floor -- unticking every one of those really
+ * does hide everything in that group -- so they carry no `help` string.
+ *
+ * @return array<string,array{label:string,group:string,help?:string}>
  */
 function blueline_section_definitions(): array {
+	$module_help = 'At least one homepage module always shows, even if every box here is unticked -- an empty homepage isn\'t an option.';
+
 	return array(
 		'module_next_games'        => array(
 			'label' => 'Next games',
 			'group' => 'Homepage',
+			'help'  => $module_help,
 		),
 		'module_standings_snippet' => array(
 			'label' => 'Standings',
 			'group' => 'Homepage',
+			'help'  => $module_help,
 		),
 		'module_new_here'          => array(
 			'label' => 'Never played? Perfect.',
 			'group' => 'Homepage',
+			'help'  => $module_help,
 		),
 		'module_latest_news'       => array(
 			'label' => 'Latest news',
 			'group' => 'Homepage',
+			'help'  => $module_help,
 		),
 		'chrome_sponsors'          => array(
 			'label' => 'Header sponsor slot',

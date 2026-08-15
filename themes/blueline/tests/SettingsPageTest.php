@@ -720,6 +720,51 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
+	 * Fix round 1 (Task 2, P1b-panel-completion): a `module_*` section field
+	 * carries a `help` string explaining the homepage-modules floor (an
+	 * admin who unticks every box still sees one module -- see
+	 * blueline_section_definitions()'s own docblock and the "THE FLOOR"
+	 * comment in blueline_homepage_module_order()). This proves that help
+	 * text actually reaches the rendered `<p class="description">`, not
+	 * merely that blueline_section_definitions() defines the string --
+	 * schema generation (blueline_settings_schema()) has to carry `help`
+	 * through alongside `label`/`group` for this to be true, and this is
+	 * the guard that would fail if a future edit stopped doing that.
+	 */
+	public function test_a_module_section_fields_help_text_reaches_the_rendered_row(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'module_latest_news',
+			blueline_settings_schema()['module_latest_news'],
+			null
+		);
+		$html = ob_get_clean();
+
+		$this->assertStringContainsString( '<p class="description">', $html );
+		$this->assertStringContainsString( 'At least one homepage module always shows', $html );
+	}
+
+	/**
+	 * The contrast case: a `section` field with no floor behind it (a
+	 * `chrome_*`/`account_*` entry, unticking every one of which really
+	 * does hide the whole group) carries no `help` string, and must not
+	 * render an empty description paragraph -- the render branch's
+	 * `! empty( $field['help'] )` guard exists precisely so an absent key
+	 * prints nothing rather than a blank `<p>`.
+	 */
+	public function test_a_section_field_without_help_renders_no_description_paragraph(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'chrome_sponsors',
+			blueline_settings_schema()['chrome_sponsors'],
+			null
+		);
+		$html = ob_get_clean();
+
+		$this->assertStringNotContainsString( 'class="description"', $html );
+	}
+
+	/**
 	 * A field with a queued error must render `aria-invalid="true"` and
 	 * `aria-describedby` pointing at an element that actually exists and
 	 * actually carries the message -- and the error must not be conveyed by
