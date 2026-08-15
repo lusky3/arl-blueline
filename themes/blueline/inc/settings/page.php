@@ -538,6 +538,7 @@ function blueline_settings_tab_label( string $tab_slug ): string {
 		'content'    => __( 'Content', 'blueline' ),
 		'links'      => __( 'Links', 'blueline' ),
 		'appearance' => __( 'Appearance', 'blueline' ),
+		'sections'   => __( 'Sections', 'blueline' ),
 		'commerce'   => __( 'Commerce', 'blueline' ),
 	);
 
@@ -825,7 +826,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 		<td>
 			<?php if ( 'band_photos' === $type ) : ?>
 				<?php blueline_settings_render_band_photos( $field_key, $field, $name, $input_id, (array) $value ); ?>
-			<?php elseif ( 'bool' === $type ) : ?>
+			<?php elseif ( 'bool' === $type || 'section' === $type ) : ?>
 				<?php
 				/*
 				 * The hidden input before the checkbox is what makes UNCHECKING
@@ -834,6 +835,12 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 				 * stored `true` would survive the save. The hidden 0 is always
 				 * posted; a checked box overwrites it, because a later value
 				 * wins for the same key.
+				 *
+				 * A `section` field (inc/settings/sections.php's presence
+				 * toggles) renders with this exact same markup as `bool` --
+				 * same companion, same bare checkbox -- since it sanitizes
+				 * identically (inc/settings/sanitize.php); the distinct type
+				 * name is conceptual, not a rendering difference.
 				 */
 				?>
 				<input type="hidden" name="<?php echo esc_attr( $name ); ?>" value="0">

@@ -600,13 +600,15 @@ final class SettingsSanitizeTest extends TestCase {
 
 	/**
 	 * Integration check against the real schema, not a hand-built fixture:
-	 * every schema field's own default -- Task 1's original 13 fields with a
-	 * zero-placeholder contract, Task 8's 7 hero fields each carrying a real,
-	 * non-empty `placeholders` contract, and the 2 Appearance fields (the
-	 * hero photograph list and its rotation flag) -- must still validate
-	 * through blueline_sanitize_field() unchanged. A default that failed here
-	 * would mean the panel ships an un-saveable field the moment an admin
-	 * opens its own tab and re-submits the form untouched.
+	 * every schema field's own default -- the original 13 fields with a
+	 * zero-placeholder contract, 7 hero fields each carrying a real,
+	 * non-empty `placeholders` contract, the 2 Appearance fields (the
+	 * hero photograph list and its rotation flag), and the 12 `section`
+	 * presence toggles generated from blueline_section_definitions()
+	 * (inc/settings/sections.php) -- must still validate through
+	 * blueline_sanitize_field() unchanged. A default that failed here would
+	 * mean the panel ships an un-saveable field the moment an admin opens
+	 * its own tab and re-submits the form untouched.
 	 *
 	 * The photograph list's default is `array()`, which is not an oversight:
 	 * empty means "use the photographs that ship with the theme", so it has to
@@ -618,7 +620,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 22, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 34, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );

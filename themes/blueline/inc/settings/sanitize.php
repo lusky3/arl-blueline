@@ -335,11 +335,12 @@ function blueline_placeholder_mismatch_reasons( array $required, array $found ):
  * field.
  *
  * `page_id`/`term_id` fields sanitize to a non-negative integer (`0` means
- * "use the fallback", per the schema's own docblock); `bool` fields sanitize
- * to a real boolean -- neither passes through a sprintf() format string
- * ever, so neither runs the checks below. Every other type -- `text`,
- * `email`, `textarea` today -- sanitizes through sanitize_text_field(): see
- * this file's docblock for why wp_kses_post() is deliberately not used.
+ * "use the fallback", per the schema's own docblock); `bool` and `section`
+ * fields both sanitize to a real boolean -- neither passes through a
+ * sprintf() format string ever, so none of these three run the checks
+ * below. Every other type -- `text`, `email`, `textarea` today -- sanitizes
+ * through sanitize_text_field(): see this file's docblock for why
+ * wp_kses_post() is deliberately not used.
  *
  * Every such string-valued field is REQUIRED to contain exactly its declared
  * `placeholders` contract, with no third "unchecked" state: `$field['placeholders']`
@@ -438,7 +439,12 @@ function blueline_sanitize_field( $value, array $field ) {
 	$type  = $field['type'] ?? 'text';
 	$label = $field['label'] ?? '';
 
-	if ( 'bool' === $type ) {
+	if ( 'bool' === $type || 'section' === $type ) {
+		// `section` (inc/settings/sections.php's presence toggles) sanitizes
+		// identically to `bool` -- a distinct type name only so the schema
+		// and blueline_section_enabled() stay conceptually separate from the
+		// panel's other boolean toggles, not because the value needs
+		// different handling.
 		return (bool) $value;
 	}
 

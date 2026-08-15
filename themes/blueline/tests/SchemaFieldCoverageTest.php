@@ -32,19 +32,42 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
 /**
  * Schema keys explicitly exempted from this guard -- with the reason, and
  * the commitment that this list is temporary scaffolding, not a permanent
- * escape hatch. THIS LIST MUST BE EMPTY BY THE END OF P1a: an entry here is
- * a documented, visible gap (this test still names it every run), never a
- * silent one.
+ * escape hatch. An entry here is a documented, visible gap (this test still
+ * names it every run, via test_exempt_keys_are_real_schema_fields()), never
+ * a silent one.
  *
- * Empty as of Task 9: `registration_term` was the last (and only) entry --
- * it is now read via `blueline_settings( 'registration_term' )` inside
- * blueline_resolve_registration_term() (inc/settings/commerce.php), which
- * every one of its call sites (inc/season-state.php,
- * inc/account/player-data.php, inc/homepage-modules.php) goes through
- * instead of reading the hardcoded BLUELINE_REGISTRATION_TERM_ID constant
- * directly.
+ * Was empty as of P1a's Task 9 (`registration_term` was the last entry
+ * removed, once blueline_resolve_registration_term() started reading it).
+ * The P1b-panel-completion plan's Task 1 (inc/settings/sections.php) adds a
+ * new, deliberate batch: the 12 `section` presence-toggle keys generated
+ * from blueline_section_definitions(). Every one of those is read ONLY
+ * through blueline_section_enabled( $key ) -- a call with a VARIABLE key,
+ * by design (that indirection is the whole point: it lets every consumer
+ * share one unknown-key guard rather than each repeating it) -- never a
+ * literal `blueline_settings( 'the_key' )` call this test's regex can find.
+ * Task 1 itself wires no consumer at all (that is later tasks' job: the
+ * homepage modules, the account cards, the site chrome each call
+ * blueline_section_enabled() with their own literal key once they exist),
+ * so today every one of these 12 keys is genuinely unread anywhere in the
+ * theme's real source -- exactly the gap this guard exists to surface, and
+ * exactly why each is named here rather than the guard being weakened to
+ * stop looking. Remove each key from this list as the later task that wires
+ * its consumer lands.
  */
-const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array();
+const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
+	'module_next_games',
+	'module_standings_snippet',
+	'module_new_here',
+	'module_latest_news',
+	'chrome_sponsors',
+	'chrome_utility_nav',
+	'chrome_footer_trust',
+	'chrome_footer_teams',
+	'account_next_game',
+	'account_my_team',
+	'account_season_stats',
+	'account_registration',
+);
 
 /**
  * Fails, naming every offending field, if any schema key is never read
@@ -145,24 +168,21 @@ final class SchemaFieldCoverageTest extends TestCase {
 	 * The exemption list must name only real, current schema keys -- a typo
 	 * or a stale entry (a field since renamed or removed) would silently
 	 * widen this guard's blind spot instead of narrowing it to exactly the
-	 * documented, temporary gaps. As of Task 9 the list is empty (see its
-	 * own docblock), so the assertion below is on the list itself, not a
-	 * per-key loop -- an empty foreach body would otherwise leave this test
-	 * making zero assertions, which is not "vacuously passing", it is
-	 * PHPUnit correctly flagging the test as risky for asserting nothing at
-	 * all.
+	 * documented, temporary gaps. The list is non-empty as of P1b's Task 1
+	 * (see the const's own docblock for why), so this loop carries real
+	 * assertions on every run; the addToAssertionCount() fallback exists only
+	 * so a future run where the list is empty again does not get flagged by
+	 * PHPUnit as "risky: no assertions" instead of genuinely passing.
 	 */
 	public function test_exempt_keys_are_real_schema_fields(): void {
 		$schema = blueline_settings_schema();
 
-		$this->assertSame(
-			array(),
-			BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS,
-			'this list must stay empty for the remainder of P1a -- see the const\'s own docblock'
-		);
-
 		foreach ( BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS as $key ) {
 			$this->assertArrayHasKey( $key, $schema, "exempt key '$key' is not (or no longer) a real schema field" );
+		}
+
+		if ( array() === BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS ) {
+			$this->addToAssertionCount( 1 );
 		}
 	}
 

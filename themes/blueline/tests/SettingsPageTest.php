@@ -142,13 +142,14 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The schema's own tab order (content, links, commerce today) must be
-	 * exactly what the tab nav renders and iterates in -- derived from the
-	 * schema, not hardcoded, so a future tab needs no edit here.
+	 * The schema's own tab order (content, links, appearance, commerce,
+	 * sections today) must be exactly what the tab nav renders and iterates
+	 * in -- derived from the schema, not hardcoded, so a future tab needs no
+	 * edit here.
 	 */
 	public function test_tab_slugs_reflect_schema_order(): void {
 		$this->assertSame(
-			array( 'content', 'links', 'appearance', 'commerce' ),
+			array( 'content', 'links', 'appearance', 'commerce', 'sections' ),
 			blueline_settings_tab_slugs()
 		);
 	}

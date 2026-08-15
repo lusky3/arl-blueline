@@ -30,7 +30,18 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * The field registry: every setting the panel exposes, keyed by option
  * array key, each declaring at minimum `type`, `tab`, and `label`.
  *
- * Field types: `text`, `email`, `page_id`, `term_id`, `bool`, `textarea`.
+ * Field types: `text`, `email`, `page_id`, `term_id`, `bool`, `textarea`,
+ * `section`.
+ *
+ * `section`-typed fields are not written by hand in the array literal below:
+ * they are generated at the end of this function, one per entry in
+ * blueline_section_definitions() (inc/settings/sections.php) -- that list is
+ * the single source of truth for which sections exist, their labels and
+ * their groups, so a new section needs no second edit here. A `section`
+ * field sanitizes identically to `bool` (inc/settings/sanitize.php); the
+ * distinct type name exists only so blueline_section_enabled() and this
+ * schema stay conceptually separate from the panel's other boolean toggles,
+ * not because the sanitizer treats them differently.
  *
  * `page_id`/`term_id` fields carry a `fallback` — the built-in path or term
  * ID the theme uses today when the stored value is `0` ("use the theme
@@ -63,7 +74,7 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * @return array<string, array<string, mixed>>
  */
 function blueline_settings_schema(): array {
-	return array(
+	$schema = array(
 		// Content tab.
 		'contact_email'              => array(
 			'type'  => 'email',
@@ -220,6 +231,21 @@ function blueline_settings_schema(): array {
 			'taxonomy' => 'product_cat',
 		),
 	);
+
+	// Sections tab -- generated from blueline_section_definitions()
+	// (inc/settings/sections.php) so a new section needs no second edit
+	// here: the definition list is the single source of truth, and this
+	// loop is the only place that turns it into schema entries.
+	foreach ( blueline_section_definitions() as $key => $def ) {
+		$schema[ $key ] = array(
+			'type'  => 'section',
+			'tab'   => 'sections',
+			'label' => $def['label'],
+			'group' => $def['group'],
+		);
+	}
+
+	return $schema;
 }
 
 /**
@@ -232,7 +258,7 @@ function blueline_settings_schema(): array {
  * @return array<string, mixed>
  */
 function blueline_settings_defaults(): array {
-	return array(
+	$defaults = array(
 		'contact_email'              => 'play@rookiehockey.ca',
 		'footer_heading'             => 'The League',
 		'footer_location'            => 'Burlington, Ontario',
@@ -256,4 +282,12 @@ function blueline_settings_defaults(): array {
 		'hero_photos'                => array(),
 		'hero_photo_rotate'          => true,
 	);
+
+	// Every section defaults to enabled: an install that has never opened
+	// the Sections tab must look exactly as it did before this tab existed.
+	foreach ( blueline_section_definitions() as $key => $unused_def ) {
+		$defaults[ $key ] = true;
+	}
+
+	return $defaults;
 }
