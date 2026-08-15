@@ -10,6 +10,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/settings/commerce.php';
 require_once __DIR__ . '/../inc/season-state.php';

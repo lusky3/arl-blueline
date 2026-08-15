@@ -28,31 +28,47 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/sections.php';
 
 /**
  * Schema keys explicitly exempted from this guard -- with the reason, and
  * the commitment that this list is temporary scaffolding, not a permanent
  * escape hatch. An entry here is a documented, visible gap (this test still
- * names it every run, via test_exempt_keys_are_real_schema_fields()), never
- * a silent one.
+ * names it every run, via test_exempt_keys_are_real_schema_fields() AND
+ * test_exempt_keys_do_not_yet_have_a_real_consumer() below), never a silent
+ * one.
  *
  * Was empty as of P1a's Task 9 (`registration_term` was the last entry
  * removed, once blueline_resolve_registration_term() started reading it).
  * The P1b-panel-completion plan's Task 1 (inc/settings/sections.php) adds a
  * new, deliberate batch: the 12 `section` presence-toggle keys generated
- * from blueline_section_definitions(). Every one of those is read ONLY
- * through blueline_section_enabled( $key ) -- a call with a VARIABLE key,
- * by design (that indirection is the whole point: it lets every consumer
- * share one unknown-key guard rather than each repeating it) -- never a
- * literal `blueline_settings( 'the_key' )` call this test's regex can find.
- * Task 1 itself wires no consumer at all (that is later tasks' job: the
- * homepage modules, the account cards, the site chrome each call
- * blueline_section_enabled() with their own literal key once they exist),
- * so today every one of these 12 keys is genuinely unread anywhere in the
- * theme's real source -- exactly the gap this guard exists to surface, and
- * exactly why each is named here rather than the guard being weakened to
- * stop looking. Remove each key from this list as the later task that wires
- * its consumer lands.
+ * from blueline_section_definitions(). Task 1 is explicitly scoped as
+ * foundation only -- the schema, the sanitizer branch, and the ONE read
+ * accessor (blueline_section_enabled()) -- and wires zero consumers itself;
+ * that is later tasks' job (the homepage modules, the account cards, the
+ * site chrome each call blueline_section_enabled() with their own literal
+ * key once they exist). So today every one of these 12 keys is genuinely
+ * unread anywhere in the theme's real source, which is exactly what this
+ * guard is supposed to catch -- hence the exemption, rather than either
+ * fabricating a call site that doesn't belong to this task or weakening the
+ * guard to stop looking.
+ *
+ * This is NOT a silent escape hatch, for two independent reasons:
+ *
+ * 1. test_every_schema_field_has_a_real_consumer() below now also recognises
+ *    `blueline_section_enabled( 'key' )` as a valid consumer for a
+ *    `section`-typed field -- mirroring the existing `blueline_resolve_link()`
+ *    indirection already carved out for `page_id` fields. The day a later
+ *    task adds that literal call for one of these keys, the guard sees it
+ *    on its own; the exemption below is not what will eventually clear it.
+ * 2. test_exempt_keys_do_not_yet_have_a_real_consumer() is the actual
+ *    forcing function this list needs: it fails the moment any exempted key
+ *    ALREADY has a real consumer somewhere in the theme's source, which can
+ *    only happen if a later task wired one without also removing that key
+ *    from this list -- i.e. the list going stale is a red build, not a
+ *    silent no-op.
+ *
+ * Remove each key from this list as the task that wires its consumer lands.
  */
 const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 	'module_next_games',
@@ -72,9 +88,15 @@ const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 /**
  * Fails, naming every offending field, if any schema key is never read
  * anywhere in the theme's real (non-test) PHP source -- either directly via
- * `blueline_settings( 'key' )`, or, for a `page_id` field specifically, via
- * `blueline_resolve_link( 'key' )` (inc/settings/links.php's own resolver,
- * the one established indirection for that field type -- see Task 5).
+ * `blueline_settings( 'key' )`, or via one of two established per-type
+ * indirections: `blueline_resolve_link( 'key' )` for a `page_id` field
+ * (inc/settings/links.php's own resolver -- see Task 5), or
+ * `blueline_section_enabled( 'key' )` for a `section` field
+ * (inc/settings/sections.php's own accessor -- see Task 1). Both
+ * indirections exist for the identical reason: so every consumer shares one
+ * resolver/guard rather than each repeating its own fallback or unknown-key
+ * logic, and both are recognised here the same way -- a literal call naming
+ * this exact key, for a field of the matching type.
  *
  * Deliberately NOT restricted to inc/ (unlike IncRequireCoverageTest): a
  * field's real consumer can be any theme template -- footer.php,
@@ -130,6 +152,42 @@ final class SchemaFieldCoverageTest extends TestCase {
 	}
 
 	/**
+	 * Whether $key has a real, literal consumer in $source -- either a
+	 * direct `blueline_settings( 'key' )` call, or one of the two
+	 * established per-type indirections: `blueline_resolve_link( 'key' )`
+	 * for a `page_id` field, or `blueline_section_enabled( 'key' )` for a
+	 * `section` field. Shared by the guard itself
+	 * (test_every_schema_field_has_a_real_consumer()) and the exemption
+	 * list's own forcing function (test_exempt_keys_do_not_yet_have_a_real_consumer())
+	 * so the two can never quietly drift onto different definitions of
+	 * "consumed".
+	 *
+	 * @param string $key    Schema key to look for.
+	 * @param array  $field  That key's schema entry (only `type` is read).
+	 * @param string $source theme_source()'s combined, comment-stripped source.
+	 * @return bool
+	 */
+	private function field_has_a_real_consumer( string $key, array $field, string $source ): bool {
+		$quoted_key = preg_quote( $key, '/' );
+
+		if ( preg_match( '/blueline_settings\(\s*[\'"]' . $quoted_key . '[\'"]\s*\)/', $source ) ) {
+			return true;
+		}
+
+		if ( 'page_id' === ( $field['type'] ?? '' )
+			&& preg_match( '/blueline_resolve_link\(\s*[\'"]' . $quoted_key . '[\'"]\s*\)/', $source ) ) {
+			return true;
+		}
+
+		if ( 'section' === ( $field['type'] ?? '' )
+			&& preg_match( '/blueline_section_enabled\(\s*[\'"]' . $quoted_key . '[\'"]\s*\)/', $source ) ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * The guard itself: every non-exempt schema key must have a real,
 	 * literal consumer somewhere in the theme's live source.
 	 */
@@ -145,14 +203,11 @@ final class SchemaFieldCoverageTest extends TestCase {
 				continue;
 			}
 
-			$quoted_key    = preg_quote( $key, '/' );
-			$read_directly = (bool) preg_match( '/blueline_settings\(\s*[\'"]' . $quoted_key . '[\'"]\s*\)/', $source );
-			$read_via_link = ( 'page_id' === ( $field['type'] ?? '' ) )
-				&& (bool) preg_match( '/blueline_resolve_link\(\s*[\'"]' . $quoted_key . '[\'"]\s*\)/', $source );
-
-			if ( ! $read_directly && ! $read_via_link ) {
-				$missing[] = $key;
+			if ( $this->field_has_a_real_consumer( $key, $field, $source ) ) {
+				continue;
 			}
+
+			$missing[] = $key;
 		}
 
 		sort( $missing );
@@ -180,6 +235,47 @@ final class SchemaFieldCoverageTest extends TestCase {
 		foreach ( BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS as $key ) {
 			$this->assertArrayHasKey( $key, $schema, "exempt key '$key' is not (or no longer) a real schema field" );
 		}
+
+		if ( array() === BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS ) {
+			$this->addToAssertionCount( 1 );
+		}
+	}
+
+	/**
+	 * The forcing function that keeps BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS
+	 * from going stale and permanent (the coordinator's fix-round-1 finding
+	 * on this file): fails, naming the offender, the moment any exempted key
+	 * ALREADY has a real consumer somewhere in the theme's live source. That
+	 * can only happen if a later task wired blueline_section_enabled() (or
+	 * blueline_settings(), or blueline_resolve_link()) for that key without
+	 * also removing it from the exemption list above -- i.e. the exemption
+	 * going stale is a red build here, not a silent gap this guard stops
+	 * noticing.
+	 *
+	 * The addToAssertionCount() fallback exists for the same reason as
+	 * test_exempt_keys_are_real_schema_fields()'s own: once every key is
+	 * eventually removed from the list, an empty foreach must still report a
+	 * real, passing assertion rather than PHPUnit flagging the test "risky:
+	 * no assertions".
+	 */
+	public function test_exempt_keys_do_not_yet_have_a_real_consumer(): void {
+		$source = $this->theme_source();
+		$schema = blueline_settings_schema();
+
+		$stale = array();
+		foreach ( BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS as $key ) {
+			if ( isset( $schema[ $key ] ) && $this->field_has_a_real_consumer( $key, $schema[ $key ], $source ) ) {
+				$stale[] = $key;
+			}
+		}
+
+		sort( $stale );
+
+		$this->assertSame(
+			array(),
+			$stale,
+			'these keys are still listed as exempt but already have a real consumer -- remove them from BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS now that a task has wired them'
+		);
 
 		if ( array() === BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS ) {
 			$this->addToAssertionCount( 1 );
