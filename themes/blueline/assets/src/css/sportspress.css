@@ -1417,9 +1417,40 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * width). Both get the cue so it appears regardless of which of the two
  * actually ends up doing the scrolling for a given table.
  */
-.bl-table-scroll,
-.sp-scrollable-table-wrapper,
-table.bl-table-self-scroll {
+
+/*
+ * CORRECTION to the note above: masking BOTH edges unconditionally dimmed the
+ * first and last 24px of every table whether or not anything was hidden there.
+ * A table that fitted its column still had its leading characters greyed
+ * ("ᴛIME", "ᴀUGUST 14, 2026", "₁0:30 pm"), and a table scrolled fully left
+ * still faded a left edge with nothing behind it -- the cue was covering the
+ * information it exists to help people find.
+ *
+ * The mask now follows the scroll state instead. assets/src/js/table-scroll.js
+ * measures each container and sets data-fade-start/data-fade-end for the sides
+ * that genuinely have more content; CSS has no overflow or scroll-position
+ * selector, so this cannot be expressed in the stylesheet alone. With no JS
+ * neither attribute is ever set and no mask applies, which loses a hint but
+ * never hides content -- the safe direction to fail in.
+ */
+.bl-table-scroll[data-fade-start],
+.sp-scrollable-table-wrapper[data-fade-start],
+table.bl-table-self-scroll[data-fade-start] {
+	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px);
+	mask-image: linear-gradient(to right, transparent, #000 24px);
+}
+
+.bl-table-scroll[data-fade-end],
+.sp-scrollable-table-wrapper[data-fade-end],
+table.bl-table-self-scroll[data-fade-end] {
+	-webkit-mask-image: linear-gradient(to left, transparent, #000 24px);
+	mask-image: linear-gradient(to left, transparent, #000 24px);
+}
+
+/* Both ends hidden: fade both, which is the mid-scroll case. */
+.bl-table-scroll[data-fade-start][data-fade-end],
+.sp-scrollable-table-wrapper[data-fade-start][data-fade-end],
+table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 	mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 }

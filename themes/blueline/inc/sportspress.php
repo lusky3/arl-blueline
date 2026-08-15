@@ -581,9 +581,96 @@ function blueline_sp_event_state( $has_results, $start_timestamp, $now_timestamp
 }
 
 /**
- * A Google Calendar "add event" link for an upcoming sp_event. No JS, no
+ * Subscribe URLs for a team's whole SportsPress calendar.
+ *
+ * The league already publishes one iCal feed per team -- an sp_calendar post
+ * carrying `sp_team` = the team's id, whose permalink serves iCal when asked
+ * with `?feed=sp-ical`. Each team's own page links it by hand in its post
+ * content; this resolves the same feed from a team id so the account dashboard
+ * can offer it without anyone maintaining a second copy of the URL.
+ *
+ * Returns BOTH forms because no single one works everywhere. `webcal://` is
+ * what iOS and macOS hand to Calendar, and what Outlook takes on Windows;
+ * Android generally does nothing with it, and wants Google's own add-by-URL
+ * screen instead. Choosing between them is a presentation decision, made in
+ * the template and refined by assets/src/js/calendar-links.js -- not here.
+ *
+ * A SUBSCRIPTION, not an export: the reader's calendar re-reads the feed, so a
+ * rescheduled game corrects itself instead of leaving a stale entry behind, and
+ * one action covers the whole season rather than one game.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return array{webcal:string, google:string, calendar_id:int}|null
+ *         Null when the team has no published calendar.
+ */
+function blueline_team_calendar_urls( $team_id ) {
+	$team_id = absint( $team_id );
+
+	if ( ! $team_id || ! post_type_exists( 'sp_calendar' ) ) {
+		return null;
+	}
+
+	$calendars = get_posts(
+		array(
+			'post_type'      => 'sp_calendar',
+			'post_status'    => 'publish',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'meta_key'       => 'sp_team', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- single-row lookup of one team's calendar, not a listing query.
+			'meta_value'     => (string) $team_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			'orderby'        => 'ID',
+			'order'          => 'DESC',
+		)
+	);
+
+	if ( ! $calendars ) {
+		return null;
+	}
+
+	$calendar_id = (int) $calendars[0];
+	$permalink   = get_permalink( $calendar_id );
+
+	if ( ! $permalink ) {
+		return null;
+	}
+
+	$feed = add_query_arg( 'feed', 'sp-ical', $permalink );
+
+	// webcal:// is the same URL under a scheme that tells the OS "subscribe"
+	// rather than "download once". Replacing only the leading scheme, so a
+	// host or path that happens to contain "http" is untouched.
+	$webcal = preg_replace( '#^https?://#', 'webcal://', $feed );
+
+	return array(
+		'calendar_id' => $calendar_id,
+		'webcal'      => $webcal,
+
+		/*
+		 * Encoded HERE, deliberately. add_query_arg() does NOT encode values:
+		 * it builds through build_query(), which calls
+		 * _http_build_query( $data, null, '&', '', false ) -- that last `false`
+		 * is $urlencode (wp-includes/functions.php, verified against the
+		 * installed core rather than assumed). Without this the cid would
+		 * carry a literal "://" and a second "?", and Google truncates the
+		 * feed URL at that "?".
+		 */
+		'google'      => add_query_arg(
+			'cid',
+			rawurlencode( $webcal ),
+			'https://calendar.google.com/calendar/render'
+		),
+	);
+}
+
+/**
+ * A Google Calendar "add event" link for a single upcoming sp_event. No JS, no
  * external dependency beyond the calendar.google.com URL scheme -- a plain
  * <a href> that works with or without a Google account.
+ *
+ * Kept for one-off use; the account dashboard offers the team's whole season
+ * through blueline_team_calendar_urls() instead, since a subscription both
+ * covers every game and corrects itself when one is rescheduled.
  *
  * @param int $event_id sp_event post ID.
  * @return string Escaped-ready URL, or '' if the start time is unknown.

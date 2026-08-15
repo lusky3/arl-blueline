@@ -162,13 +162,29 @@
 	transform: rotate(180deg);
 }
 
-/* Submenus: hidden until hovered, focused-within, or opened via JS. */
+/* Submenus: hidden until opened. */
 .bl-nav__submenu {
 	display: none;
 }
 
-.bl-nav__item:hover > .bl-nav__submenu,
-.bl-nav__item:focus-within > .bl-nav__submenu,
+/*
+ * [data-open] is the ONLY opener that applies at every width. :hover and
+ * :focus-within are desktop-dropdown affordances and live in the min-width
+ * block below.
+ *
+ * They used to be here, shared, and that made the drawer's chevron a one-way
+ * switch: tapping it set data-open="true", tapping again set it back to
+ * "false" -- correctly, JS was never the problem -- but the button still held
+ * focus, so :focus-within matched and kept the submenu displayed. Measured at
+ * 390px after a second tap: data-open="false", aria-expanded="false",
+ * display:block. Not just stuck open, but announcing itself as closed while
+ * visibly open, so assistive tech and the screen disagreed.
+ *
+ * A drawer submenu is an accordion, opened deliberately, and nothing about
+ * merely focusing its control should expand it -- on a touch screen there is
+ * no "move the pointer away" to undo it. Keyboard users in the drawer press
+ * the button, which is the accordion pattern rather than a regression.
+ */
 .bl-nav__item[data-open="true"] > .bl-nav__submenu {
 	display: block;
 }
@@ -329,6 +345,7 @@
 		display: none;
 	}
 
+
 	/*
 	 * The nav is the one flex sibling in .bl-header__inner allowed to
 	 * shrink (brand and actions are flex: 0 …, holding their size).
@@ -436,5 +453,21 @@
 		background: transparent;
 		box-shadow: none;
 		margin-inline-start: var(--bl-space-4);
+	}
+
+	/*
+	 * Desktop dropdowns also open on hover and on focus-within, not only on
+	 * [data-open]. Both are safe here in a way they are not in the drawer: a
+	 * pointer can be moved off a dropdown to close it, and a keyboard user
+	 * tabbing along the menu bar expects the submenu under the item they have
+	 * reached to reveal itself. The shared rule near the top of this file
+	 * explains why they are not applied at every width.
+	 *
+	 * Last in the block so it follows the positioning rules above it, which are
+	 * less specific and would otherwise be reported as descending specificity.
+	 */
+	.bl-nav__item:hover > .bl-nav__submenu,
+	.bl-nav__item:focus-within > .bl-nav__submenu {
+		display: block;
 	}
 }

@@ -489,8 +489,19 @@ function blueline_account_render_next_game( int $player_id ) {
 			? ( function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $event['opponent_team_id'] ) : get_the_title( $event['opponent_team_id'] ) )
 			: __( 'TBD', 'blueline' );
 
-		$calendar_url = function_exists( 'blueline_sp_event_calendar_url' ) ? blueline_sp_event_calendar_url( $event['event_id'] ) : '';
-		$venue_url    = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
+		/*
+		 * The team's whole season, not this one game. A subscription puts every
+		 * fixture in the reader's calendar in one action and keeps correcting
+		 * itself when a game moves -- a single-event "add" leaves a stale entry
+		 * behind on a reschedule, which for a league that moves games is the
+		 * worse failure. Falls back to nothing (the button simply does not
+		 * render) when a team has no published calendar.
+		 */
+		$bl_team_id    = function_exists( 'blueline_player_current_team_id' ) ? blueline_player_current_team_id( $player_id ) : 0;
+		$team_calendar = ( $bl_team_id && function_exists( 'blueline_team_calendar_urls' ) )
+			? blueline_team_calendar_urls( $bl_team_id )
+			: null;
+		$venue_url     = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
 		<div class="bl-account-next-game">
 			<p class="bl-account-next-game__date">
@@ -530,10 +541,29 @@ function blueline_account_render_next_game( int $player_id ) {
 				<a class="bl-account-module__link" href="<?php echo esc_url( get_permalink( $event['event_id'] ) ); ?>">
 					<?php esc_html_e( 'Game details', 'blueline' ); ?> <span aria-hidden="true">&rarr;</span>
 				</a>
-				<?php if ( $calendar_url ) : ?>
-					<a class="bl-btn bl-btn--secondary bl-account-next-game__calendar" href="<?php echo esc_url( $calendar_url ); ?>">
-						<span class="bl-skew"><span><?php esc_html_e( 'Add to calendar', 'blueline' ); ?></span></span>
-					</a>
+				<?php if ( $team_calendar ) : ?>
+					<?php
+					/*
+					 * Both destinations render, always. assets/src/js/
+					 * calendar-links.js marks the one matching the reader's
+					 * platform so it comes first and reads as the primary
+					 * action -- it never hides the other, because a wrong guess
+					 * would then leave someone with no way to subscribe at all,
+					 * and a desktop reader legitimately wants whichever their
+					 * own calendar is.
+					 */
+					?>
+					<div class="bl-account-next-game__calendar" data-calendar-links>
+						<span class="bl-account-next-game__calendar-label">
+							<?php esc_html_e( 'Add your season to:', 'blueline' ); ?>
+						</span>
+						<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
+							<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
+						</a>
+						<a class="bl-btn bl-btn--secondary" data-calendar="google" href="<?php echo esc_url( $team_calendar['google'] ); ?>">
+							<span class="bl-skew"><span><?php esc_html_e( 'Google', 'blueline' ); ?></span></span>
+						</a>
+					</div>
 				<?php endif; ?>
 			</div>
 		</div>

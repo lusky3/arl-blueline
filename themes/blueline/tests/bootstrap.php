@@ -717,16 +717,116 @@ if ( ! function_exists( 'get_posts' ) ) {
 
 		$found = array();
 		foreach ( $state['post_meta'] as $post_id => $meta ) {
-			if ( isset( $meta[ $key ] ) && (string) $meta[ $key ] === $value ) {
-				$found[] = (int) $post_id;
+			if ( ! isset( $meta[ $key ] ) || (string) $meta[ $key ] !== $value ) {
+				continue;
 			}
+
+			$post_id = (int) $post_id;
+
+			/*
+			 * post_type and post_status are honoured because callers rely on
+			 * them for correctness, not as decoration: a resolver that asks for
+			 * one published sp_calendar must not be handed a draft, or a post of
+			 * another type that happens to share the meta key. A stub that
+			 * ignored them would let such a test pass while the real query
+			 * behaved differently -- the failure mode this suite has been bitten
+			 * by repeatedly. A post the test never registered has no type or
+			 * status to check, so it is matched on meta alone, preserving the
+			 * older meta-only tests written before this store existed.
+			 */
+			$registered = $state['posts'][ $post_id ] ?? null;
+
+			if ( is_array( $registered ) ) {
+				$want_type = $args['post_type'] ?? '';
+
+				if ( $want_type && isset( $registered['type'] ) && $registered['type'] !== $want_type ) {
+					continue;
+				}
+
+				$want_status = $args['post_status'] ?? '';
+
+				if ( $want_status && 'any' !== $want_status
+					&& isset( $registered['status'] ) && $registered['status'] !== $want_status ) {
+					continue;
+				}
+			}
+
+			$found[] = $post_id;
 		}
 
 		sort( $found );
 
+		// Only ID ordering is modelled, which is all any caller here asks for.
+		if ( isset( $args['order'] ) && 'DESC' === strtoupper( (string) $args['order'] ) ) {
+			$found = array_reverse( $found );
+		}
+
 		$limit = (int) ( $args['posts_per_page'] ?? -1 );
 
 		return ( $limit > 0 ) ? array_slice( $found, 0, $limit ) : $found;
+	}
+}
+if ( ! function_exists( 'add_query_arg' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' add_query_arg(), supporting the two call
+	 * shapes this theme uses: ( array $args, string $url ) and
+	 * ( string $key, string $value, string $url ).
+	 *
+	 * Faithful on the points that matter to callers: values are urlencoded,
+	 * an existing query string is preserved and appended to rather than
+	 * replaced, and a key already present is overwritten rather than
+	 * duplicated -- all three of which core does and a naive "?k=v" concat
+	 * does not.
+	 *
+	 * @param mixed ...$args Either ( array, url ) or ( key, value, url ).
+	 * @return string
+	 */
+	function add_query_arg( ...$args ) {
+		if ( is_array( $args[0] ) ) {
+			$pairs = $args[0];
+			$url   = (string) ( $args[1] ?? '' );
+		} else {
+			$pairs = array( (string) $args[0] => $args[1] );
+			$url   = (string) ( $args[2] ?? '' );
+		}
+
+		$parts    = explode( '#', $url, 2 );
+		$fragment = isset( $parts[1] ) ? '#' . $parts[1] : '';
+		$base     = $parts[0];
+
+		$existing = array();
+		if ( false !== strpos( $base, '?' ) ) {
+			list( $base, $query ) = explode( '?', $base, 2 );
+			parse_str( $query, $existing );
+		}
+
+		foreach ( $pairs as $key => $value ) {
+			$existing[ $key ] = $value;
+		}
+
+		/*
+		 * NOT urlencoded, because core does not encode either: add_query_arg()
+		 * builds through build_query(), which calls
+		 * _http_build_query( $data, null, '&', '', false ) -- that final
+		 * `false` is $urlencode (wp-includes/functions.php, read from the
+		 * installed core rather than assumed). A caller that needs an encoded
+		 * value must encode it itself.
+		 *
+		 * This stub encoded at first, and that one divergence was enough to
+		 * make a passing test report a double-encoding bug that did not exist,
+		 * and to make the "fix" for it emit a genuinely broken URL. Left
+		 * documented rather than merely corrected, because the tempting
+		 * "improvement" here is to add encoding back.
+		 */
+		$pairs_out = array();
+
+		foreach ( $existing as $key => $value ) {
+			$pairs_out[] = $key . '=' . $value;
+		}
+
+		$query = implode( '&', $pairs_out );
+
+		return $base . ( '' !== $query ? '?' . $query : '' ) . $fragment;
 	}
 }
 if ( ! function_exists( 'is_active_sidebar' ) ) {

@@ -308,9 +308,22 @@
 	list-style: none;
 }
 
+/*
+ * One column on a phone: date, fixture, arena, stacked.
+ *
+ * This used to be `minmax(0, 1fr) auto` at every width, which put the fixture
+ * and the arena side by side. `auto` gives the arena whatever its label needs,
+ * and this league's labels are long -- "Mr. Lube and Tires Arena — Red" -- so
+ * the arena took most of a 390px row and squeezed "Puck Dynasty vs Hammers"
+ * into what was left, making the least important thing on the row the widest.
+ * Stacking gives the fixture the full width and drops the arena to its own
+ * line, where its existing smaller, dimmer type reads as the secondary detail
+ * it is. No information is lost, which shortening the label to just the pad
+ * would have cost.
+ */
 .bl-next-games__item {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--bl-space-1) var(--bl-space-3);
 	padding: var(--bl-space-4);
 	border: 1px solid var(--bl-border);
@@ -351,7 +364,13 @@ a.bl-next-games__title:focus-visible {
 .bl-next-games__venue {
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-sm);
-	text-align: end;
+
+	/*
+	 * Start-aligned while stacked: on its own full-width line, an end-aligned
+	 * arena name sits alone against the right edge with nothing to align to.
+	 * The multi-column layout at >=700px puts it back to end.
+	 */
+	text-align: start;
 }
 
 /* P1 finding 3: the venue is a real link (to the sp_venue archive, carrying
@@ -423,5 +442,10 @@ a.bl-next-games__venue:focus-visible {
 
 	.bl-next-games__date {
 		grid-column: auto;
+	}
+
+	/* Back to a row: the arena aligns to the card's right edge. */
+	.bl-next-games__venue {
+		text-align: end;
 	}
 }

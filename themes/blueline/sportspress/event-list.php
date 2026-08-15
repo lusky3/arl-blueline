@@ -214,7 +214,25 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 						<th class="data-home"><?php esc_html_e( 'Home', 'sportspress' ); ?></th>
 					<?php endif; ?>
 					<?php if ( sp_column_active( $usecolumns, 'time' ) ) : ?>
-						<th class="data-time"><?php esc_html_e( 'Time/Results', 'sportspress' ); ?></th>
+						<th class="data-time">
+						<?php
+						/*
+						 * "Result", not SportsPress' own "Time/Results".
+						 *
+						 * SportsPress names this column Time/Results because in
+						 * ITS layout the cell falls back to the kick-off time
+						 * until a score exists. This template does not: the
+						 * date column to the left always shows the time (the
+						 * date itself having moved to the bl-sp-date-heading
+						 * grouping row), and the cell below only ever prints a
+						 * score or an em dash. So the table read as two time
+						 * columns, one of which was permanently a dash --
+						 * naming it for the one thing it actually contains is
+						 * the whole fix.
+						 */
+						esc_html_e( 'Result', 'blueline' );
+						?>
+					</th>
 					<?php endif; ?>
 					<?php if ( sp_column_active( $usecolumns, 'event' ) ) : ?>
 						<th class="data-away"><?php esc_html_e( 'Away', 'sportspress' ); ?></th>
@@ -322,7 +340,8 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 							<td class="data-home<?php echo esc_attr( $bl_has_logo ); ?>" itemprop="competitor" itemscope itemtype="http://schema.org/SportsTeam" data-label="<?php esc_attr_e( 'Home', 'sportspress' ); ?>"><?php echo wp_kses_post( $bl_home ); ?></td>
 						<?php endif; ?>
 						<?php if ( sp_column_active( $usecolumns, 'time' ) ) : ?>
-							<td class="data-time <?php echo esc_attr( $status ); ?>" data-label="<?php esc_attr_e( 'Time/Results', 'sportspress' ); ?>">
+							<?php // Matches the column header above; this is what the stacked mobile view prints as the row's label. ?>
+							<td class="data-time <?php echo esc_attr( $status ); ?>" data-label="<?php esc_attr_e( 'Result', 'blueline' ); ?>">
 								<?php if ( ! empty( $main_results ) ) : ?>
 									<?php echo wp_kses_post( implode( ' - ', $main_results ) ); ?>
 								<?php else : ?>
