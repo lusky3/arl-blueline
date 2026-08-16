@@ -199,6 +199,8 @@ final class SettingsPageTest extends TestCase {
 				'hero_registration_headline',
 				'module_new_here_cta',
 				'module_new_here_heading',
+				'season_state_override',
+				'season_state_override_until',
 			),
 			$content_keys
 		);

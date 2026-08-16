@@ -26,8 +26,10 @@
 
 /*
  * announcement.js hides a dismissed banner with the `hidden` attribute. The
- * UA stylesheet's own [hidden] rule loses to the display above on specificity,
- * so this restates it.
+ * browser's own [hidden] rule is a user-agent style, and an author `display`
+ * declaration like the one above wins over the user-agent origin regardless
+ * of specificity — so the attribute needs an author rule of its own here to
+ * do anything at all.
  */
 .bl-announce[hidden] {
 	display: none;
@@ -73,10 +75,10 @@
 }
 
 /*
- * The dismiss control keeps a 44px hit area (WCAG 2.5.8's enhanced target
- * size) even though the glyph itself is small, so it stays comfortably
- * tappable on a phone without making the strip taller than the line of copy
- * inside it.
+ * The dismiss control keeps a 44px square hit area even though the glyph
+ * itself is small, so it stays comfortably tappable on a phone. The negative
+ * block margin lets it overhang the strip's own padding, so the taller
+ * target does not make the band taller than the line of copy inside it.
  */
 .bl-announce__dismiss {
 	display: flex;

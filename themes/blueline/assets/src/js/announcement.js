@@ -16,9 +16,10 @@
  * every page load for everyone who has not dismissed it, which is the more
  * common case.
  *
- * Every localStorage access is wrapped: it throws rather than returning null
- * in a browser where storage is disabled or the quota is exhausted, and an
- * unhandled throw here would take out every module imported after this one.
+ * Every localStorage access is wrapped, because it can throw rather than
+ * return -- storage disabled, or a quota condition. This file does its work
+ * at import time (like every other module in index.js), so an unhandled
+ * throw would abort the whole bundle's evaluation, not just this feature.
  */
 
 const STORAGE_KEY = 'blueline:announcement-dismissed';

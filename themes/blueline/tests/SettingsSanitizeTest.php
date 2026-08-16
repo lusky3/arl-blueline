@@ -678,7 +678,8 @@ final class SettingsSanitizeTest extends TestCase {
 	 * hero photograph list and its rotation flag), Task 6's 5 announcement-
 	 * banner fields (2 of them the first `date`-typed fields in the schema,
 	 * both defaulting to the empty "no bound" value that branch has to
-	 * accept), and the 16 `section` presence toggles (12 plus the Task 5 fix
+	 * accept), Task 7's 2 season-state break-glass fields (the second of
+	 * them the third `date` field), and the 16 `section` presence toggles (12 plus the Task 5 fix
 	 * round's 4 `chrome_footer_widgets_N` entries) generated from
 	 * blueline_section_definitions()
 	 * (inc/settings/sections.php) -- must still validate through
@@ -696,7 +697,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 47, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 49, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );

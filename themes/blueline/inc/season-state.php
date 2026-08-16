@@ -8,6 +8,21 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
+ * The five season states, in the order blueline_decide_season_state() tests
+ * them. There is no sixth: the break-glass override below refuses anything
+ * outside this list, and blueline_render_hero() (inc/homepage-modules.php)
+ * falls back to 'offseason' for anything outside it.
+ *
+ * KNOWN DUPLICATION: blueline_render_hero() still holds its own literal copy
+ * of these same five values. It predates this constant and was not rewritten
+ * to read it as part of Task 7, which had no other reason to touch that
+ * file. A sixth state would need both edits; tests/SeasonStateOverrideTest.php
+ * pins this list's contents, so at least one side of the pair cannot drift
+ * unnoticed.
+ */
+const BLUELINE_SEASON_STATES = array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' );
+
+/**
  * Pure predicate: is registration currently open. P1 finding 4: this used to
  * live only as a branch inside blueline_decide_season_state(), which forces
  * it to be mutually exclusive with every other state -- but this site sells
@@ -191,6 +206,41 @@ function blueline_registration_season_product_ids(): array {
 }
 
 /**
+ * The single moment every time-sensitive read in blueline_season_state_data()
+ * derives from, in the two forms that function needs it: the site-local
+ * `Y-m-d H:i:s` string its `date_query` bounds are expressed in, and the Unix
+ * timestamp its days-to-next-event arithmetic subtracts from.
+ *
+ * Those bounds are compared against `post_date`, which the null branch below
+ * has always treated as site-local by comparing it against
+ * `current_time( 'mysql' )` -- so an injected timestamp is formatted in the
+ * site's own zone (blueline_site_timestamp()'s inverse, inc/announcement.php)
+ * to match, rather than as UTC, which would put every bound out by the
+ * site's offset. The timestamp is passed straight through rather than
+ * recovered from the formatted string.
+ *
+ * This is its own function so the `$now` branch is directly testable: the
+ * queries it feeds need a real WordPress database, this does not, and
+ * "does an injected timestamp actually move the bounds" is the entire
+ * question that parameter exists to answer.
+ *
+ * @param int|null $now Unix timestamp, or null for the current time.
+ * @return array{0:string,1:int} The site-local mysql datetime and its timestamp.
+ */
+function blueline_season_state_moment( ?int $now = null ): array {
+	if ( null === $now ) {
+		$mysql = current_time( 'mysql' );
+
+		return array( $mysql, (int) strtotime( $mysql ) );
+	}
+
+	return array(
+		( new DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ),
+		$now,
+	);
+}
+
+/**
  * Gather live season-state signals, run them through the pure decision
  * function, and cache the result.
  *
@@ -209,6 +259,25 @@ function blueline_registration_season_product_ids(): array {
  * syncs it. Reading the lookup table would make Season State disagree
  * with the catalogue.
  *
+ * ## The `$now` parameter and the cache
+ *
+ * Every time-sensitive read in this function -- the upcoming/recent event
+ * queries and the days-to-next-event arithmetic -- derives from one moment.
+ * Passing `$now` replaces the clock as the source of that moment, which is
+ * what makes a test about "what state is this site in on such-and-such a
+ * date" answerable at all.
+ *
+ * When `$now` is given, the 15-minute transient is bypassed in BOTH
+ * directions: not read, and not written. Read, because a value computed at
+ * some other moment is not an answer to a question about this one -- that
+ * bypass is also what makes the parameter observably threaded rather than
+ * accepted and dropped (see tests/SeasonStateOverrideTest.php). Written,
+ * because one such read would otherwise poison the cache for every ordinary
+ * request that followed it. The transient is deliberately NOT keyed by
+ * `$now` instead: that would be an unbounded set of cache keys for a value
+ * only the live path ever reuses.
+ *
+ * @param int|null $now Unix timestamp to evaluate against; null means now.
  * @return array {
  *     @type string   $state                 One of the five season states.
  *     @type int|null $product_id            Purchasable product driving registration_open, if any.
@@ -217,10 +286,14 @@ function blueline_registration_season_product_ids(): array {
  *     @type bool     $is_playing            Independent of $state -- see blueline_decide_is_playing().
  * }
  */
-function blueline_season_state_data(): array {
-	$cached = get_transient( 'blueline_season_state' );
-	if ( is_array( $cached ) && isset( $cached['state'], $cached['is_playing'], $cached['is_registration_open'] ) ) {
-		return $cached;
+function blueline_season_state_data( ?int $now = null ): array {
+	$use_cache = null === $now;
+
+	if ( $use_cache ) {
+		$cached = get_transient( 'blueline_season_state' );
+		if ( is_array( $cached ) && isset( $cached['state'], $cached['is_playing'], $cached['is_registration_open'] ) ) {
+			return $cached;
+		}
 	}
 
 	$signals = array(
@@ -249,8 +322,7 @@ function blueline_season_state_data(): array {
 
 	// --- SportsPress: upcoming/recent events, playoff detection. ---
 	if ( post_type_exists( 'sp_event' ) ) {
-		$now    = current_time( 'mysql' );
-		$now_ts = strtotime( $now );
+		list( $now_mysql, $now_ts ) = blueline_season_state_moment( $now );
 
 		$upcoming_query = new WP_Query(
 			array(
@@ -267,7 +339,7 @@ function blueline_season_state_data(): array {
 				'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
 					array(
 						'column' => 'post_date',
-						'after'  => $now,
+						'after'  => $now_mysql,
 					),
 				),
 			)
@@ -326,7 +398,7 @@ function blueline_season_state_data(): array {
 					array(
 						'column'    => 'post_date',
 						'after'     => gmdate( 'Y-m-d H:i:s', $now_ts - 30 * DAY_IN_SECONDS ),
-						'before'    => $now,
+						'before'    => $now_mysql,
 						'inclusive' => true,
 					),
 				),
@@ -346,7 +418,9 @@ function blueline_season_state_data(): array {
 		'is_playing'           => blueline_decide_is_playing( $signals ),
 	);
 
-	set_transient( 'blueline_season_state', $data, 15 * MINUTE_IN_SECONDS );
+	if ( $use_cache ) {
+		set_transient( 'blueline_season_state', $data, 15 * MINUTE_IN_SECONDS );
+	}
 
 	return $data;
 }
@@ -377,20 +451,162 @@ function blueline_is_playing(): bool {
 }
 
 /**
+ * A human label for one of the five states, for admin copy. Printing
+ * `in_season` at a volunteer is printing them an implementation detail.
+ *
+ * @param string $state One of BLUELINE_SEASON_STATES.
+ * @return string A readable label, or the raw key for anything unknown --
+ *                which nothing should ever pass, but a blank label would be
+ *                worse than an ugly one.
+ */
+function blueline_season_state_label( string $state ): string {
+	$labels = array(
+		'registration_open' => __( 'Registration open', 'blueline' ),
+		'preseason'         => __( 'Preseason', 'blueline' ),
+		'in_season'         => __( 'In season', 'blueline' ),
+		'playoffs'          => __( 'Playoffs', 'blueline' ),
+		'offseason'         => __( 'Off-season', 'blueline' ),
+	);
+
+	return $labels[ $state ] ?? $state;
+}
+
+/**
+ * The season state an admin has forced, or '' when nothing is being forced.
+ *
+ * BREAK-GLASS, not routine configuration. It exists for the case where the
+ * computed state is wrong -- a catalogue mistake, a schedule import gone
+ * sideways -- and the site has to say the right thing before anyone can fix
+ * the underlying data.
+ *
+ * Three separate conditions each mean "no override", and all three fall
+ * through to the computed state rather than failing:
+ *
+ * 1. The stored state is not one of BLUELINE_SEASON_STATES. This theme never
+ *    invents a sixth state.
+ * 2. There is no expiry date. The expiry is MANDATORY, and this is the whole
+ *    design: an override nobody remembers setting quietly becomes the site's
+ *    permanent state, at which point the season logic is dead code and
+ *    nobody knows it. An override that cannot outlive its usefulness is the
+ *    only kind worth shipping.
+ * 3. The expiry has passed, or cannot be parsed. An unparseable expiry is
+ *    treated as no expiry -- the opposite direction to the announcement
+ *    banner's unparseable window bound (inc/announcement.php), and
+ *    deliberately: there, ignoring a broken bound keeps a banner an admin
+ *    believes is live on screen; here, ignoring a broken expiry is what
+ *    keeps a forgotten override from being permanent.
+ *
+ * The expiry day is INCLUSIVE and runs to the end of that day in site time,
+ * matching the announcement window's own bounds.
+ *
+ * @param int|null $now Unix timestamp to evaluate the expiry against; null
+ *                      means now.
+ * @return string One of BLUELINE_SEASON_STATES, or '' for no override.
+ */
+function blueline_season_state_override( ?int $now = null ): string {
+	$state = (string) blueline_settings( 'season_state_override' );
+
+	if ( ! in_array( $state, BLUELINE_SEASON_STATES, true ) ) {
+		return '';
+	}
+
+	$until = trim( (string) blueline_settings( 'season_state_override_until' ) );
+
+	if ( '' === $until ) {
+		return '';
+	}
+
+	$expires = blueline_site_timestamp( $until . ' 23:59:59' );
+
+	if ( null === $expires || ( $now ?? time() ) > $expires ) {
+		return '';
+	}
+
+	return $state;
+}
+
+/**
  * Public accessor: the current season state.
  *
- * @return string One of registration_open|preseason|in_season|playoffs|offseason.
+ * An active override (blueline_season_state_override()) replaces the
+ * computed state, and does so BEFORE the `blueline_season_state` filter
+ * fires, so a developer filter still has the last word -- filters are the
+ * last word everywhere else in this theme and this is not the place to make
+ * an exception.
+ *
+ * The override deliberately does NOT touch blueline_is_registration_open()
+ * or blueline_is_playing(). Those two report live facts about the catalogue
+ * and the schedule (P1 finding 4) rather than the emphasis this enum
+ * collapses them into; forcing them as well would mean the panel could make
+ * the site claim registration is open when nothing is actually purchasable.
+ *
+ * @param int|null $now Unix timestamp to evaluate against; null means now.
+ *                      Threaded all the way to blueline_season_state_data(),
+ *                      where the time-sensitive queries actually live.
+ * @return string One of BLUELINE_SEASON_STATES.
  */
-function blueline_season_state(): string {
-	$data = blueline_season_state_data();
+function blueline_season_state( ?int $now = null ): string {
+	$override = blueline_season_state_override( $now );
+
+	// An active override makes the computed state irrelevant, so the queries
+	// behind it are skipped rather than run and thrown away.
+	$state = '' !== $override ? $override : blueline_season_state_data( $now )['state'];
 
 	/**
-	 * Filters the computed season state -- e.g. to force a value while
-	 * testing, or as a manual override during an unusual season transition.
+	 * Filters the season state -- e.g. to force a value while testing, or as
+	 * a manual override during an unusual season transition.
 	 *
-	 * @param string $state Computed season state.
+	 * @param string $state The season state, after any admin override.
 	 */
-	return apply_filters( 'blueline_season_state', $data['state'] );
+	return apply_filters( 'blueline_season_state', $state );
+}
+
+/**
+ * The persistent admin notice shown while an override is active.
+ *
+ * This notice is half the feature. The override's mandatory expiry stops a
+ * forgotten one lasting forever; this stops it being forgotten in the first
+ * place, by saying so on every wp-admin screen rather than only on the
+ * settings page a volunteer may not open again for weeks --  the same
+ * reasoning inc/settings/cache.php's own persistent notice is built on, and
+ * the same `manage_options` gate, so nobody is shown an instruction they
+ * cannot act on.
+ *
+ * A `<section>`, never a `<div>`: a third-party plugin active on this
+ * install strips any `<div>` whose class contains "notice", "error",
+ * "warning", "info" or "updated" (see tests/NoticeDivGuardTest.php and
+ * inc/settings/cache.php's own notice for the full account). The
+ * `notice notice-warning` classes here match that pattern exactly.
+ *
+ * @return void
+ */
+function blueline_render_season_state_override_notice(): void {
+	$override = blueline_season_state_override();
+
+	if ( '' === $override ) {
+		return;
+	}
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$until = trim( (string) blueline_settings( 'season_state_override_until' ) );
+	?>
+	<section class="notice notice-warning bl-season-override-notice">
+		<p>
+			<?php
+			printf(
+				/* translators: 1: the forced season state's label, 2: the date the override lifts, as YYYY-MM-DD. */
+				esc_html__( 'Season state is being forced to "%1$s" until %2$s. Until then the site ignores what it would otherwise work out from the registration catalogue and the schedule.', 'blueline' ),
+				esc_html( blueline_season_state_label( $override ) ),
+				esc_html( $until )
+			);
+			?>
+		</p>
+		<p><?php esc_html_e( 'Clear it under Appearance → Blueline as soon as the underlying data is right again.', 'blueline' ); ?></p>
+	</section>
+	<?php
 }
 
 /**
@@ -400,13 +616,13 @@ function blueline_bust_season_state_cache() {
 	delete_transient( 'blueline_season_state' );
 }
 
-// Guarded: this file is require_once'd directly by tests/SeasonStateTest.php
-// against the bare PHPUnit bootstrap, which stubs only a handful of WP
-// functions (see tests/bootstrap.php) and does not define add_action(). The
-// guard keeps that require side-effect-free while still wiring the real
-// hooks under WordPress.
+// Guarded so this file stays safe to require_once directly, the way
+// tests/SeasonStateTest.php does -- the guard predates the test bootstrap
+// growing its own add_action() stub and is kept because a bare require of an
+// inc/ file must not depend on which WordPress functions happen to exist.
 if ( function_exists( 'add_action' ) ) {
 	add_action( 'save_post_product', 'blueline_bust_season_state_cache' );
 	add_action( 'save_post_sp_event', 'blueline_bust_season_state_cache' );
 	add_action( 'woocommerce_update_product', 'blueline_bust_season_state_cache' );
+	add_action( 'admin_notices', 'blueline_render_season_state_override_notice' );
 }
