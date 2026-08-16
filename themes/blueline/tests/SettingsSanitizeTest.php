@@ -479,9 +479,16 @@ final class SettingsSanitizeTest extends TestCase {
 	 * into a `mailto:` href (inc/template-tags.php). A value carrying the
 	 * exact characters that attack would need -- a space and a double quote,
 	 * to break out of the href="" attribute -- is not a real email address
-	 * either, so is_email() rejects it and it can never reach storage, let
-	 * alone the render site, regardless of what esc_url() alone would or
-	 * would not neutralise.
+	 * either, so is_email() rejects it and no write through the option API
+	 * can store it, regardless of what esc_url() alone would or would not
+	 * neutralise.
+	 *
+	 * "No write through the option API", not "never reaches storage": a
+	 * `wp db import` or a hand-edited row goes around this check entirely,
+	 * which is exactly the case
+	 * FooterAndHeroSettingsRenderTest::test_the_mailto_href_stays_attribute_safe_even_if_the_sanitizer_were_bypassed()
+	 * simulates. That test is the render-side half of this guarantee; this
+	 * one is the write-side half, and neither covers the other.
 	 */
 	public function test_email_fields_reject_a_value_shaped_like_an_href_injection_attempt(): void {
 		$field  = array(

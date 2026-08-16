@@ -231,16 +231,32 @@ final class AccountSectionsTest extends TestCase {
 
 	/**
 	 * Task 8 (fix round 2): the "no upcoming game" empty-state line comes
-	 * from `account_empty_next_game`, not a hardcoded literal. Written
-	 * through update_option() directly -- this file requires neither
-	 * inc/settings/sanitize.php nor inc/settings/page.php, so unlike
-	 * FooterAndHeroSettingsRenderTest's equivalent tests, this write does
-	 * NOT run the sanitize_option_blueline_settings filter or the cross-tab
-	 * merge; it proves render actually reads the setting, not that the full
-	 * save pipeline delivers it there.
+	 * from `account_empty_next_game`, not a hardcoded literal.
+	 *
+	 * This write DOES go through the full save pipeline -- the
+	 * `sanitize_option_blueline_settings` filter and the cross-tab merge --
+	 * so the test covers the whole path from update_option() to rendered
+	 * output, not just the read.
+	 *
+	 * An earlier version of this docblock claimed the opposite, reasoning
+	 * that "this file requires neither inc/settings/sanitize.php nor
+	 * inc/settings/page.php". That reasoning is wrong, and the mistake is
+	 * worth naming because it is easy to make again: PER-FILE `require_once`
+	 * LISTS DO NOT SCOPE HOOK REGISTRATION. PHPUnit require_once's every
+	 * test file while building the suite, before any setUp() runs, so
+	 * page.php's file-scope `add_filter` has already executed by then; and
+	 * blueline_test_reset_hooks() captures its baseline AFTER that, so it
+	 * restores those registrations rather than clearing them
+	 * (tests/bootstrap.php documents this directly). Both halves were
+	 * checked by probe: a stray-`%` write here is refused, and a partial
+	 * write preserves an untouched key.
 	 */
 	public function test_the_next_game_empty_state_comes_from_settings(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_next_game' => 'Nothing on the schedule for you just yet.' ) );
+
+		// Premise, and the claim the docblock above now makes: the value
+		// survived the sanitizer and the merge rather than being refused.
+		$this->assertSame( 'Nothing on the schedule for you just yet.', blueline_settings( 'account_empty_next_game' ) );
 
 		$html = $this->render( static fn() => blueline_account_render_next_game( 66 ) );
 
@@ -248,12 +264,40 @@ final class AccountSectionsTest extends TestCase {
 	}
 
 	/**
+	 * The stronger claim the corrected mechanism above makes available, and
+	 * which the old "this bypasses the pipeline" framing ruled out: writing
+	 * ONE account copy field leaves the other alone. That is the cross-tab
+	 * merge doing its job on this file's own writes, and it is the property
+	 * an admin actually depends on when they edit a single field.
+	 */
+	public function test_writing_one_account_copy_field_leaves_the_other_intact(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_stats' => 'Kept.' ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_next_game' => 'Changed.' ) );
+
+		$this->assertSame( 'Kept.', blueline_settings( 'account_empty_stats' ) );
+		$this->assertSame( 'Changed.', blueline_settings( 'account_empty_next_game' ) );
+	}
+
+	/**
+	 * And the sanitizer really is live on this file's writes: a stray `%`
+	 * in a copy field is refused rather than stored, exactly as it would be
+	 * from wp-admin. This is the probe that disproved the old docblock,
+	 * kept as a test so the claim cannot rot back.
+	 */
+	public function test_this_files_writes_do_run_the_sanitizer(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_stats' => 'Save 50% today' ) );
+
+		$this->assertNotSame( 'Save 50% today', blueline_settings( 'account_empty_stats' ) );
+	}
+
+	/**
 	 * The equivalent guarantee for the season-stats hint line and
 	 * `account_empty_stats` -- rendered whenever every stat is still zero
 	 * (blueline_get_player_season_stats()'s own zero-filled contract for an
-	 * unknown player id, per that function's docblock). Same caveat as
-	 * above: a direct update_option() write, not the full sanitize/merge
-	 * pipeline.
+	 * unknown player id, per that function's docblock). Like its sibling
+	 * above, this write runs the full sanitize/merge pipeline -- see that
+	 * docblock for why the per-file require list has no bearing on which
+	 * hooks are live.
 	 */
 	public function test_the_season_stats_empty_state_comes_from_settings(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_stats' => 'Check back after your first game.' ) );

@@ -157,9 +157,40 @@ final class SeasonStateOverrideTest extends TestCase {
 	 * whole risk is outlasting its usefulness.
 	 */
 	public function test_an_unparseable_expiry_is_ignored(): void {
+		/*
+		 * Seeded past the sanitizer. The `date` branch refuses a malformed
+		 * expiry on every update_option() write, so seeding one through
+		 * set_override() left `''` in storage and made this a duplicate of
+		 * test_an_override_without_an_expiry_is_ignored(). While it was
+		 * inert, the guard below could be inverted -- making an UNPARSEABLE
+		 * EXPIRY PERMANENT, the exact failure this control's mandatory
+		 * expiry exists to prevent -- with the whole suite green.
+		 */
+		blueline_test_seed_option_bypassing_sanitizer(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'season_state_override'       => 'playoffs',
+				'season_state_override_until' => 'sometime next year',
+			)
+		);
+
+		// Premise: the malformed expiry really is in storage, alongside a
+		// state that would otherwise be honoured.
+		$this->assertSame( 'playoffs', blueline_settings( 'season_state_override' ) );
+		$this->assertSame( 'sometime next year', blueline_settings( 'season_state_override_until' ) );
+
+		$this->assertSame( '', blueline_season_state_override( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
+		$this->assertSame( 'offseason', blueline_season_state( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
+	}
+
+	/**
+	 * And the save path refuses the same expiry outright, so the two guards
+	 * cover different routes in rather than duplicating each other.
+	 */
+	public function test_a_malformed_expiry_cannot_be_stored_through_the_save_path(): void {
 		$this->set_override( 'playoffs', 'sometime next year' );
 
-		$this->assertNotSame( 'playoffs', blueline_season_state( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
+		$this->assertNotSame( 'sometime next year', blueline_settings( 'season_state_override_until' ) );
 	}
 
 	/**

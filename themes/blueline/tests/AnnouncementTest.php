@@ -63,6 +63,24 @@ final class AnnouncementTest extends TestCase {
 	}
 
 	/**
+	 * Put announcement settings straight into the option store, running no
+	 * sanitizer at all -- the in-memory stand-in for `wp db import`, a
+	 * `$wpdb` write, or a hand-edited row.
+	 *
+	 * Note that set_announcement() above cannot be used for any test whose
+	 * subject is a malformed stored value: the `date` and `choices` branches refuse
+	 * those on every update_option() write, so the bad value never lands and
+	 * the test quietly asserts against something else. Three tests in this
+	 * file and its sibling were inert for exactly that reason.
+	 *
+	 * @param array $values Settings to store verbatim.
+	 * @return void
+	 */
+	private function seed_announcement_bypassing_sanitizer( array $values ): void {
+		blueline_test_seed_option_bypassing_sanitizer( BLUELINE_SETTINGS_OPTION, $values );
+	}
+
+	/**
 	 * A timestamp is resolved in SITE time, not UTC: the stub site zone is
 	 * America/Toronto (tests/bootstrap.php's wp_timezone()), so midnight on
 	 * a summer date there is 04:00 UTC, four hours later than the same wall
@@ -127,9 +145,30 @@ final class AnnouncementTest extends TestCase {
 	 * Whitespace is not text.
 	 */
 	public function test_whitespace_only_text_means_no_banner(): void {
-		$this->set_announcement( array( 'announcement_text' => "   \n\t " ) );
+		/*
+		 * Seeded past the sanitizer, because sanitize_text_field() already
+		 * trims on save: written through set_announcement() this stores ''
+		 * and merely re-tests the empty case, leaving the read side's own
+		 * trim() unpinned (dropping it left the suite green). The read guard
+		 * is what protects a row that was never trimmed -- an import or a
+		 * hand-edited value.
+		 */
+		$this->seed_announcement_bypassing_sanitizer( array( 'announcement_text' => "   \n\t " ) );
+
+		$this->assertSame( "   \n\t ", blueline_settings( 'announcement_text' ), 'premise: untrimmed text really is stored' );
 
 		$this->assertFalse( blueline_announcement_visible( strtotime( '2026-08-15' ) ) );
+	}
+
+	/**
+	 * The save path's half: whitespace-only text submitted through the panel
+	 * is trimmed to '' on the way in, so it reaches the read guard already
+	 * empty.
+	 */
+	public function test_whitespace_only_text_is_trimmed_away_on_save(): void {
+		$this->set_announcement( array( 'announcement_text' => "   \n\t " ) );
+
+		$this->assertSame( '', blueline_settings( 'announcement_text' ) );
 	}
 
 	/**
@@ -221,14 +260,22 @@ final class AnnouncementTest extends TestCase {
 	}
 
 	/**
-	 * A stored bound the parser cannot make sense of -- which the `date`
-	 * sanitizer refuses to store, so it can only arrive by a direct DB edit
-	 * or an import -- reads as ABSENT, leaving that end of the window open,
-	 * rather than hiding the banner. See blueline_announcement_visible()'s
-	 * own docblock for why that direction was chosen.
+	 * A stored bound the parser cannot make sense of reads as ABSENT,
+	 * leaving that end of the window open, rather than hiding the banner.
+	 * See blueline_announcement_visible()'s own docblock for why that
+	 * direction was chosen.
+	 *
+	 * Seeded past the sanitizer, and this test did NOT do that until the
+	 * `date` branch's own consequences were followed through: that branch
+	 * refuses a malformed date on every update_option() write, so seeding
+	 * one through set_announcement() left `''` in storage and turned this
+	 * into a duplicate of test_an_open_ended_window_stays_visible(). Both
+	 * null-guards in blueline_announcement_visible() could be inverted --
+	 * making an unparseable bound HIDE the banner, the documented
+	 * behaviour's exact opposite -- with the whole suite still green.
 	 */
 	public function test_an_unparseable_stored_bound_is_treated_as_absent(): void {
-		$this->set_announcement(
+		$this->seed_announcement_bypassing_sanitizer(
 			array(
 				'announcement_text' => 'Ice is out Friday',
 				'announcement_from' => 'next tuesday-ish',
@@ -236,15 +283,22 @@ final class AnnouncementTest extends TestCase {
 			)
 		);
 
+		// Premise: the unparseable bounds really are in storage. Without
+		// this the test silently reverts to asserting the open-ended case.
+		$this->assertSame( 'next tuesday-ish', blueline_settings( 'announcement_from' ) );
+		$this->assertSame( 'whenever', blueline_settings( 'announcement_to' ) );
+
 		$this->assertTrue( blueline_announcement_visible( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
 	}
 
 	/**
 	 * One unparseable bound leaves only that end open; the other is still
-	 * enforced.
+	 * enforced. Seeded past the sanitizer for the same reason as above --
+	 * and this one specifically needs the mixed case, one bound valid and
+	 * one not, which no single write through update_option() can produce.
 	 */
 	public function test_one_unparseable_bound_leaves_the_other_enforced(): void {
-		$this->set_announcement(
+		$this->seed_announcement_bypassing_sanitizer(
 			array(
 				'announcement_text' => 'Ice is out Friday',
 				'announcement_from' => 'garbage',
@@ -252,8 +306,27 @@ final class AnnouncementTest extends TestCase {
 			)
 		);
 
+		$this->assertSame( 'garbage', blueline_settings( 'announcement_from' ) );
+		$this->assertSame( '2026-09-30', blueline_settings( 'announcement_to' ) );
+
 		$this->assertTrue( blueline_announcement_visible( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
 		$this->assertFalse( blueline_announcement_visible( strtotime( '2026-10-02T12:00:00+00:00' ) ) );
+	}
+
+	/**
+	 * The save path's half of the same guarantee: a malformed bound cannot
+	 * be stored through update_option() at all, which is what makes the
+	 * render-side tolerance above a last resort rather than the only guard.
+	 */
+	public function test_a_malformed_bound_cannot_be_stored_through_the_save_path(): void {
+		$this->set_announcement(
+			array(
+				'announcement_text' => 'Ice is out Friday',
+				'announcement_from' => 'next tuesday-ish',
+			)
+		);
+
+		$this->assertNotSame( 'next tuesday-ish', blueline_settings( 'announcement_from' ) );
 	}
 
 	/**
@@ -382,12 +455,43 @@ final class AnnouncementTest extends TestCase {
 	 * The text is escaped at the point of echo, not trusted.
 	 */
 	public function test_the_text_is_escaped(): void {
-		$this->set_announcement( array( 'announcement_text' => 'Ice & <script>alert(1)</script>' ) );
+		/*
+		 * Seeded past the sanitizer so BOTH halves of this test actually
+		 * bite. Written through set_announcement(), sanitize_text_field()
+		 * strips the `<script>` on the way in, and the "no script tag in the
+		 * output" assertion becomes unfailable -- it would pass with
+		 * esc_html() removed entirely, because there was never a tag in the
+		 * stored value to escape. Only the entity half was doing any work.
+		 *
+		 * Escaping is the render site's own responsibility regardless of
+		 * what the sanitizer did upstream (this project's rule: escape at
+		 * the point of echo), and a row that never passed through the
+		 * sanitizer is precisely when that matters.
+		 */
+		$this->seed_announcement_bypassing_sanitizer( array( 'announcement_text' => 'Ice & <script>alert(1)</script>' ) );
+
+		$this->assertStringContainsString(
+			'<script>',
+			(string) blueline_settings( 'announcement_text' ),
+			'premise: the unsanitized tag really is in storage, or the assertion below proves nothing'
+		);
 
 		$html = $this->render();
 
 		$this->assertStringNotContainsString( '<script>', $html );
+		$this->assertStringContainsString( '&lt;script&gt;', $html );
 		$this->assertStringContainsString( 'Ice &amp;', $html );
+	}
+
+	/**
+	 * The save path's half: markup submitted through the panel is stripped
+	 * on the way in, so the render-site escaping above is a second line
+	 * rather than the only one.
+	 */
+	public function test_markup_in_the_text_is_stripped_on_save(): void {
+		$this->set_announcement( array( 'announcement_text' => 'Ice & <script>alert(1)</script>' ) );
+
+		$this->assertStringNotContainsString( '<script>', (string) blueline_settings( 'announcement_text' ) );
 	}
 
 	/**

@@ -542,9 +542,12 @@ function blueline_sanitize_field( $value, array $field ) {
 		 * update_option(), including WP-CLI and import scripts, because it
 		 * is reached via `sanitize_option_{$option}` registered at file
 		 * scope (see inc/settings/page.php's "Every write path is
-		 * validated"). The read clamps exist for the one route no PHP guard
-		 * sits on -- a value written straight to the database by `wp db
-		 * import`, a `$wpdb` write, or a hand-edited row.
+		 * validated"). The read clamps exist for what this branch cannot
+		 * see: a value written straight to the database (`wp db import`, a
+		 * `$wpdb` write, a hand-edited row), which never reaches any PHP
+		 * write guard, and -- since the clamps sit on the read side -- a
+		 * plugin filtering `option_blueline_settings` on the way out, which
+		 * no write-time check could catch even in principle.
 		 *
 		 * What a read clamp CANNOT do is tell anybody, which is what this
 		 * branch adds. Before it existed, an admin who typed `playofs` into

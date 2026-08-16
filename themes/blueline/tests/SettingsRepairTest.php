@@ -3,7 +3,14 @@
  * Covers blueline_settings_repair() (inc/settings/store.php) -- Task 9's
  * explicit, reported repair path for values that reached the option
  * WITHOUT passing through blueline_sanitize_field(): a `wp db import`, a
- * direct `update_option()` from a migration script, a hand-edited row.
+ * `$wpdb` write, a hand-edited row.
+ *
+ * NOT `update_option()`, from a migration script or anywhere else. That
+ * runs the sanitizer like every other write -- inc/settings/page.php
+ * registers the callback on `sanitize_option_{$option}` at file scope
+ * precisely so no PHP write path can miss it. Only a write that goes around
+ * the option API entirely, straight to the database, produces the values
+ * this repair path exists for.
  *
  * The interesting cases are not "is a bad value replaced" (one assertion)
  * but "does every sanitizer branch that can reject actually route through
