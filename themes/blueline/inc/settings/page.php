@@ -97,12 +97,18 @@
  * `_tab`, and blueline_settings_merge() needs to be able to tell that case
  * apart from a real tab-scoped form post, because `_posted_fields`-driven
  * deletion is a guarantee this file's own rendered form needs, not one a
- * programmatic write asked for or should be bound by. `_tab` is still never
- * PERSISTED, exactly as before -- inc/settings/store.php's
- * blueline_settings_merge() (the very next filter this same write triggers,
- * on pre_update_option_{$option}, immediately after this one) reads it for
- * that one decision and strips it before anything reaches storage. See that
- * function's own docblock for the merge-side half of this fix.
+ * programmatic write asked for or should be bound by. `_tab` is never
+ * persisted on an ordinary, steady-state save, exactly as before --
+ * inc/settings/store.php's blueline_settings_merge() (the very next filter
+ * this same write triggers, on pre_update_option_{$option}, immediately
+ * after this one) reads it for that one decision and strips it before
+ * anything reaches storage. The one exception is the SAME first-ever-write
+ * re-sanitize quirk that function's own docblock already documents for
+ * `_posted_fields`: add_option()'s own re-sanitize pass has no merge stage
+ * to strip a second time, so a genuine first write can persist a spurious
+ * `_tab => ''` alongside `_posted_fields => []`, self-healing on the very
+ * next real save. See that function's own docblock for the merge-side half
+ * of this fix, and for that quirk in full.
  *
  * ## `_schema` is reserved, not "unrecognised" -- and never from a form
  *
@@ -427,12 +433,15 @@ function blueline_settings_sanitize_callback( $input ): array {
 		if ( '_posted_fields' === $key || '_tab' === $key ) {
 			// Reserved bookkeeping, both already consumed above --
 			// `_posted_fields` is rebuilt, filtered, below; `_tab` is
-			// forwarded, unchanged, below too. Neither is ever persisted:
-			// inc/settings/store.php's blueline_settings_merge() (the very
-			// next filter this same write triggers) is what actually needs
-			// `_tab`, to tell a tab-scoped submission (where `_posted_fields`
-			// decides deletion) apart from a programmatic one (where it
-			// carries no ownership at all) -- see that function's own
+			// forwarded, unchanged, below too. Neither is persisted on an
+			// ordinary, steady-state save (the first-ever-write re-sanitize
+			// quirk inc/settings/store.php's blueline_settings_merge()'s
+			// own docblock already documents is the one exception) --
+			// blueline_settings_merge() (the very next filter this same
+			// write triggers) is what actually needs `_tab`, to tell a
+			// tab-scoped submission (where `_posted_fields` decides
+			// deletion) apart from a programmatic one (where it carries no
+			// ownership at all) -- see that function's own
 			// docblock -- and strips both before anything reaches storage.
 			continue;
 		}
