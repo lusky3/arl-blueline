@@ -15,6 +15,7 @@
  * @package blueline
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
@@ -266,12 +267,60 @@ final class AnnouncementTest extends TestCase {
 
 		$this->set_announcement( array( 'announcement_severity' => 'info' ) );
 		$this->assertSame( 'info', blueline_announcement_severity() );
+	}
 
+	/**
+	 * The clamp's actual job: an unrecognised tone ALREADY IN STORAGE
+	 * resolves to a known modifier rather than being echoed into a class
+	 * attribute.
+	 *
+	 * Seeded past the sanitizer, because since Task 7's fix round the
+	 * `choices` guard means an off-list tone can no longer be stored through
+	 * update_option() at all -- it is refused and the previous value kept.
+	 * A version of this using set_announcement() therefore asserted against
+	 * a value that was never stored and passed with the clamp deleted, which
+	 * is exactly what it did for one commit. Import and direct database
+	 * edits are the routes that remain.
+	 *
+	 * @dataProvider provide_unrecognised_severities
+	 *
+	 * @param string $stored The corrupt value sitting in the option row.
+	 */
+	#[DataProvider( 'provide_unrecognised_severities' )]
+	public function test_an_unrecognised_stored_severity_falls_back_to_info( string $stored ): void {
+		blueline_test_seed_option_bypassing_sanitizer(
+			BLUELINE_SETTINGS_OPTION,
+			array( 'announcement_severity' => $stored )
+		);
+
+		// Premise check: the corrupt value really is in storage.
+		$this->assertSame( $stored, blueline_settings( 'announcement_severity' ) );
+
+		$this->assertSame( 'info', blueline_announcement_severity() );
+	}
+
+	/**
+	 * Shapes an import or a hand-edited row can plausibly leave behind.
+	 *
+	 * @return array<string,array{0:string}>
+	 */
+	public static function provide_unrecognised_severities(): array {
+		return array(
+			'an invented tone'       => array( 'apocalyptic' ),
+			'empty'                  => array( '' ),
+			'right word, wrong case' => array( 'URGENT' ),
+			'stray whitespace'       => array( ' urgent ' ),
+		);
+	}
+
+	/**
+	 * And the save path refuses the same values outright, so the two guards
+	 * cover different routes in rather than duplicating each other.
+	 */
+	public function test_an_unrecognised_severity_cannot_be_stored_through_the_save_path(): void {
 		$this->set_announcement( array( 'announcement_severity' => 'apocalyptic' ) );
-		$this->assertSame( 'info', blueline_announcement_severity() );
 
-		$this->set_announcement( array( 'announcement_severity' => '' ) );
-		$this->assertSame( 'info', blueline_announcement_severity() );
+		$this->assertNotSame( 'apocalyptic', blueline_settings( 'announcement_severity' ) );
 	}
 
 	/**

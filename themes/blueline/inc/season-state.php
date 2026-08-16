@@ -511,12 +511,16 @@ function blueline_season_state_label( string $state ): string {
  * 1. The stored state is not one of BLUELINE_SEASON_STATES. This theme never
  *    invents a sixth state. The panel now renders this field as a dropdown
  *    over exactly these five plus "no override", and refuses anything else
- *    at save time (the schema's `choices` list, inc/settings/defaults.php) --
- *    so an off-list value can now only arrive by an import or a direct
- *    update_option(). Before that, a typo saved cleanly, changed nothing,
- *    and produced no notice, because the notice below only renders while
- *    this function returns non-empty: a silent no-op on an emergency
- *    control. This check is what still catches the remaining routes in.
+ *    at save time (the schema's `choices` list, inc/settings/defaults.php),
+ *    on every write through update_option() including WP-CLI -- the
+ *    sanitizer is wired at file scope for exactly that reason. Before that,
+ *    a typo saved cleanly, changed nothing, and produced no notice, because
+ *    the notice below only renders while this function returns non-empty: a
+ *    silent no-op on an emergency control. This check remains because one
+ *    route is still open to no PHP guard at all -- a value written straight
+ *    to the database (`wp db import`, a `$wpdb` write, a hand-edited row).
+ *    On that route, refusing to honour an unrecognised state is what keeps
+ *    the site on its computed state instead of a meaningless one.
  * 2. There is no expiry date. The expiry is MANDATORY, and this is the whole
  *    design: an override nobody remembers setting quietly becomes the site's
  *    permanent state, at which point the season logic is dead code and

@@ -166,11 +166,46 @@ final class SeasonStateOverrideTest extends TestCase {
 	 * A state outside the five known ones is ignored -- this theme never
 	 * invents a sixth (the hero's own whitelist,
 	 * inc/homepage-modules.php's blueline_render_hero(), says the same).
+	 *
+	 * Seeded past the sanitizer on purpose. An off-list value CANNOT be
+	 * stored through update_option() any more -- the `choices` guard added
+	 * in Task 7's fix round refuses it and keeps the previous value -- so a
+	 * version of this test using set_override() asserts against a value that
+	 * was never stored, and passes with the read clamp deleted. It did
+	 * exactly that for one commit. `wp db import` and a direct database edit
+	 * are the routes that remain, and that is what this seeds.
 	 */
-	public function test_an_unknown_state_is_ignored(): void {
-		$this->set_override( 'world_cup', '2026-12-31' );
+	public function test_an_unknown_state_already_in_storage_is_ignored(): void {
+		blueline_test_seed_option_bypassing_sanitizer(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'season_state_override'       => 'world_cup',
+				'season_state_override_until' => '2036-12-31',
+			)
+		);
 
-		$this->assertNotSame( 'world_cup', blueline_season_state( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
+		// Premise check: the corrupt value really is in storage, so this
+		// test cannot pass merely because the seed silently failed.
+		$this->assertSame( 'world_cup', blueline_settings( 'season_state_override' ) );
+
+		$this->assertSame( '', blueline_season_state_override( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
+		$this->assertSame( 'offseason', blueline_season_state( strtotime( '2026-08-15T12:00:00+00:00' ) ) );
+	}
+
+	/**
+	 * The other half of the same guarantee, and the reason the sanitizer
+	 * cannot be the only defence: the save path refuses an off-list value
+	 * outright, so the two guards cover different routes in rather than
+	 * duplicating each other.
+	 */
+	public function test_an_unknown_state_cannot_be_stored_through_the_save_path_at_all(): void {
+		$this->set_override( 'world_cup', '2036-12-31' );
+
+		$this->assertNotSame(
+			'world_cup',
+			blueline_settings( 'season_state_override' ),
+			'update_option() runs the sanitizer, so an off-list value must never reach storage'
+		);
 	}
 
 	/**

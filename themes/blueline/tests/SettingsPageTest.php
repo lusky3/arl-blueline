@@ -408,6 +408,16 @@ final class SettingsPageTest extends TestCase {
 	 * to one field cannot also clear it.
 	 */
 	public function test_a_mistyped_break_glass_state_is_reported_not_silently_saved(): void {
+		/*
+		 * A NON-DEFAULT value has to be in place first, or the "kept what
+		 * was stored" assertion below cannot tell that apart from "fell back
+		 * to the default" -- this field's default is '', so both readings
+		 * produce the same string and the assertion proves nothing. An
+		 * earlier version of this test had exactly that hole.
+		 */
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'season_state_override' => 'playoffs' ) );
+		$this->assertSame( 'playoffs', blueline_settings( 'season_state_override' ), 'premise: a real override is in force' );
+
 		$output = blueline_settings_sanitize_callback(
 			array(
 				'_tab'                  => 'content',
@@ -422,9 +432,14 @@ final class SettingsPageTest extends TestCase {
 			'a refused value must never be written'
 		);
 		$this->assertSame(
+			'playoffs',
+			$output['season_state_override'],
+			'and the override already in force survives the rejection, rather than being cleared to the default'
+		);
+		$this->assertNotSame(
 			blueline_settings_defaults()['season_state_override'],
 			$output['season_state_override'],
-			'and the previously stored value survives the rejection'
+			'which is only a meaningful claim because the stored value differs from the default'
 		);
 
 		$errors = get_settings_errors( BLUELINE_SETTINGS_OPTION );

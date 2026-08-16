@@ -67,14 +67,27 @@ final class SettingsDefaultsTest extends TestCase {
 	 */
 	public function test_only_text_fields_may_declare_choices(): void {
 		$offenders = array();
+		$checked   = 0;
 
 		foreach ( blueline_settings_schema() as $key => $field ) {
-			if ( isset( $field['choices'] ) && 'text' !== ( $field['type'] ?? '' ) ) {
+			if ( ! isset( $field['choices'] ) ) {
+				continue;
+			}
+
+			++$checked;
+
+			if ( 'text' !== ( $field['type'] ?? '' ) ) {
 				$offenders[] = $key;
 			}
 		}
 
 		$this->assertSame( array(), $offenders, 'these fields declare `choices` on a type that never reads it' );
+
+		// This file's convention (see the class docblock): a loop-driven
+		// guard states how much it actually looked at, so deleting the last
+		// `choices` field turns this test red rather than quietly passing
+		// over nothing.
+		$this->assertGreaterThan( 0, $checked, 'expected at least one field to declare choices' );
 	}
 
 	/**
@@ -108,18 +121,25 @@ final class SettingsDefaultsTest extends TestCase {
 	 */
 	public function test_every_choices_fields_default_is_one_of_its_choices(): void {
 		$defaults = blueline_settings_defaults();
+		$checked  = 0;
 
 		foreach ( blueline_settings_schema() as $key => $field ) {
 			if ( ! isset( $field['choices'] ) ) {
 				continue;
 			}
 
+			++$checked;
 			$this->assertContains(
 				(string) $defaults[ $key ],
 				array_map( 'strval', array_keys( $field['choices'] ) ),
 				"$key's default is not one of its own choices"
 			);
 		}
+
+		// Without this the test was PHPUnit-risky (zero assertions) rather
+		// than failing when both choices lists were deleted -- passing by
+		// examining nothing. Same guard as its two siblings above.
+		$this->assertGreaterThan( 0, $checked, 'expected at least one field to declare choices' );
 	}
 
 	/**

@@ -18,6 +18,30 @@
 define( 'ABSPATH', __DIR__ );
 
 /*
+ * Pin PHP's default timezone for the whole suite.
+ *
+ * This suite's correctness otherwise depends on the machine's own
+ * `date.timezone` ini setting, which is not something a test run should be
+ * able to change the answer to. The theme has real code that pairs
+ * `strtotime()` (default zone) with `gmdate()` (UTC) in one expression --
+ * blueline_season_state_data()'s recent-events bounds, inc/season-state.php
+ * -- and those two only agree when the default zone IS UTC. With
+ * `php -d date.timezone=America/Toronto` the suite went red on exactly that
+ * pairing before this line existed; on a CI box with a local zone set, it
+ * would have failed for a reason nobody would look for here.
+ *
+ * UTC specifically, because that is what the theme's code assumes and what
+ * WordPress is understood to set for itself at boot -- the latter is NOT
+ * verified here (there is no core checkout in this worktree, and the
+ * committed oracle at tests/fixtures/wp-core-option-contract.json covers
+ * the option lifecycle only). Treat "production runs UTC" as an assumption
+ * this line reproduces rather than a fact this suite proves; what it does
+ * prove is that the theme behaves consistently under the zone it was
+ * written against.
+ */
+date_default_timezone_set( 'UTC' ); // phpcs:ignore WordPress.DateTime.RestrictedFunctions.timezone_change_date_default_timezone_set -- test bootstrap pinning the ambient zone so the suite cannot depend on the host's php.ini; see above.
+
+/*
  * WordPress core's own time-unit constants. blueline_season_state_data()
  * (inc/season-state.php) reaches its set_transient( ..., MINUTE_IN_SECONDS )
  * call unconditionally -- not only on the post_type_exists( 'sp_event' )
@@ -1475,6 +1499,38 @@ $GLOBALS['bl_test_nav_menu_locations'] = array();
 function blueline_test_reset_options(): void {
 	$GLOBALS['bl_test_options']         = array();
 	$GLOBALS['bl_test_option_autoload'] = array();
+}
+
+/**
+ * Write an option value STRAIGHT into the store, firing no hooks at all --
+ * the in-memory stand-in for `wp db import`, a `$wpdb` write, or someone
+ * editing the row in phpMyAdmin.
+ *
+ * This exists because update_option() is NOT a way to get an invalid value
+ * into storage. inc/settings/page.php registers
+ * blueline_settings_sanitize_callback() on `sanitize_option_{$option}` at
+ * file scope (deliberately -- see that file's "Every write path is
+ * validated" docblock), the stub below dispatches that filter exactly like
+ * core does, and blueline_test_reset_hooks() restores a baseline captured
+ * AFTER that file-scope registration. So the sanitizer is live in every
+ * test, and a test trying to model a corrupt stored value by calling
+ * update_option() gets its bad value rejected and the previous one kept
+ * instead.
+ *
+ * That is not a hypothetical. Task 7's fix round added the `choices`
+ * save-time guard, and in doing so silently made both read-time clamps
+ * untested: two tests that had been passing invalid values through
+ * update_option() started asserting against values that were never stored.
+ * Deleting either clamp left the whole suite green. Any test whose subject
+ * is "what happens when storage already holds something the sanitizer would
+ * refuse" has to seed it through here, not through update_option().
+ *
+ * @param string $option Option name.
+ * @param mixed  $value  Value to store verbatim, unsanitized and unfiltered.
+ * @return void
+ */
+function blueline_test_seed_option_bypassing_sanitizer( string $option, $value ): void {
+	$GLOBALS['bl_test_options'][ $option ] = $value;
 }
 
 /**

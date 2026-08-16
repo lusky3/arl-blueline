@@ -67,11 +67,22 @@ function blueline_site_timestamp( string $datetime ): ?int {
  *
  * The schema now also constrains this field at save time (a `choices` list,
  * rendered as a dropdown -- see inc/settings/defaults.php), so this clamp is
- * the second of two guards rather than the only one. It still earns its
- * place: a value written by `wp db import` or a direct update_option() never
- * passes through the sanitizer at all, and this is the single read path
- * every render goes through. AnnouncementTest pins the two lists together so
- * they cannot drift.
+ * the second of two guards rather than the only one.
+ *
+ * The two cover different routes in, which is why both exist. Every write
+ * through update_option() -- wp-admin, WP-CLI, a plugin, an import script --
+ * DOES run the sanitizer: inc/settings/page.php registers it on
+ * `sanitize_option_{$option}` at file scope precisely so no write path can
+ * miss it. What no PHP guard can intercept is a value written straight to
+ * the database: `wp db import`, a `$wpdb` write, a hand-edited row. That is
+ * the case this clamp is for, and this is the single read path every render
+ * goes through. `wp blueline settings repair` (Task 9) is the reporting
+ * answer to the same class of value; this is the containing one, so a
+ * corrupt row cannot reach a class attribute in the meantime.
+ *
+ * AnnouncementTest pins the two lists together so they cannot drift, and
+ * covers this clamp by seeding the option store past the sanitizer -- the
+ * only way to reproduce the situation it defends against.
  *
  * @return string One of BLUELINE_ANNOUNCEMENT_SEVERITIES.
  */
@@ -116,9 +127,11 @@ function blueline_announcement_hash( string $text ): string {
  * A bound that blueline_site_timestamp() cannot parse is treated as ABSENT
  * -- that end of the window stays open -- rather than as a reason to hide
  * the banner. The `date` sanitizer (inc/settings/sanitize.php) is the real
- * guard here: it refuses to store anything that is not a strict Y-m-d, so
- * an unparseable bound can only arrive by a direct database edit or an
- * import that bypassed the panel. Given that, the two failure modes are "a
+ * guard here: it refuses to store anything that is not a strict Y-m-d, and
+ * it runs on every write through update_option(), WP-CLI and JSON imports
+ * included -- so an unparseable bound can only arrive by a write straight
+ * to the database (`wp db import`, a `$wpdb` write, a hand-edited row).
+ * Given that, the two failure modes are "a
  * banner the admin believes is live silently never appears" and "a banner
  * stays up past a date nobody can read anyway"; the second is visible and
  * fixable from the panel, the first is not.

@@ -537,16 +537,21 @@ function blueline_sanitize_field( $value, array $field ) {
 		 *
 		 * This is a SAVE-time guard, and the two fields that use it
 		 * (`season_state_override` and `announcement_severity`) also clamp
-		 * on read. That is not redundant: a value arriving by `wp db
-		 * import` or a direct update_option() never passes through here at
-		 * all, so the read clamp is what keeps an out-of-range value from
-		 * reaching a class attribute or being honoured as a season state.
-		 * What the read clamp CANNOT do is tell anybody. Before this branch
-		 * existed, an admin who typed `playofs` into the break-glass got
-		 * "Settings saved.", no change to the site, and no admin notice
-		 * either -- the notice only renders while the override reads back
-		 * as one of the five. A silent no-op is the wrong failure mode for
-		 * an emergency control.
+		 * on read. That is not redundant, but the reason is narrower than
+		 * it might look: this branch runs on EVERY write through
+		 * update_option(), including WP-CLI and import scripts, because it
+		 * is reached via `sanitize_option_{$option}` registered at file
+		 * scope (see inc/settings/page.php's "Every write path is
+		 * validated"). The read clamps exist for the one route no PHP guard
+		 * sits on -- a value written straight to the database by `wp db
+		 * import`, a `$wpdb` write, or a hand-edited row.
+		 *
+		 * What a read clamp CANNOT do is tell anybody, which is what this
+		 * branch adds. Before it existed, an admin who typed `playofs` into
+		 * the break-glass got "Settings saved.", no change to the site, and
+		 * no admin notice either -- the notice only renders while the
+		 * override reads back as one of the five. A silent no-op is the
+		 * wrong failure mode for an emergency control.
 		 *
 		 * The renderer (inc/settings/page.php) makes the invalid state
 		 * mostly unreachable by rendering these as a `<select>`; this is

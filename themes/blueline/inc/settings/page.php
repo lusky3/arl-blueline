@@ -974,8 +974,9 @@ function blueline_settings_render_page(): void {
  * "Registration", never types a raw term ID; a plain number input for a
  * `term_id` field that does NOT declare a taxonomy (no such field exists
  * today, but the branch stays available for one that has no taxonomy to
- * pick from); a `<select>` for any field declaring `choices`, checked before
- * `type` because it describes the control rather than the storage shape;
+ * pick from); a `<select>` for any field declaring `choices`, checked ahead
+ * of every type branch except `band_photos` because it describes the
+ * control rather than the storage shape;
  * an `<input type="date">` for a `date` field -- Task 6, and
  * without it a `date` would fall through to the plain text input, since an
  * unrecognised type does not error here, it simply takes the last branch;
@@ -1022,10 +1023,16 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 			<?php elseif ( ! empty( $field['choices'] ) ) : ?>
 				<?php
 				/*
-				 * Task 7 fix round: `choices` is checked BEFORE `type`
-				 * because it is orthogonal to it -- it says "this field's
-				 * value comes off a fixed list", which is a statement about
-				 * the control, not the storage shape.
+				 * Task 7 fix round: `choices` is checked ahead of every
+				 * `type` branch below because it is orthogonal to type -- it
+				 * says "this field's value comes off a fixed list", which is
+				 * a statement about the control, not the storage shape.
+				 *
+				 * `band_photos` above it is the one exception, and stays
+				 * first deliberately: it is a repeater with its own renderer
+				 * and no single scalar value, so a `<select>` could not
+				 * express it even if someone added `choices` to it.
+				 * SettingsDefaultsTest forbids that combination outright.
 				 *
 				 * A dropdown rather than a validated text box, deliberately:
 				 * rejecting a typo at save time tells an admin they were

@@ -402,6 +402,45 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
+	 * Pins the FALL-THROUGH, which is a real guarantee and was previously
+	 * only a comment: a value that passes the `choices` list still goes on
+	 * to the ordinary text checks, so a `choices` field's `placeholders`
+	 * contract is enforced like any other text field's rather than being a
+	 * declaration nothing reads.
+	 *
+	 * Without this, adding `return $sanitized;` at the end of the choices
+	 * branch leaves every other test green -- today's real choice values are
+	 * bare literals with no `%` in them, so nothing else can tell the
+	 * difference. The fixture here deliberately is not: a listed value that
+	 * violates a non-empty placeholder contract must still be refused, and
+	 * refused for the placeholder reason rather than the choices one.
+	 */
+	public function test_a_listed_value_still_has_to_satisfy_the_placeholder_contract(): void {
+		$field = array(
+			'type'         => 'text',
+			'label'        => 'A listed value that breaks its own contract',
+			'placeholders' => array( '%s' ),
+			'choices'      => array(
+				'Register — %s' => 'With the price',
+				'Register'      => 'Without it',
+			),
+		);
+
+		// The value IS on the list, so the choices check passes...
+		$this->assertSame( 'Register — %s', blueline_sanitize_field( 'Register — %s', $field ) );
+
+		// ...and the placeholder contract is still applied to it.
+		$result = blueline_sanitize_field( 'Register', $field );
+
+		$this->assertTrue( is_wp_error( $result ), 'a listed value must still meet the field placeholder contract' );
+		$this->assertNotSame(
+			'blueline_invalid_choice',
+			$result->get_error_code(),
+			'and must fail for the placeholder reason, not the choices one'
+		);
+	}
+
+	/**
 	 * Fix round 1 (Task 8): `type => 'email'` must actually GUARANTEE the
 	 * value is a real email address -- before this fix it fell through to
 	 * the exact same sanitize_text_field()-only path as a plain `text`
