@@ -517,6 +517,80 @@ function blueline_settings_sanitize_callback( $input ): array {
 	return $output;
 }
 
+add_action( 'admin_notices', 'blueline_settings_newer_schema_notice' );
+/**
+ * Tell an admin when the stored settings were written by a NEWER version of
+ * this theme than the one running -- the one state inc/settings/store.php's
+ * blueline_settings_migrate() deliberately refuses to act on, and the half
+ * of the design spec's forward-only requirement ("refuse to write, still
+ * render, and show a notice") that was never built. Site Health already
+ * reports both version numbers (inc/settings/site-health.php), but nobody
+ * opens Site Health unprompted; a rolled-back theme is otherwise silent.
+ *
+ * Registered at file scope on `admin_notices` rather than rendered inside
+ * blueline_settings_render_page(), because the person who needs to see this
+ * is exactly the person who does not yet know to open Appearance ->
+ * Blueline. `admin_notices` fires for every logged-in user on every admin
+ * screen, hence the capability check below: a user who cannot manage
+ * options cannot act on this and should not be shown it.
+ *
+ * ## Every claim in the copy below is pinned by a test
+ *
+ * This is reassuring copy about a scary-looking state, which is exactly the
+ * kind this project has shipped wrong before, so each factual claim has its
+ * own test in tests/SettingsSchemaNoticeTest.php rather than being inferred
+ * from the code's shape:
+ *
+ * - "the automatic settings upgrade refuses to run" --
+ *   test_the_migration_refuses_to_write_and_leaves_the_stored_value_alone()
+ * - "the site still reads every setting this version recognises" --
+ *   test_settings_still_read_normally_under_a_newer_stored_schema()
+ * - "saving from Appearance -> Blueline carries the newer values forward" --
+ *   test_an_ordinary_panel_save_keeps_both_the_newer_schema_and_its_unknown_keys()
+ *
+ * A `<section>`, not a `<div>` -- see this file's own docblock's "Never a
+ * `<div>`" section, and tests/NoticeDivGuardTest.php.
+ *
+ * @return void
+ */
+function blueline_settings_newer_schema_notice(): void {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$stored = get_option( BLUELINE_SETTINGS_OPTION, array() );
+	$stored = is_array( $stored ) ? $stored : array();
+
+	$stored_schema = isset( $stored['_schema'] ) ? (int) $stored['_schema'] : 0;
+
+	if ( $stored_schema <= BLUELINE_SETTINGS_SCHEMA_VERSION ) {
+		return;
+	}
+	?>
+	<section class="notice notice-warning">
+		<p>
+			<?php
+			echo esc_html(
+				sprintf(
+					/* translators: 1: the settings format version found in the database, 2: the settings format version this theme understands. */
+					__( 'Blueline\'s stored settings were written by a newer version of this theme: they are in settings format %1$d, and the version running now understands format %2$d.', 'blueline' ),
+					$stored_schema,
+					BLUELINE_SETTINGS_SCHEMA_VERSION
+				)
+			);
+			?>
+		</p>
+		<p>
+			<?php
+			echo esc_html(
+				__( 'Nothing has been changed or downgraded. The automatic settings upgrade refuses to run against a format it does not know, the site still reads every setting this version recognises, and saving from Appearance → Blueline carries the newer values forward rather than clearing them. Putting the newer theme version back is the fix; nothing here needs repairing first.', 'blueline' )
+			);
+			?>
+		</p>
+	</section>
+	<?php
+}
+
 /**
  * If this is the redirect after a successful options.php save, queue a
  * generic "Settings saved." success message alongside any per-field errors
