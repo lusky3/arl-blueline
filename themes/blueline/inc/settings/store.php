@@ -28,7 +28,9 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
 
 /**
  * Carry forward any top-level key this submission did not post -- except a
- * key this submission OWNS but chose to omit, which is a deliberate delete.
+ * key this submission OWNS but chose to omit, which is a deliberate delete,
+ * and ownership by omission is only ever available to a TAB-SCOPED
+ * submission (one that also names `_tab`).
  *
  * The Settings API hands update_option() exactly what was in $_POST for this
  * option -- and a per-tab form only contains its own tab's fields. Without
@@ -56,16 +58,53 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
  *
  * - A key present in $new_value: keep the submitted value, regardless of
  *   whether it is also named in `_posted_fields`.
- * - A key named in `_posted_fields` but absent from $new_value: the
- *   submission owns this field and chose not to include it -- an unchecked
- *   checkbox. Deleted: NOT carried forward.
+ * - A key named in `_posted_fields` (of a TAB-SCOPED submission -- see
+ *   below) but absent from $new_value: the submission owns this field and
+ *   chose not to include it -- an unchecked checkbox. Deleted: NOT carried
+ *   forward.
  * - A key present in $old_value but named in neither: belongs to a tab this
  *   submission didn't touch. Carried forward untouched.
- * - `_posted_fields` absent entirely: today's behaviour, unchanged -- every
- *   key absent from $new_value is carried forward from $old_value. This is
- *   the fallback every caller gets until the renderer that emits
- *   `_posted_fields` exists (a later task), so nothing already working
- *   breaks in the meantime.
+ * - `_posted_fields` absent entirely, OR present but this is NOT a
+ *   tab-scoped submission (see below): every key absent from $new_value is
+ *   carried forward from $old_value.
+ *
+ * ## `_tab` gates `_posted_fields` here too, not only in page.php
+ *
+ * A submission naming a reserved `_tab` key came from this panel's own
+ * rendered form -- inc/settings/page.php's blueline_settings_sanitize_callback()
+ * forwards `_tab` into its own return value (the sanitize_option_ pass that
+ * runs immediately before this one, on every real write) specifically so
+ * this function can read it here. Absent (or empty) means a PROGRAMMATIC
+ * write -- WP-CLI, a JSON import, blueline_settings_migrate()'s own
+ * update_option() call -- which never has a tab to scope a delete decision
+ * to. Its values are authoritative for whatever it names a real value for
+ * (handled by the `array_key_exists( $key, $new_value )` check above,
+ * unconditionally -- a present key, even `false`, was never at risk of
+ * being overwritten by this function regardless of `_tab`), but naming a
+ * field ONLY in `_posted_fields`, without ALSO posting a value for it,
+ * carries no ownership at all without `_tab` to legitimise it: this task
+ * found exactly that gap on staging -- `update_option( OPTION, array(
+ * '_posted_fields' => array( 'chrome_sponsors' ) ) )`, with no `_tab`,
+ * deleted `chrome_sponsors` outright, indistinguishable once read back
+ * through blueline_settings()'s default-fallback from "silently reverted to
+ * its default value". A programmatic write that wants to actually change a
+ * field's value must post that value; it cannot rely on the "unchecked
+ * checkbox" omission idiom, because it has no tab-scoped ownership to make
+ * that omission unambiguous.
+ *
+ * inc/settings/page.php's own `_posted_fields`-to-`_tab` matching (dropping
+ * any entry whose schema `tab` does not equal the submission's `_tab`)
+ * already reduces `_posted_fields` to an empty array for any programmatic
+ * write that reaches THIS function through the normal sanitize_option_ ->
+ * pre_update_option_ dispatch chain -- no real schema field's `tab` is ever
+ * the empty string a programmatic write's `_tab` resolves to. That is real,
+ * but it is a DIFFERENT file's protection: this function is registered
+ * independently, at file scope, on `pre_update_option_{$option}`, and
+ * nothing before this fix stopped it from being reached directly (a future
+ * write path, or -- as this project's own test suite already does --
+ * calling it in a unit test) without page.php's cooperation. The check
+ * below makes the `_tab` boundary this function's OWN guarantee, not merely
+ * an inherited one.
  *
  * @param mixed $new_value The value about to be written.
  * @param mixed $old_value The value currently stored.
@@ -76,8 +115,14 @@ function blueline_settings_merge( $new_value, $old_value ) {
 		return $old_value;
 	}
 
+	// Absent (isset() false for a null/missing key) resolves to '', the
+	// same "no tab" value a programmatic write's forwarded `_tab` carries
+	// once it reaches here via inc/settings/page.php.
+	$submitted_tab = isset( $new_value['_tab'] ) ? (string) $new_value['_tab'] : '';
+	unset( $new_value['_tab'] );
+
 	$posted_fields = null;
-	if ( array_key_exists( '_posted_fields', $new_value ) ) {
+	if ( '' !== $submitted_tab && array_key_exists( '_posted_fields', $new_value ) ) {
 		$posted_fields = (array) $new_value['_posted_fields'];
 	}
 	unset( $new_value['_posted_fields'] );
@@ -92,22 +137,26 @@ function blueline_settings_merge( $new_value, $old_value ) {
 		}
 
 		if ( null !== $posted_fields && in_array( $key, $posted_fields, true ) ) {
-			// Owned by this submission but omitted: a deliberate delete
-			// (e.g. an unchecked checkbox). Do not restore it.
+			// Owned by this TAB-SCOPED submission but omitted: a deliberate
+			// delete (e.g. an unchecked checkbox). Do not restore it.
 			continue;
 		}
 
 		// Belongs to a tab this submission didn't touch -- carry it
 		// forward. Also the whole-array fallback when `_posted_fields`
-		// itself is absent.
+		// itself is absent, or this is a programmatic write (no `_tab`),
+		// where `_posted_fields` carries no ownership at all.
 		$new_value[ $key ] = $stored;
 	}
 
 	// Defence in depth: the loop above carries forward any $old_value key
-	// not otherwise accounted for, and `_posted_fields` is such a key if it
-	// were ever (incorrectly) persisted by an earlier bug or a write that
-	// bypassed this filter. Strip it again so that can never resurface.
-	unset( $new_value['_posted_fields'] );
+	// not otherwise accounted for, and `_posted_fields`/`_tab` are such keys
+	// if either were ever (incorrectly) persisted by an earlier bug or a
+	// write that bypassed this filter -- e.g. the first-ever-write quirk
+	// this file's own docblock references, where add_option()'s own
+	// re-sanitize pass has no merge stage to strip them a second time.
+	// Strip both again so neither can ever resurface.
+	unset( $new_value['_posted_fields'], $new_value['_tab'] );
 
 	return $new_value;
 }

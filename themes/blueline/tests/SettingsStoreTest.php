@@ -105,6 +105,16 @@ final class SettingsStoreTest extends TestCase {
 	 * submission is a deliberate delete (an unchecked checkbox), while a
 	 * field named in NEITHER the submission nor `_posted_fields` still
 	 * belongs to a tab this submission didn't touch, and survives.
+	 *
+	 * Carries an explicit `_tab` (a P1b fix-round addition): `_posted_fields`
+	 * only carries delete authority for a TAB-SCOPED submission -- one that
+	 * also names `_tab` -- per blueline_settings_merge()'s own docblock. A
+	 * programmatic write (no `_tab`) naming a field in `_posted_fields`
+	 * without posting it does NOT delete that field; see
+	 * SettingsMergeProgrammaticWriteTest::test_merge_ignores_posted_fields_ownership_without_a_tab()
+	 * for that half of the contract, found as a Critical bug on staging
+	 * (`wp blueline settings import` could not durably clear a section
+	 * toggle) and fixed alongside this test's own `_tab` addition.
 	 */
 	public function test_merge_posted_fields_deletes_a_named_absent_field_but_keeps_an_unnamed_one(): void {
 		$old = array(
@@ -112,6 +122,7 @@ final class SettingsStoreTest extends TestCase {
 			'contact_email'      => 'kept@example.com',
 		);
 		$new = array(
+			'_tab'           => 'links',
 			'_posted_fields' => array( 'newsletter_enabled' ),
 		);
 
@@ -120,7 +131,7 @@ final class SettingsStoreTest extends TestCase {
 		$this->assertArrayNotHasKey(
 			'newsletter_enabled',
 			$merged,
-			'named in _posted_fields but absent from the submission must be deleted, not carried forward'
+			'named in _posted_fields of a tab-scoped submission but absent must be deleted, not carried forward'
 		);
 		$this->assertSame(
 			'kept@example.com',

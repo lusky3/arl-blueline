@@ -90,6 +90,20 @@
  * it -- so naming a foreign field only ever fails silently, never deletes
  * it.
  *
+ * `_tab` itself is now FORWARDED in this callback's return value, not
+ * dropped -- a P1b fix-round finding (a Critical bug found on staging, not
+ * by any unit test): a programmatic write (WP-CLI, a JSON import,
+ * blueline_settings_migrate()'s own update_option() call) never carries
+ * `_tab`, and blueline_settings_merge() needs to be able to tell that case
+ * apart from a real tab-scoped form post, because `_posted_fields`-driven
+ * deletion is a guarantee this file's own rendered form needs, not one a
+ * programmatic write asked for or should be bound by. `_tab` is still never
+ * PERSISTED, exactly as before -- inc/settings/store.php's
+ * blueline_settings_merge() (the very next filter this same write triggers,
+ * on pre_update_option_{$option}, immediately after this one) reads it for
+ * that one decision and strips it before anything reaches storage. See that
+ * function's own docblock for the merge-side half of this fix.
+ *
  * ## `_schema` is reserved, not "unrecognised" -- and never from a form
  *
  * blueline_settings_sanitize_callback() must let inc/settings/store.php's
@@ -359,11 +373,13 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  * 2. Escape every WP_Error message with esc_html() before it is handed to
  *    add_settings_error() -- see this file's docblock's Escaping section.
  * 3. Forward `_posted_fields` (filtered to known schema keys AND to keys
- *    whose OWN schema `tab` matches the submission's `_tab`) so
- *    blueline_settings_merge() can tell "this tab cleared a field it
- *    owns" from "this field belongs to an untouched tab". A submission
- *    naming a foreign tab's field is not honoured for that field -- see
- *    this file's docblock's `_posted_fields` section.
+ *    whose OWN schema `tab` matches the submission's `_tab`) AND `_tab`
+ *    itself so blueline_settings_merge() can tell "this tab cleared a
+ *    field it owns" from "this field belongs to an untouched tab" from "no
+ *    tab at all -- a programmatic write, where `_posted_fields` carries no
+ *    ownership". A submission naming a foreign tab's field is not honoured
+ *    for that field -- see this file's docblock's `_posted_fields`
+ *    section.
  * 4. Every OTHER key is checked against an explicit reserved-key
  *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today just `_schema`),
  *    never forwarded merely for being unrecognised -- see this file's
@@ -409,9 +425,15 @@ function blueline_settings_sanitize_callback( $input ): array {
 
 	foreach ( $input as $key => $value ) {
 		if ( '_posted_fields' === $key || '_tab' === $key ) {
-			// Reserved bookkeeping, both already consumed above -- neither
-			// is ever persisted verbatim (`_tab` is request-scoped only;
-			// `_posted_fields` is rebuilt, filtered, below).
+			// Reserved bookkeeping, both already consumed above --
+			// `_posted_fields` is rebuilt, filtered, below; `_tab` is
+			// forwarded, unchanged, below too. Neither is ever persisted:
+			// inc/settings/store.php's blueline_settings_merge() (the very
+			// next filter this same write triggers) is what actually needs
+			// `_tab`, to tell a tab-scoped submission (where `_posted_fields`
+			// decides deletion) apart from a programmatic one (where it
+			// carries no ownership at all) -- see that function's own
+			// docblock -- and strips both before anything reaches storage.
 			continue;
 		}
 
@@ -481,6 +503,7 @@ function blueline_settings_sanitize_callback( $input ): array {
 	}
 
 	$output['_posted_fields'] = $posted_fields;
+	$output['_tab']           = $submitted_tab;
 
 	return $output;
 }
