@@ -156,13 +156,27 @@ function blueline_section_enabled( string $key ): bool {
  * switched back on. Saying so, with the count, is what stops an admin
  * assuming their widgets were deleted and rebuilding them from scratch.
  *
+ * The wording depends on the toggle's CURRENT value, not only on the area
+ * being populated. Before this took the toggle into account, an admin who
+ * had already switched an area off still read "Switching it off hides
+ * them" beside an unticked box -- future tense about a step they had
+ * already taken, and silent on the one thing they would actually want
+ * confirmed at that moment, which is that the widgets they can no longer
+ * see still exist. Both phrasings carry the count and both say nothing was
+ * deleted; only the tense and the reassurance differ.
+ *
  * Each of the four `chrome_footer_widgets_N` keys maps to its own real
  * widget area (`footer-N`) -- and, unlike an earlier fix round's
  * `chrome_footer_trust` -> `footer-2` mapping, each genuinely IS the toggle
- * that gates its area: blueline_site_footer() (inc/template-tags.php) ANDs
- * `blueline_section_enabled( 'chrome_footer_widgets_' . $i )` with
- * `is_active_sidebar( 'footer-' . $i )` for each of the four columns, so
- * this warning's "switching it off hides them" is true for every key below.
+ * that gates its area: blueline_site_footer() (inc/template-tags.php) gates
+ * each of the four footer widget columns on both that column's own section
+ * toggle and that area's own is_active_sidebar() check, so this warning's
+ * claim about hiding is true for every key below. Those four gates are
+ * written out as four separate blocks, each naming its key as a literal
+ * rather than assembling one from a loop counter; blueline_site_footer()'s
+ * own docblock explains why that shape is required rather than merely
+ * preferred, and this docblock deliberately does not restate the code.
+ *
  * No other section key gets a mapping, since no other widget area holds
  * live content to warn about (only `footer-2` does today, on this site's
  * real configuration -- the other three currently have nothing assigned,
@@ -183,9 +197,19 @@ function blueline_section_widget_warning( string $key ): string {
 		return '';
 	}
 
+	$count = blueline_active_widget_count( $areas[ $key ] );
+
+	if ( ! blueline_section_enabled( $key ) ) {
+		return sprintf(
+			/* translators: %d: number of widgets in the area. */
+			__( 'This area holds %d widget(s), currently hidden because this box is unticked. Nothing was deleted -- tick it to show them again.', 'blueline' ),
+			$count
+		);
+	}
+
 	return sprintf(
 		/* translators: %d: number of widgets in the area. */
 		__( 'This area holds %d widget(s). Switching it off hides them; nothing is deleted.', 'blueline' ),
-		blueline_active_widget_count( $areas[ $key ] )
+		$count
 	);
 }

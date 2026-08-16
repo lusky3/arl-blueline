@@ -22,6 +22,8 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/setup.php'; // blueline_active_widget_count(), moved here since it owns the widget store, not sections.
+require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/store.php'; // blueline_settings(), which blueline_section_enabled() reads the toggle's current value through.
 
 /**
  * Covers blueline_section_widget_warning() and blueline_active_widget_count().
@@ -33,6 +35,57 @@ final class WidgetAreaWarningTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset_state();
+		blueline_test_reset();
+	}
+
+	/**
+	 * With the toggle still ticked, the warning is about what switching it
+	 * off WILL do -- future tense, because nothing is hidden yet.
+	 */
+	public function test_a_still_visible_area_warns_about_what_switching_it_off_would_do(): void {
+		$state                                = &blueline_test_state();
+		$state['active_sidebars']['footer-2'] = 3;
+
+		$warning = blueline_section_widget_warning( 'chrome_footer_widgets_2' );
+
+		$this->assertStringContainsString( 'Switching it off hides them', $warning );
+		$this->assertStringNotContainsString( 'currently hidden', $warning );
+	}
+
+	/**
+	 * Once the toggle is already unticked, the future-tense wording is
+	 * simply wrong: an admin reading "Switching it off hides them" beside an
+	 * unticked box is being told about a step they already took. The
+	 * already-off phrasing says what is true right now -- the widgets are
+	 * hidden, and they are still there.
+	 */
+	public function test_an_already_hidden_area_says_its_widgets_are_currently_hidden(): void {
+		$state                                = &blueline_test_state();
+		$state['active_sidebars']['footer-2'] = 3;
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_footer_widgets_2' => false ) );
+
+		$warning = blueline_section_widget_warning( 'chrome_footer_widgets_2' );
+
+		$this->assertStringContainsString( '3', $warning );
+		$this->assertStringContainsString( 'currently hidden', $warning );
+		$this->assertStringNotContainsString( 'Switching it off hides them', $warning );
+	}
+
+	/**
+	 * Switching one area off must not change what any OTHER area's toggle
+	 * says: each row reads its own key's current value, not "is any footer
+	 * widget area switched off".
+	 */
+	public function test_each_key_reads_its_own_toggle_state(): void {
+		$state                                = &blueline_test_state();
+		$state['active_sidebars']['footer-1'] = 1;
+		$state['active_sidebars']['footer-2'] = 3;
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_footer_widgets_2' => false ) );
+
+		$this->assertStringContainsString( 'Switching it off hides them', blueline_section_widget_warning( 'chrome_footer_widgets_1' ) );
+		$this->assertStringContainsString( 'currently hidden', blueline_section_widget_warning( 'chrome_footer_widgets_2' ) );
 	}
 
 	/**
