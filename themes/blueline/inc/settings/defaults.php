@@ -33,6 +33,13 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * Field types: `text`, `email`, `page_id`, `term_id`, `bool`, `textarea`,
  * `section`, `date`.
  *
+ * A field may also declare `choices` — an ordered map of stored value =>
+ * admin-facing label. It is orthogonal to `type` (only `text` honours it
+ * today, which SettingsDefaultsTest enforces): the sanitizer refuses any
+ * value not on the list, and the panel renders the field as a `<select>`
+ * rather than a text box, so the invalid state is unreachable through the
+ * UI rather than merely rejected by it.
+ *
  * A `date` field stores a strict `Y-m-d` string, or `''` for "not set".
  * Anything else is refused at save time with a WP_Error rather than
  * silently coerced -- see inc/settings/sanitize.php's `date` branch for
@@ -219,8 +226,16 @@ function blueline_settings_schema(): array {
 			'type'         => 'text',
 			'tab'          => 'content',
 			'label'        => 'Announcement banner tone',
-			'help'         => 'Either "info" (the default, quiet) or "urgent" (loud). Anything else is treated as "info".',
+			'help'         => 'Quiet by default. "Urgent" makes the banner louder — worth keeping for things that actually are.',
 			'placeholders' => array(),
+			// Keys pinned against BLUELINE_ANNOUNCEMENT_SEVERITIES by
+			// AnnouncementTest, so this list and the read-time clamp cannot
+			// drift apart. Deliberately no empty option: the tone always has
+			// a value, and 'info' is the default.
+			'choices'      => array(
+				'info'   => 'Info (quiet)',
+				'urgent' => 'Urgent (loud)',
+			),
 		),
 		// Season-state break-glass (Task 7). Failure recovery, not routine
 		// configuration -- see blueline_season_state_override()
@@ -230,8 +245,21 @@ function blueline_settings_schema(): array {
 			'type'         => 'text',
 			'tab'          => 'content',
 			'label'        => 'Force the season state (break-glass)',
-			'help'         => 'Leave empty unless the site is showing the wrong season. One of: registration_open, preseason, in_season, playoffs, offseason. Ignored without an end date below.',
+			'help'         => 'Leave this alone unless the site is showing the wrong season. Whatever you pick is ignored until you also set an end date below.',
 			'placeholders' => array(),
+			// A dropdown, not a text box: this control gets used under
+			// pressure, and a typo used to save cleanly, change nothing, and
+			// raise no notice (fix round I2). The five non-empty keys are
+			// pinned against BLUELINE_SEASON_STATES by
+			// SeasonStateOverrideTest.
+			'choices'      => array(
+				''                  => '— No override (use the computed state) —',
+				'registration_open' => 'Registration open',
+				'preseason'         => 'Preseason',
+				'in_season'         => 'In season',
+				'playoffs'          => 'Playoffs',
+				'offseason'         => 'Off-season',
+			),
 		),
 		'season_state_override_until' => array(
 			'type'  => 'date',

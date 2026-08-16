@@ -8,10 +8,15 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The five season states, in the order blueline_decide_season_state() tests
- * them. There is no sixth: the break-glass override below refuses anything
- * outside this list, and blueline_render_hero() (inc/homepage-modules.php)
- * falls back to 'offseason' for anything outside it.
+ * The five season states blueline_decide_season_state() can return. There is
+ * no sixth: the break-glass override below refuses anything outside this
+ * list, and blueline_render_hero() (inc/homepage-modules.php) falls back to
+ * 'offseason' for anything outside it.
+ *
+ * The order here is presentation order -- roughly the arc of a season -- and
+ * is NOT the order blueline_decide_season_state() evaluates its branches in.
+ * That function tests registration_open first, then playoffs, then
+ * in_season/preseason, then falls through to offseason.
  *
  * KNOWN DUPLICATION: blueline_render_hero() still holds its own literal copy
  * of these same five values. It predates this constant and was not rewritten
@@ -213,11 +218,37 @@ function blueline_registration_season_product_ids(): array {
  *
  * Those bounds are compared against `post_date`, which the null branch below
  * has always treated as site-local by comparing it against
- * `current_time( 'mysql' )` -- so an injected timestamp is formatted in the
- * site's own zone (blueline_site_timestamp()'s inverse, inc/announcement.php)
- * to match, rather than as UTC, which would put every bound out by the
- * site's offset. The timestamp is passed straight through rather than
- * recovered from the formatted string.
+ * `current_time( 'mysql' )` -- so an injected timestamp is first formatted
+ * in the site's own zone (blueline_site_timestamp()'s inverse,
+ * inc/announcement.php) rather than as UTC, which would put every bound out
+ * by the site's offset.
+ *
+ * ## Why BOTH values come off the same string
+ *
+ * The returned timestamp is deliberately NOT the injected instant passed
+ * straight through. Both branches end at `strtotime( $mysql )` -- the
+ * site-local wall clock read back in whatever frame strtotime() uses -- so
+ * the two are equal by construction rather than by coincidence.
+ *
+ * That is not decoration. Two consumers subtract from this timestamp and
+ * then compare the result against a site-local value:
+ *
+ *   - the recent-events query's `after` bound, `gmdate( ..., $now_ts - 30 *
+ *     DAY_IN_SECONDS )`, sitting directly beside a `before` bound that is
+ *     `$mysql` itself;
+ *   - `$diff_seconds = strtotime( $next_post->post_date ) - $now_ts`, where
+ *     `post_date` is site-local and read by the same strtotime().
+ *
+ * An earlier version of this function returned the raw instant here. The
+ * `$mysql` half was right, so the paired bounds looked right, but the
+ * derived ones were out by the site's offset -- four or five hours for this
+ * league. `days_to_next_event` skewed by the same amount, which is enough
+ * for blueline_decide_is_playing()'s `<= 14` day test to flip in_season and
+ * preseason around a boundary. Nothing shipped broken (the raw-instant
+ * branch is only reachable through `$now`, which no production call site
+ * passes), but the docblock claimed the two branches matched while one
+ * derived bound did not.
+ * tests/SeasonStateOverrideTest.php pins the parity directly.
  *
  * This is its own function so the `$now` branch is directly testable: the
  * queries it feeds need a real WordPress database, this does not, and
@@ -228,16 +259,11 @@ function blueline_registration_season_product_ids(): array {
  * @return array{0:string,1:int} The site-local mysql datetime and its timestamp.
  */
 function blueline_season_state_moment( ?int $now = null ): array {
-	if ( null === $now ) {
-		$mysql = current_time( 'mysql' );
+	$mysql = null === $now
+		? current_time( 'mysql' )
+		: ( new DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' );
 
-		return array( $mysql, (int) strtotime( $mysql ) );
-	}
-
-	return array(
-		( new DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ),
-		$now,
-	);
+	return array( $mysql, (int) strtotime( $mysql ) );
 }
 
 /**
@@ -483,7 +509,14 @@ function blueline_season_state_label( string $state ): string {
  * through to the computed state rather than failing:
  *
  * 1. The stored state is not one of BLUELINE_SEASON_STATES. This theme never
- *    invents a sixth state.
+ *    invents a sixth state. The panel now renders this field as a dropdown
+ *    over exactly these five plus "no override", and refuses anything else
+ *    at save time (the schema's `choices` list, inc/settings/defaults.php) --
+ *    so an off-list value can now only arrive by an import or a direct
+ *    update_option(). Before that, a typo saved cleanly, changed nothing,
+ *    and produced no notice, because the notice below only renders while
+ *    this function returns non-empty: a silent no-op on an emergency
+ *    control. This check is what still catches the remaining routes in.
  * 2. There is no expiry date. The expiry is MANDATORY, and this is the whole
  *    design: an override nobody remembers setting quietly becomes the site's
  *    permanent state, at which point the season logic is dead code and

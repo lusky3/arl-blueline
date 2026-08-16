@@ -275,6 +275,23 @@ final class AnnouncementTest extends TestCase {
 	}
 
 	/**
+	 * The drift pin between the tone dropdown and the read-time clamp: the
+	 * schema's `choices` are what an admin can pick and what the sanitizer
+	 * accepts, BLUELINE_ANNOUNCEMENT_SEVERITIES is what
+	 * blueline_announcement_severity() will honour and what the stylesheet
+	 * has a `bl-announce--{severity}` rule for. A value in one and not the
+	 * other is either an unstyled banner or an unreachable tone.
+	 */
+	public function test_the_tone_dropdown_offers_exactly_the_clamped_severities(): void {
+		$choices = blueline_settings_schema()['announcement_severity']['choices'];
+
+		$this->assertSame(
+			BLUELINE_ANNOUNCEMENT_SEVERITIES,
+			array_map( 'strval', array_keys( $choices ) )
+		);
+	}
+
+	/**
 	 * Render the banner and hand back its markup.
 	 *
 	 * @return string

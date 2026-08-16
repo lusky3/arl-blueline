@@ -389,6 +389,65 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
+	 * I2, end to end through the real save path rather than the sanitizer in
+	 * isolation: the exact scenario the review named. An admin mistypes the
+	 * break-glass state under pressure, hits Save, and must NOT get a clean
+	 * "Settings saved." over a value that changes nothing.
+	 *
+	 * Three things have to hold together for that, which is why this asserts
+	 * all three rather than trusting the unit test above: the rejected value
+	 * is never written, an error is queued for the admin screen, and the
+	 * message names the field so they can find it.
+	 *
+	 * Note the callback's existing contract for a rejected field: it keeps
+	 * whatever is already stored rather than dropping the key, so a bad edit
+	 * to one field cannot also clear it.
+	 */
+	public function test_a_mistyped_break_glass_state_is_reported_not_silently_saved(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'                  => 'content',
+				'_posted_fields'        => array( 'season_state_override' ),
+				'season_state_override' => 'playofs',
+			)
+		);
+
+		$this->assertNotSame(
+			'playofs',
+			$output['season_state_override'],
+			'a refused value must never be written'
+		);
+		$this->assertSame(
+			blueline_settings_defaults()['season_state_override'],
+			$output['season_state_override'],
+			'and the previously stored value survives the rejection'
+		);
+
+		$errors = get_settings_errors( BLUELINE_SETTINGS_OPTION );
+		$this->assertNotEmpty( $errors, 'a refused emergency control must say so, not save quietly' );
+
+		$messages = implode( ' ', array_column( $errors, 'message' ) );
+		$this->assertStringContainsString( 'Force the season state', $messages );
+	}
+
+	/**
+	 * The contrast case, so the guard above cannot be passing by refusing
+	 * everything: a real state saves cleanly and queues no error.
+	 */
+	public function test_a_valid_break_glass_state_saves_without_complaint(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'                  => 'content',
+				'_posted_fields'        => array( 'season_state_override' ),
+				'season_state_override' => 'playoffs',
+			)
+		);
+
+		$this->assertSame( 'playoffs', $output['season_state_override'] );
+		$this->assertSame( array(), get_settings_errors( BLUELINE_SETTINGS_OPTION ) );
+	}
+
+	/**
 	 * The other half of Task 7's fix-round finding: `_posted_fields` is
 	 * ALSO filtered to keys whose own schema `tab` matches the submission's
 	 * `_tab` -- `page_faqs` belongs to 'links', so naming it from a
@@ -775,6 +834,73 @@ final class SettingsPageTest extends TestCase {
 		$html = ob_get_clean();
 
 		$this->assertStringNotContainsString( 'class="description"', $html );
+	}
+
+	/**
+	 * Task 7 fix round (I2): a field declaring `choices` renders a
+	 * `<select>`, not a text box. That is the half of the fix that makes an
+	 * invalid value unreachable rather than merely rejected — which matters
+	 * for `season_state_override`, a control used under pressure where a
+	 * typo used to save cleanly and change nothing.
+	 */
+	public function test_a_choices_field_renders_a_select_of_its_options(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'season_state_override',
+			blueline_settings_schema()['season_state_override'],
+			null
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '<select', $html );
+		$this->assertStringNotContainsString( 'type="text"', $html );
+
+		foreach ( array_keys( blueline_settings_schema()['season_state_override']['choices'] ) as $choice ) {
+			$this->assertStringContainsString(
+				'value="' . $choice . '"',
+				$html,
+				"the '$choice' option is missing from the rendered select"
+			);
+		}
+	}
+
+	/**
+	 * The stored value is the one marked selected, so reopening the panel
+	 * shows what is actually in force rather than resetting to the first
+	 * option.
+	 */
+	public function test_a_choices_field_marks_the_stored_value_selected(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'season_state_override' => 'playoffs' ) );
+
+		ob_start();
+		blueline_settings_render_field(
+			'season_state_override',
+			blueline_settings_schema()['season_state_override'],
+			null
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '/value="playoffs"\s+selected="selected"/', $html );
+		$this->assertDoesNotMatchRegularExpression( '/value=""\s+selected="selected"/', $html );
+	}
+
+	/**
+	 * A `choices` field can fail validation (a hand-built POST or a WP-CLI
+	 * write bypasses the select entirely), so its branch carries the same
+	 * aria wiring every other fallible input does.
+	 */
+	public function test_a_choices_field_with_an_error_carries_the_aria_wiring(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'season_state_override',
+			blueline_settings_schema()['season_state_override'],
+			'Not a season state.'
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'aria-invalid="true"', $html );
+		$this->assertStringContainsString( 'aria-describedby=', $html );
+		$this->assertStringContainsString( 'Not a season state.', $html );
 	}
 
 	/**

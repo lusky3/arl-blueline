@@ -63,10 +63,15 @@ function blueline_site_timestamp( string $datetime ): ?int {
  *
  * The clamp is not cosmetic: this value is interpolated into the banner's
  * own class attribute as `bl-announce--{severity}`, so leaving it open
- * would put an arbitrary stored string into markup. Clamping at the single
- * read path means the render site cannot be handed anything unexpected in
- * the first place, independently of what the sanitizer accepted at save
- * time or what an import wrote straight to the option.
+ * would put an arbitrary stored string into markup.
+ *
+ * The schema now also constrains this field at save time (a `choices` list,
+ * rendered as a dropdown -- see inc/settings/defaults.php), so this clamp is
+ * the second of two guards rather than the only one. It still earns its
+ * place: a value written by `wp db import` or a direct update_option() never
+ * passes through the sanitizer at all, and this is the single read path
+ * every render goes through. AnnouncementTest pins the two lists together so
+ * they cannot drift.
  *
  * @return string One of BLUELINE_ANNOUNCEMENT_SEVERITIES.
  */

@@ -57,6 +57,72 @@ final class SettingsDefaultsTest extends TestCase {
 	}
 
 	/**
+	 * `choices` is honoured for `text` fields and nothing else: the
+	 * sanitizer checks it inside the text path, and the renderer's `choices`
+	 * branch emits a `<select>` carrying a single string value. Putting it
+	 * on a `bool`, `band_photos` or `page_id` field would be a declaration
+	 * neither of them reads — the schema promising a constraint that isn't
+	 * enforced, which is the exact defect class this suite keeps catching.
+	 * Widening the support is fine; doing it without noticing is not.
+	 */
+	public function test_only_text_fields_may_declare_choices(): void {
+		$offenders = array();
+
+		foreach ( blueline_settings_schema() as $key => $field ) {
+			if ( isset( $field['choices'] ) && 'text' !== ( $field['type'] ?? '' ) ) {
+				$offenders[] = $key;
+			}
+		}
+
+		$this->assertSame( array(), $offenders, 'these fields declare `choices` on a type that never reads it' );
+	}
+
+	/**
+	 * A `choices` list must be a non-empty map of value => label. An empty
+	 * one would reject every possible value, including the field's own
+	 * default, and a list-shaped array would render options labelled 0, 1, 2.
+	 */
+	public function test_every_choices_list_is_a_non_empty_value_to_label_map(): void {
+		$checked = 0;
+
+		foreach ( blueline_settings_schema() as $key => $field ) {
+			if ( ! isset( $field['choices'] ) ) {
+				continue;
+			}
+
+			++$checked;
+			$this->assertNotEmpty( $field['choices'], "$key declares an empty choices list" );
+
+			foreach ( $field['choices'] as $label ) {
+				$this->assertIsString( $label, "$key has a non-string choice label" );
+				$this->assertNotSame( '', trim( $label ), "$key has a blank choice label" );
+			}
+		}
+
+		$this->assertGreaterThan( 0, $checked, 'expected at least one field to declare choices' );
+	}
+
+	/**
+	 * A `choices` field's own default must be one of its choices, or the
+	 * panel ships a field that cannot be re-saved untouched.
+	 */
+	public function test_every_choices_fields_default_is_one_of_its_choices(): void {
+		$defaults = blueline_settings_defaults();
+
+		foreach ( blueline_settings_schema() as $key => $field ) {
+			if ( ! isset( $field['choices'] ) ) {
+				continue;
+			}
+
+			$this->assertContains(
+				(string) $defaults[ $key ],
+				array_map( 'strval', array_keys( $field['choices'] ) ),
+				"$key's default is not one of its own choices"
+			);
+		}
+	}
+
+	/**
 	 * Every field the schema declares must have a corresponding default —
 	 * the option array blueline_settings_defaults() returns is what
 	 * get_option( BLUELINE_SETTINGS_OPTION, blueline_settings_defaults() )

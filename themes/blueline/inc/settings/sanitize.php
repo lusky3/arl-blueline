@@ -530,6 +530,57 @@ function blueline_sanitize_field( $value, array $field ) {
 	$sanitized = sanitize_text_field( (string) $value );
 	$required  = (array) ( $field['placeholders'] ?? array() );
 
+	if ( isset( $field['choices'] ) && is_array( $field['choices'] ) ) {
+		/*
+		 * Task 7 fix round: a field declaring `choices` accepts only the
+		 * values on its own list, and says so when it does not.
+		 *
+		 * This is a SAVE-time guard, and the two fields that use it
+		 * (`season_state_override` and `announcement_severity`) also clamp
+		 * on read. That is not redundant: a value arriving by `wp db
+		 * import` or a direct update_option() never passes through here at
+		 * all, so the read clamp is what keeps an out-of-range value from
+		 * reaching a class attribute or being honoured as a season state.
+		 * What the read clamp CANNOT do is tell anybody. Before this branch
+		 * existed, an admin who typed `playofs` into the break-glass got
+		 * "Settings saved.", no change to the site, and no admin notice
+		 * either -- the notice only renders while the override reads back
+		 * as one of the five. A silent no-op is the wrong failure mode for
+		 * an emergency control.
+		 *
+		 * The renderer (inc/settings/page.php) makes the invalid state
+		 * mostly unreachable by rendering these as a `<select>`; this is
+		 * the guard behind it, for a hand-built POST or a WP-CLI write.
+		 *
+		 * Compared as strings against array_keys(), not via
+		 * array_key_exists(), because PHP silently casts a numeric-string
+		 * array key to an integer -- no current choice is numeric, but a
+		 * future one would fail this check for a reason nobody would guess.
+		 *
+		 * A passing value then falls THROUGH to the ordinary text checks
+		 * below rather than returning here, so a `choices` field's
+		 * `placeholders` contract (which SettingsDefaultsTest requires it to
+		 * declare, like any other text field) is still actually enforced
+		 * instead of being a declaration nothing reads. Today every listed
+		 * value is a bare literal, so those checks pass trivially -- which
+		 * is the point: the guarantee holds without anyone having to
+		 * remember it.
+		 */
+		$allowed = array_map( 'strval', array_keys( $field['choices'] ) );
+
+		if ( ! in_array( $sanitized, $allowed, true ) ) {
+			return new WP_Error(
+				'blueline_invalid_choice',
+				sprintf(
+					/* translators: 1: the field's label, 2: comma-separated list of the values the field accepts. */
+					__( '"%1$s" only accepts one of: %2$s', 'blueline' ),
+					$label,
+					implode( ', ', array_map( static fn( $choice ) => '' === $choice ? '(empty)' : $choice, $allowed ) )
+				)
+			);
+		}
+	}
+
 	if ( ! blueline_percent_is_safe( $sanitized ) ) {
 		// Escaping MUST be checked against $required, not left at
 		// blueline_escape_stray_percents()'s "every spec already present"

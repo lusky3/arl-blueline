@@ -92,11 +92,21 @@ if ( ! function_exists( 'checked' ) ) {
 	 * calls blueline_settings_render_field() for a `bool`/`section` field
 	 * (inc/settings/page.php), which no test did until Task 2's fix round 1
 	 * added tests exercising a `section` field's `help` text: nothing before
-	 * that ever rendered this branch, so the gap was invisible. Loose (`==`)
-	 * comparison and the literal `checked="checked"` string match core's own
-	 * behaviour (wp-includes/general-template.php's __checked_selected_helper()),
-	 * since a test asserting this stub's output is safe/correct should be
-	 * proving something true of the real function, not an easier stand-in.
+	 * that ever rendered this branch, so the gap was invisible.
+	 *
+	 * WHAT THIS STUB DOES, stated as the stub's own behaviour rather than as
+	 * a claim about core: it compares the two arguments as strings with
+	 * `===` -- a strict comparison of stringified values, which is not the
+	 * same thing as PHP's own loose `==` -- and returns the attribute with
+	 * DOUBLE quotes.
+	 *
+	 * Neither of those is verified against WordPress core. There is no core
+	 * checkout in this worktree to check `__checked_selected_helper()`
+	 * against, and an earlier version of this docblock asserted both anyway
+	 * (it claimed a loose `==` the code does not perform, and attributed the
+	 * quote style to core). Treat the exact output as this stub's convention:
+	 * a test asserting on it is asserting on the stub, so anything load-
+	 * bearing about core's real output needs checking against core first.
 	 *
 	 * @param mixed $checked    One of the values to compare.
 	 * @param mixed $current    The other value to compare (default true).
@@ -114,14 +124,18 @@ if ( ! function_exists( 'checked' ) ) {
 if ( ! function_exists( 'selected' ) ) {
 	/**
 	 * Stand-in for WordPress' selected(), built the same way as checked()
-	 * above and for the same reason -- the loose string comparison and the
-	 * literal `selected="selected"` string are what core's own shared
-	 * __checked_selected_helper() produces, so a test asserting against this
-	 * stub is asserting something true of the real function.
+	 * above -- same stringified `===` comparison, same double-quoted
+	 * attribute -- and carrying the same caveat: that shape is this stub's
+	 * own convention, not a verified reproduction of core's, since there is
+	 * no core checkout here to check it against. See checked()'s docblock.
 	 *
 	 * Added for Task 6 (P1b-panel-completion): blueline_settings_render_field()
-	 * had never been exercised for a `band_photos` field before, and its
-	 * alignment `<option>` list is the theme's only selected() call site.
+	 * had never been exercised for a `band_photos` field before, so nothing
+	 * had ever called selected() under test. The theme calls it from two
+	 * places -- that field's per-photograph alignment `<option>` list
+	 * (inc/settings/page.php) and sportspress/player-selector.php's player
+	 * `<option>` list -- and Task 7's fix round added a third, the `choices`
+	 * select in blueline_settings_render_field() itself.
 	 *
 	 * @param mixed $selected    One of the values to compare.
 	 * @param mixed $current     The other value to compare (default true).
@@ -473,6 +487,11 @@ function &blueline_test_state(): array {
 		// a date helper that quietly ignored the site zone would still pass
 		// every assertion written against a UTC-configured stub.
 		'timezone'        => 'America/Toronto',
+		// The instant current_time() below reports, as a Unix timestamp.
+		// null means the real clock -- added for Task 7's fix round, so a
+		// test can pin blueline_season_state_moment()'s two branches to the
+		// same moment and assert they agree.
+		'now'             => null,
 	);
 
 	return $state;
@@ -580,6 +599,7 @@ function blueline_test_reset_state(): void {
 		'post_terms'      => array(),
 		'active_sidebars' => array(),
 		'timezone'        => 'America/Toronto',
+		'now'             => null,
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -1034,6 +1054,44 @@ if ( ! function_exists( 'wp_timezone' ) ) {
 		$state = blueline_test_state();
 
 		return new DateTimeZone( $state['timezone'] );
+	}
+}
+if ( ! function_exists( 'current_time' ) ) {
+	/**
+	 * Stand-in for WordPress' current_time(), covering only the 'mysql' type
+	 * this theme actually asks for: the current time as a site-local
+	 * `Y-m-d H:i:s` wall-clock string. That local-not-UTC shape is the whole
+	 * reason blueline_season_state_data() (inc/season-state.php) compares it
+	 * against `post_date`, and it is what blueline_season_state_moment()'s
+	 * `$now` branch has to reproduce for the two branches to mean the same
+	 * thing.
+	 *
+	 * The instant comes from blueline_test_state()'s 'now' entry when a test
+	 * sets one, which is what lets a test pin both branches of that function
+	 * to the same moment and assert they agree. null (the default) means the
+	 * real clock.
+	 *
+	 * Any other $type, and the $gmt flag, are deliberately unimplemented
+	 * rather than guessed at: no theme code asks for either, and there is no
+	 * core checkout here to check a guess against.
+	 *
+	 * @param string $type Only 'mysql' is supported.
+	 * @param int    $gmt  Unsupported; a truthy value throws rather than
+	 *                     silently handing back local time.
+	 * @return string Site-local `Y-m-d H:i:s`.
+	 * @throws InvalidArgumentException If $type is not 'mysql', or $gmt is truthy.
+	 */
+	function current_time( $type, $gmt = 0 ) {
+		if ( 'mysql' !== $type || $gmt ) {
+			throw new InvalidArgumentException( "the current_time() test stub only implements current_time( 'mysql' )" );
+		}
+
+		$state   = blueline_test_state();
+		$instant = $state['now'] ?? null;
+
+		return ( new DateTimeImmutable( null === $instant ? 'now' : '@' . $instant ) )
+			->setTimezone( wp_timezone() )
+			->format( 'Y-m-d H:i:s' );
 	}
 }
 if ( ! function_exists( 'wp_get_sidebars_widgets' ) ) {

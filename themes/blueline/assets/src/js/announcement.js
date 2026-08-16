@@ -18,8 +18,9 @@
  *
  * Every localStorage access is wrapped, because it can throw rather than
  * return -- storage disabled, or a quota condition. This file does its work
- * at import time (like every other module in index.js), so an unhandled
- * throw would abort the whole bundle's evaluation, not just this feature.
+ * at import time (like every other module in index.js), so a throw here
+ * escapes into the bundle's own module evaluation instead of staying
+ * contained to this feature.
  */
 
 const STORAGE_KEY = 'blueline:announcement-dismissed';

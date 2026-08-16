@@ -826,7 +826,9 @@ function blueline_settings_render_page(): void {
  * "Registration", never types a raw term ID; a plain number input for a
  * `term_id` field that does NOT declare a taxonomy (no such field exists
  * today, but the branch stays available for one that has no taxonomy to
- * pick from); an `<input type="date">` for a `date` field -- Task 6, and
+ * pick from); a `<select>` for any field declaring `choices`, checked before
+ * `type` because it describes the control rather than the storage shape;
+ * an `<input type="date">` for a `date` field -- Task 6, and
  * without it a `date` would fall through to the plain text input, since an
  * unrecognised type does not error here, it simply takes the last branch;
  * text/email otherwise), and, when this field failed the last
@@ -838,8 +840,10 @@ function blueline_settings_render_page(): void {
  * `page_id`/`term_id` fields never fail validation -- blueline_sanitize_field()
  * sanitizes both with absint(), which cannot return a WP_Error -- so
  * neither branch below needs to handle an error state. A `date` field CAN
- * (a malformed date is a WP_Error, not a coercion), so its branch carries
- * the same aria wiring the text input does.
+ * (a malformed date is a WP_Error, not a coercion), and so can a `choices`
+ * field (a value off the list is refused rather than dropped -- reachable
+ * from a hand-built POST or WP-CLI even though the select cannot produce
+ * one), so both branches carry the same aria wiring the text input does.
  *
  * A field's `help` string is printed once, after whichever branch ran, for
  * every type. It used to be printed inside the `bool`/`section` branch
@@ -867,6 +871,43 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 		<td>
 			<?php if ( 'band_photos' === $type ) : ?>
 				<?php blueline_settings_render_band_photos( $field_key, $field, $name, $input_id, (array) $value ); ?>
+			<?php elseif ( ! empty( $field['choices'] ) ) : ?>
+				<?php
+				/*
+				 * Task 7 fix round: `choices` is checked BEFORE `type`
+				 * because it is orthogonal to it -- it says "this field's
+				 * value comes off a fixed list", which is a statement about
+				 * the control, not the storage shape.
+				 *
+				 * A dropdown rather than a validated text box, deliberately:
+				 * rejecting a typo at save time tells an admin they were
+				 * wrong, but a list of five options means they cannot be
+				 * wrong in the first place. That matters most for
+				 * `season_state_override`, which is used under pressure.
+				 * blueline_sanitize_field()'s own `choices` branch is still
+				 * the guard behind this, for a hand-built POST or a WP-CLI
+				 * write that never renders this select at all.
+				 *
+				 * No hidden companion input is needed here (unlike the
+				 * checkbox branch below): a `<select>` always posts exactly
+				 * one value, including its empty option.
+				 */
+				?>
+				<select
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $name ); ?>"
+					<?php
+					if ( $has_error ) :
+						?>
+						aria-invalid="true" aria-describedby="<?php echo esc_attr( $error_id ); ?>"<?php endif; ?>
+				>
+					<?php foreach ( (array) $field['choices'] as $choice_value => $choice_label ) : ?>
+						<option
+							value="<?php echo esc_attr( (string) $choice_value ); ?>"
+							<?php selected( (string) $choice_value, (string) $value ); ?>
+						><?php echo esc_html( (string) $choice_label ); ?></option>
+					<?php endforeach; ?>
+				</select>
 			<?php elseif ( 'bool' === $type || 'section' === $type ) : ?>
 				<?php
 				/*

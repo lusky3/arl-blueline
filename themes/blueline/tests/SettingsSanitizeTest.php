@@ -329,6 +329,79 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
+	 * A field declaring `choices`, reused by the group of tests below.
+	 *
+	 * @return array
+	 */
+	private function choices_field(): array {
+		return array(
+			'type'         => 'text',
+			'label'        => 'Force the season state (break-glass)',
+			'placeholders' => array(),
+			'choices'      => array(
+				''         => '— No override —',
+				'playoffs' => 'Playoffs',
+			),
+		);
+	}
+
+	/**
+	 * A value on the list is stored unchanged.
+	 */
+	public function test_a_choices_field_accepts_a_listed_value(): void {
+		$this->assertSame( 'playoffs', blueline_sanitize_field( 'playoffs', $this->choices_field() ) );
+	}
+
+	/**
+	 * '' is only accepted because this field's own list contains it -- the
+	 * empty option is a real choice ("no override"), not a blanket exemption
+	 * for every `choices` field.
+	 */
+	public function test_a_choices_field_accepts_an_empty_value_only_when_listed(): void {
+		$this->assertSame( '', blueline_sanitize_field( '', $this->choices_field() ) );
+
+		$without_empty            = $this->choices_field();
+		$without_empty['choices'] = array( 'info' => 'Info' );
+
+		$this->assertTrue( is_wp_error( blueline_sanitize_field( '', $without_empty ) ) );
+	}
+
+	/**
+	 * Task 7 fix round (I2): the case this whole key exists for. Before it,
+	 * `season_state_override` was clamped on READ only -- so an admin typing
+	 * `playofs` into an emergency control got "Settings saved.", no change on
+	 * the site, and no admin notice either (the notice only renders when the
+	 * override reads back non-empty). A silent no-op is the wrong failure
+	 * mode for a break-glass, and it fails precisely when someone is
+	 * depending on it.
+	 */
+	public function test_a_choices_field_rejects_a_near_miss_rather_than_silently_dropping_it(): void {
+		$result = blueline_sanitize_field( 'playofs', $this->choices_field() );
+
+		$this->assertTrue( is_wp_error( $result ) );
+		$this->assertSame( 'blueline_invalid_choice', $result->get_error_code() );
+	}
+
+	/**
+	 * The message has to be actionable: it names the field and lists what
+	 * the field WILL take, rather than only saying no.
+	 */
+	public function test_the_choices_error_names_the_field_and_the_allowed_values(): void {
+		$message = blueline_sanitize_field( 'world_cup', $this->choices_field() )->get_error_message();
+
+		$this->assertStringContainsString( 'Force the season state', $message );
+		$this->assertStringContainsString( 'playoffs', $message );
+	}
+
+	/**
+	 * The match is exact, not fuzzy: neither case nor surrounding whitespace
+	 * is forgiven into a different stored value than the one submitted.
+	 */
+	public function test_a_choices_field_matches_exactly(): void {
+		$this->assertTrue( is_wp_error( blueline_sanitize_field( 'PLAYOFFS', $this->choices_field() ) ) );
+	}
+
+	/**
 	 * Fix round 1 (Task 8): `type => 'email'` must actually GUARANTEE the
 	 * value is a real email address -- before this fix it fell through to
 	 * the exact same sanitize_text_field()-only path as a plain `text`

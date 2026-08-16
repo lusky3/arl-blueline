@@ -34,6 +34,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/settings/sanitize.php'; // The `choices` guard the override dropdown rests on.
 require_once __DIR__ . '/../inc/announcement.php'; // blueline_site_timestamp(), which the expiry is resolved through.
 require_once __DIR__ . '/../inc/season-state.php';
 
@@ -200,6 +201,60 @@ final class SeasonStateOverrideTest extends TestCase {
 	}
 
 	/**
+	 * THE DRIFT PIN between the domain enum and the panel's dropdown. The
+	 * schema's `choices` list is what an admin can pick from and what the
+	 * sanitizer accepts; BLUELINE_SEASON_STATES is what
+	 * blueline_season_state_override() will actually honour. A value in one
+	 * and not the other is either an option that saves and then does nothing,
+	 * or a state the panel cannot reach.
+	 *
+	 * Pinned by a test rather than by having defaults.php read the constant
+	 * directly: inc/settings/defaults.php is otherwise self-contained data,
+	 * and pointing it at inc/season-state.php's constant would couple the
+	 * schema to the season logic's load order for no gain a red build here
+	 * doesn't already provide.
+	 */
+	public function test_the_override_dropdown_offers_exactly_the_honoured_states(): void {
+		$choices = blueline_settings_schema()['season_state_override']['choices'];
+
+		$this->assertSame(
+			'',
+			array_key_first( $choices ),
+			'the empty "no override" option must come first, so the default reads as no override'
+		);
+
+		$offered = array_values( array_filter( array_map( 'strval', array_keys( $choices ) ), static fn( $key ) => '' !== $key ) );
+
+		$this->assertSame( BLUELINE_SEASON_STATES, $offered );
+	}
+
+	/**
+	 * I2: a near-miss typed into the break-glass is REFUSED at save, not
+	 * quietly stored and then ignored on read. The silent version of this
+	 * was the worst failure mode in the feature: "Settings saved.", no
+	 * change to the site, and no admin notice either, because the notice
+	 * only renders while the override reads back as a real state.
+	 */
+	public function test_a_mistyped_override_is_refused_at_save_rather_than_silently_ignored(): void {
+		$result = blueline_sanitize_field( 'playofs', blueline_settings_schema()['season_state_override'] );
+
+		$this->assertTrue( is_wp_error( $result ), 'a typo in an emergency control must not save cleanly' );
+	}
+
+	/**
+	 * And the legitimate values still save, including the empty "no
+	 * override" option -- a guard that refused those would be worse than no
+	 * guard.
+	 */
+	public function test_every_offered_override_value_saves(): void {
+		$field = blueline_settings_schema()['season_state_override'];
+
+		foreach ( array_keys( $field['choices'] ) as $choice ) {
+			$this->assertSame( (string) $choice, blueline_sanitize_field( (string) $choice, $field ) );
+		}
+	}
+
+	/**
 	 * A developer filter still wins over an admin override. Filters are the
 	 * last word by convention throughout this theme, so the override is
 	 * applied BEFORE `blueline_season_state` fires, not after it.
@@ -280,7 +335,69 @@ final class SeasonStateOverrideTest extends TestCase {
 		list( $mysql, $timestamp ) = blueline_season_state_moment( strtotime( '2026-08-15T04:00:00+00:00' ) );
 
 		$this->assertSame( '2026-08-15 00:00:00', $mysql, 'the bound is site-local, not UTC' );
-		$this->assertSame( (int) strtotime( '2026-08-15T04:00:00+00:00' ), $timestamp );
+
+		/*
+		 * NOT the injected instant. The returned timestamp is the site-local
+		 * wall clock read back by strtotime(), matching what the null branch
+		 * produces from current_time( 'mysql' ) -- see Ruling M and
+		 * test_both_branches_of_the_query_moment_agree() below. An earlier
+		 * version of this assertion pinned the raw instant, which is exactly
+		 * the bug: it made the two branches disagree by the site's offset
+		 * and called that correct.
+		 */
+		$this->assertSame( (int) strtotime( $mysql ), $timestamp );
+	}
+
+	/**
+	 * THE BRANCH-PARITY PIN (Ruling M, Task 7 fix round). Both branches of
+	 * blueline_season_state_moment() must produce the identical pair for the
+	 * identical instant -- not just the same `$now_mysql`, the same
+	 * `$now_ts` too.
+	 *
+	 * The first version of this function got that wrong: `$now_mysql` was
+	 * site-local in both branches, but the `$now` branch handed back the raw
+	 * Unix instant as `$now_ts` while the null branch handed back
+	 * `strtotime( current_time( 'mysql' ) )` -- a site-local wall clock read
+	 * as UTC. Two consumers assume the null branch's frame (the 30-day
+	 * `after` bound, and the days-to-next-event subtraction), so the two
+	 * branches silently disagreed by the site's offset, which is enough for
+	 * `ceil( ... / DAY_IN_SECONDS ) <= 14` in blueline_decide_is_playing()
+	 * to flip in_season and preseason around a boundary. Only reachable via
+	 * `$now`, so nothing shipped broken -- but the docblock claimed the
+	 * branches matched, and one derived bound did not.
+	 *
+	 * This assertion is deliberately whole-array rather than field-by-field:
+	 * a third value added to the tuple later is covered the day it appears.
+	 */
+	public function test_both_branches_of_the_query_moment_agree(): void {
+		$instant = strtotime( '2026-08-15T04:00:00+00:00' );
+
+		$state        = &blueline_test_state();
+		$state['now'] = $instant;
+
+		$this->assertSame(
+			blueline_season_state_moment(),
+			blueline_season_state_moment( $instant ),
+			'the clock branch and the injected branch must describe the same moment identically'
+		);
+	}
+
+	/**
+	 * The consumer that made the divergence above matter: the recent-events
+	 * query pairs a `gmdate()`-formatted `after` bound, built from
+	 * `$now_ts`, with a site-local `before` bound built from `$now_mysql`.
+	 * For that pairing to mean "the last 30 days", `$now_ts` has to be in
+	 * the same frame `$now_mysql` is expressed in.
+	 */
+	public function test_the_thirty_day_window_is_exactly_thirty_days_in_the_bounds_own_frame(): void {
+		list( $mysql, $timestamp ) = blueline_season_state_moment( strtotime( '2026-08-15T04:00:00+00:00' ) );
+
+		$this->assertSame( '2026-08-15 00:00:00', $mysql );
+		$this->assertSame(
+			'2026-07-16 00:00:00',
+			gmdate( 'Y-m-d H:i:s', $timestamp - 30 * DAY_IN_SECONDS ),
+			'the after bound must land exactly 30 days before the before bound, same wall clock'
+		);
 	}
 
 	/**
