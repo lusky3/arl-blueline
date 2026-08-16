@@ -1,9 +1,9 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1). This file is named for what it does (the `settings` WP-CLI command group), not for Blueline_Settings_Command, matching this theme's established file-naming convention (inc/settings/page.php defines no class at all; every other inc/ file is named for its subject, never for a single class it happens to declare).
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed -- the three pure helpers below (blueline_settings_cli_decode_payload(), blueline_settings_cli_prepare_import(), blueline_settings_cli_validate_payload()) exist ONLY to be called from Blueline_Settings_Command's own methods, and are unit tested directly alongside it in tests/SettingsCliCommandTest.php; splitting them into a second file would scatter one command's logic across two files for no reader's benefit, the same trade-off tests/SettingsCacheTest.php's own docblock makes for its Redis fakes.
 /**
- * `wp blueline settings export|import|validate|repair|reset` -- WP-CLI
- * access to the same one option (BLUELINE_SETTINGS_OPTION) the Appearance
- * -> Blueline panel reads and writes.
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache`
+ * -- WP-CLI access to the same one option (BLUELINE_SETTINGS_OPTION) the
+ * Appearance -> Blueline panel reads and writes.
  *
  * Loaded ONLY under `defined( 'WP_CLI' ) && WP_CLI` (see functions.php) so
  * this file -- and the `WP_CLI_Command`/`WP_CLI` symbols it depends on --
@@ -372,7 +372,34 @@ function blueline_settings_cli_diff_lines( array $diff ): array {
 }
 
 /**
- * `wp blueline settings export|import|validate|repair|reset`.
+ * Run inc/settings/cache.php's page-cache purge policy on demand and report
+ * whether the page cache was actually purged automatically.
+ *
+ * Takes `$purge_enabled` as a parameter rather than reading
+ * BLUELINE_SRCACHE_PURGE itself, for exactly the reason
+ * blueline_apply_cache_purge_policy() (which it delegates to) takes one: a
+ * constant cannot be redefined mid-process, so a parameter is what lets a
+ * test exercise the enabled branch at all. The subcommand below passes the
+ * real, deployed constant.
+ *
+ * "Purged automatically" is read back off
+ * BLUELINE_CACHE_PURGE_NEEDED_OPTION rather than from a second copy of the
+ * policy's own decision tree -- that flag IS the policy's verdict (set when
+ * the purge did not run, cleared when it did), and re-deriving it here
+ * would be a second implementation to keep in step by hand.
+ *
+ * @param bool $purge_enabled Whether the guarded Redis purge may be attempted.
+ * @return bool True when the page cache was purged automatically; false when
+ *              it was not and a manual purge is still needed.
+ */
+function blueline_settings_cli_flush_page_cache( bool $purge_enabled ): bool {
+	blueline_apply_cache_purge_policy( $purge_enabled );
+
+	return ! blueline_cache_purge_needed();
+}
+
+/**
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
 
@@ -770,6 +797,76 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		update_option( BLUELINE_SETTINGS_OPTION, blueline_settings_defaults() );
 
 		WP_CLI::success( 'Settings reset to defaults.' );
+	}
+
+	/**
+	 * Run the page-cache purge inc/settings/cache.php normally runs after a
+	 * settings save, without changing any setting.
+	 *
+	 * For the case a save's own purge could not run, or a deploy changed
+	 * something the settings option does not cover -- the spec's 6.9 list
+	 * names this subcommand alongside export/import/validate/reset.
+	 *
+	 * ## WHAT THIS DOES ON A DEFAULT INSTALL
+	 *
+	 * The guarded Redis/nginx srcache purge is switched OFF by default,
+	 * behind the `BLUELINE_SRCACHE_PURGE` constant, for the reasons
+	 * inc/settings/cache.php's own docblock sets out (nobody has confirmed
+	 * that the WordPress object cache and nginx's srcache share a Redis
+	 * database, and staging has no page-cache layer to confirm it on). This
+	 * subcommand does NOT override that gate: it runs the same policy a
+	 * save runs and reports what that policy did.
+	 *
+	 * So with the constant at its default, this command purges nothing,
+	 * prints the exact command to run on the server instead, and EXITS
+	 * NON-ZERO -- the same convention `repair` uses, and for the same
+	 * reason: a zero exit has to mean "the page cache was purged", not
+	 * merely "the command ran", or a deploy script will read one as the
+	 * other.
+	 *
+	 * A zero exit means the guarded purge ran to completion. It does not
+	 * prove the front end is now serving fresh HTML: as
+	 * inc/settings/cache.php records, a purge against a Redis database
+	 * nginx does not write its cache into completes happily having matched
+	 * nothing. That is an unresolved question about this server, not about
+	 * this command.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp blueline settings flush-cache --user=admin
+	 *
+	 * @subcommand flush-cache
+	 *
+	 * @param array<int, string>    $args       Positional arguments (unused).
+	 * @param array<string, string> $assoc_args Associative arguments (unused).
+	 * @return void
+	 */
+	public function flush_cache( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes neither a positional nor an associative argument.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+			return;
+		}
+
+		if ( blueline_settings_cli_flush_page_cache( BLUELINE_SRCACHE_PURGE ) ) {
+			WP_CLI::success( __( 'The guarded page-cache purge ran. See this subcommand\'s own documentation for what a successful run does and does not prove.', 'blueline' ) );
+			return;
+		}
+
+		WP_CLI::warning(
+			BLUELINE_SRCACHE_PURGE
+				? __( 'The page cache was NOT purged: the automatic purge is switched on, but this install does not expose the Redis object cache it needs.', 'blueline' )
+				: __( 'The page cache was NOT purged: the automatic purge is switched off (BLUELINE_SRCACHE_PURGE is not defined as true).', 'blueline' )
+		);
+
+		$command = blueline_cache_purge_command( blueline_cache_purge_host() );
+
+		WP_CLI::log(
+			'' !== $command
+				? $command
+				: blueline_cache_purge_unresolvable_host_message()
+		);
+
+		WP_CLI::error( __( 'Nothing was purged. Run the command above on the server.', 'blueline' ) );
 	}
 }
 
