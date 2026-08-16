@@ -99,10 +99,13 @@ function blueline_settings_schema(): array {
 			'label'        => 'Off-season CTA label',
 			'placeholders' => array(),
 		),
-		// Task 8 (fix round 2): the remaining four hardcoded copy strings --
-		// the "Never played? Perfect." module's heading and CTA label, and
-		// two account-dashboard empty-state lines -- none of which ever
-		// carries a sprintf() placeholder, hence `array()` on all four.
+		// Task 8 (fix round 2): the plan's remaining four hardcoded copy
+		// strings -- the "Never played? Perfect." module's heading and CTA
+		// label, and two account-dashboard empty-state lines -- none of
+		// which ever carries a sprintf() placeholder, hence `array()` on all
+		// four. "The plan's" because the theme has plenty of other hardcoded
+		// strings outside this plan's scope; these four are simply the ones
+		// this plan's own task list named.
 		'module_new_here_heading'    => array(
 			'type'         => 'text',
 			'tab'          => 'content',

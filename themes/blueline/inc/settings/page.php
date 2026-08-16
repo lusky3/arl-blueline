@@ -896,14 +896,14 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 				<?php endif; ?>
 				<?php
 				/*
-				 * Task 5 (P1b-panel-completion): a `section` field behind a
-				 * populated widget area (today, only `chrome_footer_trust` ->
-				 * footer-2 -- see blueline_section_widget_warning()'s own
-				 * docblock) gets a second, distinct notice naming the live
-				 * widget count, so switching it off doesn't read as "delete my
-				 * widgets" to whoever's holding the mouse. '' for a `bool`
-				 * field (no key in blueline_section_widget_warning()'s $areas
-				 * map matches a non-`section` field's key) and for any
+				 * Task 5 (P1b-panel-completion): a `section` field mapped to a
+				 * populated widget area (today, the four `chrome_footer_widgets_N`
+				 * keys -- see blueline_section_widget_warning()'s own docblock
+				 * for the real per-area mapping) gets a second, distinct notice
+				 * naming the live widget count, so switching it off doesn't read
+				 * as "delete my widgets" to whoever's holding the mouse. '' for a
+				 * `bool` field (no key in blueline_section_widget_warning()'s
+				 * $areas map matches a non-`section` field's key) and for any
 				 * `section` field with no widget area behind it or an empty one.
 				 */
 				$widget_warning = 'section' === $type ? blueline_section_widget_warning( $field_key ) : '';

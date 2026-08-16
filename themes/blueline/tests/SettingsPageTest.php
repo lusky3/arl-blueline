@@ -13,6 +13,7 @@ require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
+require_once __DIR__ . '/../inc/setup.php'; // blueline_active_widget_count(), which blueline_section_widget_warning() calls via the field-row renderer below.
 
 /**
  * Covers inc/settings/page.php: the Appearance -> Blueline admin page --
@@ -954,11 +955,15 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task 5 (P1b-panel-completion): `chrome_footer_trust`'s field row
-	 * carries blueline_section_widget_warning()'s own message, naming the
-	 * live widget count, when its mapped widget area (footer-2) is
-	 * populated -- proving the warning actually reaches the rendered row,
+	 * Task 5 fix round (P1b-panel-completion): `chrome_footer_widgets_2`'s
+	 * field row carries blueline_section_widget_warning()'s own message,
+	 * naming the live widget count, when its mapped widget area (footer-2)
+	 * is populated -- proving the warning actually reaches the rendered row,
 	 * not merely that the accessor function returns a string in isolation.
+	 * `chrome_footer_trust` no longer maps to any widget area (that mapping
+	 * was a fix-round-1 mistake this plan's coordinator corrected -- see
+	 * blueline_section_widget_warning()'s own docblock), so this test now
+	 * targets the key that actually gates footer-2.
 	 */
 	public function test_a_populated_widget_areas_section_field_renders_the_widget_warning(): void {
 		$state                                = &blueline_test_state();
@@ -966,8 +971,8 @@ final class SettingsPageTest extends TestCase {
 
 		ob_start();
 		blueline_settings_render_field(
-			'chrome_footer_trust',
-			blueline_settings_schema()['chrome_footer_trust'],
+			'chrome_footer_widgets_2',
+			blueline_settings_schema()['chrome_footer_widgets_2'],
 			null
 		);
 		$html = ob_get_clean();
@@ -977,15 +982,15 @@ final class SettingsPageTest extends TestCase {
 
 	/**
 	 * Companion case: with footer-2 empty (the default, untouched state),
-	 * `chrome_footer_trust`'s row renders no widget warning at all -- and,
-	 * since this section carries no `help` string either, no description
-	 * paragraph of any kind.
+	 * `chrome_footer_widgets_2`'s row renders no widget warning at all --
+	 * and, since this section carries no `help` string either, no
+	 * description paragraph of any kind.
 	 */
 	public function test_an_unpopulated_widget_areas_section_field_renders_no_widget_warning(): void {
 		ob_start();
 		blueline_settings_render_field(
-			'chrome_footer_trust',
-			blueline_settings_schema()['chrome_footer_trust'],
+			'chrome_footer_widgets_2',
+			blueline_settings_schema()['chrome_footer_widgets_2'],
 			null
 		);
 		$html = ob_get_clean();

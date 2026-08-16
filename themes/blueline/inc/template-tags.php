@@ -622,6 +622,18 @@ function blueline_contact_url(): string {
  * has widgets) three of the four columns were empty containers, against
  * DESIGN.md's own "never an empty container" rule. footer.css's grid
  * collapses to however many columns actually render.
+ *
+ * Each of the four widget columns is additionally gated by its own
+ * `chrome_footer_widgets_N` section toggle (inc/settings/sections.php),
+ * ANDed with the pre-existing `is_active_sidebar()` check -- a real toggle,
+ * unlike `chrome_footer_trust` below, which gates only the hardcoded trust
+ * column and nothing else. Written out as four literal blocks rather than
+ * a loop over `$i` so each `blueline_section_enabled()` call names its own
+ * key literally -- SchemaFieldCoverageTest's consumer scan looks for
+ * exactly that, not a key built at request time the way
+ * blueline_homepage_module_order() builds `'module_' . $module`. There is
+ * no floor here (unlike the homepage modules): an admin switching off all
+ * four is a legitimate choice, not a state this function needs to refuse.
  */
 function blueline_site_footer() {
 	?>
@@ -640,13 +652,29 @@ function blueline_site_footer() {
 				</div>
 			<?php endif; ?>
 
-			<?php for ( $i = 1; $i <= 4; $i++ ) : ?>
-				<?php if ( is_active_sidebar( 'footer-' . $i ) ) : ?>
-					<div class="bl-footer__column">
-						<?php dynamic_sidebar( 'footer-' . $i ); ?>
-					</div>
-				<?php endif; ?>
-			<?php endfor; ?>
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_1' ) && is_active_sidebar( 'footer-1' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-1' ); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_2' ) && is_active_sidebar( 'footer-2' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-2' ); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_3' ) && is_active_sidebar( 'footer-3' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-3' ); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_4' ) && is_active_sidebar( 'footer-4' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-4' ); ?>
+				</div>
+			<?php endif; ?>
 		</div>
 
 		<?php blueline_footer_team_directory(); ?>

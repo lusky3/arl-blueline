@@ -231,8 +231,13 @@ final class AccountSectionsTest extends TestCase {
 
 	/**
 	 * Task 8 (fix round 2): the "no upcoming game" empty-state line comes
-	 * from `account_empty_next_game`, not a hardcoded literal -- a real save
-	 * changes what renders, not merely what's stored.
+	 * from `account_empty_next_game`, not a hardcoded literal. Written
+	 * through update_option() directly -- this file requires neither
+	 * inc/settings/sanitize.php nor inc/settings/page.php, so unlike
+	 * FooterAndHeroSettingsRenderTest's equivalent tests, this write does
+	 * NOT run the sanitize_option_blueline_settings filter or the cross-tab
+	 * merge; it proves render actually reads the setting, not that the full
+	 * save pipeline delivers it there.
 	 */
 	public function test_the_next_game_empty_state_comes_from_settings(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_next_game' => 'Nothing on the schedule for you just yet.' ) );
@@ -246,7 +251,9 @@ final class AccountSectionsTest extends TestCase {
 	 * The equivalent guarantee for the season-stats hint line and
 	 * `account_empty_stats` -- rendered whenever every stat is still zero
 	 * (blueline_get_player_season_stats()'s own zero-filled contract for an
-	 * unknown player id, per that function's docblock).
+	 * unknown player id, per that function's docblock). Same caveat as
+	 * above: a direct update_option() write, not the full sanitize/merge
+	 * pipeline.
 	 */
 	public function test_the_season_stats_empty_state_comes_from_settings(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_stats' => 'Check back after your first game.' ) );

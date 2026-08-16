@@ -76,6 +76,31 @@ function blueline_section_definitions(): array {
 			'label' => 'Footer team directory',
 			'group' => 'Site chrome',
 		),
+		// Fix round (Task 5): these four gate the four REAL footer-1..footer-4
+		// WordPress widget areas (register_sidebar() calls in inc/setup.php's
+		// blueline_widgets_init()) -- each ANDed with the area's own
+		// is_active_sidebar() check in blueline_site_footer()
+		// (inc/template-tags.php). `chrome_footer_trust` (above) does NOT
+		// gate any of these; it only gates the separate, hardcoded trust
+		// column next to them -- a distinction a fix round of this plan got
+		// wrong once already, which is why these four exist as their own
+		// entries rather than being folded into chrome_footer_trust.
+		'chrome_footer_widgets_1'  => array(
+			'label' => 'Footer widget area 1',
+			'group' => 'Site chrome',
+		),
+		'chrome_footer_widgets_2'  => array(
+			'label' => 'Footer widget area 2',
+			'group' => 'Site chrome',
+		),
+		'chrome_footer_widgets_3'  => array(
+			'label' => 'Footer widget area 3',
+			'group' => 'Site chrome',
+		),
+		'chrome_footer_widgets_4'  => array(
+			'label' => 'Footer widget area 4',
+			'group' => 'Site chrome',
+		),
 		'account_next_game'        => array(
 			'label' => 'My next game',
 			'group' => 'My Account',
@@ -121,21 +146,6 @@ function blueline_section_enabled( string $key ): bool {
 }
 
 /**
- * How many widgets currently sit in a registered widget area, straight from
- * core's own sidebar/widget assignment store -- not the sidebar's
- * REGISTRATION (which persists regardless of the section toggle), but what
- * an admin actually put in it.
- *
- * @param string $area A registered sidebar/widget-area id (e.g. 'footer-2').
- * @return int
- */
-function blueline_active_widget_count( string $area ): int {
-	$sidebars_widgets = wp_get_sidebars_widgets();
-
-	return isset( $sidebars_widgets[ $area ] ) ? count( $sidebars_widgets[ $area ] ) : 0;
-}
-
-/**
  * A warning naming the live widget count behind a section, or '' when there
  * is nothing to warn about (the section has no widget-area mapping, or the
  * mapped area is empty).
@@ -146,24 +156,27 @@ function blueline_active_widget_count( string $area ): int {
  * switched back on. Saying so, with the count, is what stops an admin
  * assuming their widgets were deleted and rebuilding them from scratch.
  *
- * Only `chrome_footer_trust` maps to a real widget area (`footer-2`) today,
- * per the plan this task implements. Worth flagging for whoever reviews
- * this: blueline_site_footer() (inc/template-tags.php) does NOT actually
- * gate footer-2's own `is_active_sidebar()`/`dynamic_sidebar()` loop behind
- * `chrome_footer_trust` -- that toggle only hides the separate, hardcoded
- * "trust column" (contact/location/FAQs/legal) next to it. footer-2 is the
- * one widget area with real production content today, and this mapping
- * pairs it with the nearest footer-related toggle rather than inventing one
- * for a section that gates it directly -- no section currently does. No
- * other key gets a mapping at all, since no other widget area holds live
- * content to warn about.
+ * Each of the four `chrome_footer_widgets_N` keys maps to its own real
+ * widget area (`footer-N`) -- and, unlike an earlier fix round's
+ * `chrome_footer_trust` -> `footer-2` mapping, each genuinely IS the toggle
+ * that gates its area: blueline_site_footer() (inc/template-tags.php) ANDs
+ * `blueline_section_enabled( 'chrome_footer_widgets_' . $i )` with
+ * `is_active_sidebar( 'footer-' . $i )` for each of the four columns, so
+ * this warning's "switching it off hides them" is true for every key below.
+ * No other section key gets a mapping, since no other widget area holds
+ * live content to warn about (only `footer-2` does today, on this site's
+ * real configuration -- the other three currently have nothing assigned,
+ * so their own toggle warns as soon as something is).
  *
  * @param string $key A blueline_section_definitions() key.
  * @return string
  */
 function blueline_section_widget_warning( string $key ): string {
 	$areas = array(
-		'chrome_footer_trust' => 'footer-2',
+		'chrome_footer_widgets_1' => 'footer-1',
+		'chrome_footer_widgets_2' => 'footer-2',
+		'chrome_footer_widgets_3' => 'footer-3',
+		'chrome_footer_widgets_4' => 'footer-4',
 	);
 
 	if ( ! isset( $areas[ $key ] ) || ! is_active_sidebar( $areas[ $key ] ) ) {

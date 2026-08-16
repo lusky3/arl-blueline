@@ -437,7 +437,7 @@ function &blueline_test_state(): array {
 		'terms'           => array(),
 		'post_terms'      => array(),
 		// Sidebar id => widget count, read by is_active_sidebar() and
-		// wp_get_sidebars_widgets() above -- added for Task 5
+		// wp_get_sidebars_widgets() below -- added for Task 5
 		// (P1b-panel-completion). Empty by default, reproducing the pre-Task-5
 		// always-false is_active_sidebar() behaviour for every test that
 		// never seeds it.
@@ -995,6 +995,17 @@ if ( ! function_exists( 'wp_get_sidebars_widgets' ) ) {
 	 * `widget-2`, ...): no test in this suite needs a specific widget's
 	 * identity, only the count blueline_active_widget_count() derives from
 	 * count( $result[ $area ] ).
+	 *
+	 * The 'wp_inactive_widgets' bucket here always stays empty: no test
+	 * seeds it, and this stub has no mechanism to populate it independently
+	 * of 'active_sidebars' (a real sidebar id, never that one). Whether
+	 * blueline_active_widget_count( 'wp_inactive_widgets' ) would wrongly
+	 * report orphaned widgets as a real area's live count is therefore
+	 * untested here -- deliberately: that function is never called with
+	 * that key in production either (blueline_section_widget_warning()'s own
+	 * `$areas` map only ever names real sidebar ids), so there is nothing
+	 * this stub could assert about it beyond "unreachable in practice",
+	 * which this comment states plainly rather than faking a test around.
 	 *
 	 * @return array<string,string[]>
 	 */
