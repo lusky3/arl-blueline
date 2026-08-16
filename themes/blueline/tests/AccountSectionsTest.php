@@ -24,6 +24,7 @@ require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/account/player-data.php';
 require_once __DIR__ . '/../inc/account/dashboard.php';
+require_once __DIR__ . '/../inc/account/endpoints.php';
 
 /**
  * Covers the section-toggle guard on each of the four account dashboard
@@ -135,5 +136,96 @@ final class AccountSectionsTest extends TestCase {
 	 */
 	public function test_the_claim_notice_has_no_toggle(): void {
 		$this->assertArrayNotHasKey( 'account_claim_notice', blueline_section_definitions() );
+	}
+
+	/**
+	 * Fix round 1, Important 4: switching off `account_my_team` blanked the
+	 * dedicated `/account/my-team/` page (its endpoint handler renders
+	 * blueline_account_render_my_team(), which Task 3's guard now empties)
+	 * while the nav still listed a "My Team" link to it -- a linked player
+	 * following that link would land on an empty page. The menu item itself
+	 * must disappear along with the card.
+	 */
+	public function test_the_my_team_menu_item_disappears_when_its_card_is_off(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_my_team' => false ) );
+
+		$items = blueline_account_menu_items(
+			array(
+				'dashboard'       => 'Dashboard',
+				'customer-logout' => 'Log out',
+			)
+		);
+
+		$this->assertArrayNotHasKey(
+			blueline_account_slug_query_var( 'my-team' ),
+			$items,
+			'the my-team endpoint must not appear in the nav once its card is switched off'
+		);
+	}
+
+	/**
+	 * The equivalent guarantee for `/account/my-schedule/` and
+	 * `account_next_game`.
+	 */
+	public function test_the_my_schedule_menu_item_disappears_when_its_card_is_off(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_next_game' => false ) );
+
+		$items = blueline_account_menu_items(
+			array(
+				'dashboard'       => 'Dashboard',
+				'customer-logout' => 'Log out',
+			)
+		);
+
+		$this->assertArrayNotHasKey(
+			blueline_account_slug_query_var( 'my-schedule' ),
+			$items,
+			'the my-schedule endpoint must not appear in the nav once its card is switched off'
+		);
+	}
+
+	/**
+	 * Companion accept path: with both toggles left on (the default), both
+	 * endpoints still appear in the nav -- proves the new exclusion didn't
+	 * also silently drop them for every untouched install.
+	 */
+	public function test_the_my_team_and_my_schedule_menu_items_still_render_when_enabled(): void {
+		$items = blueline_account_menu_items(
+			array(
+				'dashboard'       => 'Dashboard',
+				'customer-logout' => 'Log out',
+			)
+		);
+
+		$this->assertArrayHasKey( blueline_account_slug_query_var( 'my-team' ), $items );
+		$this->assertArrayHasKey( blueline_account_slug_query_var( 'my-schedule' ), $items );
+	}
+
+	/**
+	 * Billing-group endpoints have no toggle at all (per
+	 * blueline_section_definitions()'s own "deliberately NOT here" note) and
+	 * so must never be affected by either account_* toggle -- proves
+	 * blueline_account_endpoint_section_keys()'s mapping is scoped to
+	 * exactly the two league endpoints that have a matching card, not
+	 * applied blanket to every endpoint.
+	 */
+	public function test_billing_group_menu_items_are_unaffected_by_either_toggle(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'account_my_team'   => false,
+				'account_next_game' => false,
+			)
+		);
+
+		$items = blueline_account_menu_items(
+			array(
+				'dashboard'       => 'Dashboard',
+				'customer-logout' => 'Log out',
+			)
+		);
+
+		$this->assertArrayHasKey( blueline_account_slug_query_var( 'registrations' ), $items );
+		$this->assertArrayHasKey( blueline_account_slug_query_var( 'edit-account' ), $items );
 	}
 }

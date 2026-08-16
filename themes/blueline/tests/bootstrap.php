@@ -141,18 +141,58 @@ if ( ! function_exists( 'has_nav_menu' ) ) {
 }
 if ( ! function_exists( 'wp_nav_menu' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' wp_nav_menu(): a no-op. This suite has
-	 * never needed real menu-walking output -- ChromeSectionsTest's
-	 * chrome_utility_nav coverage only needs blueline_site_header()'s call to
-	 * complete without fataling, so the surrounding markup (the toggleable
-	 * .bl-utility-nav wrapper) can be asserted on independently of whatever a
-	 * real menu would render inside it.
+	 * Minimal stand-in for WordPress' wp_nav_menu(). Faithful to three of
+	 * core's own return/echo rules (wp-includes/nav-menu-template.php) --
+	 * fix round 1 on Task 4 found the first version of this stub always
+	 * returned null and never echoed regardless of $args, which meant every
+	 * ChromeSectionsTest assertion would have passed identically against an
+	 * arbitrarily wrong stub; nothing bound it to core's actual contract:
 	 *
-	 * @param array $args wp_nav_menu() args (unused, kept for signature parity).
-	 * @return void
+	 * - No menu assigned to the requested theme_location, and no callable
+	 *   `fallback_cb`: returns `false` and prints nothing -- core's own
+	 *   `if ( ! $menu || is_wp_error( $menu ) ) { return false; }` branch,
+	 *   which fires unconditionally, BEFORE core ever consults `echo`.
+	 * - A callable `fallback_cb` given and no menu assigned: calls it and
+	 *   returns its result, matching core's own fallback branch. Never
+	 *   exercised by this theme's own call sites (blueline_site_header()
+	 *   always passes `fallback_cb => false` on both its calls), kept here
+	 *   only for stub fidelity.
+	 * - A menu assigned: builds one recognisable, non-empty marker string
+	 *   carrying the requested theme_location (real menu-walking output is
+	 *   irrelevant to every test in this suite) and either echoes it and
+	 *   returns null (`echo => true`, the default -- core's own contract),
+	 *   or returns the string unprinted (`echo => false`).
+	 *
+	 * @param array $args wp_nav_menu() args.
+	 * @return string|bool|null
 	 */
-	function wp_nav_menu( $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; this stub renders nothing.
-		unset( $args );
+	function wp_nav_menu( $args = array() ) {
+		$args = array_merge(
+			array(
+				'echo'           => true,
+				'theme_location' => '',
+				'fallback_cb'    => 'wp_page_menu',
+			),
+			(array) $args
+		);
+
+		$has_menu = in_array( $args['theme_location'], $GLOBALS['bl_test_nav_menu_locations'] ?? array(), true );
+
+		if ( ! $has_menu ) {
+			if ( is_callable( $args['fallback_cb'] ) ) {
+				return call_user_func( $args['fallback_cb'], $args );
+			}
+			return false;
+		}
+
+		$output = '<div class="bl-test-nav-menu" data-theme-location="' . esc_attr( $args['theme_location'] ) . '"></div>';
+
+		if ( ! $args['echo'] ) {
+			return $output;
+		}
+
+		echo $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub building its own trusted, already-escaped markup.
+		return null;
 	}
 }
 if ( ! function_exists( 'has_custom_logo' ) ) {

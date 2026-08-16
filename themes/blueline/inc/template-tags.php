@@ -538,21 +538,39 @@ function blueline_site_header() {
 			</div>
 		</div>
 
+		<?php if ( blueline_section_enabled( 'chrome_sponsors' ) ) : ?>
+			<?php
+			/*
+			 * Its own strip under the bar, NOT a fourth item in the bar row.
+			 * Measured: the primary menu is a flex:1 sibling that expands to
+			 * consume whatever the row has left, and .bl-container caps that row at
+			 * 1200px, so the row has roughly 10px spare at every viewport from 1100
+			 * to 1680 -- a wider screen does not help, because the container stops
+			 * growing. Moving this box into the row wrapped the menu onto two lines
+			 * at all of those widths. It is bigger and right-aligned here instead
+			 * (header.css); putting it beside the menu needs the header container
+			 * widened past the content width, which is a design decision, not a
+			 * styling one.
+			 */
+			?>
+			<div class="bl-header__sponsors"></div>
+		<?php endif; ?>
 		<?php
 		/*
-		 * Its own strip under the bar, NOT a fourth item in the bar row.
-		 * Measured: the primary menu is a flex:1 sibling that expands to
-		 * consume whatever the row has left, and .bl-container caps that row at
-		 * 1200px, so the row has roughly 10px spare at every viewport from 1100
-		 * to 1680 -- a wider screen does not help, because the container stops
-		 * growing. Moving this box into the row wrapped the menu onto two lines
-		 * at all of those widths. It is bigger and right-aligned here instead
-		 * (header.css); putting it beside the menu needs the header container
-		 * widened past the content width, which is a design decision, not a
-		 * styling one.
+		 * When chrome_sponsors is off, blueline_sp_header_sponsors_limit()
+		 * (inc/sportspress.php) has already forced SportsPress to print
+		 * nothing at all, so this slot div is skipped outright rather than
+		 * printed and left to a CSS/JS collapse (assets/src/js/sponsors.js,
+		 * header.css's own comment on `.bl-header__sponsors`) that was
+		 * designed for a DIFFERENT case -- the sponsor slot being off
+		 * site-wide via SportsPress's own settings, not an admin flipping
+		 * this control panel's toggle. That collapse is a real, measured,
+		 * one-time reservation-then-shift (header.css's own comment gives
+		 * the numbers); skipping the div here removes the reservation
+		 * before the browser's first layout pass ever sees it, rather than
+		 * reserving 64px and clawing it back a moment later.
 		 */
 		?>
-		<div class="bl-header__sponsors"></div>
 
 		<div class="bl-band" aria-hidden="true"></div>
 		<div class="bl-band--ink" aria-hidden="true"></div>

@@ -171,30 +171,82 @@ function blueline_league_menu_team_ids(): array {
 	return $ids;
 }
 
+add_filter( 'option_sportspress_header_sponsors_limit', 'blueline_sp_header_sponsors_limit' );
+/**
+ * The real gate for `chrome_sponsors`: force the option SportsPress checks
+ * before printing anything at all, front end only, to 0 when the toggle is
+ * off.
+ *
+ * Confirmed in the installed plugin (SportsPress_Sponsors::header(),
+ * includes/sportspress-sponsors/sportspress-sponsors.php, hooked on
+ * `wp_footer`):
+ *
+ *     $limit = get_option( 'sportspress_header_sponsors_limit', 0 );
+ *     if ( $limit ) {
+ *         ... echoes <div class="sp-header-sponsors">[sponsors ...]</div>
+ *         ... AND the inline <script> that reads
+ *             sportspress_header_sponsors_selector and prepends that div
+ *             into it ...
+ *     }
+ *
+ * The entire method -- both the sponsor markup and the relocation script --
+ * is inside that one `if ( $limit )`. An earlier version of this fix only
+ * changed `sportspress_header_sponsors_selector` to something unmatchable,
+ * on the theory that SportsPress would then have nowhere to prepend the
+ * block. That was wrong: with $limit still truthy, `header()` still prints
+ * `.sp-header-sponsors` and still runs the prepend script -- prepending an
+ * empty jQuery selection is simply a no-op, so the sponsor markup just
+ * stays wherever `wp_footer` put it (stranded at the end of the page, not
+ * hidden) instead of never being printed. Forcing $limit itself to 0 is
+ * what actually stops `header()` from printing anything.
+ *
+ * Scoped to the front end only (is_admin() passes the real value straight
+ * through), matching blueline_sp_blank_frontend_option()'s own convention
+ * below, so the Sponsors settings screen keeps showing/editing the site's
+ * actual saved limit -- turning the control-panel toggle off must not look
+ * like the admin's own SportsPress setting silently changed.
+ *
+ * @param mixed $value Stored option value.
+ * @return mixed
+ */
+function blueline_sp_header_sponsors_limit( $value ) {
+	if ( is_admin() ) {
+		return $value;
+	}
+
+	return blueline_section_enabled( 'chrome_sponsors' ) ? $value : 0;
+}
+
 add_filter( 'sportspress_header_sponsors_selector', 'blueline_header_sponsors_selector' );
 /**
  * Tell SportsPress which element the header sponsors should be inserted into.
  *
- * When `chrome_sponsors` is off, this returns a selector that matches
- * nothing on the page rather than the real `.bl-header__sponsors` slot.
- * SportsPress enqueues its sponsor markup and injects it into whatever this
- * filter returns regardless of the answer -- so the alternative (returning
- * the real selector and hiding the result with CSS) would still make every
- * visitor download that markup for a slot the admin asked to turn off.
- * Pointing SportsPress at a selector nothing matches means it injects into
- * nothing and the download was never worth paying for in the first place.
+ * The function above, blueline_sp_header_sponsors_limit(), is what actually
+ * stops SportsPress printing anything while `chrome_sponsors` is off -- see
+ * its own docblock for why forcing the limit to 0, not this selector, is
+ * the real gate. While that toggle is off, `SportsPress_Sponsors::header()`
+ * never reaches the line that reads this filter at all, so this branch is
+ * never actually exercised on a real request in that state.
  *
- * `.bl-header__sponsors--disabled` is deliberately a class this theme never
- * emits anywhere in its own markup (unlike, say, an empty string, which a
- * future SportsPress version could plausibly special-case as "no selector
- * given, use my own default").
+ * `:not(*)` is returned anyway, as defence in depth: a selector that
+ * matches nothing, in both CSS and jQuery, by construction -- unlike
+ * `.bl-header__sponsors--disabled`, an earlier version of this fix's
+ * choice, which is a BEM modifier of a class (`.bl-header__sponsors`) this
+ * theme really emits elsewhere, and so the single edit most likely to be
+ * made to that div in the future (adding a state class to it) would have
+ * silently re-enabled injection. `:not(*)` cannot collide with any class
+ * this theme, or any future edit to it, ever adds. If some future caller
+ * (a different plugin, a SportsPress update that stops respecting the
+ * limit) ever does reach this filter while the toggle is off, the result
+ * has nowhere to land instead of stranding sponsor markup wherever it was
+ * printed.
  *
  * @param string $selector Default selector.
  * @return string
  */
 function blueline_header_sponsors_selector( $selector ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by the filter's own signature; this theme always returns one fixed selector regardless of the default passed in.
 	if ( ! blueline_section_enabled( 'chrome_sponsors' ) ) {
-		return '.bl-header__sponsors--disabled';
+		return ':not(*)';
 	}
 
 	return '.bl-header__sponsors';
