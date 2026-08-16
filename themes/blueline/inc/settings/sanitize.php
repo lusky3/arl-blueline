@@ -485,6 +485,48 @@ function blueline_sanitize_field( $value, array $field ) {
 		return $sanitized;
 	}
 
+	if ( 'date' === $type ) {
+		/*
+		 * Task 6: a `date` field stores a strict Y-m-d string, or '' for
+		 * "not set" -- both of the announcement window's bounds are
+		 * optional, so '' is a legitimate value here, unlike in the
+		 * `email` branch above where an empty address is simply wrong.
+		 *
+		 * A bad value returns a WP_Error rather than coercing to '',
+		 * following that same `email` precedent: coercing would silently
+		 * turn "shown until the 30th" into "shown forever" and report a
+		 * successful save while doing it. The admin is told instead.
+		 *
+		 * The round-trip comparison is what makes this STRICT rather than
+		 * merely well-formed. DateTimeImmutable::createFromFormat() accepts
+		 * an out-of-range day and rolls it over -- '2026-02-30' becomes 2
+		 * March -- so a value is only accepted when reformatting the parsed
+		 * date reproduces exactly what was submitted. That also rejects the
+		 * loose forms ('2026-9-1', '30/09/2026') that <input type="date">
+		 * never produces but a paste or an import can.
+		 */
+		$submitted = trim( sanitize_text_field( (string) $value ) );
+
+		if ( '' === $submitted ) {
+			return '';
+		}
+
+		$parsed = DateTimeImmutable::createFromFormat( 'Y-m-d', $submitted, wp_timezone() );
+
+		if ( false === $parsed || $parsed->format( 'Y-m-d' ) !== $submitted ) {
+			return new WP_Error(
+				'blueline_invalid_date',
+				sprintf(
+					/* translators: %s: the field's label. */
+					__( '"%s" must be a date in YYYY-MM-DD form, or empty.', 'blueline' ),
+					$label
+				)
+			);
+		}
+
+		return $submitted;
+	}
+
 	$sanitized = sanitize_text_field( (string) $value );
 	$required  = (array) ( $field['placeholders'] ?? array() );
 

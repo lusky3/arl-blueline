@@ -31,7 +31,13 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * array key, each declaring at minimum `type`, `tab`, and `label`.
  *
  * Field types: `text`, `email`, `page_id`, `term_id`, `bool`, `textarea`,
- * `section`.
+ * `section`, `date`.
+ *
+ * A `date` field stores a strict `Y-m-d` string, or `''` for "not set".
+ * Anything else is refused at save time with a WP_Error rather than
+ * silently coerced -- see inc/settings/sanitize.php's `date` branch for
+ * why, and inc/settings/page.php for the `<input type="date">` it renders
+ * as.
  *
  * `section`-typed fields are not written by hand in the array literal below:
  * they are generated at the end of this function, one per entry in
@@ -177,6 +183,45 @@ function blueline_settings_schema(): array {
 			'label'        => 'Hero headline — off-season (%s becomes the highlighted word, e.g. "soon")',
 			'placeholders' => array( '%s' ),
 		),
+		// Announcement banner (Task 6). `announcement_text` is the on
+		// switch as well as the copy: empty means no banner, so there is
+		// no separate enabled flag that could fall out of step with it.
+		// `announcement_link` deliberately carries NO `fallback`, unlike
+		// every Links-tab page_id field: 0 here means "plain text, no
+		// link", not "use a built-in path", so there is nothing to fall
+		// back to (see blueline_announcement_url()).
+		'announcement_text'          => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Announcement banner text',
+			'help'         => 'Shown above every page on the site. Leave empty for no banner.',
+			'placeholders' => array(),
+		),
+		'announcement_link'          => array(
+			'type'  => 'page_id',
+			'tab'   => 'content',
+			'label' => 'Announcement banner link',
+			'help'  => 'Optional. The banner text becomes a link to this page.',
+		),
+		'announcement_from'          => array(
+			'type'  => 'date',
+			'tab'   => 'content',
+			'label' => 'Announcement banner — first day shown',
+			'help'  => 'Optional. Leave empty to start showing it immediately.',
+		),
+		'announcement_to'            => array(
+			'type'  => 'date',
+			'tab'   => 'content',
+			'label' => 'Announcement banner — last day shown',
+			'help'  => 'Optional. Leave empty to keep showing it until the text is cleared. The banner stays up for the whole of this day.',
+		),
+		'announcement_severity'      => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Announcement banner tone',
+			'help'         => 'Either "info" (the default, quiet) or "urgent" (loud). Anything else is treated as "info".',
+			'placeholders' => array(),
+		),
 		// Links tab — every value is a page ID; 0 means "use the built-in path".
 		'page_schedule'              => array(
 			'type'     => 'page_id',
@@ -314,6 +359,13 @@ function blueline_settings_defaults(): array {
 		'hero_in_season_headline'    => '%1$s %2$s this week.',
 		'hero_playoffs_eyebrow'      => '%s · Playoffs',
 		'hero_offseason_headline'    => 'Back on the ice %s.',
+		// The banner ships off: no text, no window, quiet tone. Installing
+		// this release must not put a strip of copy above every page.
+		'announcement_text'          => '',
+		'announcement_link'          => 0,
+		'announcement_from'          => '',
+		'announcement_to'            => '',
+		'announcement_severity'      => 'info',
 		'page_schedule'              => 0,
 		'page_standings'             => 0,
 		'page_register'              => 0,

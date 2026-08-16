@@ -261,6 +261,74 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
+	 * The `date` field's schema entry, reused by the group of tests below.
+	 *
+	 * @return array
+	 */
+	private function date_field(): array {
+		return array(
+			'type'  => 'date',
+			'label' => 'Announcement banner — last day shown',
+		);
+	}
+
+	/**
+	 * A well-formed Y-m-d is stored verbatim -- the stored format and the
+	 * format `<input type="date">` submits are deliberately the same string.
+	 */
+	public function test_date_fields_accept_a_strict_ymd(): void {
+		$this->assertSame( '2026-09-30', blueline_sanitize_field( '2026-09-30', $this->date_field() ) );
+	}
+
+	/**
+	 * Empty is a legitimate value, not a rejection: both announcement-window
+	 * bounds are optional, and '' is what "no bound" is stored as.
+	 */
+	public function test_date_fields_accept_an_empty_value(): void {
+		$this->assertSame( '', blueline_sanitize_field( '', $this->date_field() ) );
+		$this->assertSame( '', blueline_sanitize_field( '   ', $this->date_field() ) );
+	}
+
+	/**
+	 * A malformed value is refused with a WP_Error rather than coerced to
+	 * '' -- following the `email` branch's precedent. Coercing would turn
+	 * "shown until the 30th" into "shown forever" and still report a
+	 * successful save.
+	 */
+	public function test_date_fields_reject_a_malformed_value(): void {
+		$result = blueline_sanitize_field( 'next tuesday', $this->date_field() );
+
+		$this->assertTrue( is_wp_error( $result ) );
+		$this->assertSame( 'blueline_invalid_date', $result->get_error_code() );
+		$this->assertStringContainsString( 'Announcement banner', $result->get_error_message() );
+	}
+
+	/**
+	 * The round-trip comparison, not merely "did it parse": PHP's date
+	 * parser accepts an out-of-range day and rolls it over (30 February
+	 * becomes 2 March), which would store a date the admin never typed.
+	 */
+	public function test_date_fields_reject_a_rolled_over_calendar_date(): void {
+		$this->assertTrue( is_wp_error( blueline_sanitize_field( '2026-02-30', $this->date_field() ) ) );
+		$this->assertTrue( is_wp_error( blueline_sanitize_field( '2026-13-01', $this->date_field() ) ) );
+	}
+
+	/**
+	 * Loose but recognisable forms are refused too. `<input type="date">`
+	 * never submits these, but a paste, a WP-CLI import or a direct
+	 * `update_option()` can, and each would compare wrong against a stored
+	 * strict Y-m-d.
+	 */
+	public function test_date_fields_reject_loose_formats(): void {
+		foreach ( array( '2026-9-1', '30/09/2026', '2026-09-30 12:00:00', 'September 30, 2026' ) as $loose ) {
+			$this->assertTrue(
+				is_wp_error( blueline_sanitize_field( $loose, $this->date_field() ) ),
+				"'$loose' must not be storable as a date"
+			);
+		}
+	}
+
+	/**
 	 * Fix round 1 (Task 8): `type => 'email'` must actually GUARANTEE the
 	 * value is a real email address -- before this fix it fell through to
 	 * the exact same sanitize_text_field()-only path as a plain `text`
@@ -607,9 +675,12 @@ final class SettingsSanitizeTest extends TestCase {
 	 * `module_new_here_cta`, `account_empty_next_game`,
 	 * `account_empty_stats`), 7 hero fields each carrying a real,
 	 * non-empty `placeholders` contract, the 2 Appearance fields (the
-	 * hero photograph list and its rotation flag), and the 16 `section`
-	 * presence toggles (12 plus the Task 5 fix round's 4
-	 * `chrome_footer_widgets_N` entries) generated from blueline_section_definitions()
+	 * hero photograph list and its rotation flag), Task 6's 5 announcement-
+	 * banner fields (2 of them the first `date`-typed fields in the schema,
+	 * both defaulting to the empty "no bound" value that branch has to
+	 * accept), and the 16 `section` presence toggles (12 plus the Task 5 fix
+	 * round's 4 `chrome_footer_widgets_N` entries) generated from
+	 * blueline_section_definitions()
 	 * (inc/settings/sections.php) -- must still validate through
 	 * blueline_sanitize_field() unchanged. A default that failed here would
 	 * mean the panel ships an un-saveable field the moment an admin opens
@@ -625,7 +696,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 42, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 47, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );

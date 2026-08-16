@@ -6,3 +6,4 @@ import './table-scroll.js';
 import './calendar-links.js';
 import './account.js';
 import './sponsors.js';
+import './announcement.js';

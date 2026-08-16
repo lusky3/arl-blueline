@@ -111,6 +111,31 @@ if ( ! function_exists( 'checked' ) ) {
 		return $result;
 	}
 }
+if ( ! function_exists( 'selected' ) ) {
+	/**
+	 * Stand-in for WordPress' selected(), built the same way as checked()
+	 * above and for the same reason -- the loose string comparison and the
+	 * literal `selected="selected"` string are what core's own shared
+	 * __checked_selected_helper() produces, so a test asserting against this
+	 * stub is asserting something true of the real function.
+	 *
+	 * Added for Task 6 (P1b-panel-completion): blueline_settings_render_field()
+	 * had never been exercised for a `band_photos` field before, and its
+	 * alignment `<option>` list is the theme's only selected() call site.
+	 *
+	 * @param mixed $selected    One of the values to compare.
+	 * @param mixed $current     The other value to compare (default true).
+	 * @param bool  $should_echo Whether to echo the result (default true).
+	 * @return string ` selected="selected"` or an empty string.
+	 */
+	function selected( $selected, $current = true, $should_echo = true ) {
+		$result = ( (string) $selected === (string) $current ) ? ' selected="selected"' : '';
+		if ( $should_echo ) {
+			echo $result; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub mirroring core's own unescaped echo; the literal string is not user input.
+		}
+		return $result;
+	}
+}
 if ( ! function_exists( 'home_url' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' home_url().
@@ -442,6 +467,12 @@ function &blueline_test_state(): array {
 		// always-false is_active_sidebar() behaviour for every test that
 		// never seeds it.
 		'active_sidebars' => array(),
+		// The site's configured timezone, as wp_timezone() below hands it
+		// back -- added for Task 6 (P1b-panel-completion). Defaults to the
+		// zone this league actually plays in rather than UTC, deliberately:
+		// a date helper that quietly ignored the site zone would still pass
+		// every assertion written against a UTC-configured stub.
+		'timezone'        => 'America/Toronto',
 	);
 
 	return $state;
@@ -548,6 +579,7 @@ function blueline_test_reset_state(): void {
 		'terms'           => array(),
 		'post_terms'      => array(),
 		'active_sidebars' => array(),
+		'timezone'        => 'America/Toronto',
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -982,6 +1014,26 @@ if ( ! function_exists( 'is_active_sidebar' ) ) {
 		$state = blueline_test_state();
 
 		return ! empty( $state['active_sidebars'][ $index ] );
+	}
+}
+if ( ! function_exists( 'wp_timezone' ) ) {
+	/**
+	 * Stand-in for WordPress' wp_timezone(). The only part of its behaviour
+	 * this theme depends on -- and therefore the only part this stub
+	 * reproduces -- is that it hands back a DateTimeZone for the site's own
+	 * configured timezone, which blueline_site_timestamp()
+	 * (inc/announcement.php) resolves admin-entered dates against.
+	 *
+	 * The zone comes from blueline_test_state()'s 'timezone' entry so a test
+	 * can change it and assert the resolved instant moves with it; its
+	 * default is deliberately NOT UTC (see that entry's own comment).
+	 *
+	 * @return DateTimeZone
+	 */
+	function wp_timezone() {
+		$state = blueline_test_state();
+
+		return new DateTimeZone( $state['timezone'] );
 	}
 }
 if ( ! function_exists( 'wp_get_sidebars_widgets' ) ) {

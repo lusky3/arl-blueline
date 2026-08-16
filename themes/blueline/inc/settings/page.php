@@ -826,7 +826,10 @@ function blueline_settings_render_page(): void {
  * "Registration", never types a raw term ID; a plain number input for a
  * `term_id` field that does NOT declare a taxonomy (no such field exists
  * today, but the branch stays available for one that has no taxonomy to
- * pick from); text/email otherwise), and, when this field failed the last
+ * pick from); an `<input type="date">` for a `date` field -- Task 6, and
+ * without it a `date` would fall through to the plain text input, since an
+ * unrecognised type does not error here, it simply takes the last branch;
+ * text/email otherwise), and, when this field failed the last
  * save, `aria-invalid`, `aria-describedby` and a visible error paragraph
  * that does not rely on colour alone (an explicit "Error:" prefix plus
  * text, in addition to the `bl-settings-field--error` class a stylesheet
@@ -834,7 +837,13 @@ function blueline_settings_render_page(): void {
  *
  * `page_id`/`term_id` fields never fail validation -- blueline_sanitize_field()
  * sanitizes both with absint(), which cannot return a WP_Error -- so
- * neither branch below needs to handle an error state.
+ * neither branch below needs to handle an error state. A `date` field CAN
+ * (a malformed date is a WP_Error, not a coercion), so its branch carries
+ * the same aria wiring the text input does.
+ *
+ * A field's `help` string is printed once, after whichever branch ran, for
+ * every type. It used to be printed inside the `bool`/`section` branch
+ * alone, which silently dropped `help` on any other type.
  *
  * @param string      $field_key     A blueline_settings_schema() key.
  * @param array       $field         That key's schema entry.
@@ -891,26 +900,6 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					value="1"
 					<?php checked( (bool) $value ); ?>
 				>
-				<?php if ( ! empty( $field['help'] ) ) : ?>
-					<p class="description"><?php echo esc_html( (string) $field['help'] ); ?></p>
-				<?php endif; ?>
-				<?php
-				/*
-				 * Task 5 (P1b-panel-completion): a `section` field mapped to a
-				 * populated widget area (today, the four `chrome_footer_widgets_N`
-				 * keys -- see blueline_section_widget_warning()'s own docblock
-				 * for the real per-area mapping) gets a second, distinct notice
-				 * naming the live widget count, so switching it off doesn't read
-				 * as "delete my widgets" to whoever's holding the mouse. '' for a
-				 * `bool` field (no key in blueline_section_widget_warning()'s
-				 * $areas map matches a non-`section` field's key) and for any
-				 * `section` field with no widget area behind it or an empty one.
-				 */
-				$widget_warning = 'section' === $type ? blueline_section_widget_warning( $field_key ) : '';
-				?>
-				<?php if ( '' !== $widget_warning ) : ?>
-					<p class="description"><?php echo esc_html( $widget_warning ); ?></p>
-				<?php endif; ?>
 			<?php elseif ( 'page_id' === $type ) : ?>
 				<?php
 				wp_dropdown_pages(
@@ -937,6 +926,32 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					)
 				);
 				?>
+			<?php elseif ( 'date' === $type ) : ?>
+				<?php
+				/*
+				 * Task 6: without this branch a `date` field falls through
+				 * to the plain text input below -- no error, just a text box
+				 * an admin has to know to type YYYY-MM-DD into, against a
+				 * sanitizer that rejects anything else. `<input type="date">`
+				 * is what makes the stored format and the entered format the
+				 * same thing.
+				 *
+				 * Unlike `page_id`/`term_id`, a `date` CAN fail validation
+				 * (blueline_sanitize_field() returns a WP_Error for a
+				 * malformed value), so this branch carries the same
+				 * aria-invalid/aria-describedby wiring the text input does.
+				 */
+				?>
+				<input
+					type="date"
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $name ); ?>"
+					value="<?php echo esc_attr( (string) $value ); ?>"
+					<?php
+					if ( $has_error ) :
+						?>
+						aria-invalid="true" aria-describedby="<?php echo esc_attr( $error_id ); ?>"<?php endif; ?>
+				>
 			<?php elseif ( 'term_id' === $type ) : ?>
 				<input
 					type="number"
@@ -959,6 +974,39 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 						?>
 						aria-invalid="true" aria-describedby="<?php echo esc_attr( $error_id ); ?>"<?php endif; ?>
 				>
+			<?php endif; ?>
+
+			<?php
+			/*
+			 * A field's `help` string renders once, here, for EVERY type --
+			 * not inside each branch. It used to live inside the
+			 * `bool`/`section` branch alone, which meant a `help` string on
+			 * any other type was accepted by the schema, listed in its
+			 * docblock, and then silently dropped at render: the panel would
+			 * have promised an explanation it never printed. Task 6's
+			 * announcement fields are the first `text`/`page_id`/`date`
+			 * fields to carry one.
+			 */
+			?>
+			<?php if ( ! empty( $field['help'] ) ) : ?>
+				<p class="description"><?php echo esc_html( (string) $field['help'] ); ?></p>
+			<?php endif; ?>
+
+			<?php
+			/*
+			 * Task 5 (P1b-panel-completion): a `section` field mapped to a
+			 * populated widget area (today, the four `chrome_footer_widgets_N`
+			 * keys -- see blueline_section_widget_warning()'s own docblock
+			 * for the real per-area mapping) gets a second, distinct notice
+			 * naming the live widget count, so switching it off doesn't read
+			 * as "delete my widgets" to whoever's holding the mouse. '' for
+			 * every non-`section` field, and for any `section` field with no
+			 * widget area behind it or an empty one.
+			 */
+			$widget_warning = 'section' === $type ? blueline_section_widget_warning( $field_key ) : '';
+			?>
+			<?php if ( '' !== $widget_warning ) : ?>
+				<p class="description"><?php echo esc_html( $widget_warning ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( $has_error ) : ?>
@@ -1065,10 +1113,14 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 			</button>
 		</p>
 
-		<?php if ( ! empty( $field['help'] ) ) : ?>
-			<p class="description"><?php echo esc_html( (string) $field['help'] ); ?></p>
-		<?php endif; ?>
-
+		<?php
+		/*
+		 * This field's `help` string is NOT printed here: since Task 6,
+		 * blueline_settings_render_field() prints it once for every field
+		 * type, immediately after whichever input branch ran. Printing it
+		 * again here would render it twice for this one field.
+		 */
+		?>
 		<template data-bl-photos-template>
 			<li class="bl-photos__item" data-bl-photos-item>
 				<img class="bl-photos__thumb" src="" alt="" width="60" height="60">

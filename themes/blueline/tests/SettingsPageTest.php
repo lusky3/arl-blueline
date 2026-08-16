@@ -181,6 +181,11 @@ final class SettingsPageTest extends TestCase {
 			array(
 				'account_empty_next_game',
 				'account_empty_stats',
+				'announcement_from',
+				'announcement_link',
+				'announcement_severity',
+				'announcement_text',
+				'announcement_to',
 				'contact_email',
 				'footer_heading',
 				'footer_location',
@@ -768,6 +773,87 @@ final class SettingsPageTest extends TestCase {
 		$html = ob_get_clean();
 
 		$this->assertStringNotContainsString( 'class="description"', $html );
+	}
+
+	/**
+	 * Task 6: a `date` field renders a real `<input type="date">`. Without
+	 * its own branch an unknown type silently falls through to the plain
+	 * text input at the end of the dispatch -- no error, just a text box an
+	 * admin has to know to type YYYY-MM-DD into, against a sanitizer that
+	 * rejects everything else.
+	 */
+	public function test_a_date_field_renders_a_date_input(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'announcement_to',
+			blueline_settings_schema()['announcement_to'],
+			null
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'type="date"', $html );
+		$this->assertStringNotContainsString( 'type="text"', $html );
+	}
+
+	/**
+	 * A `date` field CAN fail validation (unlike `page_id`/`term_id`), so
+	 * its branch has to carry the same aria wiring the text input does.
+	 */
+	public function test_a_date_field_with_an_error_carries_the_aria_wiring(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'announcement_to',
+			blueline_settings_schema()['announcement_to'],
+			'Not a date.'
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'aria-invalid="true"', $html );
+		$this->assertStringContainsString( 'aria-describedby=', $html );
+		$this->assertStringContainsString( 'Not a date.', $html );
+	}
+
+	/**
+	 * Task 6: `help` reaches the rendered row for EVERY field type, not
+	 * only for `bool`/`section`. It used to be printed inside that one
+	 * branch, so a `help` string on a `text`, `page_id` or `date` field was
+	 * accepted by the schema and then silently dropped -- the panel
+	 * promising an explanation it never printed. These three fields are the
+	 * first of each of those types to carry one.
+	 */
+	public function test_help_text_reaches_the_row_for_non_checkbox_types(): void {
+		foreach ( array( 'announcement_text', 'announcement_link', 'announcement_from' ) as $field_key ) {
+			ob_start();
+			blueline_settings_render_field( $field_key, blueline_settings_schema()[ $field_key ], null );
+			$html = (string) ob_get_clean();
+
+			$this->assertStringContainsString(
+				'class="description"',
+				$html,
+				"$field_key declares a help string that never reached the rendered row"
+			);
+		}
+	}
+
+	/**
+	 * The `band_photos` field's help must appear exactly ONCE. Its own
+	 * renderer used to print it as well as the row, which the generic
+	 * help block above would have turned into a duplicate paragraph.
+	 */
+	public function test_the_band_photos_help_renders_exactly_once(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'hero_photos',
+			blueline_settings_schema()['hero_photos'],
+			null
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertSame(
+			1,
+			substr_count( $html, 'Leave empty to use the photographs that ship with the theme.' ),
+			'the hero photograph help string is printed twice'
+		);
 	}
 
 	/**
