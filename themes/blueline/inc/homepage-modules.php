@@ -1139,7 +1139,7 @@ function blueline_homepage_new_here_default_content() {
  * the theme's own default copy instead.
  */
 function blueline_homepage_module_new_here() {
-	blueline_homepage_module_start( 'new_here', __( 'Never played? Perfect.', 'blueline' ), blueline_resolve_link( 'page_faqs' ), __( 'Read the FAQs', 'blueline' ) );
+	blueline_homepage_module_start( 'new_here', blueline_settings( 'module_new_here_heading' ), blueline_resolve_link( 'page_faqs' ), blueline_settings( 'module_new_here_cta' ) );
 
 	if ( function_exists( 'blueline_leaf_mark' ) ) {
 		blueline_leaf_mark( 'bl-new-here__watermark' );

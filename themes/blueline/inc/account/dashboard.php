@@ -491,7 +491,7 @@ function blueline_account_render_next_game( int $player_id ) {
 	blueline_account_module_start( 'next-game', __( 'My next game', 'blueline' ) );
 
 	if ( ! $event ) {
-		blueline_account_module_empty_state( __( 'No upcoming game on your schedule yet.', 'blueline' ) );
+		blueline_account_module_empty_state( blueline_settings( 'account_empty_next_game' ) );
 	} else {
 		$opponent_name = $event['opponent_team_id']
 			? ( function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $event['opponent_team_id'] ) : get_the_title( $event['opponent_team_id'] ) )
@@ -618,7 +618,7 @@ function blueline_account_render_season_stats( int $player_id ) {
 		</div>
 	</dl>
 	<?php if ( ! array_filter( $stats ) ) : ?>
-		<p class="bl-account-stats__hint"><?php esc_html_e( 'Stats update after each game is scored.', 'blueline' ); ?></p>
+		<p class="bl-account-stats__hint"><?php echo esc_html( blueline_settings( 'account_empty_stats' ) ); ?></p>
 	<?php endif; ?>
 	<?php
 	blueline_account_module_end();

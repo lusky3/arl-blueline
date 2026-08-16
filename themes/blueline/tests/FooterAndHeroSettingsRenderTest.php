@@ -118,6 +118,48 @@ final class FooterAndHeroSettingsRenderTest extends TestCase {
 	}
 
 	/**
+	 * Render blueline_homepage_module_new_here() and capture its output.
+	 *
+	 * @return string
+	 */
+	private function render_new_here(): string {
+		ob_start();
+		blueline_homepage_module_new_here();
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Task 8 (fix round 2): changing `module_new_here_heading` through a
+	 * real save changes the "new here" module's rendered `<h2>` heading --
+	 * not merely the stored option value.
+	 */
+	public function test_changing_the_new_here_heading_changes_the_rendered_heading(): void {
+		$default_html = $this->render_new_here();
+		$this->assertStringContainsString( 'Never played? Perfect.', $default_html );
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'module_new_here_heading' => 'Never skated? Come anyway.' ) );
+
+		$changed_html = $this->render_new_here();
+		$this->assertStringContainsString( 'Never skated? Come anyway.', $changed_html );
+		$this->assertStringNotContainsString( 'Never played? Perfect.', $changed_html );
+	}
+
+	/**
+	 * The equivalent guarantee for `module_new_here_cta`, the module's
+	 * "Read the FAQs" link label.
+	 */
+	public function test_changing_the_new_here_cta_changes_the_rendered_link_label(): void {
+		$default_html = $this->render_new_here();
+		$this->assertStringContainsString( 'Read the FAQs', $default_html );
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'module_new_here_cta' => 'See the FAQs' ) );
+
+		$changed_html = $this->render_new_here();
+		$this->assertStringContainsString( 'See the FAQs', $changed_html );
+		$this->assertStringNotContainsString( 'Read the FAQs', $changed_html );
+	}
+
+	/**
 	 * The concrete reason `contact_email` is now validated with is_email()
 	 * (inc/settings/sanitize.php): a value shaped like an href-injection
 	 * attempt (a space and a double quote -- the exact characters needed to

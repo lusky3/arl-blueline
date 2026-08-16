@@ -99,6 +99,34 @@ function blueline_settings_schema(): array {
 			'label'        => 'Off-season CTA label',
 			'placeholders' => array(),
 		),
+		// Task 8 (fix round 2): the remaining four hardcoded copy strings --
+		// the "Never played? Perfect." module's heading and CTA label, and
+		// two account-dashboard empty-state lines -- none of which ever
+		// carries a sprintf() placeholder, hence `array()` on all four.
+		'module_new_here_heading'    => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Homepage "new here" module heading',
+			'placeholders' => array(),
+		),
+		'module_new_here_cta'        => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Homepage "new here" module CTA label',
+			'placeholders' => array(),
+		),
+		'account_empty_next_game'    => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'My Account — "next game" empty-state line',
+			'placeholders' => array(),
+		),
+		'account_empty_stats'        => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'My Account — "season stats" empty-state line',
+			'placeholders' => array(),
+		),
 		// Hero copy carrying a live sprintf() placeholder contract (Task 8).
 		// Each label spells out what the placeholder becomes so a volunteer
 		// editing the field cannot omit or reorder it without understanding
@@ -272,6 +300,10 @@ function blueline_settings_defaults(): array {
 		'footer_heading'             => 'The League',
 		'footer_location'            => 'Burlington, Ontario',
 		'hero_offseason_cta'         => 'Join the mailing list',
+		'module_new_here_heading'    => 'Never played? Perfect.',
+		'module_new_here_cta'        => 'Read the FAQs',
+		'account_empty_next_game'    => 'No upcoming game on your schedule yet.',
+		'account_empty_stats'        => 'Stats update after each game is scored.',
 		'hero_registration_headline' => 'Burlington’s %s league.',
 		'hero_registration_eyebrow'  => '%s · Registration open',
 		'hero_registration_cta'      => 'Register — %s',

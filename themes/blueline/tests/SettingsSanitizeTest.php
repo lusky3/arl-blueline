@@ -602,7 +602,10 @@ final class SettingsSanitizeTest extends TestCase {
 	/**
 	 * Integration check against the real schema, not a hand-built fixture:
 	 * every schema field's own default -- the original 13 fields with a
-	 * zero-placeholder contract, 7 hero fields each carrying a real,
+	 * zero-placeholder contract, Task 8 (fix round 2)'s 4 further
+	 * zero-placeholder text fields (`module_new_here_heading`,
+	 * `module_new_here_cta`, `account_empty_next_game`,
+	 * `account_empty_stats`), 7 hero fields each carrying a real,
 	 * non-empty `placeholders` contract, the 2 Appearance fields (the
 	 * hero photograph list and its rotation flag), and the 12 `section`
 	 * presence toggles generated from blueline_section_definitions()
@@ -621,7 +624,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 34, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 38, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );

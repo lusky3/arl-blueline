@@ -228,4 +228,31 @@ final class AccountSectionsTest extends TestCase {
 		$this->assertArrayHasKey( blueline_account_slug_query_var( 'registrations' ), $items );
 		$this->assertArrayHasKey( blueline_account_slug_query_var( 'edit-account' ), $items );
 	}
+
+	/**
+	 * Task 8 (fix round 2): the "no upcoming game" empty-state line comes
+	 * from `account_empty_next_game`, not a hardcoded literal -- a real save
+	 * changes what renders, not merely what's stored.
+	 */
+	public function test_the_next_game_empty_state_comes_from_settings(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_next_game' => 'Nothing on the schedule for you just yet.' ) );
+
+		$html = $this->render( static fn() => blueline_account_render_next_game( 66 ) );
+
+		$this->assertStringContainsString( 'Nothing on the schedule for you just yet.', $html );
+	}
+
+	/**
+	 * The equivalent guarantee for the season-stats hint line and
+	 * `account_empty_stats` -- rendered whenever every stat is still zero
+	 * (blueline_get_player_season_stats()'s own zero-filled contract for an
+	 * unknown player id, per that function's docblock).
+	 */
+	public function test_the_season_stats_empty_state_comes_from_settings(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_stats' => 'Check back after your first game.' ) );
+
+		$html = $this->render( static fn() => blueline_account_render_season_stats( 66 ) );
+
+		$this->assertStringContainsString( 'Check back after your first game.', $html );
+	}
 }

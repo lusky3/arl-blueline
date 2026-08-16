@@ -178,6 +178,8 @@ final class SettingsPageTest extends TestCase {
 		sort( $content_keys );
 		$this->assertSame(
 			array(
+				'account_empty_next_game',
+				'account_empty_stats',
 				'contact_email',
 				'footer_heading',
 				'footer_location',
@@ -189,6 +191,8 @@ final class SettingsPageTest extends TestCase {
 				'hero_registration_cta',
 				'hero_registration_eyebrow',
 				'hero_registration_headline',
+				'module_new_here_cta',
+				'module_new_here_heading',
 			),
 			$content_keys
 		);
