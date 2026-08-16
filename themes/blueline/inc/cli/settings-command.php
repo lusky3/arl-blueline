@@ -22,7 +22,10 @@
  * below, runs every recognised field through the same
  * blueline_sanitize_field() guard 3's write would ultimately trigger --
  * directly, rather than through update_option() -- and then prints what
- * would change instead of changing it. See import()'s own docblock.)
+ * would change instead of changing it. The preview is built from that
+ * sanitizer's OWN return values, not from the file's text, because
+ * sanitizing normalises as well as validates; see import()'s own docblock
+ * and blueline_settings_cli_sanitize_payload().)
  *
  * 1. `current_user_can( 'manage_options' )` -- the SAME capability the
  *    panel itself requires (inc/settings/page.php's blueline_settings_add_page()
@@ -174,20 +177,38 @@ function blueline_settings_cli_prepare_import( array $payload, int $current_sche
 /**
  * Dry-run every schema-recognised key in $payload through
  * blueline_sanitize_field() -- the SAME validator import's real
- * update_option() call ultimately triggers via
- * sanitize_option_{$option} -- WITHOUT writing anything. A key the schema
- * does not recognise is silently skipped here too (not reported as an
- * error): update_option() would drop it the same way, so it is not a
- * validation failure, just a key with no field to validate against.
+ * update_option() call ultimately triggers via sanitize_option_{$option} --
+ * WITHOUT writing anything, returning BOTH what each field would become and
+ * what was rejected.
+ *
+ * The `values` half is what makes a preview honest. blueline_sanitize_field()
+ * does not only accept or reject: it NORMALISES, most visibly through
+ * sanitize_text_field()'s trim. A preview built from the raw payload would
+ * report `"The ARL" -> "  The ARL  "` for a file whose import changes
+ * nothing at all, which is the preview being wrong about the one thing it
+ * exists to be right about. Only `values` describes what would actually be
+ * stored.
+ *
+ * A key the schema does not recognise is skipped by both halves (not
+ * reported as an error and not given a value): update_option() would drop
+ * it rather than reject it, so it is not a validation failure, just a key
+ * with no field to validate against. `import`/`validate` report those
+ * separately via blueline_settings_cli_dropped_keys().
+ *
+ * A key that IS rejected appears in `errors` and is absent from `values` --
+ * a rejected field keeps its currently-stored value, so there is no
+ * "would be stored" value to offer for it.
  *
  * @param array<string, mixed>                $payload Payload already run
  *                                                       through
  *                                                       blueline_settings_cli_prepare_import().
- * @param array<string, array<string, mixed>> $schema blueline_settings_schema().
- * @return string[] One human-readable message per rejected field; empty
- *                   when every recognised field validates cleanly.
+ * @param array<string, array<string, mixed>> $schema  blueline_settings_schema().
+ * @return array{values: array<string, mixed>, errors: string[]} The value
+ *               each recognised, accepted field would be stored as, and one
+ *               human-readable message per rejected field.
  */
-function blueline_settings_cli_validate_payload( array $payload, array $schema ): array {
+function blueline_settings_cli_sanitize_payload( array $payload, array $schema ): array {
+	$values = array();
 	$errors = array();
 
 	foreach ( $payload as $key => $value ) {
@@ -199,10 +220,32 @@ function blueline_settings_cli_validate_payload( array $payload, array $schema )
 
 		if ( is_wp_error( $result ) ) {
 			$errors[] = $result->get_error_message();
+			continue;
 		}
+
+		$values[ $key ] = $result;
 	}
 
-	return $errors;
+	return array(
+		'values' => $values,
+		'errors' => $errors,
+	);
+}
+
+/**
+ * The rejection messages half of blueline_settings_cli_sanitize_payload()
+ * -- what `validate` needs, which has no diff to draw and so no use for the
+ * sanitized values.
+ *
+ * @param array<string, mixed>                $payload Payload already run
+ *                                                       through
+ *                                                       blueline_settings_cli_prepare_import().
+ * @param array<string, array<string, mixed>> $schema  blueline_settings_schema().
+ * @return string[] One human-readable message per rejected field; empty
+ *                   when every recognised field validates cleanly.
+ */
+function blueline_settings_cli_validate_payload( array $payload, array $schema ): array {
+	return blueline_settings_cli_sanitize_payload( $payload, $schema )['errors'];
 }
 
 /**
@@ -288,6 +331,14 @@ function blueline_settings_cli_diff_lines( array $diff ): array {
 				break;
 
 			case 'added':
+				// Not reachable from `import --dry-run` today: its $from
+				// side is blueline_settings(), which returns EVERY schema
+				// key (falling back to defaults), so no payload key can be
+				// absent from it. Kept because blueline_settings_diff() is
+				// a general two-state comparison with its own tests and
+				// other callers to come -- a renderer that silently dropped
+				// one of its four states would be a trap for the first of
+				// them. Covered directly by SettingsSnapshotsTest.
 				$lines[] = sprintf(
 					'%s %s: %s',
 					str_pad( 'added', 16 ),
@@ -516,30 +567,31 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * @return void
 	 */
 	private function preview_import( array $prepared ): void {
-		$schema = blueline_settings_schema();
-		$errors = blueline_settings_cli_validate_payload( $prepared, $schema );
+		$schema    = blueline_settings_schema();
+		$sanitized = blueline_settings_cli_sanitize_payload( $prepared, $schema );
 
-		if ( ! empty( $errors ) ) {
-			foreach ( $errors as $message ) {
+		if ( ! empty( $sanitized['errors'] ) ) {
+			foreach ( $sanitized['errors'] as $message ) {
 				WP_CLI::warning( $message );
 			}
 			WP_CLI::error(
 				sprintf(
 					/* translators: %d: how many fields failed validation. */
 					__( '%d field(s) would be rejected. Nothing was written; fix the file and re-run to see the diff.', 'blueline' ),
-					count( $errors )
+					count( $sanitized['errors'] )
 				)
 			);
 			return;
 		}
 
-		// Unrecognised keys are already reported separately (and would be
-		// dropped by the write), so they are excluded here rather than
-		// shown as settings that would be "added".
-		$diff = blueline_settings_diff(
-			blueline_settings(),
-			array_intersect_key( $prepared, $schema )
-		);
+		// The SANITIZED values, never the raw payload: blueline_sanitize_field()
+		// normalises as well as validates (sanitize_text_field() trims, for
+		// one), so a diff against the file's own text would report a change
+		// to a value the import is never going to store. Unrecognised keys
+		// are not in `values` at all -- they are reported separately and
+		// would be dropped by the write, so they must not appear here as
+		// settings that would be "added".
+		$diff = blueline_settings_diff( blueline_settings(), $sanitized['values'] );
 
 		foreach ( blueline_settings_cli_diff_lines( $diff ) as $line ) {
 			WP_CLI::log( $line );

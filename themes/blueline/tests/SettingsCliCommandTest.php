@@ -552,6 +552,40 @@ final class SettingsCliCommandTest extends TestCase {
 	}
 
 	/**
+	 * The preview must describe what would be STORED, not what is in the
+	 * file. Those differ whenever the sanitizer normalises a value:
+	 * sanitize_text_field() trims, so a payload of "  The ARL  " against a
+	 * stored "The ARL" imports as a change to nothing at all.
+	 *
+	 * Previewing the raw payload instead reports a `changed` line and a
+	 * `to` value that will never exist in the database -- the preview being
+	 * wrong about the one thing it exists to be right about.
+	 */
+	public function test_import_dry_run_previews_the_value_that_would_be_stored_not_the_raw_payload(): void {
+		$this->grant_manage_options();
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The ARL' ) );
+
+		$path = $this->write_temp_json( array( 'footer_heading' => '  The ARL  ' ) );
+
+		( new Blueline_Settings_Command() )->import( array( $path ), array( 'dry-run' => true ) );
+
+		$line = implode(
+			"\n",
+			array_filter(
+				explode( "\n", $this->cli_output() ),
+				static fn( $candidate ) => str_contains( $candidate, 'footer_heading' )
+			)
+		);
+
+		$this->assertStringContainsString( 'unchanged', $line );
+		$this->assertStringNotContainsString( '  The ARL  ', $line, 'the untrimmed value is never what gets stored' );
+
+		// And the claim the preview makes is the one the real import keeps.
+		( new Blueline_Settings_Command() )->import( array( $path ), array() );
+		$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
+	}
+
+	/**
 	 * A dry run's unrecognised-key warning must speak in the conditional:
 	 * saying a key "was not imported" when nothing was imported at all is
 	 * exactly the kind of claim-more-than-the-code-does copy this settings

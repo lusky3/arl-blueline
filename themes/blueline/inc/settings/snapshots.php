@@ -2,9 +2,11 @@
 /**
  * Save snapshots for the Appearance -> Blueline control panel: a short,
  * timestamped history of what the settings option held BEFORE each save,
- * the restore that puts one back, and the three-way diff both the restore
+ * the restore that puts one back, and the four-state diff both the restore
  * screen's sibling (`wp blueline settings import --dry-run`) and any future
- * preview are built on.
+ * preview are built on -- four rather than three because "absent from the
+ * payload, so the stored value is carried forward" is its own state, and
+ * the one an admin most needs to see (see blueline_settings_diff()).
  *
  * Why a history at all, when the panel already has `reset`: reset writes
  * defaults over everything, which for content fields discards every word

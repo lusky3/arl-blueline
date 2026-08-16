@@ -579,7 +579,14 @@ function blueline_settings_maybe_restore(): void {
 
 	check_admin_referer( 'blueline_settings_restore' );
 
-	$id = absint( wp_unslash( $_POST['blueline_restore_snapshot'] ) );
+	// is_scalar() first: PHP evaluates a non-empty array to 1 on the way
+	// through absint(), so an array-shaped POST value (`...[]=x`) would
+	// silently name snapshot 1 and restore it. Nonce and capability both
+	// stand in front of this, so it is not a security hole -- it is a
+	// restore nobody asked for, which is bad enough. 0 is never a real
+	// snapshot id (they start at 1), so a non-scalar falls into the
+	// "no longer available" branch below and says so.
+	$id = is_scalar( $_POST['blueline_restore_snapshot'] ) ? absint( wp_unslash( $_POST['blueline_restore_snapshot'] ) ) : 0;
 
 	if ( blueline_settings_snapshot_restore( $id ) ) {
 		add_settings_error(
@@ -599,7 +606,13 @@ function blueline_settings_maybe_restore(): void {
 	add_settings_error(
 		BLUELINE_SETTINGS_OPTION,
 		'blueline_settings_restore_missing',
-		esc_html__( 'That saved copy is no longer available -- only the last ten are kept. Nothing was changed.', 'blueline' ),
+		esc_html(
+			sprintf(
+				/* translators: %d: how many saved copies are kept. */
+				__( 'That saved copy is no longer available -- only the last %d are kept. Nothing was changed.', 'blueline' ),
+				BLUELINE_SETTINGS_SNAPSHOT_LIMIT
+			)
+		),
 		'error'
 	);
 }
@@ -608,15 +621,23 @@ function blueline_settings_maybe_restore(): void {
  * Render the "Recent saves" list: every stored snapshot, newest first,
  * each with its own nonce-protected restore control.
  *
- * The copy here states only what tests/SettingsSnapshotsTest.php actually
- * pins about a restore -- that it writes the recorded values back through
- * the same checks an ordinary save uses, that it records the current
- * values first (so it can itself be undone), and that a setting the
- * snapshot does not carry keeps its current value rather than being reset.
- * That last one is the merge-not-replace behaviour every write to this
- * option has (inc/settings/store.php), and an admin told "this puts the
- * settings back exactly as they were" would be told something this code
- * does not do.
+ * The copy here makes three claims, and tests/SettingsSnapshotsTest.php
+ * pins one test on each -- named here so a future edit to either side can
+ * be checked against the other:
+ *
+ * - "through the same checks an ordinary save uses" --
+ *   test_restoring_an_invalid_value_keeps_the_stored_one_and_reports_it()
+ *   plants a value the sanitizer refuses into a snapshot (which nothing
+ *   validates on the way in) and proves the restore refuses it too, keeping
+ *   the stored value and reporting the refusal.
+ * - "records the current values first, so a restore can itself be undone"
+ *   -- test_a_restore_is_itself_undoable().
+ * - "a setting a saved copy does not carry keeps its current value" --
+ *   test_restore_leaves_a_key_the_snapshot_does_not_carry_alone(). This is
+ *   the merge-not-replace behaviour every write to this option has
+ *   (inc/settings/store.php), and an admin told "this puts the settings
+ *   back exactly as they were" would be told something this code does not
+ *   do.
  *
  * Each row is its own small <form> posting back to the current tab's URL,
  * rather than one form with several submit buttons, so the id being
@@ -774,19 +795,45 @@ function blueline_settings_field_input_id( string $field_key ): string {
 }
 
 /**
- * Field-level error messages from the last save, keyed by field key -- only
- * `error`-type entries, since success/info entries (e.g. "Settings saved.")
- * are not associated with any one field. Every message returned here was
- * already run through esc_html() at the point
- * blueline_settings_sanitize_callback() called add_settings_error() (see
- * this file's docblock); it is safe to echo directly, never re-escape it.
+ * Whether one queued settings error belongs to a specific FIELD -- i.e.
+ * whether blueline_settings_field_errors() should claim it and the error
+ * summary should link to it.
+ *
+ * Two conditions, and the second is the one that was missing: the entry
+ * must be an `error` (a success/info entry like "Settings saved." belongs
+ * to no field), AND its code must actually name a schema field. The
+ * summary renders a code as the field's label and links it to
+ * `#blueline-field-{code}`, so an error whose code is NOT a field -- a
+ * failed snapshot restore, for one -- rendered a raw internal key as its
+ * label and linked to an element that does not exist on the page. Those
+ * entries belong in the page-level notice list instead, which
+ * blueline_settings_non_field_messages() now takes as its complement.
+ *
+ * @param array<string, mixed> $error One get_settings_errors() entry.
+ * @return bool
+ */
+function blueline_settings_error_is_field_scoped( array $error ): bool {
+	if ( 'error' !== ( $error['type'] ?? '' ) ) {
+		return false;
+	}
+
+	return isset( blueline_settings_schema()[ $error['code'] ?? '' ] );
+}
+
+/**
+ * Field-level error messages from the last save, keyed by field key -- see
+ * blueline_settings_error_is_field_scoped() for exactly which entries
+ * qualify. Every message returned here was already run through esc_html()
+ * at the point blueline_settings_sanitize_callback() called
+ * add_settings_error() (see this file's docblock); it is safe to echo
+ * directly, never re-escape it.
  *
  * @return array<string, string> Field key => already-escaped message.
  */
 function blueline_settings_field_errors(): array {
 	$errors = array();
 	foreach ( get_settings_errors( BLUELINE_SETTINGS_OPTION ) as $error ) {
-		if ( 'error' === ( $error['type'] ?? '' ) ) {
+		if ( blueline_settings_error_is_field_scoped( $error ) ) {
 			$errors[ $error['code'] ] = $error['message'];
 		}
 	}
@@ -794,16 +841,19 @@ function blueline_settings_field_errors(): array {
 }
 
 /**
- * Non-field-specific messages from the last save (currently only the
- * generic "Settings saved." success message blueline_settings_maybe_flag_saved()
- * queues). Already-escaped, same guarantee as blueline_settings_field_errors().
+ * Every queued message that is NOT field-scoped: the generic "Settings
+ * saved." success blueline_settings_maybe_flag_saved() queues, and any
+ * page-level ERROR whose code names no field (a failed restore). The exact
+ * complement of blueline_settings_field_errors(), so every queued entry is
+ * rendered exactly once, by exactly one of the two. Already-escaped, same
+ * guarantee as blueline_settings_field_errors().
  *
  * @return array<int, array{type:string, message:string}>
  */
 function blueline_settings_non_field_messages(): array {
 	$messages = array();
 	foreach ( get_settings_errors( BLUELINE_SETTINGS_OPTION ) as $error ) {
-		if ( 'error' !== ( $error['type'] ?? '' ) ) {
+		if ( ! blueline_settings_error_is_field_scoped( $error ) ) {
 			$messages[] = array(
 				'type'    => $error['type'] ?? 'updated',
 				'message' => $error['message'],

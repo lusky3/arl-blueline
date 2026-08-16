@@ -1,8 +1,8 @@
 <?php
 /**
  * Covers inc/settings/snapshots.php -- Task 10's save history, the restore
- * that undoes a save, and the three-way diff the import preview is built
- * on.
+ * that undoes a save, and the four-state diff the import preview is built
+ * on (changed / unchanged / carried_forward / added).
  *
  * @package blueline
  */
@@ -62,18 +62,110 @@ final class SettingsSnapshotsTest extends TestCase {
 	 * Every snapshot carries an id that stays valid as newer snapshots
 	 * arrive -- a restore link built from a list POSITION would silently
 	 * point at a different snapshot the moment one more save happened.
+	 *
+	 * THREE snapshots, not two, and that is load-bearing: with two, the
+	 * oldest sits at position 1 and carries id 1, so a lookup that keyed by
+	 * position would return the right row by coincidence and this test --
+	 * the one NAMED for the id-versus-position property -- would pass
+	 * against an implementation that does not have it. With three, the
+	 * oldest is id 1 at position 2, and the two readings disagree.
 	 */
 	public function test_snapshot_ids_are_unique_and_stable_as_the_list_grows(): void {
 		blueline_settings_snapshot_take( array( 'footer_heading' => 'first' ) );
 		$first_id = blueline_settings_snapshot_list()[0]['id'];
 
 		blueline_settings_snapshot_take( array( 'footer_heading' => 'second' ) );
+		blueline_settings_snapshot_take( array( 'footer_heading' => 'third' ) );
 
 		$found = blueline_settings_snapshot_get( $first_id );
 
 		$this->assertNotNull( $found );
 		$this->assertSame( 'first', $found['settings']['footer_heading'] );
+		$this->assertSame(
+			2,
+			array_search( $first_id, array_column( blueline_settings_snapshot_list(), 'id' ), true ),
+			'the fixture only proves anything while that id and its position differ'
+		);
 		$this->assertNotSame( $first_id, blueline_settings_snapshot_list()[0]['id'] );
+	}
+
+	/**
+	 * `_posted_fields` and `_tab` describe ONE submission's form, not the
+	 * settings -- and a first-ever write leaves them in storage (see
+	 * test_a_save_that_changes_nothing_records_no_snapshot() for why), so
+	 * the value handed to this function really can carry them. They must
+	 * never become part of a snapshot a restore later replays.
+	 */
+	public function test_a_snapshot_never_records_the_request_scoped_bookkeeping_keys(): void {
+		blueline_settings_snapshot_take(
+			array(
+				'footer_heading' => 'The League',
+				'_posted_fields' => array( 'footer_heading' ),
+				'_tab'           => 'content',
+			)
+		);
+
+		$recorded = blueline_settings_snapshot_list()[0]['settings'];
+
+		$this->assertSame( array( 'footer_heading' => 'The League' ), $recorded );
+	}
+
+	/**
+	 * Nothing validates this option on write except this file, and it is
+	 * not autoloaded, so a hand-edited or half-written row is a real
+	 * possibility. A malformed row is dropped rather than returned, so the
+	 * restore screen cannot fatal on a missing `id`/`time`/`settings`.
+	 */
+	public function test_a_malformed_stored_row_is_dropped_rather_than_returned(): void {
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_SNAPSHOTS_OPTION ] = array(
+			'not even an array',
+			array( 'id' => 7 ),                       // No time, no settings.
+			array(
+				'id'       => 8,
+				'time'     => 123,
+				'settings' => 'not an array',
+			),
+			array(
+				'id'       => 9,
+				'time'     => 456,
+				'settings' => array( 'footer_heading' => 'The League' ),
+			),
+		);
+
+		$snapshots = blueline_settings_snapshot_list();
+
+		$this->assertCount( 1, $snapshots );
+		$this->assertSame( 9, $snapshots[0]['id'] );
+	}
+
+	/**
+	 * A snapshot is replayed through the ordinary write path, so a value
+	 * the sanitizer refuses is refused here too and the currently-stored
+	 * value survives.
+	 *
+	 * This matters because a snapshot is NOT itself validated on the way
+	 * in: it records whatever was stored, and `wp db import` (the same
+	 * bypass Task 9's repair path exists for) can put an invalid value
+	 * there. Restoring must not be the way that value gets laundered back
+	 * into a validated option -- and an admin must be told, which is what
+	 * the settings error asserted below becomes on screen.
+	 */
+	public function test_restoring_an_invalid_value_keeps_the_stored_one_and_reports_it(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'good@example.test' ) );
+
+		blueline_settings_snapshot_take( array( 'contact_email' => 'not an address' ) );
+
+		$this->assertTrue( blueline_settings_snapshot_restore( blueline_settings_snapshot_list()[0]['id'] ) );
+
+		$this->assertSame(
+			'good@example.test',
+			blueline_settings( 'contact_email' ),
+			'a restore must not launder an invalid value into the option'
+		);
+		$this->assertNotEmpty(
+			get_settings_errors( BLUELINE_SETTINGS_OPTION ),
+			'and the admin must be told it was refused'
+		);
 	}
 
 	/**

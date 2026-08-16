@@ -1397,6 +1397,79 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
+	 * A failed restore is a PAGE-level problem, not a field-level one, and
+	 * has to render as one.
+	 *
+	 * Field errors are keyed by code and the summary links each to
+	 * `#blueline-field-{code}`, so an
+	 * error whose code is not a schema field renders the raw internal key
+	 * as its label and links nowhere. This case is rendered, not merely
+	 * read back out of get_settings_errors(): asserting on the data alone
+	 * is exactly what let this ship -- a notice test that never looks at
+	 * markup cannot see how the notice actually looks.
+	 */
+	public function test_a_failed_restore_renders_as_a_page_notice_not_a_field_error(): void {
+		$this->grant_manage_options();
+		$this->seed_one_snapshot();
+
+		$_POST['blueline_restore_snapshot'] = '9999';
+		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'no longer available', $html );
+		$this->assertStringContainsString( 'notice notice-error', $html );
+		$this->assertStringNotContainsString( 'blueline_settings_restore_missing', $html, 'never show an internal code as a label' );
+		$this->assertStringNotContainsString( 'blueline-field-blueline_settings_restore_missing', $html, 'and never link to an element that does not exist' );
+		$this->assertStringNotContainsString( 'blueline-settings-error-summary', $html, 'no field failed, so there is no field summary' );
+	}
+
+	/**
+	 * A field rejection still routes to the error summary -- the partition
+	 * above must not have moved real field errors out of it.
+	 */
+	public function test_a_field_rejection_still_renders_in_the_error_summary(): void {
+		$this->grant_manage_options();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'footer_heading' => 'Save 50% off',
+				'_posted_fields' => array( 'footer_heading' ),
+			)
+		);
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'blueline-settings-error-summary', $html );
+		$this->assertStringContainsString( 'href="#blueline-field-footer_heading"', $html );
+	}
+
+	/**
+	 * An array-shaped POST value reaches absint() as an array, which
+	 * evaluates to 1 -- silently naming snapshot 1. Not a security hole
+	 * (nonce and capability both stand in front of it) but it is a
+	 * restore nobody asked for, so a non-scalar is refused outright.
+	 */
+	public function test_an_array_shaped_restore_id_restores_nothing(): void {
+		$this->grant_manage_options();
+		$this->seed_one_snapshot();
+
+		$this->assertSame( 1, blueline_settings_snapshot_list()[0]['id'], 'the fixture must make id 1 a real, restorable target' );
+
+		$_POST['blueline_restore_snapshot'] = array( '1' );
+		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
+
+		blueline_settings_maybe_restore();
+
+		$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
+	}
+
+	/**
 	 * No POST, no work: an ordinary page load must not restore anything or
 	 * trip the nonce check.
 	 */
