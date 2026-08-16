@@ -128,6 +128,7 @@ final class SettingsPageTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+		blueline_test_reset_state();
 		unset( $_GET['tab'], $_GET['settings-updated'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture cleanup of superglobals between cases, not a real request.
 	}
 
@@ -946,5 +947,45 @@ final class SettingsPageTest extends TestCase {
 		$this->assertStringNotContainsString( 'role="tablist"', $html );
 		$this->assertStringContainsString( 'aria-current="page"', $html );
 		$this->assertMatchesRegularExpression( '/href="[^"]*tab=links[^"]*"[^>]*class="nav-tab nav-tab-active"/', $html );
+	}
+
+	/**
+	 * Task 5 (P1b-panel-completion): `chrome_footer_trust`'s field row
+	 * carries blueline_section_widget_warning()'s own message, naming the
+	 * live widget count, when its mapped widget area (footer-2) is
+	 * populated -- proving the warning actually reaches the rendered row,
+	 * not merely that the accessor function returns a string in isolation.
+	 */
+	public function test_a_populated_widget_areas_section_field_renders_the_widget_warning(): void {
+		$state                                = &blueline_test_state();
+		$state['active_sidebars']['footer-2'] = 3;
+
+		ob_start();
+		blueline_settings_render_field(
+			'chrome_footer_trust',
+			blueline_settings_schema()['chrome_footer_trust'],
+			null
+		);
+		$html = ob_get_clean();
+
+		$this->assertStringContainsString( 'This area holds 3 widget(s)', $html );
+	}
+
+	/**
+	 * Companion case: with footer-2 empty (the default, untouched state),
+	 * `chrome_footer_trust`'s row renders no widget warning at all -- and,
+	 * since this section carries no `help` string either, no description
+	 * paragraph of any kind.
+	 */
+	public function test_an_unpopulated_widget_areas_section_field_renders_no_widget_warning(): void {
+		ob_start();
+		blueline_settings_render_field(
+			'chrome_footer_trust',
+			blueline_settings_schema()['chrome_footer_trust'],
+			null
+		);
+		$html = ob_get_clean();
+
+		$this->assertStringNotContainsString( 'class="description"', $html );
 	}
 }

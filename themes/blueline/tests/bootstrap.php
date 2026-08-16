@@ -422,7 +422,7 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
  * which reproduces the old always-false behaviour exactly, so tests written
  * against the previous stubs are unaffected.
  *
- * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>, terms:array<int,object>, post_terms:array<int,array<string,int[]>>}
+ * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>, terms:array<int,object>, post_terms:array<int,array<string,int[]>>, active_sidebars:array<string,int>}
  */
 function &blueline_test_state(): array {
 	static $state = array(
@@ -436,6 +436,12 @@ function &blueline_test_state(): array {
 		'posts'           => array(),
 		'terms'           => array(),
 		'post_terms'      => array(),
+		// Sidebar id => widget count, read by is_active_sidebar() and
+		// wp_get_sidebars_widgets() above -- added for Task 5
+		// (P1b-panel-completion). Empty by default, reproducing the pre-Task-5
+		// always-false is_active_sidebar() behaviour for every test that
+		// never seeds it.
+		'active_sidebars' => array(),
 	);
 
 	return $state;
@@ -541,6 +547,7 @@ function blueline_test_reset_state(): void {
 		'posts'           => array(),
 		'terms'           => array(),
 		'post_terms'      => array(),
+		'active_sidebars' => array(),
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -955,29 +962,74 @@ if ( ! function_exists( 'add_query_arg' ) ) {
 }
 if ( ! function_exists( 'is_active_sidebar' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' is_active_sidebar(): always false --
-	 * no test in this suite registers or populates a real sidebar, so every
-	 * caller sees "no widgets configured" (matching this suite's existing
-	 * convention: e.g. blueline_homepage_module_new_here() always falls
-	 * through to its own default content for the identical reason).
+	 * Minimal stand-in for WordPress' is_active_sidebar(): consults
+	 * blueline_test_state()'s 'active_sidebars' map (sidebar id => widget
+	 * count), true only for an id a test explicitly seeded with a non-zero
+	 * count. Default state's 'active_sidebars' is empty, so this reproduces
+	 * the old always-false behaviour exactly for every test that never
+	 * touches it (e.g. blueline_homepage_module_new_here() still falls
+	 * through to its own default content unless a test opts in).
 	 *
-	 * @param string|int $index Sidebar ID (unused, kept for signature parity).
+	 * Widened from an unconditional `return false;` for Task 5
+	 * (P1b-panel-completion): blueline_section_widget_warning() needs a
+	 * sidebar that CAN report active, with a specific widget count behind
+	 * it, to be testable at all.
+	 *
+	 * @param string|int $index Sidebar ID.
 	 * @return bool
 	 */
-	function is_active_sidebar( $index ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; always false in this stub environment.
-		return false;
+	function is_active_sidebar( $index ) {
+		$state = blueline_test_state();
+
+		return ! empty( $state['active_sidebars'][ $index ] );
+	}
+}
+if ( ! function_exists( 'wp_get_sidebars_widgets' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_sidebars_widgets(): built from
+	 * the same 'active_sidebars' map is_active_sidebar() above reads, so the
+	 * two stubs can never disagree about how many widgets a sidebar holds.
+	 * Matches core's return shape -- an array keyed by sidebar id, each an
+	 * array of widget id strings, plus a 'wp_inactive_widgets' key -- though
+	 * the widget id strings themselves are placeholders (`widget-1`,
+	 * `widget-2`, ...): no test in this suite needs a specific widget's
+	 * identity, only the count blueline_active_widget_count() derives from
+	 * count( $result[ $area ] ).
+	 *
+	 * @return array<string,string[]>
+	 */
+	function wp_get_sidebars_widgets() {
+		$state  = blueline_test_state();
+		$result = array( 'wp_inactive_widgets' => array() );
+
+		foreach ( $state['active_sidebars'] as $id => $count ) {
+			$result[ $id ] = array();
+			for ( $i = 1; $i <= $count; $i++ ) {
+				$result[ $id ][] = "widget-{$i}";
+			}
+		}
+
+		return $result;
 	}
 }
 if ( ! function_exists( 'dynamic_sidebar' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' dynamic_sidebar(): a no-op, since
-	 * is_active_sidebar() above always reports false -- nothing in this
-	 * suite ever needs it to actually render widget output.
+	 * Minimal stand-in for WordPress' dynamic_sidebar(): a no-op, regardless
+	 * of what is_active_sidebar() above reports for $index.
+	 *
+	 * Previously documented as "unreachable while is_active_sidebar() is
+	 * always false" -- that stopped being true the moment is_active_sidebar()
+	 * above was widened for Task 5 (P1b-panel-completion) to consult
+	 * blueline_test_state()'s 'active_sidebars' map, which a test can now
+	 * seed to make it report true. This stub still renders nothing when that
+	 * happens: no test in this suite asserts real widget markup, only the
+	 * WIDGET COUNT (via wp_get_sidebars_widgets() above), so there is
+	 * nothing for this stub to fake beyond the no-op it already was.
 	 *
 	 * @param string|int $index Sidebar ID (unused, kept for signature parity).
 	 * @return bool
 	 */
-	function dynamic_sidebar( $index ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; unreachable while is_active_sidebar() is always false.
+	function dynamic_sidebar( $index ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; a deliberate no-op regardless of is_active_sidebar()'s answer -- see docblock.
 		return false;
 	}
 }

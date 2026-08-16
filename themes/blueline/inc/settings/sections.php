@@ -119,3 +119,60 @@ function blueline_section_enabled( string $key ): bool {
 	// that has never opened this tab must look exactly as it did before.
 	return null === $value ? true : (bool) $value;
 }
+
+/**
+ * How many widgets currently sit in a registered widget area, straight from
+ * core's own sidebar/widget assignment store -- not the sidebar's
+ * REGISTRATION (which persists regardless of the section toggle), but what
+ * an admin actually put in it.
+ *
+ * @param string $area A registered sidebar/widget-area id (e.g. 'footer-2').
+ * @return int
+ */
+function blueline_active_widget_count( string $area ): int {
+	$sidebars_widgets = wp_get_sidebars_widgets();
+
+	return isset( $sidebars_widgets[ $area ] ) ? count( $sidebars_widgets[ $area ] ) : 0;
+}
+
+/**
+ * A warning naming the live widget count behind a section, or '' when there
+ * is nothing to warn about (the section has no widget-area mapping, or the
+ * mapped area is empty).
+ *
+ * Switching a section off (blueline_section_enabled()) hides it; it never
+ * touches the widget store -- widgets an admin already placed in the area
+ * stay exactly where they are, ready to reappear the moment the section is
+ * switched back on. Saying so, with the count, is what stops an admin
+ * assuming their widgets were deleted and rebuilding them from scratch.
+ *
+ * Only `chrome_footer_trust` maps to a real widget area (`footer-2`) today,
+ * per the plan this task implements. Worth flagging for whoever reviews
+ * this: blueline_site_footer() (inc/template-tags.php) does NOT actually
+ * gate footer-2's own `is_active_sidebar()`/`dynamic_sidebar()` loop behind
+ * `chrome_footer_trust` -- that toggle only hides the separate, hardcoded
+ * "trust column" (contact/location/FAQs/legal) next to it. footer-2 is the
+ * one widget area with real production content today, and this mapping
+ * pairs it with the nearest footer-related toggle rather than inventing one
+ * for a section that gates it directly -- no section currently does. No
+ * other key gets a mapping at all, since no other widget area holds live
+ * content to warn about.
+ *
+ * @param string $key A blueline_section_definitions() key.
+ * @return string
+ */
+function blueline_section_widget_warning( string $key ): string {
+	$areas = array(
+		'chrome_footer_trust' => 'footer-2',
+	);
+
+	if ( ! isset( $areas[ $key ] ) || ! is_active_sidebar( $areas[ $key ] ) ) {
+		return '';
+	}
+
+	return sprintf(
+		/* translators: %d: number of widgets in the area. */
+		__( 'This area holds %d widget(s). Switching it off hides them; nothing is deleted.', 'blueline' ),
+		blueline_active_widget_count( $areas[ $key ] )
+	);
+}
