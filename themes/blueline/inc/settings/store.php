@@ -192,6 +192,87 @@ function blueline_settings( string $key = '' ) {
 }
 
 /**
+ * Walk a stored settings array through blueline_sanitize_field() and swap
+ * every value the sanitizer REJECTS for that field's default, reporting
+ * each key it had to touch.
+ *
+ * ## Why a stored value can be invalid at all
+ *
+ * Every write that goes through update_option() passes
+ * blueline_settings_sanitize_callback() (inc/settings/page.php), which
+ * refuses a bad value and keeps the previously-stored one. But a value can
+ * reach the option without going through update_option() at all -- `wp db
+ * import`, a restored SQL dump, a hand-edited row, a migration script
+ * writing the table directly. Nothing revalidates it afterwards, so it
+ * stays exactly as written. For a field feeding a sprintf() call site that
+ * is not cosmetic: on PHP 8.3 a malformed format string THROWS rather than
+ * warning (see inc/settings/sanitize.php's docblock for the verified
+ * cases), so one stray "%" in the database takes the front end down for
+ * every anonymous visitor.
+ *
+ * ## Reading is the wrong place to repair
+ *
+ * blueline_settings() could have run this walk on every read and returned
+ * only safe values. That was rejected deliberately: it would mask the
+ * problem on every single request, the site would silently render defaults
+ * where an admin's own copy should be, and nobody would ever be told the
+ * stored data is broken -- the failure would only surface as "the panel
+ * shows one thing and the site shows another", which is far harder to
+ * diagnose than a fatal. It would also pay the cost of the full schema
+ * walk on every request. This function is therefore explicit, reported and
+ * opt-in: something has to CALL it (`wp blueline settings repair`), and it
+ * names every key it changed.
+ *
+ * ## What it does and does not touch
+ *
+ * - A key the schema does not declare (notably `_schema`, the migration
+ *   bookkeeping) is carried through untouched: this function's job is
+ *   field values, and dropping `_schema` would leave the store looking
+ *   unmigrated to blueline_settings_migrate().
+ * - A key absent from $stored is NOT invented. blueline_settings() already
+ *   falls back to the default for anything missing, so an absent key is
+ *   not broken and has nothing to repair.
+ * - A value the sanitizer ACCEPTS is returned exactly as it was stored,
+ *   not as the sanitizer would have rewritten it (sanitize_text_field()
+ *   trims, for instance). `repaired` is meant to be the complete list of
+ *   what changed, and silently rewriting an accepted value would make that
+ *   claim false.
+ *
+ * @param array<string, mixed> $stored The settings array as currently
+ *                                       stored (get_option()'s raw value).
+ * @return array{settings: array<string, mixed>, repaired: string[]} The
+ *               repaired settings array, and the keys whose stored value
+ *               was rejected and replaced by its default, in schema order.
+ */
+function blueline_settings_repair( array $stored ): array {
+	$schema   = blueline_settings_schema();
+	$defaults = blueline_settings_defaults();
+
+	$settings = $stored;
+	$repaired = array();
+
+	foreach ( $schema as $key => $field ) {
+		if ( ! array_key_exists( $key, $stored ) ) {
+			continue;
+		}
+
+		$result = blueline_sanitize_field( $stored[ $key ], $field );
+
+		if ( ! is_wp_error( $result ) ) {
+			continue;
+		}
+
+		$settings[ $key ] = $defaults[ $key ] ?? null;
+		$repaired[]       = $key;
+	}
+
+	return array(
+		'settings' => $settings,
+		'repaired' => $repaired,
+	);
+}
+
+/**
  * Forward-only migration of the settings option to the current schema.
  *
  * Runs on `init`, not `admin_init`: `admin_init` never fires for anonymous,

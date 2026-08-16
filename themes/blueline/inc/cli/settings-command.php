@@ -1,9 +1,9 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1). This file is named for what it does (the `settings` WP-CLI command group), not for Blueline_Settings_Command, matching this theme's established file-naming convention (inc/settings/page.php defines no class at all; every other inc/ file is named for its subject, never for a single class it happens to declare).
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed -- the three pure helpers below (blueline_settings_cli_decode_payload(), blueline_settings_cli_prepare_import(), blueline_settings_cli_validate_payload()) exist ONLY to be called from Blueline_Settings_Command's own methods, and are unit tested directly alongside it in tests/SettingsCliCommandTest.php; splitting them into a second file would scatter one command's logic across two files for no reader's benefit, the same trade-off tests/SettingsCacheTest.php's own docblock makes for its Redis fakes.
 /**
- * `wp blueline settings export|import|validate|reset` -- WP-CLI access to
- * the same one option (BLUELINE_SETTINGS_OPTION) the Appearance -> Blueline
- * panel reads and writes.
+ * `wp blueline settings export|import|validate|repair|reset` -- WP-CLI
+ * access to the same one option (BLUELINE_SETTINGS_OPTION) the Appearance
+ * -> Blueline panel reads and writes.
  *
  * Loaded ONLY under `defined( 'WP_CLI' ) && WP_CLI` (see functions.php) so
  * this file -- and the `WP_CLI_Command`/`WP_CLI` symbols it depends on --
@@ -236,7 +236,7 @@ function blueline_settings_cli_dropped_keys( array $payload, array $schema ): ar
 }
 
 /**
- * `wp blueline settings export|import|validate|reset`.
+ * `wp blueline settings export|import|validate|repair|reset`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
 
@@ -444,6 +444,77 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		}
 
 		WP_CLI::success( sprintf( '%s is valid.', $file ) );
+	}
+
+	/**
+	 * Replace every STORED setting the panel's own validator would refuse
+	 * with that field's default, and name each one.
+	 *
+	 * For values that never went through update_option() at all -- `wp db
+	 * import`, a restored SQL dump, a hand-edited row -- which is the one
+	 * way an invalid value can be sitting in this option in the first
+	 * place. See blueline_settings_repair() (inc/settings/store.php) for
+	 * why this is an explicit command rather than something
+	 * blueline_settings() quietly does on every read.
+	 *
+	 * EXITS NON-ZERO WHENEVER IT CHANGED ANYTHING, which is what makes it
+	 * usable as a deploy check: a zero exit means "the stored settings were
+	 * already valid", not merely "the command ran". A run that had to
+	 * repair something has already written the repair by the time it exits
+	 * non-zero -- the non-zero status reports that the database WAS broken,
+	 * it does not mean the repair was refused.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp blueline settings repair --user=admin
+	 *
+	 * @param array<int, string>    $args       Positional arguments (unused).
+	 * @param array<string, string> $assoc_args Associative arguments (unused).
+	 * @return void
+	 */
+	public function repair( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes neither a positional nor an associative argument.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+			return;
+		}
+
+		$stored = get_option( BLUELINE_SETTINGS_OPTION, array() );
+		$stored = is_array( $stored ) ? $stored : array();
+
+		$result = blueline_settings_repair( $stored );
+
+		if ( empty( $result['repaired'] ) ) {
+			WP_CLI::success( __( 'Every stored Blueline setting is valid. Nothing to repair.', 'blueline' ) );
+			return;
+		}
+
+		foreach ( $result['repaired'] as $key ) {
+			WP_CLI::warning(
+				sprintf(
+					/* translators: %s: the settings key that held an invalid value. */
+					__( '"%s" held a value the panel would refuse. It has been reset to its default.', 'blueline' ),
+					$key
+				)
+			);
+		}
+
+		update_option( BLUELINE_SETTINGS_OPTION, $result['settings'] );
+
+		// Non-zero, deliberately, AFTER the write -- see this method's own
+		// docblock: the exit status reports that something was broken, not
+		// that the repair failed.
+		WP_CLI::error(
+			sprintf(
+				/* translators: %d: how many settings were repaired. */
+				_n(
+					'Repaired %d setting that was stored invalid.',
+					'Repaired %d settings that were stored invalid.',
+					count( $result['repaired'] ),
+					'blueline'
+				),
+				count( $result['repaired'] )
+			)
+		);
 	}
 
 	/**

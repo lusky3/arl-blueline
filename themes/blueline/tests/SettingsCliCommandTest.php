@@ -22,8 +22,9 @@ if ( ! defined( 'WP_CLI' ) ) {
 require_once __DIR__ . '/../inc/cli/settings-command.php';
 
 /**
- * Covers `wp blueline settings export|import|validate|reset`
- * (inc/cli/settings-command.php) -- Task 10, Part A.
+ * Covers `wp blueline settings export|import|validate|repair|reset`
+ * (inc/cli/settings-command.php) -- P1a's Task 10, Part A, plus the
+ * `repair` subcommand P1b's Task 9 added.
  *
  * Three things this file exists to prove, each directly requested by the
  * task brief rather than assumed:
@@ -484,5 +485,100 @@ final class SettingsCliCommandTest extends TestCase {
 		( new Blueline_Settings_Command() )->reset( array(), array( 'yes' => true ) );
 
 		$this->assertSame( blueline_settings_defaults(), blueline_settings() );
+	}
+
+	/**
+	 * Put a value into the option store WITHOUT going through
+	 * update_option() -- so neither blueline_settings_sanitize_callback()
+	 * nor blueline_settings_merge() ever sees it.
+	 *
+	 * That bypass is the whole premise of `repair`: it is what `wp db
+	 * import`, a restored SQL dump and a direct table edit all look like
+	 * from this option's point of view. Seeding through update_option()
+	 * would be impossible here anyway -- the sanitize callback would refuse
+	 * the bad value and keep the old one, which is the very protection
+	 * `repair` exists to backfill for writes that never had it.
+	 *
+	 * @param array<string, mixed> $stored Raw option value to plant.
+	 * @return void
+	 */
+	private function plant_unsanitized_option( array $stored ): void {
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = $stored;
+	}
+
+	/**
+	 * `repair` writes, so it is gated on the same capability as
+	 * `import`/`reset` -- and refuses before touching the option.
+	 */
+	public function test_repair_refuses_without_manage_options(): void {
+		$this->plant_unsanitized_option( array( 'contact_email' => 'not an address' ) );
+
+		$this->expectException( Blueline_Test_Cli_Exit_Exception::class );
+
+		try {
+			( new Blueline_Settings_Command() )->repair( array(), array() );
+		} finally {
+			$this->assertSame(
+				array( 'contact_email' => 'not an address' ),
+				get_option( BLUELINE_SETTINGS_OPTION ),
+				'repair must not write before the capability check passes'
+			);
+		}
+	}
+
+	/**
+	 * A store with nothing wrong: `repair` reports success, exits zero (no
+	 * WP_CLI::error(), so no exception from the stub) and leaves the stored
+	 * value alone.
+	 */
+	public function test_repair_reports_success_and_changes_nothing_for_a_clean_store(): void {
+		$this->grant_manage_options();
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'clean@example.test' ) );
+		$before = get_option( BLUELINE_SETTINGS_OPTION );
+
+		( new Blueline_Settings_Command() )->repair( array(), array() );
+
+		$this->assertSame( $before, get_option( BLUELINE_SETTINGS_OPTION ) );
+		$successes = array_filter( $this->cli_log(), static fn( $e ) => 'success' === $e['type'] );
+		$this->assertNotEmpty( $successes );
+	}
+
+	/**
+	 * A broken store: `repair` names the field it replaced, actually writes
+	 * the repaired value, and exits NON-ZERO (WP_CLI::error(), which this
+	 * stub raises as an exception) so a deploy script can treat "I had to
+	 * change something" as a failing check.
+	 */
+	public function test_repair_replaces_a_broken_value_and_exits_non_zero(): void {
+		$this->grant_manage_options();
+		$this->plant_unsanitized_option(
+			array(
+				'hero_registration_headline' => 'save 50% today',
+				'footer_heading'             => 'The League',
+			)
+		);
+
+		$this->expectException( Blueline_Test_Cli_Exit_Exception::class );
+
+		try {
+			( new Blueline_Settings_Command() )->repair( array(), array() );
+		} finally {
+			$this->assertSame(
+				blueline_settings_defaults()['hero_registration_headline'],
+				blueline_settings( 'hero_registration_headline' ),
+				'the rejected value must be gone from storage'
+			);
+			$this->assertSame(
+				'The League',
+				blueline_settings( 'footer_heading' ),
+				'a field that was fine must not be touched'
+			);
+
+			$named = array_filter(
+				$this->cli_log(),
+				static fn( $e ) => str_contains( $e['message'], 'hero_registration_headline' )
+			);
+			$this->assertNotEmpty( $named, 'repair must name the key it replaced' );
+		}
 	}
 }

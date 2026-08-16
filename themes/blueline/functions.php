@@ -45,7 +45,7 @@ require_once BLUELINE_DIR . '/inc/account/player-data.php';
 require_once BLUELINE_DIR . '/inc/account/dashboard.php';
 require_once BLUELINE_DIR . '/inc/account/avatars.php';
 
-// WP-CLI only: `wp blueline settings export|import|validate|reset`. Guarded
+// WP-CLI only: `wp blueline settings export|import|validate|repair|reset`. Guarded
 // so inc/cli/settings-command.php -- which extends WP_CLI_Command and calls
 // WP_CLI:: directly -- never parses on an ordinary web request, where
 // neither symbol exists. tests/IncRequireCoverageTest.php matches this
