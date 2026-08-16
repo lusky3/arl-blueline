@@ -509,7 +509,7 @@ function blueline_site_header() {
 				</nav>
 
 				<div class="bl-header__actions">
-					<?php if ( has_nav_menu( 'utility' ) ) : ?>
+					<?php if ( has_nav_menu( 'utility' ) && blueline_section_enabled( 'chrome_utility_nav' ) ) : ?>
 						<nav class="bl-utility-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
 							<?php
 							wp_nav_menu(
@@ -609,16 +609,18 @@ function blueline_site_footer() {
 	?>
 	<footer class="bl-footer">
 		<div class="bl-container bl-footer__columns">
-			<div class="bl-footer__column bl-footer__column--trust">
-				<h2 class="widget-title"><?php echo esc_html( blueline_settings( 'footer_heading' ) ); ?></h2>
-				<p class="bl-footer__location"><?php echo esc_html( blueline_settings( 'footer_location' ) ); ?></p>
-				<ul class="bl-footer__trust-links">
-					<li><a href="<?php echo esc_url( blueline_contact_url() ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( 'mailto:' . blueline_settings( 'contact_email' ) ); ?>"><?php echo esc_html( blueline_settings( 'contact_email' ) ); ?></a></li>
-					<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
-				</ul>
-			</div>
+			<?php if ( blueline_section_enabled( 'chrome_footer_trust' ) ) : ?>
+				<div class="bl-footer__column bl-footer__column--trust">
+					<h2 class="widget-title"><?php echo esc_html( blueline_settings( 'footer_heading' ) ); ?></h2>
+					<p class="bl-footer__location"><?php echo esc_html( blueline_settings( 'footer_location' ) ); ?></p>
+					<ul class="bl-footer__trust-links">
+						<li><a href="<?php echo esc_url( blueline_contact_url() ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
+						<li><a href="<?php echo esc_url( 'mailto:' . blueline_settings( 'contact_email' ) ); ?>"><?php echo esc_html( blueline_settings( 'contact_email' ) ); ?></a></li>
+						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
+						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
+					</ul>
+				</div>
+			<?php endif; ?>
 
 			<?php for ( $i = 1; $i <= 4; $i++ ) : ?>
 				<?php if ( is_active_sidebar( 'footer-' . $i ) ) : ?>
@@ -675,6 +677,10 @@ function blueline_site_footer() {
  * "never an empty container" rule.
  */
 function blueline_footer_team_directory() {
+	if ( ! blueline_section_enabled( 'chrome_footer_teams' ) ) {
+		return;
+	}
+
 	if ( ! function_exists( 'blueline_league_menu_team_ids' ) ) {
 		return;
 	}

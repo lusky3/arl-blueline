@@ -175,10 +175,28 @@ add_filter( 'sportspress_header_sponsors_selector', 'blueline_header_sponsors_se
 /**
  * Tell SportsPress which element the header sponsors should be inserted into.
  *
+ * When `chrome_sponsors` is off, this returns a selector that matches
+ * nothing on the page rather than the real `.bl-header__sponsors` slot.
+ * SportsPress enqueues its sponsor markup and injects it into whatever this
+ * filter returns regardless of the answer -- so the alternative (returning
+ * the real selector and hiding the result with CSS) would still make every
+ * visitor download that markup for a slot the admin asked to turn off.
+ * Pointing SportsPress at a selector nothing matches means it injects into
+ * nothing and the download was never worth paying for in the first place.
+ *
+ * `.bl-header__sponsors--disabled` is deliberately a class this theme never
+ * emits anywhere in its own markup (unlike, say, an empty string, which a
+ * future SportsPress version could plausibly special-case as "no selector
+ * given, use my own default").
+ *
  * @param string $selector Default selector.
  * @return string
  */
 function blueline_header_sponsors_selector( $selector ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by the filter's own signature; this theme always returns one fixed selector regardless of the default passed in.
+	if ( ! blueline_section_enabled( 'chrome_sponsors' ) ) {
+		return '.bl-header__sponsors--disabled';
+	}
+
 	return '.bl-header__sponsors';
 }
 

@@ -17,6 +17,18 @@
 
 define( 'ABSPATH', __DIR__ );
 
+/*
+ * WordPress core's own time-unit constants. blueline_season_state_data()
+ * (inc/season-state.php) reaches its set_transient( ..., MINUTE_IN_SECONDS )
+ * call unconditionally -- not only on the post_type_exists( 'sp_event' )
+ * branch DAY_IN_SECONDS lives on -- and no test called that function
+ * end-to-end before ChromeSectionsTest needed to render blueline_site_header()
+ * (which calls it via blueline_header_cta()), so neither constant had ever
+ * been exercised, and neither was defined.
+ */
+define( 'MINUTE_IN_SECONDS', 60 );
+define( 'DAY_IN_SECONDS', 86400 );
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 if ( ! class_exists( 'Walker_Nav_Menu' ) ) {
@@ -108,6 +120,53 @@ if ( ! function_exists( 'home_url' ) ) {
 	 */
 	function home_url( $path = '' ) {
 		return 'https://example.test' . $path;
+	}
+}
+if ( ! function_exists( 'has_nav_menu' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' has_nav_menu(): reports whether $location
+	 * has a menu assigned, purely from the in-memory list a test populates via
+	 * $GLOBALS['bl_test_nav_menu_locations'] -- no test called
+	 * blueline_site_header() end-to-end before Task 4 (P1b-panel-completion)
+	 * needed to prove the chrome_utility_nav toggle withholds the utility nav
+	 * even when a real menu IS assigned to that location, so nothing stubbed
+	 * this function until now.
+	 *
+	 * @param string $location Theme location slug.
+	 * @return bool
+	 */
+	function has_nav_menu( $location ) {
+		return in_array( $location, $GLOBALS['bl_test_nav_menu_locations'] ?? array(), true );
+	}
+}
+if ( ! function_exists( 'wp_nav_menu' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_nav_menu(): a no-op. This suite has
+	 * never needed real menu-walking output -- ChromeSectionsTest's
+	 * chrome_utility_nav coverage only needs blueline_site_header()'s call to
+	 * complete without fataling, so the surrounding markup (the toggleable
+	 * .bl-utility-nav wrapper) can be asserted on independently of whatever a
+	 * real menu would render inside it.
+	 *
+	 * @param array $args wp_nav_menu() args (unused, kept for signature parity).
+	 * @return void
+	 */
+	function wp_nav_menu( $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; this stub renders nothing.
+		unset( $args );
+	}
+}
+if ( ! function_exists( 'has_custom_logo' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' has_custom_logo(): always false, so
+	 * blueline_site_header() takes its fallback logo branch (leaf mark plus
+	 * site title) -- the only branch any test needs, and the one that avoids
+	 * also having to stub the_custom_logo() and the Customizer machinery
+	 * behind it.
+	 *
+	 * @return bool
+	 */
+	function has_custom_logo() {
+		return false;
 	}
 }
 if ( ! function_exists( '__' ) ) {
@@ -1189,10 +1248,11 @@ if ( ! function_exists( 'wp_get_post_terms' ) ) {
 		return $terms;
 	}
 }
-$GLOBALS['bl_test_hooks']      = array();
-$GLOBALS['bl_test_options']    = array();
-$GLOBALS['bl_test_transients'] = array();
-$GLOBALS['bl_test_cache']      = array();
+$GLOBALS['bl_test_hooks']              = array();
+$GLOBALS['bl_test_options']            = array();
+$GLOBALS['bl_test_transients']         = array();
+$GLOBALS['bl_test_cache']              = array();
+$GLOBALS['bl_test_nav_menu_locations'] = array();
 
 /**
  * Reset the in-memory option store. Call from setUp() (directly, or via the

@@ -45,10 +45,15 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  * from blueline_section_definitions(). Task 1 was explicitly scoped as
  * foundation only -- the schema, the sanitizer branch, and the ONE read
  * accessor (blueline_section_enabled()) -- and wired zero consumers itself.
- * Task 3 has now wired the four `account_*` keys (each account dashboard
- * card renderer calls blueline_section_enabled() with its own literal key),
- * so those four are removed below; the `chrome_*` keys stay exempt until
- * Task 4 wires them the same way.
+ * Tasks 3 and 4 have now wired the eight `account_*` and `chrome_*` keys
+ * (each account dashboard card renderer and each site-chrome surface calls
+ * blueline_section_enabled() with its own literal key), so all eight are
+ * removed below. Only the four `module_*` keys remain: blueline_homepage_
+ * module_order() (a later task) reads those through a key it BUILDS at
+ * runtime (`'module_' . $module`), not a literal
+ * `blueline_section_enabled( 'module_next_games' )` this regex-based guard
+ * can see, so they stay exempt until that task lands -- not because
+ * nothing reads them.
  *
  * This is NOT a silent escape hatch, for two independent reasons:
  *
@@ -72,10 +77,6 @@ const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 	'module_standings_snippet',
 	'module_new_here',
 	'module_latest_news',
-	'chrome_sponsors',
-	'chrome_utility_nav',
-	'chrome_footer_trust',
-	'chrome_footer_teams',
 );
 
 /**
