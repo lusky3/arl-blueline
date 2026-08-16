@@ -373,6 +373,10 @@ function blueline_format_team_record( array $row ): ?string {
  *                        (teammate count only).
  */
 function blueline_account_render_my_team( int $player_id, bool $full = false ) {
+	if ( ! blueline_section_enabled( 'account_my_team' ) ) {
+		return;
+	}
+
 	$team = blueline_get_player_team( $player_id );
 
 	blueline_account_module_start(
@@ -478,6 +482,10 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
  * @param int $player_id sp_player post ID.
  */
 function blueline_account_render_next_game( int $player_id ) {
+	if ( ! blueline_section_enabled( 'account_next_game' ) ) {
+		return;
+	}
+
 	$event = blueline_get_player_next_event( $player_id );
 
 	blueline_account_module_start( 'next-game', __( 'My next game', 'blueline' ) );
@@ -583,6 +591,10 @@ function blueline_account_render_next_game( int $player_id ) {
  * @param int $player_id sp_player post ID.
  */
 function blueline_account_render_season_stats( int $player_id ) {
+	if ( ! blueline_section_enabled( 'account_season_stats' ) ) {
+		return;
+	}
+
 	$stats = blueline_get_player_season_stats( $player_id );
 
 	blueline_account_module_start( 'season-stats', __( 'My season', 'blueline' ) );
@@ -621,6 +633,10 @@ function blueline_account_render_season_stats( int $player_id ) {
  * @param int $user_id WordPress user ID.
  */
 function blueline_account_render_registration( int $user_id ) {
+	if ( ! blueline_section_enabled( 'account_registration' ) ) {
+		return;
+	}
+
 	$status = blueline_get_user_registration_status( $user_id );
 
 	blueline_account_module_start( 'registration', __( 'My registration', 'blueline' ) );

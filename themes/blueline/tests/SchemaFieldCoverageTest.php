@@ -40,18 +40,15 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  *
  * Was empty as of P1a's Task 9 (`registration_term` was the last entry
  * removed, once blueline_resolve_registration_term() started reading it).
- * The P1b-panel-completion plan's Task 1 (inc/settings/sections.php) adds a
+ * The P1b-panel-completion plan's Task 1 (inc/settings/sections.php) added a
  * new, deliberate batch: the 12 `section` presence-toggle keys generated
- * from blueline_section_definitions(). Task 1 is explicitly scoped as
+ * from blueline_section_definitions(). Task 1 was explicitly scoped as
  * foundation only -- the schema, the sanitizer branch, and the ONE read
- * accessor (blueline_section_enabled()) -- and wires zero consumers itself;
- * that is later tasks' job (the homepage modules, the account cards, the
- * site chrome each call blueline_section_enabled() with their own literal
- * key once they exist). So today every one of these 12 keys is genuinely
- * unread anywhere in the theme's real source, which is exactly what this
- * guard is supposed to catch -- hence the exemption, rather than either
- * fabricating a call site that doesn't belong to this task or weakening the
- * guard to stop looking.
+ * accessor (blueline_section_enabled()) -- and wired zero consumers itself.
+ * Task 3 has now wired the four `account_*` keys (each account dashboard
+ * card renderer calls blueline_section_enabled() with its own literal key),
+ * so those four are removed below; the `chrome_*` keys stay exempt until
+ * Task 4 wires them the same way.
  *
  * This is NOT a silent escape hatch, for two independent reasons:
  *
@@ -79,10 +76,6 @@ const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 	'chrome_utility_nav',
 	'chrome_footer_trust',
 	'chrome_footer_teams',
-	'account_next_game',
-	'account_my_team',
-	'account_season_stats',
-	'account_registration',
 );
 
 /**
