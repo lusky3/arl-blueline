@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/settings/snapshots.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
@@ -131,6 +132,9 @@ final class SettingsPageTest extends TestCase {
 		blueline_test_reset();
 		blueline_test_reset_state();
 		unset( $_GET['tab'], $_GET['settings-updated'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture cleanup of superglobals between cases, not a real request.
+		// The restore control posts; a case that seeded either of these
+		// must not leave them visible to the next one.
+		unset( $_POST['blueline_restore_snapshot'], $_REQUEST['_wpnonce'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- test fixture cleanup of superglobals between cases, not a real request.
 	}
 
 	/**
@@ -1210,5 +1214,184 @@ final class SettingsPageTest extends TestCase {
 		$html = ob_get_clean();
 
 		$this->assertStringNotContainsString( 'class="description"', $html );
+	}
+
+	/**
+	 * Render the page and return its markup, with the capability the whole
+	 * screen requires already granted.
+	 *
+	 * @return string
+	 */
+	private function render_page(): string {
+		$this->grant_manage_options();
+
+		ob_start();
+		blueline_settings_render_page();
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Two real saves, so exactly one snapshot exists (the first-ever write
+	 * replaces nothing).
+	 *
+	 * @return int That snapshot's id.
+	 */
+	private function seed_one_snapshot(): int {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The League' ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The ARL' ) );
+
+		return blueline_settings_snapshot_list()[0]['id'];
+	}
+
+	/**
+	 * The restore list renders a real, nonce-protected control naming the
+	 * snapshot by its stable id -- not its position, which the restore's
+	 * own save would immediately shift.
+	 */
+	public function test_the_page_lists_a_snapshot_with_a_nonce_protected_restore_control(): void {
+		$id = $this->seed_one_snapshot();
+
+		$html = $this->render_page();
+
+		$this->assertStringContainsString( 'name="blueline_restore_snapshot"', $html );
+		$this->assertStringContainsString( 'value="' . $id . '"', $html );
+		$this->assertStringContainsString( 'name="_wpnonce"', $html );
+	}
+
+	/**
+	 * With no history yet, the panel says so rather than rendering an empty
+	 * table an admin would read as "restore is broken".
+	 */
+	public function test_the_page_explains_when_there_is_no_history_yet(): void {
+		$html = $this->render_page();
+
+		$this->assertStringNotContainsString( 'name="blueline_restore_snapshot"', $html );
+		$this->assertStringContainsString( 'No saves recorded yet', $html );
+	}
+
+	/**
+	 * Submitting the restore control writes the snapshot back and reports
+	 * it through the panel's existing notice channel.
+	 */
+	public function test_a_restore_submission_writes_the_snapshot_back(): void {
+		$this->grant_manage_options();
+		$id = $this->seed_one_snapshot();
+
+		$_POST['blueline_restore_snapshot'] = (string) $id;
+		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
+
+		blueline_settings_maybe_restore();
+
+		$this->assertSame( 'The League', blueline_settings( 'footer_heading' ) );
+
+		$messages = array_column( get_settings_errors( BLUELINE_SETTINGS_OPTION ), 'message' );
+		$this->assertNotEmpty( $messages );
+	}
+
+	/**
+	 * A submission whose nonce does not verify restores nothing: the
+	 * stubbed check_admin_referer() dies exactly where core's would.
+	 */
+	public function test_a_restore_submission_without_a_valid_nonce_restores_nothing(): void {
+		$this->grant_manage_options();
+		$id = $this->seed_one_snapshot();
+
+		$_POST['blueline_restore_snapshot'] = (string) $id;
+		$_REQUEST['_wpnonce']               = 'not-the-right-token';
+
+		$this->expectException( Blueline_Test_WP_Die_Exception::class );
+
+		try {
+			blueline_settings_maybe_restore();
+		} finally {
+			$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
+		}
+	}
+
+	/**
+	 * The handler carries its OWN capability check rather than relying on
+	 * the render callback having run one first -- the same defence-in-depth
+	 * blueline_settings_render_page() applies over blueline_settings_add_page().
+	 */
+	public function test_a_restore_submission_without_manage_options_restores_nothing(): void {
+		$this->grant_manage_options();
+		$id = $this->seed_one_snapshot();
+
+		$state                           = &blueline_test_state();
+		$state['caps']['manage_options'] = false;
+
+		$_POST['blueline_restore_snapshot'] = (string) $id;
+		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
+
+		$this->expectException( Blueline_Test_WP_Die_Exception::class );
+
+		try {
+			blueline_settings_maybe_restore();
+		} finally {
+			$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
+		}
+	}
+
+	/**
+	 * The restore control posts to the page itself with no
+	 * POST-redirect-GET in between, so a browser refresh re-submits it.
+	 * Because the control names a STABLE snapshot id, that second
+	 * submission restores the same copy again -- which by then changes
+	 * nothing and records no new history. Pinned here because
+	 * blueline_settings_maybe_restore()'s docblock says exactly this, and
+	 * an untested claim in a comment is how this settings layer keeps
+	 * acquiring copy that is not true.
+	 */
+	public function test_resubmitting_the_same_restore_changes_nothing_further(): void {
+		$this->grant_manage_options();
+		$id = $this->seed_one_snapshot();
+
+		$_POST['blueline_restore_snapshot'] = (string) $id;
+		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
+
+		blueline_settings_maybe_restore();
+
+		$after_first = blueline_settings_snapshot_list();
+
+		blueline_settings_maybe_restore();
+
+		$this->assertSame( 'The League', blueline_settings( 'footer_heading' ) );
+		$this->assertSame( $after_first, blueline_settings_snapshot_list() );
+	}
+
+	/**
+	 * A snapshot id that is no longer in the list (evicted, or never real)
+	 * is reported as such rather than silently doing nothing.
+	 */
+	public function test_a_restore_of_an_unknown_snapshot_is_reported(): void {
+		$this->grant_manage_options();
+		$this->seed_one_snapshot();
+
+		$_POST['blueline_restore_snapshot'] = '9999';
+		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
+
+		blueline_settings_maybe_restore();
+
+		$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
+
+		$errors = array_filter(
+			get_settings_errors( BLUELINE_SETTINGS_OPTION ),
+			static fn( $e ) => 'error' === ( $e['type'] ?? '' )
+		);
+		$this->assertNotEmpty( $errors );
+	}
+
+	/**
+	 * No POST, no work: an ordinary page load must not restore anything or
+	 * trip the nonce check.
+	 */
+	public function test_an_ordinary_page_load_restores_nothing(): void {
+		$this->grant_manage_options();
+		$this->seed_one_snapshot();
+
+		blueline_settings_maybe_restore();
+
+		$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
+		$this->assertSame( array(), get_settings_errors( BLUELINE_SETTINGS_OPTION ) );
 	}
 }

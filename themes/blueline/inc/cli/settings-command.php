@@ -17,7 +17,12 @@
  * `import` is the one subcommand that writes untrusted, unreviewed data
  * (a JSON file that could have come from anywhere -- a backup, another
  * environment, a hand-edited fixture) into the site's live settings. Three
- * things make that safe, in the order this file applies them:
+ * things make that safe, in the order this file applies them. (`--dry-run`
+ * is an opt-in preview of the same operation: it applies guards 1 and 2
+ * below, runs every recognised field through the same
+ * blueline_sanitize_field() guard 3's write would ultimately trigger --
+ * directly, rather than through update_option() -- and then prints what
+ * would change instead of changing it. See import()'s own docblock.)
  *
  * 1. `current_user_can( 'manage_options' )` -- the SAME capability the
  *    panel itself requires (inc/settings/page.php's blueline_settings_add_page()
@@ -236,6 +241,86 @@ function blueline_settings_cli_dropped_keys( array $payload, array $schema ): ar
 }
 
 /**
+ * Render one settings value as an unambiguous one-line string for the
+ * `--dry-run` preview. Pure: no database, no WP_CLI.
+ *
+ * JSON, not a bare cast, because this schema's values are not all strings
+ * and the differences that matter are exactly the ones a cast erases: a
+ * `bool` false and an empty string both print as nothing, `0` and `'0'` and
+ * `''` all print as something a reader would have to guess at, and
+ * `hero_photos` is an array. JSON prints `false`, `""`, `0` and `[]` as
+ * four visibly different things, which is the whole job here.
+ *
+ * @param mixed $value A settings value.
+ * @return string
+ */
+function blueline_settings_cli_render_value( $value ): string {
+	return (string) wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+}
+
+/**
+ * Turn a blueline_settings_diff() result into printable lines, one per key.
+ *
+ * EVERY key gets a line, including the ones that are not changing. That is
+ * deliberate and is the point of the preview: an import payload that omits
+ * a key does not reset it -- blueline_settings_merge() carries the stored
+ * value forward -- so a preview that printed only differences would read as
+ * "these are the only differences" while every omitted key sat invisible in
+ * it. A `carried_forward` line names the key, the value that will survive,
+ * and why it survives.
+ *
+ * @param array<string, array{status: string, from: mixed, to: mixed}> $diff A blueline_settings_diff() result.
+ * @return string[] One line per key, in $diff's own order.
+ */
+function blueline_settings_cli_diff_lines( array $diff ): array {
+	$lines = array();
+
+	foreach ( $diff as $key => $entry ) {
+		switch ( $entry['status'] ) {
+			case 'changed':
+				$lines[] = sprintf(
+					'%s %s: %s -> %s',
+					str_pad( 'changed', 16 ),
+					$key,
+					blueline_settings_cli_render_value( $entry['from'] ),
+					blueline_settings_cli_render_value( $entry['to'] )
+				);
+				break;
+
+			case 'added':
+				$lines[] = sprintf(
+					'%s %s: %s',
+					str_pad( 'added', 16 ),
+					$key,
+					blueline_settings_cli_render_value( $entry['to'] )
+				);
+				break;
+
+			case 'carried_forward':
+				$lines[] = sprintf(
+					'%s %s: %s %s',
+					str_pad( 'not in the file', 16 ),
+					$key,
+					blueline_settings_cli_render_value( $entry['to'] ),
+					__( '(kept -- a key the file omits is carried forward, not reset)', 'blueline' )
+				);
+				break;
+
+			default:
+				$lines[] = sprintf(
+					'%s %s: %s',
+					str_pad( 'unchanged', 16 ),
+					$key,
+					blueline_settings_cli_render_value( $entry['to'] )
+				);
+				break;
+		}
+	}
+
+	return $lines;
+}
+
+/**
  * `wp blueline settings export|import|validate|repair|reset`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
@@ -304,15 +389,39 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * <file>
 	 * : Path to a JSON file, e.g. one produced by `wp blueline settings export`.
 	 *
+	 * [--dry-run]
+	 * : Print what the import would change and write nothing.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp blueline settings import blueline-settings.json
+	 *     wp blueline settings import blueline-settings.json --dry-run
+	 *
+	 * ## THE DRY RUN LISTS EVERY KEY, NOT JUST THE DIFFERENCES
+	 *
+	 * A write that omits a key carries the stored value forward -- it does
+	 * not reset that key to its default (inc/settings/store.php's
+	 * blueline_settings_merge()). A preview of only the differing keys
+	 * would therefore read as "these are the only differences" when in
+	 * fact every omitted key is simply invisible in it, and an admin
+	 * previewing a partial config would conclude the unlisted keys are
+	 * unchanged-because-equal when they are unlisted-because-absent. So
+	 * the preview prints one line per key, and an omitted key is labelled
+	 * "not in the file" with the value that will survive the import.
+	 *
+	 * `--dry-run` is gated on the same `manage_options` check as a real
+	 * import: it reads this site's live settings to build the diff, and it
+	 * is a preview of a privileged operation. `wp blueline settings
+	 * validate <file>` checks a file with no capability check and no
+	 * reference to the current settings when that is what is wanted.
 	 *
 	 * @param array<int, string>    $args       Positional arguments: [ $file ].
-	 * @param array<string, string> $assoc_args Associative arguments (unused).
+	 * @param array<string, string> $assoc_args Associative arguments: `dry-run`.
 	 * @return void
 	 */
-	public function import( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes no associative argument.
+	public function import( $args, $assoc_args ) {
+		$dry_run = ! empty( $assoc_args['dry-run'] );
+
 		if ( ! current_user_can( 'manage_options' ) ) {
 			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
 			return;
@@ -355,12 +464,23 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		// case. This intentionally does NOT make the command exit non-zero.
 		foreach ( blueline_settings_cli_dropped_keys( $prepared, blueline_settings_schema() ) as $dropped_key ) {
 			WP_CLI::warning(
-				sprintf(
-					/* translators: %s: the unrecognised key name. */
-					__( '"%s" is not a recognised Blueline setting and was not imported.', 'blueline' ),
-					$dropped_key
-				)
+				$dry_run
+					? sprintf(
+						/* translators: %s: the unrecognised key name. */
+						__( '"%s" is not a recognised Blueline setting and would not be imported.', 'blueline' ),
+						$dropped_key
+					)
+					: sprintf(
+						/* translators: %s: the unrecognised key name. */
+						__( '"%s" is not a recognised Blueline setting and was not imported.', 'blueline' ),
+						$dropped_key
+					)
 			);
+		}
+
+		if ( $dry_run ) {
+			$this->preview_import( $prepared );
+			return;
 		}
 
 		// The SAME sanitize_option_{$option} callback the panel's own save
@@ -377,6 +497,55 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		}
 
 		WP_CLI::success( sprintf( 'Imported settings from %s.', $file ) );
+	}
+
+	/**
+	 * `import --dry-run`'s body: validate the payload, then print one line
+	 * per setting describing what the real import would do to it. Writes
+	 * nothing.
+	 *
+	 * Validation runs FIRST and stops the command when anything fails,
+	 * rather than printing a diff alongside the failures: a rejected field
+	 * keeps its stored value, so a preview line claiming that field would
+	 * change would be a preview of something that is not going to happen.
+	 * Better to fix the file and re-run than to hand the operator a diff
+	 * they have to mentally correct.
+	 *
+	 * @param array<string, mixed> $prepared Payload already run through
+	 *                                        blueline_settings_cli_prepare_import().
+	 * @return void
+	 */
+	private function preview_import( array $prepared ): void {
+		$schema = blueline_settings_schema();
+		$errors = blueline_settings_cli_validate_payload( $prepared, $schema );
+
+		if ( ! empty( $errors ) ) {
+			foreach ( $errors as $message ) {
+				WP_CLI::warning( $message );
+			}
+			WP_CLI::error(
+				sprintf(
+					/* translators: %d: how many fields failed validation. */
+					__( '%d field(s) would be rejected. Nothing was written; fix the file and re-run to see the diff.', 'blueline' ),
+					count( $errors )
+				)
+			);
+			return;
+		}
+
+		// Unrecognised keys are already reported separately (and would be
+		// dropped by the write), so they are excluded here rather than
+		// shown as settings that would be "added".
+		$diff = blueline_settings_diff(
+			blueline_settings(),
+			array_intersect_key( $prepared, $schema )
+		);
+
+		foreach ( blueline_settings_cli_diff_lines( $diff ) as $line ) {
+			WP_CLI::log( $line );
+		}
+
+		WP_CLI::success( __( 'Dry run: nothing was written.', 'blueline' ) );
 	}
 
 	/**

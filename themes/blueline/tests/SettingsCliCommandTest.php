@@ -11,6 +11,7 @@ require_once __DIR__ . '/cli-stubs.php';
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/settings/snapshots.php'; // blueline_settings_diff(), which `import --dry-run` builds its preview from.
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
@@ -485,6 +486,105 @@ final class SettingsCliCommandTest extends TestCase {
 		( new Blueline_Settings_Command() )->reset( array(), array( 'yes' => true ) );
 
 		$this->assertSame( blueline_settings_defaults(), blueline_settings() );
+	}
+
+	/**
+	 * Every message the CLI recorded, joined -- for asserting that a
+	 * particular fact reached the operator, without pinning which call
+	 * carried it.
+	 *
+	 * @return string
+	 */
+	private function cli_output(): string {
+		return implode( "\n", array_column( $this->cli_log(), 'message' ) );
+	}
+
+	/**
+	 * `import --dry-run` writes NOTHING and shows what would change.
+	 */
+	public function test_import_dry_run_previews_a_change_without_writing(): void {
+		$this->grant_manage_options();
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The League' ) );
+
+		$path = $this->write_temp_json( array( 'footer_heading' => 'The ARL' ) );
+
+		( new Blueline_Settings_Command() )->import( array( $path ), array( 'dry-run' => true ) );
+
+		$this->assertSame( 'The League', blueline_settings( 'footer_heading' ), 'a dry run must not write' );
+
+		$output = $this->cli_output();
+		$this->assertStringContainsString( 'footer_heading', $output );
+		$this->assertStringContainsString( 'The ARL', $output );
+	}
+
+	/**
+	 * THE ONE THAT MATTERS. An import payload that OMITS a key does not
+	 * reset that key -- blueline_settings_merge() carries the stored value
+	 * forward. A preview listing only differing keys would read as "these
+	 * are the only differences" while every omitted key sat invisible in
+	 * it, so the preview must name the omitted key AND the value that will
+	 * survive.
+	 */
+	public function test_import_dry_run_surfaces_a_key_the_file_omits_with_its_carried_forward_value(): void {
+		$this->grant_manage_options();
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_location' => 'Hamilton, Ontario' ) );
+
+		$this->assertNotSame(
+			blueline_settings_defaults()['footer_location'],
+			blueline_settings( 'footer_location' ),
+			'the fixture only proves anything if the stored value is not the default'
+		);
+
+		$path = $this->write_temp_json( array( 'footer_heading' => 'The ARL' ) );
+
+		( new Blueline_Settings_Command() )->import( array( $path ), array( 'dry-run' => true ) );
+
+		$lines = array_filter(
+			explode( "\n", $this->cli_output() ),
+			static fn( $line ) => str_contains( $line, 'footer_location' )
+		);
+
+		$this->assertNotEmpty( $lines, 'a key the file omits must still appear in the preview' );
+
+		$line = implode( "\n", $lines );
+		$this->assertStringContainsString( 'Hamilton, Ontario', $line, 'with its carried-forward value' );
+		$this->assertStringContainsString( 'kept', $line, 'and said to be kept, not reset' );
+	}
+
+	/**
+	 * A dry run's unrecognised-key warning must speak in the conditional:
+	 * saying a key "was not imported" when nothing was imported at all is
+	 * exactly the kind of claim-more-than-the-code-does copy this settings
+	 * layer keeps being bitten by.
+	 */
+	public function test_import_dry_run_says_a_dropped_key_would_not_be_imported(): void {
+		$this->grant_manage_options();
+
+		$path = $this->write_temp_json( array( 'not_a_real_setting' => 'x' ) );
+
+		( new Blueline_Settings_Command() )->import( array( $path ), array( 'dry-run' => true ) );
+
+		$output = $this->cli_output();
+		$this->assertStringContainsString( 'would not be imported', $output );
+		$this->assertStringNotContainsString( 'was not imported', $output );
+	}
+
+	/**
+	 * A dry run reports a field that would be REJECTED, rather than
+	 * previewing a value that is never going to be written.
+	 */
+	public function test_import_dry_run_reports_an_invalid_field(): void {
+		$this->grant_manage_options();
+
+		$path = $this->write_temp_json( array( 'contact_email' => 'not-an-email-at-all' ) );
+
+		$this->expectException( Blueline_Test_Cli_Exit_Exception::class );
+
+		try {
+			( new Blueline_Settings_Command() )->import( array( $path ), array( 'dry-run' => true ) );
+		} finally {
+			$this->assertSame( false, get_option( BLUELINE_SETTINGS_OPTION, false ) );
+		}
 	}
 
 	/**

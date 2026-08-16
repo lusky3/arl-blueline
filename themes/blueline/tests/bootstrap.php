@@ -1463,6 +1463,7 @@ if ( ! function_exists( 'wp_get_post_terms' ) ) {
 }
 $GLOBALS['bl_test_hooks']              = array();
 $GLOBALS['bl_test_options']            = array();
+$GLOBALS['bl_test_option_autoload']    = array();
 $GLOBALS['bl_test_transients']         = array();
 $GLOBALS['bl_test_cache']              = array();
 $GLOBALS['bl_test_nav_menu_locations'] = array();
@@ -1472,7 +1473,28 @@ $GLOBALS['bl_test_nav_menu_locations'] = array();
  * combined blueline_test_reset()) in any test that touches options.
  */
 function blueline_test_reset_options(): void {
-	$GLOBALS['bl_test_options'] = array();
+	$GLOBALS['bl_test_options']         = array();
+	$GLOBALS['bl_test_option_autoload'] = array();
+}
+
+/**
+ * Every `$autoload` argument update_option()/add_option() were CALLED with
+ * for $option, in call order -- `null` for a call that passed none.
+ *
+ * This stub store deliberately records the ARGUMENT, not an autoload state:
+ * nothing here models the wp_options.autoload column, and how core's real
+ * update_option() forwards (or does not forward) $autoload to add_option()
+ * on a first-ever write is not something this repository can check against
+ * core's own source. What a test CAN prove with this is what the theme
+ * asked for -- e.g. that a snapshot write passes an explicit `false`
+ * instead of leaving the decision to a default -- which is exactly the
+ * requirement the settings spec states.
+ *
+ * @param string $option Option name.
+ * @return array<int, mixed> The $autoload argument of each call, in order.
+ */
+function blueline_test_option_autoload_args( string $option ): array {
+	return $GLOBALS['bl_test_option_autoload'][ $option ] ?? array();
 }
 
 /**
@@ -1825,11 +1847,15 @@ if ( ! function_exists( 'update_option' ) ) {
 	 *
 	 * @param string $option   Option name.
 	 * @param mixed  $value    New value.
-	 * @param mixed  $autoload Unused; kept for signature parity.
+	 * @param mixed  $autoload Recorded (see blueline_test_option_autoload_args())
+	 *                          but not otherwise honoured -- this store has
+	 *                          no autoload column to honour it in.
 	 * @return bool True if the value was written, false if the option
 	 *              already held this exact value and nothing changed.
 	 */
-	function update_option( $option, $value, $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs autoload honoured.
+	function update_option( $option, $value, $autoload = null ) {
+		$GLOBALS['bl_test_option_autoload'][ $option ][] = $autoload;
+
 		$original_value = $value;
 		$value          = apply_filters( "sanitize_option_{$option}", $value, $option, $original_value );
 
@@ -1888,10 +1914,14 @@ if ( ! function_exists( 'add_option' ) ) {
 	 * @param string $option     Option name.
 	 * @param mixed  $value      Option value.
 	 * @param string $deprecated Unused; kept for signature parity.
-	 * @param mixed  $autoload   Unused; kept for signature parity.
+	 * @param mixed  $autoload   Recorded (see blueline_test_option_autoload_args())
+	 *                            but not otherwise honoured -- this store
+	 *                            has no autoload column to honour it in.
 	 * @return bool True on add, false if the option already exists.
 	 */
-	function add_option( $option, $value = '', $deprecated = '', $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
+	function add_option( $option, $value = '', $deprecated = '', $autoload = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $deprecated is signature parity with WP core.
+		$GLOBALS['bl_test_option_autoload'][ $option ][] = $autoload;
+
 		$original_value = $value;
 		$value          = apply_filters( "sanitize_option_{$option}", $value, $option, $original_value );
 
@@ -2155,6 +2185,86 @@ if ( ! function_exists( 'admin_url' ) ) {
 	 */
 	function admin_url( $path = '' ) {
 		return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'wp_create_nonce' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_create_nonce(): a deterministic
+	 * token derived from the action alone.
+	 *
+	 * Deliberately NOT a reimplementation of core's real nonce (which is
+	 * tied to the user, the session token and a 12/24-hour tick this stub
+	 * environment has none of): what the tests using it need is that a
+	 * token minted for action A verifies for action A and nothing else, so
+	 * a handler's check_admin_referer() call can be shown to actually gate
+	 * the request.
+	 *
+	 * @param string|int $action Action the nonce is scoped to.
+	 * @return string
+	 */
+	function wp_create_nonce( $action = -1 ) {
+		return substr( md5( 'bl-test-nonce|' . $action ), 0, 10 );
+	}
+}
+
+if ( ! function_exists( 'wp_verify_nonce' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_verify_nonce().
+	 *
+	 * @param string     $nonce  Token to check.
+	 * @param string|int $action Action it must have been minted for.
+	 * @return int|false 1 when valid, false otherwise. Core also returns 2
+	 *                    for a token in its second tick; this stub models
+	 *                    no clock, so it never does.
+	 */
+	function wp_verify_nonce( $nonce, $action = -1 ) {
+		return hash_equals( wp_create_nonce( $action ), (string) $nonce ) ? 1 : false;
+	}
+}
+
+if ( ! function_exists( 'wp_nonce_field' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_nonce_field(): emits only the
+	 * nonce input, not core's additional `_wp_http_referer` field (nothing
+	 * in this theme reads it).
+	 *
+	 * @param string|int $action  Action the nonce is scoped to.
+	 * @param string     $name    Field name.
+	 * @param bool       $referer Unused; kept for signature parity.
+	 * @param bool       $display Echo the field (true) or return it.
+	 * @return string The field markup.
+	 */
+	function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- $referer is signature parity with WP core; this stub emits no referer field.
+		$field = '<input type="hidden" name="' . esc_attr( $name ) . '" value="' . esc_attr( wp_create_nonce( $action ) ) . '" />';
+
+		if ( $display ) {
+			echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for wp_nonce_field(); both dynamic parts are esc_attr()'d as they are assembled above.
+		}
+
+		return $field;
+	}
+}
+
+if ( ! function_exists( 'check_admin_referer' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' check_admin_referer(): reads the
+	 * token out of $_REQUEST and wp_die()s (which this stub environment
+	 * raises as Blueline_Test_WP_Die_Exception) when it does not verify --
+	 * core reaches the same dead end via wp_nonce_ays().
+	 *
+	 * @param string|int $action    Action the nonce must have been minted for.
+	 * @param string     $query_arg Request key carrying the token.
+	 * @return int 1 when the token verifies.
+	 */
+	function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) {
+		$nonce = isset( $_REQUEST[ $query_arg ] ) ? sanitize_text_field( wp_unslash( $_REQUEST[ $query_arg ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- this IS the nonce check.
+
+		if ( ! wp_verify_nonce( $nonce, $action ) ) {
+			wp_die( 'Are you sure you want to do this?' );
+		}
+
+		return 1;
 	}
 }
 

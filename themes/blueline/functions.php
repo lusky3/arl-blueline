@@ -24,6 +24,7 @@ define( 'BLUELINE_URI', get_template_directory_uri() );
 require_once BLUELINE_DIR . '/inc/settings/defaults.php';
 require_once BLUELINE_DIR . '/inc/settings/sections.php';
 require_once BLUELINE_DIR . '/inc/settings/store.php';
+require_once BLUELINE_DIR . '/inc/settings/snapshots.php';
 require_once BLUELINE_DIR . '/inc/settings/links.php';
 require_once BLUELINE_DIR . '/inc/settings/sanitize.php';
 require_once BLUELINE_DIR . '/inc/settings/cache.php';
