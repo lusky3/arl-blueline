@@ -13,6 +13,7 @@ require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/settings/snapshots.php'; // blueline_settings_diff(), which `import --dry-run` builds its preview from.
 require_once __DIR__ . '/../inc/settings/sanitize.php';
+require_once __DIR__ . '/../inc/settings/import.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
 
