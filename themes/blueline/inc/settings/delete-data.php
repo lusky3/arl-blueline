@@ -57,11 +57,13 @@ const BLUELINE_SEASON_STATE_TRANSIENT = 'blueline_season_state';
 /**
  * Every option name "delete all Blueline data" removes.
  *
- * One list, one place, so the admin action, the WP-CLI subcommand and the test
- * that pins the scope all read the SAME set. A future option added to the
- * settings layer has exactly one line to add, and
- * tests/SettingsDeleteDataTest.php fails if that line is forgotten for any
- * option this theme's own settings files declare.
+ * One list, one place, so the admin action, the WP-CLI subcommand and the tests
+ * all read the SAME set. A future option added to the settings layer has
+ * exactly one line to add here, and
+ * SettingsDeleteDataTest::test_every_settings_layer_option_constant_is_covered()
+ * is what fails when that line is forgotten: it scans inc/settings/ for
+ * `const BLUELINE_*OPTION` declarations rather than comparing this list to
+ * itself, which is the only version of that check that can catch an omission.
  *
  * @return string[] Option names, in the order they are deleted.
  */

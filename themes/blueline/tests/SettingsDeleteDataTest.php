@@ -184,9 +184,9 @@ final class SettingsDeleteDataTest extends TestCase {
 	}
 
 	/**
-	 * Pins the SCOPE, not just the behaviour. If a later task adds an option to
-	 * the settings layer and forgets to add it here, this list is where the
-	 * omission should show up as a deliberate decision rather than an oversight.
+	 * Pins the list itself, so a change to it is a deliberate edit here too.
+	 *
+	 * @return void
 	 */
 	public function test_the_deletable_option_list_is_exactly_the_settings_layer_options(): void {
 		$this->assertSame(
@@ -197,5 +197,62 @@ final class SettingsDeleteDataTest extends TestCase {
 			),
 			blueline_settings_deletable_options()
 		);
+	}
+
+	/**
+	 * Discovers option-name constants in inc/settings/ and fails if any is
+	 * missing from the teardown list.
+	 *
+	 * The list-pinning test above CANNOT catch the failure that actually
+	 * matters. A later task declaring a fourth option in the settings layer and
+	 * forgetting to add it here leaves that test perfectly green, because it
+	 * only compares the list to itself. An earlier version of
+	 * blueline_settings_deletable_options()'s docblock claimed otherwise -- that
+	 * the test "fails if that line is forgotten" -- which is the same
+	 * assert-coverage-that-does-not-exist defect this branch kept finding,
+	 * written this time by the person who had just finished cataloguing it.
+	 *
+	 * So the claim is made true here rather than softened: this scan is the
+	 * thing that fails when someone forgets. An option that genuinely should
+	 * survive a teardown becomes an explicit exemption with a reason, instead
+	 * of an oversight nobody sees.
+	 *
+	 * @return void
+	 */
+	public function test_every_settings_layer_option_constant_is_covered(): void {
+		$declared = array();
+
+		foreach ( (array) glob( __DIR__ . '/../inc/settings/*.php' ) as $file ) {
+			$source = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local source file in a test to scan it for constant declarations; wp_remote_get() is for remote URLs and there is no WP filesystem API in this bare PHPUnit bootstrap.
+
+			if ( preg_match_all( '/^const\s+(BLUELINE_\w*OPTION)\s*=/m', $source, $matches ) ) {
+				foreach ( $matches[1] as $name ) {
+					$declared[ $name ] = basename( (string) $file );
+				}
+			}
+		}
+
+		// Premise: the scan found the constants at all. Without this, a regex
+		// that quietly stopped matching would make the whole test pass over an
+		// empty list -- the exact shape of vacuity it exists to prevent.
+		$this->assertGreaterThanOrEqual(
+			3,
+			count( $declared ),
+			'premise: the scan should find at least the three known option constants'
+		);
+
+		$covered = blueline_settings_deletable_options();
+
+		foreach ( $declared as $name => $file ) {
+			$this->assertContains(
+				constant( $name ),
+				$covered,
+				sprintf(
+					'%s (declared in %s) is not deleted by "Delete all Blueline data". Add it to blueline_settings_deletable_options(), or exempt it here with a reason.',
+					$name,
+					$file
+				)
+			);
+		}
 	}
 }
