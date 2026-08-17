@@ -92,6 +92,27 @@ const BLUELINE_SETTINGS_IMPORT_MAX_BYTES = 262144;
 const BLUELINE_SETTINGS_IMPORT_MAX_DEPTH = 8;
 
 /**
+ * The "that file is too big" refusal, as one string with one translation.
+ *
+ * Shared by blueline_settings_import_decode() (which measures the bytes it
+ * was handed) and inc/settings/page.php's
+ * blueline_settings_import_read_upload() (which refuses on the size the
+ * upload REPORTS, before reading a byte of it -- the whole point of a size
+ * bound on a browser upload being that the file is never loaded at all).
+ *
+ * @param int $size The offending size, in bytes.
+ * @return string
+ */
+function blueline_settings_import_too_large_message( int $size ): string {
+	return sprintf(
+		/* translators: 1: the file's size in bytes, 2: the largest size accepted, in bytes. */
+		__( 'That file is %1$d bytes; the largest settings file this accepts is %2$d bytes. A settings export is normally a couple of kilobytes, so a file this size is almost certainly not one.', 'blueline' ),
+		$size,
+		BLUELINE_SETTINGS_IMPORT_MAX_BYTES
+	);
+}
+
+/**
  * Decode a settings export/import JSON blob, refusing anything past either
  * bound. Pure: never touches the database, WP_CLI, or the filesystem --
  * just parses a string it is handed.
@@ -111,15 +132,7 @@ function blueline_settings_import_decode( string $raw ) {
 	$size = strlen( $raw );
 
 	if ( $size > BLUELINE_SETTINGS_IMPORT_MAX_BYTES ) {
-		return new WP_Error(
-			'blueline_import_too_large',
-			sprintf(
-				/* translators: 1: the file's size in bytes, 2: the largest size accepted, in bytes. */
-				__( 'That file is %1$d bytes; the largest settings file this accepts is %2$d bytes. A settings export is normally a couple of kilobytes, so a file this size is almost certainly not one.', 'blueline' ),
-				$size,
-				BLUELINE_SETTINGS_IMPORT_MAX_BYTES
-			)
-		);
+		return new WP_Error( 'blueline_import_too_large', blueline_settings_import_too_large_message( $size ) );
 	}
 
 	$data = json_decode( $raw, true, BLUELINE_SETTINGS_IMPORT_MAX_DEPTH );
