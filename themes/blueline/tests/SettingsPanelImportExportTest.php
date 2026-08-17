@@ -172,8 +172,34 @@ final class SettingsPanelImportExportTest extends TestCase {
 	/**
 	 * The export endpoint is capability-gated -- it hands out every stored
 	 * setting.
+	 *
+	 * Seeds a VALID export nonce first, and that is the whole point of the
+	 * line. Both guards in this handler raise the same exception class, so
+	 * without a good nonce this test passed identically whether the capability
+	 * check existed or not -- it was watching check_admin_referer() fire and
+	 * calling that a capability refusal. With the nonce satisfied, only the
+	 * capability check can throw, and removing it lets the handler run to
+	 * completion and dump every setting.
+	 *
+	 * The sibling import tests below already do this (seed_import_nonce()
+	 * before the capability case); export simply did not.
 	 */
 	public function test_the_export_endpoint_refuses_without_manage_options(): void {
+		$_REQUEST['_wpnonce'] = wp_create_nonce( BLUELINE_SETTINGS_EXPORT_NONCE ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- seeding the very token the code under test verifies, so the capability check is the only guard left that can fire.
+
+		$this->expectException( Blueline_Test_WP_Die_Exception::class );
+
+		blueline_settings_handle_export();
+	}
+
+	/**
+	 * ...and refused without a valid nonce, with the capability granted, so
+	 * this case cannot pass for the other guard's reason either.
+	 */
+	public function test_the_export_endpoint_refuses_without_a_valid_nonce(): void {
+		$this->grant_manage_options();
+		$_REQUEST['_wpnonce'] = 'not-the-right-token'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- deliberately wrong, that is the point of this case.
+
 		$this->expectException( Blueline_Test_WP_Die_Exception::class );
 
 		blueline_settings_handle_export();

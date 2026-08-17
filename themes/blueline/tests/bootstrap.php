@@ -2347,6 +2347,55 @@ if ( ! function_exists( 'check_admin_referer' ) ) {
 	}
 }
 
+if ( ! class_exists( 'Blueline_Test_Redirect_Exception' ) ) {
+	/**
+	 * Thrown by the wp_safe_redirect() stub below instead of returning, so the
+	 * `exit` that follows every real redirect is never reached.
+	 *
+	 * Without this, a handler ending `wp_safe_redirect( ... ); exit;` is simply
+	 * not testable: `exit` cannot be intercepted from PHP, so the PHPUnit
+	 * process dies mid-run. That is why the delete-all-data handler shipped
+	 * with no coverage at all while its pure counterpart was thoroughly tested
+	 * -- the untestable shape, not the risk, decided what got tested.
+	 *
+	 * Carries the target URL so a test can assert where a handler sent the
+	 * admin, not merely that it redirected.
+	 */
+	class Blueline_Test_Redirect_Exception extends \RuntimeException {
+
+		/**
+		 * The URL passed to wp_safe_redirect().
+		 *
+		 * @var string
+		 */
+		public string $location = '';
+	}
+}
+
+if ( ! function_exists( 'wp_safe_redirect' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_safe_redirect(): throws rather than
+	 * returning, so the caller's `exit` is unreachable.
+	 *
+	 * This stub does NOT model core's allow-listing of the destination host
+	 * (that is what "safe" means in the real function's name), because nothing
+	 * in this theme redirects anywhere but back to its own settings page. A
+	 * test asserting on this stub is asserting on the stub; core's host
+	 * filtering is not verified here, and there is no WP core checkout in this
+	 * worktree to verify it against.
+	 *
+	 * @param string $location Destination URL.
+	 * @param int    $status   HTTP status (accepted for signature parity, unused).
+	 * @return void
+	 * @throws Blueline_Test_Redirect_Exception Always.
+	 */
+	function wp_safe_redirect( $location, $status = 302 ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with core; this stub models the control-flow effect only, not the status code.
+		$exception           = new Blueline_Test_Redirect_Exception( 'redirect: ' . (string) $location );
+		$exception->location = (string) $location;
+		throw $exception;
+	}
+}
+
 if ( ! class_exists( 'Blueline_Test_WP_Die_Exception' ) ) {
 	/**
 	 * Thrown by the wp_die() stub below instead of actually terminating the

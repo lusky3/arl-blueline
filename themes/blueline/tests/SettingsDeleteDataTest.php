@@ -20,8 +20,12 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/settings/snapshots.php';
+require_once __DIR__ . '/../inc/settings/sanitize.php';
+require_once __DIR__ . '/../inc/settings/import.php';
 require_once __DIR__ . '/../inc/settings/cache.php';
 require_once __DIR__ . '/../inc/settings/delete-data.php';
+require_once __DIR__ . '/../inc/settings/links.php';
+require_once __DIR__ . '/../inc/settings/page.php';
 
 /**
  * Pins the scope and the reporting of the section 6.7 teardown.
@@ -37,6 +41,14 @@ final class SettingsDeleteDataTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+
+		// The handler cases below write these, and a value leaking from one
+		// case into the next makes the leak look like the behaviour under
+		// test: without this, the unticked-confirmation case inherited a
+		// ticked box from the case before it and reported a teardown as
+		// proof that an unticked box deletes everything.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- test fixture cleanup of superglobals between cases, not a real request.
+		unset( $_POST['blueline_delete_confirm'], $_GET['blueline_delete_confirm'], $_REQUEST['_wpnonce'] );
 	}
 
 	/**
@@ -181,6 +193,194 @@ final class SettingsDeleteDataTest extends TestCase {
 			blueline_settings_defaults()['footer_heading'],
 			blueline_settings( 'footer_heading' )
 		);
+	}
+
+	/* ------------------------------------------------- the request handler */
+
+	/*
+	 * Everything above tests blueline_settings_delete_all_data(), the pure
+	 * teardown. Everything below tests the HANDLER that decides whether to call
+	 * it -- which shipped with no coverage at all, while the function it guards
+	 * had nine cases.
+	 *
+	 * That split was not a judgement about risk. The pure function was easy to
+	 * test and the handler ends `wp_safe_redirect( ... ); exit;`, which could
+	 * not be reached from PHPUnit until tests/bootstrap.php grew a redirect
+	 * stub that throws. The untestable shape decided what got tested, and the
+	 * most destructive control on the branch is what fell out.
+	 */
+
+	/**
+	 * Grant the fake current user `manage_options`.
+	 *
+	 * @return void
+	 */
+	private function grant_manage_options(): void {
+		$state                           = &blueline_test_state();
+		$state['caps']['manage_options'] = true;
+	}
+
+	/**
+	 * Put a valid nonce and a ticked confirmation box in place.
+	 *
+	 * @return void
+	 */
+	private function seed_valid_delete_request(): void {
+		$_REQUEST['_wpnonce']             = wp_create_nonce( 'blueline_settings_delete_all_data' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- seeding the token the code under test verifies.
+		$_POST['blueline_delete_confirm'] = '1'; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- test fixture standing in for a real submission.
+	}
+
+	/**
+	 * Run the handler, swallowing the redirect it ends with.
+	 *
+	 * @return void
+	 */
+	private function run_handler(): void {
+		try {
+			blueline_settings_handle_delete_all_data();
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			unset( $e );
+		}
+	}
+
+	/**
+	 * Without `manage_options`, nothing is deleted.
+	 *
+	 * @return void
+	 */
+	public function test_the_handler_refuses_without_manage_options(): void {
+		$this->seed_everything();
+		$this->seed_valid_delete_request();
+
+		try {
+			blueline_settings_handle_delete_all_data();
+			$this->fail( 'the handler should have refused' );
+		} catch ( Blueline_Test_WP_Die_Exception $e ) {
+			unset( $e );
+		}
+
+		$this->assertNotFalse( get_option( BLUELINE_SETTINGS_OPTION, false ), 'nothing may be deleted without the capability' );
+	}
+
+	/**
+	 * Without a valid nonce, nothing is deleted -- with the capability granted,
+	 * so this cannot pass for the capability check's reason.
+	 *
+	 * @return void
+	 */
+	public function test_the_handler_refuses_without_a_valid_nonce(): void {
+		$this->seed_everything();
+		$this->grant_manage_options();
+		$_REQUEST['_wpnonce']             = 'not-the-right-token'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- deliberately wrong, that is the point of this case.
+		$_POST['blueline_delete_confirm'] = '1'; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- test fixture.
+
+		try {
+			blueline_settings_handle_delete_all_data();
+			$this->fail( 'the handler should have refused' );
+		} catch ( Blueline_Test_WP_Die_Exception $e ) {
+			unset( $e );
+		}
+
+		$this->assertNotFalse( get_option( BLUELINE_SETTINGS_OPTION, false ), 'nothing may be deleted without a valid nonce' );
+	}
+
+	/**
+	 * An unticked confirmation box deletes nothing and says so.
+	 *
+	 * @return void
+	 */
+	public function test_an_unticked_confirmation_deletes_nothing(): void {
+		$this->seed_everything();
+		$this->grant_manage_options();
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'blueline_settings_delete_all_data' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- seeding the token the code under test verifies.
+
+		$this->run_handler();
+
+		$this->assertNotFalse( get_option( BLUELINE_SETTINGS_OPTION, false ) );
+	}
+
+	/**
+	 * A confirmation value that is merely PRESENT is not enough -- it must be
+	 * exactly '1'. Guards against a checkbox rendered with a different value,
+	 * and against the array-shaped POST that was a real bug elsewhere on this
+	 * branch.
+	 *
+	 * @return void
+	 */
+	public function test_a_confirmation_that_is_present_but_not_one_deletes_nothing(): void {
+		$this->seed_everything();
+		$this->grant_manage_options();
+		$_REQUEST['_wpnonce']             = wp_create_nonce( 'blueline_settings_delete_all_data' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- seeding the token the code under test verifies.
+		$_POST['blueline_delete_confirm'] = 'on'; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- test fixture.
+
+		$this->run_handler();
+
+		$this->assertNotFalse( get_option( BLUELINE_SETTINGS_OPTION, false ), 'a present-but-wrong value must not count as confirmation' );
+	}
+
+	/**
+	 * An array-shaped confirmation value deletes nothing.
+	 *
+	 * @return void
+	 */
+	public function test_an_array_shaped_confirmation_deletes_nothing(): void {
+		$this->seed_everything();
+		$this->grant_manage_options();
+		$_REQUEST['_wpnonce']             = wp_create_nonce( 'blueline_settings_delete_all_data' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- seeding the token the code under test verifies.
+		$_POST['blueline_delete_confirm'] = array( '1' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- test fixture.
+
+		$this->run_handler();
+
+		$this->assertNotFalse( get_option( BLUELINE_SETTINGS_OPTION, false ) );
+	}
+
+	/**
+	 * A GET carrying a valid nonce deletes nothing.
+	 *
+	 * This is the case that documents WHY the confirmation is read from $_POST
+	 * rather than $_REQUEST: `admin_post_{action}` fires for GET as well as
+	 * POST, so a bookmarked, prefetched or link-followed
+	 * admin-post.php?action=...&_wpnonce=... reaches this handler with both
+	 * other guards satisfied. Reading the confirmation from $_POST is the only
+	 * thing standing between that request and a teardown.
+	 *
+	 * @return void
+	 */
+	public function test_a_get_with_a_valid_nonce_deletes_nothing(): void {
+		$this->seed_everything();
+		$this->grant_manage_options();
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'blueline_settings_delete_all_data' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- seeding the token the code under test verifies.
+		// Deliberately NOT set in $_POST: this models a GET request that
+		// carries the confirmation as a query argument.
+		$_GET['blueline_delete_confirm'] = '1'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture modelling a GET.
+
+		$this->run_handler();
+
+		$this->assertNotFalse(
+			get_option( BLUELINE_SETTINGS_OPTION, false ),
+			'a GET carrying the confirmation must not be able to trigger a teardown'
+		);
+
+		unset( $_GET['blueline_delete_confirm'] );
+	}
+
+	/**
+	 * With all three guards satisfied, the teardown actually runs.
+	 *
+	 * Without this, every case above would pass just as well if the handler
+	 * deleted nothing under any circumstances.
+	 *
+	 * @return void
+	 */
+	public function test_a_fully_confirmed_post_does_delete(): void {
+		$this->seed_everything();
+		$this->grant_manage_options();
+		$this->seed_valid_delete_request();
+
+		$this->run_handler();
+
+		$this->assertFalse( get_option( BLUELINE_SETTINGS_OPTION, false ) );
+		$this->assertFalse( get_option( BLUELINE_SETTINGS_SNAPSHOTS_OPTION, false ) );
 	}
 
 	/**
