@@ -191,6 +191,23 @@ function blueline_settings_import_prepare( array $payload, int $current_schema_v
 	// Never honoured from a file -- see this function's own docblock.
 	unset( $payload['_posted_fields'], $payload['_tab'] );
 
+	// Discarded UNCONDITIONALLY, exactly as the spec requires: "discards
+	// `aa_acknowledgements` and `advanced_enabled` unconditionally (otherwise a
+	// crafted file arrives pre-excused)". Both are consent, not configuration
+	// -- a record that a human looked at a dangerous control and chose to
+	// proceed. Importing that consent would let a file assert it on an admin's
+	// behalf, which is the one thing consent cannot be.
+	//
+	// This has to be explicit, and it has to be HERE rather than left to the
+	// unknown-key drop below: that drop only removes keys the schema does not
+	// recognise, and `advanced_enabled` became a real schema key in this same
+	// task. The moment it was added, the drop stopped covering it.
+	// `aa_acknowledgements` does not exist yet (it is P2, with the colour
+	// work); it is named now so the discard lands with the key rather than
+	// after it, because the gap between those two is exactly when a crafted
+	// file would work.
+	unset( $payload['advanced_enabled'], $payload['aa_acknowledgements'] );
+
 	$payload_schema = isset( $payload['_schema'] ) ? (int) $payload['_schema'] : 0;
 	// `_schema` bookkeeping belongs to inc/settings/store.php's migration,
 	// never to an import: stripped here regardless of the outcome below, so

@@ -1,7 +1,7 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1). This file is named for what it does (the `settings` WP-CLI command group), not for Blueline_Settings_Command, matching this theme's established file-naming convention (inc/settings/page.php defines no class at all; every other inc/ file is named for its subject, never for a single class it happens to declare).
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed -- the three helpers below (blueline_settings_cli_validate_payload(), blueline_settings_cli_diff_lines(), blueline_settings_cli_flush_page_cache()) are the CLI-SHAPED remainder of this command's logic: everything a second, non-CLI caller also needs has already moved to inc/settings/import.php, and what is left produces CLI output or exists only so a test can reach a branch a constant would otherwise pin. Splitting these three into a fourth file would scatter one command across two files for no reader's benefit, the same trade-off tests/SettingsCacheTest.php's own docblock makes for its Redis fakes. (They are exercised through the subcommands that call them, in tests/SettingsCliCommandTest.php and tests/SettingsCliFlushCacheTest.php -- except blueline_settings_cli_flush_page_cache(), which the latter also calls directly; an earlier version of this line claimed direct unit tests for helpers no test named at all.)
 /**
- * `wp blueline settings export|import|validate|repair|reset|flush-cache`
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data`
  * -- WP-CLI access to the same one option (BLUELINE_SETTINGS_OPTION) the
  * Appearance -> Blueline panel reads and writes.
  *
@@ -23,8 +23,8 @@
  * anything declared here (this file is loaded only under WP_CLI). What this
  * file adds on top of them is CLI-specific and only two things:
  *
- * 1. `current_user_can( 'manage_options' )` on `import`, `repair`, `reset`
- *    and `flush-cache` -- the SAME capability the panel itself requires
+ * 1. `current_user_can( 'manage_options' )` on `import`, `repair`, `reset`,
+ *    `flush-cache` and `delete-all-data` -- the SAME capability the panel requires
  *    (inc/settings/page.php's blueline_settings_add_page() and
  *    blueline_settings_render_page()). WP-CLI does not authenticate a
  *    "current user" unless the operator explicitly passes `--user=<who>`,
@@ -187,7 +187,7 @@ function blueline_settings_cli_flush_page_cache( bool $purge_enabled ): bool {
 }
 
 /**
- * `wp blueline settings export|import|validate|repair|reset|flush-cache`.
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
 
@@ -582,6 +582,77 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		update_option( BLUELINE_SETTINGS_OPTION, blueline_settings_defaults() );
 
 		WP_CLI::success( 'Settings reset to defaults.' );
+	}
+
+	/**
+	 * Delete every option and cache entry this theme's settings layer created.
+	 *
+	 * The spec's section 6.7 teardown: themes have no uninstall hook, so
+	 * removing Blueline's rows has to be something a human asks for explicitly.
+	 * Belongs on the cutover checklist for a rollback to `rookie-child`.
+	 *
+	 * NOT the same as `reset`, and the confirmation prompt says so, because the
+	 * two are easy to confuse and only one of them is recoverable: `reset`
+	 * writes defaults into the option and the save-snapshot history survives,
+	 * so the previous settings can be restored from the panel. This deletes the
+	 * snapshots too. Nothing is recoverable afterwards except from a database
+	 * backup.
+	 *
+	 * Exits non-zero when there was nothing to delete, so a deploy script can
+	 * tell "torn down" from "already gone" without parsing the message.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--yes]
+	 * : Skip the confirmation prompt.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp blueline settings delete-all-data --yes
+	 *
+	 * @subcommand delete-all-data
+	 *
+	 * @param array<int, string>    $args       Positional arguments (unused).
+	 * @param array<string, string> $assoc_args Associative arguments.
+	 * @return void
+	 */
+	public function delete_all_data( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes no positional argument.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+			return;
+		}
+
+		WP_CLI::confirm(
+			'This deletes every Blueline setting AND the save-snapshot history that would otherwise let you undo it. Unlike `reset`, nothing survives to restore from. Continue?',
+			$assoc_args
+		);
+
+		$result = blueline_settings_delete_all_data();
+
+		if ( ! $result['deleted'] ) {
+			WP_CLI::warning( __( 'Nothing to delete: no Blueline data was stored.', 'blueline' ) );
+			WP_CLI::halt( 1 );
+			return;
+		}
+
+		foreach ( $result['deleted'] as $name ) {
+			WP_CLI::log( sprintf( '  deleted %s', $name ) );
+		}
+
+		if ( ! $result['purge_ran'] ) {
+			// Deliberately not an error: the data really is gone. But a stale
+			// page cache is the one way an admin could reload the site and
+			// conclude the teardown did not work.
+			WP_CLI::warning( __( 'The page cache was not purged. Purge it by hand, or cached pages will keep rendering the settings that were just deleted.', 'blueline' ) );
+		}
+
+		WP_CLI::success(
+			sprintf(
+				/* translators: %d: how many options and cache entries were deleted. */
+				_n( '%d stored item deleted.', '%d stored items deleted.', count( $result['deleted'] ), 'blueline' ),
+				count( $result['deleted'] )
+			)
+		);
 	}
 
 	/**

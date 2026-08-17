@@ -1997,12 +1997,29 @@ if ( ! function_exists( 'add_option' ) ) {
 
 if ( ! function_exists( 'delete_option' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' delete_option().
+	 * Minimal stand-in for WordPress' delete_option() over the in-memory store.
+	 *
+	 * Returns false for an option that was not stored, true when a row was
+	 * actually removed. This stub returned an unconditional `true` until
+	 * SettingsDeleteDataTest went looking for the difference: any caller
+	 * distinguishing "deleted four things" from "there was nothing to delete"
+	 * -- which is exactly what a teardown reports back to an admin -- got the
+	 * wrong answer in tests while getting the right one in production.
+	 *
+	 * That core returns false for an absent option is this stub's own
+	 * convention here, matching the documented contract; it is NOT independently
+	 * verified, because there is no WP core checkout in this worktree (see
+	 * tests/WpCoreContractTest.php, whose oracle job skips for the same reason).
+	 * A test asserting on this return value is asserting on the stub.
 	 *
 	 * @param string $option Option name.
-	 * @return true
+	 * @return bool Whether a stored option was removed.
 	 */
 	function delete_option( $option ) {
+		if ( ! isset( $GLOBALS['bl_test_options'][ $option ] ) ) {
+			return false;
+		}
+
 		unset( $GLOBALS['bl_test_options'][ $option ] );
 		return true;
 	}
@@ -2048,6 +2065,12 @@ if ( ! function_exists( 'delete_transient' ) ) {
 	 * @return true
 	 */
 	function delete_transient( $transient ) {
+		// False for an absent transient, true when one was actually removed --
+		// the same correction, and the same caveat, as delete_option() above.
+		if ( ! isset( $GLOBALS['bl_test_transients'][ $transient ] ) ) {
+			return false;
+		}
+
 		unset( $GLOBALS['bl_test_transients'][ $transient ] );
 		return true;
 	}

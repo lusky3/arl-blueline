@@ -1224,6 +1224,124 @@ function blueline_settings_render_data_tools( ?array $preview ): void {
 		?>
 	</section>
 	<?php
+	blueline_settings_render_delete_all_data();
+}
+
+/**
+ * Render the "Delete all Blueline data" control -- but only when the Advanced
+ * toggle is on.
+ *
+ * This is what `advanced_enabled` gates, and the pairing is the point: the spec
+ * calls Advanced a "here be dragons" disclosure affordance, and this is the
+ * most dragon-like control the panel has. Hiding it by default costs an admin
+ * who genuinely wants it one extra checkbox, and stops everyone else from
+ * finding it next to the harmless-looking export button.
+ *
+ * It is a DISCLOSURE, not a lock, and the copy on the toggle itself says so.
+ * Anyone who can see this page holds `manage_options` and could delete these
+ * rows by other means; hiding the button protects against the slip, not
+ * against the determined.
+ *
+ * @return void
+ */
+function blueline_settings_render_delete_all_data(): void {
+	if ( ! blueline_settings( 'advanced_enabled' ) ) {
+		return;
+	}
+	?>
+	<section class="bl-settings-data bl-settings-data--danger">
+		<h2><?php echo esc_html( __( 'Delete all Blueline data', 'blueline' ) ); ?></h2>
+
+		<p>
+			<?php
+			echo esc_html(
+				__( 'Removes every setting on this page, the saved copies under "Recent saves", and nothing else. Your pages, posts, players, events, photographs and member accounts are untouched -- this deletes the theme\'s own settings, not your content.', 'blueline' )
+			);
+			?>
+		</p>
+
+		<p>
+			<?php
+			echo esc_html(
+				__( 'This is not the same as resetting. Resetting puts every field back to its default and leaves the saved copies in place, so you can undo it. This deletes the saved copies too: afterwards there is nothing to restore from except a database backup. The site keeps working and falls back to the same defaults either way.', 'blueline' )
+			);
+			?>
+		</p>
+
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<?php wp_nonce_field( 'blueline_settings_delete_all_data' ); ?>
+			<input type="hidden" name="action" value="blueline_settings_delete_all_data">
+			<p>
+				<label>
+					<input type="checkbox" name="blueline_delete_confirm" value="1">
+					<?php echo esc_html( __( 'Yes, delete all Blueline settings and their saved copies', 'blueline' ) ); ?>
+				</label>
+			</p>
+			<button type="submit" class="button button-secondary">
+				<?php echo esc_html( __( 'Delete all Blueline data', 'blueline' ) ); ?>
+			</button>
+		</form>
+	</section>
+	<?php
+}
+
+add_action( 'admin_post_blueline_settings_delete_all_data', 'blueline_settings_handle_delete_all_data' );
+
+/**
+ * Handle the "Delete all Blueline data" submission.
+ *
+ * Three gates, in the order that fails most cheaply first: capability, nonce,
+ * then the explicit confirmation checkbox. The checkbox is not ceremony -- it
+ * is the only one of the three a logged-in admin cannot satisfy by accident,
+ * since both of the others are satisfied merely by being who they already are
+ * and clicking something on a page they already have open.
+ *
+ * @return void
+ */
+function blueline_settings_handle_delete_all_data(): void {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( esc_html__( 'You are not allowed to manage this site\'s settings.', 'blueline' ) );
+	}
+
+	check_admin_referer( 'blueline_settings_delete_all_data' );
+
+	$confirmed = isset( $_POST['blueline_delete_confirm'] ) && '1' === $_POST['blueline_delete_confirm']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared against an exact literal rather than used as text, so there is nothing for a sanitizer to strip; the nonce is verified immediately above.
+
+	if ( ! $confirmed ) {
+		add_settings_error(
+			BLUELINE_SETTINGS_OPTION,
+			'blueline_settings_delete_unconfirmed',
+			__( 'Nothing was deleted: the confirmation box was not ticked.', 'blueline' ),
+			'warning'
+		);
+		set_transient( 'settings_errors', get_settings_errors(), 30 );
+		wp_safe_redirect( blueline_settings_tab_url( blueline_settings_current_tab() ) );
+		exit;
+	}
+
+	$result = blueline_settings_delete_all_data();
+
+	if ( ! $result['deleted'] ) {
+		add_settings_error(
+			BLUELINE_SETTINGS_OPTION,
+			'blueline_settings_delete_nothing_stored',
+			__( 'There was nothing to delete: no Blueline settings were stored.', 'blueline' ),
+			'warning'
+		);
+	} else {
+		add_settings_error(
+			BLUELINE_SETTINGS_OPTION,
+			'blueline_settings_deleted',
+			$result['purge_ran']
+				? __( 'All Blueline data deleted. The site is now using the built-in defaults.', 'blueline' )
+				: __( 'All Blueline data deleted. The site is now using the built-in defaults. The page cache was not purged, so visitors may keep seeing the old settings until it is purged by hand.', 'blueline' ),
+			'success'
+		);
+	}
+
+	set_transient( 'settings_errors', get_settings_errors(), 30 );
+	wp_safe_redirect( blueline_settings_tab_url( blueline_settings_current_tab() ) );
+	exit;
 }
 
 /**

@@ -353,6 +353,26 @@ function blueline_settings_schema(): array {
 			'label' => 'Open standings tables on the full stats view',
 			'help'  => 'Off by default, so a standings table opens on Pos / Team / Record / Points. Either way a reader can switch between the two with the "Show full stats" control on the table itself -- this only chooses which one they land on.',
 		),
+		// A DISCLOSURE affordance, not a privilege boundary -- the spec says so
+		// twice (section 3's audience row, and "The Advanced toggle must state
+		// in its own UI that it is a warning, not a lock"). Everyone who can
+		// reach this page already holds `manage_options`, so flipping this
+		// grants nobody anything they could not already do; it only stops a
+		// volunteer wandering into the dangerous controls by accident. The
+		// label and help text below have to say that plainly, because a
+		// "here be dragons" switch that LOOKS like a lock is worse than no
+		// switch at all -- someone would rely on it.
+		//
+		// Nothing sits behind it yet: the AA-failure acknowledgement it exists
+		// to gate is P2 (the colour work). It ships now because
+		// inc/settings/import.php has to discard it unconditionally, and that
+		// discard is only reachable once the key exists -- see the note there.
+		'advanced_enabled'              => array(
+			'type'  => 'bool',
+			'tab'   => 'appearance',
+			'label' => 'Show advanced controls',
+			'help'  => 'Reveals controls that can break the site if used carelessly. This is a warning, not a lock: anyone who can open this page can switch it on, and switching it off hides those controls without restricting anybody.',
+		),
 		// Commerce tab.
 		'registration_term'             => array(
 			'type'     => 'term_id',
@@ -448,6 +468,9 @@ function blueline_settings_defaults(): array {
 		// all before this field existed), and installing this release must
 		// not change how a standings table already renders.
 		'standings_extra_stats_default' => false,
+		// Off: a disclosure affordance defaults to hiding what it discloses,
+		// or it discloses nothing.
+		'advanced_enabled'              => false,
 	);
 
 	// Every section defaults to enabled: an install that has never opened
