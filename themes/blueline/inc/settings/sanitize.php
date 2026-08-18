@@ -120,15 +120,22 @@ const BLUELINE_SPRINTF_SPEC = '%(?:[1-9][0-9]*\$)?(?:[-+ 0]|\'.)*[0-9]*(?:\.[0-9
  * a placeholder -- verified `sprintf( 'save 50%% today' )` returns the plain
  * string 'save 50% today' with no argument consumed).
  *
- * "%%" is tried FIRST in the pattern below, and PHP's own preg_match_all()
- * scans left to right without backtracking past a completed match -- the
- * same left-to-right, first-match-wins order PHP's sprintf() parser itself
- * uses. That ordering is load-bearing: for the input "%%s", PHP's sprintf()
- * consumes "%%" as a literal percent first and leaves "s" as plain text (no
- * placeholder). Verified: `sprintf( '%%s' )` returns the literal string
- * '%s' (one percent, one "s"), not a placeholder call requiring an argument.
- * Trying the conversion-spec branch first would instead match "%s" starting
- * at the second "%" and misreport a placeholder that sprintf() never sees.
+ * "%%" is tried FIRST in the pattern below, matching the left-to-right,
+ * first-match-wins order PHP's sprintf() parser itself uses: for the input
+ * "%%s", sprintf() consumes "%%" as a literal percent and leaves "s" as plain
+ * text. Verified: `sprintf( '%%s' )` returns the literal string '%s' (one
+ * percent, one "s"), not a placeholder call requiring an argument.
+ *
+ * That ordering is NOT load-bearing, despite reading as though it must be, and
+ * an earlier version of this docblock claimed it was -- that putting the
+ * conversion-spec branch first would "match '%s' starting at the second '%'".
+ * It would not. At the first "%" of "%%", the spec branch cannot match at all:
+ * "%" is neither a valid flag nor a valid type, so the alternation has only
+ * "%%" available there whichever branch is written first, and the engine never
+ * reaches the second "%" with the first one unconsumed. Measured across "%%s",
+ * "%%%s", "%%1$s", "%'%s" and five others: both orderings return identical
+ * results for every input. The order is kept because it reads in the same
+ * order sprintf() thinks, not because reversing it would break anything.
  *
  * @param string $text Text to scan for conversion specifications.
  * @return string[] Placeholder tokens in order of appearance, e.g.

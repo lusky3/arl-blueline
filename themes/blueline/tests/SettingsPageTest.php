@@ -752,8 +752,20 @@ final class SettingsPageTest extends TestCase {
 	 * message built the same way blueline_settings_sanitize_callback()
 	 * builds one -- interpolating a field's own `label`, exactly as
 	 * blueline_sanitize_field() does -- is escaped with esc_html() before
-	 * add_settings_error() ever sees it. If that esc_html() call were ever
-	 * removed, this test fails by finding the raw tag still present.
+	 * add_settings_error() ever sees it.
+	 *
+	 * NOTE what this does and does not prove. It performs the escape ITSELF,
+	 * in the test body, so it pins esc_html()'s behaviour on a realistic
+	 * message -- not the production call site. An earlier version of this
+	 * docblock claimed "if that esc_html() call were ever removed, this test
+	 * fails by finding the raw tag still present", which was false: this test
+	 * never calls blueline_settings_sanitize_callback() at all, and deleting
+	 * the escape at inc/settings/page.php:511 left it green.
+	 *
+	 * The call site is pinned by
+	 * test_a_rejected_field_is_escaped_by_the_save_path_itself() below, which
+	 * goes through update_option(). Both are worth keeping: this one can use a
+	 * hostile label a real schema would never carry.
 	 */
 	public function test_a_message_with_html_significant_characters_is_escaped_before_storage(): void {
 		$field = array(
@@ -773,6 +785,45 @@ final class SettingsPageTest extends TestCase {
 		$stored = get_settings_errors( BLUELINE_SETTINGS_OPTION );
 		$this->assertStringNotContainsString( '<script>', $stored[0]['message'] );
 		$this->assertStringContainsString( '&lt;script&gt;', $stored[0]['message'], 'escaping must have actually run, not merely found nothing to change' );
+	}
+
+	/**
+	 * The escape at inc/settings/page.php:511 is the ONLY one between a
+	 * rejection message and a raw `echo` in wp-admin -- the two render sites
+	 * deliberately do not re-escape, because double-encoding entities would
+	 * show an admin `&amp;quot;` where they typed a quote.
+	 *
+	 * So it needs a test that goes through the real save path, and the fixture
+	 * has to survive sanitize_text_field(). That is the trap the previous
+	 * attempt fell into: `<script>alert(1)</script>` is not merely escaped by
+	 * the time it is asserted on, it is GONE -- wp_strip_all_tags() removes the
+	 * tag and its contents at save, so a test asserting "no <script> in the
+	 * output" was asserting against something that was never there. Two other
+	 * tests on this branch went vacuous in exactly that way.
+	 *
+	 * A double quote survives sanitize_text_field() untouched, and several real
+	 * schema labels carry one. `hero_registration_headline`'s says
+	 * `e.g. "beginner"`, which lands in the message verbatim -- so escaping is
+	 * observable as `&amp;quot;`, and its absence is observable as a bare `"`.
+	 *
+	 * @return void
+	 */
+	public function test_a_rejected_field_is_escaped_by_the_save_path_itself(): void {
+		// Missing the %s the field's placeholder contract requires, so the
+		// sanitizer rejects it and builds a message naming the field.
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'hero_registration_headline' => 'no placeholder here' ) );
+
+		$stored = get_settings_errors( BLUELINE_SETTINGS_OPTION );
+		$this->assertNotEmpty( $stored, 'premise: the save must have queued a rejection message' );
+
+		$message = $stored[0]['message'];
+
+		// Premise: the label really did reach the message, so the assertions
+		// below are about escaping rather than about an absent substring.
+		$this->assertStringContainsString( 'beginner', $message, 'premise: the field label reaches the rejection message' );
+
+		$this->assertStringContainsString( '&quot;beginner&quot;', $message, 'the save path must escape the message before queueing it' );
+		$this->assertStringNotContainsString( '"beginner"', $message, 'an unescaped quote means esc_html() never ran' );
 	}
 
 	/**

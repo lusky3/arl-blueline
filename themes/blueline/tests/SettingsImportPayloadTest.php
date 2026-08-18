@@ -149,6 +149,17 @@ final class SettingsImportPayloadTest extends TestCase {
 	 * populated `hero_photos` list (the deepest shape the schema has).
 	 */
 	public function test_a_real_export_decodes_well_inside_both_bounds(): void {
+		// Attachment 7 has to be a REGISTERED image or the whole fixture is
+		// theatre: blueline_sanitize_band_photos() refuses an id it cannot
+		// confirm is an image, the callback keeps the previously stored value
+		// (an empty array), and the export this test measures then carries no
+		// hero_photos at all. That is what it did before this line existed --
+		// the "deepest shape the schema has" was never in the payload, and the
+		// depth figure the file docblock says it measures came out as 3 rather
+		// than the intended 4.
+		$state             = &blueline_test_state();
+		$state['posts'][7] = array( 'is_image' => true );
+
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
@@ -161,6 +172,10 @@ final class SettingsImportPayloadTest extends TestCase {
 			)
 		);
 
+		// Premise: the photo really is in the option now, so what follows
+		// measures the deep shape rather than an empty list.
+		$this->assertNotEmpty( blueline_settings( 'hero_photos' ), 'premise: the seeded photo must survive the sanitizer' );
+
 		$raw = (string) wp_json_encode( blueline_settings_export_payload(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
 
 		$this->assertLessThan( BLUELINE_SETTINGS_IMPORT_MAX_BYTES, strlen( $raw ) );
@@ -168,6 +183,30 @@ final class SettingsImportPayloadTest extends TestCase {
 		$decoded = blueline_settings_import_decode( $raw );
 		$this->assertIsArray( $decoded );
 		$this->assertArrayHasKey( '_schema', $decoded );
+		$this->assertNotEmpty( $decoded['hero_photos'], 'the export must carry the populated list it was built to carry' );
+
+		// Measure the depth rather than trusting the prose: the object, its
+		// hero_photos array, one row object, that row's scalars = 4, against a
+		// MAX_DEPTH of 8. Asserting it is what makes the headroom a fact.
+		$this->assertSame( 4, $this->json_depth( $raw ), 'a real export needs depth 4' );
+		$this->assertLessThan( BLUELINE_SETTINGS_IMPORT_MAX_DEPTH, $this->json_depth( $raw ) );
+	}
+
+	/**
+	 * Maximum nesting depth of a JSON document, counted the way
+	 * json_decode()'s own $depth argument counts it.
+	 *
+	 * @param string $raw JSON text.
+	 * @return int Depth, or 0 if it does not parse.
+	 */
+	private function json_depth( string $raw ): int {
+		for ( $depth = 1; $depth <= 64; $depth++ ) {
+			if ( null !== json_decode( $raw, true, $depth ) ) {
+				return $depth;
+			}
+		}
+
+		return 0;
 	}
 
 	/**

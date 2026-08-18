@@ -56,6 +56,19 @@ final class SettingsSnapshotsTest extends TestCase {
 		$this->assertCount( 10, $snapshots );
 		$this->assertSame( 'v11', $snapshots[0]['settings']['footer_heading'], 'newest first' );
 		$this->assertSame( 'v2', $snapshots[9]['settings']['footer_heading'], 'v0 and v1 evicted' );
+
+		// Ids must stay unique ACROSS eviction, and this is the only test that
+		// can see it. An id derived from the list position looks correct while
+		// the list is still growing -- which is all the id-versus-position test
+		// below exercises, with three snapshots -- but once eviction starts,
+		// position stops increasing while saves keep happening, so a
+		// position-derived id repeats. Three rows here would then share id 11,
+		// and blueline_settings_snapshot_get() returns the first match: a
+		// restore link labelled with one timestamp would restore a different
+		// save. Eleven saves is an ordinary week for a settings panel.
+		$ids = array_column( $snapshots, 'id' );
+		$this->assertSame( $ids, array_unique( $ids ), 'snapshot ids must not repeat once eviction begins' );
+		$this->assertSame( array( 12, 11, 10, 9, 8, 7, 6, 5, 4, 3 ), $ids, 'ids keep counting past the retention limit' );
 	}
 
 	/**

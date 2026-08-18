@@ -57,6 +57,39 @@ final class HomepageModuleOrderTest extends TestCase {
 	}
 
 	/**
+	 * The floor keeps the module the visitor would actually have seen FIRST,
+	 * not the first entry of the raw order table.
+	 *
+	 * Those two readings coincide for most states, which is why
+	 * test_the_last_enabled_module_cannot_be_removed() above cannot tell them
+	 * apart -- it uses 'in_season', where no override applies. They diverge
+	 * under registration_open + is_playing, the one combination the order
+	 * matrix overrides (P1 finding 4): the raw table entry there starts with
+	 * 'new_here', while the effective order starts with 'next_games'.
+	 *
+	 * blueline_homepage_module_order()'s own docblock argues this point at
+	 * length and the Sections tab repeats it beside the four module_*
+	 * checkboxes. Nothing pinned it: switching the floor to the raw table
+	 * entry left the whole suite green, so the promise made to an admin in
+	 * the panel was resting on a comment.
+	 *
+	 * @return void
+	 */
+	public function test_the_floor_keeps_the_module_the_visitor_would_have_seen_first(): void {
+		$all_off = array();
+		foreach ( blueline_section_definitions() as $key => $unused ) {
+			$all_off[ $key ] = false;
+		}
+		update_option( BLUELINE_SETTINGS_OPTION, $all_off );
+
+		$this->assertSame(
+			array( 'next_games' ),
+			blueline_homepage_module_order( 'registration_open', array( 'is_playing' => true ) ),
+			'the floor must keep the first EFFECTIVE module, not the first raw-table one'
+		);
+	}
+
+	/**
 	 * Regression guard: the registration_open + is_playing early-return order
 	 * (P1 finding 4) must survive the restructure into a single filtered
 	 * exit untouched, when every toggle is left at its default (enabled).
