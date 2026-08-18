@@ -363,10 +363,16 @@ function blueline_settings_schema(): array {
 		// "here be dragons" switch that LOOKS like a lock is worse than no
 		// switch at all -- someone would rely on it.
 		//
-		// Nothing sits behind it yet: the AA-failure acknowledgement it exists
-		// to gate is P2 (the colour work). It ships now because
-		// inc/settings/import.php has to discard it unconditionally, and that
-		// discard is only reachable once the key exists -- see the note there.
+		// What it gates today is the "Delete all Blueline data" control
+		// (inc/settings/page.php's blueline_settings_render_delete_all_data()),
+		// which is the most destructive thing the panel can do and so the most
+		// dragon-like thing to put behind a dragons switch. The AA-failure
+		// acknowledgement the spec also names is P2, with the colour work.
+		//
+		// It also has to exist for inc/settings/import.php's unconditional
+		// discard to be reachable at all: until this was a real schema key the
+		// unknown-key drop covered it, and the gap between those two is
+		// exactly when a crafted file would have worked.
 		'advanced_enabled'              => array(
 			'type'  => 'bool',
 			'tab'   => 'appearance',

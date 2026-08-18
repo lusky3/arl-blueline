@@ -48,12 +48,21 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  * Tasks 3 and 4 have now wired the eight `account_*` and `chrome_*` keys
  * (each account dashboard card renderer and each site-chrome surface calls
  * blueline_section_enabled() with its own literal key), so all eight are
- * removed below. Only the four `module_*` keys remain: blueline_homepage_
- * module_order() (a later task) reads those through a key it BUILDS at
- * runtime (`'module_' . $module`), not a literal
+ * removed below. Only the four `module_*` keys remain, and unlike the other
+ * eight they are exempt PERMANENTLY, not pending a task: their consumer
+ * blueline_homepage_module_order() (inc/homepage-modules.php) has landed and
+ * does read all four -- but through a key it BUILDS at runtime
+ * (`'module_' . $module`), not a literal
  * `blueline_section_enabled( 'module_next_games' )` this regex-based guard
- * can see, so they stay exempt until that task lands -- not because
- * nothing reads them.
+ * can see. Removing them from the list reddens the build against working
+ * code; an earlier version of this docblock said to remove each key "as the
+ * task that wires its consumer lands", which by the time that task landed
+ * was advice that broke the build if followed.
+ *
+ * That is a limit of the scan, not a gap in coverage: the four keys are read
+ * on every homepage request, and HomepageModuleOrderTest exercises each of
+ * them. If a future change gives one of them a literal consumer as well, the
+ * second guard below fails and the key must come off this list then.
  *
  * This is NOT a silent escape hatch, for two independent reasons:
  *
@@ -70,7 +79,9 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  *    from this list -- i.e. the list going stale is a red build, not a
  *    silent no-op.
  *
- * Remove each key from this list as the task that wires its consumer lands.
+ * These four stay. Do not remove them: their consumer builds its key at
+ * runtime, so the scan below cannot see it and an empty list reddens the
+ * build against working code -- see this class's docblock.
  */
 const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 	'module_next_games',

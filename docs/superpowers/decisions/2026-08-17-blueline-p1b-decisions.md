@@ -1,7 +1,9 @@
 # Blueline P1b — decisions, open questions, and what this branch taught us
 
 Companion to `docs/superpowers/plans/2026-08-15-blueline-p1b-panel-completion.md`.
-Branch: `p1-control-panel`. Final state: **676 tests / 2116 assertions / 1 skipped**, `npm run check` exit 0.
+Branch: `p1-control-panel`. Test counts move as work lands, so this document does not
+quote one as "final" -- run `npm run check` for the current figure. (An earlier version
+of this line called 676/2116 the final state; three test commits landed after it.)
 
 The plan says what was built. This says **what was decided and why**, which decisions
 still want a human, and the failure modes this codebase keeps producing. It exists
@@ -123,8 +125,15 @@ tests were found — deleting either clamp was caught at one commit and survived
 
 ## 4. The defect this codebase keeps producing
 
-**Ten instances on this branch**: comments and admin-facing copy asserting behaviour the code
-does not implement. Not one was a logic bug; every one was a true-sounding sentence.
+**At least fifteen distinct instances on this branch**, and around twenty-one if repeated
+phrasings of one underlying claim are counted separately: comments and admin-facing copy
+asserting behaviour the code does not implement. Not one was a logic bug; every one was a
+true-sounding sentence.
+
+An earlier version of this section said "ten", written at a point when five more were still
+live in the tree -- including one that had been diagnosed as false in a commit message on this
+branch and left in place, and one written false in the same commit that made it false. The
+count was not just historical and it was not conservative; it was simply low.
 
 Notable variants:
 
@@ -168,11 +177,15 @@ to itself.
 
 ## 6. Outstanding
 
-- **A final independent whole-branch review has not run.** The agent dispatched for the last
-  task died on an account spend limit, and spending more of an already-exhausted budget
-  without asking was the wrong call. Everything below the branch tip has been reviewed
-  task-by-task; what is missing is one pass over the whole diff, and it should be pointed at
-  the deferred-minor lines above and at §1's declined items.
+- **The final whole-branch review has now run**, in three passes: security surfaces, whole-suite
+  vacuity (87 mutations), and truthfulness plus cross-task coherence. It found no exploitable
+  vulnerability and no wrong implementation. What it found was guards that were correct but
+  unwatched -- a destructive handler with no tests, an escape whose only two "covering" tests
+  could not fail, a notice guard blind to any class built with PHP -- and the five further
+  untrue comments now counted in §4. All are fixed.
+- **Cross-task coherence came back clean**: one import path shared by CLI and panel, one
+  meaning for `blueline_section_enabled()` across all sixteen keys, no load-order hazard, and
+  reserved-key handling consistent across save, merge, import, snapshot, restore and repair.
 - **P2 remains unplanned**: colour control, Occasions, `aa_acknowledgements`, deploy drift
   (`_validated_against`), and the nested storage shape §6.1 describes (deliberately still flat —
   re-nesting is a migration with no user-visible value).

@@ -452,7 +452,7 @@ add_action( 'admin_post_blueline_dismiss_cache_purge_notice', 'blueline_handle_d
 /**
  * Handle the notice's dismiss link: only ever reached after an admin has
  * (per the notice's own text) purged the cache by hand, so clearing the
- * flag here is safe -- this is the only path (besides a successful guarded
+ * flag here is safe -- this is the only path that CLEARS it (besides a successful guarded
  * purge) that clears BLUELINE_CACHE_PURGE_NEEDED_OPTION.
  *
  * @return void

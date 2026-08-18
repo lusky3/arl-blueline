@@ -78,8 +78,26 @@ final class NoticeDivGuardTest extends TestCase {
 	/**
 	 * Every `<div ...>` opening tag, spanning multiple lines if needed, with
 	 * its attribute text captured for a `class="..."` search.
+	 *
+	 * Run against source whose PHP blocks have already been blanked by
+	 * blank_php_blocks_preserving_lines(). That step is not cosmetic and this
+	 * guard was blind without it: `[^>]*` stops at the FIRST `>`, and in
+	 * `<div class="notice notice-<?php echo $type; ?>">` the first `>` is the
+	 * one closing `<?php`. The captured attribute text ended mid-string with
+	 * an unterminated quote, CLASS_ATTR_PATTERN never matched, and the tag was
+	 * skipped in silence. Three of this theme's six notice elements were
+	 * unprotected that way -- including the "Settings saved." notice this test
+	 * was originally written to stop regressing.
 	 */
 	private const DIV_TAG_PATTERN = '/<div\b([^>]*)>/is';
+
+	/**
+	 * A PHP block appearing inside an attribute value.
+	 *
+	 * Matched non-greedily and including short echo tags, so
+	 * `class="a-<?= $x ?> b"` is handled like `class="a-<?php echo $x; ?> b"`.
+	 */
+	private const PHP_BLOCK_PATTERN = '/<\?(?:php|=)?.*?(?:\?>|$)/s';
 
 	/**
 	 * A `class="..."` attribute's value, from the attribute text captured
@@ -136,6 +154,83 @@ final class NoticeDivGuardTest extends TestCase {
 	}
 
 	/**
+	 * No `<div>` may build its class out of PHP unless it is listed below.
+	 *
+	 * The literal scan above can only see literal text. A class like
+	 * `bl-x bl-x--<?php echo $severity; ?>` contains nothing forbidden in the
+	 * source and renders as `bl-x--info`, which the plugin strips -- so a
+	 * source scan can never clear it, and pretending otherwise is how the
+	 * original gap survived. This test therefore fails CLOSED: every `<div>`
+	 * whose class contains PHP has to be named here with a reason, so adding
+	 * one is a decision somebody made rather than a thing that slipped past.
+	 *
+	 * The listed entries are layout wrappers whose expressions produce a
+	 * closed, known set of tokens, none matching a forbidden substring. They
+	 * are not exempt because they are old; they are exempt because their
+	 * output was read.
+	 *
+	 * @return void
+	 */
+	public function test_no_div_hides_a_forbidden_class_behind_php(): void {
+		$allowed = array(
+			// Renders '' or ' bl-content-layout--has-sidebar'.
+			'bl-content-layout',
+			// WooCommerce's own template: renders '' or 'calculated_shipping'.
+			'cart_totals',
+			// Renders 'content-area-left-sidebar' / '-right-' / '-no-'.
+			'woocommerce-shop-content',
+		);
+
+		$root       = dirname( __DIR__ );
+		$violations = array();
+
+		$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root ) );
+		foreach ( $iterator as $file ) {
+			if ( ! $file->isFile() || 'php' !== $file->getExtension() ) {
+				continue;
+			}
+
+			$path = $file->getPathname();
+
+			foreach ( self::EXCLUDED_PATH_FRAGMENTS as $fragment ) {
+				if ( str_contains( $path, $fragment ) ) {
+					continue 2;
+				}
+			}
+
+			$source   = $this->strip_comments_preserving_lines( (string) file_get_contents( $path ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test, not an HTTP fetch.
+			$relative = ltrim( str_replace( $root, '', $path ), '/' );
+
+			if ( ! preg_match_all( '/<div\b[^>]*?class\s*=\s*"([^"]*?<\?[^"]*?)"/is', $source, $matches, PREG_OFFSET_CAPTURE ) ) {
+				continue;
+			}
+
+			foreach ( $matches[1] as $class_match ) {
+				list( $class, $offset ) = $class_match;
+
+				foreach ( $allowed as $known ) {
+					if ( str_contains( $class, $known ) ) {
+						continue 2;
+					}
+				}
+
+				$violations[] = sprintf(
+					'%s:%d: class="%s"',
+					$relative,
+					substr_count( $source, "\n", 0, $offset ) + 1,
+					preg_replace( '/\s+/', ' ', $class )
+				);
+			}
+		}
+
+		$this->assertSame(
+			array(),
+			$violations,
+			"these <div> tags build a class from PHP, so no source scan can prove the rendered class is safe. Read what the expression can produce; if none of notice/error/warning/info/updated can appear, add its block name to this test's allow-list with that reasoning. If one can, use a <section>:\n" . implode( "\n", $violations )
+		);
+	}
+
+	/**
 	 * Finds every forbidden-class `<div>` in one file's source, returning
 	 * each with its 1-based line number.
 	 *
@@ -143,7 +238,9 @@ final class NoticeDivGuardTest extends TestCase {
 	 * @return array<int, array{line:int, class:string}>
 	 */
 	private function find_forbidden_notice_divs( string $source ): array {
-		$live = $this->strip_comments_preserving_lines( $source );
+		$live = $this->blank_php_blocks_preserving_lines(
+			$this->strip_comments_preserving_lines( $source )
+		);
 
 		if ( ! preg_match_all( self::DIV_TAG_PATTERN, $live, $matches, PREG_OFFSET_CAPTURE ) ) {
 			return array();
@@ -170,6 +267,35 @@ final class NoticeDivGuardTest extends TestCase {
 		}
 
 		return $found;
+	}
+
+	/**
+	 * Replace every PHP block with spaces, keeping newlines, so an attribute
+	 * value containing PHP still reads as one quoted string to the scanner.
+	 *
+	 * Only the STATIC text of a class attribute survives, which is the honest
+	 * limit of a source scan: `class="notice notice-<?php echo $type; ?>"`
+	 * becomes `class="notice notice-"` and is correctly caught on the literal
+	 * "notice", while `class="bl-x bl-x--<?php echo $severity; ?>"` becomes
+	 * `class="bl-x bl-x--"` and is not, because nothing forbidden appears in
+	 * the source at all. That residual gap is real -- a dynamic modifier can
+	 * render to "info" -- and is why blank_php_blocks_preserving_lines() is
+	 * paired with the interpolated-class check in
+	 * test_no_div_hides_a_forbidden_class_behind_php(): this method makes the
+	 * literal half visible, and that test refuses to let the dynamic half go
+	 * unexamined.
+	 *
+	 * @param string $source Source with comments already stripped.
+	 * @return string Same byte length and line count, PHP blocks blanked.
+	 */
+	private function blank_php_blocks_preserving_lines( string $source ): string {
+		return (string) preg_replace_callback(
+			self::PHP_BLOCK_PATTERN,
+			static function ( array $m ): string {
+				return preg_replace( '/[^\n]/', ' ', $m[0] );
+			},
+			$source
+		);
 	}
 
 	/**

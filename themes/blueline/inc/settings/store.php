@@ -153,8 +153,9 @@ function blueline_settings_merge( $new_value, $old_value ) {
 	// not otherwise accounted for, and `_posted_fields`/`_tab` are such keys
 	// if either were ever (incorrectly) persisted by an earlier bug or a
 	// write that bypassed this filter -- e.g. the first-ever-write quirk
-	// this file's own docblock references, where add_option()'s own
-	// re-sanitize pass has no merge stage to strip them a second time.
+	// inc/settings/snapshots.php's file docblock sets out, where
+	// add_option()'s own re-sanitize pass has no merge stage to strip them a
+	// second time.
 	// Strip both again so neither can ever resurface.
 	unset( $new_value['_posted_fields'], $new_value['_tab'] );
 

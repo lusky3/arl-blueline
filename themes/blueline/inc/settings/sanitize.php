@@ -61,8 +61,9 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The grammar of one PHP sprintf()/printf() conversion specification,
  * EXCLUDING the "%%" literal-percent escape (handled separately in the
- * patterns built from this constant, and always tried before this branch --
- * see blueline_extract_placeholders()'s docblock for why the order matters).
+ * patterns built from this constant, and written before this branch -- see
+ * blueline_extract_placeholders()'s docblock, which measures both orderings
+ * and finds them equivalent; the order is readability, not correctness).
  *
  * Matches PHP 8.3's own parser (ext/standard/formatted_print.c). Every clause
  * below was verified empirically with `php -r` against this runtime rather
@@ -344,7 +345,7 @@ function blueline_placeholder_mismatch_reasons( array $required, array $found ):
  * `page_id`/`term_id` fields sanitize to a non-negative integer (`0` means
  * "use the fallback", per the schema's own docblock); `bool` and `section`
  * fields both sanitize to a real boolean -- neither passes through a
- * sprintf() format string ever, so none of these three run the checks
+ * sprintf() format string ever, so none of these four run the checks
  * below. Every other type -- `text`, `email`, `textarea` today -- sanitizes
  * through sanitize_text_field(): see this file's docblock for why
  * wp_kses_post() is deliberately not used.

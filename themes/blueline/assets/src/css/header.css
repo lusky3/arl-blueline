@@ -84,7 +84,18 @@
 	right: 0;
 	left: 0;
 
-	/* Above the full-screen mobile drawer so the toggle stays reachable. */
+	/*
+	 * Orders the fixed header against the page content it floats over.
+	 *
+	 * NOT what keeps the menu toggle reachable above the open mobile drawer,
+	 * though an earlier version of this comment said so: `position: fixed`
+	 * here creates a stacking context, and the drawer (.bl-nav__menu) is a
+	 * DESCENDANT of this element, so this z-index orders the header against
+	 * its siblings and does nothing for its own children. The toggle stays
+	 * reachable because .bl-header__brand / .bl-header__actions carry
+	 * `position: relative; z-index: 55` further down this file -- added
+	 * precisely because 60 up here did not do it.
+	 */
 	z-index: 60;
 	background: var(--bl-ink-deep);
 	color: var(--bl-paper);

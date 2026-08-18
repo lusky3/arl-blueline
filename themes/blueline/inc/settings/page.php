@@ -103,12 +103,14 @@
  * this same write triggers, on pre_update_option_{$option}, immediately
  * after this one) reads it for that one decision and strips it before
  * anything reaches storage. The one exception is the SAME first-ever-write
- * re-sanitize quirk that function's own docblock already documents for
- * `_posted_fields`: add_option()'s own re-sanitize pass has no merge stage
- * to strip a second time, so a genuine first write can persist a spurious
- * `_tab => ''` alongside `_posted_fields => []`, self-healing on the very
- * next real save. See that function's own docblock for the merge-side half
- * of this fix, and for that quirk in full.
+ * re-sanitize quirk that affects `_posted_fields`: add_option()'s own
+ * re-sanitize pass has no merge stage to strip a second time, so a genuine
+ * first write can persist a spurious `_tab => ''` alongside
+ * `_posted_fields => []`, self-healing on the very next real save. The
+ * merge-side half of the fix is blueline_settings_merge()'s defensive
+ * second strip (inc/settings/store.php); the quirk itself is set out in
+ * inc/settings/snapshots.php's file docblock, which has to reason about it
+ * to decide what NOT to snapshot.
  *
  * ## `_schema` is reserved, not "unrecognised" -- and never from a form
  *
@@ -377,7 +379,7 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  * `admin_init`. This is the single choke point every save passes through,
  * immediately before blueline_settings_merge() runs.
  *
- * Three responsibilities, each described in this file's own docblock in
+ * Four responsibilities, each described in this file's own docblock in
  * more depth:
  *
  * 1. Validate every posted field with blueline_sanitize_field(). A field
@@ -443,8 +445,8 @@ function blueline_settings_sanitize_callback( $input ): array {
 			// `_posted_fields` is rebuilt, filtered, below; `_tab` is
 			// forwarded, unchanged, below too. Neither is persisted on an
 			// ordinary, steady-state save (the first-ever-write re-sanitize
-			// quirk inc/settings/store.php's blueline_settings_merge()'s
-			// own docblock already documents is the one exception) --
+			// quirk set out in inc/settings/snapshots.php's file docblock is
+			// the one exception) --
 			// blueline_settings_merge() (the very next filter this same
 			// write triggers) is what actually needs `_tab`, to tell a
 			// tab-scoped submission (where `_posted_fields` decides
@@ -482,8 +484,10 @@ function blueline_settings_sanitize_callback( $input ): array {
 
 			if ( '_schema' === $key ) {
 				// Clamped to BLUELINE_SETTINGS_SCHEMA_VERSION, matching
-				// the limit inc/cli/settings-command.php enforces on an
-				// import's own `_schema` (there, by refusing the whole
+				// the limit blueline_settings_import_prepare()
+				// (inc/settings/import.php) enforces on an import's own
+				// `_schema` -- for the CLI and the panel alike, since
+				// fe37280 unified them (there, by refusing the whole
 				// import outright; here, by clamping, since this path
 				// returns a value to store rather than an all-or-nothing
 				// operation to abort). Without this, a `_schema` at or

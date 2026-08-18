@@ -201,8 +201,9 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * `wp blueline settings import` can enforce the forward-only schema
 	 * check against it).
 	 *
-	 * Carries no secret: see this file's own docblock, "Export carries no
-	 * secret".
+	 * Carries no secret: see inc/settings/import.php's docblock, "Export
+	 * carries no secret" -- that reasoning moved there with the shared
+	 * machinery and is not restated in this file.
 	 *
 	 * ## OPTIONS
 	 *
