@@ -10,6 +10,7 @@ Verifies, after the snippet 53 fix:
 """
 import http.cookiejar
 import json
+import os
 import re
 import sys
 import urllib.parse
@@ -21,8 +22,12 @@ if "staging.rookiehockey.ca" not in BASE:
 
 PRODUCT = 116522
 PRODUCT_URL = f"{BASE}/registration/player-registration-w2026-27"
-# A real past customer's email, so snippet 54's returning-player path is exercised.
-BILLING_EMAIL = "nolanjcoyle@outlook.com"
+# Snippet 54's returning-player path only fires for an address with prior orders, so this
+# must be a real past customer. Pass one at run time; no customer address is committed here.
+BILLING_EMAIL = os.environ.get("ARL_TEST_BILLING_EMAIL") or sys.exit(
+    "set ARL_TEST_BILLING_EMAIL to a past customer's address "
+    "(needed to exercise snippet 54's returning-player discount)"
+)
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
 
 jar = http.cookiejar.CookieJar()
