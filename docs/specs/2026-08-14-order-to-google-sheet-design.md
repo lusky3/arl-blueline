@@ -148,6 +148,9 @@ Row 1 is a frozen header row written from the same column list, so a fresh sheet
 
 ## Payload
 
+Registrant names, email and date of birth below are placeholders — no real registrant
+data is kept in this repo. The shape is exactly what the live payload carries.
+
 ```json
 {
   "order_id": 116777,
@@ -156,18 +159,18 @@ Row 1 is a frozen header row written from the same column list, so a fresh sheet
     "Order Date": "2026-08-13 13:11",
     "Product Name": "Player Registration (W2026-27)",
     "Order Status": "Completed",
-    "First Name": "Richard",
-    "Last Name": "Peters",
+    "First Name": "Jordan",
+    "Last Name": "Sample",
     "Email": "player@example.com",
     "Gender": "Male",
-    "D.o.B.": "1986-02-07",
+    "D.o.B.": "1990-01-15",
     "Position": "Player",
     "Experience": "5 - Beginner",
     "Division": "5 - Beginner",
     "Returning Player": "Returning",
     "Restricted": "",
     "Requested Team": "",
-    "Requested Partner": "Andrew McRorie",
+    "Requested Partner": "Alex Partner",
     "Captain": "No",
     "Requested Partner 2": "",
     "Requested Partner 3": ""

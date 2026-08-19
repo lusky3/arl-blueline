@@ -228,23 +228,25 @@ function check( $label, $got, $want ) {
 		'"' . $got . '"', '"' . $want . '"' );
 }
 
-// 116777 = Richard Peters, Player Registration, Returning (corrected earlier today)
+// Registrant names below are placeholders; the assertions were verified against the
+// real live values at the time of the run. Substitute current data to re-run.
+// 116777 = Jordan Sample, Player Registration, Returning (corrected earlier today)
 $p = arl_sheet_build_payload( 116777 );
 echo "=== order 116777 ===\n";
 check( 'Order ID',          $p['values']['Order ID'], '116777' );
 check( 'Position',          $p['values']['Position'], 'Player' );
 check( 'Returning Player',  $p['values']['Returning Player'], 'Returning' );
 check( 'Order Status',      $p['values']['Order Status'], 'Completed' );
-check( 'Requested Partner', $p['values']['Requested Partner'], 'Andrew McRorie' );
+check( 'Requested Partner', $p['values']['Requested Partner'], 'Alex Partner' );
 check( 'Captain',           $p['values']['Captain'], 'No' );
 check( 'Restricted blank',  $p['values']['Restricted'], '' );
 check( 'column count',      (string) count( $p['values'] ), '19' );
 check( 'key order intact',  implode( ',', array_keys( $p['values'] ) ), implode( ',', arl_sheet_columns() ) );
 
-// 116724 = Max Yermakhanov, Requested Partner edited to Andrew Booker earlier today
+// 116724 = Taylor Example, Requested Partner edited to Casey Partner earlier today
 $p = arl_sheet_build_payload( 116724 );
 echo "=== order 116724 ===\n";
-check( 'Requested Partner', $p['values']['Requested Partner'], 'Andrew Booker' );
+check( 'Requested Partner', $p['values']['Requested Partner'], 'Casey Partner' );
 check( 'Requested Team',    $p['values']['Requested Team'], 'Train Wreck' );
 
 // a goalie order — find one, assert Position
@@ -523,7 +525,7 @@ Install the snippet on staging with `scripts/deploy-snippet.php` against a new s
 ssh staging-host 'STAGING_DB_PASS=<...> swp eval "var_dump( arl_sheet_push_order( 116777 ) );" --skip-themes'
 ```
 
-Expected: `bool(true)`, one new row in the test sheet with Richard Peters' data, `OK` in
+Expected: `bool(true)`, one new row in the test sheet with Jordan Sample' data, `OK` in
 `wp-content/arl-sheet-sync.log`, and `_arl_sheet_pushed_at` set on the order. Then confirm the
 staging guard logged `HTTP ALLOW script.google.com` rather than a deny.
 
@@ -764,7 +766,7 @@ ssh production-host 'sudo -u www-data /usr/local/bin/wp --path=/var/www/rookieho
   arl sheet:sync 116777 --user=9 --skip-themes'
 ```
 
-Expected: `pushed 1`, and Richard Peters appears in the production sheet with Position `Player`.
+Expected: `pushed 1`, and Jordan Sample appears in the production sheet with Position `Player`.
 
 ---
 
