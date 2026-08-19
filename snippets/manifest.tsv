@@ -1,0 +1,6 @@
+# id	name	scope	active	priority
+52	Register page: "Coming soon" instead of "Out of stock"	front-end	1	10
+53	Registration rules acknowledgement (modal on Register Now)	front-end	1	10
+54	Returning player discount (auto-applied)	front-end	1	10
+55	Early Bird saving shown as a labelled discount line	front-end	1	10
+56	Order to Google Sheet sync	global	1	10

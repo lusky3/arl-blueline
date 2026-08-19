@@ -1,0 +1,126 @@
+{
+    "taken": "2026-08-12 17:34:28",
+    "page_4733": "<!-- wp:spacer {\"height\":\"50px\"} -->\n<div style=\"height:50px\" aria-hidden=\"true\" class=\"wp-block-spacer\"></div>\n<!-- /wp:spacer -->\n\n<!-- wp:paragraph -->\n<p>The Division standings for the ARL Playoffs.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:shortcode -->\n[team_standings 114404]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[team_standings 114403]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[team_standings 114402]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[team_standings 114401]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[team_standings 114400]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[team_standings 114399]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[team_standings 114398]\n<!-- /wp:shortcode -->",
+    "tables": {
+        "116143": {
+            "title": "Division 1 | S2026",
+            "sp_date": "0",
+            "sp_date_from": "2026-04-01",
+            "sp_date_to": "2026-04-01",
+            "seasons": [
+                666
+            ],
+            "leagues": [
+                8
+            ]
+        },
+        "116144": {
+            "title": "Division 1 | Playoffs S2026",
+            "sp_date": "range",
+            "sp_date_from": "2025-04-18",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                667
+            ],
+            "leagues": [
+                8
+            ]
+        },
+        "116147": {
+            "title": "Division 2 | S2026",
+            "sp_date": "0",
+            "sp_date_from": "2025-04-18",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                666
+            ],
+            "leagues": [
+                7
+            ]
+        },
+        "116148": {
+            "title": "Division 2 | Playoffs S2026",
+            "sp_date": "range",
+            "sp_date_from": "2025-04-18",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                667
+            ],
+            "leagues": [
+                7
+            ]
+        },
+        "116151": {
+            "title": "Division 3 | S2026",
+            "sp_date": "0",
+            "sp_date_from": "2026-04-24",
+            "sp_date_to": "2026-09-01",
+            "seasons": [
+                666
+            ],
+            "leagues": [
+                6
+            ]
+        },
+        "116152": {
+            "title": "Division 3 | Playoffs S2026",
+            "sp_date": "range",
+            "sp_date_from": "2026-04-24",
+            "sp_date_to": "2026-08-28",
+            "seasons": [
+                667
+            ],
+            "leagues": [
+                6
+            ]
+        },
+        "116153": {
+            "title": "Division 4 | Playoffs S2026",
+            "sp_date": "range",
+            "sp_date_from": "2025-04-18",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                667
+            ],
+            "leagues": [
+                5
+            ]
+        },
+        "116154": {
+            "title": "Division 4 | S2026",
+            "sp_date": "0",
+            "sp_date_from": "2025-04-24",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                666
+            ],
+            "leagues": [
+                5
+            ]
+        },
+        "116155": {
+            "title": "Division 5 | Playoffs S2026",
+            "sp_date": "range",
+            "sp_date_from": "2025-04-18",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                667
+            ],
+            "leagues": [
+                2
+            ]
+        },
+        "116156": {
+            "title": "Division 5 | S2026",
+            "sp_date": "0",
+            "sp_date_from": "2025-04-18",
+            "sp_date_to": "2025-09-29",
+            "seasons": [
+                666
+            ],
+            "leagues": [
+                2
+            ]
+        }
+    }
+}
