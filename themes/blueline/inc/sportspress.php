@@ -124,14 +124,131 @@ add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_o
  * first impression -- not a wall of competitive crests above the fold.
  */
 
+/**
+ * The team ids the league menu is configured with, as the admin actually saved
+ * them.
+ *
+ * The three option_* filters above blank these on the front end to stop
+ * SportsPress' own League Menu module prepending 22-plus crest links to <body>
+ * ahead of the skip link. That blanking is what this theme wants for the
+ * plugin's renderer, and NOT what it wants for its own footer directory, so
+ * this reads the stored value with the filter lifted for exactly one call and
+ * puts it straight back.
+ *
+ * Note the filter is is_admin()-scoped, which means WP-CLI (where is_admin()
+ * is false) sees the blanked value too -- `wp option get
+ * sportspress_league_menu_teams` returns '' on this site and that is the filter
+ * working, not a missing option.
+ *
+ * @return int[] Published sp_team post ids, in the order the admin arranged
+ *               them; empty when the league menu is unconfigured.
+ */
+function blueline_league_menu_team_ids(): array {
+	remove_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
+	$stored = get_option( 'sportspress_league_menu_teams' );
+	add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
+
+	if ( ! is_array( $stored ) ) {
+		return array();
+	}
+
+	$ids = array();
+
+	foreach ( $stored as $value ) {
+		if ( is_array( $value ) || is_object( $value ) ) {
+			continue;
+		}
+
+		$id = absint( $value );
+
+		// De-duplicated because the option is a hand-arranged list and nothing
+		// in SportsPress' own UI stops the same team being added twice.
+		if ( $id > 0 && ! in_array( $id, $ids, true ) && 'publish' === get_post_status( $id ) ) {
+			$ids[] = $id;
+		}
+	}
+
+	return $ids;
+}
+
+add_filter( 'option_sportspress_header_sponsors_limit', 'blueline_sp_header_sponsors_limit' );
+/**
+ * The real gate for `chrome_sponsors`: force the option SportsPress checks
+ * before printing anything at all, front end only, to 0 when the toggle is
+ * off.
+ *
+ * Confirmed in the installed plugin (SportsPress_Sponsors::header(),
+ * includes/sportspress-sponsors/sportspress-sponsors.php, hooked on
+ * `wp_footer`):
+ *
+ *     $limit = get_option( 'sportspress_header_sponsors_limit', 0 );
+ *     if ( $limit ) {
+ *         ... echoes <div class="sp-header-sponsors">[sponsors ...]</div>
+ *         ... AND the inline <script> that reads
+ *             sportspress_header_sponsors_selector and prepends that div
+ *             into it ...
+ *     }
+ *
+ * The entire method -- both the sponsor markup and the relocation script --
+ * is inside that one `if ( $limit )`. An earlier version of this fix only
+ * changed `sportspress_header_sponsors_selector` to something unmatchable,
+ * on the theory that SportsPress would then have nowhere to prepend the
+ * block. That was wrong: with $limit still truthy, `header()` still prints
+ * `.sp-header-sponsors` and still runs the prepend script -- prepending an
+ * empty jQuery selection is simply a no-op, so the sponsor markup just
+ * stays wherever `wp_footer` put it (stranded at the end of the page, not
+ * hidden) instead of never being printed. Forcing $limit itself to 0 is
+ * what actually stops `header()` from printing anything.
+ *
+ * Scoped to the front end only (is_admin() passes the real value straight
+ * through), matching blueline_sp_blank_frontend_option()'s own convention
+ * below, so the Sponsors settings screen keeps showing/editing the site's
+ * actual saved limit -- turning the control-panel toggle off must not look
+ * like the admin's own SportsPress setting silently changed.
+ *
+ * @param mixed $value Stored option value.
+ * @return mixed
+ */
+function blueline_sp_header_sponsors_limit( $value ) {
+	if ( is_admin() ) {
+		return $value;
+	}
+
+	return blueline_section_enabled( 'chrome_sponsors' ) ? $value : 0;
+}
+
 add_filter( 'sportspress_header_sponsors_selector', 'blueline_header_sponsors_selector' );
 /**
  * Tell SportsPress which element the header sponsors should be inserted into.
+ *
+ * The function above, blueline_sp_header_sponsors_limit(), is what actually
+ * stops SportsPress printing anything while `chrome_sponsors` is off -- see
+ * its own docblock for why forcing the limit to 0, not this selector, is
+ * the real gate. While that toggle is off, `SportsPress_Sponsors::header()`
+ * never reaches the line that reads this filter at all, so this branch is
+ * never actually exercised on a real request in that state.
+ *
+ * `:not(*)` is returned anyway, as defence in depth: a selector that
+ * matches nothing, in both CSS and jQuery, by construction -- unlike
+ * `.bl-header__sponsors--disabled`, an earlier version of this fix's
+ * choice, which is a BEM modifier of a class (`.bl-header__sponsors`) this
+ * theme really emits elsewhere, and so the single edit most likely to be
+ * made to that div in the future (adding a state class to it) would have
+ * silently re-enabled injection. `:not(*)` cannot collide with any class
+ * this theme, or any future edit to it, ever adds. If some future caller
+ * (a different plugin, a SportsPress update that stops respecting the
+ * limit) ever does reach this filter while the toggle is off, the result
+ * has nowhere to land instead of stranding sponsor markup wherever it was
+ * printed.
  *
  * @param string $selector Default selector.
  * @return string
  */
 function blueline_header_sponsors_selector( $selector ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by the filter's own signature; this theme always returns one fixed selector regardless of the default passed in.
+	if ( ! blueline_section_enabled( 'chrome_sponsors' ) ) {
+		return ':not(*)';
+	}
+
 	return '.bl-header__sponsors';
 }
 
@@ -534,9 +651,96 @@ function blueline_sp_event_state( $has_results, $start_timestamp, $now_timestamp
 }
 
 /**
- * A Google Calendar "add event" link for an upcoming sp_event. No JS, no
+ * Subscribe URLs for a team's whole SportsPress calendar.
+ *
+ * The league already publishes one iCal feed per team -- an sp_calendar post
+ * carrying `sp_team` = the team's id, whose permalink serves iCal when asked
+ * with `?feed=sp-ical`. Each team's own page links it by hand in its post
+ * content; this resolves the same feed from a team id so the account dashboard
+ * can offer it without anyone maintaining a second copy of the URL.
+ *
+ * Returns BOTH forms because no single one works everywhere. `webcal://` is
+ * what iOS and macOS hand to Calendar, and what Outlook takes on Windows;
+ * Android generally does nothing with it, and wants Google's own add-by-URL
+ * screen instead. Choosing between them is a presentation decision, made in
+ * the template and refined by assets/src/js/calendar-links.js -- not here.
+ *
+ * A SUBSCRIPTION, not an export: the reader's calendar re-reads the feed, so a
+ * rescheduled game corrects itself instead of leaving a stale entry behind, and
+ * one action covers the whole season rather than one game.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return array{webcal:string, google:string, calendar_id:int}|null
+ *         Null when the team has no published calendar.
+ */
+function blueline_team_calendar_urls( $team_id ) {
+	$team_id = absint( $team_id );
+
+	if ( ! $team_id || ! post_type_exists( 'sp_calendar' ) ) {
+		return null;
+	}
+
+	$calendars = get_posts(
+		array(
+			'post_type'      => 'sp_calendar',
+			'post_status'    => 'publish',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'meta_key'       => 'sp_team', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- single-row lookup of one team's calendar, not a listing query.
+			'meta_value'     => (string) $team_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			'orderby'        => 'ID',
+			'order'          => 'DESC',
+		)
+	);
+
+	if ( ! $calendars ) {
+		return null;
+	}
+
+	$calendar_id = (int) $calendars[0];
+	$permalink   = get_permalink( $calendar_id );
+
+	if ( ! $permalink ) {
+		return null;
+	}
+
+	$feed = add_query_arg( 'feed', 'sp-ical', $permalink );
+
+	// webcal:// is the same URL under a scheme that tells the OS "subscribe"
+	// rather than "download once". Replacing only the leading scheme, so a
+	// host or path that happens to contain "http" is untouched.
+	$webcal = preg_replace( '#^https?://#', 'webcal://', $feed );
+
+	return array(
+		'calendar_id' => $calendar_id,
+		'webcal'      => $webcal,
+
+		/*
+		 * Encoded HERE, deliberately. add_query_arg() does NOT encode values:
+		 * it builds through build_query(), which calls
+		 * _http_build_query( $data, null, '&', '', false ) -- that last `false`
+		 * is $urlencode (wp-includes/functions.php, verified against the
+		 * installed core rather than assumed). Without this the cid would
+		 * carry a literal "://" and a second "?", and Google truncates the
+		 * feed URL at that "?".
+		 */
+		'google'      => add_query_arg(
+			'cid',
+			rawurlencode( $webcal ),
+			'https://calendar.google.com/calendar/render'
+		),
+	);
+}
+
+/**
+ * A Google Calendar "add event" link for a single upcoming sp_event. No JS, no
  * external dependency beyond the calendar.google.com URL scheme -- a plain
  * <a href> that works with or without a Google account.
+ *
+ * Kept for one-off use; the account dashboard offers the team's whole season
+ * through blueline_team_calendar_urls() instead, since a subscription both
+ * covers every game and corrects itself when one is rescheduled.
  *
  * @param int $event_id sp_event post ID.
  * @return string Escaped-ready URL, or '' if the start time is unknown.

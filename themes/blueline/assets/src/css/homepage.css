@@ -30,6 +30,142 @@
 	pointer-events: none;
 }
 
+/*
+ * ---- Band photography (opt-in) ----
+ *
+ * A league photograph as texture inside a navy band: desaturated so it carries
+ * luminance only, tinted back toward --bl-ice so the highlights land in the
+ * palette rather than going neutral grey, and masked so it resolves out of the
+ * navy at both edges instead of stopping at a hard line.
+ *
+ * DESATURATE-THEN-TINT, not "fade the photo". Ten league photos carry ten
+ * different colour casts -- red jerseys, a yellow kickplate, orange boards --
+ * and at partial opacity every one of them drags its own palette into the
+ * band, so the sections stop looking like one site. Stripping the colour and
+ * re-tinting from the theme's own token makes any photograph, including ones
+ * nobody has taken yet, land in the same place.
+ *
+ * THE CONTRAST FLOOR IS A PROPERTY OF --bl-band-photo-opacity ALONE, not of
+ * the photograph. Compositing is linear over the ground, so the brightest
+ * result any image can produce is that ground blended with pure white at this
+ * opacity -- measured, two very different photographs returned identical worst
+ * cases. That is why this theme has no per-image contrast check: hold the
+ * number below its ceiling and no photograph, including one nobody has taken
+ * yet, can break the floor. BandPhotoTest enforces the ceiling.
+ *
+ * The binding pair is NOT the headline. It is --bl-pale supporting copy on
+ * --bl-ink, which is both dimmer text and a lighter ground than the white-on-
+ * --bl-ink-deep case it is tempting to check:
+ *
+ *     opacity   pale on ink   paper on ink-deep
+ *     0.12      6.30          12.22
+ *     0.16      5.51          10.63
+ *     0.20      4.80           9.21
+ *     0.22      4.48  <-- below the 4.5 AA floor
+ *
+ * So the real ceiling is 0.20, and 0.12 is what ships: comfortably clear, and
+ * closer to the brief ("really faded") than the point where it starts
+ * competing with the words in front of it.
+ */
+.bl-band-photo {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+	--bl-band-photo-opacity: 0.12;
+}
+
+.bl-band-photo::before,
+.bl-band-photo::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+
+	/* The gradient fade: the photograph has no edges of its own. */
+	-webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+	mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+}
+
+/*
+ * Both custom properties are set on :root by blueline_render_band_photo_head()
+ * (inc/homepage-modules.php) rather than inline on the band, so the rotation
+ * script can replace them in the browser -- an inline style on the section
+ * would outrank :root and the photograph would never change. The fallbacks
+ * below are what renders if that function ever prints nothing.
+ */
+.bl-band-photo::before {
+	background-image: var(--bl-band-photo);
+	background-size: cover;
+	background-position: var(--bl-band-photo-position, center 40%);
+	filter: grayscale(1) contrast(1.15);
+	opacity: var(--bl-band-photo-opacity);
+}
+
+/*
+ * mix-blend-mode: color takes hue and saturation from this layer and
+ * LUMINOSITY from what is underneath -- so it cannot alter contrast, only
+ * colour. That is what keeps the opacity above the single thing the contrast
+ * floor depends on.
+ */
+.bl-band-photo::after {
+	background: var(--bl-ice);
+	mix-blend-mode: color;
+	opacity: 0.5;
+}
+
+/*
+ * Not on phones. The band is a third of the height there, so the photograph is
+ * mostly cropped away, and it is the connection least able to afford it.
+ */
+@media (max-width: 599.98px) {
+
+	.bl-band-photo::before,
+	.bl-band-photo::after {
+		display: none;
+	}
+}
+
+/*
+ * A photograph is decoration. Anyone who has asked for less of it gets the
+ * plain navy band, which is the design the rest of the site is built on
+ * anyway.
+ */
+@media (prefers-reduced-data: reduce) {
+
+	.bl-band-photo::before,
+	.bl-band-photo::after {
+		display: none;
+	}
+}
+
+/*
+ * The hero carries a photograph INSTEAD of its faceoff rings, never both --
+ * two low-opacity textures in one band read as noise rather than art
+ * direction. The rings remain the treatment on SportsPress entity heroes
+ * (sportspress.css), so both devices stay in use and neither repeats across
+ * consecutive page types.
+ *
+ * Scoped to exactly the conditions where the photograph actually paints.
+ * Suppressing the rings unconditionally left a phone with NEITHER -- the photo
+ * hidden by the width rule above, the rings hidden by this one -- so the
+ * smallest screens quietly lost the texture they already had. The rings are
+ * the fallback, so they come back wherever the photograph does not go.
+ */
+@media (min-width: 600px) {
+
+	.bl-hero.bl-band-photo .bl-hero__ring {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-data: reduce) {
+
+	.bl-hero.bl-band-photo .bl-hero__ring {
+		display: block;
+	}
+}
+
 .bl-hero__inner {
 	position: relative;
 	z-index: 1;
@@ -308,9 +444,22 @@
 	list-style: none;
 }
 
+/*
+ * One column on a phone: date, fixture, arena, stacked.
+ *
+ * This used to be `minmax(0, 1fr) auto` at every width, which put the fixture
+ * and the arena side by side. `auto` gives the arena whatever its label needs,
+ * and this league's labels are long -- "Mr. Lube and Tires Arena — Red" -- so
+ * the arena took most of a 390px row and squeezed "Puck Dynasty vs Hammers"
+ * into what was left, making the least important thing on the row the widest.
+ * Stacking gives the fixture the full width and drops the arena to its own
+ * line, where its existing smaller, dimmer type reads as the secondary detail
+ * it is. No information is lost, which shortening the label to just the pad
+ * would have cost.
+ */
 .bl-next-games__item {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--bl-space-1) var(--bl-space-3);
 	padding: var(--bl-space-4);
 	border: 1px solid var(--bl-border);
@@ -328,10 +477,36 @@
 	font-weight: 600;
 }
 
+/*
+ * The fixture links to its own event page. Same treatment as the venue link
+ * beside it -- both are real destinations from this row, so neither should
+ * look more clickable than the other. Underlined rather than colour-only,
+ * because "Puck Dynasty vs Hammers" sitting in a list of dates and arenas
+ * gives no other signal that it is interactive.
+ */
+a.bl-next-games__title {
+	color: inherit;
+	text-decoration: underline;
+	text-decoration-color: var(--bl-border);
+	text-underline-offset: 2px;
+}
+
+a.bl-next-games__title:hover,
+a.bl-next-games__title:focus-visible {
+	color: var(--bl-accent-text);
+	text-decoration-color: currentcolor;
+}
+
 .bl-next-games__venue {
 	color: var(--bl-ink-mid);
 	font-size: var(--bl-text-sm);
-	text-align: end;
+
+	/*
+	 * Start-aligned while stacked: on its own full-width line, an end-aligned
+	 * arena name sits alone against the right edge with nothing to align to.
+	 * The multi-column layout at >=700px puts it back to end.
+	 */
+	text-align: start;
 }
 
 /* P1 finding 3: the venue is a real link (to the sp_venue archive, carrying
@@ -403,5 +578,10 @@ a.bl-next-games__venue:focus-visible {
 
 	.bl-next-games__date {
 		grid-column: auto;
+	}
+
+	/* Back to a row: the arena aligns to the card's right edge. */
+	.bl-next-games__venue {
+		text-align: end;
 	}
 }

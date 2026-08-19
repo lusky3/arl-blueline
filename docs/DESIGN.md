@@ -134,3 +134,93 @@ which chains, in order:
 All six must exit 0. Because there is no CI, that is a statement about your own working tree
 right now, not a promise anyone else has verified — re-run it after pulling, and before every
 commit if the hook above is not enabled.
+
+### Checks that are deliberately NOT part of `npm run check`
+
+Two further checks exist and are worth running, but neither is wired into the `check` gate above
+— both need something `check` deliberately never assumes: a real, reachable, network-accessible
+WordPress install. Both are invoked by hand, like a script, not by any automated hook.
+
+- **`./scripts/smoke-staging.sh`** — 25 plain HTTP checks (status codes and body markers) against
+  a real staging deploy. `BASE=https://staging.rookiehockey.ca ./scripts/smoke-staging.sh` (or
+  set `BASE` to any other deployed target).
+- **`npm run test:browser`** (from `themes/blueline/`) — the **browser guard**. Explained below,
+  because it exists for a reason `smoke-staging.sh` structurally cannot cover.
+
+#### `npm run test:browser` — the browser guard
+
+Three separate fixes shipped for the same bug, one at a time (see `tests/NoticeDivGuardTest.php`'s
+own docblock, and `inc/settings/page.php`'s "Never a `<div>` for the error summary" section): a
+third-party plugin active on every real install this theme ships to (Capabilities Pro's
+admin-notices "declutter" module) removes, **client-side**, any `<div>` on any wp-admin screen
+whose `class` contains "notice", "error", "warning", "info" or "updated". PHPUnit passed on all
+three. `smoke-staging.sh` passed on all three — the raw HTTP response body was always correct.
+WP-CLI rendering passed. The bug only existed in a browser, after a third-party plugin's own JS
+had run, which is a category of failure none of those tools can execute, let alone see.
+`tests/NoticeDivGuardTest.php` (a PHP source scan banning that pattern) closes most of that gap,
+but a reviewer demonstrated it can be defeated by single-quoted attributes, `printf()`-templated
+tags, string concatenation, or helper indirection — a source scan can only ever see how markup is
+*written*, never what actually reaches the browser. `themes/blueline/tests-browser/panel-dom-persistence.spec.js`
+is the closing check: it fetches the exact response body of a real page load, then compares it
+against the live DOM after every script on the page (including that plugin's own) has run,
+failing by name on anything the server rendered that the browser no longer shows. See that file's
+own docblock for the full technique and reasoning, and `tests-browser/global-setup.js`'s for how
+this is authenticated (no credential of any kind lives in this repo).
+
+**Run it:**
+
+```
+cd themes/blueline/
+npm run test:browser
+```
+
+**Target:** local ddev (`~/arl-local`, `http://arl-local.ddev.site`) by default — the preferred
+target, because it carries the actual plugin (`capabilities-pro`) this bug depends on and needs no
+credentials (see `tests-browser/global-setup.js`'s "Authentication" section). If it isn't running,
+this fails immediately with a message telling you to `ddev start` it, rather than hanging or
+passing vacuously. Point it elsewhere with `BLUELINE_E2E_BASE_URL=<url>`.
+
+**Prerequisites on `~/arl-local`** (already done as of this writing, recorded here so a rebuilt
+ddev project knows to redo them):
+
+1. The `blueline` theme must be deployed there — `./scripts/deploy-theme.sh local` (rsyncs
+   `themes/blueline/` straight into `~/arl-local/wp-content/themes/blueline/`, overridable via
+   `BLUELINE_LOCAL_DEST`) — and active (`ddev wp theme activate blueline`; if wp-cli refuses on a
+   "Requires at least" WordPress-version mismatch, set the `template`/`stylesheet` options
+   directly instead — WordPress itself does not enforce that header at runtime).
+2. The `automatic-login` plugin must be active (`ddev wp plugin activate automatic-login`) — it
+   logs any signed-out wp-admin request in automatically, server-side, using credentials that live
+   only in `wp-config-local.php` (gitignored, never read by this repo), so this check never needs
+   to know a username or password.
+
+Not wired into `npm run check`: this hits a real network target and depends on that target's own
+third-party plugin stack, neither of which the other six gates should ever have to assume.
+
+### Before turning on `BLUELINE_SRCACHE_PURGE`
+
+`inc/settings/cache.php` implements a guarded Redis `SCAN`/`UNLINK` purge of the nginx srcache
+page cache on settings save, but ships with the `BLUELINE_SRCACHE_PURGE` constant **off** by
+default. The reasoning is in that file's own docblock; the short version:
+
+The WordPress object cache (via the Redis Object Cache drop-in's `redis_instance()`) and
+nginx's srcache module may not point at the **same Redis server and logical DB index** —
+hardened production setups routinely separate them. If they differ, the purge connects fine,
+`SCAN`s an empty keyspace, and reports success while purging nothing — worse than not purging,
+because it lies to the admin who just saved. Staging has no page-cache layer at all, so a green
+staging run cannot tell "the purge worked" from "there was nothing to purge either way" — this
+is the one component staging structurally cannot validate.
+
+Before ever defining `BLUELINE_SRCACHE_PURGE` as `true` (e.g. in `wp-config.php`), confirm on
+the actual server:
+
+1. Which Redis server/DB index nginx's srcache module writes into — `nginx.conf`'s
+   `srcache_store`/`redis2_query` (or equivalent) directives.
+2. Which Redis server/DB index the WordPress object cache connects to —
+   `wp-config.php`'s `WP_REDIS_HOST`/`WP_REDIS_PORT`/`WP_REDIS_DATABASE` (or equivalent).
+3. That (1) and (2) name the **same host AND the same DB index** — not merely the same host.
+4. Only then flip the constant, and verify by hand that a save actually evicts a known cached
+   page before trusting it unattended.
+
+Until that verification happens, the panel shows a persistent, dismissible admin notice naming
+the exact manual purge command instead — see `blueline_cache_purge_notice_message()` and
+`blueline_cache_purge_command()`.

@@ -293,7 +293,7 @@ function blueline_header_cta(): array {
 	if ( $show_register ) {
 		return array(
 			'label'       => __( 'Register to Play', 'blueline' ),
-			'url'         => home_url( '/register' ),
+			'url'         => blueline_resolve_link( 'page_register' ),
 			'class'       => 'bl-btn--primary',
 			'is_register' => true,
 		);
@@ -301,7 +301,7 @@ function blueline_header_cta(): array {
 
 	return array(
 		'label'       => __( 'Schedule', 'blueline' ),
-		'url'         => home_url( '/schedule' ),
+		'url'         => blueline_resolve_link( 'page_schedule' ),
 		'class'       => 'bl-btn--secondary',
 		'is_register' => false,
 	);
@@ -509,7 +509,7 @@ function blueline_site_header() {
 				</nav>
 
 				<div class="bl-header__actions">
-					<?php if ( has_nav_menu( 'utility' ) ) : ?>
+					<?php if ( has_nav_menu( 'utility' ) && blueline_section_enabled( 'chrome_utility_nav' ) ) : ?>
 						<nav class="bl-utility-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
 							<?php
 							wp_nav_menu(
@@ -538,12 +538,76 @@ function blueline_site_header() {
 			</div>
 		</div>
 
-		<div class="bl-header__sponsors"></div>
+		<?php if ( blueline_section_enabled( 'chrome_sponsors' ) ) : ?>
+			<?php
+			/*
+			 * Its own strip under the bar, NOT a fourth item in the bar row.
+			 * Measured: the primary menu is a flex:1 sibling that expands to
+			 * consume whatever the row has left, and .bl-container caps that row at
+			 * 1200px, so the row has roughly 10px spare at every viewport from 1100
+			 * to 1680 -- a wider screen does not help, because the container stops
+			 * growing. Moving this box into the row wrapped the menu onto two lines
+			 * at all of those widths. It is bigger and right-aligned here instead
+			 * (header.css); putting it beside the menu needs the header container
+			 * widened past the content width, which is a design decision, not a
+			 * styling one.
+			 */
+			?>
+			<div class="bl-header__sponsors"></div>
+		<?php endif; ?>
+		<?php
+		/*
+		 * When chrome_sponsors is off, blueline_sp_header_sponsors_limit()
+		 * (inc/sportspress.php) has already forced SportsPress to print
+		 * nothing at all, so this slot div is skipped outright rather than
+		 * printed and left to a CSS/JS collapse (assets/src/js/sponsors.js,
+		 * header.css's own comment on `.bl-header__sponsors`) that was
+		 * designed for a DIFFERENT case -- the sponsor slot being off
+		 * site-wide via SportsPress's own settings, not an admin flipping
+		 * this control panel's toggle. That collapse is a real, measured,
+		 * one-time reservation-then-shift (header.css's own comment gives
+		 * the numbers); skipping the div here removes the reservation
+		 * before the browser's first layout pass ever sees it, rather than
+		 * reserving 64px and clawing it back a moment later.
+		 */
+		?>
 
 		<div class="bl-band" aria-hidden="true"></div>
 		<div class="bl-band--ink" aria-hidden="true"></div>
 	</header>
 	<?php
+	/*
+	 * The header is position:fixed (header.css), so it reserves no space of its
+	 * own and this spacer stands in for it. Its height is pinned to the header's
+	 * RESTING height and never changes -- deliberately not to the current
+	 * height. A shrinking header that still occupied flow (position:sticky)
+	 * would pull every following element up by the 40px it gave back at the
+	 * moment it shrank, which reads as the page jumping under the reader's eyes
+	 * mid-scroll. Holding the reservation at the tall value costs 40px of navy
+	 * behind the shrunk bar and buys zero content shift, ever.
+	 */
+	?>
+	<div class="bl-header__spacer" aria-hidden="true"></div>
+	<?php
+}
+
+/**
+ * The league's Contact Us page URL.
+ *
+ * This exists because the two places that linked to "contact us" disagreed:
+ * the footer used /arl-league-info/contact-us (the real page, id 6379) while
+ * the offseason hero's "Join the mailing list" CTA used /contact-us -- and
+ * NO page exists at that slug, verified against all 100 published pages on
+ * the live site. That CTA was a 404 waiting to ship.
+ *
+ * Both callers now read this one function, so they cannot drift apart again.
+ * When the control panel's Links tab lands, this is the single place that
+ * needs to consult the configured page ID; until then it stays a literal.
+ *
+ * @return string Absolute URL to the Contact Us page.
+ */
+function blueline_contact_url(): string {
+	return blueline_resolve_link( 'page_contact' );
 }
 
 /**
@@ -558,40 +622,163 @@ function blueline_site_header() {
  * has widgets) three of the four columns were empty containers, against
  * DESIGN.md's own "never an empty container" rule. footer.css's grid
  * collapses to however many columns actually render.
+ *
+ * Each of the four widget columns is additionally gated by its own
+ * `chrome_footer_widgets_N` section toggle (inc/settings/sections.php),
+ * ANDed with the pre-existing `is_active_sidebar()` check -- a real toggle,
+ * unlike `chrome_footer_trust` below, which gates only the hardcoded trust
+ * column and nothing else. Written out as four literal blocks rather than
+ * a loop over `$i` so each `blueline_section_enabled()` call names its own
+ * key literally -- SchemaFieldCoverageTest's consumer scan looks for
+ * exactly that, not a key built at request time the way
+ * blueline_homepage_module_order() builds `'module_' . $module`. There is
+ * no floor here (unlike the homepage modules): an admin switching off all
+ * four is a legitimate choice, not a state this function needs to refuse.
  */
 function blueline_site_footer() {
 	?>
 	<footer class="bl-footer">
 		<div class="bl-container bl-footer__columns">
-			<div class="bl-footer__column bl-footer__column--trust">
-				<h2 class="widget-title"><?php esc_html_e( 'The League', 'blueline' ); ?></h2>
-				<p class="bl-footer__location"><?php esc_html_e( 'Burlington, Ontario', 'blueline' ); ?></p>
-				<ul class="bl-footer__trust-links">
-					<li><a href="<?php echo esc_url( home_url( '/arl-league-info/contact-us' ) ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( 'mailto:play@rookiehockey.ca' ); ?>"><?php esc_html_e( 'play@rookiehockey.ca', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( home_url( '/faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
-					<li><a href="<?php echo esc_url( home_url( '/legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
-				</ul>
-			</div>
+			<?php if ( blueline_section_enabled( 'chrome_footer_trust' ) ) : ?>
+				<div class="bl-footer__column bl-footer__column--trust">
+					<h2 class="widget-title"><?php echo esc_html( blueline_settings( 'footer_heading' ) ); ?></h2>
+					<p class="bl-footer__location"><?php echo esc_html( blueline_settings( 'footer_location' ) ); ?></p>
+					<ul class="bl-footer__trust-links">
+						<li><a href="<?php echo esc_url( blueline_contact_url() ); ?>"><?php esc_html_e( 'Contact Us', 'blueline' ); ?></a></li>
+						<li><a href="<?php echo esc_url( 'mailto:' . blueline_settings( 'contact_email' ) ); ?>"><?php echo esc_html( blueline_settings( 'contact_email' ) ); ?></a></li>
+						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
+						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
+					</ul>
+				</div>
+			<?php endif; ?>
 
-			<?php for ( $i = 1; $i <= 4; $i++ ) : ?>
-				<?php if ( is_active_sidebar( 'footer-' . $i ) ) : ?>
-					<div class="bl-footer__column">
-						<?php dynamic_sidebar( 'footer-' . $i ); ?>
-					</div>
-				<?php endif; ?>
-			<?php endfor; ?>
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_1' ) && is_active_sidebar( 'footer-1' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-1' ); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_2' ) && is_active_sidebar( 'footer-2' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-2' ); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_3' ) && is_active_sidebar( 'footer-3' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-3' ); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( blueline_section_enabled( 'chrome_footer_widgets_4' ) && is_active_sidebar( 'footer-4' ) ) : ?>
+				<div class="bl-footer__column">
+					<?php dynamic_sidebar( 'footer-4' ); ?>
+				</div>
+			<?php endif; ?>
 		</div>
+
+		<?php blueline_footer_team_directory(); ?>
 
 		<div class="bl-footer__bottom">
 			<div class="bl-container bl-footer__bottom-inner">
 				<?php blueline_leaf_mark( 'bl-footer__mark' ); ?>
 				<p class="bl-footer__copyright">
 					&copy; <?php echo esc_html( gmdate( 'Y' ) ); ?> <?php bloginfo( 'name' ); ?>. <?php esc_html_e( 'All rights reserved.', 'blueline' ); ?>
+					<?php
+					/*
+					 * Photography credit, in text, because the treatment removes
+					 * the alternative. The league photographs used as band
+					 * texture carry the photographer's own watermark, and
+					 * desaturating them to ~16% makes it illegible -- so relying
+					 * on it would mean taking the credit off his work by way of
+					 * a design decision. Rendered whether or not a photograph
+					 * happens to be on screen: the credit is for the body of
+					 * work the site draws on, not for one band.
+					 */
+					?>
+					<span class="bl-footer__credit">
+						<?php esc_html_e( 'Photography by Michael Durrant.', 'blueline' ); ?>
+					</span>
 				</p>
 			</div>
 		</div>
 	</footer>
+	<?php
+}
+
+/**
+ * Output the league team directory: one crest link per team the League Menu is
+ * configured with.
+ *
+ * This is the theme's replacement for SportsPress Pro's own League Menu, which
+ * inc/sportspress.php disables on the front end because the plugin prepends it
+ * to <body> ahead of the skip link and, at 360px, on top of the open mobile
+ * drawer. Rendering it here instead keeps the same admin-managed team list and
+ * the same links, in a place where the crest count does not compete with the
+ * page's first screen -- the roster runs to 22 teams in summer and as many as
+ * 34 in winter, which is a wall of logos above the fold and an ordinary,
+ * wrapping directory at the foot of the page.
+ *
+ * Renders nothing at all when the league menu is unconfigured, per DESIGN.md's
+ * "never an empty container" rule.
+ */
+function blueline_footer_team_directory() {
+	if ( ! blueline_section_enabled( 'chrome_footer_teams' ) ) {
+		return;
+	}
+
+	if ( ! function_exists( 'blueline_league_menu_team_ids' ) ) {
+		return;
+	}
+
+	$team_ids = blueline_league_menu_team_ids();
+
+	if ( ! $team_ids ) {
+		return;
+	}
+	?>
+	<nav class="bl-footer__teams" aria-label="<?php esc_attr_e( 'Teams', 'blueline' ); ?>">
+		<div class="bl-container">
+			<h2 class="bl-footer__teams-title"><?php esc_html_e( 'Teams', 'blueline' ); ?></h2>
+			<ul class="bl-footer__teams-list">
+				<?php foreach ( $team_ids as $team_id ) : ?>
+					<?php
+					$name = function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $team_id ) : get_the_title( $team_id );
+					$link = get_permalink( $team_id );
+
+					if ( ! $link ) {
+						continue;
+					}
+					?>
+					<li class="bl-footer__teams-item">
+						<a class="bl-footer__teams-link" href="<?php echo esc_url( $link ); ?>">
+							<?php if ( has_post_thumbnail( $team_id ) ) : ?>
+								<?php
+								/*
+								 * The crest is decorative here: the team name
+								 * sits beside it in the same link, so alt text
+								 * would make a screen reader announce the name
+								 * twice.
+								 */
+								echo get_the_post_thumbnail(
+									$team_id,
+									'thumbnail',
+									array(
+										'class'       => 'bl-footer__teams-crest',
+										'alt'         => '',
+										'loading'     => 'lazy',
+										'aria-hidden' => 'true',
+									)
+								);
+								?>
+							<?php endif; ?>
+							<span class="bl-footer__teams-name"><?php echo esc_html( $name ); ?></span>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+	</nav>
 	<?php
 }
 

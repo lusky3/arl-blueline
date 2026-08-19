@@ -102,6 +102,18 @@ function blueline_account_module_empty_state( string $message ) {
  * moves focus to it on load, the standard "you just navigated here, read
  * this" pattern, without pretending this is a live-region interruption it
  * is not.
+ *
+ * Rendered as a `<section>`, not a `<div>` -- tests/NoticeDivGuardTest.php
+ * (Task 7's fix rounds, inc/settings/page.php and inc/settings/cache.php)
+ * bans any theme-emitted `<div>` whose class contains "notice", "error",
+ * "warning", "info" or "updated" as a substring, since a third-party
+ * wp-admin plugin on the production install sweeps exactly that pattern
+ * from the DOM. This element is front-end only, so that specific plugin
+ * was never actually a risk to it, but the guard is deliberately blanket
+ * (no per-file exceptions) rather than trusted to be re-scoped correctly
+ * by hand every time -- see that test's own docblock. `.bl-account-notice`
+ * is a plain class selector in account.css with no tag qualifier, so
+ * styling is unaffected.
  */
 function blueline_account_render_claim_notice() {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only status flag from our own post-claim redirect, not a state-changing request.
@@ -126,9 +138,9 @@ function blueline_account_render_claim_notice() {
 
 	list( $type, $text ) = $messages[ $status ];
 	?>
-	<div class="bl-account-notice bl-account-notice--<?php echo esc_attr( $type ); ?>" role="alert" tabindex="-1">
+	<section class="bl-account-notice bl-account-notice--<?php echo esc_attr( $type ); ?>" role="alert" tabindex="-1">
 		<?php echo esc_html( $text ); ?>
-	</div>
+	</section>
 	<?php
 }
 
@@ -361,6 +373,10 @@ function blueline_format_team_record( array $row ): ?string {
  *                        (teammate count only).
  */
 function blueline_account_render_my_team( int $player_id, bool $full = false ) {
+	if ( ! blueline_section_enabled( 'account_my_team' ) ) {
+		return;
+	}
+
 	$team = blueline_get_player_team( $player_id );
 
 	blueline_account_module_start(
@@ -466,19 +482,34 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
  * @param int $player_id sp_player post ID.
  */
 function blueline_account_render_next_game( int $player_id ) {
+	if ( ! blueline_section_enabled( 'account_next_game' ) ) {
+		return;
+	}
+
 	$event = blueline_get_player_next_event( $player_id );
 
 	blueline_account_module_start( 'next-game', __( 'My next game', 'blueline' ) );
 
 	if ( ! $event ) {
-		blueline_account_module_empty_state( __( 'No upcoming game on your schedule yet.', 'blueline' ) );
+		blueline_account_module_empty_state( blueline_settings( 'account_empty_next_game' ) );
 	} else {
 		$opponent_name = $event['opponent_team_id']
 			? ( function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $event['opponent_team_id'] ) : get_the_title( $event['opponent_team_id'] ) )
 			: __( 'TBD', 'blueline' );
 
-		$calendar_url = function_exists( 'blueline_sp_event_calendar_url' ) ? blueline_sp_event_calendar_url( $event['event_id'] ) : '';
-		$venue_url    = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
+		/*
+		 * The team's whole season, not this one game. A subscription puts every
+		 * fixture in the reader's calendar in one action and keeps correcting
+		 * itself when a game moves -- a single-event "add" leaves a stale entry
+		 * behind on a reschedule, which for a league that moves games is the
+		 * worse failure. Falls back to nothing (the button simply does not
+		 * render) when a team has no published calendar.
+		 */
+		$bl_team_id    = function_exists( 'blueline_player_current_team_id' ) ? blueline_player_current_team_id( $player_id ) : 0;
+		$team_calendar = ( $bl_team_id && function_exists( 'blueline_team_calendar_urls' ) )
+			? blueline_team_calendar_urls( $bl_team_id )
+			: null;
+		$venue_url     = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
 		<div class="bl-account-next-game">
 			<p class="bl-account-next-game__date">
@@ -518,10 +549,29 @@ function blueline_account_render_next_game( int $player_id ) {
 				<a class="bl-account-module__link" href="<?php echo esc_url( get_permalink( $event['event_id'] ) ); ?>">
 					<?php esc_html_e( 'Game details', 'blueline' ); ?> <span aria-hidden="true">&rarr;</span>
 				</a>
-				<?php if ( $calendar_url ) : ?>
-					<a class="bl-btn bl-btn--secondary bl-account-next-game__calendar" href="<?php echo esc_url( $calendar_url ); ?>">
-						<span class="bl-skew"><span><?php esc_html_e( 'Add to calendar', 'blueline' ); ?></span></span>
-					</a>
+				<?php if ( $team_calendar ) : ?>
+					<?php
+					/*
+					 * Both destinations render, always. assets/src/js/
+					 * calendar-links.js marks the one matching the reader's
+					 * platform so it comes first and reads as the primary
+					 * action -- it never hides the other, because a wrong guess
+					 * would then leave someone with no way to subscribe at all,
+					 * and a desktop reader legitimately wants whichever their
+					 * own calendar is.
+					 */
+					?>
+					<div class="bl-account-next-game__calendar" data-calendar-links>
+						<span class="bl-account-next-game__calendar-label">
+							<?php esc_html_e( 'Add your season to:', 'blueline' ); ?>
+						</span>
+						<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
+							<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
+						</a>
+						<a class="bl-btn bl-btn--secondary" data-calendar="google" href="<?php echo esc_url( $team_calendar['google'] ); ?>">
+							<span class="bl-skew"><span><?php esc_html_e( 'Google', 'blueline' ); ?></span></span>
+						</a>
+					</div>
 				<?php endif; ?>
 			</div>
 		</div>
@@ -541,6 +591,10 @@ function blueline_account_render_next_game( int $player_id ) {
  * @param int $player_id sp_player post ID.
  */
 function blueline_account_render_season_stats( int $player_id ) {
+	if ( ! blueline_section_enabled( 'account_season_stats' ) ) {
+		return;
+	}
+
 	$stats = blueline_get_player_season_stats( $player_id );
 
 	blueline_account_module_start( 'season-stats', __( 'My season', 'blueline' ) );
@@ -564,7 +618,7 @@ function blueline_account_render_season_stats( int $player_id ) {
 		</div>
 	</dl>
 	<?php if ( ! array_filter( $stats ) ) : ?>
-		<p class="bl-account-stats__hint"><?php esc_html_e( 'Stats update after each game is scored.', 'blueline' ); ?></p>
+		<p class="bl-account-stats__hint"><?php echo esc_html( blueline_settings( 'account_empty_stats' ) ); ?></p>
 	<?php endif; ?>
 	<?php
 	blueline_account_module_end();
@@ -579,6 +633,10 @@ function blueline_account_render_season_stats( int $player_id ) {
  * @param int $user_id WordPress user ID.
  */
 function blueline_account_render_registration( int $user_id ) {
+	if ( ! blueline_section_enabled( 'account_registration' ) ) {
+		return;
+	}
+
 	$status = blueline_get_user_registration_status( $user_id );
 
 	blueline_account_module_start( 'registration', __( 'My registration', 'blueline' ) );

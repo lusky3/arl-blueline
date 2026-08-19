@@ -1417,9 +1417,40 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * width). Both get the cue so it appears regardless of which of the two
  * actually ends up doing the scrolling for a given table.
  */
-.bl-table-scroll,
-.sp-scrollable-table-wrapper,
-table.bl-table-self-scroll {
+
+/*
+ * CORRECTION to the note above: masking BOTH edges unconditionally dimmed the
+ * first and last 24px of every table whether or not anything was hidden there.
+ * A table that fitted its column still had its leading characters greyed
+ * ("ᴛIME", "ᴀUGUST 14, 2026", "₁0:30 pm"), and a table scrolled fully left
+ * still faded a left edge with nothing behind it -- the cue was covering the
+ * information it exists to help people find.
+ *
+ * The mask now follows the scroll state instead. assets/src/js/table-scroll.js
+ * measures each container and sets data-fade-start/data-fade-end for the sides
+ * that genuinely have more content; CSS has no overflow or scroll-position
+ * selector, so this cannot be expressed in the stylesheet alone. With no JS
+ * neither attribute is ever set and no mask applies, which loses a hint but
+ * never hides content -- the safe direction to fail in.
+ */
+.bl-table-scroll[data-fade-start],
+.sp-scrollable-table-wrapper[data-fade-start],
+table.bl-table-self-scroll[data-fade-start] {
+	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px);
+	mask-image: linear-gradient(to right, transparent, #000 24px);
+}
+
+.bl-table-scroll[data-fade-end],
+.sp-scrollable-table-wrapper[data-fade-end],
+table.bl-table-self-scroll[data-fade-end] {
+	-webkit-mask-image: linear-gradient(to left, transparent, #000 24px);
+	mask-image: linear-gradient(to left, transparent, #000 24px);
+}
+
+/* Both ends hidden: fade both, which is the mid-scroll case. */
+.bl-table-scroll[data-fade-start][data-fade-end],
+.sp-scrollable-table-wrapper[data-fade-start][data-fade-end],
+table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 	mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 }
@@ -1507,3 +1538,116 @@ table.bl-table-self-scroll {
 .bl-sp-standings-toggle-input:checked ~ .sp-table-wrapper .bl-sp-col-record {
 	display: none;
 }
+
+/* ---- Event fixture lockups: symmetry over SportsPress' mirroring ----
+ *
+ * SportsPress renders a fixture MIRRORED: the home team is name-then-logo and
+ * the away team logo-then-name, so the logos end up flanking the score/time and
+ * the names sit on the OUTSIDE. Its always-loaded core stylesheet does the same
+ * for the schedule table, right-aligning `.data-home` and left-aligning
+ * `.data-away` so both point inward.
+ *
+ * That is a deliberate design, and it breaks on real data: the two sides are
+ * only symmetric when the two team names happen to be the same length. Measured
+ * on /event/116460, "Hammers" is 77px and "Kings" is 45px, so the two halves
+ * came out 210px and 178px and the kick-off time -- the thing the whole lockup
+ * is built around -- sat 16px right of centre. Every fixture on the site is off
+ * by half the difference between its two team names.
+ *
+ * Both surfaces below therefore stop mirroring and become symmetric by
+ * construction rather than by coincidence.
+ */
+
+/* stylelint-disable no-descending-specificity -- same reasoning as the
+   schedule-override block above: the only rules these are reported against are
+   distant and unrelated (a gallery caption's :hover), and reordering two
+   independent components against each other to satisfy the sniff would make
+   both harder to follow, not easier. */
+
+/*
+ * Event page: each team becomes a centred column, logo above name, and the two
+ * teams take equal shares of the row (`flex: 1 1 0`) so the time is exactly on
+ * the axis whatever the names are called. `order` puts the image first in both
+ * columns regardless of the source order, which is what removes the mirroring
+ * without touching the template.
+ */
+.sp-event-logos {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bl-space-4);
+}
+
+.sp-event-logos .sp-team-logo {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.sp-event-logos .sp-team-logo a {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bl-space-2);
+	text-align: center;
+}
+
+.sp-event-logos .sp-team-logo a img {
+	order: 1;
+}
+
+.sp-event-logos .sp-team-logo a .sp-team-name {
+	order: 2;
+}
+
+/*
+ * The time/score keeps its natural width and sits between the two equal halves,
+ * which is what puts it on the true centre line.
+ */
+.sp-event-logos .sp-event-logos-time,
+.sp-event-logos .sp-event-logos-result {
+	flex: 0 0 auto;
+}
+
+/*
+ * Schedule table: centre the two team cells and the headers above them.
+ * SportsPress' core stylesheet aligns the cells inward (home right, away left)
+ * while the `Home`/`Away` headers stay left, so a team name never lines up with
+ * its own column heading. Centring both puts each name under its own label and
+ * makes the pair read as a matched set rather than two columns leaning at each
+ * other.
+ */
+.sp-event-list td.data-home,
+.sp-event-list td.data-away,
+.sp-event-list th.data-home,
+.sp-event-list th.data-away {
+	text-align: center;
+}
+
+/*
+ * With the cells centred, the logo and name inside each need to be a centred
+ * pair too, or the mirrored source order leaves them hanging off one side.
+ */
+.sp-event-list td.data-home a,
+.sp-event-list td.data-away a {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+}
+
+/*
+ * ...and the crest goes first in BOTH cells. SportsPress puts it after the name
+ * in the home cell only, which is the mirroring again; the league table on this
+ * same site renders every row crest-then-name, so a schedule that reverses one
+ * of its two team columns reads as a mistake sitting next to it.
+ *
+ * `order: -1` on the crest rather than reordering the name: the team name is a
+ * bare text node in SportsPress' markup, and a bare text node becomes an
+ * ANONYMOUS flex item that no selector can reach. Anonymous items take the
+ * default order of 0, so moving the one real element in front of it is the only
+ * way to do this without overriding the template.
+ */
+.sp-event-list td.data-home a .team-logo {
+	order: -1;
+}
+
+/* stylelint-enable no-descending-specificity */

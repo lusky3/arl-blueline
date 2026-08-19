@@ -274,6 +274,29 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	margin-block-start: var(--bl-space-4);
 }
 
+/*
+ * The two season-subscribe links. flex so assets/src/js/calendar-links.js can
+ * lift the platform-appropriate one to the front with `order` -- which needs a
+ * flex (or grid) container to mean anything, and which is why the JS sets order
+ * rather than moving the node: the source order stays the no-JS order.
+ */
+.bl-account-next-game__calendar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-2);
+}
+
+.bl-account-next-game__calendar-label {
+
+	/*
+	 * Never reordered: order defaults to 0 and the JS only ever sets -1 on a
+	 * button, so the label stays ahead of both.
+	 */
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+}
+
 /* ---------------------------------------------------------------------
  * My team
  * ------------------------------------------------------------------- */

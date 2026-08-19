@@ -191,8 +191,20 @@ function blueline_homepage_registration_season_label( int $product_id ): string 
 		return '';
 	}
 
+	$registration_term = blueline_resolve_registration_term();
+
+	if ( $registration_term <= 0 ) {
+		// Neither the configured term nor the documented fallback resolves
+		// to a real product_cat term -- there is nothing valid to compare
+		// $term->parent against. Guarding here (rather than comparing
+		// against 0) is what keeps an ordinary top-level product category
+		// from being mistaken for the registration season's parent -- see
+		// blueline_resolve_registration_term()'s docblock.
+		return '';
+	}
+
 	foreach ( $terms as $term ) {
-		if ( defined( 'BLUELINE_REGISTRATION_TERM_ID' ) && BLUELINE_REGISTRATION_TERM_ID === (int) $term->parent ) {
+		if ( $registration_term === (int) $term->parent ) {
 			return $term->name;
 		}
 	}
@@ -335,15 +347,13 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 	$season = blueline_homepage_registration_season_label( $offers[0]['product']->get_id() );
 
 	$eyebrow = $season
-		/* translators: %s: current season label, e.g. "Winter 2026-27". */
-		? sprintf( __( '%s · Registration open', 'blueline' ), $season )
+		? sprintf( blueline_settings( 'hero_registration_eyebrow' ), $season )
 		: __( 'Registration open', 'blueline' );
 
 	$pricing = blueline_homepage_registration_cta_pricing( $offers );
 
 	$cta_label = $pricing['cta_price_label']
-		/* translators: %s: formatted price, e.g. "$550.00". */
-		? sprintf( __( 'Register — %s', 'blueline' ), $pricing['cta_price_label'] )
+		? sprintf( blueline_settings( 'hero_registration_cta' ), $pricing['cta_price_label'] )
 		: __( 'Register now', 'blueline' );
 
 	$subcopy_lines = array();
@@ -368,13 +378,12 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 	return array(
 		'eyebrow'       => $eyebrow,
 		'headline_html' => blueline_hero_headline(
-			/* translators: %s: the highlighted word "beginner". */
-			__( 'Burlington’s %s league.', 'blueline' ),
+			blueline_settings( 'hero_registration_headline' ),
 			__( 'beginner', 'blueline' )
 		),
 		'subcopy_lines' => $subcopy_lines,
 		'cta_label'     => $cta_label,
-		'cta_url'       => home_url( '/register' ),
+		'cta_url'       => blueline_resolve_link( 'page_register' ),
 		'cta_variant'   => 'primary',
 	);
 }
@@ -397,8 +406,7 @@ function blueline_homepage_hero_preseason_content( array $state_data ): array {
 
 	$headline_html = $date
 		? blueline_hero_headline(
-			/* translators: %s: the highlighted start date. */
-			__( 'Puck drops %s.', 'blueline' ),
+			blueline_settings( 'hero_preseason_headline' ),
 			$date
 		)
 		: esc_html__( 'Puck drops soon.', 'blueline' );
@@ -407,7 +415,7 @@ function blueline_homepage_hero_preseason_content( array $state_data ): array {
 		'eyebrow'       => $eyebrow,
 		'headline_html' => $headline_html,
 		'cta_label'     => __( 'View schedule', 'blueline' ),
-		'cta_url'       => home_url( '/schedule' ),
+		'cta_url'       => blueline_resolve_link( 'page_schedule' ),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -434,8 +442,7 @@ function blueline_homepage_hero_in_season_content( array $state_data ): array {
 	// separately-escaped substitution alongside the highlighted number,
 	// not passed through blueline_hero_headline()'s single-highlight helper.
 	$headline_html = sprintf(
-		/* translators: 1: the highlighted game count number, 2: "game" or "games". */
-		__( '%1$s %2$s this week.', 'blueline' ),
+		blueline_settings( 'hero_in_season_headline' ),
 		blueline_hero_highlight( (string) $count ),
 		esc_html( _n( 'game', 'games', $count, 'blueline' ) )
 	);
@@ -444,7 +451,7 @@ function blueline_homepage_hero_in_season_content( array $state_data ): array {
 		'eyebrow'       => $eyebrow,
 		'headline_html' => $headline_html,
 		'cta_label'     => __( 'My next game', 'blueline' ),
-		'cta_url'       => home_url( '/schedule' ),
+		'cta_url'       => blueline_resolve_link( 'page_schedule' ),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -460,15 +467,14 @@ function blueline_homepage_hero_playoffs_content( array $state_data ): array {
 	$season   = blueline_homepage_event_season_label( $event_id );
 
 	$eyebrow = $season
-		/* translators: %s: current season label. */
-		? sprintf( __( '%s · Playoffs', 'blueline' ), $season )
+		? sprintf( blueline_settings( 'hero_playoffs_eyebrow' ), $season )
 		: __( 'Playoffs', 'blueline' );
 
 	return array(
 		'eyebrow'       => $eyebrow,
 		'headline_html' => blueline_hero_highlight( __( 'Playoffs.', 'blueline' ) ),
 		'cta_label'     => __( 'View bracket', 'blueline' ),
-		'cta_url'       => home_url( '/standings' ),
+		'cta_url'       => blueline_resolve_link( 'page_standings' ),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -483,12 +489,11 @@ function blueline_homepage_hero_offseason_content(): array {
 	return array(
 		'eyebrow'       => __( 'Off-season', 'blueline' ),
 		'headline_html' => blueline_hero_headline(
-			/* translators: %s: the highlighted word "soon". */
-			__( 'Back on the ice %s.', 'blueline' ),
+			blueline_settings( 'hero_offseason_headline' ),
 			__( 'soon', 'blueline' )
 		),
-		'cta_label'     => __( 'Join the mailing list', 'blueline' ),
-		'cta_url'       => home_url( '/contact-us' ),
+		'cta_label'     => blueline_settings( 'hero_offseason_cta' ),
+		'cta_url'       => blueline_contact_url(),
 		'cta_variant'   => 'secondary',
 	);
 }
@@ -566,6 +571,28 @@ function blueline_render_faceoff_rings() {
 }
 
 /**
+ * The league photographs available as band texture.
+ *
+ * Six of Michael Durrant's league photographs, chosen for how they read at
+ * ~16% opacity rather than how they read as photographs: open ice, legible
+ * silhouettes, the subject off-centre so a headline is not sitting on top of
+ * it. The portraits and tight group shots in the same set are deliberately
+ * absent -- a face reads as a person even at that opacity, which is both
+ * worse design here and a larger ask of the player in it.
+ *
+ * Re-encoded to 720px WebP (assets/images/bands, ~156KB for all six) because
+ * nothing above that survives the treatment. Credit is rendered in the footer:
+ * the photographer's watermark is illegible once desaturated to this level, so
+ * the attribution has to live somewhere the treatment cannot destroy.
+ *
+ * @return string[] Slugs, each matching assets/images/bands/{slug}.webp.
+ */
+function blueline_band_shots(): array {
+	return array( 'save', 'shot', 'skater', 'race', 'faceoff', 'breakaway' );
+}
+
+
+/**
  * Render the season-aware homepage hero: skewed eyebrow, headline with one
  * --bl-ice highlighted word, primary CTA, and the faceoff-ring/blue-line-band
  * chrome. Falls back to the offseason variant for any value outside the
@@ -594,7 +621,24 @@ function blueline_render_hero( string $state ): string {
 	$effective_state = $content['state'];
 	$cta_class       = 'primary' === $content['cta_variant'] ? 'bl-btn--primary' : 'bl-btn--secondary';
 	?>
-	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?>">
+	<?php
+	/*
+	 * The photograph is set on :root by blueline_render_band_photo_head()
+	 * immediately below, NOT inline on this section: an inline style would win
+	 * over :root and defeat the rotation, which has to happen in the browser
+	 * because the page itself is cached (see that function for the full
+	 * reasoning). The section only opts in; it never names a photograph.
+	 *
+	 * .bl-band-photo suppresses the faceoff rings (homepage.css) at the widths
+	 * where the photograph actually paints; the rings stay the treatment on
+	 * SportsPress entity heroes and remain the fallback on phones, so the two
+	 * devices alternate by page type rather than stacking.
+	 */
+	$bl_has_photo = (bool) blueline_band_photo_sources();
+
+	blueline_render_band_photo_head();
+	?>
+	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?><?php echo $bl_has_photo ? ' bl-band-photo' : ''; ?>">
 		<?php blueline_render_faceoff_rings(); ?>
 
 		<div class="bl-container bl-hero__inner">
@@ -647,18 +691,26 @@ function blueline_render_hero( string $state ): string {
  * the standings first, not three bullets of first-timer reassurance ahead
  * of it.
  *
+ * Task 2 (P1b-panel-completion) adds the Sections tab's own say on top of
+ * this table: each module here also has a `module_*` presence toggle
+ * (blueline_section_enabled(), inc/settings/sections.php), and this function
+ * is that toggle's only consumer for the homepage. The two return
+ * statements above used to be genuinely separate exits -- the is_playing
+ * early return skipped the $orders lookup entirely -- which would have let
+ * an admin's toggle choice apply to one branch and not the other purely by
+ * accident of code shape. Both paths now resolve $order first and fall
+ * through to ONE filter, so "which modules are considered" and "does this
+ * state override the order" stay independent questions.
+ *
  * @param string $state      Season state.
  * @param array  $state_data Result of blueline_season_state_data(); optional
  *                            so existing callers/tests passing only $state
  *                            keep working unchanged (empty array reads as
  *                            "not playing", i.e. today's behaviour).
- * @return string[] Module names, in render order.
+ * @return string[] Module names, in render order. Never empty -- see the
+ *                   floor comment below.
  */
 function blueline_homepage_module_order( string $state, array $state_data = array() ): array {
-	if ( 'registration_open' === $state && ! empty( $state_data['is_playing'] ) ) {
-		return array( 'next_games', 'standings_snippet', 'new_here', 'latest_news' );
-	}
-
 	$orders = array(
 		'registration_open' => array( 'new_here', 'next_games', 'standings_snippet', 'latest_news' ),
 		'preseason'         => array( 'next_games', 'new_here', 'latest_news' ),
@@ -667,7 +719,36 @@ function blueline_homepage_module_order( string $state, array $state_data = arra
 		'offseason'         => array( 'latest_news', 'new_here' ),
 	);
 
-	return $orders[ $state ] ?? $orders['offseason'];
+	$order = $orders[ $state ] ?? $orders['offseason'];
+
+	if ( 'registration_open' === $state && ! empty( $state_data['is_playing'] ) ) {
+		$order = array( 'next_games', 'standings_snippet', 'new_here', 'latest_news' );
+	}
+
+	$enabled = array_values(
+		array_filter(
+			$order,
+			static function ( $module ) {
+				return blueline_section_enabled( 'module_' . $module );
+			}
+		)
+	);
+
+	/*
+	 * THE FLOOR. WCAG 2.4.5 wants two ways to find content, and a homepage
+	 * with no modules has none. Rather than refuse the save -- which would
+	 * mean an admin cannot untick the last box even temporarily -- the
+	 * render path keeps the first module of $order, the array as it stands
+	 * for THIS render (is_playing override already applied above, if any)
+	 * -- deliberately not $orders[ $state ]'s raw, un-overridden table
+	 * entry, which was never going to appear on this page at all. Under
+	 * registration_open + is_playing with every toggle off, that means
+	 * 'next_games' survives, not 'new_here': whichever module the visitor
+	 * in front of them would actually have seen first. The Sections tab
+	 * says so beside the four module_* checkboxes (each one's `help`
+	 * string, inc/settings/sections.php).
+	 */
+	return $enabled ? $enabled : array_slice( $order, 0, 1 );
 }
 
 /**
@@ -752,7 +833,7 @@ function blueline_homepage_module_next_games() {
 		$events = $query->posts;
 	}
 
-	blueline_homepage_module_start( 'next_games', __( 'Next games', 'blueline' ), home_url( '/schedule' ), __( 'Full schedule', 'blueline' ) );
+	blueline_homepage_module_start( 'next_games', __( 'Next games', 'blueline' ), blueline_resolve_link( 'page_schedule' ), __( 'Full schedule', 'blueline' ) );
 
 	if ( empty( $events ) ) {
 		blueline_homepage_module_empty_state( __( 'No games on the schedule yet — check back soon.', 'blueline' ) );
@@ -785,11 +866,25 @@ function blueline_homepage_module_next_games() {
 					$venue_url = ( ! is_wp_error( $term_link ) ) ? $term_link : '';
 				}
 				?>
+				<?php
+				// The fixture itself links to its event page (box score, past
+				// meetings, the arena map). The venue link below stays separate
+				// and keeps going to the arena -- two destinations a reader
+				// genuinely wants from this row, so this is deliberately NOT a
+				// single row-wide link: an <a> wrapping the whole <li> could
+				// not contain the venue's own <a>, since nested anchors are
+				// invalid and browsers drop the inner one.
+				$event_permalink = get_permalink( $event );
+				?>
 				<li class="bl-next-games__item">
 					<span class="bl-next-games__date">
 						<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event ) ); ?>
 					</span>
-					<span class="bl-next-games__title"><?php echo esc_html( get_the_title( $event ) ); ?></span>
+					<?php if ( $event_permalink ) : ?>
+						<a class="bl-next-games__title bl-next-games__title--link" href="<?php echo esc_url( $event_permalink ); ?>"><?php echo esc_html( get_the_title( $event ) ); ?></a>
+					<?php else : ?>
+						<span class="bl-next-games__title"><?php echo esc_html( get_the_title( $event ) ); ?></span>
+					<?php endif; ?>
 					<?php if ( $venue_label && $venue_url ) : ?>
 						<a class="bl-next-games__venue" href="<?php echo esc_url( $venue_url ); ?>"><?php echo esc_html( $venue_label ); ?></a>
 					<?php elseif ( $venue_label ) : ?>
@@ -921,7 +1016,7 @@ function blueline_homepage_module_standings_snippet() {
 	$state    = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
 	$table_id = blueline_homepage_current_standings_table_id( $state );
 
-	blueline_homepage_module_start( 'standings_snippet', __( 'Standings', 'blueline' ), home_url( '/standings' ), __( 'Full standings', 'blueline' ) );
+	blueline_homepage_module_start( 'standings_snippet', __( 'Standings', 'blueline' ), blueline_resolve_link( 'page_standings' ), __( 'Full standings', 'blueline' ) );
 
 	$table_html = $table_id && shortcode_exists( 'league_table' )
 		? do_shortcode( '[league_table id="' . absint( $table_id ) . '"]' )
@@ -1023,7 +1118,7 @@ function blueline_homepage_new_here_default_content() {
 						__( 'Less than you\'d think, and you can rent most of it nearby before buying a single thing. %1$sSee the gear guide%2$s.', 'blueline' ),
 						array( 'a' => array( 'href' => array() ) )
 					),
-					'<a href="' . esc_url( home_url( '/arl-league-info/equipment' ) ) . '">',
+					'<a href="' . esc_url( blueline_resolve_link( 'page_equipment' ) ) . '">',
 					'</a>'
 				);
 				?>
@@ -1044,7 +1139,7 @@ function blueline_homepage_new_here_default_content() {
  * the theme's own default copy instead.
  */
 function blueline_homepage_module_new_here() {
-	blueline_homepage_module_start( 'new_here', __( 'Never played? Perfect.', 'blueline' ), home_url( '/faqs' ), __( 'Read the FAQs', 'blueline' ) );
+	blueline_homepage_module_start( 'new_here', blueline_settings( 'module_new_here_heading' ), blueline_resolve_link( 'page_faqs' ), blueline_settings( 'module_new_here_cta' ) );
 
 	if ( function_exists( 'blueline_leaf_mark' ) ) {
 		blueline_leaf_mark( 'bl-new-here__watermark' );
@@ -1075,7 +1170,7 @@ function blueline_homepage_module_latest_news() {
 		)
 	);
 
-	blueline_homepage_module_start( 'latest_news', __( 'Latest news', 'blueline' ), home_url( '/news' ), __( 'All news', 'blueline' ) );
+	blueline_homepage_module_start( 'latest_news', __( 'Latest news', 'blueline' ), blueline_resolve_link( 'page_news' ), __( 'All news', 'blueline' ) );
 
 	if ( empty( $posts ) ) {
 		blueline_homepage_module_empty_state( __( 'No news posted yet.', 'blueline' ) );
@@ -1121,4 +1216,126 @@ function blueline_render_module( string $name ) {
 	if ( isset( $modules[ $name ] ) ) {
 		call_user_func( $modules[ $name ] );
 	}
+}
+
+/**
+ * Every photograph available to the hero band, as { url, position } pairs.
+ *
+ * The control panel's list wins when it has anything in it; an empty list
+ * means the photographs that ship with the theme, which is what makes the
+ * setting an override rather than a switch (see blueline_settings_schema()).
+ *
+ * Admin-chosen photographs are rendered at the `blueline-band` size, never at
+ * their uploaded original -- see inc/setup.php for why that matters. A chosen
+ * attachment that has since been deleted simply drops out here rather than
+ * emitting a url() pointing at nothing.
+ *
+ * @return array<int,array{url:string,position:string}> Possibly empty.
+ */
+function blueline_band_photo_sources(): array {
+	$alignments = function_exists( 'blueline_band_photo_alignments' )
+		? blueline_band_photo_alignments()
+		: array();
+
+	$configured = function_exists( 'blueline_settings' ) ? blueline_settings( 'hero_photos' ) : array();
+	$sources    = array();
+
+	if ( is_array( $configured ) && $configured ) {
+		foreach ( $configured as $row ) {
+			$id = absint( $row['id'] ?? 0 );
+
+			if ( ! $id ) {
+				continue;
+			}
+
+			$url = wp_get_attachment_image_url( $id, 'blueline-band' );
+
+			if ( ! $url ) {
+				continue;
+			}
+
+			$align = (string) ( $row['align'] ?? 'center-center' );
+
+			$sources[] = array(
+				'url'      => (string) $url,
+				'position' => $alignments[ $align ] ?? 'center 40%',
+			);
+		}
+	}
+
+	if ( $sources ) {
+		return $sources;
+	}
+
+	foreach ( blueline_band_shots() as $slug ) {
+		$sources[] = array(
+			'url'      => BLUELINE_URI . '/assets/images/bands/' . $slug . '.webp',
+			'position' => 'center 40%',
+		);
+	}
+
+	return $sources;
+}
+
+/**
+ * Print the hero band's photograph, and the rotation that picks it.
+ *
+ * WHY THIS IS INLINE AND WHY IT IS HERE. The site sits behind an nginx srcache
+ * page cache in production (staging has none, see DESIGN.md), so a photograph
+ * chosen in PHP is chosen once per cache fill, not once per visitor -- server-
+ * side rotation would look perfect on staging and quietly never rotate in
+ * production, which is precisely the class of divergence DESIGN.md already
+ * warns about for the cache purge. Choosing in the browser is the only way
+ * "different on each page load" can be true of a cached page.
+ *
+ * Printed immediately before the band itself rather than from wp_head: the
+ * <style> establishes the resting value and the <script> overwrites it, both
+ * parsed before the section that reads them, so there is no flash of the first
+ * photograph being replaced. It also means no page that lacks a hero pays for
+ * any of it.
+ *
+ * With JavaScript unavailable the <style> alone is a complete answer: a real
+ * photograph, correctly aligned, chosen deterministically.
+ *
+ * @return void
+ */
+function blueline_render_band_photo_head(): void {
+	$sources = blueline_band_photo_sources();
+
+	if ( ! $sources ) {
+		return;
+	}
+
+	$rotate = function_exists( 'blueline_settings' ) ? (bool) blueline_settings( 'hero_photo_rotate' ) : true;
+
+	// The resting choice is deterministic rather than the first in the list, so
+	// a no-JS visitor and a cache fill do not both always land on the same one.
+	$resting = $sources[ crc32( 'hero' ) % count( $sources ) ];
+
+	printf(
+		'<style id="bl-band-photo">:root{--bl-band-photo:url("%1$s");--bl-band-photo-position:%2$s}</style>',
+		esc_url( $resting['url'] ),
+		esc_html( $resting['position'] )
+	);
+
+	if ( ! $rotate || count( $sources ) < 2 ) {
+		return;
+	}
+
+	/*
+	 * wp_json_encode() and not manual quoting: these strings become JavaScript
+	 * source, where esc_url()/esc_attr() are the wrong escaping entirely -- a
+	 * quote or backslash in a filename would end the string literal and
+	 * everything after it becomes code.
+	 */
+	$payload = wp_json_encode( array_values( $sources ) );
+
+	if ( ! $payload ) {
+		return;
+	}
+
+	printf(
+		'<script id="bl-band-photo-rotate">(function(){try{var s=%1$s,p=s[Math.floor(Math.random()*s.length)],r=document.documentElement.style;r.setProperty("--bl-band-photo","url(\'"+p.url+"\')");r.setProperty("--bl-band-photo-position",p.position);}catch(e){}})();</script>',
+		$payload // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode() output IS the escaping for a JS string literal context; esc_* would corrupt it.
+	);
 }

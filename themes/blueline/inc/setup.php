@@ -21,6 +21,22 @@ function blueline_setup() {
 	add_theme_support( 'wc-product-gallery-slider' );
 	add_theme_support( 'title-tag' );
 	add_theme_support( 'post-thumbnails' );
+
+	/*
+	 * The size band photography is rendered at, never the uploaded original.
+	 *
+	 * Without this, the control panel becomes a way to put a multi-megabyte
+	 * phone photograph into the hero of the site's most-visited page: the
+	 * media library holds originals up to 2560px, and a background-image has
+	 * no srcset to save anyone. The theme's own shipped photographs are 720px
+	 * WebP for exactly this reason, and an admin-chosen one has no business
+	 * being larger.
+	 *
+	 * Hard-cropped, so every photograph arrives at the same aspect ratio the
+	 * band is designed around rather than being letterboxed by background-size:
+	 * cover in a way the alignment control then has to fight.
+	 */
+	add_image_size( 'blueline-band', 960, 540, true );
 	add_theme_support( 'automatic-feed-links' );
 	add_theme_support( 'customize-selective-refresh-widgets' );
 	add_theme_support( 'responsive-embeds' );
@@ -85,4 +101,39 @@ function blueline_widgets_init() {
 			)
 		);
 	}
+}
+
+/**
+ * How many widgets currently sit in a registered widget area, straight from
+ * core's own sidebar/widget assignment store -- not the sidebar's
+ * REGISTRATION above (which persists regardless of any section toggle), but
+ * what an admin actually put in it. Lives here rather than in
+ * inc/settings/sections.php because it knows nothing about sections or
+ * toggles, only about the widget store this file owns the registration
+ * side of; blueline_section_widget_warning() (inc/settings/sections.php)
+ * is this function's only caller, and stays in sections.php since IT is the
+ * one that knows which section maps to which area.
+ *
+ * Calls wp_get_sidebars_widgets() despite core's own docblock marking it
+ * `@access private` (wp-includes/widgets.php): there is no public
+ * alternative that reports widget ASSIGNMENTS without also rendering them
+ * (dynamic_sidebar() prints markup; is_active_sidebar() reports only
+ * true/false, never a count). Not independently re-verified against core's
+ * own source as part of this change -- flagging that rather than dressing
+ * it up as more thoroughly checked than it is.
+ *
+ * Not special-cased against the `wp_inactive_widgets` bucket
+ * wp_get_sidebars_widgets() also returns (core's holding pen for widgets
+ * assigned to no sidebar, not a real registered area): $area here is always
+ * a real sidebar id, since blueline_section_widget_warning()'s own `$areas`
+ * map only ever names one, so nothing currently calls this with
+ * `wp_inactive_widgets` to say the wrong thing about.
+ *
+ * @param string $area A registered sidebar/widget-area id (e.g. 'footer-2').
+ * @return int
+ */
+function blueline_active_widget_count( string $area ): int {
+	$sidebars_widgets = wp_get_sidebars_widgets();
+
+	return isset( $sidebars_widgets[ $area ] ) ? count( $sidebars_widgets[ $area ] ) : 0;
 }

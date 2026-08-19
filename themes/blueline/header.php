@@ -20,3 +20,13 @@ defined( 'ABSPATH' ) || exit;
 <?php wp_body_open(); ?>
 <div id="page" class="bl-site">
 	<?php blueline_site_header(); ?>
+	<?php
+	/*
+	 * Site-wide, and here rather than in a homepage template, because most
+	 * arrivals on this site are deep links shared into a team chat -- a
+	 * banner only the homepage rendered would miss them. Prints nothing
+	 * unless an admin has actually written an announcement and its date
+	 * window is open (blueline_announcement_visible()).
+	 */
+	blueline_render_announcement();
+	?>

@@ -227,7 +227,18 @@ $output .= '</tbody>';
 		<h4 class="sp-table-caption"><?php echo wp_kses_post( $title ); ?></h4>
 	<?php endif; ?>
 	<?php if ( $bl_show_toggle ) : ?>
-		<input type="checkbox" id="bl-sp-full-<?php echo esc_attr( $identifier ); ?>" class="bl-sp-standings-toggle-input">
+		<?php
+		/*
+		 * The disclosure's INITIAL state, from the panel's
+		 * `standings_extra_stats_default` setting (Appearance tab). Both
+		 * states stay reachable by the reader regardless -- the extra
+		 * columns are rendered either way and the label below toggles them
+		 * with no JavaScript -- which is exactly why that setting is a
+		 * plain `bool` and not one of inc/settings/sections.php's presence
+		 * toggles; see blueline_settings_schema()'s own comment on the key.
+		 */
+		?>
+		<input type="checkbox" id="bl-sp-full-<?php echo esc_attr( $identifier ); ?>" class="bl-sp-standings-toggle-input"<?php checked( blueline_settings( 'standings_extra_stats_default' ) ); ?>>
 		<label class="bl-sp-standings-toggle-label" for="bl-sp-full-<?php echo esc_attr( $identifier ); ?>">
 			<?php esc_html_e( 'Show full stats', 'blueline' ); ?>
 		</label>

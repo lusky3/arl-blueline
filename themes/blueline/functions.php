@@ -21,10 +21,25 @@ define( 'BLUELINE_VERSION', '1.0.1' );
 define( 'BLUELINE_DIR', get_template_directory() );
 define( 'BLUELINE_URI', get_template_directory_uri() );
 
+require_once BLUELINE_DIR . '/inc/settings/defaults.php';
+require_once BLUELINE_DIR . '/inc/settings/sections.php';
+require_once BLUELINE_DIR . '/inc/settings/store.php';
+require_once BLUELINE_DIR . '/inc/settings/snapshots.php';
+require_once BLUELINE_DIR . '/inc/settings/links.php';
+require_once BLUELINE_DIR . '/inc/settings/sanitize.php';
+require_once BLUELINE_DIR . '/inc/settings/import.php';
+require_once BLUELINE_DIR . '/inc/settings/cache.php';
+// After cache.php: delete-data.php calls blueline_srcache_purge_attempt() and
+// names BLUELINE_CACHE_PURGE_NEEDED_OPTION, both declared there.
+require_once BLUELINE_DIR . '/inc/settings/delete-data.php';
+require_once BLUELINE_DIR . '/inc/settings/commerce.php';
+require_once BLUELINE_DIR . '/inc/settings/page.php';
+require_once BLUELINE_DIR . '/inc/settings/site-health.php';
 require_once BLUELINE_DIR . '/inc/setup.php';
 require_once BLUELINE_DIR . '/inc/enqueue.php';
 require_once BLUELINE_DIR . '/inc/template-tags.php';
 require_once BLUELINE_DIR . '/inc/season-state.php';
+require_once BLUELINE_DIR . '/inc/announcement.php';
 require_once BLUELINE_DIR . '/inc/homepage-modules.php';
 require_once BLUELINE_DIR . '/inc/team-colors.php';
 require_once BLUELINE_DIR . '/inc/sportspress.php';
@@ -34,3 +49,13 @@ require_once BLUELINE_DIR . '/inc/account/player-link.php';
 require_once BLUELINE_DIR . '/inc/account/player-data.php';
 require_once BLUELINE_DIR . '/inc/account/dashboard.php';
 require_once BLUELINE_DIR . '/inc/account/avatars.php';
+
+// WP-CLI only: `wp blueline settings export|import|validate|repair|reset|flush-cache`.
+// Guarded so inc/cli/settings-command.php -- which extends WP_CLI_Command and calls
+// WP_CLI:: directly -- never parses on an ordinary web request, where
+// neither symbol exists. tests/IncRequireCoverageTest.php matches this
+// quoted path regardless of the surrounding `if`, so this guarded require
+// still satisfies that guard.
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once BLUELINE_DIR . '/inc/cli/settings-command.php';
+}

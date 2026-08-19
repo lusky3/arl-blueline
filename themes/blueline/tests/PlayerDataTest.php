@@ -15,6 +15,120 @@ require_once __DIR__ . '/../inc/account/player-data.php';
 final class PlayerDataTest extends TestCase {
 
 	/**
+	 * Seed a player whose sp_current_team is stored the way SportsPress
+	 * actually stores it: several rows under one key.
+	 *
+	 * @param int               $player_id Player post id.
+	 * @param array<int,string> $rows      Row values, lowest meta_id first.
+	 * @param int               $team_id   Team post to publish.
+	 * @return void
+	 */
+	private function seed_player_with_team_rows( int $player_id, array $rows, int $team_id ): void {
+		blueline_test_reset_state();
+		$state                            = &blueline_test_state();
+		$state['post_types']              = array( 'sp_player', 'sp_team' );
+		$state['posts'][ $team_id ]       = array(
+			'status'    => 'publish',
+			'permalink' => 'https://example.test/team/',
+			'type'      => 'sp_team',
+			'title'     => 'Mammoth',
+		);
+		$state['post_meta'][ $player_id ] = array(
+			'sp_current_team' => new Blueline_Test_Meta_Rows( $rows ),
+		);
+	}
+
+	/**
+	 * Production stores sp_current_team as MULTIPLE rows, and for 728 of the
+	 * 754 players that have more than one, the first row is a '0' placeholder.
+	 * get_post_meta( ..., true ) returns that first row, so reading this field
+	 * single-value resolves every one of those players to team 0 and blanks
+	 * their whole account dashboard -- team, division, jersey, roster, next
+	 * game. Real shape, taken from player 66 (Cody Lusk -> Mammoth).
+	 */
+	public function test_current_team_resolves_past_a_leading_zero_placeholder_row(): void {
+		$this->seed_player_with_team_rows( 66, array( '0', '115100' ), 115100 );
+
+		$team = blueline_get_player_team( 66 );
+
+		$this->assertNotNull( $team, 'a player whose real team sits behind a 0 placeholder row must still resolve' );
+		$this->assertSame( 115100, $team['team_id'] );
+	}
+
+	/**
+	 * A player genuinely on several current teams (player 972 carries three)
+	 * must resolve to the first real one, matching SportsPress' own
+	 * array_filter( $player->current_teams() ) in player-details.php.
+	 */
+	public function test_current_team_picks_the_first_real_team_when_several_are_stored(): void {
+		$this->seed_player_with_team_rows( 972, array( '0', '100251', '2469', '79' ), 100251 );
+
+		$team = blueline_get_player_team( 972 );
+
+		$this->assertNotNull( $team );
+		$this->assertSame( 100251, $team['team_id'] );
+	}
+
+	/**
+	 * Unrostered players must still degrade to null rather than resolving to
+	 * the placeholder as if it were a team.
+	 */
+	public function test_a_player_with_only_placeholder_rows_has_no_team(): void {
+		$this->seed_player_with_team_rows( 500, array( '0', '' ), 115100 );
+
+		$this->assertNull( blueline_get_player_team( 500 ) );
+	}
+
+	/**
+	 * An unpublished first team must not shadow a published later one.
+	 */
+	public function test_current_team_skips_a_team_that_is_not_published(): void {
+		$this->seed_player_with_team_rows( 77, array( '0', '9001', '115100' ), 115100 );
+
+		$team = blueline_get_player_team( 77 );
+
+		$this->assertNotNull( $team, 'a draft/deleted team must not blank the dashboard' );
+		$this->assertSame( 115100, $team['team_id'] );
+	}
+
+	/**
+	 * The league whose season bucket names the player's current team is the one
+	 * whose figures belong beside the team the dashboard shows.
+	 */
+	public function test_stats_league_is_the_one_matching_this_season_team(): void {
+		$this->seed_player_with_team_rows( 66, array( '0', '115100' ), 115100 );
+		$state                                = &blueline_test_state();
+		$state['post_meta'][66]['sp_leagues'] = array(
+			7 => array( 666 => -1 ),
+			6 => array( 666 => 115100 ),
+			0 => array( 666 => 1 ),
+		);
+
+		$this->assertSame( 6, blueline_player_stats_league_id( 66, 666 ) );
+	}
+
+	/**
+	 * With no league matching the current team, fall back to SportsPress' own
+	 * all-leagues bucket rather than guessing.
+	 */
+	public function test_stats_league_falls_back_to_zero_when_nothing_matches(): void {
+		$this->seed_player_with_team_rows( 66, array( '0', '115100' ), 115100 );
+		$state                                = &blueline_test_state();
+		$state['post_meta'][66]['sp_leagues'] = array( 7 => array( 666 => -1 ) );
+
+		$this->assertSame( 0, blueline_player_stats_league_id( 66, 666 ) );
+	}
+
+	/**
+	 * An unrostered player has no team to match a league against.
+	 */
+	public function test_stats_league_is_zero_without_a_team(): void {
+		$this->seed_player_with_team_rows( 66, array( '0' ), 115100 );
+
+		$this->assertSame( 0, blueline_player_stats_league_id( 66, 666 ) );
+	}
+
+	/**
 	 * Test case.
 	 */
 	public function test_missing_stats_are_zero_filled(): void {

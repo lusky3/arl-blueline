@@ -44,7 +44,12 @@ if ( ! function_exists( 'sp_get_the_term_ids' ) ) {
 
 $league_ids = sp_get_the_term_ids( $id, 'sp_league' );
 $season_ids = sp_get_the_term_ids( $id, 'sp_season' );
-$team       = get_post_meta( $id, 'sp_current_team', true );
+// Multi-row field: read via the resolver, never single-value. Reading it with
+// get_post_meta( ..., true ) returns the leading '0' placeholder row that 728
+// of this database's players carry, and since '0' is falsy the teammate filter
+// below was skipped entirely -- so "Jump to a teammate" listed the whole
+// league instead of the player's own team. See blueline_player_current_team_ids().
+$team = blueline_player_current_team_id( $id );
 
 $args = array(
 	'post_type'      => 'sp_player',

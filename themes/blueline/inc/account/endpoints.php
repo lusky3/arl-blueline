@@ -374,7 +374,7 @@ function blueline_remap_account_query_vars( array $vars ): array {
 	return $vars;
 }
 
-blueline_register_account_endpoint_title_filters();
+add_action( 'init', 'blueline_register_account_endpoint_title_filters' );
 /**
  * Register the `woocommerce_endpoint_{endpoint}_title` filter for every
  * endpoint in blueline_account_endpoint_titles(). One filter per endpoint
@@ -382,6 +382,26 @@ blueline_register_account_endpoint_title_filters();
  * that one endpoint's own label rather than a single generic callback
  * inspecting current_filter() -- keeps each registration self-contained and
  * trivially correct regardless of call order.
+ *
+ * Hooked to `init` rather than called directly at file scope: this file is
+ * `require_once`'d from functions.php while WordPress is still loading the
+ * theme (functions.php runs before `after_setup_theme` even fires), so a
+ * bare call here ran blueline_account_endpoint_titles() -> ... -> __() for
+ * the `blueline` text domain before ANY action had fired at all -- confirmed
+ * live via a `doing_it_wrong_run` backtrace against staging (see the Task 10
+ * report): every frame led back to this file's own top-level
+ * `blueline_register_account_endpoint_title_filters();` call, not (as
+ * initially suspected) inc/setup.php's register_nav_menus()/register_sidebar()
+ * calls, which run ON `after_setup_theme`/`widgets_init` and so already
+ * satisfy _load_textdomain_just_in_time()'s "not before after_setup_theme"
+ * check. That file-scope call is what produced WP 6.7's
+ * "Translation loading for the `blueline` domain was triggered too early"
+ * notice on every request, including a plain `wp user create`. The filters
+ * this registers only need to exist before WooCommerce actually renders an
+ * endpoint title -- always well after `init` -- so deferring the whole
+ * registration one tick, exactly like the sibling
+ * blueline_register_account_rewrite_endpoints() a few lines up, costs
+ * nothing and fixes the timing outright.
  */
 function blueline_register_account_endpoint_title_filters(): void {
 	foreach ( blueline_account_endpoint_titles() as $query_var => $label ) {
@@ -394,12 +414,37 @@ function blueline_register_account_endpoint_title_filters(): void {
 	}
 }
 
+/**
+ * Endpoint slug => the `account_*` section key that must be enabled for
+ * that endpoint's own menu entry to appear.
+ *
+ * Only 'my-team' and 'my-schedule' have a matching dashboard card that can
+ * go dark (Task 3's blueline_account_render_my_team()/_next_game() early
+ * returns): every other endpoint here is in the billing group, which has no
+ * toggle at all -- see blueline_section_definitions()'s own "deliberately
+ * NOT here" note. Switching a card's toggle off without also removing its
+ * endpoint's menu entry would leave a linked player a nav link to a page
+ * that now renders nothing.
+ *
+ * @return array<string,string>
+ */
+function blueline_account_endpoint_section_keys(): array {
+	return array(
+		'my-team'     => 'account_my_team',
+		'my-schedule' => 'account_next_game',
+	);
+}
+
 add_filter( 'woocommerce_account_menu_items', 'blueline_account_menu_items' );
 /**
  * Reorder and relabel the My Account nav to the league-first, grouped list
  * from blueline_account_endpoints(), dropping endpoints the ARL map omits
  * (dead 'subscriptions'/'downloads' tabs) while preserving 'dashboard' and
  * 'customer-logout'.
+ *
+ * Also drops 'my-team'/'my-schedule' specifically when their own
+ * account_my_team/account_next_game toggle is off -- see
+ * blueline_account_endpoint_section_keys()'s own docblock.
  *
  * Every key written into $ordered must be a real query-var key, since
  * navigation.php feeds them straight to wc_get_account_endpoint_url() and
@@ -410,7 +455,8 @@ add_filter( 'woocommerce_account_menu_items', 'blueline_account_menu_items' );
  * @return array<string, string>
  */
 function blueline_account_menu_items( array $items ): array {
-	$endpoints = blueline_account_endpoints();
+	$endpoints    = blueline_account_endpoints();
+	$section_keys = blueline_account_endpoint_section_keys();
 	uasort( $endpoints, static fn( $a, $b ) => $a['order'] <=> $b['order'] );
 
 	$ordered = array();
@@ -419,6 +465,11 @@ function blueline_account_menu_items( array $items ): array {
 	}
 
 	foreach ( $endpoints as $slug => $config ) {
+		$section_key = $section_keys[ $slug ] ?? null;
+		if ( null !== $section_key && ! blueline_section_enabled( $section_key ) ) {
+			continue;
+		}
+
 		$ordered[ blueline_account_slug_query_var( $slug ) ] = $config['label'];
 	}
 

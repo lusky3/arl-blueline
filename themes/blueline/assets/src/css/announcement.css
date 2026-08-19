@@ -1,0 +1,102 @@
+/*
+ * Blueline — site-wide announcement banner (Task 6).
+ *
+ * Sits between the header's spacer and <main>, on every template. The strip
+ * runs full bleed and only .bl-announce__inner opts into .bl-container,
+ * matching the hero's own pattern — .bl-main sets no max-width of its own,
+ * so a banner that constrained itself would be a floating box rather than a
+ * band across the page.
+ *
+ * THE JOIN. .bl-main--homepage zeroes its top padding (homepage.css) so the
+ * navy hero butts straight against the header's paired blue-line bands. With
+ * a banner present the hero butts against the BANNER instead, and that seam
+ * has to look intended rather than like two strips that happened to end up
+ * adjacent. The banner closes with its own ink rule at --bl-band-ink — the
+ * same weight as the header's own closing band — so whatever follows begins
+ * below a deliberate dark edge: on the homepage the hero's navy, everywhere
+ * else the paper-white content body.
+ */
+
+.bl-announce {
+	display: block;
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	border-block-end: var(--bl-band-ink) solid var(--bl-ink-deep);
+	color: var(--bl-ink);
+}
+
+/*
+ * announcement.js hides a dismissed banner with the `hidden` attribute. The
+ * browser's own [hidden] rule is a user-agent style, and an author `display`
+ * declaration like the one above wins over the user-agent origin regardless
+ * of specificity — so the attribute needs an author rule of its own here to
+ * do anything at all.
+ */
+.bl-announce[hidden] {
+	display: none;
+}
+
+.bl-announce--urgent {
+	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-white));
+	border-block-end-color: var(--bl-warning);
+}
+
+.bl-announce__inner {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-3);
+	padding-block: var(--bl-space-3);
+}
+
+.bl-announce__text {
+	flex: 1 1 auto;
+
+	/*
+	 * min-width: 0 on a flex child is what actually lets long copy wrap
+	 * instead of forcing the row wider than its container — the page body
+	 * must never scroll sideways (base.css's own invariant), and at 360px an
+	 * unwrapped announcement is the easiest way to break that.
+	 */
+	min-width: 0;
+	margin: 0;
+	font-size: var(--bl-text-sm);
+	overflow-wrap: anywhere;
+}
+
+.bl-announce--urgent .bl-announce__text {
+	font-weight: 600;
+}
+
+.bl-announce__link {
+	color: var(--bl-accent-text);
+}
+
+.bl-announce--urgent .bl-announce__link {
+	color: var(--bl-warning);
+}
+
+/*
+ * The dismiss control keeps a 44px square hit area even though the glyph
+ * itself is small, so it stays comfortably tappable on a phone. The negative
+ * block margin lets it overhang the strip's own padding, so the taller
+ * target does not make the band taller than the line of copy inside it.
+ */
+.bl-announce__dismiss {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	margin-block: calc(var(--bl-space-3) * -1);
+	padding: 0;
+	background: none;
+	border: 0;
+	color: inherit;
+	font-size: var(--bl-text-lg);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bl-announce__dismiss:hover {
+	color: var(--bl-accent-text);
+}

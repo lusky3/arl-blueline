@@ -38,6 +38,22 @@
  */
 html {
 	overflow-x: clip;
+
+	/*
+	 * Keep anchored content clear of the fixed site header.
+	 *
+	 * The header (header.css) is position:fixed, so anything the browser
+	 * scrolls to -- an in-page link, a tab panel, a focused field, a
+	 * scrollIntoView() from script -- otherwise lands beneath it. scroll-padding
+	 * on the scroll container covers ALL of those, unlike the scroll-margin
+	 * further down this file, which only reaches headings and was sized for the
+	 * My Account rail long before the header was fixed.
+	 *
+	 * --bl-header-rest-height is published by assets/src/js/sticky-header.js
+	 * from the header's measured un-shrunk height; the fallback matches the
+	 * mobile bar, which is the smaller of the two and so never over-scrolls.
+	 */
+	scroll-padding-top: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-3));
 }
 
 body {

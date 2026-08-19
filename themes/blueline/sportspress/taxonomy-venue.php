@@ -35,6 +35,7 @@ $has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_s
 $queried_term = get_queried_object();
 $term_id      = ( $queried_term instanceof WP_Term ) ? $queried_term->term_id : 0;
 $address      = '';
+$venue_meta   = array();
 
 if ( $term_id ) {
 	$venue_meta = get_option( 'taxonomy_' . $term_id );
@@ -78,6 +79,34 @@ if ( $term_id && $address && taxonomy_exists( 'sp_venue' ) ) {
 					<?php if ( $address ) : ?>
 						<p class="bl-sp-venue-header__address"><?php echo esc_html( $address ); ?></p>
 					<?php endif; ?>
+
+					<?php
+					/*
+					 * The map. SportsPress' own event-venue.php renders one on
+					 * every EVENT page from exactly this option
+					 * (`taxonomy_{$term_id}`, which is where SportsPress keeps a
+					 * venue's address and coordinates -- not term meta), but
+					 * nothing rendered it on the venue's own page once this
+					 * template replaced the default archive, so the one page
+					 * actually about the arena was the one page that did not
+					 * show where it is. Not a deliberate omission: the header
+					 * above documents what this template adds and never
+					 * mentions dropping it.
+					 *
+					 * Rendered through sp_get_template() rather than hand-built
+					 * markup so it stays the same map, with the same classes and
+					 * the same Leaflet bootstrapping, as the event page's.
+					 */
+					if ( is_array( $venue_meta )
+						&& function_exists( 'sp_get_template' )
+						&& 'no' !== get_option( 'sportspress_event_show_maps', 'yes' ) ) :
+						?>
+						<div class="bl-sp-venue-header__map">
+							<?php sp_get_template( 'venue-map.php', array( 'meta' => $venue_meta ) ); ?>
+						</div>
+						<?php
+					endif;
+					?>
 
 					<?php if ( $sibling_pads ) : ?>
 						<p class="bl-sp-venue-header__siblings">
