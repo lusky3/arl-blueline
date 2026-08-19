@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# wp-cli against the staging WordPress stack on staging-host.
+#
+# Installed at /usr/local/bin/swp on staging-host. The copy ON THE HOST has the staging database
+# password inline; this repo copy reads it from the environment instead so no credential is
+# committed. The value lives in /opt/staging/compose.yml (MARIADB_PASSWORD).
+#
+#   STAGING_DB_PASS=... swp plugin list --status=active
+#
+# WP_CLI_PHP_ARGS matters: the full production plugin set exceeds the container's default
+# 128M memory_limit and dies with "Allowed memory size exhausted", and older plugins emit
+# hundreds of PHP 8 deprecation notices that otherwise drown all output.
+
+set -euo pipefail
+
+: "${STAGING_DB_PASS:?set STAGING_DB_PASS (see MARIADB_PASSWORD in /opt/staging/compose.yml)}"
+
+exec docker run --rm -i --volumes-from staging-wp --network staging_default -u 33:33 \
+  -e WORDPRESS_DB_HOST=db -e WORDPRESS_DB_USER=wordpress \
+  -e WORDPRESS_DB_PASSWORD="$STAGING_DB_PASS" -e WORDPRESS_DB_NAME=wordpress \
+  -e WP_CLI_PHP_ARGS="-d error_reporting=E_ERROR -d display_errors=0 -d memory_limit=1024M" \
+  wordpress:cli-php8.3 wp "$@"

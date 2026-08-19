@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# mariadb client against the staging database on staging-host.
+#
+# Installed at /usr/local/bin/sdb on staging-host. The copy ON THE HOST has the password inline;
+# this repo copy reads it from the environment so no credential is committed. The value lives
+# in /opt/staging/compose.yml (MARIADB_PASSWORD).
+#
+#   STAGING_DB_PASS=... sdb -e 'SELECT COUNT(*) FROM wp_posts;'
+
+set -euo pipefail
+
+: "${STAGING_DB_PASS:?set STAGING_DB_PASS (see MARIADB_PASSWORD in /opt/staging/compose.yml)}"
+
+exec docker exec -i staging-db mariadb -uwordpress -p"$STAGING_DB_PASS" wordpress "$@"
