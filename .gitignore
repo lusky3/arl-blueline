@@ -3,5 +3,5 @@
 # verification runs. Never part of a commit.
 .playwright-mcp/
 
-# Agent worktrees created by Claude Code. Never part of a commit.
-.claude/worktrees/
+# Claude Code workspace state (settings, agent worktrees). Local-only.
+.claude/

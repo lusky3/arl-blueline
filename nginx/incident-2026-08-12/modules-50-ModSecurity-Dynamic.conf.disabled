@@ -1,5 +1,0 @@
-#
-# ModSecurity - V3
-# Added by Cody
-#
-load_module modules/ngx_http_modsecurity_module.so;
