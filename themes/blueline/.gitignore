@@ -2,3 +2,8 @@ node_modules/
 vendor/
 .phpunit.result.cache
 artifacts/
+
+# Fetched via ../../scripts/fetch-wp-core-oracle.sh -- a live snapshot of
+# staging's wp-includes used only as WpCoreContractTest's optional oracle.
+# Never committed: it's a copy of WordPress core, not theme code.
+.wp-core-oracle/
