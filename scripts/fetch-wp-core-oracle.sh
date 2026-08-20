@@ -15,12 +15,16 @@
 #     npm --prefix themes/blueline run check:oracle
 set -euo pipefail
 
-HOST="root@staging-host.example"
-PORT=SSH_PORT
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+[ -f "$SCRIPT_DIR/lib/hosts.env" ] && source "$SCRIPT_DIR/lib/hosts.env"
+
+HOST="${BLUELINE_STAGING_HOST:?set BLUELINE_STAGING_HOST (see scripts/lib/hosts.env.example)}"
+PORT="${BLUELINE_STAGING_PORT:?set BLUELINE_STAGING_PORT (see scripts/lib/hosts.env.example)}"
 CONTAINER="staging-wp"
 CORE_DIR="/var/www/html/wp-includes"
 
-DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/themes/blueline/.wp-core-oracle/wp-includes"
+DEST="$(cd "$SCRIPT_DIR/.." && pwd)/themes/blueline/.wp-core-oracle/wp-includes"
 mkdir -p "$DEST"
 
 ssh_exec() { ssh -p "$PORT" -o ConnectTimeout=10 "$HOST" "docker exec $CONTAINER $1" 2>/dev/null; }
