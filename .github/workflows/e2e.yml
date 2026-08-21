@@ -99,6 +99,19 @@ jobs:
           docker exec sp-test wp post meta update "$TEAM_ID" sp_colors \
             "{\"primary\":\"$BLUELINE_E2E_TEAM_COLOR\"}" --format=json --allow-root
 
+      - name: Warm up PHP opcache and MySQL's query cache before timing anything
+        # First real run against this environment: page.goto('/shop/') hit
+        # Playwright's 30s navigation timeout outright, and a runner this
+        # constrained (2 vCPU/7GB, shared with the container's own PHP-FPM +
+        # MariaDB + this job's Chromium) makes every theme file's first-ever
+        # opcache compile and every first-ever query plan measurably slower
+        # than any later hit -- untimed here means it doesn't count against
+        # the suite's own timeout budget.
+        run: |
+          for path in / /shop/ /cart/ /my-account/ "/team/$BLUELINE_E2E_TEAM_SLUG/"; do
+            curl -sf --max-time 25 "http://localhost:8082$path" -o /dev/null || true
+          done
+
       - name: Run the E2E suite
         env:
           BLUELINE_E2E_BASE_URL: http://localhost:8082

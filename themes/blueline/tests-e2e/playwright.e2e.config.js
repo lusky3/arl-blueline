@@ -29,7 +29,13 @@ const baseURL = process.env.BLUELINE_E2E_BASE_URL || 'http://localhost:8082';
 
 module.exports = defineConfig( {
 	testDir: __dirname,
-	timeout: 30_000,
+	// 30s wasn't enough on GitHub's standard 2 vCPU/7GB runner: a real run
+	// hit page.goto()'s navigation timeout outright on /shop/, sharing that
+	// CPU budget with the container's own PHP-FPM + MariaDB and this job's
+	// Chromium. .github/workflows/e2e.yml also runs an untimed warm-up pass
+	// (opcache compile, query-plan cache) before this suite starts, but the
+	// extra headroom here stays regardless.
+	timeout: 60_000,
 	// The target is one resource-constrained, all-in-one (nginx + PHP-FPM +
 	// MariaDB in a single container) instance, not a horizontally-scalable
 	// service -- fullyParallel workers genuinely starved each other out
