@@ -46,17 +46,35 @@ to `blueline_readable_foreground()`, not a palette-editing UI — the
 original spec's §3 ("Holiday depth: Accent + motif layer. Brand palette
 stays") and §4 ("drop raw tokens... custom CSS") already settled this.
 
-## 2. Relationship to P0
+## 2. Relationship to P0, and a correction against the current codebase
 
 The original spec's §11 phasing table lists P0 (AA fixes, rule-table
-extension, `color-mix` rules, CI, test bootstrap) as a prerequisite department
-for P2, and states "P2 depends on P0.3 and P0.4." As of this writing,
-`tools/contrast-rules.json` exists with a populated `thresholds` object and
-rule set (P0's rule-table extension substantially landed), but
-`inc/team-colors.php` still duplicates the AA floor as its own
-`BLUELINE_CONTRAST_BODY`/`_LARGE` constants rather than reading the shared
-table — that gap is closed in Phase 2.0, not re-litigated as new P0 work.
-No `tools/tokens.json` exists yet; it is new in Phase 2.0.
+extension, `color-mix` rules, CI, test bootstrap) as a prerequisite for P2,
+and states "P2 depends on P0.3 and P0.4." **Verified directly against
+`inc/team-colors.php` before writing the plan** (not inferred from the
+original spec or the decision record, both of which predate this and are
+stale on this point): `tools/contrast-rules.json` exists with a populated
+`thresholds` object and rule set, and two things the original spec's §8
+and this document's earlier draft described as still-needed P2 work are
+**already shipped and tested**, landed as P0-style live-WCAG-failure
+fixes rather than waiting for a formal "P2 colour control" epic:
+
+- `blueline_contrast_threshold()` already reads `contrast-rules.json`'s
+  `thresholds.body`/`thresholds.large` (commit `987862a`), with a logged
+  fallback to 4.5/3.0 if the file is missing or malformed (commit
+  `48d21e5`). §4.2 below is **done, not a task**.
+- `blueline_readable_foreground()` already reports pass/fail via a
+  `$passes` out-parameter, and `blueline_team_color_set()` already treats
+  a failing best-effort foreground as "no usable colour" (returns `array()`
+  rather than shipping the least-bad pick) — `tests/TeamColorsTest.php`
+  covers both the passing and failing cases directly. §6.1 below is
+  **done, not a task**.
+
+What's genuinely still missing, confirmed by direct search of `inc/`: no
+`tools/tokens.json`, no `occasion` reference anywhere, `aa_acknowledgements`
+exists only as an import-time discard target with nothing writing to it,
+and no `_validated_against` reference anywhere. Phases 2.0/2.1 below are
+accurate; only 2.2's team-colours item was stale.
 
 ## 3. Decisions taken for this document
 
@@ -82,15 +100,14 @@ At the end of Phase 2.0, exactly one token is marked `tunable: true`:
 §7.2: CTA ribbon fill, signature band, motif). No brand-palette token
 becomes tunable in P2 — see §1.
 
-### 4.2 `contrast-rules.json`'s fourth consumer
+### 4.2 `contrast-rules.json`'s fourth consumer — already done
 
-`inc/team-colors.php`'s `blueline_contrast_threshold()` currently returns
-its own `BLUELINE_CONTRAST_BODY` (4.5) / `BLUELINE_CONTRAST_LARGE` (3.0)
-constants. It switches to reading `contrast-rules.json`'s
-`thresholds.body`/`thresholds.large` — the same values today, but one
-source of truth going forward, matching the original spec's §7.3 ("the
-rule table lives in `tools/contrast-rules.json` with **four** consumers,
-not three").
+**No task here.** Per §2's correction, `inc/team-colors.php` already
+reads `contrast-rules.json`'s `thresholds.body`/`thresholds.large` via
+`blueline_contrast_threshold()` (commits `987862a`, `48d21e5`), matching
+the original spec's §7.3 ("four consumers, not three"). Retained as a
+section so a future reader of this document doesn't go looking for the
+gap this once described.
 
 ### 4.3 The inputs-hash primitive
 
@@ -191,17 +208,20 @@ changes from that document except where this section says otherwise:
 
 ## 6. Phase 2.2 — Correctness & observability
 
-### 6.1 Team colours (original spec §8)
+### 6.1 Team colours (original spec §8) — already done
 
-`BLUELINE_TOKEN_INK`/`_PAPER` become resolver calls reading effective
-values; derived values stay emitted as literal hex (self-consistent, per
-§8). The real fix: `blueline_readable_foreground()` currently "returns the
-better of the two even when neither reaches the requested threshold"
-silently (`team-colors.php:127-132`). It returns a pass/fail; a team colour
-set whose best foreground is < 4.5:1 falls back to theme tokens via the
-existing documented "no usable colour" path. Because occasions never touch
-`--bl-ink`/`--bl-paper` (§7.2, §7.4), this is bounded, not a per-team
-revalidation sweep (§1, non-goal, restated).
+**No task here.** Per §2's correction, `blueline_readable_foreground()`
+already reports pass/fail via its `$passes` out-parameter, and
+`blueline_team_color_set()` already falls back to "no usable colour"
+(`return array()`) when neither ink nor paper reaches AA on a team's
+primary colour — tested directly in `tests/TeamColorsTest.php`. The
+original spec's "`BLUELINE_TOKEN_INK`/`_PAPER` become resolver calls"
+framing is superseded by the confirmed non-goal against raw token editing
+(§1): there is no admin-tunable "effective value" for ink/paper to
+resolve against, so the literal constants — already build-guarded to
+match `style.css` — are correct as they stand. Because occasions never
+touch `--bl-ink`/`--bl-paper` (§7.2, §7.4), and this item is closed, there
+is no per-team revalidation sweep anywhere in P2 (§1, non-goal, restated).
 
 ### 6.2 `_validated_against` — deploy-drift revalidation
 
@@ -242,10 +262,11 @@ Per the original spec's §10, applied per phase:
   and leap years; fail-closed on an invalid/unacknowledged occasion;
   fail-open on a validly-acknowledged one; the cron boundary purge fires
   exactly at the window edge; editor-parity selector/token-name assertions.
-- **Phase 2.2**: `blueline_readable_foreground()`'s pass/fail path and its
-  fallback; `_validated_against` triggers re-validation exactly on a
+- **Phase 2.2**: `_validated_against` triggers re-validation exactly on a
   stylesheet or rules-table change, not on unrelated saves; Site Health
   reports a drift-invalidated acknowledgement distinctly from a live one.
+  (Team-colours pass/fail testing is already covered by
+  `tests/TeamColorsTest.php` — §6.1.)
 - **Whole-suite, every phase**: the full test suite and the smoke suite
   pass with non-default settings applied (an occasion active, an
   acknowledgement present), not only at defaults — per the original spec's
