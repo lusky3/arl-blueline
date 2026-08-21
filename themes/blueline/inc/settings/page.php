@@ -1529,6 +1529,15 @@ function blueline_settings_tab_slugs(): array {
 			$slugs[] = $tab;
 		}
 	}
+
+	// One explicit, named exception (design spec §5.1's third ruling):
+	// `occasions` has zero schema fields of its own -- it is a reserved
+	// settings key (BLUELINE_SETTINGS_RESERVED_KEYS), not a
+	// `type => 'occasions'` schema entry. Every other tab above is still
+	// 100% schema-derived; this is the one deliberate exception, not a
+	// general "custom tabs" registration point nobody else needs.
+	$slugs[] = 'occasions';
+
 	return $slugs;
 }
 
@@ -1547,6 +1556,7 @@ function blueline_settings_tab_label( string $tab_slug ): string {
 		'appearance' => __( 'Appearance', 'blueline' ),
 		'sections'   => __( 'Sections', 'blueline' ),
 		'commerce'   => __( 'Commerce', 'blueline' ),
+		'occasions'  => __( 'Occasions', 'blueline' ),
 	);
 
 	return $labels[ $tab_slug ] ?? ucwords( str_replace( array( '-', '_' ), ' ', $tab_slug ) );
@@ -1818,13 +1828,28 @@ function blueline_settings_render_page(): void {
 				<input type="hidden" name="<?php echo esc_attr( BLUELINE_SETTINGS_OPTION . '[_posted_fields][]' ); ?>" value="<?php echo esc_attr( $field_key ); ?>">
 			<?php endforeach; ?>
 
-			<table class="form-table" role="presentation">
-				<tbody>
-					<?php foreach ( blueline_settings_fields_for_tab( $current_tab ) as $field_key => $field ) : ?>
-						<?php blueline_settings_render_field( $field_key, $field, $field_errors[ $field_key ] ?? null ); ?>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
+			<?php if ( 'occasions' === $current_tab ) : ?>
+				<?php
+				/*
+				 * design spec §5.1's third ruling: one explicit, named
+				 * exception in the page renderer, not a general "custom
+				 * tabs" mechanism. blueline_settings_fields_for_tab(
+				 * 'occasions' ) is always empty (no schema field ever
+				 * declares tab => 'occasions'), so the generic loop below
+				 * would render nothing useful for this tab anyway -- this
+				 * branch swaps it for a bespoke renderer instead.
+				 */
+				?>
+				<?php blueline_settings_render_occasions_tab(); ?>
+			<?php else : ?>
+				<table class="form-table" role="presentation">
+					<tbody>
+						<?php foreach ( blueline_settings_fields_for_tab( $current_tab ) as $field_key => $field ) : ?>
+							<?php blueline_settings_render_field( $field_key, $field, $field_errors[ $field_key ] ?? null ); ?>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
 
 			<?php submit_button(); ?>
 		</form>

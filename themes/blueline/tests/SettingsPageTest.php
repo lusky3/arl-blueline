@@ -155,11 +155,14 @@ final class SettingsPageTest extends TestCase {
 	 * The schema's own tab order (content, links, appearance, commerce,
 	 * sections today) must be exactly what the tab nav renders and iterates
 	 * in -- derived from the schema, not hardcoded, so a future tab needs no
-	 * edit here.
+	 * edit here. `occasions` is appended last: it is the one explicit,
+	 * named exception described in
+	 * test_tab_slugs_includes_occasions_as_a_named_exception() below, not a
+	 * schema-derived tab.
 	 */
 	public function test_tab_slugs_reflect_schema_order(): void {
 		$this->assertSame(
-			array( 'content', 'links', 'appearance', 'commerce', 'sections' ),
+			array( 'content', 'links', 'appearance', 'commerce', 'sections', 'occasions' ),
 			blueline_settings_tab_slugs()
 		);
 	}
@@ -1860,5 +1863,71 @@ final class SettingsPageTest extends TestCase {
 
 		$this->assertSame( array(), $output['occasions'] );
 		$this->assertArrayNotHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+	}
+
+	/**
+	 * `occasions` appears in the tab list as one explicit, named
+	 * exception -- design spec §5.1's third ruling -- while every other
+	 * tab remains exactly what the schema itself declares.
+	 */
+	public function test_tab_slugs_includes_occasions_as_a_named_exception(): void {
+		$slugs = blueline_settings_tab_slugs();
+
+		$this->assertContains( 'occasions', $slugs );
+
+		$schema_tabs = array();
+		foreach ( blueline_settings_schema() as $field ) {
+			$tab = $field['tab'] ?? '';
+			if ( '' !== $tab && ! in_array( $tab, $schema_tabs, true ) ) {
+				$schema_tabs[] = $tab;
+			}
+		}
+
+		$this->assertSame( $schema_tabs, array_values( array_diff( $slugs, array( 'occasions' ) ) ) );
+	}
+
+	/**
+	 * Asserts `occasions` has a real, human-readable tab label rather
+	 * than falling through to the raw-slug guess.
+	 */
+	public function test_tab_label_for_occasions(): void {
+		$this->assertSame( 'Occasions', blueline_settings_tab_label( 'occasions' ) );
+	}
+
+	/**
+	 * On the Occasions tab, blueline_settings_render_page() dispatches
+	 * to the bespoke renderer instead of the generic per-field
+	 * `<table>` loop.
+	 */
+	public function test_render_page_dispatches_to_the_occasions_renderer(): void {
+		$this->grant_manage_options();
+		$_GET['tab'] = 'occasions'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simulating a read-only tab request, matching blueline_settings_current_tab()'s own contract.
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = (string) ob_get_clean();
+
+		unset( $_GET['tab'] );
+
+		$this->assertStringContainsString( 'data-bl-occasions', $html );
+		$this->assertStringNotContainsString( '<table class="form-table"', $html );
+	}
+
+	/**
+	 * A schema-backed tab is unaffected: it still renders the generic
+	 * `<table>` loop, and never the occasions-specific markup.
+	 */
+	public function test_render_page_still_uses_the_generic_loop_for_a_schema_tab(): void {
+		$this->grant_manage_options();
+		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simulating a read-only tab request, matching blueline_settings_current_tab()'s own contract.
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = (string) ob_get_clean();
+
+		unset( $_GET['tab'] );
+
+		$this->assertStringContainsString( '<table class="form-table"', $html );
+		$this->assertStringNotContainsString( 'data-bl-occasions', $html );
 	}
 }
