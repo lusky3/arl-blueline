@@ -105,4 +105,13 @@ Text Domain: blueline
 	--bl-focus-color:  #0D1729;
 	--bl-focus-halo:   #FFFFFF;
 	--bl-focus-offset: 2px;
+
+	/*
+	 * Occasions — Phase 2.0 foundation. Exactly one new tunable colour
+	 * surface (see tools/tokens.json's "tunable" flag and the design
+	 * spec's §4.1/§4.2 for why every other token here stays non-tunable).
+	 * Defaults to --bl-ice: no occasion exists yet to override it (that is
+	 * Phase 2.1), so this must render identically to today until then.
+	 */
+	--bl-occasion-accent: var(--bl-ice);
 }

@@ -18,6 +18,8 @@
     { "id": "paper-on-ink-deep",    "description": "paper text on ink-deep",   "fg": "--bl-paper",       "bg": "--bl-ink-deep", "min": 4.5 },
     { "id": "pale-on-ink-deep",     "description": "pale text on ink-deep",    "fg": "--bl-pale",        "bg": "--bl-ink-deep", "min": 4.5 },
     { "id": "ice-not-text-on-light","description": "--bl-ice correctly unusable as light-bg text", "fg": "--bl-ice", "bg": "--bl-paper", "max": 3.0 },
+    { "id": "ink-on-occasion-accent",             "description": "ink text on the occasion-accent fill (CTA ribbon, signature band, motif)", "fg": "--bl-ink",   "bg": "--bl-occasion-accent", "min": 4.5 },
+    { "id": "paper-not-text-on-occasion-accent",  "description": "--bl-occasion-accent correctly unusable as paper text (fill-only, like --bl-ice)", "fg": "--bl-paper", "bg": "--bl-occasion-accent", "max": 3.0 },
     { "id": "focus-on-paper",     "description": "focus ring on paper",     "fg": "--bl-focus-color", "bg": "--bl-paper",     "min": 3.0 },
     { "id": "focus-on-white",     "description": "focus ring on white",     "fg": "--bl-focus-color", "bg": "--bl-white",     "min": 3.0 },
     { "id": "focus-on-ice",       "description": "focus ring on ice fill",  "fg": "--bl-focus-color", "bg": "--bl-ice",       "min": 3.0 },
