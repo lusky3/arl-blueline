@@ -410,7 +410,14 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    blueline_sanitize_acknowledgements() (inc/settings/acknowledgements.php).
  *    Either way, the key is dropped outright when the submission carries a
  *    `_tab` (came from this file's own form, which never legitimately
- *    submits either one).
+ *    submits either one) -- EXCEPT `occasions`, which is the one reserved
+ *    key that DOES survive a tab-scoped submission, and only when that
+ *    submission's own `_tab` is literally `'occasions'` (design spec
+ *    §5.1's second ruling): that tab's own rendered form posts
+ *    `blueline_settings[occasions]` as one opaque map value, never through
+ *    `_posted_fields` per-field carry-forward. `_schema` and
+ *    `aa_acknowledgements` keep the absolute drop-on-any-tab rule
+ *    unchanged.
  *
  * @param mixed $input Raw value from $_POST[BLUELINE_SETTINGS_OPTION], as
  *                      WordPress' sanitize_option_{$option} filter hands it

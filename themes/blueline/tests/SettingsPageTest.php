@@ -1716,4 +1716,40 @@ final class SettingsPageTest extends TestCase {
 
 		$this->assertSame( $entry, $output['occasions']['custom-slug'] );
 	}
+
+	/**
+	 * Asserts `_schema` is STILL dropped outright even when the
+	 * submission's `_tab` is `'occasions'` -- the new carve-out names
+	 * `occasions` AND `'occasions' === $submitted_tab` together; it must
+	 * never be read as "any reserved key survives once the tab is
+	 * occasions".
+	 */
+	public function test_sanitize_callback_still_drops_schema_when_the_tab_is_occasions(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'_schema'   => 99,
+				'occasions' => array(),
+			)
+		);
+
+		$this->assertArrayNotHasKey( '_schema', $output );
+	}
+
+	/**
+	 * Asserts `aa_acknowledgements` is STILL dropped outright even when
+	 * the submission's `_tab` is `'occasions'` -- same guard as above,
+	 * covering the other reserved key.
+	 */
+	public function test_sanitize_callback_still_drops_acknowledgements_when_the_tab_is_occasions(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'                => 'occasions',
+				'aa_acknowledgements' => array( 'anything' => true ),
+				'occasions'           => array(),
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'aa_acknowledgements', $output );
+	}
 }
