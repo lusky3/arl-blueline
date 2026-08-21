@@ -32,12 +32,19 @@ test.describe( 'SportsPress team page, against a real sp_team post with real sp_
 	test( "derives the team's colour from sp_colors, not a placeholder", async ( { page } ) => {
 		await page.goto( `/team/${ teamSlug }/`, { waitUntil: 'domcontentloaded' } );
 
-		// blueline_team_color_set() (inc/team-colors.php) reads sp_colors'
-		// `primary` and computes on/derived values from it -- asserting the
-		// literal hex we seeded appears somewhere in the rendered markup
-		// (an inline style attribute, most likely) proves the real value
-		// flowed through, not a hardcoded fallback.
-		const html = await page.content();
-		expect( html.toLowerCase() ).toContain( teamColorHex.replace( '#', '' ) );
+		// blueline_team_color_style_attr() (inc/team-colors.php) prints
+		// --bl-team-primary/-on-primary/-accent as custom properties on
+		// #main (sportspress/single-team.php) -- verified directly against
+		// a live container: `style="--bl-team-primary: #0b3d91; ..."`.
+		// Asserting via an auto-retrying locator, not a one-shot
+		// `page.content()` string check: the latter can observe a
+		// still-settling DOM under load and read as a false negative that
+		// has nothing to do with whether the colour actually flowed
+		// through -- exactly what a locator assertion's built-in retry
+		// exists to absorb.
+		await expect( page.locator( '#main' ) ).toHaveAttribute(
+			'style',
+			new RegExp( `--bl-team-primary:\\s*${ teamColorHex }`, 'i' )
+		);
 	} );
 } );
