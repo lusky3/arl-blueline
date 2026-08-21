@@ -51,7 +51,7 @@ function blueline_occasion_accent_default_read_failure( string $reason ): void {
  * Resolve --bl-occasion-accent's own declared default to a literal hex
  * value, by reading style.css's :root block directly.
  *
- * style.css declares `--bl-occasion-accent: var(--bl-ice);` -- one var()
+ * Style.css declares `--bl-occasion-accent: var(--bl-ice);` -- one var()
  * hop to a token that is itself a plain hex literal. This follows exactly
  * that one hop and no more: it does not resolve clamp(), rgba(), or a
  * chain of more than one var(). Never fatal: a missing file, a missing
