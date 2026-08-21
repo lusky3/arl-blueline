@@ -184,7 +184,55 @@ This is the concrete answer to §3's first decision:
 ## 5. Phase 2.1 — Occasions
 
 Builds on Phase 2.0. Implements the original spec's §7 as written, with no
-changes from that document except where this section says otherwise:
+changes from that document except where this section says otherwise.
+
+**Split into two plans**, since the backend (model, resolution, motifs,
+cron purge, editor parity) is fully testable with zero UI, and the Panel UI
+(§7's colour input, live contrast readout, motif picker, the AA-override
+checkbox) is substantial, genuinely new UI work with no existing scaffolding
+to extend — confirmed by direct research: no `type="color"` input,
+`aria-live` region, or contrast-readout JS exists anywhere in this theme
+yet; Phase 2.0 built only the backend contrast primitives. **2.1a
+(backend)** ships everything below with no admin-facing surface at all.
+**2.1b (panel UI)** — a separate plan — adds the Occasions tab once 2.1a's
+model exists to edit.
+
+**Ruling: `occasions` is a reserved key for 2.1a, not a schema field.**
+Registering it as a schema field (`type => 'occasions'`, `tab =>
+'occasions'`) would make `blueline_settings_tab_slugs()` (which derives the
+admin tab list purely from schema `tab` values present) create an
+"Occasions" tab immediately — before 2.1b builds anything to render in it,
+and before `blueline_settings_render_field()`/`blueline_sanitize_field()`
+have a branch for the new type, which either breaks or shows a
+half-functional tab. A reserved key (matching the `aa_acknowledgements`
+mechanism exactly: added to `BLUELINE_SETTINGS_RESERVED_KEYS`, its own
+branch in `blueline_settings_sanitize_callback()`, its own
+`blueline_sanitize_occasions()` validator) carries no tab risk and needs no
+UI to exist correctly. Unlike `aa_acknowledgements` — which is deliberately
+absent from `blueline_settings_defaults()` so it never appears in
+`blueline_settings()`'s return — `occasions` **does** get a default
+(`'occasions' => array()`) there, because the front-end resolution engine
+needs to read it via `blueline_settings( 'occasions' )`. No existing tab's
+form ever names `occasions` in its `_posted_fields`, so
+`blueline_settings_merge()`'s already-generic carry-forward logic protects
+it with zero changes to that function. 2.1b decides how the admin UI
+actually edits this reserved key — likely bespoke UI outside the generic
+per-field tab loop, matching how substantially custom the colour/motif/
+contrast-readout controls already need to be regardless.
+
+**Ruling: the four shipped occasions are a read-only preset catalog, not
+pre-populated live entries.** The model has no `enabled` field, and "all
+disabled until an admin enables them" doesn't fit an `auto`/`force_on`/
+`force_off` `mode` cleanly — an `auto` entry sitting in the stored array
+during its real calendar window would activate whether or not anyone ever
+looked at the panel. Resolving this the way that keeps the model exactly as
+specified (no invented `enabled` field): `blueline_settings_defaults()`'s
+`occasions` default is a genuinely empty `array()`; the four presets (Canada
+Day, Remembrance Day, Christmas, New Year) live as a separate, read-only
+catalog function (e.g. `blueline_occasion_presets(): array`) that 2.1b's UI
+reads from for an "add from preset" affordance. Nothing in 2.1a's resolver
+ever sees a preset unless 2.1b (or WP-CLI) copies one into the real stored
+array first.
 
 - **Model** (§7.1): `id`, `label`, `type` (decorative | commemorative),
   `window` (`start_md`/`end_md`, recurring annually, inclusive), `accent`,
