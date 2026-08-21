@@ -1,0 +1,46 @@
+name: Check
+
+# Runs the same gate `npm run check` runs locally: stylelint, eslint, the
+# node:test suite for tools/, the contrast-rules.json/tokens.json guard,
+# PHPUnit, and phpcs. Deliberately does NOT run `npm run check:oracle` --
+# that requires an SSH-reachable staging host (see
+# scripts/fetch-wp-core-oracle.sh) that CI has no access to, and
+# WpCoreContractTest's oracle job skips gracefully with no
+# BLUELINE_WP_CORE_INCLUDES_DIR configured.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: themes/blueline
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run the gate
+        run: npm run check
