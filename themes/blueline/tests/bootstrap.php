@@ -53,6 +53,14 @@ date_default_timezone_set( 'UTC' ); // phpcs:ignore WordPress.DateTime.Restricte
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'DAY_IN_SECONDS', 86400 );
 
+/*
+ * Blueline theme version constant, for fallback cache-busting when asset
+ * metadata is unavailable. defined in the theme's functions.php, but
+ * needed here for blueline_stylesheet_version() to work in tests.
+ */
+define( 'BLUELINE_VERSION', '1.0.1' );
+define( 'BLUELINE_DIR', dirname( __DIR__ ) );
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 if ( ! class_exists( 'Walker_Nav_Menu' ) ) {
@@ -2721,5 +2729,30 @@ if ( ! function_exists( 'wp_add_inline_script' ) ) {
 			'position' => $position,
 		);
 		return true;
+	}
+}
+
+if ( ! function_exists( 'get_stylesheet_directory' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_stylesheet_directory(): returns
+	 * the directory used by blueline_stylesheet_version() to find style.css.
+	 * For tests, returns a temporary directory that doesn't have style.css,
+	 * so filemtime() fails and the function falls back to BLUELINE_VERSION.
+	 *
+	 * @return string
+	 */
+	function get_stylesheet_directory() {
+		return sys_get_temp_dir();
+	}
+}
+
+if ( ! function_exists( 'get_stylesheet_uri' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_stylesheet_uri().
+	 *
+	 * @return string
+	 */
+	function get_stylesheet_uri() {
+		return 'http://example.com/style.css';
 	}
 }
