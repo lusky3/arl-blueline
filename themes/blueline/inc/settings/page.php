@@ -534,11 +534,16 @@ function blueline_settings_sanitize_callback( $input ): array {
 					// design spec §5.1's fifth ruling: the Occasions
 					// tab's own save is also what decides this save's
 					// new `aa_acknowledgements` value -- per-occasion,
-					// symmetric record/remove, plus orphan cleanup. This
-					// key is never present in $input for this
-					// submission (the form never renders a field named
-					// it), so nothing else in this loop will ever
-					// overwrite it.
+					// symmetric record/remove, plus orphan cleanup. A
+					// forged `aa_acknowledgements` field in the raw POST
+					// can't overwrite this computed value even though
+					// the rendered form never posts one: the
+					// reserved-key guard above (the `'occasions' ===
+					// $key && 'occasions' === $submitted_tab` check)
+					// only lets `aa_acknowledgements` through this loop
+					// when $submitted_tab is '' (a programmatic write),
+					// never alongside an `occasions`-tab submission --
+					// so this assignment is always the last word.
 					$output['aa_acknowledgements'] = blueline_occasions_apply_aa_overrides(
 						$sanitized_occasions,
 						$raw_overrides,

@@ -1746,17 +1746,44 @@ final class SettingsPageTest extends TestCase {
 	 * never from whatever the request happened to submit under that
 	 * key -- so this no longer asserts the key is absent; it asserts the
 	 * submitted value was not the one that won.
+	 *
+	 * The forged entry below is deliberately WELL-FORMED (every field
+	 * blueline_sanitize_acknowledgements() requires, correctly typed, and
+	 * `scope` matching its own array key) so that
+	 * blueline_sanitize_acknowledgements() would NOT scrub it on its own
+	 * -- an earlier version of this test used a malformed
+	 * `array( 'anything' => true )` payload, which got scrubbed to
+	 * `array()` regardless of whether the tab guard was correct, so the
+	 * test kept passing even when the guard was broken. `occasions` is
+	 * also submitted BEFORE `aa_acknowledgements` here (the opposite
+	 * order from the old test), so a broken guard can't be saved by the
+	 * `occasions` branch's computed value happening to run, and overwrite
+	 * the forged one, later in iteration order. With both of those fixed,
+	 * this test only passes when the reserved-key guard actually drops
+	 * `aa_acknowledgements` for an occasions-tab submission -- since
+	 * `occasions` is empty here, the real computed result is the
+	 * (empty) stored acknowledgements map, never the forged entry.
 	 */
 	public function test_sanitize_callback_still_drops_acknowledgements_when_the_tab_is_occasions(): void {
 		$output = blueline_settings_sanitize_callback(
 			array(
 				'_tab'                => 'occasions',
-				'aa_acknowledgements' => array( 'anything' => true ),
 				'occasions'           => array(),
+				'aa_acknowledgements' => array(
+					'occasion:fake' => array(
+						'rule_id'     => 'ink-on-occasion-accent',
+						'value'       => '#000000',
+						'ratio'       => 1.0,
+						'user_id'     => 999,
+						'date'        => 1,
+						'inputs_hash' => 'forged',
+						'scope'       => 'occasion:fake',
+					),
+				),
 			)
 		);
 
-		$this->assertArrayNotHasKey( 'anything', $output['aa_acknowledgements'] );
+		$this->assertSame( array(), $output['aa_acknowledgements'] );
 	}
 
 	/**
