@@ -579,3 +579,85 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 
 	return null;
 }
+
+/**
+ * The maple leaf motif (Canada Day). Purely decorative: aria-hidden, no
+ * text alternative needed -- matches the existing house style
+ * (inc/template-tags.php's blueline_leaf_mark(), inc/homepage-modules.php's
+ * blueline_render_faceoff_rings()): `stroke`/`fill="currentColor"` so CSS
+ * (specifically --bl-occasion-accent, once a template applies it as the
+ * motif's colour) controls the rendered colour, not this markup.
+ *
+ * @return void
+ */
+function blueline_render_occasion_motif_maple_leaf(): void {
+	?>
+	<svg class="bl-occasion-motif bl-occasion-motif--maple-leaf" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 3l4 9 9-4-3 9 8 5-9 3 2 9-9-4-2 9-2-9-9 4 2-9-9-3 8-5-3-9 9 4Z"/></svg>
+	<?php
+}
+
+/**
+ * The poppy motif (Remembrance Day). NOT aria-hidden: design spec
+ * §5/§7.7 requires it carry a real accessible name, so it gets a
+ * `<title>` (announced by assistive technology as the element's
+ * accessible name for a `role="img"` SVG) instead of the `aria-hidden`
+ * every other motif here uses.
+ *
+ * @return void
+ */
+function blueline_render_occasion_motif_poppy(): void {
+	?>
+	<svg class="bl-occasion-motif bl-occasion-motif--poppy" viewBox="0 0 48 48" role="img" focusable="false"><title><?php esc_html_e( 'Remembrance poppy', 'blueline' ); ?></title><path fill="currentColor" d="M24 22c-4-6-12-8-14-2-2 6 6 10 14 6 8 4 16 0 14-6-2-6-10-4-14 2Z"/><path fill="currentColor" d="M24 26c-2 6-8 12-4 16 4 4 8-4 4-10-4-4-4-2 0-6Z"/><circle cx="24" cy="24" r="4" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/></svg>
+	<?php
+}
+
+/**
+ * The snowflake motif (Christmas). Purely decorative: aria-hidden, no
+ * text alternative needed.
+ *
+ * @return void
+ */
+function blueline_render_occasion_motif_snowflake(): void {
+	?>
+	<svg class="bl-occasion-motif bl-occasion-motif--snowflake" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="24" y1="4" x2="24" y2="44"></line><line x1="4" y1="24" x2="44" y2="24"></line><line x1="10" y1="10" x2="38" y2="38"></line><line x1="38" y1="10" x2="10" y2="38"></line></g></svg>
+	<?php
+}
+
+/**
+ * The sparkle motif (New Year). Purely decorative: aria-hidden, no text
+ * alternative needed.
+ *
+ * @return void
+ */
+function blueline_render_occasion_motif_sparkle(): void {
+	?>
+	<svg class="bl-occasion-motif bl-occasion-motif--sparkle" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 2c1 8 4 15 9 20 5 5 12 8 20 9-8 1-15 4-20 9-5 5-8 12-9 20-1-8-4-15-9-20-5-5-12-8-20-9 8-1 15-4 20-9 5-5 8-12 9-20Z"/></svg>
+	<?php
+}
+
+/**
+ * Render the named motif, or nothing for 'none' or an unrecognised name
+ * -- never fatal, matching every other read path in this file.
+ *
+ * @param string $motif One of blueline_occasion_motifs().
+ * @return void
+ */
+function blueline_render_occasion_motif( string $motif ): void {
+	switch ( $motif ) {
+		case 'maple-leaf':
+			blueline_render_occasion_motif_maple_leaf();
+			break;
+		case 'poppy':
+			blueline_render_occasion_motif_poppy();
+			break;
+		case 'snowflake':
+			blueline_render_occasion_motif_snowflake();
+			break;
+		case 'sparkle':
+			blueline_render_occasion_motif_sparkle();
+			break;
+		case 'none':
+		default:
+			break;
+	}
+}
