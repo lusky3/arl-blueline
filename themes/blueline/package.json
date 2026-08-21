@@ -8,7 +8,7 @@
     "lint:css": "wp-scripts lint-style 'assets/src/css/**/*.css'",
     "lint:js": "wp-scripts lint-js 'assets/src/js/**/*.js'",
     "tokens:check": "node tools/check-contrast.mjs",
-    "test:js": "node --test 'tools/**/*.test.mjs'",
+    "test:js": "node --test 'tools/*.test.mjs' 'tools/lib/*.test.mjs'",
     "test:browser": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 wp-scripts test-playwright",
     "check": "npm run lint:css && npm run lint:js && npm run test:js && npm run tokens:check && composer test && composer lint",
     "check:oracle": "npm run lint:css && npm run lint:js && npm run test:js && npm run tokens:check && composer test:oracle && composer lint"
