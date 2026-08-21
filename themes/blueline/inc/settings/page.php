@@ -2651,3 +2651,54 @@ function blueline_settings_photo_picker_styles(): string {
 		. '.bl-photos__remove{color:#b32d2e;}'
 		. '.bl-photos__empty{color:#646970;font-style:italic;}';
 }
+
+add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_occasions_script' );
+/**
+ * Enqueue the Occasions tab's live contrast-readout/repeater script, on
+ * this page's Occasions tab only.
+ *
+ * A plain source file, no webpack entry -- the same deliberate choice
+ * blueline_settings_maybe_enqueue_photo_picker()'s own docblock
+ * explains for settings-photos.js: no imports, no JSX, no dependencies.
+ * Still linted (npm run lint:js) and still shipped by the same rsync
+ * as everything else.
+ *
+ * blueline_settings_inputs_hash()-adjacent values -- BLUELINE_TOKEN_INK
+ * and blueline_contrast_threshold( 'body' ) -- are read here,
+ * server-side, and handed to the script via wp_localize_script():
+ * real settings data the JS math needs but must never hardcode
+ * independently, which would be a third place these values could
+ * drift out of sync from inc/team-colors.php.
+ *
+ * @param string $hook_suffix The current admin screen's hook suffix.
+ * @return void
+ */
+function blueline_settings_maybe_enqueue_occasions_script( string $hook_suffix ): void {
+	if ( blueline_settings_page_hook() !== $hook_suffix ) {
+		return;
+	}
+
+	if ( 'occasions' !== blueline_settings_current_tab() ) {
+		return;
+	}
+
+	$relative = '/assets/src/js/settings-occasions.js';
+	$path     = BLUELINE_DIR . $relative;
+
+	wp_enqueue_script(
+		'blueline-settings-occasions',
+		BLUELINE_URI . $relative,
+		array(),
+		file_exists( $path ) ? (string) filemtime( $path ) : '1',
+		true
+	);
+
+	wp_localize_script(
+		'blueline-settings-occasions',
+		'blOccasionsData',
+		array(
+			'inkHex'    => BLUELINE_TOKEN_INK,
+			'threshold' => blueline_contrast_threshold( 'body' ),
+		)
+	);
+}
