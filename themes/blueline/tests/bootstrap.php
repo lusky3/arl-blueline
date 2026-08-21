@@ -457,6 +457,24 @@ if ( ! function_exists( 'sanitize_html_class' ) ) {
 		return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $html_class );
 	}
 }
+if ( ! function_exists( 'sanitize_title' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' sanitize_title() -- lowercases,
+	 * collapses any run of non alphanumeric characters to a single
+	 * hyphen, and trims leading/trailing hyphens. Not a faithful port of
+	 * core's accent-stripping remove_accents() behaviour, but every label
+	 * this suite ever feeds it is plain ASCII, so that gap is never
+	 * exercised.
+	 *
+	 * @param string $title Raw text.
+	 * @return string
+	 */
+	function sanitize_title( $title ) {
+		$title = strtolower( trim( (string) $title ) );
+		$title = preg_replace( '/[^a-z0-9]+/', '-', $title );
+		return trim( (string) $title, '-' );
+	}
+}
 if ( ! function_exists( 'absint' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' absint().

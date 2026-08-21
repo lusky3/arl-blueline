@@ -470,4 +470,260 @@ final class OccasionsTest extends TestCase {
 
 		$this->assertSame( $presets, blueline_sanitize_occasions( $presets ) );
 	}
+
+	/* ------------------------------------------------ assign_unique_ids */
+
+	/**
+	 * Asserts a brand-new row (empty `_original_id`) derives its `id`
+	 * from `sanitize_title( $label )`.
+	 */
+	public function test_assign_unique_ids_derives_a_slug_from_the_label(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertSame( 'canada-day', $result['canada-day']['id'] );
+	}
+
+	/**
+	 * Asserts `_original_id` is stripped from the returned row -- it is
+	 * request-scoped bookkeeping this function consumes, not part of the
+	 * Occasion shape blueline_sanitize_occasions() expects.
+	 */
+	public function test_assign_unique_ids_strips_original_id(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertArrayNotHasKey( '_original_id', $result['canada-day'] );
+	}
+
+	/**
+	 * Asserts two new rows submitted with the same label in one batch are
+	 * de-duplicated against EACH OTHER with an incrementing numeric
+	 * suffix -- design spec §5.1's first ruling.
+	 */
+	public function test_assign_unique_ids_dedupes_within_the_same_batch(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+				'row-2' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertArrayHasKey( 'canada-day-2', $result );
+		$this->assertSame( 'canada-day', $result['canada-day']['id'] );
+		$this->assertSame( 'canada-day-2', $result['canada-day-2']['id'] );
+	}
+
+	/**
+	 * Asserts a new row whose derived slug collides with a DIFFERENT
+	 * currently-stored occasion is de-duplicated against the stored array
+	 * too, not only against the rest of this batch.
+	 */
+	public function test_assign_unique_ids_dedupes_against_a_different_stored_occasion(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'canada-day-2', $result );
+		$this->assertArrayNotHasKey( 'canada-day', $result );
+	}
+
+	/**
+	 * Asserts a row EDITING an existing occasion, whose label is
+	 * unchanged (so its derived slug is unchanged), keeps its own
+	 * existing id rather than being treated as a collision against
+	 * itself.
+	 */
+	public function test_assign_unique_ids_lets_a_row_keep_its_own_unchanged_id(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day' => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Canada Day',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertCount( 1, $result );
+	}
+
+	/**
+	 * Asserts editing an existing occasion's LABEL enough to change its
+	 * derived slug is treated as a rename: the new slug is used, and the
+	 * old key does not reappear in the result (the caller's own
+	 * submission IS the whole new map, so an old key simply not being
+	 * present in the result is what "removed" means here).
+	 */
+	public function test_assign_unique_ids_treats_a_changed_label_as_a_rename(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day' => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Canada Day Long Weekend',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'canada-day-long-weekend', $result );
+		$this->assertArrayNotHasKey( 'canada-day', $result );
+	}
+
+	/**
+	 * Asserts a rename that collides with a DIFFERENT stored occasion is
+	 * de-duplicated rather than silently overwriting it.
+	 */
+	public function test_assign_unique_ids_a_rename_that_collides_is_deduped(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+			'christmas'  => array(
+				'id'    => 'christmas',
+				'label' => 'Christmas',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day' => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Christmas',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'christmas-2', $result );
+		$this->assertArrayNotHasKey( 'canada-day', $result );
+	}
+
+	/**
+	 * Asserts a row with no usable label (empty, or only whitespace)
+	 * derives no id and is dropped outright -- blueline_sanitize_occasions()
+	 * would reject it for the same reason anyway, so there is no id worth
+	 * manufacturing for it.
+	 */
+	public function test_assign_unique_ids_drops_a_row_with_no_usable_label(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => '',
+				),
+				'row-2' => array(
+					'_original_id' => '',
+					'label'        => '   ',
+				),
+			),
+			array()
+		);
+
+		$this->assertSame( array(), $result );
+	}
+
+	/**
+	 * Asserts a non-array $submitted value sanitizes to an empty map,
+	 * matching blueline_sanitize_occasions()'s own defensive posture for
+	 * the same shape of bad input.
+	 */
+	public function test_assign_unique_ids_non_array_value_returns_empty(): void {
+		foreach ( array( null, 'not-an-array', 42, false ) as $bad ) {
+			$this->assertSame( array(), blueline_occasions_assign_unique_ids( $bad, array() ) );
+		}
+	}
+
+	/**
+	 * Asserts a non-array ROW (not a whole submission) is skipped rather
+	 * than fataling the rest of the batch.
+	 */
+	public function test_assign_unique_ids_skips_a_non_array_row(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => 'not-an-array',
+				'row-2' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertSame( array( 'canada-day' ), array_keys( $result ) );
+	}
+
+	/**
+	 * Asserts every OTHER key on a row (e.g. a future override checkbox
+	 * field) is copied through unchanged -- this function only ever
+	 * reads `_original_id`/`label` and writes `id`.
+	 */
+	public function test_assign_unique_ids_copies_other_keys_through_unchanged(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+					'motif'        => 'maple-leaf',
+					'override_aa'  => '1',
+				),
+			),
+			array()
+		);
+
+		$this->assertSame( 'maple-leaf', $result['canada-day']['motif'] );
+		$this->assertSame( '1', $result['canada-day']['override_aa'] );
+	}
 }

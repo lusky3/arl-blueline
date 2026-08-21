@@ -385,6 +385,78 @@ function blueline_occasion_presets(): array {
 }
 
 /**
+ * Assign each submitted occasions row a server-derived, de-duplicated
+ * `id` -- design spec §5.1's first ruling: the admin never types an id
+ * directly.
+ *
+ * A row keeps its own existing id when its derived slug is unchanged
+ * from `_original_id`. A row whose derived slug differs from
+ * `_original_id` (a brand-new row, where `_original_id` is '', or an
+ * existing row whose label edit changed the derived slug -- a rename)
+ * is checked for a collision against both the rest of THIS batch and
+ * the currently-stored array, EXCLUDING the row's own original slot,
+ * and bumped with an incrementing numeric suffix on collision -- the
+ * same shape wp_unique_post_slug() already uses for post slugs.
+ *
+ * Deliberately does not call blueline_sanitize_occasions() itself, and
+ * does not validate anything beyond having a usable label: the caller
+ * (inc/settings/page.php's sanitize-callback carve-out) runs the
+ * result through that unchanged validator immediately afterwards. Any
+ * OTHER key a row carries (e.g. a save-time override checkbox a later
+ * task reads) is copied through untouched -- this function only ever
+ * reads `_original_id`/`label` and writes `id`.
+ *
+ * @param mixed                               $submitted Raw submitted rows, keyed by an opaque per-request row identifier.
+ * @param array<string, array<string, mixed>> $stored    Currently stored `occasions` map, read BEFORE this save.
+ * @return array<string, array<string, mixed>> The same rows, re-keyed by their final, unique, derived id.
+ */
+function blueline_occasions_assign_unique_ids( $submitted, array $stored ): array {
+	if ( ! is_array( $submitted ) ) {
+		return array();
+	}
+
+	$taken  = array();
+	$result = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$label       = is_string( $row['label'] ?? null ) ? $row['label'] : '';
+		$base        = sanitize_title( $label );
+
+		if ( '' === $base ) {
+			// No usable label at all -- blueline_sanitize_occasions()
+			// will reject this row for its own empty-label reason
+			// regardless, so there is no id worth manufacturing for it.
+			continue;
+		}
+
+		$final_id = $base;
+		$suffix   = 2;
+
+		while (
+			isset( $taken[ $final_id ] )
+			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id )
+		) {
+			$final_id = $base . '-' . $suffix;
+			++$suffix;
+		}
+
+		$taken[ $final_id ] = true;
+
+		$row['id'] = $final_id;
+		unset( $row['_original_id'] );
+
+		$result[ $final_id ] = $row;
+	}
+
+	return $result;
+}
+
+/**
  * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD' --
  * design spec §5/§7.5: "Dates compare in site timezone ... not UTC."
  *
