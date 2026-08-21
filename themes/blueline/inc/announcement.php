@@ -87,11 +87,22 @@ function blueline_site_timestamp( string $datetime ): ?int {
  * @return string One of BLUELINE_ANNOUNCEMENT_SEVERITIES.
  */
 function blueline_announcement_severity(): string {
-	$stored = (string) blueline_settings( 'announcement_severity' );
-
-	return in_array( $stored, BLUELINE_ANNOUNCEMENT_SEVERITIES, true )
+	$stored   = (string) blueline_settings( 'announcement_severity' );
+	$severity = in_array( $stored, BLUELINE_ANNOUNCEMENT_SEVERITIES, true )
 		? $stored
 		: BLUELINE_ANNOUNCEMENT_SEVERITIES[0];
+
+	/**
+	 * Filters the announcement's resolved severity, after the choices-list
+	 * clamp above but before it is used anywhere. inc/occasions.php hooks
+	 * this to clamp 'urgent' down to 'info' while a commemorative occasion
+	 * is the currently resolved-active one -- design spec §5/§7.6: a
+	 * festive "urgent" treatment would read as tone-deaf during an
+	 * observance like Remembrance Day.
+	 *
+	 * @param string $severity One of BLUELINE_ANNOUNCEMENT_SEVERITIES.
+	 */
+	return apply_filters( 'blueline_announcement_severity', $severity );
 }
 
 /**

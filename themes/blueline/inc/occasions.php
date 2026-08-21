@@ -661,3 +661,28 @@ function blueline_render_occasion_motif( string $motif ): void {
 			break;
 	}
 }
+
+/**
+ * Clamp the announcement's severity from 'urgent' down to 'info' while a
+ * commemorative occasion is the currently resolved-active one -- design
+ * spec §5/§7.6. Hooked onto the `blueline_announcement_severity` filter
+ * inc/announcement.php's blueline_announcement_severity() applies its
+ * return value through.
+ *
+ * @param string $severity One of BLUELINE_ANNOUNCEMENT_SEVERITIES.
+ * @return string
+ */
+function blueline_occasion_suppress_urgent_announcement( string $severity ): string {
+	if ( 'urgent' !== $severity ) {
+		return $severity;
+	}
+
+	$active = blueline_resolve_active_occasion();
+
+	if ( null === $active || 'commemorative' !== ( $active['type'] ?? '' ) ) {
+		return $severity;
+	}
+
+	return 'info';
+}
+add_filter( 'blueline_announcement_severity', 'blueline_occasion_suppress_urgent_announcement' );

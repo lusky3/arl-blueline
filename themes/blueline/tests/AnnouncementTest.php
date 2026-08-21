@@ -414,6 +414,26 @@ final class AnnouncementTest extends TestCase {
 	}
 
 	/**
+	 * Asserts blueline_announcement_severity()'s return value passes
+	 * through the `blueline_announcement_severity` filter -- the hook
+	 * point inc/occasions.php's commemorative-suppression callback (a
+	 * separate test suite) attaches to. Proven here with a throwaway
+	 * callback so this test does not depend on inc/occasions.php at all.
+	 */
+	public function test_severity_passes_through_the_blueline_announcement_severity_filter(): void {
+		$this->set_announcement( array( 'announcement_severity' => 'urgent' ) );
+
+		add_filter(
+			'blueline_announcement_severity',
+			static function ( $severity ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with the real filter callback this stands in for; this throwaway proves the passthrough regardless of the input value.
+				return 'info';
+			}
+		);
+
+		$this->assertSame( 'info', blueline_announcement_severity() );
+	}
+
+	/**
 	 * Render the banner and hand back its markup.
 	 *
 	 * @return string
