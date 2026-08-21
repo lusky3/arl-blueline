@@ -66,9 +66,21 @@ final class SettingsTokensTest extends TestCase {
 			wp_json_encode(
 				array(
 					'tokens' => array(
-						'--bl-ink'              => array( 'type' => 'color', 'group' => 'brand', 'tier' => 'brand', 'bounds' => null, 'tunable' => false ),
-						'--bl-occasion-accent'  => array( 'type' => 'color', 'group' => 'occasion', 'tier' => 'occasion', 'bounds' => array( 'contrast_rules' => array( 'ink-on-occasion-accent' ) ), 'tunable' => true ),
-						'--bl-broken'           => 'not an array',
+						'--bl-ink'             => array(
+							'type'    => 'color',
+							'group'   => 'brand',
+							'tier'    => 'brand',
+							'bounds'  => null,
+							'tunable' => false,
+						),
+						'--bl-occasion-accent' => array(
+							'type'    => 'color',
+							'group'   => 'occasion',
+							'tier'    => 'occasion',
+							'bounds'  => array( 'contrast_rules' => array( 'ink-on-occasion-accent' ) ),
+							'tunable' => true,
+						),
+						'--bl-broken'          => 'not an array',
 					),
 				)
 			)

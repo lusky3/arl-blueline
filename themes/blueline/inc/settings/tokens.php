@@ -2,7 +2,7 @@
 /**
  * Design-token tunability manifest reader.
  *
- * tools/tokens.json is the committed manifest declaring, for every --bl-*
+ * Tools/tokens.json is the committed manifest declaring, for every --bl-*
  * custom property in style.css's :root block, its type/group/tier/bounds
  * and whether the settings panel is ever allowed to expose it as an
  * editable value at all ("tunable"). Every token defaults to non-tunable;
