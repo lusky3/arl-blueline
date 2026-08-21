@@ -1639,4 +1639,81 @@ final class SettingsPageTest extends TestCase {
 
 		$this->assertSame( array(), $output['occasions'] );
 	}
+
+	/**
+	 * The Occasions tab's own submission derives an id from the label
+	 * rather than trusting one the admin typed -- design spec §5.1's
+	 * first ruling, exercised through the real save path.
+	 */
+	public function test_sanitize_callback_derives_an_id_for_a_new_occasions_row(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(
+					'row-1' => array(
+						'_original_id' => '',
+						'label'        => 'Canada Day',
+						'type'         => 'decorative',
+						'window'       => array(
+							'start_md' => '07-01',
+							'end_md'   => '07-01',
+						),
+						'accent'       => '',
+						'motif'        => 'maple-leaf',
+						'line'         => '',
+						'mode'         => 'auto',
+					),
+				),
+			)
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $output['occasions'] );
+		$this->assertSame( 'canada-day', $output['occasions']['canada-day']['id'] );
+	}
+
+	/**
+	 * Asserts `occasions` submitted from a DIFFERENT tab is still dropped
+	 * outright -- the new exception names `occasions` AND
+	 * `'occasions' === $submitted_tab` together, never `occasions` alone.
+	 */
+	public function test_sanitize_callback_still_drops_occasions_from_a_foreign_tab(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'content',
+				'occasions' => array( 'canada-day' => array( 'anything' => true ) ),
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'occasions', $output );
+	}
+
+	/**
+	 * Asserts the pre-existing programmatic write path (no `_tab` at
+	 * all) is unaffected: a row's `id` is honoured exactly as submitted,
+	 * with NO derivation step run over it. 2.1a's own
+	 * test_sanitize_callback_lets_occasions_survive_a_programmatic_write()
+	 * already covers the happy path; this covers that derivation is
+	 * SKIPPED for this path specifically.
+	 */
+	public function test_sanitize_callback_does_not_re_derive_ids_on_a_programmatic_write(): void {
+		$entry = array(
+			'id'     => 'custom-slug',
+			'label'  => 'Something Else Entirely',
+			'type'   => 'decorative',
+			'window' => array(
+				'start_md' => '07-01',
+				'end_md'   => '07-01',
+			),
+			'accent' => '',
+			'motif'  => 'none',
+			'line'   => '',
+			'mode'   => 'auto',
+		);
+
+		$output = blueline_settings_sanitize_callback(
+			array( 'occasions' => array( 'custom-slug' => $entry ) )
+		);
+
+		$this->assertSame( $entry, $output['occasions']['custom-slug'] );
+	}
 }

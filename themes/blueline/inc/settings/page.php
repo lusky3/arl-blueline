@@ -473,12 +473,19 @@ function blueline_settings_sanitize_callback( $input ): array {
 				continue;
 			}
 
-			if ( '' !== $submitted_tab ) {
+			if ( '' !== $submitted_tab && ! ( 'occasions' === $key && 'occasions' === $submitted_tab ) ) {
 				// Reserved, but this submission carries `_tab` -- it came
 				// from this file's own rendered form, which never
-				// legitimately submits a reserved key. Dropped, not
-				// honoured, rather than trusted just because it's on the
-				// allow-list.
+				// legitimately submits a reserved key... EXCEPT
+				// `occasions` submitted BY its own Occasions tab (design
+				// spec §5.1's second ruling): that tab's own form posts
+				// `blueline_settings[occasions]` as one opaque map value,
+				// never through `_posted_fields` per-field carry-forward,
+				// since `occasions` is not a scalar schema field at all.
+				// `_schema` and `aa_acknowledgements` keep the absolute
+				// rule unchanged -- this exception names `occasions` AND
+				// `'occasions' === $submitted_tab` together, rather than
+				// loosening the rule for every reserved key.
 				continue;
 			}
 
@@ -492,11 +499,23 @@ function blueline_settings_sanitize_callback( $input ): array {
 			}
 
 			if ( 'occasions' === $key ) {
-				// A map, not an integer like every other reserved key --
-				// its own validator (inc/occasions.php) drops anything
-				// malformed rather than corrupting the option or crashing a
-				// later reader.
-				$output[ $key ] = blueline_sanitize_occasions( $value );
+				if ( 'occasions' === $submitted_tab ) {
+					// The Occasions tab's own save (design spec §5.1's
+					// first ruling): derive and de-duplicate every row's
+					// id server-side BEFORE the unchanged
+					// blueline_sanitize_occasions() ever sees it -- the
+					// admin never types an id directly.
+					$stored_occasions = is_array( $current['occasions'] ?? null ) ? $current['occasions'] : array();
+					$with_ids         = blueline_occasions_assign_unique_ids( $value, $stored_occasions );
+
+					$output[ $key ] = blueline_sanitize_occasions( $with_ids );
+				} else {
+					// A programmatic write (WP-CLI, a direct update_option()
+					// call, an import) -- no id derivation: the caller is
+					// expected to already supply final, correctly-keyed
+					// ids, exactly as this branch behaved before 2.1b.
+					$output[ $key ] = blueline_sanitize_occasions( $value );
+				}
 				continue;
 			}
 
