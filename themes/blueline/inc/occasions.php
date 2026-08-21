@@ -457,6 +457,92 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
 }
 
 /**
+ * Compute the new `aa_acknowledgements` map after an Occasions-tab save
+ * -- design spec §5.1's fifth ruling: per-occasion, symmetric
+ * record/remove, plus orphan cleanup.
+ *
+ * For every occasion in $sanitized (already run through
+ * blueline_sanitize_occasions() -- this function trusts it is
+ * well-formed), resolves its effective accent (its own `accent`, or
+ * blueline_occasion_accent_default() when empty), checks contrast
+ * against BLUELINE_TOKEN_INK, and either records or removes its
+ * acknowledgement accordingly. Then removes every acknowledgement
+ * scoped `occasion:*` whose id is not present in $sanitized at all --
+ * deleting or renaming an occasion must not leave its acknowledgement
+ * behind forever.
+ *
+ * Pure: takes the current map and returns a new one; never calls
+ * update_option() itself, matching blueline_record_acknowledgement()/
+ * blueline_remove_acknowledgement()'s own contract.
+ *
+ * @param array<string, array<string, mixed>> $sanitized        This save's new `occasions` value (post blueline_sanitize_occasions()).
+ * @param array<string, bool>                 $raw_overrides    Map of occasion id => whether ITS override checkbox was checked in this submission.
+ * @param array<string, array<string, mixed>> $acknowledgements Currently stored `aa_acknowledgements`.
+ * @param string                              $inputs_hash      blueline_settings_inputs_hash()'s current value.
+ * @param int                                 $user_id          The saving user's id.
+ * @return array<string, array<string, mixed>> The updated map, to be stored under `aa_acknowledgements`.
+ */
+function blueline_occasions_apply_aa_overrides(
+	array $sanitized,
+	array $raw_overrides,
+	array $acknowledgements,
+	string $inputs_hash,
+	int $user_id
+): array {
+	foreach ( $sanitized as $id => $occasion ) {
+		$scope = 'occasion:' . $id;
+
+		$raw_accent = '' !== ( $occasion['accent'] ?? '' )
+			? $occasion['accent']
+			: blueline_occasion_accent_default();
+
+		$accent = blueline_sanitize_hex_color( $raw_accent );
+
+		if ( '' === $accent ) {
+			// Unresolvable accent -- nothing to acknowledge either way;
+			// do not leave a stale acknowledgement behind for a value
+			// that no longer means anything.
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+			continue;
+		}
+
+		$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $accent );
+		$passes = $ratio >= blueline_contrast_threshold( 'body' );
+
+		if ( ! $passes && ! empty( $raw_overrides[ $id ] ) ) {
+			$acknowledgements = blueline_record_acknowledgement(
+				$acknowledgements,
+				$scope,
+				'ink-on-occasion-accent',
+				$accent,
+				$ratio,
+				$inputs_hash,
+				$user_id
+			);
+		} else {
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+		}
+	}
+
+	// Orphan cleanup: an acknowledgement scoped to an occasion id no
+	// longer present in this save's own occasions map at all (deleted,
+	// or renamed away from) has nothing left to cover.
+	foreach ( array_keys( $acknowledgements ) as $scope ) {
+		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
+			continue; // Not this mechanism's business -- e.g. a future non-occasion scope.
+		}
+
+		$id = substr( $scope, strlen( 'occasion:' ) );
+
+		if ( ! isset( $sanitized[ $id ] ) ) {
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+		}
+	}
+
+	return $acknowledgements;
+}
+
+/**
  * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD' --
  * design spec §5/§7.5: "Dates compare in site timezone ... not UTC."
  *

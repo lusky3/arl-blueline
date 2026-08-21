@@ -1737,9 +1737,15 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Asserts `aa_acknowledgements` is STILL dropped outright even when
-	 * the submission's `_tab` is `'occasions'` -- same guard as above,
-	 * covering the other reserved key.
+	 * Asserts a raw, directly-submitted `aa_acknowledgements` payload is
+	 * STILL never honoured on an occasions-tab save -- same guard as
+	 * above, covering the other reserved key. As of Task 3
+	 * (blueline_occasions_apply_aa_overrides()), an occasions-tab save
+	 * ALWAYS sets `aa_acknowledgements` on the output -- computed from
+	 * the sanitized occasions and the CURRENTLY stored acknowledgements,
+	 * never from whatever the request happened to submit under that
+	 * key -- so this no longer asserts the key is absent; it asserts the
+	 * submitted value was not the one that won.
 	 */
 	public function test_sanitize_callback_still_drops_acknowledgements_when_the_tab_is_occasions(): void {
 		$output = blueline_settings_sanitize_callback(
@@ -1750,6 +1756,82 @@ final class SettingsPageTest extends TestCase {
 			)
 		);
 
-		$this->assertArrayNotHasKey( 'aa_acknowledgements', $output );
+		$this->assertArrayNotHasKey( 'anything', $output['aa_acknowledgements'] );
+	}
+
+	/**
+	 * End-to-end: the Occasions tab's own submission (a failing accent,
+	 * override checkbox checked) reaches
+	 * blueline_settings_sanitize_callback() and produces BOTH a
+	 * sanitized `occasions` entry AND a new, matching
+	 * `aa_acknowledgements` entry -- design spec §5.1's fifth ruling,
+	 * run through the real save path rather than the pure function
+	 * alone.
+	 */
+	public function test_sanitize_callback_records_an_acknowledgement_for_an_occasions_tab_save(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(
+					'failing' => array(
+						'_original_id' => '',
+						'label'        => 'Failing',
+						'type'         => 'decorative',
+						'window'       => array(
+							'start_md' => '01-01',
+							'end_md'   => '12-31',
+						),
+						'accent'       => '#274a63',
+						'motif'        => 'none',
+						'line'         => '',
+						'mode'         => 'force_on',
+						'override_aa'  => '1',
+					),
+				),
+			)
+		);
+
+		$this->assertArrayHasKey( 'failing', $output['occasions'] );
+		$this->assertArrayHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+		$this->assertSame( '#274a63', $output['aa_acknowledgements']['occasion:failing']['value'] );
+	}
+
+	/**
+	 * Asserts deleting an occasion (simply omitting it from this save's
+	 * own submission) also removes its now-orphaned acknowledgement, in
+	 * the same real save path.
+	 */
+	public function test_sanitize_callback_cleans_up_an_orphaned_acknowledgement_on_save(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(
+					'failing' => array(
+						'id'     => 'failing',
+						'label'  => 'Failing',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '01-01',
+							'end_md'   => '12-31',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'force_on',
+					),
+				),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:failing', 'ink-on-occasion-accent', '#274a63', 1.66, blueline_settings_inputs_hash(), 1 ),
+			)
+		);
+
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(), // The occasion was removed in this save.
+			)
+		);
+
+		$this->assertSame( array(), $output['occasions'] );
+		$this->assertArrayNotHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
 	}
 }

@@ -726,4 +726,160 @@ final class OccasionsTest extends TestCase {
 		$this->assertSame( 'maple-leaf', $result['canada-day']['motif'] );
 		$this->assertSame( '1', $result['canada-day']['override_aa'] );
 	}
+
+	/* ------------------------------------------------ apply_aa_overrides */
+
+	/**
+	 * A minimal, valid, force_on occasion whose accent FAILS contrast
+	 * against BLUELINE_TOKEN_INK -- reuses the exact fixture value
+	 * tests/OccasionsResolverTest.php's own fail-closed/fail-open pair
+	 * already established as failing.
+	 *
+	 * @param array<string, mixed> $overrides Keys to override.
+	 * @return array<string, mixed>
+	 */
+	private function failing_occasion( array $overrides = array() ): array {
+		return array_merge(
+			array(
+				'id'     => 'failing',
+				'label'  => 'Failing',
+				'type'   => 'decorative',
+				'window' => array(
+					'start_md' => '01-01',
+					'end_md'   => '12-31',
+				),
+				'accent' => '#274a63',
+				'motif'  => 'none',
+				'line'   => '',
+				'mode'   => 'force_on',
+			),
+			$overrides
+		);
+	}
+
+	/**
+	 * Asserts a failing accent WITH its override checkbox checked
+	 * records a new acknowledgement scoped `occasion:{id}`.
+	 */
+	public function test_apply_aa_overrides_records_a_checked_failing_row(): void {
+		$hash = 'test-hash';
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'failing' => $this->failing_occasion() ),
+			array( 'failing' => true ),
+			array(),
+			$hash,
+			7
+		);
+
+		$this->assertArrayHasKey( 'occasion:failing', $result );
+		$this->assertSame( 'ink-on-occasion-accent', $result['occasion:failing']['rule_id'] );
+		$this->assertSame( '#274a63', $result['occasion:failing']['value'] );
+		$this->assertSame( $hash, $result['occasion:failing']['inputs_hash'] );
+		$this->assertSame( 7, $result['occasion:failing']['user_id'] );
+	}
+
+	/**
+	 * Asserts a failing accent whose checkbox is NOT checked removes any
+	 * existing acknowledgement for that scope rather than leaving it --
+	 * design spec §5.1's fifth ruling: symmetric, not additive-only.
+	 */
+	public function test_apply_aa_overrides_removes_when_the_checkbox_is_unchecked(): void {
+		$existing = blueline_record_acknowledgement( array(), 'occasion:failing', 'ink-on-occasion-accent', '#274a63', 1.66, 'stale-hash', 1 );
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'failing' => $this->failing_occasion() ),
+			array( 'failing' => false ),
+			$existing,
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayNotHasKey( 'occasion:failing', $result );
+	}
+
+	/**
+	 * Asserts an occasion whose accent now PASSES contrast has its
+	 * acknowledgement removed even if the checkbox happens to still be
+	 * checked in the submission -- nothing left to acknowledge.
+	 */
+	public function test_apply_aa_overrides_removes_when_the_accent_now_passes(): void {
+		$existing = blueline_record_acknowledgement( array(), 'occasion:passing', 'ink-on-occasion-accent', '#274a63', 1.66, 'stale-hash', 1 );
+
+		$passing = $this->failing_occasion(
+			array(
+				'id'     => 'passing',
+				'accent' => '#ffffff',
+			)
+		);
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'passing' => $passing ),
+			array( 'passing' => true ),
+			$existing,
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayNotHasKey( 'occasion:passing', $result );
+	}
+
+	/**
+	 * Asserts an acknowledgement scoped to an occasion id that is no
+	 * longer present in $sanitized AT ALL (deleted, or renamed away
+	 * from) is removed -- orphan cleanup, design spec §5.1's fifth
+	 * ruling.
+	 */
+	public function test_apply_aa_overrides_cleans_up_an_orphaned_acknowledgement(): void {
+		$existing = blueline_record_acknowledgement( array(), 'occasion:deleted-one', 'ink-on-occasion-accent', '#274a63', 1.66, 'test-hash', 1 );
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array(), // Nothing submitted this save -- the occasion is gone.
+			array(),
+			$existing,
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayNotHasKey( 'occasion:deleted-one', $result );
+	}
+
+	/**
+	 * Asserts a live acknowledgement for a scope this mechanism does not
+	 * own (does not start with `occasion:`) is left completely alone --
+	 * orphan cleanup is scoped narrowly to this mechanism's own prefix.
+	 */
+	public function test_apply_aa_overrides_leaves_a_foreign_scope_alone(): void {
+		$existing = blueline_record_acknowledgement( array(), 'something-else:entirely', 'some-other-rule', '#274a63', 1.66, 'test-hash', 1 );
+
+		$result = blueline_occasions_apply_aa_overrides( array(), array(), $existing, 'test-hash', 7 );
+
+		$this->assertArrayHasKey( 'something-else:entirely', $result );
+	}
+
+	/**
+	 * Asserts an occasion with an EMPTY `accent` (use the resolved
+	 * default) is evaluated against that resolved default, not against
+	 * an empty string.
+	 */
+	public function test_apply_aa_overrides_resolves_an_empty_accent_to_the_default(): void {
+		$occasion = $this->failing_occasion(
+			array(
+				'id'     => 'default-accent',
+				'accent' => '',
+			)
+		);
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'default-accent' => $occasion ),
+			array( 'default-accent' => true ),
+			array(),
+			'test-hash',
+			7
+		);
+
+		// The real stylesheet default (--bl-ice, '#74c0e1') passes contrast
+		// outright, so nothing should have been recorded for it.
+		$this->assertArrayNotHasKey( 'occasion:default-accent', $result );
+	}
 }

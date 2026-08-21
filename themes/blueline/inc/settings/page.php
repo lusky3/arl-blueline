@@ -515,7 +515,37 @@ function blueline_settings_sanitize_callback( $input ): array {
 					$stored_occasions = is_array( $current['occasions'] ?? null ) ? $current['occasions'] : array();
 					$with_ids         = blueline_occasions_assign_unique_ids( $value, $stored_occasions );
 
-					$output[ $key ] = blueline_sanitize_occasions( $with_ids );
+					// Per-row override checkboxes ride along inside
+					// $with_ids (blueline_occasions_assign_unique_ids()
+					// copies every OTHER key of a row through untouched)
+					// -- read them here, keyed by each row's own FINAL
+					// id, before blueline_sanitize_occasions() strips the
+					// extra `override_aa` key off (it only ever keeps
+					// the eight documented Occasion keys).
+					$raw_overrides = array();
+					foreach ( $with_ids as $row_id => $row ) {
+						$raw_overrides[ $row_id ] = is_array( $row ) && ! empty( $row['override_aa'] );
+					}
+
+					$sanitized_occasions = blueline_sanitize_occasions( $with_ids );
+
+					$output[ $key ] = $sanitized_occasions;
+
+					// design spec §5.1's fifth ruling: the Occasions
+					// tab's own save is also what decides this save's
+					// new `aa_acknowledgements` value -- per-occasion,
+					// symmetric record/remove, plus orphan cleanup. This
+					// key is never present in $input for this
+					// submission (the form never renders a field named
+					// it), so nothing else in this loop will ever
+					// overwrite it.
+					$output['aa_acknowledgements'] = blueline_occasions_apply_aa_overrides(
+						$sanitized_occasions,
+						$raw_overrides,
+						blueline_stored_acknowledgements(),
+						blueline_settings_inputs_hash(),
+						get_current_user_id()
+					);
 				} else {
 					// A programmatic write (WP-CLI, a direct update_option()
 					// call, an import) -- no id derivation: the caller is
