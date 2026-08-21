@@ -69,6 +69,7 @@
 	--bl-space-5: 1.5rem;
 	--bl-space-6: 2rem;
 	--bl-radius: 0px;
+	--bl-occasion-accent: var(--bl-ice);
 }
 
 body {

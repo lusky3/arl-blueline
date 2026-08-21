@@ -477,6 +477,17 @@ function blueline_settings_defaults(): array {
 		// Off: a disclosure affordance defaults to hiding what it discloses,
 		// or it discloses nothing.
 		'advanced_enabled'              => false,
+		// `aa_acknowledgements` (design spec §4.4/§4.5) is deliberately NOT
+		// listed here, for the same reason `_schema` never has been:
+		// membership in blueline_settings()'s returned array is decided by
+		// presence in THIS array, so a bookkeeping key that must stay out of
+		// that return value -- see blueline_settings()'s own docblock
+		// (inc/settings/store.php) -- must stay out of this one too. It is
+		// still real, protected storage
+		// (BLUELINE_SETTINGS_RESERVED_KEYS, inc/settings/page.php;
+		// validated by inc/settings/acknowledgements.php's
+		// blueline_sanitize_acknowledgements()) -- just never a default
+		// value a schema field falls back to.
 	);
 
 	// Every section defaults to enabled: an install that has never opened

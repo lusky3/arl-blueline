@@ -34,8 +34,8 @@
 #   page.
 #
 # Archive pages live under three hubs, discovered via
-#   ssh -p SSH_PORT root@staging-host.example "swp post list --post_type=page \
-#     --posts_per_page=-1 --format=csv --fields=ID,post_name,post_parent"
+#   ssh -p "$BLUELINE_STAGING_PORT" "$BLUELINE_STAGING_HOST" \
+#     "swp post list --post_type=page --posts_per_page=-1 --format=csv --fields=ID,post_name,post_parent"
 # and cross-checked against both live nav menus (`menu-3-0`, the current
 # `primary` location, and the legacy `menu-2-0`):
 #   - 2557 "Past Standings" (parent of every standings-* archive page)
@@ -84,8 +84,12 @@
 
 set -uo pipefail
 
-SSH_HOST="root@staging-host.example"
-SSH_PORT=SSH_PORT
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+[ -f "$SCRIPT_DIR/lib/hosts.env" ] && source "$SCRIPT_DIR/lib/hosts.env"
+
+SSH_HOST="${BLUELINE_STAGING_HOST:?set BLUELINE_STAGING_HOST (see scripts/lib/hosts.env.example)}"
+SSH_PORT="${BLUELINE_STAGING_PORT:?set BLUELINE_STAGING_PORT (see scripts/lib/hosts.env.example)}"
 BASE="${BASE:-https://staging.rookiehockey.ca}"
 HUB_IDS=(2557 2583 3429) # past-standings, past-rosters, past-stats
 EXTRA_IDS=(14114)        # root-level anomaly, see header comment above

@@ -128,8 +128,9 @@
  * forward-only guard treat the install as already current, permanently
  * and silently skipping a real future migration.
  *
- * The fix is an explicit reserved-key allow-list -- today exactly
- * `array( '_schema' )` -- rather than "forward anything unrecognised":
+ * The fix is an explicit reserved-key allow-list -- today
+ * `array( '_schema', 'aa_acknowledgements' )` -- rather than "forward
+ * anything unrecognised":
  * any key that is neither a real schema field nor on that list is
  * dropped, exactly as it would be if it were never declared at all.
  * `_schema` itself is still sanitized like everything else (absint(),
@@ -208,13 +209,14 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * Top-level option keys that are neither a real schema field nor the two
  * request-scoped bookkeeping keys (`_posted_fields`, `_tab`) this file's
  * own form emits, but which a write still needs to be able to carry --
- * today exactly inc/settings/store.php's `_schema` migration version.
+ * today inc/settings/store.php's `_schema` migration version and
+ * inc/settings/acknowledgements.php's `aa_acknowledgements` map.
  * blueline_settings_sanitize_callback() checks every unrecognised key
  * against this explicit allow-list rather than forwarding it merely for
  * being unrecognised -- see this file's own docblock's `_schema` section
  * for why that distinction is load-bearing.
  */
-const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema' );
+const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements' );
 
 /**
  * Nonce action shared by the panel's two import steps (preview, then
@@ -397,13 +399,18 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    for that field -- see this file's docblock's `_posted_fields`
  *    section.
  * 4. Every OTHER key is checked against an explicit reserved-key
- *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today just `_schema`),
- *    never forwarded merely for being unrecognised -- see this file's
- *    docblock's `_schema` section for why "forward anything unrecognised"
- *    was rejected. A reserved key is still sanitized (absint()), `_schema`
- *    specifically also clamped to BLUELINE_SETTINGS_SCHEMA_VERSION, and
- *    dropped outright when the submission carries a `_tab` (came from
- *    this file's own form, which never legitimately submits one).
+ *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today `_schema` and
+ *    `aa_acknowledgements`), never forwarded merely for being
+ *    unrecognised -- see this file's docblock's `_schema` section for why
+ *    "forward anything unrecognised" was rejected. A reserved key is still
+ *    sanitized, though not identically: `_schema` is sanitized like every
+ *    other integer-valued field (absint()) and additionally clamped to
+ *    BLUELINE_SETTINGS_SCHEMA_VERSION, while `aa_acknowledgements` is not
+ *    an integer at all and instead goes through its own validator,
+ *    blueline_sanitize_acknowledgements() (inc/settings/acknowledgements.php).
+ *    Either way, the key is dropped outright when the submission carries a
+ *    `_tab` (came from this file's own form, which never legitimately
+ *    submits either one).
  *
  * @param mixed $input Raw value from $_POST[BLUELINE_SETTINGS_OPTION], as
  *                      WordPress' sanitize_option_{$option} filter hands it
@@ -472,6 +479,15 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// legitimately submits a reserved key. Dropped, not
 				// honoured, rather than trusted just because it's on the
 				// allow-list.
+				continue;
+			}
+
+			if ( 'aa_acknowledgements' === $key ) {
+				// Not an integer like every other reserved key today -- a map
+				// of acknowledgement entries (inc/settings/acknowledgements.php).
+				// Its own validator drops anything malformed rather than
+				// corrupting the option or crashing a later reader.
+				$output[ $key ] = blueline_sanitize_acknowledgements( $value );
 				continue;
 			}
 

@@ -5,8 +5,12 @@
 #   ./scripts/deploy-theme.sh production   (asks for confirmation)
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+[ -f "$SCRIPT_DIR/lib/hosts.env" ] && source "$SCRIPT_DIR/lib/hosts.env"
+
 TARGET="${1:-}"
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/themes/blueline/"
+SRC="$(cd "$SCRIPT_DIR/.." && pwd)/themes/blueline/"
 
 # NOTE: tools/ is intentionally NOT excluded below (all targets). It looks
 # like a build-only directory, but inc/team-colors.php reads
@@ -34,11 +38,13 @@ case "$TARGET" in
     exit 0
     ;;
   staging)
-    HOST="root@staging-host.example"; PORT=SSH_PORT
+    HOST="${BLUELINE_STAGING_HOST:?set BLUELINE_STAGING_HOST (see scripts/lib/hosts.env.example)}"
+    PORT="${BLUELINE_STAGING_PORT:?set BLUELINE_STAGING_PORT (see scripts/lib/hosts.env.example)}"
     DEST="/var/lib/docker/volumes/staging_wp_data/_data/wp-content/themes/blueline/"
     ;;
   production)
-    HOST="root@production-host.example"; PORT=SSH_PORT
+    HOST="${BLUELINE_PRODUCTION_HOST:?set BLUELINE_PRODUCTION_HOST (see scripts/lib/hosts.env.example)}"
+    PORT="${BLUELINE_PRODUCTION_PORT:?set BLUELINE_PRODUCTION_PORT (see scripts/lib/hosts.env.example)}"
     DEST="/var/www/rookiehockey.ca/htdocs/wp-content/themes/blueline/"
     read -r -p "Deploy to PRODUCTION? type 'yes': " c; [ "$c" = "yes" ] || { echo "aborted"; exit 1; }
     ;;

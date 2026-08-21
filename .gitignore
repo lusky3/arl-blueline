@@ -5,3 +5,7 @@
 
 # Claude Code workspace state (settings, agent worktrees). Local-only.
 .claude/
+
+# Real staging/production SSH hosts + port -- private infra, not for a
+# public repo. Copy scripts/lib/hosts.env.example to set this up locally.
+scripts/lib/hosts.env

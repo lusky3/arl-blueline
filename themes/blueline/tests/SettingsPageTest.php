@@ -14,6 +14,7 @@ require_once __DIR__ . '/../inc/settings/snapshots.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
+require_once __DIR__ . '/../inc/settings/acknowledgements.php';
 require_once __DIR__ . '/../inc/setup.php'; // blueline_active_widget_count(), which blueline_section_widget_warning() calls via the field-row renderer below.
 
 /**
@@ -1532,5 +1533,55 @@ final class SettingsPageTest extends TestCase {
 
 		$this->assertSame( 'The ARL', blueline_settings( 'footer_heading' ) );
 		$this->assertSame( array(), get_settings_errors( BLUELINE_SETTINGS_OPTION ) );
+	}
+
+	/**
+	 * Asserts `aa_acknowledgements` survives a programmatic write (no
+	 * `_tab`), the same path `_schema` already relies on.
+	 */
+	public function test_sanitize_callback_lets_acknowledgements_survive_a_programmatic_write(): void {
+		$entry  = array(
+			'rule_id'     => 'ink-on-occasion-accent',
+			'value'       => '#8b0000',
+			'ratio'       => 3.2,
+			'user_id'     => 7,
+			'date'        => 1700000000,
+			'inputs_hash' => 'abc123',
+			'scope'       => 'occasion:canada-day',
+		);
+		$output = blueline_settings_sanitize_callback(
+			array( 'aa_acknowledgements' => array( 'occasion:canada-day' => $entry ) )
+		);
+
+		$this->assertSame( $entry, $output['aa_acknowledgements']['occasion:canada-day'] );
+	}
+
+	/**
+	 * Asserts `aa_acknowledgements` is dropped outright from a tab-scoped
+	 * (form) submission -- it never legitimately arrives from the panel's
+	 * own rendered form, the same protection `_schema` already has.
+	 */
+	public function test_sanitize_callback_drops_acknowledgements_from_a_form_submission(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'                => 'content',
+				'aa_acknowledgements' => array( 'occasion:canada-day' => array( 'anything' => true ) ),
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'aa_acknowledgements', $output );
+	}
+
+	/**
+	 * Asserts a malformed `aa_acknowledgements` value is repaired to an
+	 * empty map rather than trusted verbatim, even on a programmatic
+	 * write.
+	 */
+	public function test_sanitize_callback_validates_acknowledgements_shape(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( 'aa_acknowledgements' => 'not-an-array' )
+		);
+
+		$this->assertSame( array(), $output['aa_acknowledgements'] );
 	}
 }
