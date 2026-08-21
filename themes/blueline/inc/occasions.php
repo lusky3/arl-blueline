@@ -459,15 +459,22 @@ function blueline_occasion_compare( array $a, array $b ): int {
  * Among eligible candidates, blueline_occasion_compare() orders by
  * precedence. Each candidate is then checked, in that order, against the
  * AA-override mechanism (design spec §4.5): resolve its effective accent
- * (its own `accent`, or blueline_occasion_accent_default() when empty),
- * compute that accent's real contrast ratio against BLUELINE_TOKEN_INK,
- * and -- only if it fails blueline_contrast_threshold( 'body' ) --
- * require a live, hash-matching acknowledgement scoped to
- * `occasion:{id}` (blueline_acknowledgement_covers()) before accepting
- * it. A candidate that fails this gate is skipped entirely, falling
- * through to the next-best candidate; the first candidate that either
- * passes contrast outright or is validly acknowledged wins. null if none
- * does (including when nothing is stored at all).
+ * (its own `accent`, or blueline_occasion_accent_default() when empty --
+ * that default is computed at most once per call, on first need, and
+ * reused for every later candidate with an empty `accent`), run it
+ * through blueline_sanitize_hex_color() (blueline_settings() does not
+ * sanitize on read -- inc/settings/store.php's own docblock -- so a
+ * stored `accent` can be malformed even though blueline_sanitize_occasions()
+ * rejects one on write), and, if that yields a real hex colour, compute
+ * its real contrast ratio against BLUELINE_TOKEN_INK; and -- only if it
+ * fails blueline_contrast_threshold( 'body' ) -- require a live,
+ * hash-matching acknowledgement scoped to `occasion:{id}`
+ * (blueline_acknowledgement_covers()) before accepting it. A candidate
+ * whose effective accent cannot be resolved to a real hex colour at all,
+ * or that fails the contrast gate unacknowledged, is skipped entirely,
+ * falling through to the next-best candidate; the first candidate that
+ * either passes contrast outright or is validly acknowledged wins. null
+ * if none does (including when nothing is stored at all).
  *
  * @param int|null $now_override Unix timestamp to evaluate against;
  *                                defaults to the current time. Tests pass
@@ -516,14 +523,35 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 
 	$inputs_hash      = blueline_settings_inputs_hash();
 	$acknowledgements = blueline_stored_acknowledgements();
+	$default_accent   = null;
 
 	foreach ( $candidates as $candidate ) {
-		$accent = '' !== ( $candidate['accent'] ?? '' ) ? $candidate['accent'] : blueline_occasion_accent_default();
+		$raw_accent = '' !== ( $candidate['accent'] ?? '' )
+			? $candidate['accent']
+			// Computed at most once per request, on first actual need: its
+			// own result (a style.css read) cannot change mid-request, and
+			// most requests never reach a candidate with an empty accent
+			// at all.
+			: ( $default_accent ??= blueline_occasion_accent_default() );
 
-		if ( '' === $accent ) {
+		if ( '' === $raw_accent ) {
 			// The default itself could not be resolved (Phase 2.0's own
 			// blueline_occasion_accent_default() already logs why) --
 			// nothing to apply for this candidate. Skip, never fatal.
+			continue;
+		}
+
+		// blueline_settings() does not sanitize on read (inc/settings/store.php's
+		// own docblock): a stored `accent` can be malformed (a hand-edited
+		// row, a migration script) even though blueline_sanitize_occasions()
+		// rejects one on write. Run it through the same sanitizer used
+		// there before it ever reaches contrast math -- never trust a raw
+		// stored string as a real hex colour.
+		$accent = blueline_sanitize_hex_color( $raw_accent );
+
+		if ( '' === $accent ) {
+			// Not a real hex colour: unresolvable, same as an unresolved
+			// default above. Skip, never fatal.
 			continue;
 		}
 

@@ -477,6 +477,76 @@ final class OccasionsResolverTest extends TestCase {
 	}
 
 	/**
+	 * Seeds a stored `accent` that blueline_sanitize_occasions() would have
+	 * rejected on write -- deliberately bypassing that write-side
+	 * sanitizer via a direct update_option() call, exactly this file's own
+	 * established pattern -- and asserts the resolver treats it as
+	 * unresolvable (skip, never fatal) rather than crashing or handing
+	 * garbage to contrast math. blueline_settings() does not sanitize on
+	 * read (inc/settings/store.php's own docblock: a stored value can be
+	 * invalid from a hand-edited row or a migration script), which is
+	 * exactly why the resolver itself must guard against this.
+	 */
+	public function test_resolver_skips_a_candidate_with_an_unsanitizable_stored_accent(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					'bad-accent' => $this->occasion(
+						array(
+							'id'     => 'bad-accent',
+							'mode'   => 'force_on',
+							'accent' => 'not-a-colour',
+						)
+					),
+				),
+			)
+		);
+
+		$this->assertNull( blueline_resolve_active_occasion( time() ) );
+	}
+
+	/**
+	 * The same unsanitizable stored `accent` as above, but with a
+	 * second, valid candidate available -- asserts the resolver falls
+	 * through to it rather than the whole resolution returning null just
+	 * because the first (higher-precedence) candidate's stored accent was
+	 * garbage.
+	 */
+	public function test_resolver_falls_through_past_an_unsanitizable_stored_accent_to_the_next_candidate(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					// Ranks first (commemorative beats decorative), but its
+					// stored accent is not a real hex colour at all.
+					'bad-accent-commemorative' => $this->occasion(
+						array(
+							'id'     => 'bad-accent-commemorative',
+							'mode'   => 'force_on',
+							'type'   => 'commemorative',
+							'accent' => 'not-a-colour',
+						)
+					),
+					// Ranks second, but passes outright.
+					'passing-decorative'       => $this->occasion(
+						array(
+							'id'   => 'passing-decorative',
+							'mode' => 'force_on',
+							'type' => 'decorative',
+						)
+					),
+				),
+			)
+		);
+
+		$resolved = blueline_resolve_active_occasion( time() );
+
+		$this->assertNotNull( $resolved );
+		$this->assertSame( 'passing-decorative', $resolved['id'] );
+	}
+
+	/**
 	 * Asserts blueline_resolve_active_occasion()'s own source never calls
 	 * blueline_occasion_presets() -- design spec §5's second ruling: the
 	 * preset catalog has no bearing on what is actually live.
