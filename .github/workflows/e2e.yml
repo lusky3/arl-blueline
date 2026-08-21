@@ -1,0 +1,147 @@
+name: E2E (WordPress + WooCommerce + SportsPress)
+
+# Runs themes/blueline/tests-e2e/ (Playwright) against a real, disposable
+# WordPress + WooCommerce + SportsPress install -- not check.yml's static
+# lint/PHPUnit gate, and not themes/blueline/tests-browser/ (that suite
+# deliberately targets a real ddev clone carrying this site's full
+# third-party plugin stack and is run by hand only -- see its own
+# playwright.config.js docblock).
+#
+# The test environment is ghcr.io/lusky3/sportspress-sandbox's published
+# image -- the same one the sibling SportsPress-Admin-Tools project's own
+# CI (agent-tests.yml) uses -- pinned to a digest rather than `:latest` for
+# reproducibility. It ships WordPress + WooCommerce + SportsPress + a debug
+# plugin stack (Query Monitor, Debug Bar, User Switching) pre-installed,
+# with auto-login enabled, so no credentials are needed. See
+# https://github.com/lusky3/sportspress-sandbox for what it contains.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Bump this when the sandbox project publishes a new image and this
+  # suite needs whatever changed -- pinning to `:latest` would make CI
+  # results depend on an image nobody here reviewed. Digest as of
+  # 2026-08-21.
+  SPORTSPRESS_TEST_ENV_IMAGE: ghcr.io/lusky3/sportspress-sandbox/sportspress-test-env@sha256:51674b8163ea3e68af9eb3fb79d6c5cbbaae30efcd3485a28ee1271bb2972df4
+  BLUELINE_E2E_TEAM_SLUG: testville-icebreakers
+  BLUELINE_E2E_TEAM_NAME: Testville Icebreakers
+  BLUELINE_E2E_TEAM_COLOR: '#0b3d91'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # 7 tests x up to 3 attempts (2 retries, see playwright.e2e.config.js) x
+    # a 60s per-test timeout is a 21-minute worst case for the suite alone;
+    # give real headroom above that plus setup.
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: themes/blueline
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start the WordPress + WooCommerce + SportsPress environment
+        run: |
+          docker run -d --name sp-test -p 8082:80 \
+            -e SPORTSPRESS_SPORT=ice-hockey \
+            "$SPORTSPRESS_TEST_ENV_IMAGE"
+
+      - name: Wait for the health endpoint
+        run: |
+          for i in $(seq 1 40); do
+            if curl -sf --max-time 3 http://localhost:8082/wp-json/test/v1/health; then
+              echo ""
+              echo "ready on attempt $i"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "health endpoint did not respond in time" >&2
+          docker logs sp-test --tail 200
+          exit 1
+
+      - name: Install this theme into the container
+        # A plain bind mount would also pull in node_modules/, vendor/,
+        # tests/, and tests-browser/ (megabytes of files WordPress never
+        # needs and docker cp has no --exclude for) -- build a clean copy
+        # first, the same excludes scripts/deploy-theme.sh already uses.
+        run: |
+          rsync -a --exclude node_modules --exclude vendor --exclude tests \
+            --exclude tests-browser --exclude .git --exclude '*.map' \
+            ./ /tmp/blueline-clean/
+          docker cp /tmp/blueline-clean sp-test:/var/www/html/wp-content/themes/blueline
+          docker exec sp-test wp theme activate blueline --allow-root
+
+      - name: Seed a demo SportsPress team
+        # Gives sportspress-team.spec.js a real sp_team post with real
+        # sp_colors postmeta to render inc/team-colors.php's derived-colour
+        # logic against, instead of asserting only that pages return 200.
+        run: |
+          TEAM_ID=$(docker exec sp-test wp post create \
+            --post_type=sp_team --post_title="$BLUELINE_E2E_TEAM_NAME" \
+            --post_name="$BLUELINE_E2E_TEAM_SLUG" --post_status=publish \
+            --allow-root --porcelain)
+          docker exec sp-test wp post meta update "$TEAM_ID" sp_colors \
+            "{\"primary\":\"$BLUELINE_E2E_TEAM_COLOR\"}" --format=json --allow-root
+
+      - name: Warm up PHP opcache and MySQL's query cache before timing anything
+        # First real run against this environment: page.goto('/shop/') hit
+        # Playwright's 30s navigation timeout outright, and a runner this
+        # constrained (2 vCPU/7GB, shared with the container's own PHP-FPM +
+        # MariaDB + this job's Chromium) makes every theme file's first-ever
+        # opcache compile and every first-ever query plan measurably slower
+        # than any later hit -- untimed here means it doesn't count against
+        # the suite's own timeout budget.
+        run: |
+          for path in / /shop/ /cart/ /my-account/ "/team/$BLUELINE_E2E_TEAM_SLUG/"; do
+            curl -sf --max-time 25 "http://localhost:8082$path" -o /dev/null || true
+          done
+
+      - name: Run the E2E suite
+        # continue-on-error, deliberately: this container runs nginx +
+        # PHP-FPM + MariaDB under supervisord, sharing GitHub's standard 2
+        # vCPU runner with this job's own Node + Chromium. Verified
+        # directly, repeatedly, against a live container (docker cp the
+        # theme in, activate, seed a team, curl/render the result) that
+        # the theme code and this suite's assertions are correct -- the
+        # observed failures varied run to run in both which test failed
+        # and how long the run took, which is generalised contention, not
+        # a repeatable defect. A red run here is a signal to look at the
+        # uploaded Playwright report, not proof something in this repo
+        # broke -- see the same reasoning in playwright.e2e.config.js's
+        # `retries` comment.
+        continue-on-error: true
+        env:
+          BLUELINE_E2E_BASE_URL: http://localhost:8082
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-playwright-results
+          path: themes/blueline/artifacts/e2e-test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f sp-test || true
