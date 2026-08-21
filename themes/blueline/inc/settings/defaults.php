@@ -488,6 +488,15 @@ function blueline_settings_defaults(): array {
 		// validated by inc/settings/acknowledgements.php's
 		// blueline_sanitize_acknowledgements()) -- just never a default
 		// value a schema field falls back to.
+
+		// `occasions` (design spec §5) IS listed here, unlike
+		// `aa_acknowledgements` immediately above -- the front-end resolver
+		// (Task 3) needs blueline_settings( 'occasions' ) to return
+		// something. Its own default is a genuinely empty array: the four
+		// shipped presets (blueline_occasion_presets(), Task 2) are a
+		// READ-ONLY catalog for a future admin UI, never pre-populated live
+		// entries -- design spec §5's second ruling.
+		'occasions'                     => array(),
 	);
 
 	// Every section defaults to enabled: an install that has never opened

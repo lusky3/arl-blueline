@@ -216,7 +216,7 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * being unrecognised -- see this file's own docblock's `_schema` section
  * for why that distinction is load-bearing.
  */
-const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements' );
+const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements', 'occasions' );
 
 /**
  * Nonce action shared by the panel's two import steps (preview, then
@@ -488,6 +488,15 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// Its own validator drops anything malformed rather than
 				// corrupting the option or crashing a later reader.
 				$output[ $key ] = blueline_sanitize_acknowledgements( $value );
+				continue;
+			}
+
+			if ( 'occasions' === $key ) {
+				// A map, not an integer like every other reserved key --
+				// its own validator (inc/occasions.php) drops anything
+				// malformed rather than corrupting the option or crashing a
+				// later reader.
+				$output[ $key ] = blueline_sanitize_occasions( $value );
 				continue;
 			}
 
