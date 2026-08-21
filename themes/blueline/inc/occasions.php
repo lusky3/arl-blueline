@@ -283,3 +283,76 @@ function blueline_sanitize_occasions( $value ): array {
 
 	return $clean;
 }
+
+/**
+ * The four shipped occasion templates -- design spec §5's second ruling:
+ * a READ-ONLY catalog for a future admin UI's "add from preset"
+ * affordance (2.1b), never pre-populated into the real stored
+ * `occasions` array. blueline_resolve_active_occasion() (Task 3) never
+ * calls this function; nothing here is "live" until something else (a
+ * future panel save, or `wp blueline settings occasions` in Phase 2.2)
+ * copies one of these into blueline_settings( 'occasions' )'s real
+ * stored value.
+ *
+ * Every preset ships `mode => 'auto'`, deliberately: there is no
+ * `enabled` field in the model at all (an `auto` entry sitting in the
+ * REAL stored array during its calendar window would activate whether
+ * or not an admin ever opened the panel -- the model has no separate
+ * on/off switch, by design), so "shipped but inert" is achieved entirely
+ * by these presets living here instead of in the real stored array, not
+ * by any flag on the entries themselves.
+ *
+ * Every `accent` is '' (use the resolved default): 2.1a ships no
+ * contrast-vetted festive palette, and an admin choosing one is exactly
+ * 2.1b's job.
+ *
+ * @return array<string, array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string}>
+ */
+function blueline_occasion_presets(): array {
+	return array(
+		'canada-day'      => array(
+			'id'     => 'canada-day',
+			'label'  => 'Canada Day',
+			'type'   => 'decorative',
+			'window' => array( 'start_md' => '07-01', 'end_md' => '07-01' ),
+			'accent' => '',
+			'motif'  => 'maple-leaf',
+			'line'   => '',
+			'mode'   => 'auto',
+		),
+		'remembrance-day' => array(
+			'id'     => 'remembrance-day',
+			'label'  => 'Remembrance Day',
+			'type'   => 'commemorative',
+			'window' => array( 'start_md' => '11-11', 'end_md' => '11-11' ),
+			'accent' => '',
+			'motif'  => 'poppy',
+			'line'   => 'Lest we forget.',
+			'mode'   => 'auto',
+		),
+		'christmas'       => array(
+			'id'     => 'christmas',
+			'label'  => 'Christmas',
+			'type'   => 'decorative',
+			'window' => array( 'start_md' => '12-01', 'end_md' => '12-26' ),
+			'accent' => '',
+			'motif'  => 'snowflake',
+			'line'   => '',
+			'mode'   => 'auto',
+		),
+		// Crosses the year boundary (start_md > end_md) by design -- see
+		// Task 3's blueline_occasion_window_contains() and Task 6's
+		// blueline_occasion_next_occurrence_timestamp() for the two places
+		// that must, and do, handle this correctly.
+		'new-year'        => array(
+			'id'     => 'new-year',
+			'label'  => 'New Year',
+			'type'   => 'decorative',
+			'window' => array( 'start_md' => '12-27', 'end_md' => '01-02' ),
+			'accent' => '',
+			'motif'  => 'sparkle',
+			'line'   => '',
+			'mode'   => 'auto',
+		),
+	);
+}

@@ -385,4 +385,65 @@ final class OccasionsTest extends TestCase {
 		$this->assertSame( array( 'none', 'maple-leaf', 'poppy', 'snowflake', 'sparkle' ), blueline_occasion_motifs() );
 		$this->assertSame( array( 'auto', 'force_on', 'force_off' ), blueline_occasion_modes() );
 	}
+
+	/* --------------------------------------------------------- presets */
+
+	/**
+	 * Asserts the catalog has exactly the four documented presets, each
+	 * with `mode => 'auto'` (never pre-activated) and no `enabled` key at
+	 * all -- design spec §5's second ruling: "the model has no `enabled`
+	 * field".
+	 */
+	public function test_presets_are_the_four_documented_occasions(): void {
+		$presets = blueline_occasion_presets();
+
+		$this->assertSame( array( 'canada-day', 'remembrance-day', 'christmas', 'new-year' ), array_keys( $presets ) );
+
+		foreach ( $presets as $id => $preset ) {
+			$this->assertSame( $id, $preset['id'] );
+			$this->assertSame( 'auto', $preset['mode'] );
+			$this->assertArrayNotHasKey( 'enabled', $preset );
+		}
+	}
+
+	/**
+	 * Pins each preset's type/window/motif to the design spec's own
+	 * choices, so a future edit to one is a deliberate, visible change.
+	 */
+	public function test_presets_match_the_design_specs_choices(): void {
+		$presets = blueline_occasion_presets();
+
+		$this->assertSame( 'decorative', $presets['canada-day']['type'] );
+		$this->assertSame( array( 'start_md' => '07-01', 'end_md' => '07-01' ), $presets['canada-day']['window'] );
+		$this->assertSame( 'maple-leaf', $presets['canada-day']['motif'] );
+
+		$this->assertSame( 'commemorative', $presets['remembrance-day']['type'] );
+		$this->assertSame( array( 'start_md' => '11-11', 'end_md' => '11-11' ), $presets['remembrance-day']['window'] );
+		$this->assertSame( 'poppy', $presets['remembrance-day']['motif'] );
+
+		$this->assertSame( 'decorative', $presets['christmas']['type'] );
+		$this->assertSame( array( 'start_md' => '12-01', 'end_md' => '12-26' ), $presets['christmas']['window'] );
+		$this->assertSame( 'snowflake', $presets['christmas']['motif'] );
+
+		$this->assertSame( 'decorative', $presets['new-year']['type'] );
+		// Crosses the year boundary deliberately -- this is the case Task
+		// 3's resolver and Task 6's cron boundary calculation both have to
+		// handle correctly, not hypothetically.
+		$this->assertSame( array( 'start_md' => '12-27', 'end_md' => '01-02' ), $presets['new-year']['window'] );
+		$this->assertSame( 'sparkle', $presets['new-year']['motif'] );
+	}
+
+	/**
+	 * Every preset must itself be a well-formed Occasion by
+	 * blueline_sanitize_occasions()'s own rules -- a regression guard: if
+	 * the sanitizer's rules ever tighten in a way a shipped preset would
+	 * fail, this fails loudly instead of shipping a preset that silently
+	 * can't be saved once a future admin UI copies it into the real
+	 * stored array.
+	 */
+	public function test_presets_round_trip_through_the_sanitizer_unchanged(): void {
+		$presets = blueline_occasion_presets();
+
+		$this->assertSame( $presets, blueline_sanitize_occasions( $presets ) );
+	}
 }
