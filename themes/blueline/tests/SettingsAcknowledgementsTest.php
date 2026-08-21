@@ -7,6 +7,9 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/cli-stubs.php';
+require_once __DIR__ . '/../inc/enqueue.php';
+require_once __DIR__ . '/../inc/settings/validation.php';
 require_once __DIR__ . '/../inc/settings/acknowledgements.php';
 
 /**
@@ -121,5 +124,170 @@ final class SettingsAcknowledgementsTest extends TestCase {
 		$this->assertSame( 3.2, $clean['occasion:canada-day']['ratio'] );
 		$this->assertSame( 7, $clean['occasion:canada-day']['user_id'] );
 		$this->assertSame( 1700000000, $clean['occasion:canada-day']['date'] );
+	}
+
+	/* -------------------------------------------------- record/invalidate */
+
+	/**
+	 * Asserts recording an acknowledgement adds an entry keyed by its
+	 * scope, with the given fields and a `date` set from the real clock.
+	 */
+	public function test_record_adds_an_entry_keyed_by_scope(): void {
+		$before = time();
+
+		$acknowledgements = blueline_record_acknowledgement(
+			array(),
+			'occasion:canada-day',
+			'ink-on-occasion-accent',
+			3.2,
+			'abc123',
+			7
+		);
+
+		$after = time();
+
+		$entry = $acknowledgements['occasion:canada-day'];
+		$this->assertSame( 'ink-on-occasion-accent', $entry['rule_id'] );
+		$this->assertSame( 3.2, $entry['ratio'] );
+		$this->assertSame( 7, $entry['user_id'] );
+		$this->assertSame( 'abc123', $entry['inputs_hash'] );
+		$this->assertSame( 'occasion:canada-day', $entry['scope'] );
+		$this->assertGreaterThanOrEqual( $before, $entry['date'] );
+		$this->assertLessThanOrEqual( $after, $entry['date'] );
+	}
+
+	/**
+	 * Asserts recording an acknowledgement for a scope that already has
+	 * one REPLACES it rather than accumulating history -- only one entry
+	 * is ever live per scope.
+	 */
+	public function test_record_replaces_an_existing_entry_for_the_same_scope(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'rule-a', 3.0, 'hash-1', 1 );
+		$acknowledgements = blueline_record_acknowledgement( $acknowledgements, 'occasion:canada-day', 'rule-b', 4.0, 'hash-2', 2 );
+
+		$this->assertCount( 1, $acknowledgements );
+		$this->assertSame( 'rule-b', $acknowledgements['occasion:canada-day']['rule_id'] );
+		$this->assertSame( 2, $acknowledgements['occasion:canada-day']['user_id'] );
+	}
+
+	/**
+	 * Asserts recording an acknowledgement leaves an unrelated scope's
+	 * entry untouched.
+	 */
+	public function test_record_does_not_disturb_a_different_scope(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'rule-a', 3.0, 'hash-1', 1 );
+		$acknowledgements = blueline_record_acknowledgement( $acknowledgements, 'occasion:remembrance-day', 'rule-b', 4.0, 'hash-2', 2 );
+
+		$this->assertSame( 'rule-a', $acknowledgements['occasion:canada-day']['rule_id'] );
+		$this->assertSame( 'rule-b', $acknowledgements['occasion:remembrance-day']['rule_id'] );
+	}
+
+	/**
+	 * Asserts invalidating removes exactly the named scope's entry.
+	 */
+	public function test_invalidate_removes_only_the_named_scope(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'rule-a', 3.0, 'hash-1', 1 );
+		$acknowledgements = blueline_record_acknowledgement( $acknowledgements, 'occasion:remembrance-day', 'rule-b', 4.0, 'hash-2', 2 );
+
+		$acknowledgements = blueline_invalidate_acknowledgement( $acknowledgements, 'occasion:canada-day' );
+
+		$this->assertArrayNotHasKey( 'occasion:canada-day', $acknowledgements );
+		$this->assertArrayHasKey( 'occasion:remembrance-day', $acknowledgements );
+	}
+
+	/**
+	 * Asserts invalidating a scope with no entry is a harmless no-op.
+	 */
+	public function test_invalidate_is_a_no_op_for_an_unknown_scope(): void {
+		$this->assertSame( array(), blueline_invalidate_acknowledgement( array(), 'occasion:canada-day' ) );
+	}
+
+	/* -------------------------------------------------------------- covers */
+
+	/**
+	 * Asserts a matching rule id, ratio, and inputs hash all together
+	 * cover the scope.
+	 */
+	public function test_covers_true_when_rule_ratio_and_hash_all_match(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-1', 7 );
+
+		$this->assertTrue(
+			blueline_acknowledgement_covers( $acknowledgements, 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-1' )
+		);
+	}
+
+	/**
+	 * Asserts no entry for the scope at all answers false.
+	 */
+	public function test_covers_false_when_no_entry_exists_for_the_scope(): void {
+		$this->assertFalse(
+			blueline_acknowledgement_covers( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-1' )
+		);
+	}
+
+	/**
+	 * Asserts a stale inputs hash (style.css or contrast-rules.json
+	 * changed since the acknowledgement) answers false, even though the
+	 * rule id and ratio still match -- per the design spec's §4.5, this is
+	 * "unacknowledged", not an error.
+	 */
+	public function test_covers_false_when_inputs_hash_is_stale(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-old', 7 );
+
+		$this->assertFalse(
+			blueline_acknowledgement_covers( $acknowledgements, 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-new' )
+		);
+	}
+
+	/**
+	 * Asserts a different rule id answers false, even with the same ratio
+	 * and hash.
+	 */
+	public function test_covers_false_when_rule_id_differs(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-1', 7 );
+
+		$this->assertFalse(
+			blueline_acknowledgement_covers( $acknowledgements, 'occasion:canada-day', 'paper-not-text-on-occasion-accent', 3.2, 'hash-1' )
+		);
+	}
+
+	/**
+	 * Asserts a changed ratio (the admin edited the value since
+	 * acknowledging) answers false, even with the same rule id and hash.
+	 */
+	public function test_covers_false_when_ratio_differs(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-1', 7 );
+
+		$this->assertFalse(
+			blueline_acknowledgement_covers( $acknowledgements, 'occasion:canada-day', 'ink-on-occasion-accent', 5.0, 'hash-1' )
+		);
+	}
+
+	/**
+	 * Asserts a floating-point ratio that is equal within a tiny tolerance
+	 * still covers -- the stored value and the freshly-computed value are
+	 * two independent float computations, never assumed bit-identical.
+	 */
+	public function test_covers_true_within_a_small_float_tolerance(): void {
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, 'hash-1', 7 );
+
+		$this->assertTrue(
+			blueline_acknowledgement_covers( $acknowledgements, 'occasion:canada-day', 'ink-on-occasion-accent', 3.2 + 1.0e-9, 'hash-1' )
+		);
+	}
+
+	/**
+	 * Integration-style: uses the real blueline_settings_inputs_hash()
+	 * (Task 4) to prove the mechanism composes with it exactly as Phase
+	 * 2.1's resolver will -- record with the real current hash, then check
+	 * coverage against that same real current hash.
+	 */
+	public function test_composes_with_the_real_inputs_hash(): void {
+		$current_hash     = blueline_settings_inputs_hash();
+		$acknowledgements = blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, $current_hash, 7 );
+
+		$this->assertTrue(
+			blueline_acknowledgement_covers( $acknowledgements, 'occasion:canada-day', 'ink-on-occasion-accent', 3.2, $current_hash )
+		);
 	}
 }
