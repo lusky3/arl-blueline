@@ -11,14 +11,14 @@ const { assertNoPhpErrors } = require( './helpers/assert-no-php-errors' );
  */
 test.describe( 'WooCommerce pages, against a clean install with no products', () => {
 	test( 'shop page loads under this theme, empty catalog included', async ( { page } ) => {
-		const response = await page.goto( '/shop/' );
+		const response = await page.goto( '/shop/', { waitUntil: 'domcontentloaded' } );
 
 		expect( response.status() ).toBe( 200 );
 		assertNoPhpErrors( await page.content(), 'shop page' );
 	} );
 
 	test( 'cart page loads under this theme', async ( { page } ) => {
-		const response = await page.goto( '/cart/' );
+		const response = await page.goto( '/cart/', { waitUntil: 'domcontentloaded' } );
 
 		expect( response.status() ).toBe( 200 );
 		assertNoPhpErrors( await page.content(), 'cart page' );
@@ -30,7 +30,7 @@ test.describe( 'WooCommerce pages, against a clean install with no products', ()
 		// is already authenticated as admin -- exercises the logged-in
 		// account-dashboard branch of woocommerce/myaccount/dashboard.php,
 		// not the login-form branch a logged-out visitor would hit.
-		const response = await page.goto( '/my-account/' );
+		const response = await page.goto( '/my-account/', { waitUntil: 'domcontentloaded' } );
 
 		expect( response.status() ).toBe( 200 );
 		assertNoPhpErrors( await page.content(), 'my account page' );

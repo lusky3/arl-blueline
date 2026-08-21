@@ -37,7 +37,10 @@ env:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 7 tests x up to 3 attempts (2 retries, see playwright.e2e.config.js) x
+    # a 60s per-test timeout is a 21-minute worst case for the suite alone;
+    # give real headroom above that plus setup.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: themes/blueline

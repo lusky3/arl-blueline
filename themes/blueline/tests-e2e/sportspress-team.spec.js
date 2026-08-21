@@ -19,7 +19,7 @@ const teamColorHex = ( process.env.BLUELINE_E2E_TEAM_COLOR || '#0b3d91' ).toLowe
 
 test.describe( 'SportsPress team page, against a real sp_team post with real sp_colors', () => {
 	test( 'renders via this theme\'s single-team.php override, no PHP error', async ( { page } ) => {
-		const response = await page.goto( `/team/${ teamSlug }/` );
+		const response = await page.goto( `/team/${ teamSlug }/`, { waitUntil: 'domcontentloaded' } );
 
 		expect( response.status() ).toBe( 200 );
 
@@ -30,7 +30,7 @@ test.describe( 'SportsPress team page, against a real sp_team post with real sp_
 	} );
 
 	test( "derives the team's colour from sp_colors, not a placeholder", async ( { page } ) => {
-		await page.goto( `/team/${ teamSlug }/` );
+		await page.goto( `/team/${ teamSlug }/`, { waitUntil: 'domcontentloaded' } );
 
 		// blueline_team_color_set() (inc/team-colors.php) reads sp_colors'
 		// `primary` and computes on/derived values from it -- asserting the

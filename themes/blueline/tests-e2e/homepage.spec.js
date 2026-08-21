@@ -3,7 +3,7 @@ const { assertNoPhpErrors } = require( './helpers/assert-no-php-errors' );
 
 test.describe( 'Homepage, against a clean WordPress + WooCommerce + SportsPress install', () => {
 	test( 'loads, is served by this theme, and leaks no PHP error', async ( { page } ) => {
-		const response = await page.goto( '/' );
+		const response = await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
 		expect( response.status() ).toBe( 200 );
 
@@ -17,7 +17,7 @@ test.describe( 'Homepage, against a clean WordPress + WooCommerce + SportsPress 
 	} );
 
 	test( "loads the theme's own stylesheet, not a fallback theme's", async ( { page } ) => {
-		await page.goto( '/' );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
 		const styleHref = await page
 			.locator( '#blueline-tokens-css' )
