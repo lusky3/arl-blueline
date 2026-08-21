@@ -239,3 +239,21 @@ function blueline_acknowledgement_covers(
 
 	return true;
 }
+
+/**
+ * The `aa_acknowledgements` map as currently stored.
+ *
+ * Reads get_option() directly rather than blueline_settings(
+ * 'aa_acknowledgements' ): blueline_settings()'s returned key set is
+ * exactly blueline_settings_defaults()'s key set (see that function's own
+ * docblock), and `aa_acknowledgements` is deliberately excluded from it --
+ * so that accessor can never return it, by design.
+ *
+ * @return array<string, array<string, mixed>>
+ */
+function blueline_stored_acknowledgements(): array {
+	$stored = get_option( BLUELINE_SETTINGS_OPTION, array() );
+	$stored = is_array( $stored ) ? $stored : array();
+
+	return is_array( $stored['aa_acknowledgements'] ?? null ) ? $stored['aa_acknowledgements'] : array();
+}

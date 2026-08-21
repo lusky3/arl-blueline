@@ -368,3 +368,186 @@ function blueline_occasion_presets(): array {
 		),
 	);
 }
+
+/**
+ * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD' --
+ * design spec §5/§7.5: "Dates compare in site timezone ... not UTC."
+ *
+ * @param int $timestamp Unix timestamp.
+ * @return string
+ */
+function blueline_occasion_today_md( int $timestamp ): string {
+	return ( new DateTimeImmutable( '@' . $timestamp ) )->setTimezone( wp_timezone() )->format( 'm-d' );
+}
+
+/**
+ * Whether $today_md falls within the inclusive, annually-recurring
+ * window [$start_md, $end_md].
+ *
+ * Handles a window that crosses the year boundary (start_md > end_md,
+ * e.g. New Year's own 12-27..01-02 -- blueline_occasion_presets()'s
+ * `new-year` entry forces this case to be real, not hypothetical) by
+ * treating it as "today >= start OR today <= end" instead of the normal
+ * "start <= today <= end". String comparison is safe here because every
+ * `MM-DD` value is exactly two zero-padded two-digit fields, which sort
+ * identically to calendar order.
+ *
+ * @param string $start_md 'MM-DD'.
+ * @param string $end_md   'MM-DD'.
+ * @param string $today_md 'MM-DD'.
+ * @return bool
+ */
+function blueline_occasion_window_contains( string $start_md, string $end_md, string $today_md ): bool {
+	if ( $start_md <= $end_md ) {
+		return $today_md >= $start_md && $today_md <= $end_md;
+	}
+
+	return $today_md >= $start_md || $today_md <= $end_md;
+}
+
+/**
+ * Precedence comparator for usort(): `force_on` beats `auto`;
+ * `commemorative` beats `decorative`; then earliest `start_md`; then
+ * `id` ascending -- design spec §5/§7.5, in that exact order, so the
+ * winner among several eligible candidates is always deterministic.
+ *
+ * @param array<string, mixed> $a One Occasion.
+ * @param array<string, mixed> $b Another Occasion.
+ * @return int
+ */
+function blueline_occasion_compare( array $a, array $b ): int {
+	$mode_rank = static function ( array $occasion ): int {
+		return 'force_on' === ( $occasion['mode'] ?? '' ) ? 0 : 1;
+	};
+
+	if ( $mode_rank( $a ) !== $mode_rank( $b ) ) {
+		return $mode_rank( $a ) <=> $mode_rank( $b );
+	}
+
+	$type_rank = static function ( array $occasion ): int {
+		return 'commemorative' === ( $occasion['type'] ?? '' ) ? 0 : 1;
+	};
+
+	if ( $type_rank( $a ) !== $type_rank( $b ) ) {
+		return $type_rank( $a ) <=> $type_rank( $b );
+	}
+
+	$start_a = $a['window']['start_md'] ?? '';
+	$start_b = $b['window']['start_md'] ?? '';
+
+	if ( $start_a !== $start_b ) {
+		return $start_a <=> $start_b;
+	}
+
+	return ( $a['id'] ?? '' ) <=> ( $b['id'] ?? '' );
+}
+
+/**
+ * The one active occasion right now, or null.
+ *
+ * Reads ONLY blueline_settings( 'occasions' ) -- never
+ * blueline_occasion_presets(), which is a read-only catalog with no
+ * bearing on what is actually live (design spec §5's second ruling; see
+ * tests/OccasionsResolverTest.php's own source-scan test for the
+ * enforcement).
+ *
+ * Eligibility: `force_off` is never eligible, regardless of window.
+ * `force_on` is always eligible, regardless of window. `auto` (or an
+ * unset mode) is eligible only while blueline_occasion_today_md()
+ * currently falls inside its window.
+ *
+ * Among eligible candidates, blueline_occasion_compare() orders by
+ * precedence. Each candidate is then checked, in that order, against the
+ * AA-override mechanism (design spec §4.5): resolve its effective accent
+ * (its own `accent`, or blueline_occasion_accent_default() when empty),
+ * compute that accent's real contrast ratio against BLUELINE_TOKEN_INK,
+ * and -- only if it fails blueline_contrast_threshold( 'body' ) --
+ * require a live, hash-matching acknowledgement scoped to
+ * `occasion:{id}` (blueline_acknowledgement_covers()) before accepting
+ * it. A candidate that fails this gate is skipped entirely, falling
+ * through to the next-best candidate; the first candidate that either
+ * passes contrast outright or is validly acknowledged wins. null if none
+ * does (including when nothing is stored at all).
+ *
+ * @param int|null $now_override Unix timestamp to evaluate against;
+ *                                defaults to the current time. Tests pass
+ *                                this so an assertion about a window
+ *                                keeps meaning the same thing later.
+ * @return array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string, resolved_accent:string}|null
+ */
+function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
+	$now      = $now_override ?? time();
+	$today_md = blueline_occasion_today_md( $now );
+
+	$occasions = blueline_settings( 'occasions' );
+	$occasions = is_array( $occasions ) ? $occasions : array();
+
+	$candidates = array();
+
+	foreach ( $occasions as $occasion ) {
+		if ( ! is_array( $occasion ) ) {
+			continue;
+		}
+
+		$mode = $occasion['mode'] ?? 'auto';
+
+		if ( 'force_off' === $mode ) {
+			continue;
+		}
+
+		if ( 'force_on' !== $mode ) {
+			$window = $occasion['window'] ?? array();
+			$start  = $window['start_md'] ?? '';
+			$end    = $window['end_md'] ?? '';
+
+			if ( ! blueline_occasion_window_contains( $start, $end, $today_md ) ) {
+				continue;
+			}
+		}
+
+		$candidates[] = $occasion;
+	}
+
+	if ( array() === $candidates ) {
+		return null;
+	}
+
+	usort( $candidates, 'blueline_occasion_compare' );
+
+	$inputs_hash      = blueline_settings_inputs_hash();
+	$acknowledgements = blueline_stored_acknowledgements();
+
+	foreach ( $candidates as $candidate ) {
+		$accent = '' !== ( $candidate['accent'] ?? '' ) ? $candidate['accent'] : blueline_occasion_accent_default();
+
+		if ( '' === $accent ) {
+			// The default itself could not be resolved (Phase 2.0's own
+			// blueline_occasion_accent_default() already logs why) --
+			// nothing to apply for this candidate. Skip, never fatal.
+			continue;
+		}
+
+		$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $accent );
+		$passes = $ratio >= blueline_contrast_threshold( 'body' );
+
+		if ( ! $passes ) {
+			$covers = blueline_acknowledgement_covers(
+				$acknowledgements,
+				'occasion:' . $candidate['id'],
+				'ink-on-occasion-accent',
+				$accent,
+				$inputs_hash
+			);
+
+			if ( ! $covers ) {
+				continue; // Unacknowledged failure: fail closed, try the next candidate.
+			}
+		}
+
+		$candidate['resolved_accent'] = $accent;
+
+		return $candidate;
+	}
+
+	return null;
+}
