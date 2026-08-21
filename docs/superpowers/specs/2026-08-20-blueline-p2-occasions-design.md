@@ -1,0 +1,279 @@
+# Blueline P2 — Occasions, colour correctness, and observability
+
+Companion to `docs/superpowers/specs/2026-08-13-blueline-control-panel-design.md`
+(the original spec — §7 Occasions, §8 Team colours, §9-13 remain authoritative
+for anything this document doesn't override) and
+`docs/superpowers/decisions/2026-08-17-blueline-p1b-decisions.md` (P1b's
+decision record, whose §6 "Outstanding" scopes P2 as: colour control,
+Occasions, `aa_acknowledgements`, deploy drift, and the dependent Site Health
+fields). P1 (the Appearance → Blueline control panel: content, sections,
+links, commerce, banner, break-glass, export/import, snapshots, cache purge,
+WP-CLI, Site Health) is merged and out of scope here.
+
+This document exists because three things the original spec left genuinely
+ambiguous needed a human decision before a plan could be written against
+them — §3 below records what was decided and why. Everything else here is
+organization and sequencing of what §7/§8 of the original spec already
+designed; it is not a redesign.
+
+---
+
+## 1. Scope
+
+**In scope**, per the decision record's §6, sequenced by dependency:
+
+- **Phase 2.0 — Foundation.** `tools/tokens.json`, extending
+  `tools/contrast-rules.json` to its fourth declared consumer
+  (`inc/team-colors.php`), the `--bl-occasion-accent` token, a real
+  `aa_acknowledgements` write path, and the shared "inputs hash" primitive
+  deploy-drift and acknowledgement-invalidation both depend on.
+- **Phase 2.1 — Occasions.** The model, scheduling, resolution, motifs,
+  cron boundary purge, and editor parity described in the original spec's
+  §7, built on Phase 2.0.
+- **Phase 2.2 — Correctness & observability.** The original spec's §8 team-
+  colours fix, `_validated_against` deploy-drift revalidation, the Site
+  Health fields that depend on all of the above, and `wp blueline settings
+  occasions`.
+
+**Confirmed out of scope**, restated from the original spec's §3/§4 because
+it is easy to mis-scope from the decision record's shorthand "colour
+control" alone: raw editing of brand-palette tokens, custom CSS, signature
+geometry, per-season-state module ordering, uploadable motifs, and any
+kind of per-team revalidation sweep. The *only* new tunable colour surface
+P2 introduces is the single occasion-accent hex per occasion. "Colour
+control" in the decision record's §6 means the §8 backend correctness fix
+to `blueline_readable_foreground()`, not a palette-editing UI — the
+original spec's §3 ("Holiday depth: Accent + motif layer. Brand palette
+stays") and §4 ("drop raw tokens... custom CSS") already settled this.
+
+## 2. Relationship to P0
+
+The original spec's §11 phasing table lists P0 (AA fixes, rule-table
+extension, `color-mix` rules, CI, test bootstrap) as a prerequisite department
+for P2, and states "P2 depends on P0.3 and P0.4." As of this writing,
+`tools/contrast-rules.json` exists with a populated `thresholds` object and
+rule set (P0's rule-table extension substantially landed), but
+`inc/team-colors.php` still duplicates the AA floor as its own
+`BLUELINE_CONTRAST_BODY`/`_LARGE` constants rather than reading the shared
+table — that gap is closed in Phase 2.0, not re-litigated as new P0 work.
+No `tools/tokens.json` exists yet; it is new in Phase 2.0.
+
+## 3. Decisions taken for this document
+
+| Question | Decision | Why |
+|---|---|---|
+| Does an admin get to acknowledge (Advanced tier) a failing occasion accent, or is §7.3's "fail closed" absolute for Occasions? | **Acknowledgement applies to Occasions too.** | Matches the original spec's §3 blanket rule ("AA failures: Block; acknowledgement only behind Advanced"), and makes `aa_acknowledgements` and its Site Health reporting (§6.9) non-dead infrastructure. §7.3's "fail closed" describes the *unattended scheduled-activation* moment specifically — see §5.4 below for the mechanism. |
+| Full P2 scope (colour control + Occasions + `aa_acknowledgements` + deploy drift) in one plan, or Occasions alone first? | **Full scope**, phased internally. | User decision. Keeps the shared "inputs hash" primitive (used by both acknowledgement invalidation and deploy-drift revalidation) designed once instead of twice. |
+| One spec covering all of P2, or three separate spec→plan cycles? | **One spec, three phase sections** (this document). | User decision — keeps cross-phase dependencies (the inputs-hash primitive, `aa_acknowledgements` shape) visible in one place. Implementation plans may still be written and executed one phase at a time. |
+
+## 4. Phase 2.0 — Foundation
+
+### 4.1 `tools/tokens.json`
+
+A committed manifest giving every `:root` token in `style.css` a `type`,
+`group`, `tier`, `bounds`, and `tunable` flag, per the original spec's §7.4.
+Unknown or new tokens default `tunable: false` — this is what makes the
+original spec's §4 non-goals (raw palette editing, `--bl-focus*`,
+`--bl-skew`, `--bl-band-*`, `--bl-surface*` aliases) structural rather than
+a promise the panel could accidentally break.
+
+At the end of Phase 2.0, exactly one token is marked `tunable: true`:
+`--bl-occasion-accent` (new, default `--bl-ice`, consumers enumerated per
+§7.2: CTA ribbon fill, signature band, motif). No brand-palette token
+becomes tunable in P2 — see §1.
+
+### 4.2 `contrast-rules.json`'s fourth consumer
+
+`inc/team-colors.php`'s `blueline_contrast_threshold()` currently returns
+its own `BLUELINE_CONTRAST_BODY` (4.5) / `BLUELINE_CONTRAST_LARGE` (3.0)
+constants. It switches to reading `contrast-rules.json`'s
+`thresholds.body`/`thresholds.large` — the same values today, but one
+source of truth going forward, matching the original spec's §7.3 ("the
+rule table lives in `tools/contrast-rules.json` with **four** consumers,
+not three").
+
+### 4.3 The inputs-hash primitive
+
+A single function, `blueline_settings_inputs_hash()`, returning a hash of
+`{blueline_stylesheet_version() /* filemtime */, hash of contrast-rules.json's
+rules+thresholds}`. Both consumers below depend on it:
+
+- **`aa_acknowledgements`** entries store the inputs-hash at the moment of
+  acknowledgement. An entry whose stored hash no longer matches the current
+  hash is treated as invalid — the acknowledgement it represents no longer
+  covers current reality.
+- **`_validated_against`** (Phase 2.2) stores the same hash for the whole
+  settings option, so `init` can cheaply detect "something the validators
+  depend on has changed" before deciding whether to re-run them.
+
+Building this once in Phase 2.0 means Phase 2.2's deploy-drift work is
+"call the thing that already exists," not a second design.
+
+### 4.4 `aa_acknowledgements` — real storage, not just a discard target
+
+Currently `aa_acknowledgements` exists only as a key that import.php
+unconditionally strips (`inc/settings/import.php:209`) — nothing writes to
+it yet. Phase 2.0 makes it real: a map of acknowledgement id → `{rule_id,
+ratio, user_id, date, inputs_hash, scope}`, where `scope` names what was
+acknowledged (e.g. `occasion:canada-day`). Import continues to discard it
+unconditionally — per the original spec's §6.8, consent is not something a
+file can assert on an admin's behalf, and this document does not revisit
+that.
+
+### 4.5 The occasion AA-override mechanism
+
+This is the concrete answer to §3's first decision:
+
+- **At save time** (panel, Advanced tier), if an occasion's accent fails
+  the contrast gate, the save blocks with the same pattern §6.5 already
+  established for other AA-gated fields (blocking notice, `aria-invalid`,
+  the acknowledgement checkbox stating the consequence). Checking it and
+  saving writes an `aa_acknowledgements` entry scoped to that occasion, with
+  the current inputs-hash.
+- **At resolution time** (every request, per §7.5) and **at the cron
+  boundary purge** (§7.8), before an occasion's accent/motif is applied,
+  the resolver checks: is there a live acknowledgement scoped to this
+  occasion, covering this exact accent value, whose inputs-hash still
+  matches current? If yes, the occasion activates despite the failing
+  ratio. If no — either no acknowledgement exists, or one exists but its
+  inputs-hash is stale (§4.3) — the occasion is treated as unacknowledged:
+  it does not activate, falls back to brand default, and raises the
+  persistent notice plus Site Health critical item the original spec's
+  §7.3 describes. This is what makes "fail closed" true at the unattended
+  midnight-boundary moment while still letting an admin ship a considered
+  exception during business hours.
+- A stale acknowledgement is not silently deleted — it stays visible in
+  Site Health (§6.9's "every live AA acknowledgement") until either the
+  admin re-acknowledges or the occasion's accent is changed to something
+  that passes outright.
+
+## 5. Phase 2.1 — Occasions
+
+Builds on Phase 2.0. Implements the original spec's §7 as written, with no
+changes from that document except where this section says otherwise:
+
+- **Model** (§7.1): `id`, `label`, `type` (decorative | commemorative),
+  `window` (`start_md`/`end_md`, recurring annually, inclusive), `accent`,
+  `motif` (none | maple-leaf | poppy | snowflake | sparkle), `line`
+  (optional, no placeholders permitted), `mode` (auto | force_on |
+  force_off). Stored flat inside `blueline_settings['occasions']` — a map
+  keyed by `id` — consistent with this project's standing decision to keep
+  `blueline_settings` flat rather than adopt the original spec's §6.1
+  nested shape.
+- **Shipped defaults** (§7.1): Canada Day, Remembrance Day, Christmas, New
+  Year — all disabled (`mode` unset/auto with no enabling admin action)
+  until an admin turns one on.
+- **Resolution, precedence, timezone** (§7.5): resolved per request from
+  the settings option; `force_on` beats `auto`; `commemorative` beats
+  `decorative`; then earliest start; then slug. Dates compare in site
+  timezone (`wp_timezone()`), not UTC.
+- **Commemorative is a distinct type** (§7.6): no accent shift by default,
+  only the `poppy` motif permitted, suppresses any decorative occasion and
+  the announcement banner's urgent styling for its duration.
+- **Motifs** (§7.7): shipped, enumerated SVG set, never uploadable, static
+  only (no animation), decorative motifs `aria-hidden`, poppy carries an
+  accessible name.
+- **The scheduled-activation cache problem** (§7.8): one WP-Cron event at
+  the next window boundary purges srcache and reschedules; cron is used
+  only for the purge, never for correctness — the occasion itself is
+  computed per request, so a missed cron delays visibility but never
+  produces a wrong result.
+- **Editor parity** (§7.9): via the `block_editor_settings_all` filter,
+  appending to `$settings['styles']` with selector `:root,
+  .editor-styles-wrapper` — explicitly not `enqueue_block_editor_assets`
+  (§7.9 documents why that was tried and reverted before).
+- **Panel UI**: a new Occasions tab. Per-occasion editor exposes label
+  (existing curated-copy validation applies), window, accent (colour input
+  + labelled hex field per §6.5), motif (select), optional line, and mode.
+  The AA-override mechanism (§4.5) surfaces inline exactly where an accent
+  fails, using the panel's existing blocking-notice pattern — no new UI
+  pattern is introduced.
+
+## 6. Phase 2.2 — Correctness & observability
+
+### 6.1 Team colours (original spec §8)
+
+`BLUELINE_TOKEN_INK`/`_PAPER` become resolver calls reading effective
+values; derived values stay emitted as literal hex (self-consistent, per
+§8). The real fix: `blueline_readable_foreground()` currently "returns the
+better of the two even when neither reaches the requested threshold"
+silently (`team-colors.php:127-132`). It returns a pass/fail; a team colour
+set whose best foreground is < 4.5:1 falls back to theme tokens via the
+existing documented "no usable colour" path. Because occasions never touch
+`--bl-ink`/`--bl-paper` (§7.2, §7.4), this is bounded, not a per-team
+revalidation sweep (§1, non-goal, restated).
+
+### 6.2 `_validated_against` — deploy-drift revalidation
+
+Stores `blueline_settings_inputs_hash()`'s value (§4.3) for the settings
+option as a whole. On `init`: if the current hash differs from
+`_validated_against`, re-run validation for everything that depends on it
+— occasion accents (§4.5), team colours (§6.1), and every live
+`aa_acknowledgements` entry — and raise a notice naming orphaned and
+newly-defaulted tokens. The `blueline_stylesheet_version()` transient
+already invalidates the *defaults cache* (original spec §6.1.1); this is
+the separate, additional *verdict* re-validation the original spec's §6.7
+calls for.
+
+### 6.3 Site Health
+
+Extends the existing `debug_information` panel (already reporting schema
+version, override counts, advanced on/off per P1) with: active occasion,
+and every live AA acknowledgement (rule, ratio, user, date, scope) —
+including ones currently invalidated by drift, marked as such.
+
+### 6.4 WP-CLI
+
+`wp blueline settings occasions` — list/enable/disable/force, per the
+original spec's §6.9 command list (`export|import|validate|reset|
+flush-cache|occasions`; the first five already exist from P1).
+
+## 7. Testing
+
+Per the original spec's §10, applied per phase:
+
+- **Phase 2.0**: `tokens.json` parser/validator round-trip; the fourth
+  consumer's threshold values match the other three (regression guard
+  against `team-colors.php` drifting back to its own constants);
+  `aa_acknowledgements` write/invalidate round-trip against a mutated
+  inputs-hash; every *tunable* token (i.e. `--bl-occasion-accent`) covered
+  by ≥ 1 contrast rule, failing if not.
+- **Phase 2.1**: occasion resolution across timezone boundaries, overlaps,
+  and leap years; fail-closed on an invalid/unacknowledged occasion;
+  fail-open on a validly-acknowledged one; the cron boundary purge fires
+  exactly at the window edge; editor-parity selector/token-name assertions.
+- **Phase 2.2**: `blueline_readable_foreground()`'s pass/fail path and its
+  fallback; `_validated_against` triggers re-validation exactly on a
+  stylesheet or rules-table change, not on unrelated saves; Site Health
+  reports a drift-invalidated acknowledgement distinctly from a live one.
+- **Whole-suite, every phase**: the full test suite and the smoke suite
+  pass with non-default settings applied (an occasion active, an
+  acknowledgement present), not only at defaults — per the original spec's
+  §10 standing requirement.
+
+## 8. Risks
+
+Carried forward from the original spec's §13 where still applicable, plus:
+
+1. **The acknowledgement-invalidation mechanism (§4.5) is new design, not
+   drawn from the original spec's literal text** — it resolves a real
+   contradiction between §3 and §7.3, but it is the one part of this
+   document that is genuinely novel rather than restated. Worth an extra
+   look in review.
+2. Occasion accents multiply the contrast surface by the number of enabled
+   occasions (original spec's risk 2) — unchanged, still bounded by §7.2's
+   enumerated consumer list.
+3. The srcache purge remains unverifiable on staging (original spec's risk
+   3) — first real validation of the cron-boundary purge is production.
+4. No CI exists (original spec's risk 5, still true as of this writing) —
+   every gate here is still a manual `npm run check` / `npm run
+   check:oracle` step.
+
+## 9. Documentation deliverables
+
+Per the original spec's §12: `DESIGN.md`'s hex table needs restating as
+defaults-vs-invariants once `--bl-occasion-accent` exists; `PRODUCT.md`'s
+"accessibility is a floor" needs the acknowledgement mechanism named
+concretely (§4.5, not just "behind Advanced"); the cutover checklist gains
+occasion scheduling and the srcache boundary-purge verification step; an
+in-panel first-run help pane for the new Occasions tab.
