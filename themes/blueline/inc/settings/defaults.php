@@ -477,6 +477,16 @@ function blueline_settings_defaults(): array {
 		// Off: a disclosure affordance defaults to hiding what it discloses,
 		// or it discloses nothing.
 		'advanced_enabled'              => false,
+		// Real storage for the AA-failure acknowledgement mechanism (design
+		// spec §4.4/§4.5): a map of acknowledgement id (a `scope` string,
+		// e.g. `occasion:canada-day`) => {rule_id, ratio, user_id, date,
+		// inputs_hash, scope}, written and read by
+		// inc/settings/acknowledgements.php. Not a schema field -- see that
+		// file's own docblock for why -- so it carries no `type`/`tab` entry
+		// in blueline_settings_schema() above; it is protected against an
+		// unrelated tab's save the same way `_schema` is
+		// (BLUELINE_SETTINGS_RESERVED_KEYS, inc/settings/page.php).
+		'aa_acknowledgements'           => array(),
 	);
 
 	// Every section defaults to enabled: an install that has never opened

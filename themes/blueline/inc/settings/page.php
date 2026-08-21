@@ -214,7 +214,7 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * being unrecognised -- see this file's own docblock's `_schema` section
  * for why that distinction is load-bearing.
  */
-const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema' );
+const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements' );
 
 /**
  * Nonce action shared by the panel's two import steps (preview, then
@@ -472,6 +472,15 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// legitimately submits a reserved key. Dropped, not
 				// honoured, rather than trusted just because it's on the
 				// allow-list.
+				continue;
+			}
+
+			if ( 'aa_acknowledgements' === $key ) {
+				// Not an integer like every other reserved key today -- a map
+				// of acknowledgement entries (inc/settings/acknowledgements.php).
+				// Its own validator drops anything malformed rather than
+				// corrupting the option or crashing a later reader.
+				$output[ $key ] = blueline_sanitize_acknowledgements( $value );
 				continue;
 			}
 

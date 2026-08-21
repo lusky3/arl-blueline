@@ -33,6 +33,7 @@ require_once BLUELINE_DIR . '/inc/settings/cache.php';
 // names BLUELINE_CACHE_PURGE_NEEDED_OPTION, both declared there.
 require_once BLUELINE_DIR . '/inc/settings/delete-data.php';
 require_once BLUELINE_DIR . '/inc/settings/commerce.php';
+require_once BLUELINE_DIR . '/inc/settings/acknowledgements.php';
 require_once BLUELINE_DIR . '/inc/settings/page.php';
 require_once BLUELINE_DIR . '/inc/settings/site-health.php';
 require_once BLUELINE_DIR . '/inc/settings/tokens.php';
