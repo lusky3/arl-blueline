@@ -143,6 +143,13 @@ final class OccasionsCronTest extends TestCase {
 	 * Asserts BOTH the start and end of a single auto occasion's window
 	 * are considered, and the soonest of the two (here, the end, since
 	 * $now already falls inside the window) is what is returned.
+	 *
+	 * The end boundary is 12-27, not 12-26. The window is INCLUSIVE of
+	 * `end_md` (tests/OccasionsResolverTest.php's own
+	 * test_window_contains_normal_range_is_inclusive()), so Christmas is
+	 * still active all through 12-26 and deactivates at 12-27 00:00 --
+	 * 12-26 00:00 is an instant at which nothing changes, since the
+	 * occasion has been active since 12-01.
 	 */
 	public function test_next_boundary_considers_both_start_and_end(): void {
 		$now = ( new DateTimeImmutable( '2026-12-10 00:00:00', wp_timezone() ) )->getTimestamp();
@@ -153,7 +160,42 @@ final class OccasionsCronTest extends TestCase {
 		);
 
 		$this->assertSame(
-			( new DateTimeImmutable( '2026-12-26 00:00:00', wp_timezone() ) )->getTimestamp(),
+			( new DateTimeImmutable( '2026-12-27 00:00:00', wp_timezone() ) )->getTimestamp(),
+			$boundary
+		);
+	}
+
+	/**
+	 * The year-boundary-wraparound shape, matching the shipped `new-year`
+	 * preset (12-27..01-02): asserts its deactivation boundary crosses BOTH
+	 * a month boundary and a year boundary correctly, landing on 01-03
+	 * 00:00 rather than 01-02 00:00.
+	 *
+	 * Verified explicitly rather than assumed to follow from the general
+	 * "day after end_md" rule: `end_md + 1 day` here is the one shipped
+	 * window whose end boundary rolls the month AND the year in the same
+	 * step, which is exactly where a second, independent off-by-one would
+	 * hide.
+	 *
+	 * $now sits INSIDE the window (12-28), so the start boundary has
+	 * already passed for this cycle and rolls to 2027-12-27 -- leaving the
+	 * end boundary as the soonest, which is the whole point of the
+	 * assertion.
+	 */
+	public function test_next_boundary_end_of_a_year_wrapping_window_is_the_day_after_end_md(): void {
+		$now = ( new DateTimeImmutable( '2026-12-28 00:00:00', wp_timezone() ) )->getTimestamp();
+
+		$boundary = blueline_occasion_next_boundary_timestamp(
+			array( 'new-year' => $this->auto_occasion( '12-27', '01-02', 'new-year' ) ),
+			$now
+		);
+
+		$this->assertSame(
+			( new DateTimeImmutable( '2027-01-03 00:00:00', wp_timezone() ) )->getTimestamp(),
+			$boundary
+		);
+		$this->assertNotSame(
+			( new DateTimeImmutable( '2027-01-02 00:00:00', wp_timezone() ) )->getTimestamp(),
 			$boundary
 		);
 	}
@@ -223,6 +265,48 @@ final class OccasionsCronTest extends TestCase {
 		$this->assertNotSame( $first, $second );
 	}
 
+	/* --------------------------------------------- hook registration shape */
+
+	/**
+	 * Fires `after_switch_theme` the way WordPress core actually fires it --
+	 * with the OUTGOING theme's NAME as its first argument -- and asserts
+	 * the registration handles it: no TypeError, and a boundary really does
+	 * get scheduled.
+	 *
+	 * This is a regression test for a guaranteed fatal on theme activation.
+	 * blueline_occasion_schedule_next_boundary_purge()'s signature is
+	 * `?int $now_override`, and add_action() without an explicit
+	 * $accepted_args defaults to forwarding ONE argument -- so a
+	 * registration missing the `10, 0` below handed core's old-theme-name
+	 * string straight into an `?int` parameter, which PHP's coercive typing
+	 * rejects with a TypeError for any non-numeric string. Fatal, at the
+	 * exact moment an admin activates this theme.
+	 *
+	 * Fired through do_action() rather than by calling the function
+	 * directly, deliberately: tests/bootstrap.php's do_action() stub
+	 * replicates core's own `array_slice( $args, 0, $hook['args'] )`
+	 * truncation, so what is under test here is the REGISTRATION's declared
+	 * arity, which a direct call could never exercise.
+	 *
+	 * The cron store is cleared after seeding the option, because the
+	 * option write's own `add_option_` hook has already scheduled the
+	 * boundary by then -- without clearing it, "a boundary got scheduled"
+	 * would be true whether or not this hook did anything at all.
+	 */
+	public function test_after_switch_theme_schedules_without_a_type_error(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'occasions' => array( 'canada-day' => $this->auto_occasion( '07-01', '07-01', 'canada-day' ) ) ) );
+
+		blueline_test_reset_cron();
+		$this->assertFalse( wp_next_scheduled( BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK ) );
+
+		do_action( 'after_switch_theme', 'Some Old Theme Name' );
+
+		$this->assertNotFalse(
+			wp_next_scheduled( BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK ),
+			'after_switch_theme should schedule the boundary purge'
+		);
+	}
+
 	/* ------------------------------------------------------- cron callback */
 
 	/**
@@ -239,6 +323,21 @@ final class OccasionsCronTest extends TestCase {
 	 * both computing the SAME "next 07-01" target (whichever one is still
 	 * ahead of today) and making the "reschedules for the FOLLOWING
 	 * boundary" claim untestable.
+	 *
+	 * Canada Day is a SINGLE-day window (07-01..07-01), so it has two
+	 * distinct boundaries one day apart, and this test walks from the first
+	 * to the second:
+	 *
+	 *   - An hour before 07-01 00:00, the soonest boundary is the
+	 *     ACTIVATION at 2026-07-01 00:00 (the deactivation, 2026-07-02
+	 *     00:00, is a day further out). That is what gets scheduled.
+	 *   - Firing the callback AT 2026-07-01 00:00 reschedules to the
+	 *     DEACTIVATION at 2026-07-02 00:00 -- this year's, one day later,
+	 *     not next year's activation at 2027-07-01. That deactivation
+	 *     instant is precisely the one the old end-boundary calculation
+	 *     (`end_md 00:00`, so 2026-07-01 again, already passed, rolling to
+	 *     2027) never scheduled at all, leaving a cached page showing
+	 *     Canada Day theming for a full year past July 1st.
 	 */
 	public function test_cron_callback_purges_and_reschedules_for_the_following_boundary(): void {
 		$this_years_boundary = ( new DateTimeImmutable( '2026-07-01 00:00:00', wp_timezone() ) )->getTimestamp();
@@ -256,7 +355,7 @@ final class OccasionsCronTest extends TestCase {
 		$this->assertNotFalse( $after );
 		$this->assertGreaterThan( $before, $after );
 		$this->assertSame(
-			( new DateTimeImmutable( '2027-07-01 00:00:00', wp_timezone() ) )->getTimestamp(),
+			( new DateTimeImmutable( '2026-07-02 00:00:00', wp_timezone() ) )->getTimestamp(),
 			$after
 		);
 	}

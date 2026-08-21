@@ -1,22 +1,37 @@
 <?php
 /**
- * Occasions -- Phase 2.0 foundation only.
+ * Occasions: the seasonal and commemorative theming layer, server side.
  *
- * Hosts blueline_occasion_accent_default(): resolving --bl-occasion-accent's
- * own declared default (`var(--bl-ice)`) to --bl-ice's literal hex value,
- * by reading style.css's :root block directly.
+ * Everything the feature owns outside the stylesheet lives in this one
+ * file:
  *
- * Deliberately NOT a general :root parser. This resolves exactly one
- * var() hop for exactly one token -- everything Phase 2.0 needs. See
- * docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md §4.1:
- * a general recursive :root parser was explicitly descoped as premature
- * generality for a need that does not exist yet. A future phase that
- * needs to resolve arbitrary :root tokens at runtime should build that
- * parser then, against a second real caller.
- *
- * The Occasion model, scheduling, resolution, motifs, cron boundary
- * purge, and editor parity described in the design spec's §7/§5 (Phase
- * 2.1) do NOT live here yet.
+ *   - The Occasion model. Its three closed enumerations (types, motifs,
+ *     activation modes), the annually-recurring `MM-DD` shape check, and
+ *     blueline_sanitize_occasions() -- the validator inc/settings/page.php
+ *     runs the reserved `occasions` key through on every write that
+ *     reaches update_option().
+ *   - blueline_occasion_presets(): the four shipped templates, as a
+ *     READ-ONLY catalog for a future "add from preset" affordance. Never
+ *     pre-populated into the stored value, and never read by the resolver.
+ *   - The resolution engine. Window matching in SITE timezone, the
+ *     precedence comparator, and the AA-override gate, which fails closed
+ *     on an accent that fails contrast without a live acknowledgement.
+ *   - blueline_occasion_accent_default(), which resolves
+ *     --bl-occasion-accent's own declared default (`var(--bl-ice)`) to a
+ *     literal hex value by reading style.css's :root block. Deliberately
+ *     NOT a general :root parser -- exactly one var() hop for exactly one
+ *     token. See
+ *     docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md
+ *     §4.1: a recursive :root parser was descoped as premature generality
+ *     for a need that does not exist yet.
+ *   - The shipped motif SVG set, and the clamp that drops the announcement
+ *     banner from `urgent` to `info` while a commemorative occasion is
+ *     active.
+ *   - The single WP-Cron event that purges the page cache at the next
+ *     window boundary. Purge TIMING only, never the correctness mechanism:
+ *     the resolver recomputes from scratch on every request regardless.
+ *   - The block-editor filter that carries the resolved accent into the
+ *     editor canvas, so the editor and the front end agree.
  *
  * @package blueline
  */
@@ -454,7 +469,9 @@ function blueline_occasion_compare( array $a, array $b ): int {
  * Eligibility: `force_off` is never eligible, regardless of window.
  * `force_on` is always eligible, regardless of window. `auto` (or an
  * unset mode) is eligible only while blueline_occasion_today_md()
- * currently falls inside its window.
+ * currently falls inside its window -- and only if both stored bounds are
+ * well-formed `MM-DD` values in the first place (see the inline note on
+ * that check: a malformed bound would otherwise read as "always active").
  *
  * Among eligible candidates, blueline_occasion_compare() orders by
  * precedence. Each candidate is then checked, in that order, against the
@@ -506,6 +523,23 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 			$window = $occasion['window'] ?? array();
 			$start  = $window['start_md'] ?? '';
 			$end    = $window['end_md'] ?? '';
+
+			// Validate both bounds before they reach the window comparison,
+			// exactly as blueline_occasion_next_boundary_timestamp() below
+			// does with the same stored data. `occasions` is a reserved
+			// settings key, not a schema field, so blueline_settings_repair()'s
+			// schema-field walk never revalidates it: an out-of-band write (a
+			// hand-edited row, a restored dump, a migration script) is the only
+			// thing that can put a malformed bound here, and nothing else will
+			// ever take it back out. Unvalidated, an empty `start_md` makes
+			// blueline_occasion_window_contains() take its non-wrapping branch
+			// and return true for EVERY possible $today_md -- permanently
+			// activating the occasion site-wide. Same reasoning as the
+			// blueline_sanitize_hex_color() pass over `accent` further down:
+			// validate defensively on read, skip rather than fatal.
+			if ( ! blueline_occasion_valid_md( $start ) || ! blueline_occasion_valid_md( $end ) ) {
+				continue;
+			}
 
 			if ( ! blueline_occasion_window_contains( $start, $end, $today_md ) ) {
 				continue;
@@ -729,11 +763,47 @@ function blueline_occasion_next_occurrence_timestamp( string $md, int $after ): 
 }
 
 /**
+ * The `MM-DD` on which a window ending on $end_md actually DEACTIVATES --
+ * the day AFTER it.
+ *
+ * The window (blueline_occasion_window_contains()) is INCLUSIVE of the
+ * occasion's `end_md`: it is active through all of `end_md` and stops at
+ * `end_md + 1 day, 00:00`. So `end_md 00:00` is not a boundary at all --
+ * nothing changes at that instant, because the occasion has already been
+ * active since `start_md`. The instant something changes is the start of
+ * the following day, which is what this returns the calendar date of.
+ *
+ * Calendar arithmetic, never `+86400`: month lengths (`01-31` -> `02-01`)
+ * and the year wrap (`12-31` -> `01-01`) both have to come out right.
+ * Stepped in UTC because the value being produced is a recurring `MM-DD`
+ * with no clock in it -- there is no wall-clock time here for a DST
+ * transition to shift, and the site-timezone 00:00 resolution happens
+ * afterwards, in blueline_occasion_next_occurrence_timestamp(). Stepped
+ * from 2024, the same leap year blueline_occasion_valid_md() validates
+ * against, so a `02-29` end_md is a real date to advance off rather than
+ * one PHP would roll forward before the addition ever ran.
+ *
+ * @param string $end_md 'MM-DD'; callers validate it with
+ *                        blueline_occasion_valid_md() first.
+ * @return string 'MM-DD'.
+ */
+function blueline_occasion_end_boundary_md( string $end_md ): string {
+	return ( new DateTimeImmutable( '2024-' . $end_md . ' 00:00:00', new DateTimeZone( 'UTC' ) ) )
+		->add( new DateInterval( 'P1D' ) )
+		->format( 'm-d' );
+}
+
+/**
  * The soonest "something changes" instant across every stored auto-mode
- * occasion's start AND end boundary -- the moment WP-Cron should next
- * fire blueline_occasion_cron_boundary_purge(). `force_on`/`force_off`
- * occasions are excluded: their activation is not date-driven, so they
- * have no boundary to purge for.
+ * occasion's activation AND deactivation boundary -- the moment WP-Cron
+ * should next fire blueline_occasion_cron_boundary_purge().
+ * `force_on`/`force_off` occasions are excluded: their activation is not
+ * date-driven, so they have no boundary to purge for.
+ *
+ * The activation boundary is `start_md 00:00`. The deactivation boundary
+ * is the start of the day AFTER `end_md`, not `end_md 00:00` -- see
+ * blueline_occasion_end_boundary_md() for why the inclusive window makes
+ * `end_md 00:00` an instant at which nothing changes.
  *
  * Never the correctness mechanism itself (design spec §5/§7.8) -- only
  * ever a purge-timing hint. blueline_resolve_active_occasion() (Task 3)
@@ -768,7 +838,7 @@ function blueline_occasion_next_boundary_timestamp( array $occasions, int $now )
 		}
 
 		$boundaries[] = blueline_occasion_next_occurrence_timestamp( $start, $now );
-		$boundaries[] = blueline_occasion_next_occurrence_timestamp( $end, $now );
+		$boundaries[] = blueline_occasion_next_occurrence_timestamp( blueline_occasion_end_boundary_md( $end ), $now );
 	}
 
 	if ( array() === $boundaries ) {
@@ -827,7 +897,16 @@ function blueline_occasion_schedule_next_boundary_purge( ?int $now_override = nu
 // trigger already uses for "react to a settings write" (add_option_/
 // update_option_ -- see that file's own add_action() pair), rather than
 // polling on `init` for every ordinary page view.
-add_action( 'after_switch_theme', 'blueline_occasion_schedule_next_boundary_purge' );
+//
+// All three pass `10, 0` deliberately. Every one of these hooks fires with
+// arguments this callback must never receive: `after_switch_theme` passes
+// the OUTGOING theme's NAME (a string), and the option hooks pass option
+// values. Against the `?int $now_override` signature, PHP's coercive
+// typing throws a TypeError on a non-numeric string -- a fatal at the
+// exact moment an admin activates the theme. Zero accepted args is what
+// keeps the real hook registrations honest about "never passed by the real
+// hook registrations below" in that parameter's own docblock.
+add_action( 'after_switch_theme', 'blueline_occasion_schedule_next_boundary_purge', 10, 0 );
 add_action( 'add_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_occasion_schedule_next_boundary_purge', 10, 0 );
 add_action( 'update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_occasion_schedule_next_boundary_purge', 10, 0 );
 

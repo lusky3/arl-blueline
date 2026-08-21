@@ -23,10 +23,27 @@ require_once __DIR__ . '/../inc/occasions.php';
  *
  * Seeds `blueline_settings( 'occasions' )` via a direct update_option()
  * call with NO `_tab` -- exactly tests/SettingsLinksTest.php's own
- * precedent for "resolver-only" tests -- deliberately WITHOUT requiring
- * inc/settings/page.php, so the value is stored exactly as given, never
- * run through blueline_sanitize_occasions() (Task 1's own test file
- * already covers that pipeline).
+ * precedent for "resolver-only" tests.
+ *
+ * That update_option() call IS still run through
+ * blueline_sanitize_occasions(), and this file NOT requiring
+ * inc/settings/page.php does not change that: page.php registers
+ * blueline_settings_sanitize_callback() on `sanitize_option_{$option}` at
+ * FILE SCOPE, 20+ other test files require page.php, and PHPUnit loads
+ * every test file into one process before any test runs -- so that filter
+ * is live here regardless. tests/OccasionsCronTest.php's own
+ * auto_occasion() docblock records the same landmine from the other side.
+ *
+ * The practical consequence: a fixture blueline_sanitize_occasions() would
+ * reject is not stored malformed, it is DROPPED, and the test would then be
+ * asserting against an empty `occasions` array instead of the fixture it
+ * meant to seed. So a test that genuinely needs invalid STORED data --
+ * modelling a hand-edited row, a restored dump or a migration script,
+ * which is exactly what the resolver's own defensive reads exist for --
+ * writes straight into $GLOBALS['bl_test_options'], the established
+ * bypass-everything pattern (tests/SettingsSchemaNoticeTest.php,
+ * tests/SettingsMergeProgrammaticWriteTest.php). Every fixture written
+ * here via update_option() is sanitizer-valid on purpose.
  */
 final class OccasionsResolverTest extends TestCase {
 
@@ -477,30 +494,31 @@ final class OccasionsResolverTest extends TestCase {
 	}
 
 	/**
-	 * Seeds a stored `accent` that blueline_sanitize_occasions() would have
-	 * rejected on write -- deliberately bypassing that write-side
-	 * sanitizer via a direct update_option() call, exactly this file's own
-	 * established pattern -- and asserts the resolver treats it as
-	 * unresolvable (skip, never fatal) rather than crashing or handing
-	 * garbage to contrast math. blueline_settings() does not sanitize on
-	 * read (inc/settings/store.php's own docblock: a stored value can be
-	 * invalid from a hand-edited row or a migration script), which is
-	 * exactly why the resolver itself must guard against this.
+	 * Seeds a stored `accent` that blueline_sanitize_occasions() rejects on
+	 * write, and asserts the resolver treats it as unresolvable (skip,
+	 * never fatal) rather than crashing or handing garbage to contrast
+	 * math. blueline_settings() does not sanitize on read
+	 * (inc/settings/store.php's own docblock: a stored value can be invalid
+	 * from a hand-edited row or a migration script), which is exactly why
+	 * the resolver itself must guard against this.
+	 *
+	 * Seeded straight into the in-memory option store, not through
+	 * update_option(): the write-side sanitizer is live in this process
+	 * (see this class's own docblock) and would DROP this entry outright,
+	 * leaving the assertion below passing against an empty `occasions`
+	 * array and proving nothing about the resolver at all.
 	 */
 	public function test_resolver_skips_a_candidate_with_an_unsanitizable_stored_accent(): void {
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array(
-				'occasions' => array(
-					'bad-accent' => $this->occasion(
-						array(
-							'id'     => 'bad-accent',
-							'mode'   => 'force_on',
-							'accent' => 'not-a-colour',
-						)
-					),
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array(
+			'occasions' => array(
+				'bad-accent' => $this->occasion(
+					array(
+						'id'     => 'bad-accent',
+						'mode'   => 'force_on',
+						'accent' => 'not-a-colour',
+					)
 				),
-			)
+			),
 		);
 
 		$this->assertNull( blueline_resolve_active_occasion( time() ) );
@@ -511,39 +529,83 @@ final class OccasionsResolverTest extends TestCase {
 	 * second, valid candidate available -- asserts the resolver falls
 	 * through to it rather than the whole resolution returning null just
 	 * because the first (higher-precedence) candidate's stored accent was
-	 * garbage.
+	 * garbage. Seeded the same bypass-everything way, for the same reason.
 	 */
 	public function test_resolver_falls_through_past_an_unsanitizable_stored_accent_to_the_next_candidate(): void {
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array(
-				'occasions' => array(
-					// Ranks first (commemorative beats decorative), but its
-					// stored accent is not a real hex colour at all.
-					'bad-accent-commemorative' => $this->occasion(
-						array(
-							'id'     => 'bad-accent-commemorative',
-							'mode'   => 'force_on',
-							'type'   => 'commemorative',
-							'accent' => 'not-a-colour',
-						)
-					),
-					// Ranks second, but passes outright.
-					'passing-decorative'       => $this->occasion(
-						array(
-							'id'   => 'passing-decorative',
-							'mode' => 'force_on',
-							'type' => 'decorative',
-						)
-					),
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array(
+			'occasions' => array(
+				// Ranks first (commemorative beats decorative), but its
+				// stored accent is not a real hex colour at all.
+				'bad-accent-commemorative' => $this->occasion(
+					array(
+						'id'     => 'bad-accent-commemorative',
+						'mode'   => 'force_on',
+						'type'   => 'commemorative',
+						'accent' => 'not-a-colour',
+					)
 				),
-			)
+				// Ranks second, but passes outright.
+				'passing-decorative'       => $this->occasion(
+					array(
+						'id'   => 'passing-decorative',
+						'mode' => 'force_on',
+						'type' => 'decorative',
+					)
+				),
+			),
 		);
 
 		$resolved = blueline_resolve_active_occasion( time() );
 
 		$this->assertNotNull( $resolved );
 		$this->assertSame( 'passing-decorative', $resolved['id'] );
+	}
+
+	/**
+	 * The window counterpart to the two `accent` tests above: a stored
+	 * `start_md` that blueline_sanitize_occasions() rejects on write must
+	 * make the candidate INELIGIBLE, never permanently active.
+	 *
+	 * Unvalidated, `start_md => ''` with `end_md => '12-31'` takes
+	 * blueline_occasion_window_contains()'s non-wrapping branch (`'' <=
+	 * '12-31'`) and evaluates `$today >= '' && $today <= '12-31'` -- true
+	 * for EVERY possible $today, so the occasion would theme the whole site
+	 * every day of the year until somebody noticed and repaired the row by
+	 * hand. `occasions` is a reserved settings key rather than a schema
+	 * field, so blueline_settings_repair()'s schema-field walk never
+	 * revalidates it: nothing else would ever take it back out.
+	 *
+	 * Asserted on two dates months apart, deliberately: "not active" on one
+	 * arbitrary date could be luck, "not active" on either side of the year
+	 * cannot.
+	 *
+	 * Seeded straight into the in-memory option store for the same reason
+	 * as the `accent` tests above -- the live write-side sanitizer would
+	 * drop this entry, and the assertions would then pass against an empty
+	 * `occasions` array whether or not the resolver guarded anything.
+	 */
+	public function test_resolver_skips_a_candidate_with_an_invalid_stored_window_bound(): void {
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array(
+			'occasions' => array(
+				'broken-window' => $this->occasion(
+					array(
+						'id'     => 'broken-window',
+						'mode'   => 'auto',
+						'window' => array(
+							'start_md' => '',
+							'end_md'   => '12-31',
+						),
+					)
+				),
+			),
+		);
+
+		$this->assertNull(
+			blueline_resolve_active_occasion( ( new DateTimeImmutable( '2026-03-15 12:00:00', wp_timezone() ) )->getTimestamp() )
+		);
+		$this->assertNull(
+			blueline_resolve_active_occasion( ( new DateTimeImmutable( '2026-11-02 12:00:00', wp_timezone() ) )->getTimestamp() )
+		);
 	}
 
 	/**

@@ -2818,3 +2818,21 @@ if ( ! function_exists( 'get_stylesheet_uri' ) ) {
 		return 'http://example.com/style.css';
 	}
 }
+
+if ( ! function_exists( 'flush_rewrite_rules' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' flush_rewrite_rules(): a no-op.
+	 *
+	 * Exists only so a test may fire `after_switch_theme` for real.
+	 * inc/account/endpoints.php registers this core function directly on
+	 * that hook at file scope, so any do_action( 'after_switch_theme' )
+	 * reaches it -- there is no rewrite-rule state in this stub
+	 * environment for it to act on, and no test asserts anything about it;
+	 * it just must not be an undefined function when the hook runs.
+	 *
+	 * @param bool $hard Unused; signature parity with WP core.
+	 * @return void
+	 */
+	function flush_rewrite_rules( $hard = true ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; see docblock.
+	}
+}
