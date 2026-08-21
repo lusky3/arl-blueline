@@ -96,9 +96,26 @@ original spec's §4 non-goals (raw palette editing, `--bl-focus*`,
 a promise the panel could accidentally break.
 
 At the end of Phase 2.0, exactly one token is marked `tunable: true`:
-`--bl-occasion-accent` (new, default `--bl-ice`, consumers enumerated per
-§7.2: CTA ribbon fill, signature band, motif). No brand-palette token
+`--bl-occasion-accent` (new, default `var(--bl-ice)`, consumers enumerated
+per §7.2: CTA ribbon fill, signature band, motif). No brand-palette token
 becomes tunable in P2 — see §1.
+
+**Scope-down against the original spec's §6.1.1**, verified by direct
+search of `inc/` (no `extractRootTokens`-equivalent exists in PHP today —
+only `blueline_stylesheet_version()`, the filemtime cache key): §6.1.1
+calls for a full PHP port of the JS `:root` parser, handling `clamp()`,
+`rgba()`, multi-declaration lines, comments, and recursive `var()`
+resolution — sized for the original, larger "raw token editing" ambition
+where many tokens needed default-value parsing for a full colour-editing
+UI. That ambition is a confirmed non-goal (§1). The only thing P2 actually
+needs resolved is `--bl-occasion-accent`'s own default, which is one
+`var()` hop to a token (`--bl-ice`) that is itself a plain hex literal.
+Building the general parser now would be premature generality for a need
+that doesn't exist yet. Phase 2.0 instead adds a narrowly-scoped
+`blueline_occasion_accent_default()` (§4.1 task) that resolves exactly
+that one chain. If a future phase needs to resolve arbitrary `:root`
+tokens at runtime, the general parser can be built then, against a real
+second caller.
 
 ### 4.2 `contrast-rules.json`'s fourth consumer — already done
 
