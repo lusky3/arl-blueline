@@ -35,6 +35,7 @@ require_once BLUELINE_DIR . '/inc/settings/delete-data.php';
 require_once BLUELINE_DIR . '/inc/settings/commerce.php';
 require_once BLUELINE_DIR . '/inc/settings/page.php';
 require_once BLUELINE_DIR . '/inc/settings/site-health.php';
+require_once BLUELINE_DIR . '/inc/settings/tokens.php';
 require_once BLUELINE_DIR . '/inc/setup.php';
 require_once BLUELINE_DIR . '/inc/enqueue.php';
 require_once BLUELINE_DIR . '/inc/template-tags.php';
