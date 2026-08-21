@@ -124,8 +124,8 @@ final class OccasionsTest extends TestCase {
 	 * repeatedly.
 	 */
 	public function test_read_failure_hook_never_fatals(): void {
-		blueline_occasion_accent_default_read_failure( 'missing or unreadable' );
-		blueline_occasion_accent_default_read_failure( 'missing or unreadable' );
+		blueline_occasion_accent_default_read_failure( '/nonexistent/style.css', 'missing or unreadable' );
+		blueline_occasion_accent_default_read_failure( '/nonexistent/style.css', 'missing or unreadable' );
 
 		$this->addToAssertionCount( 1 );
 	}

@@ -1542,6 +1542,7 @@ final class SettingsPageTest extends TestCase {
 	public function test_sanitize_callback_lets_acknowledgements_survive_a_programmatic_write(): void {
 		$entry  = array(
 			'rule_id'     => 'ink-on-occasion-accent',
+			'value'       => '#8b0000',
 			'ratio'       => 3.2,
 			'user_id'     => 7,
 			'date'        => 1700000000,

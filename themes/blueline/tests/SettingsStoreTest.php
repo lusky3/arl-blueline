@@ -308,6 +308,32 @@ final class SettingsStoreTest extends TestCase {
 	}
 
 	/**
+	 * Regression test for the bug Finding #1 fixes: `aa_acknowledgements`
+	 * was briefly listed in blueline_settings_defaults(), which leaked it
+	 * into blueline_settings()'s returned array -- corrupting the
+	 * import-preview diff, Site Health's schema-field-count denominator and
+	 * "overridden fields" counter, and the export payload, none of which
+	 * are meant to see this bookkeeping key. `aa_acknowledgements` must be
+	 * excluded from blueline_settings()'s return the exact same way
+	 * `_schema` already is -- by never appearing in
+	 * blueline_settings_defaults() at all -- not via some second, separate
+	 * exclusion mechanism.
+	 */
+	public function test_read_accessor_excludes_aa_acknowledgements_too(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array_merge(
+				blueline_settings_defaults(),
+				array( 'aa_acknowledgements' => array( 'occasion:canada-day' => array( 'anything' => true ) ) )
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'aa_acknowledgements', blueline_settings() );
+		$this->assertNull( blueline_settings( 'aa_acknowledgements' ) );
+		$this->assertArrayNotHasKey( 'aa_acknowledgements', blueline_settings_defaults() );
+	}
+
+	/**
 	 * A stored `_schema` newer than the running code must refuse to write --
 	 * a rolled-back theme must never downgrade a newer install's data.
 	 *

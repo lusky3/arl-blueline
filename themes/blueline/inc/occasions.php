@@ -30,10 +30,15 @@ defined( 'ABSPATH' ) || exit;
  * fatal, never a _doing_it_wrong() notice a visitor could see, just a
  * server-log trace of a silently degraded fallback.
  *
+ * @param string $path   The stylesheet path that could not be used --
+ *                        passed through by the caller, which accepts a
+ *                        $path_override, so the log names whichever file
+ *                        was actually being read rather than always
+ *                        "style.css".
  * @param string $reason Human-readable reason, for the log line.
  * @return void
  */
-function blueline_occasion_accent_default_read_failure( string $reason ): void {
+function blueline_occasion_accent_default_read_failure( string $path, string $reason ): void {
 	static $logged = false;
 
 	if ( $logged ) {
@@ -43,7 +48,7 @@ function blueline_occasion_accent_default_read_failure( string $reason ): void {
 
 	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- deliberate: mirrors inc/team-colors.php's blueline_contrast_rules_read_failure() -- see that function's own docblock for why a silent fallback should still leave a server-log trace.
 	error_log(
-		sprintf( "Blueline: could not resolve --bl-occasion-accent's default from style.css (%s).", $reason )
+		sprintf( "Blueline: could not resolve --bl-occasion-accent's default from %s (%s).", $path, $reason )
 	);
 }
 
@@ -69,7 +74,7 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
 	$path = $path_override ?? ( ( defined( 'BLUELINE_DIR' ) ? BLUELINE_DIR : dirname( __DIR__ ) ) . '/style.css' );
 
 	if ( ! is_readable( $path ) ) {
-		blueline_occasion_accent_default_read_failure( 'stylesheet is missing or unreadable' );
+		blueline_occasion_accent_default_read_failure( $path, 'stylesheet is missing or unreadable' );
 		return '';
 	}
 
@@ -80,21 +85,21 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
 	$css = (string) preg_replace( '#/\*.*?\*/#s', '', $css );
 
 	if ( ! preg_match( '/:root\s*\{(.*?)\}/s', $css, $root_match ) ) {
-		blueline_occasion_accent_default_read_failure( 'no :root rule found' );
+		blueline_occasion_accent_default_read_failure( $path, 'no :root rule found' );
 		return '';
 	}
 
 	$root_block = $root_match[1];
 
 	if ( ! preg_match( '/--bl-occasion-accent\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)\s*;/i', $root_block, $ref_match ) ) {
-		blueline_occasion_accent_default_read_failure( '--bl-occasion-accent is not declared as a single var(--bl-*) reference' );
+		blueline_occasion_accent_default_read_failure( $path, '--bl-occasion-accent is not declared as a single var(--bl-*) reference' );
 		return '';
 	}
 
 	$referenced = $ref_match[1];
 
 	if ( ! preg_match( '/' . preg_quote( $referenced, '/' ) . '\s*:\s*(#[0-9a-fA-F]{6})\s*;/', $root_block, $hex_match ) ) {
-		blueline_occasion_accent_default_read_failure( "referenced token {$referenced} is not declared as a plain hex literal" );
+		blueline_occasion_accent_default_read_failure( $path, "referenced token {$referenced} is not declared as a plain hex literal" );
 		return '';
 	}
 

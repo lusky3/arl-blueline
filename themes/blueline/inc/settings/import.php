@@ -202,10 +202,14 @@ function blueline_settings_import_prepare( array $payload, int $current_schema_v
 	// unknown-key drop below: that drop only removes keys the schema does not
 	// recognise, and `advanced_enabled` became a real schema key in this same
 	// task. The moment it was added, the drop stopped covering it.
-	// `aa_acknowledgements` does not exist yet (it is P2, with the colour
-	// work); it is named now so the discard lands with the key rather than
-	// after it, because the gap between those two is exactly when a crafted
-	// file would work.
+	// `aa_acknowledgements` now has real storage too (Phase 2.0's own
+	// inc/settings/acknowledgements.php) -- but the reasoning above already
+	// covers it regardless: consent is not something a file can assert on an
+	// admin's behalf, whether or not the key had storage behind it yet. It
+	// was named here from the start, before that storage existed, precisely
+	// so the discard would already be in place the moment it did -- the gap
+	// between a key becoming real and a discard naming it explicitly is
+	// exactly when a crafted file would work.
 	unset( $payload['advanced_enabled'], $payload['aa_acknowledgements'] );
 
 	$payload_schema = isset( $payload['_schema'] ) ? (int) $payload['_schema'] : 0;

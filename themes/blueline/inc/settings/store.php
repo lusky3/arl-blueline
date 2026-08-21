@@ -168,10 +168,20 @@ function blueline_settings_merge( $new_value, $old_value ) {
  * Every field the schema declares always has a value: any field absent from
  * storage (a fresh install, or a field added to the schema after the option
  * was last saved) falls back to blueline_settings_defaults(). Keys stored
- * but not part of the current schema -- notably `_schema` itself -- are
+ * but not part of the current schema -- `_schema` itself, and
+ * `aa_acknowledgements` (inc/settings/acknowledgements.php) -- are
  * deliberately excluded from the returned array, since callers ask this
- * function for field values, not for the migration bookkeeping stored
- * alongside them.
+ * function for field values, not for migration bookkeeping or the AA
+ * acknowledgement map stored alongside them.
+ *
+ * The mechanism is the array_merge()/array_intersect_key() below: this
+ * function's returned key set is exactly blueline_settings_defaults()'s key
+ * set, never $stored's. A key kept out of THAT function's return value --
+ * `_schema` and `aa_acknowledgements` both are, deliberately, regardless of
+ * whether either is actually present in $stored -- can never appear here
+ * either. There is no separate exclusion list to keep in sync with the
+ * defaults array; omission from blueline_settings_defaults() is the whole
+ * mechanism.
  *
  * @param string $key Optional. A single field key to return. Omit for the
  *                     whole settings array.
