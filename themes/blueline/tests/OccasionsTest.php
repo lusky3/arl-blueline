@@ -414,22 +414,46 @@ final class OccasionsTest extends TestCase {
 		$presets = blueline_occasion_presets();
 
 		$this->assertSame( 'decorative', $presets['canada-day']['type'] );
-		$this->assertSame( array( 'start_md' => '07-01', 'end_md' => '07-01' ), $presets['canada-day']['window'] );
+		$this->assertSame(
+			array(
+				'start_md' => '07-01',
+				'end_md'   => '07-01',
+			),
+			$presets['canada-day']['window']
+		);
 		$this->assertSame( 'maple-leaf', $presets['canada-day']['motif'] );
 
 		$this->assertSame( 'commemorative', $presets['remembrance-day']['type'] );
-		$this->assertSame( array( 'start_md' => '11-11', 'end_md' => '11-11' ), $presets['remembrance-day']['window'] );
+		$this->assertSame(
+			array(
+				'start_md' => '11-11',
+				'end_md'   => '11-11',
+			),
+			$presets['remembrance-day']['window']
+		);
 		$this->assertSame( 'poppy', $presets['remembrance-day']['motif'] );
 
 		$this->assertSame( 'decorative', $presets['christmas']['type'] );
-		$this->assertSame( array( 'start_md' => '12-01', 'end_md' => '12-26' ), $presets['christmas']['window'] );
+		$this->assertSame(
+			array(
+				'start_md' => '12-01',
+				'end_md'   => '12-26',
+			),
+			$presets['christmas']['window']
+		);
 		$this->assertSame( 'snowflake', $presets['christmas']['motif'] );
 
 		$this->assertSame( 'decorative', $presets['new-year']['type'] );
 		// Crosses the year boundary deliberately -- this is the case Task
 		// 3's resolver and Task 6's cron boundary calculation both have to
 		// handle correctly, not hypothetically.
-		$this->assertSame( array( 'start_md' => '12-27', 'end_md' => '01-02' ), $presets['new-year']['window'] );
+		$this->assertSame(
+			array(
+				'start_md' => '12-27',
+				'end_md'   => '01-02',
+			),
+			$presets['new-year']['window']
+		);
 		$this->assertSame( 'sparkle', $presets['new-year']['motif'] );
 	}
 
