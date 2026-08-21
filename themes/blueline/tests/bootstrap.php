@@ -1499,6 +1499,7 @@ $GLOBALS['bl_test_option_autoload']    = array();
 $GLOBALS['bl_test_transients']         = array();
 $GLOBALS['bl_test_cache']              = array();
 $GLOBALS['bl_test_nav_menu_locations'] = array();
+$GLOBALS['bl_test_cron']               = array();
 
 /**
  * Reset the in-memory option store. Call from setUp() (directly, or via the
@@ -1581,6 +1582,15 @@ function blueline_test_reset_cache(): void {
 }
 
 /**
+ * Reset the in-memory WP-Cron store. Call from setUp() (directly, or via
+ * the combined blueline_test_reset()) in any test that schedules or
+ * checks a cron event.
+ */
+function blueline_test_reset_cron(): void {
+	$GLOBALS['bl_test_cron'] = array();
+}
+
+/**
  * Reset the in-memory hook store to the state it was in immediately after
  * PHPUnit finished loading every test file -- NOT to empty.
  *
@@ -1625,6 +1635,7 @@ function blueline_test_reset(): void {
 	blueline_test_reset_options();
 	blueline_test_reset_transients();
 	blueline_test_reset_cache();
+	blueline_test_reset_cron();
 	blueline_test_reset_settings_errors();
 	blueline_test_reset_admin_pages();
 	blueline_test_reset_inline_scripts();
@@ -2129,6 +2140,57 @@ if ( ! function_exists( 'wp_cache_delete' ) ) {
 		$existed   = array_key_exists( $cache_key, $GLOBALS['bl_test_cache'] );
 		unset( $GLOBALS['bl_test_cache'][ $cache_key ] );
 		return $existed;
+	}
+}
+
+if ( ! function_exists( 'wp_next_scheduled' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_next_scheduled(): the timestamp
+	 * currently scheduled for $hook, or false if none is. $args is
+	 * accepted for signature parity but not distinguished -- nothing in
+	 * this theme schedules the same hook with two different argument sets.
+	 *
+	 * @param string $hook Cron hook name.
+	 * @param array  $args Unused; signature parity with WP core.
+	 * @return int|false
+	 */
+	function wp_next_scheduled( $hook, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; see docblock.
+		return $GLOBALS['bl_test_cron'][ $hook ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_single_event' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_schedule_single_event(): records
+	 * $timestamp as the next occurrence of $hook, replacing whatever was
+	 * previously scheduled for it.
+	 *
+	 * @param int    $timestamp Unix timestamp to schedule for.
+	 * @param string $hook      Cron hook name.
+	 * @param array  $args      Unused; signature parity with WP core.
+	 * @return bool
+	 */
+	function wp_schedule_single_event( $timestamp, $hook, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; see docblock.
+		$GLOBALS['bl_test_cron'][ $hook ] = $timestamp;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_unschedule_event' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_unschedule_event(): clears
+	 * whatever is scheduled for $hook. $timestamp is accepted for
+	 * signature parity but not checked against what is actually stored --
+	 * this stub only ever tracks one scheduled occurrence per hook.
+	 *
+	 * @param int    $timestamp Unused beyond signature parity; see docblock.
+	 * @param string $hook      Cron hook name.
+	 * @param array  $args      Unused; signature parity with WP core.
+	 * @return bool
+	 */
+	function wp_unschedule_event( $timestamp, $hook, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; see docblock.
+		unset( $GLOBALS['bl_test_cron'][ $hook ] );
+		return true;
 	}
 }
 
