@@ -249,8 +249,21 @@
  * attribution, not a claim -- but in the same line rather than tucked away,
  * since it exists precisely because the treatment renders the photographer's
  * own watermark illegible.
+ *
+ * A11y finding: this measured 2.0:1 against the footer's own --bl-ink-deep
+ * ground -- --bl-ink-mid is this theme's "quieter than body text" token,
+ * but (per style.css's own token comments) it is calibrated for --bl-paper/
+ * --bl-white grounds only, not a dark one; it was never meant to carry the
+ * "quieter" job here. --bl-pale is the token this file already uses
+ * correctly for every other piece of body text on this same --bl-ink-deep
+ * ground (.bl-footer itself, .bl-footer a above) -- 9.09:1
+ * (tools/check-contrast.mjs's own "pale-on-ink-deep" rule already asserts
+ * this exact pair, so this fix is covered by an existing gate, not one
+ * added for it). Losing the extra quietness relative to the copyright
+ * line next to it is an acceptable trade against the credit being legible
+ * at all.
  */
 .bl-footer__credit {
 	display: inline-block;
-	color: var(--bl-ink-mid);
+	color: var(--bl-pale);
 }
