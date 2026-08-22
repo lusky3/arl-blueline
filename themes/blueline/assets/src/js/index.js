@@ -8,3 +8,4 @@ import './account.js';
 import './player-selector.js';
 import './sponsors.js';
 import './announcement.js';
+import './woocommerce-account-form-errors.js';
