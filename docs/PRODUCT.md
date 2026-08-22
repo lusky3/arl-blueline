@@ -65,3 +65,8 @@ Jagrbombers). The voice should never be corporate and never be intimidating.
 WCAG 2.2 AA. Contrast ratios are asserted in CI (`tools/check-contrast.mjs`), not assumed.
 Keyboard traversal, visible focus on every control including skewed ones, no horizontal page
 scroll at 360px, and a working skip link.
+
+The one narrow exception is explicit and logged, never silent: an Advanced-tier admin can
+acknowledge one specific failing colour (for example, an Occasion's accent) at save time, and
+that acknowledgement is scoped to exactly what failed, re-checked live on every request, and
+falls back to the safe default the moment it goes stale or missing.
