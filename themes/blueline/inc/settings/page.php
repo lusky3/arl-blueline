@@ -2338,13 +2338,30 @@ function blueline_settings_render_occasions_tab(): void {
 			data-bl-occasions-marker
 		>
 
-		<p class="description">
-			<?php
-			echo esc_html(
-				__( 'Occasions add a temporary accent colour, a small motif, and an optional line of copy for a set window of the calendar year. Nothing here activates until its Mode is set to something other than "Always off", or its window includes today.', 'blueline' )
-			);
-			?>
-		</p>
+		<details class="bl-occasions__help">
+			<summary><?php esc_html_e( 'How Occasions work', 'blueline' ); ?></summary>
+			<p class="description">
+				<?php
+				echo esc_html(
+					__( 'Occasions add a temporary accent colour, a small motif, and an optional line of copy for a set window of the calendar year. Nothing here activates until its Mode is set to something other than "Always off", or its window includes today.', 'blueline' )
+				);
+				?>
+			</p>
+			<p class="description">
+				<?php
+				echo esc_html(
+					__( 'Add one from the preset list below, or start with a blank occasion. Each row has its own Mode, which decides when it can activate: "Automatic, during its window" lets its date range decide, "Always on (preview now)" turns it on right now no matter what the calendar says, and "Always off" disables it no matter what the window says.', 'blueline' )
+				);
+				?>
+			</p>
+			<p class="description">
+				<?php
+				echo esc_html(
+					__( 'Saving always succeeds. An occasion whose accent colour fails the AA contrast check against ink text simply will not activate unless its row acknowledgement checkbox is ticked. Acknowledgement is re-checked on every page load, not just when settings are saved, so if the accent changes or ever stops matching what was acknowledged, the occasion stops activating rather than showing a colour that fails the check.', 'blueline' )
+				);
+				?>
+			</p>
+		</details>
 
 		<ul class="bl-occasions__list" data-bl-occasions-list>
 			<?php if ( array() === $occasions ) : ?>

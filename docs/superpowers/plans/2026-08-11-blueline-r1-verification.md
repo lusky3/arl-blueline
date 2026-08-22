@@ -809,17 +809,34 @@ None of the following were executed against production — this task never touch
    a fresh install; a previous flush on staging without it produced a `/register` 405.
 6. **Purge the Redis-backed nginx srcache by key** after deploying/activating. `wo clean
    --fastcgi` does **not** touch this cache layer — it needs its own purge mechanism.
-7. **`show_avatars` is off site-wide** and an active Code Snippets rule (ID 23) strips Gravatars
+7. **Verify `BLUELINE_SRCACHE_PURGE`'s shared-Redis-instance prerequisites before flipping it
+   on.** `docs/DESIGN.md`'s "Before turning on `BLUELINE_SRCACHE_PURGE`" section lists the four
+   manual verification steps (same Redis server, same DB index, confirmed by hand on the actual
+   server) — walk through them again against production specifically, and only then set the
+   constant to `true` in `wp-config.php`. This is independent of item 6's manual by-key purge,
+   which needs no flag at all.
+8. **Verify the occasion scheduling WP-Cron boundary-purge event fires correctly against
+   production.** The srcache purge this event triggers at each occasion's window boundary has
+   never been exercised anywhere but production — staging has no page-cache layer to prove a
+   purge against — so the first real confirmation happens here, at the next window boundary
+   after cutover, not before.
+9. **`show_avatars` is off site-wide** and an active Code Snippets rule (ID 23) strips Gravatars
    — the avatar migration (#4) will produce **no visible change** even once it succeeds. This is
    expected, not a sign the migration failed; don't "verify" it by looking for visible avatars.
-8. **Re-run smoke against production** after cutover (`BASE=https://rookiehockey.ca
-   ./scripts/smoke-staging.sh`, or the production equivalent) before considering cutover
-   complete.
+10. **Re-run smoke against production** after cutover (`BASE=https://rookiehockey.ca
+    ./scripts/smoke-staging.sh`, or the production equivalent) before considering cutover
+    complete.
 
 Sequence matters: 1–2 should happen before/alongside activation (menu and bot-protection gaps
 are user-facing immediately); 3 can happen any time after activation; 4–5 must happen in that
 order (mu-plugin check *before* any rewrite flush) and 4 is only meaningful once the theme is
-active; 6 happens last, after every other change that could be cached.
+active; 6 happens last, after every other change that could be cached; 7 is independent of
+activation timing and must be confirmed before `BLUELINE_SRCACHE_PURGE` is ever set to `true`,
+whenever that happens; 8 can only be confirmed after cutover, at the next occasion window
+boundary, and presumes 6 has already fired at least once so the cache being purged is in a
+known state, **and** presumes 7 has already been completed — with `BLUELINE_SRCACHE_PURGE`
+still at its shipped default of `false`, the cron event fires but its purge call never touches
+Redis, so there is nothing for item 8 to verify until item 7's flag flip has actually happened.
 
 ---
 
