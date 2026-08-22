@@ -713,13 +713,13 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 		// blueline_occasion_compare()'s direct array reads, so a scalar
 		// (rather than array) `window` must never survive past this point
 		// for ANY mode, not only the ones that gate on it.
-		$window              = $occasion['window'] ?? array();
-		$window              = is_array( $window ) ? $window : array();
-		$start               = $window['start_md'] ?? '';
-		$end                 = $window['end_md'] ?? '';
-		$start               = is_string( $start ) ? $start : '';
-		$end                 = is_string( $end ) ? $end : '';
-		$occasion['window']  = array(
+		$window             = $occasion['window'] ?? array();
+		$window             = is_array( $window ) ? $window : array();
+		$start              = $window['start_md'] ?? '';
+		$end                = $window['end_md'] ?? '';
+		$start              = is_string( $start ) ? $start : '';
+		$end                = is_string( $end ) ? $end : '';
+		$occasion['window'] = array(
 			'start_md' => $start,
 			'end_md'   => $end,
 		);
