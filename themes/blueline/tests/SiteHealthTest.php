@@ -13,6 +13,12 @@ require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/cache.php';
 require_once __DIR__ . '/../inc/settings/site-health.php';
+require_once __DIR__ . '/cli-stubs.php'; // wp_json_encode(), used by blueline_settings_inputs_hash().
+require_once __DIR__ . '/../inc/settings/acknowledgements.php';
+require_once __DIR__ . '/../inc/enqueue.php'; // blueline_stylesheet_version(), which blueline_settings_inputs_hash() calls.
+require_once __DIR__ . '/../inc/team-colors.php';
+require_once __DIR__ . '/../inc/occasions.php';
+require_once __DIR__ . '/../inc/settings/validation.php';
 
 /**
  * Covers inc/settings/site-health.php's `blueline` Site Health section --
@@ -222,5 +228,140 @@ final class SiteHealthTest extends TestCase {
 
 		$this->assertArrayHasKey( 'wp-core', $info );
 		$this->assertArrayHasKey( 'blueline', $info );
+	}
+
+	/**
+	 * No occasion active reports "None".
+	 */
+	public function test_reports_no_active_occasion_as_none(): void {
+		$fields = $this->section()['fields'];
+
+		$this->assertSame( 'None', $fields['active_occasion']['value'] );
+	}
+
+	/**
+	 * A currently-active, force_on occasion reports its own label.
+	 */
+	public function test_reports_the_active_occasion_by_label(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					'canada-day' => array(
+						'id'     => 'canada-day',
+						'label'  => 'Canada Day',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '07-01',
+							'end_md'   => '07-01',
+						),
+						'accent' => '#ffffff',
+						'motif'  => 'maple-leaf',
+						'line'   => '',
+						'mode'   => 'force_on',
+					),
+				),
+			)
+		);
+
+		$fields = $this->section()['fields'];
+
+		$this->assertSame( 'Canada Day', $fields['active_occasion']['value'] );
+	}
+
+	/**
+	 * No acknowledgements stored reports "None recorded.".
+	 */
+	public function test_reports_no_acknowledgements_recorded(): void {
+		$fields = $this->section()['fields'];
+
+		$this->assertSame( 'None recorded.', $fields['aa_acknowledgements']['value'] );
+	}
+
+	/**
+	 * A valid (still-covering) acknowledgement is reported with no
+	 * "(needs re-review)"/"(occasion no longer exists)" suffix.
+	 */
+	public function test_reports_a_valid_acknowledgement_with_no_suffix(): void {
+		$hash = blueline_settings_inputs_hash();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(
+					'canada-day' => array(
+						'id'     => 'canada-day',
+						'label'  => 'Canada Day',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '07-01',
+							'end_md'   => '07-01',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'auto',
+					),
+				),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, $hash, 7 ),
+			)
+		);
+
+		$value = $this->section()['fields']['aa_acknowledgements']['value'];
+
+		$this->assertStringContainsString( 'occasion:canada-day', $value );
+		$this->assertStringContainsString( 'user #7', $value );
+		$this->assertStringNotContainsString( 'needs re-review', $value );
+		$this->assertStringNotContainsString( 'no longer exists', $value );
+	}
+
+	/**
+	 * A stale acknowledgement (inputs hash drifted) is marked
+	 * "(needs re-review)".
+	 */
+	public function test_reports_a_stale_acknowledgement_with_a_re_review_suffix(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(
+					'canada-day' => array(
+						'id'     => 'canada-day',
+						'label'  => 'Canada Day',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '07-01',
+							'end_md'   => '07-01',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'auto',
+					),
+				),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, 'a-now-stale-hash', 7 ),
+			)
+		);
+
+		$value = $this->section()['fields']['aa_acknowledgements']['value'];
+
+		$this->assertStringContainsString( 'needs re-review', $value );
+	}
+
+	/**
+	 * An orphaned acknowledgement (its occasion was deleted) is marked
+	 * "(occasion no longer exists)".
+	 */
+	public function test_reports_an_orphaned_acknowledgement_distinctly(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:gone', 'ink-on-occasion-accent', '#274a63', 1.66, blueline_settings_inputs_hash(), 7 ),
+			)
+		);
+
+		$value = $this->section()['fields']['aa_acknowledgements']['value'];
+
+		$this->assertStringContainsString( 'occasion no longer exists', $value );
 	}
 }
