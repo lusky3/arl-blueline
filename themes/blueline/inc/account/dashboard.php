@@ -67,6 +67,28 @@ function blueline_account_module_end() {
  * @param string $message One line of copy.
  */
 function blueline_account_module_empty_state( string $message ) {
+	blueline_account_module_empty_state_html( esc_html( $message ) );
+}
+
+/**
+ * Variant of blueline_account_module_empty_state() for the one empty state
+ * that needs an inline link rather than plain text -- the claim card's
+ * "no candidates" message (live-site review: "Contact the league" rendered
+ * as plain, unclickable text, a dead end for exactly the player who most
+ * needs to reach the league). Same chrome (leaf mark + text) as the plain
+ * version; the difference is entirely in how $html_message is escaped.
+ *
+ * $html_message must already be safe markup -- built the way
+ * blueline_account_render_claim_card() below does it, via wp_kses() over a
+ * translatable string with %1$s/%2$s placeholders for caller-supplied
+ * esc_url()'d tags (the same idiom inc/homepage-modules.php's gear-guide
+ * link uses). wp_kses_post() is the actual escaping boundary here, not a
+ * decorative extra -- this function does not accept arbitrary caller input
+ * as trusted.
+ *
+ * @param string $html_message Pre-built, already-escaped markup.
+ */
+function blueline_account_module_empty_state_html( string $html_message ) {
 	?>
 	<div class="bl-account-module__empty">
 		<?php
@@ -74,7 +96,7 @@ function blueline_account_module_empty_state( string $message ) {
 			blueline_leaf_mark( 'bl-account-module__empty-mark' );
 		}
 		?>
-		<p class="bl-account-module__empty-text"><?php echo esc_html( $message ); ?></p>
+		<p class="bl-account-module__empty-text"><?php echo wp_kses_post( $html_message ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses_post() IS the escaping boundary; see this function's own docblock. ?></p>
 	</div>
 	<?php
 }
@@ -157,11 +179,37 @@ function blueline_account_render_claim_notice() {
 }
 
 /**
+ * Page-specific framing for the claim card's "no candidates" message,
+ * appended after the contact-the-league sentence. Live-site review:
+ * /account/my-team and /account/my-schedule showed the exact same claim
+ * card, with the exact same copy, as the main dashboard -- landing
+ * directly on one of those tabs while unlinked gave no hint of what would
+ * actually appear there once linked. This is a minimal copy parameter on
+ * the existing shared renderer, not a restructuring: candidate matching,
+ * the claim form, and every other behaviour stay identical across all
+ * three contexts.
+ *
+ * @param string $context One of 'dashboard' (default, no added hint), 'my-team', 'my-schedule'.
+ * @return string Empty string for 'dashboard' (its own module modules already say what will appear).
+ */
+function blueline_claim_card_context_hint( string $context ): string {
+	switch ( $context ) {
+		case 'my-team':
+			return __( 'Once you’re linked, your team will appear here.', 'blueline' );
+		case 'my-schedule':
+			return __( 'Once you’re linked, your schedule will appear here.', 'blueline' );
+		default:
+			return '';
+	}
+}
+
+/**
  * The claim card: "Is this you?" plus one-click-confirm candidates, or a
- * plain "contact the league" message when there are none. This is the whole
- * experience for an unlinked user (~16% of current-season players, per Task
- * 16's corrected figure) -- it replaces the next-game/team/season modules
- * entirely rather than sitting alongside three empty versions of them.
+ * "contact the league" message (a real link, see below) when there are
+ * none. This is the whole experience for an unlinked user (~16% of
+ * current-season players, per Task 16's corrected figure) -- it replaces
+ * the next-game/team/season modules entirely rather than sitting alongside
+ * three empty versions of them.
  *
  * Candidates come from blueline_find_player_candidates(), which refuses to
  * offer anything for a single-token account name -- see
@@ -169,17 +217,42 @@ function blueline_account_render_claim_notice() {
  * "No candidates" is therefore a legitimate, expected outcome here, not a
  * bug to loosen the matcher for.
  *
- * @param int $user_id Current WordPress user ID.
+ * Live-site review: "Contact the league" used to be plain, unclickable
+ * text -- a dead end for exactly the player who most needs to reach the
+ * league. It is now a real link to the site's Contact Us page, resolved
+ * through blueline_contact_url() (inc/template-tags.php ->
+ * blueline_resolve_link(), inc/settings/links.php) rather than a hardcoded
+ * URL, so it inherits that resolver's own "never link to an unpublished or
+ * deleted page" guarantee and stays in sync with whatever the Links tab has
+ * configured.
+ *
+ * @param int    $user_id Current WordPress user ID.
+ * @param string $context blueline_claim_card_context_hint()'s context key.
  */
-function blueline_account_render_claim_card( int $user_id ) {
+function blueline_account_render_claim_card( int $user_id, string $context = 'dashboard' ) {
 	$candidates = function_exists( 'blueline_find_player_candidates' ) ? blueline_find_player_candidates( $user_id ) : array();
 
 	blueline_account_module_start( 'claim', __( 'Is this you?', 'blueline' ) );
 
 	if ( empty( $candidates ) ) {
-		blueline_account_module_empty_state(
-			__( 'We couldn’t find a player profile that matches your account yet. Contact the league and we’ll get you linked up.', 'blueline' )
+		$hint    = blueline_claim_card_context_hint( $context );
+		$contact = function_exists( 'blueline_contact_url' ) ? blueline_contact_url() : home_url( '/' );
+
+		$message = sprintf(
+			wp_kses(
+				/* translators: 1: opening <a> tag to the Contact Us page, 2: closing </a> tag. */
+				__( 'We couldn’t find a player profile that matches your account yet. %1$sContact the league%2$s and we’ll get you linked up.', 'blueline' ),
+				array( 'a' => array( 'href' => array() ) )
+			),
+			'<a href="' . esc_url( $contact ) . '">',
+			'</a>'
 		);
+
+		if ( '' !== $hint ) {
+			$message .= ' ' . esc_html( $hint );
+		}
+
+		blueline_account_module_empty_state_html( $message );
 	} else {
 		?>
 		<p class="bl-account-claim__intro">
@@ -637,14 +710,48 @@ function blueline_account_render_season_stats( int $player_id ) {
 }
 
 /**
+ * The "no online order on record" message for the My Registration module,
+ * chosen between two framings of the exact same null result from
+ * blueline_get_user_registration_status() -- that reader's own logic is
+ * unchanged; only the copy differs.
+ *
+ * Live-site review: a player who registered by an offline/manual method
+ * (e.g. e-transfer handled outside WooCommerce, a league-run signup) but IS
+ * currently rostered onto a team has clearly, verifiably registered --
+ * blueline_get_user_registration_status() simply has no ONLINE order to
+ * show them, because they paid a different way, not because anything
+ * failed. The plain "No registration found" copy reads, to that player,
+ * like their payment may not have gone through -- needless "did it work?"
+ * anxiety for someone the league's own roster data already confirms is
+ * signed up. A player with no current team gets the original, unambiguous
+ * copy: for them "no registration found" really is the honest summary, and
+ * softening it would risk masking a genuine gap.
+ *
+ * @param bool $has_current_team Whether the linked player currently has a team.
+ * @return string
+ */
+function blueline_registration_empty_message( bool $has_current_team ): string {
+	if ( $has_current_team ) {
+		return __( 'No online order found for the current season. If you registered a different way, you’re all set — contact us if anything looks wrong.', 'blueline' );
+	}
+
+	return __( 'No registration found for the current season yet.', 'blueline' );
+}
+
+/**
  * The My Registration module: season, paid/unpaid, and a receipt link to
  * that one order's own view-order page (not the full order-history list --
  * that already lives at the demoted "My Registrations" billing endpoint
  * below).
  *
- * @param int $user_id WordPress user ID.
+ * @param int      $user_id   WordPress user ID.
+ * @param int|null $player_id The user's linked sp_player ID, if any -- used
+ *                             only to soften the empty-state copy (see
+ *                             blueline_registration_empty_message()) when a
+ *                             rostered player simply has no ONLINE order on
+ *                             record.
  */
-function blueline_account_render_registration( int $user_id ) {
+function blueline_account_render_registration( int $user_id, ?int $player_id = null ) {
 	if ( ! blueline_section_enabled( 'account_registration' ) ) {
 		return;
 	}
@@ -654,7 +761,11 @@ function blueline_account_render_registration( int $user_id ) {
 	blueline_account_module_start( 'registration', __( 'My registration', 'blueline' ) );
 
 	if ( ! $status ) {
-		blueline_account_module_empty_state( __( 'No registration found for the current season yet.', 'blueline' ) );
+		$has_current_team = ( $player_id && function_exists( 'blueline_player_current_team_id' ) )
+			? ( blueline_player_current_team_id( $player_id ) > 0 )
+			: false;
+
+		blueline_account_module_empty_state( blueline_registration_empty_message( $has_current_team ) );
 	} else {
 		$order = function_exists( 'wc_get_order' ) ? wc_get_order( $status['order_id'] ) : false;
 		?>
@@ -802,7 +913,7 @@ function blueline_account_my_team_endpoint() {
 	$player_id = function_exists( 'blueline_get_linked_player_id' ) ? blueline_get_linked_player_id( $user_id ) : null;
 
 	if ( ! $player_id ) {
-		blueline_account_render_claim_card( $user_id );
+		blueline_account_render_claim_card( $user_id, 'my-team' );
 		return;
 	}
 
@@ -821,7 +932,7 @@ function blueline_account_my_schedule_endpoint() {
 	$player_id = function_exists( 'blueline_get_linked_player_id' ) ? blueline_get_linked_player_id( $user_id ) : null;
 
 	if ( ! $player_id ) {
-		blueline_account_render_claim_card( $user_id );
+		blueline_account_render_claim_card( $user_id, 'my-schedule' );
 		return;
 	}
 
