@@ -434,7 +434,7 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
 		}
 
 		$row_original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
-		$row_base         = sanitize_title( is_string( $row['label'] ?? null ) ? $row['label'] : '' );
+		$row_base        = sanitize_title( is_string( $row['label'] ?? null ) ? $row['label'] : '' );
 
 		if ( '' !== $row_original_id && '' !== $row_base && $row_base !== $row_original_id ) {
 			$vacated[ $row_original_id ] = true;

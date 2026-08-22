@@ -660,7 +660,7 @@ final class OccasionsTest extends TestCase {
 	 */
 	public function test_assign_unique_ids_a_same_save_id_swap_is_not_deduped(): void {
 		$stored = array(
-			'canada-day'  => array(
+			'canada-day'   => array(
 				'id'    => 'canada-day',
 				'label' => 'Canada Day',
 			),
