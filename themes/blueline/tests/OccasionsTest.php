@@ -670,6 +670,45 @@ final class OccasionsTest extends TestCase {
 	}
 
 	/**
+	 * Asserts two rows swapping ids within the SAME save -- row A renaming
+	 * into row B's old slot while row B renames into row A's old slot --
+	 * resolve cleanly to each other's target id, with no spurious `-2`
+	 * suffix from either row transiently reading as "still occupied" by
+	 * the other's not-yet-processed old slot.
+	 */
+	public function test_assign_unique_ids_a_same_save_id_swap_is_not_deduped(): void {
+		$stored = array(
+			'canada-day'  => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+			'victoria-day' => array(
+				'id'    => 'victoria-day',
+				'label' => 'Victoria Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day'   => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Victoria Day',
+				),
+				'victoria-day' => array(
+					'_original_id' => 'victoria-day',
+					'label'        => 'Canada Day',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'victoria-day', $result );
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertArrayNotHasKey( 'victoria-day-2', $result );
+		$this->assertArrayNotHasKey( 'canada-day-2', $result );
+	}
+
+	/**
 	 * Asserts a row with no usable label (empty, or only whitespace)
 	 * derives no id and is dropped outright -- blueline_sanitize_occasions()
 	 * would reject it for the same reason anyway, so there is no id worth
