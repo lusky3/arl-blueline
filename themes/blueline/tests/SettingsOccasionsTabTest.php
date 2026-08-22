@@ -299,4 +299,38 @@ final class SettingsOccasionsTabTest extends TestCase {
 			$html
 		);
 	}
+
+	/**
+	 * The Occasions tab's intro is now a permanent, non-dismissible
+	 * <details>/<summary> help pane (design spec §9.1's first and second
+	 * rulings) -- not a dismissible notice, and not a bare intro
+	 * paragraph sitting outside any disclosure. The folded-in intro
+	 * sentence must render INSIDE the <details> element, replacing the
+	 * old standalone paragraph rather than sitting alongside it.
+	 */
+	public function test_the_intro_is_a_permanent_details_pane_not_a_standalone_paragraph(): void {
+		ob_start();
+		blueline_settings_render_occasions_tab();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '<details', $html );
+		$this->assertStringContainsString( '<summary>', $html );
+		$this->assertStringNotContainsString( 'is-dismissible', $html );
+
+		$details_pos = strpos( $html, '<details' );
+		$intro_pos   = strpos( $html, 'Occasions add a temporary accent colour' );
+		$close_pos   = strpos( $html, '</details>' );
+
+		$this->assertNotFalse( $details_pos, 'A <details> element must render.' );
+		$this->assertNotFalse( $intro_pos, 'The folded-in intro sentence must still render somewhere.' );
+		$this->assertNotFalse( $close_pos, 'The <details> element must be closed.' );
+		$this->assertGreaterThan( $details_pos, $intro_pos, 'The folded-in intro sentence must render after <details> opens.' );
+		$this->assertLessThan( $close_pos, $intro_pos, 'The folded-in intro sentence must render before </details> closes.' );
+
+		// The OLD standalone intro paragraph (a bare <p class="description">
+		// sitting outside any disclosure) is gone -- there is now exactly
+		// one occurrence of this sentence in the whole tab, and it is the
+		// one already proven above to sit inside <details>.
+		$this->assertSame( 1, substr_count( $html, 'Occasions add a temporary accent colour' ) );
+	}
 }
