@@ -511,37 +511,44 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
  * which reproduces the old always-false behaviour exactly, so tests written
  * against the previous stubs are unaffected.
  *
- * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>, terms:array<int,object>, post_terms:array<int,array<string,int[]>>, active_sidebars:array<string,int>}
+ * @return array{post_types:string[], taxonomies:string[], post_meta:array<int,array<string,mixed>>, user_meta:array<int,array<string,mixed>>, users:array<int,object>, caps:array<string,bool>, current_user_id:int, posts:array<int,array{status:string,permalink:string}>, terms:array<int,object>, post_terms:array<int,array<string,int[]>>, active_sidebars:array<string,int>, queried_post_type:string}
  */
 function &blueline_test_state(): array {
 	static $state = array(
-		'post_types'      => array(),
-		'taxonomies'      => array(),
-		'post_meta'       => array(),
-		'user_meta'       => array(),
-		'users'           => array(),
-		'caps'            => array(),
-		'current_user_id' => 0,
-		'posts'           => array(),
-		'terms'           => array(),
-		'post_terms'      => array(),
+		'post_types'        => array(),
+		'taxonomies'        => array(),
+		'post_meta'         => array(),
+		'user_meta'         => array(),
+		'users'             => array(),
+		'caps'              => array(),
+		'current_user_id'   => 0,
+		'posts'             => array(),
+		'terms'             => array(),
+		'post_terms'        => array(),
 		// Sidebar id => widget count, read by is_active_sidebar() and
 		// wp_get_sidebars_widgets() below -- added for Task 5
 		// (P1b-panel-completion). Empty by default, reproducing the pre-Task-5
 		// always-false is_active_sidebar() behaviour for every test that
 		// never seeds it.
-		'active_sidebars' => array(),
+		'active_sidebars'   => array(),
 		// The site's configured timezone, as wp_timezone() below hands it
 		// back -- added for Task 6 (P1b-panel-completion). Defaults to the
 		// zone this league actually plays in rather than UTC, deliberately:
 		// a date helper that quietly ignored the site zone would still pass
 		// every assertion written against a UTC-configured stub.
-		'timezone'        => 'America/Toronto',
+		'timezone'          => 'America/Toronto',
 		// The instant current_time() below reports, as a Unix timestamp.
 		// null means the real clock -- added for Task 7's fix round, so a
 		// test can pin blueline_season_state_moment()'s two branches to the
 		// same moment and assert they agree.
-		'now'             => null,
+		'now'               => null,
+		// The post type is_singular() below reports the current request as
+		// being a singular view of, or '' for "not a singular view at all"
+		// -- added for the accessibility fix round that introduced
+		// blueline_sp_caption_heading_level() (inc/sportspress.php), the
+		// first function in this suite to call is_singular() with an
+		// argument. Set via blueline_test_set_queried_post_type().
+		'queried_post_type' => '',
 	);
 
 	return $state;
@@ -629,6 +636,20 @@ function blueline_test_set_post_terms( int $post_id, string $taxonomy, array $te
 }
 
 /**
+ * Sets the post type the fake is_singular() below should report the
+ * current request as viewing -- '' (the default) means "not a singular
+ * view at all", matching a real front-page/archive/404 request.
+ *
+ * @param string $post_type Post type slug, or '' to clear it.
+ * @return void
+ */
+function blueline_test_set_queried_post_type( string $post_type ): void {
+	$state = &blueline_test_state();
+
+	$state['queried_post_type'] = $post_type;
+}
+
+/**
  * Return the fake-WordPress state to its empty default, and clear
  * player-link.php's request-scoped linked-player cache along with it. Call
  * this from setUp() in any test that touches the stateful stubs, so tests
@@ -637,20 +658,21 @@ function blueline_test_set_post_terms( int $post_id, string $taxonomy, array $te
 function blueline_test_reset_state(): void {
 	$state = &blueline_test_state();
 	$state = array(
-		'post_types'      => array(),
-		'taxonomies'      => array(),
-		'post_meta'       => array(),
-		'user_meta'       => array(),
-		'users'           => array(),
-		'caps'            => array(),
-		'current_user_id' => 0,
-		'posts'           => array(),
-		'terms'           => array(),
-		'post_terms'      => array(),
-		'active_sidebars' => array(),
-		'timezone'        => 'America/Toronto',
-		'now'             => null,
-		'inline_styles'   => array(),
+		'post_types'        => array(),
+		'taxonomies'        => array(),
+		'post_meta'         => array(),
+		'user_meta'         => array(),
+		'users'             => array(),
+		'caps'              => array(),
+		'current_user_id'   => 0,
+		'posts'             => array(),
+		'terms'             => array(),
+		'post_terms'        => array(),
+		'active_sidebars'   => array(),
+		'timezone'          => 'America/Toronto',
+		'now'               => null,
+		'inline_styles'     => array(),
+		'queried_post_type' => '',
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -1312,6 +1334,60 @@ if ( ! function_exists( 'get_post_type' ) ) {
 		}
 
 		return $state['posts'][ $id ]['type'] ?? '';
+	}
+}
+if ( ! function_exists( 'is_singular' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' is_singular(): consults
+	 * blueline_test_state()'s 'queried_post_type' entry (set via
+	 * blueline_test_set_queried_post_type()), which stands in for "the post
+	 * type of the post the current fake request is viewing" -- '' means
+	 * "not a singular view at all", mirroring a real front-page/archive/404
+	 * request, for which core's own is_singular() also always returns false
+	 * regardless of argument.
+	 *
+	 * Added for the accessibility fix round that introduced
+	 * blueline_sp_caption_heading_level() (inc/sportspress.php): that is
+	 * the first function in this suite to call is_singular() with an
+	 * argument, needing to tell "a SportsPress singular view" apart from
+	 * everything else. Only the two call shapes that function actually
+	 * uses are implemented -- no argument (any singular view) and a
+	 * string[] of post types (core also accepts a bare string, which this
+	 * stub also honours via the (array) cast, but no caller here needs it).
+	 *
+	 * @param string|string[] $post_types Optional post type(s) to check against.
+	 * @return bool
+	 */
+	function is_singular( $post_types = '' ) {
+		$state   = blueline_test_state();
+		$current = $state['queried_post_type'];
+
+		if ( '' === $current ) {
+			return false;
+		}
+
+		if ( '' === $post_types || array() === $post_types ) {
+			return true;
+		}
+
+		return in_array( $current, (array) $post_types, true );
+	}
+}
+if ( ! function_exists( 'sp_post_types' ) ) {
+	/**
+	 * Minimal stand-in for SportsPress' own sp_post_types(): NOT a verified
+	 * reproduction of the real plugin's exact list (there is no SportsPress
+	 * checkout in this worktree to check it against -- see wp_timezone()'s
+	 * docblock above for the same caveat applied to a different stub). Only
+	 * as complete as every test in this suite currently needs, which is
+	 * "contains sp_team, sp_player and sp_staff" -- the post types
+	 * blueline_sp_caption_heading_level() (inc/sportspress.php) actually
+	 * distinguishes singular views of.
+	 *
+	 * @return string[]
+	 */
+	function sp_post_types() {
+		return array( 'sp_team', 'sp_player', 'sp_staff', 'sp_event' );
 	}
 }
 if ( ! function_exists( 'get_the_title' ) ) {

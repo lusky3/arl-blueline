@@ -196,8 +196,15 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 ?>
 <div class="sp-template sp-template-event-list">
 	<?php if ( $title ) : ?>
-		<?php // h2, not h4: closes the h1 -> h4 heading-level skip every page embedding this block has (team/player/staff pages via the_content(), and the standalone schedule page via its own title) -- see team-lists.php's matching fix for the full reasoning. ?>
-		<h2 class="sp-table-caption"><?php echo wp_kses_post( $title ); ?></h2>
+		<?php
+		// Heading level depends on where this shortcode/template is
+		// actually rendered -- see blueline_sp_caption_heading_level()'s
+		// own docblock (inc/sportspress.php) for the accessibility finding
+		// this fixes (this caption used to be a hardcoded, level-skipping
+		// h4 everywhere).
+		$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
+		?>
 	<?php endif; ?>
 	<div class="sp-table-wrapper">
 		<table class="sp-event-list sp-event-list-format-homeaway sp-data-table bl-sp-schedule<?php echo $paginated ? ' sp-paginated-table' : ''; ?><?php echo $sortable ? ' sp-sortable-table' : ''; ?><?php echo $responsive ? ' sp-responsive-table ' . esc_attr( $identifier ) : ''; ?><?php echo $scrollable ? ' sp-scrollable-table' : ''; ?>" data-sp-rows="<?php echo esc_attr( $rows ); ?>">

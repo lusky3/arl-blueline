@@ -69,8 +69,14 @@ if ( empty( $stat_keys ) ) {
 	return;
 }
 
-// h2, not h4 -- same heading-level-skip fix as the other sp-table-caption templates.
-$output = '<h2 class="sp-table-caption">' . $caption . '</h2>' .
+// Heading level depends on where this template is actually rendered -- see
+// blueline_sp_caption_heading_level()'s own docblock (inc/sportspress.php)
+// for the accessibility finding this fixes (this caption used to be a
+// hardcoded, level-skipping h4 everywhere -- on a single-player page it
+// followed the hero's own h1 with nothing else in between).
+$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+
+$output = '<h' . $bl_caption_level . ' class="sp-table-caption">' . $caption . '</h' . $bl_caption_level . '>' .
 	'<div class="sp-table-wrapper">' .
 	'<table class="sp-player-statistics sp-data-table' . ( $scrollable ? ' sp-scrollable-table' : '' ) . '"><thead><tr>';
 
