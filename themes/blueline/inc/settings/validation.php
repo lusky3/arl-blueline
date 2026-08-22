@@ -201,10 +201,9 @@ add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
  * acknowledgement coverage from scratch on every single request
  * regardless of whether this check has ever run at all (the fail-closed
  * guarantee, design spec §4.5, holds unconditionally already); this
- * check's ONLY job is *surfacing* drift to an admin via a notice (and,
- * planned but not yet built, a Site Health field in
- * inc/settings/site-health.php) -- pure diagnostics, with zero
- * front-end/cron/REST/WP-CLI consumer.
+ * check's ONLY job is *surfacing* drift to an admin via a notice (and a
+ * Site Health field in inc/settings/site-health.php) -- pure diagnostics,
+ * with zero front-end/cron/REST/WP-CLI consumer.
  * blueline_settings_inputs_hash() costs a real filesystem stat plus a
  * hash, unlike blueline_settings_migrate()'s O(1) integer-compare guard,
  * so paying that on every anonymous front-end request for a value
