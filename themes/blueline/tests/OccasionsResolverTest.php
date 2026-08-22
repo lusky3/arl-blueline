@@ -679,4 +679,150 @@ final class OccasionsResolverTest extends TestCase {
 		$this->assertNotSame( '', $body, 'failed to extract the function body' );
 		$this->assertStringNotContainsString( 'blueline_occasion_presets', $body );
 	}
+
+	/* ---------------------------------------- front_end_styles */
+
+	/**
+	 * Asserts no inline style is added when no occasion is active -- the
+	 * static `--bl-occasion-accent: var(--bl-ice);` default in style.css
+	 * already covers this case.
+	 */
+	public function test_front_end_styles_adds_nothing_when_no_occasion_active(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'occasions' => array() ) );
+
+		blueline_occasion_front_end_styles();
+
+		$this->assertSame( array(), blueline_test_state()['inline_styles'] );
+	}
+
+	/**
+	 * Asserts an active occasion's resolved accent is added as a real
+	 * `:root{--bl-occasion-accent:...}` inline override on the
+	 * `blueline-tokens` handle -- the mechanism design spec §7.2's named
+	 * consumers (the CTA ribbon fill, the signature band, the motif) were
+	 * missing entirely before this.
+	 */
+	public function test_front_end_styles_adds_the_resolved_accent(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					// Empty accent resolves to blueline_occasion_accent_default()
+					// -- the real style.css default, which passes contrast --
+					// same fixture shape test_resolver_force_on_ignores_the_window()
+					// above already relies on.
+					'canada-day' => $this->occasion(
+						array(
+							'id'   => 'canada-day',
+							'mode' => 'force_on',
+						)
+					),
+				),
+			)
+		);
+
+		blueline_occasion_front_end_styles();
+
+		$this->assertSame(
+			array( array( 'blueline-tokens', ':root{--bl-occasion-accent:' . blueline_occasion_accent_default() . ';}' ) ),
+			blueline_test_state()['inline_styles']
+		);
+	}
+
+	/* ---------------------------------------- header motif + line */
+
+	/**
+	 * Asserts nothing renders when no occasion is active.
+	 */
+	public function test_render_header_occasion_motif_renders_nothing_when_no_occasion_active(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'occasions' => array() ) );
+
+		ob_start();
+		blueline_render_header_occasion_motif();
+		$output = ob_get_clean();
+
+		$this->assertSame( '', $output );
+	}
+
+	/**
+	 * Asserts nothing renders for an active occasion whose motif is 'none'
+	 * -- the wrapper element itself must not appear empty in the markup.
+	 */
+	public function test_render_header_occasion_motif_renders_nothing_for_motif_none(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					'canada-day' => $this->occasion(
+						array(
+							'id'    => 'canada-day',
+							'mode'  => 'force_on',
+							'motif' => 'none',
+						)
+					),
+				),
+			)
+		);
+
+		ob_start();
+		blueline_render_header_occasion_motif();
+		$output = ob_get_clean();
+
+		$this->assertSame( '', $output );
+	}
+
+	/**
+	 * Asserts the active occasion's real motif renders inside the wrapper,
+	 * dispatched through the pre-existing blueline_render_occasion_motif()
+	 * that had no caller anywhere in the theme before this.
+	 */
+	public function test_render_header_occasion_motif_renders_the_active_motif(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					'canada-day' => $this->occasion(
+						array(
+							'id'    => 'canada-day',
+							'mode'  => 'force_on',
+							'motif' => 'maple-leaf',
+						)
+					),
+				),
+			)
+		);
+
+		ob_start();
+		blueline_render_header_occasion_motif();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'bl-header__occasion-motif', $output );
+		$this->assertStringContainsString( 'bl-occasion-motif--maple-leaf', $output );
+	}
+
+	/**
+	 * Asserts blueline_active_occasion_line() returns '' with nothing
+	 * active, and the stored `line` when an occasion is active.
+	 */
+	public function test_active_occasion_line(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'occasions' => array() ) );
+		$this->assertSame( '', blueline_active_occasion_line() );
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					'canada-day' => $this->occasion(
+						array(
+							'id'   => 'canada-day',
+							'mode' => 'force_on',
+							'line' => 'Happy Canada Day, ARL!',
+						)
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'Happy Canada Day, ARL!', blueline_active_occasion_line() );
+	}
 }

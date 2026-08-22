@@ -518,7 +518,11 @@ html body .woocommerce .woocommerce-invalid textarea {
 	position: absolute;
 	inset: 0;
 	z-index: -1;
-	background: var(--bl-ice);
+
+	/* This button's own special-cased "CTA ribbon fill" -- see
+	 * header.css's .bl-btn--primary .bl-skew for the canonical, shared
+	 * one and why --bl-occasion-accent is a no-op swap by default. */
+	background: var(--bl-occasion-accent);
 	border-radius: var(--bl-radius);
 	transform: skewX(var(--bl-skew));
 }

@@ -623,8 +623,27 @@ function blueline_site_header() {
 						</nav>
 					<?php endif; ?>
 
-					<a class="bl-btn <?php echo esc_attr( $cta['class'] ); ?>" href="<?php echo esc_url( $cta['url'] ); ?>">
+					<?php
+					// The header CTA is where the occasion accent's ribbon-fill
+					// consumer lives (header.css's .bl-btn--primary .bl-skew --
+					// inc/occasions.php's blueline_occasion_front_end_styles()
+					// docblock), so the motif (design spec §7.2's third named
+					// consumer) rides along here too, and only while this CTA
+					// is genuinely the primary Register button -- a motif next
+					// to "Schedule" in every other season state would pair a
+					// festive icon with a button that never gets the accent
+					// colour at all.
+					$occasion_line = $cta['is_register'] ? blueline_active_occasion_line() : '';
+					?>
+					<a
+						class="bl-btn <?php echo esc_attr( $cta['class'] ); ?>"
+						href="<?php echo esc_url( $cta['url'] ); ?>"
+						<?php echo '' !== $occasion_line ? 'title="' . esc_attr( $occasion_line ) . '"' : ''; ?>
+					>
 						<span class="bl-skew"><span><?php echo esc_html( $cta['label'] ); ?></span></span>
+						<?php if ( $cta['is_register'] && function_exists( 'blueline_render_header_occasion_motif' ) ) : ?>
+							<?php blueline_render_header_occasion_motif(); ?>
+						<?php endif; ?>
 					</a>
 
 					<button type="button" class="bl-nav__toggle" aria-expanded="false" aria-controls="bl-primary-menu">
@@ -797,6 +816,26 @@ function blueline_site_footer() {
 						<?php esc_html_e( 'Photography by Michael Durrant.', 'blueline' ); ?>
 					</span>
 				</p>
+				<?php
+				/*
+				 * The occasion `line`'s real, visible placement (design spec
+				 * §7.1's third field, alongside accent and motif) -- the
+				 * footer bottom bar rather than the header nav bar, because
+				 * this is the one universally-rendered chrome element with
+				 * room to grow by a line without disturbing the header's own
+				 * fixed-height layout on every page (see the header CTA's own
+				 * `title` attribute, inc/template-tags.php's
+				 * blueline_site_header(), for the header's own zero-layout-
+				 * impact echo of this same text). Prints nothing at all, not
+				 * even an empty element, when no occasion is active or its
+				 * `line` is unset -- exactly like blueline_leaf_mark() above
+				 * it, this is additive chrome, never a layout reservation.
+				 */
+				$occasion_line = function_exists( 'blueline_active_occasion_line' ) ? blueline_active_occasion_line() : '';
+				if ( '' !== $occasion_line ) :
+					?>
+					<p class="bl-footer__occasion-line"><?php echo esc_html( $occasion_line ); ?></p>
+				<?php endif; ?>
 			</div>
 		</div>
 	</footer>

@@ -231,7 +231,11 @@ img {
 
 .bl-band {
 	height: var(--bl-band-ice);
-	background: var(--bl-ice);
+
+	/* design spec §7.2's "signature band" -- see header.css's
+	 * .bl-btn--primary .bl-skew for why --bl-occasion-accent is a
+	 * no-op swap by default. */
+	background: var(--bl-occasion-accent);
 }
 
 .bl-band--ink {
