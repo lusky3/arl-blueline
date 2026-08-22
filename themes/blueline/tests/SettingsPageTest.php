@@ -16,6 +16,8 @@ require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
 require_once __DIR__ . '/../inc/settings/acknowledgements.php';
 require_once __DIR__ . '/../inc/setup.php'; // blueline_active_widget_count(), which blueline_section_widget_warning() calls via the field-row renderer below.
+require_once __DIR__ . '/../inc/team-colors.php';
+require_once __DIR__ . '/../inc/occasions.php';
 
 /**
  * Covers inc/settings/page.php: the Appearance -> Blueline admin page --
@@ -1583,5 +1585,58 @@ final class SettingsPageTest extends TestCase {
 		);
 
 		$this->assertSame( array(), $output['aa_acknowledgements'] );
+	}
+
+	/**
+	 * Asserts `occasions` survives a programmatic write (no `_tab`), the
+	 * same path `_schema`/`aa_acknowledgements` already rely on.
+	 */
+	public function test_sanitize_callback_lets_occasions_survive_a_programmatic_write(): void {
+		$entry  = array(
+			'id'     => 'canada-day',
+			'label'  => 'Canada Day',
+			'type'   => 'decorative',
+			'window' => array(
+				'start_md' => '07-01',
+				'end_md'   => '07-01',
+			),
+			'accent' => '',
+			'motif'  => 'maple-leaf',
+			'line'   => '',
+			'mode'   => 'auto',
+		);
+		$output = blueline_settings_sanitize_callback(
+			array( 'occasions' => array( 'canada-day' => $entry ) )
+		);
+
+		$this->assertSame( $entry, $output['occasions']['canada-day'] );
+	}
+
+	/**
+	 * Asserts `occasions` is dropped outright from a tab-scoped (form)
+	 * submission -- no existing tab's rendered form ever legitimately
+	 * submits it.
+	 */
+	public function test_sanitize_callback_drops_occasions_from_a_form_submission(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'content',
+				'occasions' => array( 'canada-day' => array( 'anything' => true ) ),
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'occasions', $output );
+	}
+
+	/**
+	 * Asserts a malformed `occasions` value is repaired to an empty map
+	 * rather than trusted verbatim, even on a programmatic write.
+	 */
+	public function test_sanitize_callback_validates_occasions_shape(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( 'occasions' => 'not-an-array' )
+		);
+
+		$this->assertSame( array(), $output['occasions'] );
 	}
 }

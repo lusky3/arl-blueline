@@ -129,8 +129,8 @@
  * and silently skipping a real future migration.
  *
  * The fix is an explicit reserved-key allow-list -- today
- * `array( '_schema', 'aa_acknowledgements' )` -- rather than "forward
- * anything unrecognised":
+ * `array( '_schema', 'aa_acknowledgements', 'occasions' )` -- rather than
+ * "forward anything unrecognised":
  * any key that is neither a real schema field nor on that list is
  * dropped, exactly as it would be if it were never declared at all.
  * `_schema` itself is still sanitized like everything else (absint(),
@@ -216,7 +216,7 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * being unrecognised -- see this file's own docblock's `_schema` section
  * for why that distinction is load-bearing.
  */
-const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements' );
+const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements', 'occasions' );
 
 /**
  * Nonce action shared by the panel's two import steps (preview, then
@@ -399,8 +399,8 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    for that field -- see this file's docblock's `_posted_fields`
  *    section.
  * 4. Every OTHER key is checked against an explicit reserved-key
- *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today `_schema` and
- *    `aa_acknowledgements`), never forwarded merely for being
+ *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today `_schema`,
+ *    `aa_acknowledgements`, and `occasions`), never forwarded merely for being
  *    unrecognised -- see this file's docblock's `_schema` section for why
  *    "forward anything unrecognised" was rejected. A reserved key is still
  *    sanitized, though not identically: `_schema` is sanitized like every
@@ -488,6 +488,15 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// Its own validator drops anything malformed rather than
 				// corrupting the option or crashing a later reader.
 				$output[ $key ] = blueline_sanitize_acknowledgements( $value );
+				continue;
+			}
+
+			if ( 'occasions' === $key ) {
+				// A map, not an integer like every other reserved key --
+				// its own validator (inc/occasions.php) drops anything
+				// malformed rather than corrupting the option or crashing a
+				// later reader.
+				$output[ $key ] = blueline_sanitize_occasions( $value );
 				continue;
 			}
 
