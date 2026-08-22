@@ -835,12 +835,27 @@ html body .woocommerce .woocommerce-invalid textarea {
  * float-based two-column layout -- this theme's grid above is meant to
  * replace that, not run alongside it, but never reset the width/float it
  * leaves behind. Inside a grid item, a percentage width resolves against
- * the GRID TRACK, not the .col2-set container, so `.col-1`/`.col-2` end
- * up at 47% of their own already-narrow 1fr track (roughly a quarter of
- * the real available width) instead of filling it -- billing renders as
- * a narrow column with a wide, empty gap beside it, and #order_review
- * (design intent: the second grid column, beside billing) drops onto its
- * own line below instead. Reset both so each column fills its grid cell.
+ * the GRID TRACK, not the .col2-set container, so `.col-1` (billing) and
+ * `.col-2` (the Checkout Field Editor Pro fields hooked onto
+ * woocommerce_shipping_fields -- Emergency Contact, Player Profile, etc.
+ * -- NOT #order_review, which is a sibling of .col2-set, not a child of
+ * it, and renders below both columns by design) each end up at 47% of
+ * their own already-narrow 1fr track instead of filling it.
+ *
+ * Reset to fill the grid cell -- but width/float alone still left
+ * `.col-1`/`.col-2` auto-placed into DIFFERENT rows instead of side by
+ * side in row 1 (confirmed live: identical, non-overlapping grid tracks,
+ * yet different `top`, `.col-1` in track 2 and `.col-2` in track 1 --
+ * default grid auto-placement disagreeing with DOM order for a reason
+ * this comment does not need to diagnose further). Forcing an explicit
+ * grid-column on each, alongside the grid-template-columns media query
+ * below, is the robust fix for exactly two known, fixed columns --
+ * verified live afterward: both share the same `top` and stretch to the
+ * same `height`, side by side. Scoped to the SAME breakpoint as the
+ * two-column template: below it, `.col2-set` is a single implicit
+ * column (mobile stacking, unaffected by any of this), and forcing
+ * `grid-column: 2` there would create a phantom second track instead of
+ * a stacked layout.
  */
 .woocommerce-checkout .col2-set .col-1,
 .woocommerce-checkout .col2-set .col-2 {
@@ -852,6 +867,19 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 	.woocommerce-checkout .col2-set {
 		grid-template-columns: 1fr 1fr;
+	}
+
+	.woocommerce-checkout .col2-set .col-1,
+	.woocommerce-checkout .col2-set .col-2 {
+		grid-row: 1;
+	}
+
+	.woocommerce-checkout .col2-set .col-1 {
+		grid-column: 1;
+	}
+
+	.woocommerce-checkout .col2-set .col-2 {
+		grid-column: 2;
 	}
 }
 
