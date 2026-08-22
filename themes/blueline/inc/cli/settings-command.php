@@ -1,7 +1,7 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1). This file is named for what it does (the `settings` WP-CLI command group), not for Blueline_Settings_Command, matching this theme's established file-naming convention (inc/settings/page.php defines no class at all; every other inc/ file is named for its subject, never for a single class it happens to declare).
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed -- the three helpers below (blueline_settings_cli_validate_payload(), blueline_settings_cli_diff_lines(), blueline_settings_cli_flush_page_cache()) are the CLI-SHAPED remainder of this command's logic: everything a second, non-CLI caller also needs has already moved to inc/settings/import.php, and what is left produces CLI output or exists only so a test can reach a branch a constant would otherwise pin. Splitting these three into a fourth file would scatter one command across two files for no reader's benefit, the same trade-off tests/SettingsCacheTest.php's own docblock makes for its Redis fakes. (They are exercised through the subcommands that call them, in tests/SettingsCliCommandTest.php and tests/SettingsCliFlushCacheTest.php -- except blueline_settings_cli_flush_page_cache(), which the latter also calls directly; an earlier version of this line claimed direct unit tests for helpers no test named at all.)
 /**
- * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data`
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data|occasions`
  * -- WP-CLI access to the same one option (BLUELINE_SETTINGS_OPTION) the
  * Appearance -> Blueline panel reads and writes.
  *
@@ -187,7 +187,7 @@ function blueline_settings_cli_flush_page_cache( bool $purge_enabled ): bool {
 }
 
 /**
- * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data`.
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data|occasions`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
 

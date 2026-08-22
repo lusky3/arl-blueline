@@ -2330,6 +2330,30 @@ if ( ! function_exists( 'is_admin' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_doing_ajax' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_doing_ajax().
+	 *
+	 * Core's own implementation is `apply_filters( 'wp_doing_ajax',
+	 * defined( 'DOING_AJAX' ) && DOING_AJAX )`; the constant half is
+	 * honoured here verbatim so this stub cannot disagree with production
+	 * about the one thing it actually reports. The `$GLOBALS` escape hatch
+	 * exists because a PHP constant, once defined, can never be undefined:
+	 * without it, the FIRST test in a process to model an AJAX request
+	 * would silently pin every later test in that same process to the AJAX
+	 * branch. Same pattern, and same reason, as is_admin() above.
+	 *
+	 * @return bool
+	 */
+	function wp_doing_ajax() {
+		if ( ! empty( $GLOBALS['bl_test_doing_ajax'] ) ) {
+			return true;
+		}
+
+		return defined( 'DOING_AJAX' ) && DOING_AJAX;
+	}
+}
+
 if ( ! function_exists( 'esc_attr__' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' esc_attr__().

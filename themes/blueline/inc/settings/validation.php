@@ -213,9 +213,34 @@ add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
  * settings write -- a deploy touching style.css's mtime, an edited
  * contrast-rules.json -- which no options hook would ever fire for.
  *
+ * `admin_init` is nonetheless broader than "a wp-admin page load": core's
+ * admin-ajax.php fires it directly on every AJAX request, including
+ * `nopriv` ones. An admin who simply leaves a wp-admin tab open across a
+ * deploy will have Heartbeat (or any other AJAX handler) hit this function
+ * first -- and `admin_notices` never runs on an AJAX request, so the
+ * payload would be set, discarded unrendered at the end of that request,
+ * and then never recomputed, because `_validated_against` has already
+ * advanced past the drift. The one-time notice, which is this mechanism's
+ * primary user-facing deliverable, would be silently lost for that drift
+ * event. So an AJAX request skips the whole body -- no classification, no
+ * `_validated_against` write -- leaving the next real wp-admin PAGE load
+ * to detect and surface the same drift on a request that can actually
+ * display it. Nothing is lost by deferring: as set out above, this check's
+ * correctness contribution is zero (blueline_resolve_active_occasion()'s
+ * fail-closed guarantee holds unconditionally whether this ever runs or
+ * not), so the only question is which request gets to report, and an AJAX
+ * request is the one that structurally cannot.
+ *
  * @return void
  */
 function blueline_occasions_maybe_revalidate_on_drift(): void {
+	if ( wp_doing_ajax() ) {
+		// See this function's docblock: `admin_init` fires on
+		// admin-ajax.php too, and `admin_notices` does not -- so an AJAX
+		// request must not consume this drift event.
+		return;
+	}
+
 	$current_hash = blueline_settings_inputs_hash();
 
 	if ( blueline_validated_against() === $current_hash ) {

@@ -41,6 +41,17 @@ final class OccasionsDriftTest extends TestCase {
 		blueline_test_reset();
 		blueline_test_reset_state();
 		blueline_occasions_drift_notice_payload( null );
+		unset( $GLOBALS['bl_test_doing_ajax'] );
+	}
+
+	/**
+	 * Clear the AJAX flag again after every test, so a test that models an
+	 * AJAX request cannot leak that context into an unrelated one that runs
+	 * later in the same process (the reason the stub reads a global at all
+	 * rather than only `DOING_AJAX`, which cannot be undefined once set).
+	 */
+	protected function tearDown(): void {
+		unset( $GLOBALS['bl_test_doing_ajax'] );
 	}
 
 	/**
@@ -115,6 +126,63 @@ final class OccasionsDriftTest extends TestCase {
 		$this->assertSame(
 			array( 'occasion:canada-day' => 'stale' ),
 			blueline_occasions_drift_notice_payload()
+		);
+		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
+	}
+
+	/**
+	 * An AJAX request skips the entire check: `admin_init` fires on
+	 * admin-ajax.php (core calls do_action('admin_init') there directly,
+	 * `nopriv` handlers included) but `admin_notices` never does, so a
+	 * routine Heartbeat poll from an admin's open wp-admin tab would
+	 * otherwise detect the drift, set a payload nothing will ever render,
+	 * and advance `_validated_against` past it -- after which the next real
+	 * page load's cheap hash-compare short-circuits and the one-time notice
+	 * is lost for good.
+	 *
+	 * The second half is the part that makes skipping SAFE rather than
+	 * merely quiet: the same drift, on a non-AJAX call, is still found and
+	 * still reported. Skipping defers the report to a request that can
+	 * display it; it does not consume or hide it.
+	 */
+	public function test_an_ajax_request_defers_the_whole_check_to_the_next_page_load(): void {
+		$stored = array(
+			'_validated_against'  => 'a-stale-hash',
+			'occasions'           => array(
+				'canada-day' => array(
+					'id'     => 'canada-day',
+					'label'  => 'Canada Day',
+					'type'   => 'decorative',
+					'window' => array(
+						'start_md' => '07-01',
+						'end_md'   => '07-01',
+					),
+					'accent' => '#274a63',
+					'motif'  => 'none',
+					'line'   => '',
+					'mode'   => 'auto',
+				),
+			),
+			'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, 'a-different-stale-hash', 1 ),
+		);
+
+		update_option( BLUELINE_SETTINGS_OPTION, $stored );
+
+		$GLOBALS['bl_test_doing_ajax'] = true;
+
+		blueline_occasions_maybe_revalidate_on_drift();
+
+		$this->assertNull( blueline_occasions_drift_notice_payload(), 'an AJAX request must set no notice payload -- nothing would ever render it' );
+		$this->assertSame( 'a-stale-hash', blueline_validated_against(), 'an AJAX request must not advance _validated_against past a drift it cannot report' );
+
+		unset( $GLOBALS['bl_test_doing_ajax'] );
+
+		blueline_occasions_maybe_revalidate_on_drift();
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'stale' ),
+			blueline_occasions_drift_notice_payload(),
+			'the very same drift must still be found on the next non-AJAX call'
 		);
 		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
 	}

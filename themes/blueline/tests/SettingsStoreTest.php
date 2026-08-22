@@ -5,6 +5,7 @@
  * @package blueline
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
@@ -414,5 +415,154 @@ final class SettingsStoreTest extends TestCase {
 
 		$stored = get_option( BLUELINE_SETTINGS_OPTION );
 		$this->assertArrayNotHasKey( '_schema', $stored, 'migration must not write while another caller holds the lock' );
+	}
+
+	/* ------------------------- the bookkeeping-only diff check (unit) */
+
+	/**
+	 * Two identical states are trivially bookkeeping-only: nothing differs
+	 * at all. Both callers already short-circuit this case on `===`, but
+	 * the helper must not disagree with them about it.
+	 */
+	public function test_bookkeeping_only_is_true_for_two_identical_states(): void {
+		$state = array(
+			'footer_heading' => 'The League',
+			'_schema'        => 3,
+		);
+
+		$this->assertTrue( blueline_settings_diff_is_bookkeeping_only( $state, $state ) );
+	}
+
+	/**
+	 * The case the whole helper exists for: a `_validated_against`-only
+	 * change, whether the key was already there or is arriving for the
+	 * first time.
+	 */
+	public function test_bookkeeping_only_is_true_for_a_validated_against_change(): void {
+		$this->assertTrue(
+			blueline_settings_diff_is_bookkeeping_only(
+				array(
+					'footer_heading'     => 'The League',
+					'_validated_against' => 'old-hash',
+				),
+				array(
+					'footer_heading'     => 'The League',
+					'_validated_against' => 'new-hash',
+				)
+			),
+			'a changed bookkeeping value'
+		);
+
+		$this->assertTrue(
+			blueline_settings_diff_is_bookkeeping_only(
+				array( 'footer_heading' => 'The League' ),
+				array(
+					'footer_heading'     => 'The League',
+					'_validated_against' => 'new-hash',
+				)
+			),
+			'a bookkeeping key arriving for the first time'
+		);
+	}
+
+	/**
+	 * `_schema` counts too -- blueline_settings_migrate()'s own marker is
+	 * bookkeeping by the same argument.
+	 */
+	public function test_bookkeeping_only_is_true_for_a_schema_version_change(): void {
+		$this->assertTrue(
+			blueline_settings_diff_is_bookkeeping_only(
+				array(
+					'footer_heading' => 'The League',
+					'_schema'        => 2,
+				),
+				array(
+					'footer_heading' => 'The League',
+					'_schema'        => 3,
+				)
+			)
+		);
+	}
+
+	/**
+	 * The discriminating case. `occasions` and `aa_acknowledgements` ARE
+	 * reserved keys (BLUELINE_SETTINGS_RESERVED_KEYS, inc/settings/page.php)
+	 * but are NOT bookkeeping: each is real, user-meaningful state worth
+	 * both an undo point and a cache purge. A change to either -- alone, or
+	 * carrying an incidental `_validated_against` update alongside it --
+	 * must never be mistaken for bookkeeping.
+	 *
+	 * @dataProvider provide_non_bookkeeping_diffs
+	 *
+	 * @param array<string, mixed> $stored   The stored state.
+	 * @param array<string, mixed> $incoming The state being written.
+	 * @param string               $why      What this pair is demonstrating.
+	 */
+	#[DataProvider( 'provide_non_bookkeeping_diffs' )]
+	public function test_bookkeeping_only_is_false_for_a_real_change( array $stored, array $incoming, string $why ): void {
+		$this->assertFalse( blueline_settings_diff_is_bookkeeping_only( $stored, $incoming ), $why );
+	}
+
+	/**
+	 * Pairs of states whose difference is NOT bookkeeping-only.
+	 *
+	 * @return array<string, array{0: array<string, mixed>, 1: array<string, mixed>, 2: string}>
+	 */
+	public static function provide_non_bookkeeping_diffs(): array {
+		return array(
+			'an ordinary field'                  => array(
+				array( 'footer_heading' => 'The League' ),
+				array( 'footer_heading' => 'The ARL' ),
+				'a plain schema field is not bookkeeping',
+			),
+			'an ordinary field plus bookkeeping' => array(
+				array(
+					'footer_heading'     => 'The League',
+					'_validated_against' => 'old-hash',
+				),
+				array(
+					'footer_heading'     => 'The ARL',
+					'_validated_against' => 'new-hash',
+				),
+				'a real change does not become bookkeeping by travelling with one',
+			),
+			'occasions'                          => array(
+				array( 'occasions' => array() ),
+				array( 'occasions' => array( 'canada-day' => array( 'id' => 'canada-day' ) ) ),
+				'occasions is reserved but is real, admin-authored state',
+			),
+			'occasions plus bookkeeping'         => array(
+				array(
+					'occasions'          => array(),
+					'_validated_against' => 'old-hash',
+				),
+				array(
+					'occasions'          => array( 'canada-day' => array( 'id' => 'canada-day' ) ),
+					'_validated_against' => 'new-hash',
+				),
+				'the exact shape a drift-check write must NOT be confused with',
+			),
+			'aa_acknowledgements'                => array(
+				array( 'aa_acknowledgements' => array() ),
+				array( 'aa_acknowledgements' => array( 'occasion:canada-day' => array( 'rule_id' => 'x' ) ) ),
+				'an acknowledgement is a real decision someone recorded',
+			),
+			'a key removed rather than changed'  => array(
+				array(
+					'footer_heading' => 'The League',
+					'contact_email'  => 'a@example.com',
+				),
+				array( 'footer_heading' => 'The League' ),
+				'a key present on one side only is a difference too',
+			),
+			'a key added rather than changed'    => array(
+				array( 'footer_heading' => 'The League' ),
+				array(
+					'footer_heading' => 'The League',
+					'contact_email'  => 'a@example.com',
+				),
+				'and so is one arriving',
+			),
+		);
 	}
 }

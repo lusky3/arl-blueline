@@ -33,6 +33,22 @@
  *   is switched on, and whether a manual purge is currently pending --
  *   the two facts that file's own docblock says are otherwise easy to lose
  *   track of on a volunteer-run site.
+ * - Which occasion is active right now, read from the SAME resolver the
+ *   front end uses (blueline_resolve_active_occasion(), inc/occasions.php)
+ *   -- so it can never disagree with what the site is actually showing.
+ *   "Why is the site suddenly wearing Canada Day colours?" (or refusing
+ *   to) is answerable from a support paste alone, without reconstructing
+ *   date windows, `mode` overrides and the fail-closed contrast guarantee
+ *   by hand.
+ * - Every live AA acknowledgement, each one marked when drift has
+ *   invalidated it ("needs re-review" for a stale entry, "occasion no
+ *   longer exists" for an orphaned one). These records are the only reason
+ *   the resolver lets a below-threshold accent render at all, so which
+ *   ones exist -- and which no longer reflect current reality -- is the
+ *   fact behind both "this occasion won't apply" and "this one applies
+ *   even though the contrast checker complains". The one-time drift notice
+ *   that reports the same thing is, by design, one-time; this field is the
+ *   backstop that is still there afterwards.
  *
  * @package blueline
  */
