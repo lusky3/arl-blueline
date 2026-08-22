@@ -677,24 +677,37 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 			continue;
 		}
 
-		if ( 'force_on' !== $mode ) {
-			$window = $occasion['window'] ?? array();
-			$start  = $window['start_md'] ?? '';
-			$end    = $window['end_md'] ?? '';
+		// Normalize the stored `window` shape for EVERY mode, including
+		// `force_on` -- `occasions` is a reserved settings key, not a schema
+		// field, so blueline_settings_repair()'s schema-field walk never
+		// revalidates it, and an out-of-band write (a hand-edited row, a
+		// restored dump, a migration script) is the only thing that can put
+		// a malformed `window` here. `force_on` skips the date check below,
+		// but the winning candidate's `window` still flows into
+		// blueline_occasion_compare()'s direct array reads, so a scalar
+		// (rather than array) `window` must never survive past this point
+		// for ANY mode, not only the ones that gate on it.
+		$window              = $occasion['window'] ?? array();
+		$window              = is_array( $window ) ? $window : array();
+		$start               = $window['start_md'] ?? '';
+		$end                 = $window['end_md'] ?? '';
+		$start               = is_string( $start ) ? $start : '';
+		$end                 = is_string( $end ) ? $end : '';
+		$occasion['window']  = array(
+			'start_md' => $start,
+			'end_md'   => $end,
+		);
 
+		if ( 'force_on' !== $mode ) {
 			// Validate both bounds before they reach the window comparison,
 			// exactly as blueline_occasion_next_boundary_timestamp() below
-			// does with the same stored data. `occasions` is a reserved
-			// settings key, not a schema field, so blueline_settings_repair()'s
-			// schema-field walk never revalidates it: an out-of-band write (a
-			// hand-edited row, a restored dump, a migration script) is the only
-			// thing that can put a malformed bound here, and nothing else will
-			// ever take it back out. Unvalidated, an empty `start_md` makes
-			// blueline_occasion_window_contains() take its non-wrapping branch
-			// and return true for EVERY possible $today_md -- permanently
-			// activating the occasion site-wide. Same reasoning as the
-			// blueline_sanitize_hex_color() pass over `accent` further down:
-			// validate defensively on read, skip rather than fatal.
+			// does with the same stored data. Unvalidated, an empty
+			// `start_md` makes blueline_occasion_window_contains() take its
+			// non-wrapping branch and return true for EVERY possible
+			// $today_md -- permanently activating the occasion site-wide.
+			// Same reasoning as the blueline_sanitize_hex_color() pass over
+			// `accent` further down: validate defensively on read, skip
+			// rather than fatal.
 			if ( ! blueline_occasion_valid_md( $start ) || ! blueline_occasion_valid_md( $end ) ) {
 				continue;
 			}
