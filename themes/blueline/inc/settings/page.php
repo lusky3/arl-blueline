@@ -209,8 +209,11 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * Top-level option keys that are neither a real schema field nor the two
  * request-scoped bookkeeping keys (`_posted_fields`, `_tab`) this file's
  * own form emits, but which a write still needs to be able to carry --
- * today inc/settings/store.php's `_schema` migration version and
- * inc/settings/acknowledgements.php's `aa_acknowledgements` map.
+ * today three of them: inc/settings/store.php's `_schema` migration
+ * version, inc/settings/acknowledgements.php's `aa_acknowledgements` map,
+ * and inc/occasions.php's `occasions` map (the one reserved key that a
+ * tab-scoped submission may also carry, and only from its OWN tab -- see
+ * blueline_settings_sanitize_callback()'s docblock, rule 4).
  * blueline_settings_sanitize_callback() checks every unrecognised key
  * against this explicit allow-list rather than forwarding it merely for
  * being unrecognised -- see this file's own docblock's `_schema` section
@@ -2273,6 +2276,28 @@ function blueline_settings_alignment_label( string $key ): string {
  * schema field: see BLUELINE_SETTINGS_RESERVED_KEYS's own docblock),
  * so the generic loop has nothing to render for this tab at all.
  *
+ * ## The `__none__` marker row
+ *
+ * One hidden `[occasions][__none__][label]` field is rendered OUTSIDE
+ * the repeater `<ul>`, so it survives every "Remove" click. It exists
+ * for exactly one case: an admin deleting EVERY row and saving. An HTML
+ * form cannot post an array field with zero entries -- with no real row
+ * left, no `blueline_settings[occasions][...]` key would appear in the
+ * request at all, blueline_settings_sanitize_callback()'s per-key loop
+ * would never reach its `occasions` branch, `$output['occasions']` would
+ * never be set, and blueline_settings_merge() would then carry the OLD
+ * stored map straight back: the admin sees "Settings saved" and the
+ * occasion (and its AA acknowledgement) is still there. Deleting one row
+ * out of several was always fine; only deleting down to zero was
+ * silently a no-op.
+ *
+ * The marker's own row never survives processing:
+ * blueline_occasions_assign_unique_ids() (inc/occasions.php) drops any
+ * row whose label yields an empty `sanitize_title()`, so this row is
+ * gone before blueline_sanitize_occasions() ever sees it. Its only job
+ * is to make the `occasions` key PRESENT, so the branch runs, computes
+ * an empty map, and the acknowledgement orphan-cleanup runs with it.
+ *
  * @return void
  */
 function blueline_settings_render_occasions_tab(): void {
@@ -2283,6 +2308,14 @@ function blueline_settings_render_occasions_tab(): void {
 	$name             = BLUELINE_SETTINGS_OPTION . '[occasions]';
 	?>
 	<div class="bl-occasions" data-bl-occasions data-bl-occasions-name="<?php echo esc_attr( $name ); ?>">
+		<?php // Always-present marker row -- see this function's docblock. Deliberately outside the <ul>, so removing every real row cannot remove it too. ?>
+		<input
+			type="hidden"
+			name="<?php echo esc_attr( $name . '[__none__][label]' ); ?>"
+			value=""
+			data-bl-occasions-marker
+		>
+
 		<p class="description">
 			<?php
 			echo esc_html(

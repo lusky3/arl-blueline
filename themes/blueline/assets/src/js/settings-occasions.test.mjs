@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { blOccasionContrastRatio, blOccasionIsHex } = require( './settings-occasions.js' );
+const { blOccasionContrastRatio, blOccasionIsHex, blOccasionApplyRowKey } =
+	require( './settings-occasions.js' );
 
 test( 'blOccasionContrastRatio: black on white is the maximum ratio', () => {
 	assert.ok( blOccasionContrastRatio( '#000000', '#ffffff' ) > 20 );
@@ -62,4 +63,130 @@ test( 'blOccasionContrastRatio matches the PHP<->JS parity fixture', () => {
 			`${ a } vs ${ b }: expected ${ expected }, got ${ actual }`
 		);
 	}
+} );
+
+/*
+ * blOccasionApplyRowKey() is exercised against a deliberately tiny
+ * stand-in for a cloned `<template>` row rather than a real DOM: this
+ * repo has no jsdom/happy-dom dependency of its own (`npm run test:js`
+ * is plain `node --test`), and adding a whole DOM implementation to
+ * assert three attribute rewrites would be a much bigger dependency
+ * than the thing under test. The stand-in implements exactly what the
+ * function touches -- querySelectorAll() over `[name]`, `[id]` and
+ * `[for]`, the `name`/`id` properties, and getAttribute()/
+ * setAttribute() for `for` -- so a regression in any of the three
+ * rewrites still fails here. The server side of the same contract (that
+ * the template row really does render `__TEMPLATE__` inside its ids and
+ * `for`s, so there is something to rewrite) is pinned in PHP by
+ * tests/SettingsOccasionsTabTest.php's
+ * test_the_template_rows_ids_and_label_associations_carry_the_placeholder().
+ */
+function fakeTemplateRow() {
+	const field = ( id, name ) => ( { id, name } );
+	const label = ( forValue ) => {
+		const attrs = { for: forValue };
+		return {
+			getAttribute: ( key ) => attrs[ key ],
+			setAttribute: ( key, value ) => {
+				attrs[ key ] = value;
+			},
+		};
+	};
+
+	const nodes = [
+		field(
+			'bl-occasion-__TEMPLATE__-label',
+			'blueline_settings[occasions][__TEMPLATE__][label]'
+		),
+		field(
+			'bl-occasion-__TEMPLATE__-accent',
+			'blueline_settings[occasions][__TEMPLATE__][accent]'
+		),
+		// The hidden `_original_id` field: a name, but no id at all.
+		{ name: 'blueline_settings[occasions][__TEMPLATE__][_original_id]' },
+		label( 'bl-occasion-__TEMPLATE__-label' ),
+		label( 'bl-occasion-__TEMPLATE__-accent' ),
+	];
+
+	return {
+		nodes,
+		querySelectorAll: ( selector ) =>
+			nodes.filter( ( node ) => {
+				if ( '[name]' === selector ) {
+					return undefined !== node.name;
+				}
+				if ( '[id]' === selector ) {
+					return undefined !== node.id;
+				}
+				return 'function' === typeof node.getAttribute;
+			} ),
+	};
+}
+
+test( 'blOccasionApplyRowKey: rewrites name, id AND for off the placeholder', () => {
+	const row = fakeTemplateRow();
+
+	blOccasionApplyRowKey( row, '__new_1' );
+
+	const [ labelField, accentField, originalId, labelCaption, accentCaption ] =
+		row.nodes;
+
+	assert.equal(
+		labelField.name,
+		'blueline_settings[occasions][__new_1][label]'
+	);
+	assert.equal(
+		originalId.name,
+		'blueline_settings[occasions][__new_1][_original_id]'
+	);
+	assert.equal( labelField.id, 'bl-occasion-__new_1-label' );
+	assert.equal( accentField.id, 'bl-occasion-__new_1-accent' );
+	assert.equal(
+		labelCaption.getAttribute( 'for' ),
+		'bl-occasion-__new_1-label'
+	);
+	assert.equal(
+		accentCaption.getAttribute( 'for' ),
+		'bl-occasion-__new_1-accent'
+	);
+} );
+
+test( 'blOccasionApplyRowKey: two added rows share no id, and each label points at its own row', () => {
+	const first = fakeTemplateRow();
+	const second = fakeTemplateRow();
+
+	blOccasionApplyRowKey( first, '__new_1' );
+	blOccasionApplyRowKey( second, '__new_2' );
+
+	const ids = ( row ) =>
+		row.nodes
+			.filter( ( node ) => undefined !== node.id )
+			.map( ( node ) => node.id );
+
+	for ( const id of ids( first ) ) {
+		assert.ok(
+			! ids( second ).includes( id ),
+			`id ${ id } collides between two added rows`
+		);
+	}
+
+	// Each caption must resolve to an id that exists in ITS OWN row.
+	for ( const row of [ first, second ] ) {
+		const rowIds = ids( row );
+		row.nodes
+			.filter( ( node ) => 'function' === typeof node.getAttribute )
+			.forEach( ( caption ) => {
+				assert.ok(
+					rowIds.includes( caption.getAttribute( 'for' ) ),
+					`caption for="${ caption.getAttribute(
+						'for'
+					) }" does not match any id in its own row`
+				);
+			} );
+	}
+
+	assert.ok(
+		! ids( first ).some( ( id ) => id.includes( '__TEMPLATE__' ) ),
+		'the placeholder must not survive the rewrite'
+	);
 } );

@@ -197,6 +197,94 @@ final class SettingsOccasionsTabTest extends TestCase {
 	}
 
 	/**
+	 * Every id and every `<label for>` inside the `<template>` row
+	 * carries the `__TEMPLATE__` placeholder -- the server half of the
+	 * contract assets/src/js/settings-occasions.js's
+	 * blOccasionApplyRowKey() relies on when it clones this row. If a
+	 * field's id ever stopped being derived from the row key, the clone
+	 * would have nothing to rewrite and every JS-added row would share
+	 * that id (and every caption would point at the first added row's
+	 * input). Its JS half is pinned in
+	 * assets/src/js/settings-occasions.test.mjs.
+	 */
+	public function test_the_template_rows_ids_and_label_associations_carry_the_placeholder(): void {
+		ob_start();
+		blueline_settings_render_occasions_tab();
+		$html = (string) ob_get_clean();
+
+		foreach ( array( 'label', 'type', 'start', 'end', 'accent', 'motif', 'line', 'mode' ) as $field ) {
+			$this->assertStringContainsString( 'id="bl-occasion-__TEMPLATE__-' . $field . '"', $html );
+			$this->assertStringContainsString( 'for="bl-occasion-__TEMPLATE__-' . $field . '"', $html );
+		}
+	}
+
+	/**
+	 * The always-present hidden marker row (see
+	 * blueline_settings_render_occasions_tab()'s own docblock): it must
+	 * render whether or not any occasion is stored, and must sit OUTSIDE
+	 * the repeater `<ul>`, since a "Remove" click only ever removes a
+	 * `<li>` inside that list. Without it, an admin deleting every row
+	 * posts no `blueline_settings[occasions]` key at all and the save is
+	 * a silent no-op.
+	 */
+	public function test_the_marker_row_always_renders_outside_the_repeater_list(): void {
+		$marker = 'name="blueline_settings[occasions][__none__][label]"';
+
+		ob_start();
+		blueline_settings_render_occasions_tab();
+		$empty_html = (string) ob_get_clean();
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'occasions' => array( 'canada-day' => $this->occasion() ) ) );
+
+		ob_start();
+		blueline_settings_render_occasions_tab();
+		$populated_html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( $marker, $empty_html );
+		$this->assertStringContainsString( $marker, $populated_html );
+
+		// Outside the <ul>: it appears before the list opens, so no
+		// per-row removal can ever take it with it.
+		$this->assertLessThan(
+			(int) strpos( $populated_html, '<ul' ),
+			(int) strpos( $populated_html, $marker ),
+			'The marker field must be rendered before (outside) the repeater list.'
+		);
+	}
+
+	/**
+	 * An occasion with an EMPTY accent renders the REAL resolved default
+	 * (blueline_occasion_accent_default()) in its colour swatch and
+	 * contrast readout -- not the BLUELINE_TOKEN_INK fallback
+	 * blueline_settings_render_occasion_row() only uses when the default
+	 * cannot be resolved at all.
+	 *
+	 * This is the discriminating half of "empty accent means the theme
+	 * default": in tests/OccasionsTest.php's
+	 * blueline_occasions_apply_aa_overrides() coverage, a resolved-and-
+	 * passing default and an unresolvable '' are observationally
+	 * identical (both end with no acknowledgement). Here they are not --
+	 * the swatch is literally one value or the other.
+	 */
+	public function test_an_empty_accent_renders_the_real_resolved_default(): void {
+		$default = blueline_occasion_accent_default();
+
+		$this->assertNotSame( '', $default, 'Fixture guard: the real stylesheet default must resolve.' );
+		$this->assertNotSame( BLUELINE_TOKEN_INK, $default, 'Fixture guard: the default must differ from the failure fallback, or this test proves nothing.' );
+
+		ob_start();
+		blueline_settings_render_occasion_row( 'blueline_settings[occasions]', 'canada-day', $this->occasion( array( 'accent' => '' ) ), 'test-hash', array() );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'value="' . $default . '" data-bl-occasion-color', $html );
+		$this->assertStringNotContainsString( 'value="' . BLUELINE_TOKEN_INK . '" data-bl-occasion-color', $html );
+
+		// The readout is computed from that same resolved value.
+		$ratio = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $default );
+		$this->assertStringContainsString( number_format( $ratio, 1 ) . ':1', $html );
+	}
+
+	/**
 	 * The `_original_id` hidden field carries the row's own existing id
 	 * -- Task 2's blueline_occasions_assign_unique_ids() reads exactly
 	 * this field.

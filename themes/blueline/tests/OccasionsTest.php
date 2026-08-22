@@ -859,27 +859,104 @@ final class OccasionsTest extends TestCase {
 
 	/**
 	 * Asserts an occasion with an EMPTY `accent` (use the resolved
-	 * default) is evaluated against that resolved default, not against
-	 * an empty string.
+	 * default) is evaluated against that resolved default, and against
+	 * the SAME value blueline_occasion_accent_default() itself returns.
+	 *
+	 * The bare `assertArrayNotHasKey()` this test used to carry was not
+	 * discriminating on its own: "the default resolved and passed" and
+	 * "the default failed to resolve at all" both end in the same
+	 * no-acknowledgement state, because the unresolvable-accent branch
+	 * also removes. The assertions below pin the parts that ARE
+	 * observable here:
+	 *
+	 * 1. The default really does resolve to a hex value (a fixture
+	 *    guard, so a broken stylesheet read fails HERE, loudly, instead
+	 *    of silently making the expectation below vacuous).
+	 * 2. Its contrast against ink genuinely passes -- so "no
+	 *    acknowledgement" is the right expectation for the reason this
+	 *    test claims, and a default that ever changed to a failing
+	 *    colour would fail here rather than quietly flipping this test's
+	 *    meaning.
+	 * 3. An empty accent produces byte-for-byte the same result as
+	 *    passing that resolved default EXPLICITLY -- which is what
+	 *    "resolves to the default" means -- while a resolution to
+	 *    anything else that fails contrast (ink, say) records an
+	 *    acknowledgement instead. The failing control below proves the
+	 *    record path is live under this exact fixture, so the empty
+	 *    accent's absence is a real "it passed", not a dead code path.
+	 *
+	 * The one distinction this function genuinely cannot observe -- a
+	 * PASSING default versus an unresolvable '' -- is pinned where the
+	 * resolved value IS visible: tests/SettingsOccasionsTabTest.php's
+	 * test_an_empty_accent_renders_the_real_resolved_default() (the
+	 * rendered swatch is the default, not the BLUELINE_TOKEN_INK
+	 * failure fallback) and tests/OccasionsResolverTest.php's own
+	 * resolved_accent assertion.
 	 */
 	public function test_apply_aa_overrides_resolves_an_empty_accent_to_the_default(): void {
-		$occasion = $this->failing_occasion(
-			array(
-				'id'     => 'default-accent',
-				'accent' => '',
-			)
+		$default = blueline_occasion_accent_default();
+
+		$this->assertNotSame( '', $default, 'Fixture guard: the real stylesheet default must resolve.' );
+		$this->assertGreaterThanOrEqual(
+			blueline_contrast_threshold( 'body' ),
+			blueline_contrast_ratio( BLUELINE_TOKEN_INK, $default ),
+			'Fixture guard: the resolved default is expected to PASS contrast against ink.'
 		);
 
-		$result = blueline_occasions_apply_aa_overrides(
-			array( 'default-accent' => $occasion ),
+		$empty = blueline_occasions_apply_aa_overrides(
+			array(
+				'default-accent' => $this->failing_occasion(
+					array(
+						'id'     => 'default-accent',
+						'accent' => '',
+					)
+				),
+			),
 			array( 'default-accent' => true ),
 			array(),
 			'test-hash',
 			7
 		);
 
-		// The real stylesheet default (--bl-ice, '#74c0e1') passes contrast
-		// outright, so nothing should have been recorded for it.
-		$this->assertArrayNotHasKey( 'occasion:default-accent', $result );
+		$explicit = blueline_occasions_apply_aa_overrides(
+			array(
+				'default-accent' => $this->failing_occasion(
+					array(
+						'id'     => 'default-accent',
+						'accent' => $default,
+					)
+				),
+			),
+			array( 'default-accent' => true ),
+			array(),
+			'test-hash',
+			7
+		);
+
+		// Same inputs bar the empty-vs-explicit accent: same result.
+		$this->assertSame( $explicit, $empty );
+
+		// The resolved default passes, so nothing is recorded for it...
+		$this->assertArrayNotHasKey( 'occasion:default-accent', $empty );
+
+		// ...and that absence is meaningful, not vacuous: the same
+		// fixture, resolved to a FAILING colour instead, does record.
+		$control = blueline_occasions_apply_aa_overrides(
+			array(
+				'default-accent' => $this->failing_occasion(
+					array(
+						'id'     => 'default-accent',
+						'accent' => BLUELINE_TOKEN_INK,
+					)
+				),
+			),
+			array( 'default-accent' => true ),
+			array(),
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayHasKey( 'occasion:default-accent', $control );
+		$this->assertSame( BLUELINE_TOKEN_INK, $control['occasion:default-accent']['value'] );
 	}
 }

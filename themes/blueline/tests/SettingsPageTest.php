@@ -1797,13 +1797,31 @@ final class SettingsPageTest extends TestCase {
 	 * `aa_acknowledgements` entry -- design spec §5.1's fifth ruling,
 	 * run through the real save path rather than the pure function
 	 * alone.
+	 *
+	 * The row is submitted under the array key `__new_1`, NOT `failing`.
+	 * That is deliberate and load-bearing: it is the shape a real
+	 * browser-added row actually posts (assets/src/js/settings-occasions.js's
+	 * addRow() always names a fresh row `__new_{n}`, never the slug the
+	 * server will eventually derive), and it is the ONLY shape that can
+	 * catch a regression in how `$raw_overrides` is keyed. The earlier
+	 * version of this test submitted the row under the key `failing`
+	 * with the label `Failing` -- and `sanitize_title( 'Failing' )` is
+	 * `'failing'`, so the submitted key and the final derived id were
+	 * identical by coincidence. A mutation keying `$raw_overrides` by
+	 * the RAW SUBMITTED key instead of each row's final,
+	 * post-blueline_occasions_assign_unique_ids() id passed that test
+	 * (and the whole suite) undetected, while silently discarding the AA
+	 * acknowledgement of every JS-added row in production. With the two
+	 * keys deliberately different, the acknowledgement assertion below
+	 * only holds when the override is read under `failing` -- the FINAL
+	 * id -- exactly as the wiring does.
 	 */
 	public function test_sanitize_callback_records_an_acknowledgement_for_an_occasions_tab_save(): void {
 		$output = blueline_settings_sanitize_callback(
 			array(
 				'_tab'      => 'occasions',
 				'occasions' => array(
-					'failing' => array(
+					'__new_1' => array(
 						'_original_id' => '',
 						'label'        => 'Failing',
 						'type'         => 'decorative',
@@ -1821,8 +1839,13 @@ final class SettingsPageTest extends TestCase {
 			)
 		);
 
+		// Keyed by the DERIVED id, not by the `__new_1` the row was
+		// submitted under, on both sides.
 		$this->assertArrayHasKey( 'failing', $output['occasions'] );
+		$this->assertArrayNotHasKey( '__new_1', $output['occasions'] );
+		$this->assertSame( 'failing', $output['occasions']['failing']['id'] );
 		$this->assertArrayHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+		$this->assertArrayNotHasKey( 'occasion:__new_1', $output['aa_acknowledgements'] );
 		$this->assertSame( '#274a63', $output['aa_acknowledgements']['occasion:failing']['value'] );
 	}
 
@@ -1863,6 +1886,115 @@ final class SettingsPageTest extends TestCase {
 
 		$this->assertSame( array(), $output['occasions'] );
 		$this->assertArrayNotHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+	}
+
+	/**
+	 * The hazard the Occasions tab's hidden `__none__` marker row exists
+	 * for, pinned as its own test: an HTML form cannot post an array
+	 * field with ZERO entries, so an admin who removes every row and
+	 * saves sends a request with no `blueline_settings[occasions][...]`
+	 * key at all.
+	 *
+	 * This test submits exactly that shape -- `_tab => 'occasions'` with
+	 * `occasions` genuinely ABSENT from the input array (not `array()`,
+	 * which is a shape a browser can never produce) -- and asserts the
+	 * documented consequence: the per-key loop never reaches the
+	 * `occasions` branch, `$output['occasions']` is never set, and
+	 * blueline_settings_merge() therefore carries the OLD stored map
+	 * straight back. That is a silent no-op from the admin's point of
+	 * view, which is precisely why
+	 * blueline_settings_render_occasions_tab() renders a marker row that
+	 * cannot be removed -- see the next test for the shape that reaches
+	 * this callback once it is present.
+	 */
+	public function test_sanitize_callback_cannot_clear_occasions_when_the_key_is_absent_entirely(): void {
+		$stored = array(
+			'occasions' => array(
+				'canada-day' => array(
+					'id'     => 'canada-day',
+					'label'  => 'Canada Day',
+					'type'   => 'decorative',
+					'window' => array(
+						'start_md' => '07-01',
+						'end_md'   => '07-01',
+					),
+					'accent' => '',
+					'motif'  => 'maple-leaf',
+					'line'   => '',
+					'mode'   => 'auto',
+				),
+			),
+		);
+
+		update_option( BLUELINE_SETTINGS_OPTION, $stored );
+
+		$output = blueline_settings_sanitize_callback( array( '_tab' => 'occasions' ) );
+
+		$this->assertArrayNotHasKey( 'occasions', $output );
+
+		$merged = blueline_settings_merge( $output, $stored );
+
+		$this->assertSame( $stored['occasions'], $merged['occasions'] );
+	}
+
+	/**
+	 * The marker row's own shape, end to end: a submission carrying ONLY
+	 * `blueline_settings[occasions][__none__][label] = ''` (every real
+	 * row removed in the browser) must clear the stored map outright AND
+	 * take every `occasion:*` acknowledgement with it.
+	 *
+	 * The marker row itself never survives:
+	 * blueline_occasions_assign_unique_ids() drops any row whose label
+	 * yields an empty sanitize_title(), so it is gone before
+	 * blueline_sanitize_occasions() ever sees it -- the assertion below
+	 * is `array()`, not "a map containing __none__".
+	 */
+	public function test_sanitize_callback_clears_occasions_when_only_the_marker_row_is_submitted(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(
+					'failing' => array(
+						'id'     => 'failing',
+						'label'  => 'Failing',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '01-01',
+							'end_md'   => '12-31',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'force_on',
+					),
+				),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:failing', 'ink-on-occasion-accent', '#274a63', 1.66, blueline_settings_inputs_hash(), 1 ),
+			)
+		);
+
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(
+					// Exactly what the rendered marker field posts once
+					// every real row has been removed.
+					'__none__' => array( 'label' => '' ),
+				),
+			)
+		);
+
+		$this->assertSame( array(), $output['occasions'] );
+		$this->assertArrayNotHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+
+		// And the merge stage must not resurrect the old map either --
+		// `occasions` IS present in this submission's output, so
+		// blueline_settings_merge()'s carry-forward loop skips it.
+		$merged = blueline_settings_merge(
+			$output,
+			array( 'occasions' => array( 'failing' => array( 'id' => 'failing' ) ) )
+		);
+
+		$this->assertSame( array(), $merged['occasions'] );
 	}
 
 	/**

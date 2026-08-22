@@ -129,6 +129,41 @@ function updateRow( row, inkHex, threshold ) {
 let addCounter = 0;
 
 /**
+ * Rewrite one cloned template row's `name`, `id` and `for` attributes
+ * from the `__TEMPLATE__` placeholder to this row's own fresh key.
+ *
+ * All three matter, not just `name`. The server renders every field's
+ * `id` as `bl-occasion-{rowKey}-{field}` and points each caption's
+ * `<label for>` at it (blueline_settings_render_occasion_row(),
+ * inc/settings/page.php) -- so a clone that renamed only `[name]` would
+ * leave every added row sharing the template's ids, and every added
+ * row's caption pointing at the FIRST added row's input: clicking the
+ * second row's "Label" would focus the first row's field. Server-
+ * rendered rows were never affected (their row key is a real, unique
+ * occasion id); only JS-added ones.
+ *
+ * @param {Element} row    A cloned `[data-bl-occasion-row]` element.
+ * @param {string}  rowKey This row's fresh, unique placeholder key.
+ * @return {void}
+ */
+function blOccasionApplyRowKey( row, rowKey ) {
+	row.querySelectorAll( '[name]' ).forEach( ( field ) => {
+		field.name = field.name.replace( '__TEMPLATE__', rowKey );
+	} );
+
+	row.querySelectorAll( '[id]' ).forEach( ( field ) => {
+		field.id = field.id.replace( '__TEMPLATE__', rowKey );
+	} );
+
+	row.querySelectorAll( '[for]' ).forEach( ( label ) => {
+		label.setAttribute(
+			'for',
+			label.getAttribute( 'for' ).replace( '__TEMPLATE__', rowKey )
+		);
+	} );
+}
+
+/**
  * Append a new row, cloned from the server-rendered `<template>`,
  * filled from either a preset or a blank shape.
  *
@@ -159,9 +194,7 @@ function addRow( root, preset ) {
 
 	const row = template.content.firstElementChild.cloneNode( true );
 
-	row.querySelectorAll( '[name]' ).forEach( ( field ) => {
-		field.name = field.name.replace( '__TEMPLATE__', rowKey );
-	} );
+	blOccasionApplyRowKey( row, rowKey );
 
 	const setField = ( selector, value ) => {
 		const field = row.querySelector( selector );
@@ -293,5 +326,6 @@ if ( typeof module !== 'undefined' && module.exports ) {
 		blOccasionLuminance,
 		blOccasionContrastRatio,
 		blOccasionIsHex,
+		blOccasionApplyRowKey,
 	};
 }
