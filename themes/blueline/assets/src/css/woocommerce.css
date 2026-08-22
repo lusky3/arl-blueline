@@ -829,6 +829,25 @@ html body .woocommerce .woocommerce-invalid textarea {
 	gap: var(--bl-space-7);
 }
 
+/*
+ * WooCommerce core's own checkout CSS still ships `.col2-set .col-1,
+ * .col2-set .col-2 { width: 47%; float: left/right; }` for its classic
+ * float-based two-column layout -- this theme's grid above is meant to
+ * replace that, not run alongside it, but never reset the width/float it
+ * leaves behind. Inside a grid item, a percentage width resolves against
+ * the GRID TRACK, not the .col2-set container, so `.col-1`/`.col-2` end
+ * up at 47% of their own already-narrow 1fr track (roughly a quarter of
+ * the real available width) instead of filling it -- billing renders as
+ * a narrow column with a wide, empty gap beside it, and #order_review
+ * (design intent: the second grid column, beside billing) drops onto its
+ * own line below instead. Reset both so each column fills its grid cell.
+ */
+.woocommerce-checkout .col2-set .col-1,
+.woocommerce-checkout .col2-set .col-2 {
+	width: 100%;
+	float: none;
+}
+
 @media (min-width: 780px) {
 
 	.woocommerce-checkout .col2-set {
