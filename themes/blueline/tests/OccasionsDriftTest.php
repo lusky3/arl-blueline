@@ -42,6 +42,7 @@ final class OccasionsDriftTest extends TestCase {
 		blueline_test_reset_state();
 		blueline_occasions_drift_notice_payload( null );
 		unset( $GLOBALS['bl_test_doing_ajax'] );
+		unset( $GLOBALS['pagenow'] );
 	}
 
 	/**
@@ -52,6 +53,7 @@ final class OccasionsDriftTest extends TestCase {
 	 */
 	protected function tearDown(): void {
 		unset( $GLOBALS['bl_test_doing_ajax'] );
+		unset( $GLOBALS['pagenow'] );
 	}
 
 	/**
@@ -183,6 +185,58 @@ final class OccasionsDriftTest extends TestCase {
 			array( 'occasion:canada-day' => 'stale' ),
 			blueline_occasions_drift_notice_payload(),
 			'the very same drift must still be found on the next non-AJAX call'
+		);
+		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
+	}
+
+	/**
+	 * The same story again for `wp-admin/admin-post.php`: it fires
+	 * `admin_init` (this codebase's own inc/settings/cache.php already
+	 * routes its cache-purge-notice dismissal through an
+	 * `admin_post_{$action}` handler, so this is a live path) and then
+	 * redirects or exits from inside its own action -- never reaching
+	 * `admin_notices` -- so it must defer exactly like an AJAX request
+	 * does, and the deferred drift must still be found on the next real
+	 * page load.
+	 */
+	public function test_an_admin_post_request_defers_the_whole_check_to_the_next_page_load(): void {
+		$stored = array(
+			'_validated_against'  => 'a-stale-hash',
+			'occasions'           => array(
+				'canada-day' => array(
+					'id'     => 'canada-day',
+					'label'  => 'Canada Day',
+					'type'   => 'decorative',
+					'window' => array(
+						'start_md' => '07-01',
+						'end_md'   => '07-01',
+					),
+					'accent' => '#274a63',
+					'motif'  => 'none',
+					'line'   => '',
+					'mode'   => 'auto',
+				),
+			),
+			'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, 'a-different-stale-hash', 1 ),
+		);
+
+		update_option( BLUELINE_SETTINGS_OPTION, $stored );
+
+		$GLOBALS['pagenow'] = 'admin-post.php';
+
+		blueline_occasions_maybe_revalidate_on_drift();
+
+		$this->assertNull( blueline_occasions_drift_notice_payload(), 'an admin-post.php request must set no notice payload -- nothing would ever render it' );
+		$this->assertSame( 'a-stale-hash', blueline_validated_against(), 'an admin-post.php request must not advance _validated_against past a drift it cannot report' );
+
+		unset( $GLOBALS['pagenow'] );
+
+		blueline_occasions_maybe_revalidate_on_drift();
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'stale' ),
+			blueline_occasions_drift_notice_payload(),
+			'the very same drift must still be found on the next non-admin-post call'
 		);
 		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
 	}

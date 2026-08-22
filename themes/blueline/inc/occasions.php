@@ -406,6 +406,17 @@ function blueline_occasion_presets(): array {
  * task reads) is copied through untouched -- this function only ever
  * reads `_original_id`/`label` and writes `id`.
  *
+ * A stored slot whose owning row (the row in THIS batch carrying that
+ * `_original_id`) is itself renaming away from it is being vacated by
+ * this very save, so it must not count as "still occupied" against a
+ * different row that wants to move into it -- two rows trading ids
+ * (A's old slot to B, B's old slot to A) would otherwise each see the
+ * other's not-yet-vacated slot as a collision and both get bumped with
+ * an unnecessary `-2` suffix, silently shifting their AA-acknowledgement
+ * scopes (`occasion:{id}`) along with it. This is precomputed as one
+ * full pass over $submitted before the main assignment loop, so the
+ * result does not depend on which row happens to be processed first.
+ *
  * @param mixed                               $submitted Raw submitted rows, keyed by an opaque per-request row identifier.
  * @param array<string, array<string, mixed>> $stored    Currently stored `occasions` map, read BEFORE this save.
  * @return array<string, array<string, mixed>> The same rows, re-keyed by their final, unique, derived id.
@@ -413,6 +424,21 @@ function blueline_occasion_presets(): array {
 function blueline_occasions_assign_unique_ids( $submitted, array $stored ): array {
 	if ( ! is_array( $submitted ) ) {
 		return array();
+	}
+
+	$vacated = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$row_original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$row_base         = sanitize_title( is_string( $row['label'] ?? null ) ? $row['label'] : '' );
+
+		if ( '' !== $row_original_id && '' !== $row_base && $row_base !== $row_original_id ) {
+			$vacated[ $row_original_id ] = true;
+		}
 	}
 
 	$taken  = array();
@@ -439,7 +465,7 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
 
 		while (
 			isset( $taken[ $final_id ] )
-			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id )
+			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id && ! isset( $vacated[ $final_id ] ) )
 		) {
 			$final_id = $base . '-' . $suffix;
 			++$suffix;
@@ -765,24 +791,37 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 			continue;
 		}
 
-		if ( 'force_on' !== $mode ) {
-			$window = $occasion['window'] ?? array();
-			$start  = $window['start_md'] ?? '';
-			$end    = $window['end_md'] ?? '';
+		// Normalize the stored `window` shape for EVERY mode, including
+		// `force_on` -- `occasions` is a reserved settings key, not a schema
+		// field, so blueline_settings_repair()'s schema-field walk never
+		// revalidates it, and an out-of-band write (a hand-edited row, a
+		// restored dump, a migration script) is the only thing that can put
+		// a malformed `window` here. `force_on` skips the date check below,
+		// but the winning candidate's `window` still flows into
+		// blueline_occasion_compare()'s direct array reads, so a scalar
+		// (rather than array) `window` must never survive past this point
+		// for ANY mode, not only the ones that gate on it.
+		$window              = $occasion['window'] ?? array();
+		$window              = is_array( $window ) ? $window : array();
+		$start               = $window['start_md'] ?? '';
+		$end                 = $window['end_md'] ?? '';
+		$start               = is_string( $start ) ? $start : '';
+		$end                 = is_string( $end ) ? $end : '';
+		$occasion['window']  = array(
+			'start_md' => $start,
+			'end_md'   => $end,
+		);
 
+		if ( 'force_on' !== $mode ) {
 			// Validate both bounds before they reach the window comparison,
 			// exactly as blueline_occasion_next_boundary_timestamp() below
-			// does with the same stored data. `occasions` is a reserved
-			// settings key, not a schema field, so blueline_settings_repair()'s
-			// schema-field walk never revalidates it: an out-of-band write (a
-			// hand-edited row, a restored dump, a migration script) is the only
-			// thing that can put a malformed bound here, and nothing else will
-			// ever take it back out. Unvalidated, an empty `start_md` makes
-			// blueline_occasion_window_contains() take its non-wrapping branch
-			// and return true for EVERY possible $today_md -- permanently
-			// activating the occasion site-wide. Same reasoning as the
-			// blueline_sanitize_hex_color() pass over `accent` further down:
-			// validate defensively on read, skip rather than fatal.
+			// does with the same stored data. Unvalidated, an empty
+			// `start_md` makes blueline_occasion_window_contains() take its
+			// non-wrapping branch and return true for EVERY possible
+			// $today_md -- permanently activating the occasion site-wide.
+			// Same reasoning as the blueline_sanitize_hex_color() pass over
+			// `accent` further down: validate defensively on read, skip
+			// rather than fatal.
 			if ( ! blueline_occasion_valid_md( $start ) || ! blueline_occasion_valid_md( $end ) ) {
 				continue;
 			}
