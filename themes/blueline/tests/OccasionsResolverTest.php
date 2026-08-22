@@ -324,6 +324,36 @@ final class OccasionsResolverTest extends TestCase {
 	}
 
 	/**
+	 * Asserts a force_on occasion whose stored `window` was corrupted to a
+	 * non-array scalar by an out-of-band write (a hand-edited row, a
+	 * restored dump) still resolves cleanly instead of feeding the scalar
+	 * into blueline_occasion_compare()'s array reads unnormalized.
+	 * blueline_sanitize_occasions() would never write this shape itself --
+	 * see this file's own class docblock -- so the fixture bypasses it via
+	 * $GLOBALS['bl_test_options'] directly.
+	 */
+	public function test_resolver_force_on_survives_malformed_stored_window(): void {
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array(
+			'occasions' => array(
+				'canada-day' => $this->occasion(
+					array(
+						'id'     => 'canada-day',
+						'mode'   => 'force_on',
+						'window' => 'not-an-array',
+					)
+				),
+			),
+		);
+
+		$now = ( new DateTimeImmutable( '2026-03-15 12:00:00', wp_timezone() ) )->getTimestamp();
+
+		$resolved = blueline_resolve_active_occasion( $now );
+
+		$this->assertSame( 'canada-day', $resolved['id'] );
+		$this->assertSame( array( 'start_md' => '', 'end_md' => '' ), $resolved['window'] );
+	}
+
+	/**
 	 * Asserts force_off is never eligible, even during its own window.
 	 */
 	public function test_resolver_force_off_is_never_eligible(): void {
