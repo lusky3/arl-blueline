@@ -201,9 +201,10 @@ add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
  * acknowledgement coverage from scratch on every single request
  * regardless of whether this check has ever run at all (the fail-closed
  * guarantee, design spec §4.5, holds unconditionally already); this
- * check's ONLY job is *surfacing* drift to an admin via a notice and
- * (inc/settings/site-health.php) a Site Health field -- pure
- * diagnostics, with zero front-end/cron/REST/WP-CLI consumer.
+ * check's ONLY job is *surfacing* drift to an admin via a notice (and,
+ * planned but not yet built, a Site Health field in
+ * inc/settings/site-health.php) -- pure diagnostics, with zero
+ * front-end/cron/REST/WP-CLI consumer.
  * blueline_settings_inputs_hash() costs a real filesystem stat plus a
  * hash, unlike blueline_settings_migrate()'s O(1) integer-compare guard,
  * so paying that on every anonymous front-end request for a value
@@ -285,9 +286,10 @@ add_action( 'admin_notices', 'blueline_render_occasions_drift_notice' );
  * here).
  *
  * A `<section>`, never a `<div>` (tests/NoticeDivGuardTest.php) -- and
- * the first admin notice in this codebase naming a variable-length list
- * (design spec §6.5): a `<ul>` inside the `<section>`, one `<li>` per
- * non-valid acknowledgement, naming its occasion's label when resolvable
+ * the first `admin_notices`-hooked notice in this codebase naming a
+ * variable-length list (design spec §6.5): a `<ul>` inside the
+ * `<section>`, one `<li>` per non-valid acknowledgement, naming its
+ * occasion's label when resolvable
  * (blueline_occasions_drift_notice_label()) and stating whether it is
  * orphaned (the occasion no longer exists) or stale (it still exists,
  * but no longer covers current reality).
