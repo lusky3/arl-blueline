@@ -406,6 +406,17 @@ function blueline_occasion_presets(): array {
  * task reads) is copied through untouched -- this function only ever
  * reads `_original_id`/`label` and writes `id`.
  *
+ * A stored slot whose owning row (the row in THIS batch carrying that
+ * `_original_id`) is itself renaming away from it is being vacated by
+ * this very save, so it must not count as "still occupied" against a
+ * different row that wants to move into it -- two rows trading ids
+ * (A's old slot to B, B's old slot to A) would otherwise each see the
+ * other's not-yet-vacated slot as a collision and both get bumped with
+ * an unnecessary `-2` suffix, silently shifting their AA-acknowledgement
+ * scopes (`occasion:{id}`) along with it. This is precomputed as one
+ * full pass over $submitted before the main assignment loop, so the
+ * result does not depend on which row happens to be processed first.
+ *
  * @param mixed                               $submitted Raw submitted rows, keyed by an opaque per-request row identifier.
  * @param array<string, array<string, mixed>> $stored    Currently stored `occasions` map, read BEFORE this save.
  * @return array<string, array<string, mixed>> The same rows, re-keyed by their final, unique, derived id.
@@ -413,6 +424,21 @@ function blueline_occasion_presets(): array {
 function blueline_occasions_assign_unique_ids( $submitted, array $stored ): array {
 	if ( ! is_array( $submitted ) ) {
 		return array();
+	}
+
+	$vacated = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$row_original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$row_base         = sanitize_title( is_string( $row['label'] ?? null ) ? $row['label'] : '' );
+
+		if ( '' !== $row_original_id && '' !== $row_base && $row_base !== $row_original_id ) {
+			$vacated[ $row_original_id ] = true;
+		}
 	}
 
 	$taken  = array();
@@ -439,7 +465,7 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
 
 		while (
 			isset( $taken[ $final_id ] )
-			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id )
+			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id && ! isset( $vacated[ $final_id ] ) )
 		) {
 			$final_id = $base . '-' . $suffix;
 			++$suffix;
