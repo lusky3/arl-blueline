@@ -423,9 +423,9 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    submission's own `_tab` is literally `'occasions'` (design spec
  *    §5.1's second ruling): that tab's own rendered form posts
  *    `blueline_settings[occasions]` as one opaque map value, never through
- *    `_posted_fields` per-field carry-forward. `_schema` and
- *    `aa_acknowledgements` keep the absolute drop-on-any-tab rule
- *    unchanged.
+ *    `_posted_fields` per-field carry-forward. `_schema`,
+ *    `aa_acknowledgements`, and `_validated_against` keep the absolute
+ *    drop-on-any-tab rule unchanged.
  *
  * @param mixed $input Raw value from $_POST[BLUELINE_SETTINGS_OPTION], as
  *                      WordPress' sanitize_option_{$option} filter hands it
@@ -497,10 +497,10 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// `blueline_settings[occasions]` as one opaque map value,
 				// never through `_posted_fields` per-field carry-forward,
 				// since `occasions` is not a scalar schema field at all.
-				// `_schema` and `aa_acknowledgements` keep the absolute
-				// rule unchanged -- this exception names `occasions` AND
-				// `'occasions' === $submitted_tab` together, rather than
-				// loosening the rule for every reserved key.
+				// `_schema`, `aa_acknowledgements`, and `_validated_against`
+				// keep the absolute rule unchanged -- this exception names
+				// `occasions` AND `'occasions' === $submitted_tab` together,
+				// rather than loosening the rule for every reserved key.
 				continue;
 			}
 
