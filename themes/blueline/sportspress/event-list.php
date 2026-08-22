@@ -292,6 +292,21 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 					$status       = get_post_meta( $event->ID, 'sp_status', true ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- $status is this loop's own per-event value (mirrors the stock event-list.php this overrides), not a WordPress global.
 					$main_results = apply_filters( 'sportspress_event_list_main_results', sp_get_main_results( $event ), $event->ID );
 
+					/*
+					 * Finding 5 (live review): a past game with no result
+					 * entered yet rendered the exact same blank em dash as a
+					 * genuinely future game -- "TBD" and "already played,
+					 * waiting on data entry" read identically. Reuses
+					 * blueline_sp_event_state() (inc/sportspress.php,
+					 * unit-tested in tests/EventStateTest.php), the same
+					 * clock-vs-results decision blueline_sp_event_hero()
+					 * already uses for the single-event page, so this table
+					 * and that page can never disagree about the same event.
+					 */
+					$bl_event_state = ( function_exists( 'blueline_sp_event_state' ) && function_exists( 'blueline_sp_event_start_timestamp' ) )
+						? blueline_sp_event_state( ! empty( $main_results ), blueline_sp_event_start_timestamp( $event->ID ) )
+						: ( ! empty( $main_results ) ? 'final' : 'preview' );
+
 					if ( $bl_reverse_teams ) {
 						$main_results = array_reverse( $main_results, true );
 					}
@@ -352,6 +367,9 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 							<td class="data-time <?php echo esc_attr( $status ); ?>" data-label="<?php esc_attr_e( 'Result', 'blueline' ); ?>">
 								<?php if ( ! empty( $main_results ) ) : ?>
 									<?php echo wp_kses_post( implode( ' - ', $main_results ) ); ?>
+								<?php elseif ( 'pending' === $bl_event_state ) : ?>
+									<?php // Played (by the clock) but no result on file yet -- never a plain, future-looking dash. ?>
+									<span class="bl-sp-schedule__pending"><?php esc_html_e( 'Final score coming soon', 'blueline' ); ?></span>
 								<?php else : ?>
 									&#8212;
 								<?php endif; ?>

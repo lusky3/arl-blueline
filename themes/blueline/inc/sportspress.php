@@ -187,6 +187,150 @@ function blueline_sp_body_class( $classes ) {
 	return $classes;
 }
 
+add_filter( 'wp_nav_menu_objects', 'blueline_sp_primary_nav_current_item', 10, 2 );
+/**
+ * Live-review finding: on any SportsPress singular view (a team, player, or
+ * staff page) or a schedule-related event page, EVERY top-level primary-menu
+ * item renders identically -- no "you are here" at all, on either the
+ * desktop bar or the mobile drawer, even though both already have working
+ * CSS for it (see .bl-nav__link[aria-current="page"] in nav.css) and even
+ * though a ordinary Page (e.g. /schedule itself, or /news) highlights
+ * correctly on both.
+ *
+ * The gap is not the CSS -- it never fires. WordPress's own
+ * wp_nav_menu_objects "current item" detection (wp-includes'
+ * _wp_menu_item_classes_by_context()) only ever recognises a menu item as
+ * current by comparing the queried object against Pages/Posts/standard
+ * taxonomies it linked to; it has no notion that a singular sp_team page and
+ * the "Rosters / Stats" Page are related, or that a singular sp_event page
+ * and the "Schedule" Page are -- both pairs are structurally unrelated
+ * posts as far as WordPress's page hierarchy is concerned. Confirmed live:
+ * visiting /team/royals or a single /event/{id} page left every top-level
+ * item without 'current-menu-item'/'current_page_item' (Blueline_Nav_Walker
+ * only ever sets aria-current="page" from those two classes -- see its own
+ * start_el() docblock).
+ *
+ * This adds those two classes to the one top-level item that legitimately
+ * "owns" the current SportsPress view, resolved by
+ * blueline_sp_current_page_hub_url() -- so the same aria-current CSS that
+ * already works for ordinary Pages now also lights up for the SportsPress
+ * views nested under them. Scoped to the 'primary' location only: the
+ * 'utility' account menu (see blueline_utility_nav_auth_state()) has no
+ * SportsPress-adjacent items to mark.
+ *
+ * @param WP_Post[]|object[] $items Nav menu items resolved for this call.
+ * @param stdClass           $args  wp_nav_menu() args object.
+ * @return WP_Post[]|object[]
+ */
+function blueline_sp_primary_nav_current_item( $items, $args ) {
+	if ( empty( $args->theme_location ) || 'primary' !== $args->theme_location ) {
+		return $items;
+	}
+
+	$hub_url = blueline_sp_current_page_hub_url();
+
+	if ( '' === $hub_url ) {
+		return $items;
+	}
+
+	$hub_path = function_exists( 'blueline_utility_normalize_path' ) ? blueline_utility_normalize_path( $hub_url ) : '';
+
+	if ( '' === $hub_path ) {
+		return $items;
+	}
+
+	foreach ( $items as $item ) {
+		if ( empty( $item->url ) || blueline_utility_normalize_path( $item->url ) !== $hub_path ) {
+			continue;
+		}
+
+		$classes = empty( $item->classes ) ? array() : (array) $item->classes;
+
+		foreach ( array( 'current-menu-item', 'current_page_item' ) as $flag ) {
+			if ( ! in_array( $flag, $classes, true ) ) {
+				$classes[] = $flag;
+			}
+		}
+
+		$item->classes = $classes;
+	}
+
+	return $items;
+}
+
+/**
+ * The top-level primary-menu "hub" Page the CURRENT request belongs under,
+ * for the SportsPress singular views WordPress's own current-menu-item
+ * detection cannot place (see blueline_sp_primary_nav_current_item()) --
+ * '' on an ordinary page/post, where WordPress's own detection already
+ * works and this must stay out of the way.
+ *
+ * The sp_league/sp_season taxonomy archives are deliberately NOT handled here:
+ * this site's own "Standings"/"Playoffs" pages (confirmed live) are hand-
+ * built Pages embedding [league_table] shortcodes per division, not
+ * SportsPress's native taxonomy-archive template, so there is no such
+ * archive view actually reachable on this site to resolve a hub for.
+ *
+ * @return string Absolute hub URL, or '' if none applies.
+ */
+function blueline_sp_current_page_hub_url(): string {
+	if ( ! post_type_exists( 'sp_team' ) ) {
+		return '';
+	}
+
+	if ( is_singular( array( 'sp_team', 'sp_player', 'sp_staff' ) ) ) {
+		return blueline_sp_primary_nav_title_url( 'Rosters' );
+	}
+
+	if ( is_singular( 'sp_event' ) ) {
+		return function_exists( 'blueline_resolve_link' ) ? blueline_resolve_link( 'page_schedule' ) : '';
+	}
+
+	return '';
+}
+
+/**
+ * Resolves a top-level primary-menu item's URL by matching its title, for
+ * the one hub ("Rosters / Stats") the control panel's Links tab has no
+ * configured page for (unlike page_schedule/page_standings/page_register,
+ * inc/settings/defaults.php). Mirrors blueline_utility_nav_auth_state()'s
+ * own title-substring fallback (inc/template-tags.php) for the same reason:
+ * there is no other stable handle available. Matches the FIRST published,
+ * top-level (depth-0) 'primary' menu item whose title contains $needle,
+ * case-insensitively.
+ *
+ * @param string $needle Case-insensitive substring to match against each
+ *                        top-level item's stripped title (e.g. "Rosters").
+ * @return string Absolute URL, or '' if no primary menu, or no matching item.
+ */
+function blueline_sp_primary_nav_title_url( string $needle ): string {
+	$locations = get_nav_menu_locations();
+
+	if ( empty( $locations['primary'] ) ) {
+		return '';
+	}
+
+	$items = wp_get_nav_menu_items( $locations['primary'] );
+
+	if ( ! $items ) {
+		return '';
+	}
+
+	foreach ( $items as $item ) {
+		if ( ! empty( $item->menu_item_parent ) || empty( $item->url ) ) {
+			continue; // Top-level items only -- a submenu item cannot be a hub.
+		}
+
+		$title = wp_strip_all_tags( (string) $item->title );
+
+		if ( false !== stripos( $title, $needle ) ) {
+			return (string) $item->url;
+		}
+	}
+
+	return '';
+}
+
 add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
 add_filter( 'option_sportspress_league_menu_title', 'blueline_sp_blank_frontend_option' );
 add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_option' );
@@ -700,6 +844,189 @@ function blueline_sp_event_start_timestamp( $event_id ) {
 }
 
 /**
+ * Live-review finding: "The Next Puck Drop" countdown widget (SportsPress's
+ * own Countdown widget, sportspress/countdown.php below overrides its
+ * template) got permanently stuck on a game from over a week in the past
+ * whose result was never entered, showing 00 Days 00 Hrs 00 Mins 00 Secs
+ * forever instead of advancing to the real next dated game -- confirmed
+ * live on staging while real future games existed the same week. Whatever
+ * event the stock widget/template resolves (a pinned "Event" setting, a
+ * specific Calendar, or SportsPress's own "next" pick) can end up being a
+ * stale one; the template's own countdown math (date_diff() with $interval
+ * ->invert zeroed rather than checked) then silently renders zeros for any
+ * past date rather than refusing to.
+ *
+ * Whether a resolved event is "stale" -- pure, so the actual decision
+ * blueline_sp_countdown_event() below makes is directly unit testable
+ * without a WP_Post.
+ *
+ * @param string $post_date Event's post_date ('Y-m-d H:i:s', site-local),
+ *                           or '' for no event at all.
+ * @param int    $now_ts    Unix timestamp to evaluate "past" against.
+ * @return bool
+ */
+function blueline_sp_event_date_is_past( string $post_date, int $now_ts ): bool {
+	if ( '' === $post_date ) {
+		return false;
+	}
+
+	return strtotime( $post_date ) < $now_ts;
+}
+
+/**
+ * Pure decision: given the event the countdown widget/template's own
+ * resolution already picked (id/calendar/next -- see
+ * blueline_sp_event_date_is_past()'s docblock) and, separately, the nearest
+ * genuinely future-dated event this theme's own lookup found in the same
+ * scope (team/league/season), decide which one the countdown should
+ * actually show, and whether that is a live countdown or an
+ * already-played fallback with no clock to run.
+ *
+ * - The picked event is not stale (future, or none picked at all): use it
+ *   as-is: it is either already correct, or there is nothing to show.
+ * - The picked event IS stale, and a real future event was found in scope:
+ *   switch to that one -- never show a stale pick when a better answer
+ *   exists.
+ * - The picked event is stale AND nothing future exists anywhere in scope:
+ *   the stale pick survives, but 'is_future' is false, which the template
+ *   (never this function) is responsible for rendering as "already played"
+ *   copy rather than a countdown claiming to be live.
+ *
+ * @param array{ID:int, post_date:string}|null $picked      Whatever the stock resolution chose, or null.
+ * @param array{ID:int, post_date:string}|null $next_future Nearest future-dated event in scope, or null.
+ * @param int                                  $now_ts      Unix timestamp to evaluate "past" against.
+ * @return array{event: array{ID:int, post_date:string}|null, is_future: bool}
+ */
+function blueline_sp_decide_countdown_event( ?array $picked, ?array $next_future, int $now_ts ): array {
+	$picked_is_past = null !== $picked && blueline_sp_event_date_is_past( $picked['post_date'] ?? '', $now_ts );
+
+	if ( ! $picked_is_past ) {
+		return array(
+			'event'     => $picked,
+			'is_future' => null !== $picked,
+		);
+	}
+
+	if ( null !== $next_future ) {
+		return array(
+			'event'     => $next_future,
+			'is_future' => true,
+		);
+	}
+
+	return array(
+		'event'     => $picked,
+		'is_future' => false,
+	);
+}
+
+/**
+ * The nearest sp_event, in the same team/league/season scope $scope_args
+ * narrows (same meta_query/tax_query shape SportsPress's own countdown.php
+ * template builds), whose date is still ahead of $now.
+ *
+ * Untested at this layer for the same reason blueline_season_state_data()'s
+ * own WP_Query calls are (see tests/SeasonStateOverrideTest.php's
+ * test_the_query_moment_is_built_from_the_injected_timestamp() docblock): a
+ * from-memory WP_Query/date_query stub is exactly how this project's
+ * option-lifecycle stubs previously shipped assumptions nobody could check
+ * against core's real behaviour. blueline_sp_decide_countdown_event() above
+ * carries the actual decision this exists to serve, and IS unit tested.
+ *
+ * @param array    $scope_args Extra meta_query/tax_query args narrowing the scope.
+ * @param int|null $now        Unix timestamp to evaluate against; null for the current time.
+ * @return array{ID:int, post_date:string}|null
+ */
+function blueline_sp_next_dated_event( array $scope_args = array(), $now = null ) {
+	if ( ! post_type_exists( 'sp_event' ) || ! function_exists( 'blueline_season_state_moment' ) ) {
+		return null;
+	}
+
+	list( $now_mysql, ) = blueline_season_state_moment( $now );
+
+	$query = new WP_Query(
+		array_merge(
+			$scope_args,
+			array(
+				'post_type'      => 'sp_event',
+				'posts_per_page' => 1,
+				'orderby'        => 'date',
+				'order'          => 'ASC',
+				'post_status'    => array( 'publish', 'future' ),
+				'no_found_rows'  => true,
+				'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded to a single posts_per_page=1 lookup, not an unbounded query.
+					array(
+						'column' => 'post_date',
+						'after'  => $now_mysql,
+					),
+				),
+			)
+		)
+	);
+
+	if ( empty( $query->posts ) ) {
+		return null;
+	}
+
+	$post = $query->posts[0];
+
+	return array(
+		'ID'        => (int) $post->ID,
+		'post_date' => (string) $post->post_date,
+	);
+}
+
+/**
+ * Pure decision: explanatory copy for a league table (sportspress/
+ * league-table.php) where no listed team has played any games yet, or ''
+ * when at least one has -- or when there is simply no way to tell.
+ *
+ * Live-review finding: a division whose season/playoff round hasn't
+ * started yet rendered every team at position 0 with a 0-0-0-0 record and
+ * NO explanatory text at all -- confirmed live on "Division 5 | Playoffs
+ * S2026" -- reading as a broken table rather than "nothing has happened
+ * here yet."
+ *
+ * Kept free of SportsPress/WordPress calls -- the caller alone knows its
+ * own table's column shape (whether it has a 'gp' column, or must fall
+ * back to W/L/T/OT) and extracts the flat list of per-team figures this
+ * function only ever compares to zero -- so the actual "is this table
+ * empty" decision is directly unit testable without a real
+ * SP_League_Table.
+ *
+ * @param bool  $has_progress_signal Whether the caller found ANY column
+ *                                    (gp, or at least one record component)
+ *                                    it could read a progress figure from
+ *                                    at all. False means "cannot tell",
+ *                                    which must never be treated the same
+ *                                    as "confirmed zero".
+ * @param array $progress_figures    Every listed team's own progress figure
+ *                                    (its 'gp' value, or each of its
+ *                                    W/L/T/OT record components) --
+ *                                    whichever the caller used to decide
+ *                                    $has_progress_signal.
+ * @param bool  $has_teams           Whether the table lists any teams at all.
+ * @param bool  $is_playoffs         Whether the table's own caption/title
+ *                                    names a playoff round.
+ * @return string
+ */
+function blueline_sp_zero_games_note( bool $has_progress_signal, array $progress_figures, bool $has_teams, bool $is_playoffs ): string {
+	if ( ! $has_teams || ! $has_progress_signal ) {
+		return '';
+	}
+
+	foreach ( $progress_figures as $figure ) {
+		if ( (int) $figure > 0 ) {
+			return '';
+		}
+	}
+
+	return $is_playoffs
+		? __( 'Playoffs have not started yet.', 'blueline' )
+		: __( 'No games have been played yet this season.', 'blueline' );
+}
+
+/**
  * The effective display state of an sp_event, independent of whether a
  * score has been entered.
  *
@@ -1159,6 +1486,80 @@ function blueline_sp_player_hero( $player_id ) {
 }
 
 /**
+ * Pure decision: which division name(s) blueline_sp_team_hero() should
+ * render, given the CURRENT season's division name
+ * blueline_player_division_name() resolved (inc/account/player-data.php;
+ * '' if none) for this team.
+ *
+ * Always prefers that season-scoped single answer over the team's own raw,
+ * unscoped sp_league terms -- an empty season-scoped answer is honest ("no
+ * current-season assignment yet"), never a reason to fall back to whatever
+ * historical tags the team happens to carry. Kept as its own pure function,
+ * separate from the WordPress-touching wrapper below, so this policy
+ * decision is directly unit testable.
+ *
+ * @param string $current_season_division blueline_player_division_name()'s result, or ''.
+ * @return string[]
+ */
+function blueline_sp_team_hero_decide_division_names( string $current_season_division ): array {
+	return '' !== $current_season_division ? array( $current_season_division ) : array();
+}
+
+/**
+ * Division name(s) blueline_sp_team_hero() should show for $team_id -- the
+ * CURRENT season's division only, resolved through
+ * blueline_player_division_name() (inc/account/player-data.php), never the
+ * team's own raw sp_league terms directly.
+ *
+ * Live-review finding: team pages showed 5-7 stale/historical division
+ * tags, most not matching any of the site's five actually-current
+ * divisions -- this used to render EVERY sp_league term ever attached to
+ * the team, comma-joined, with no "current" filter at all.
+ * blueline_player_division_name()'s own docblock already documents exactly
+ * this: "an earlier version of this function picked the team's own HIGHEST
+ * term_id sp_league term... [that] claim was wrong: blueline_sp_team_hero()
+ * renders EVERY sp_league term... so the two pages could disagree about the
+ * same team's division," and "confirmed live: team 14955 alone carries 7
+ * different Division terms spanning several seasons." This reuses that
+ * function's season-scoped resolution (via the team's current-season
+ * sp_table -- see blueline_team_current_table_id()) instead of inventing a
+ * second way to determine "current," per that same docblock's own
+ * direction, keeping this page and the My Account dashboard's division
+ * line in agreement.
+ *
+ * Falls back to the team's own raw sp_league terms only when
+ * inc/account/player-data.php's resolver isn't loaded at all (defensive --
+ * every real request loads it, per functions.php's require order) rather
+ * than when it resolves to "no current season," which is a real, honest
+ * answer this function must not paper over.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return string[]
+ */
+function blueline_sp_team_hero_division_names( int $team_id ): array {
+	if ( function_exists( 'blueline_player_division_name' ) ) {
+		return blueline_sp_team_hero_decide_division_names( blueline_player_division_name( $team_id ) );
+	}
+
+	if ( ! taxonomy_exists( 'sp_league' ) ) {
+		return array();
+	}
+
+	$terms = wp_get_post_terms( $team_id, 'sp_league' );
+
+	if ( is_wp_error( $terms ) ) {
+		return array();
+	}
+
+	$names = array();
+	foreach ( $terms as $term ) {
+		$names[] = $term->name;
+	}
+
+	return $names;
+}
+
+/**
  * The team masthead: crest, division(s). Record is deliberately not
  * recomputed here: SportsPress's own standings table (auto-rendered by
  * the_content() below, via team-tables.php) already highlights this team's
@@ -1178,15 +1579,7 @@ function blueline_sp_player_hero( $player_id ) {
  * @param int $team_id sp_team post ID.
  */
 function blueline_sp_team_hero( $team_id ) {
-	$division_names = array();
-	if ( taxonomy_exists( 'sp_league' ) ) {
-		$league_terms = wp_get_post_terms( $team_id, 'sp_league' );
-		if ( ! is_wp_error( $league_terms ) ) {
-			foreach ( $league_terms as $term ) {
-				$division_names[] = $term->name;
-			}
-		}
-	}
+	$division_names = blueline_sp_team_hero_division_names( $team_id );
 
 	/*
 	 * The team's own colour, as scoped custom properties. Returns '' for a

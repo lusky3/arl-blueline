@@ -109,6 +109,43 @@ foreach ( $labels as $bl_key => $bl_label ) {
 }
 $bl_show_toggle = $bl_has_record && ! empty( $bl_extra_keys );
 
+/*
+ * Finding 7 (live review): a division whose season/playoff round hasn't
+ * started yet renders every team at position 0 with a 0-0-0-0 record and
+ * no explanatory text at all -- confirmed live on "Division 5 | Playoffs
+ * S2026" -- which reads as a broken table, not as "nothing has happened
+ * here yet." Detected from the same computed $data this template already
+ * renders (SP_League_Table::data(), not a second query): every listed
+ * team's games-played figure is zero. Prefers the table's own 'gp' column
+ * when present (the direct, unambiguous signal); falls back to every
+ * record component (W/L/T/OT) being zero for a league configured without a
+ * GP column at all. The actual decision is a pure function
+ * (blueline_sp_zero_games_note(), inc/sportspress.php, unit tested) so it
+ * is testable without a real SP_League_Table.
+ */
+$bl_has_progress_signal = isset( $labels['gp'] ) || ! empty( $bl_record_keys );
+$bl_progress_figures    = array();
+
+foreach ( $data as $bl_probe_row ) {
+	if ( isset( $labels['gp'] ) ) {
+		$bl_progress_figures[] = sp_array_value( $bl_probe_row, 'gp', 0 );
+		continue;
+	}
+
+	foreach ( $bl_record_keys as $bl_probe_key ) {
+		$bl_progress_figures[] = sp_array_value( $bl_probe_row, $bl_probe_key, 0 );
+	}
+}
+
+$bl_zero_games_note = function_exists( 'blueline_sp_zero_games_note' )
+	? blueline_sp_zero_games_note(
+		$bl_has_progress_signal,
+		$bl_progress_figures,
+		! empty( $data ),
+		(bool) $title && false !== stripos( (string) $title, 'playoff' )
+	)
+	: '';
+
 $output  = '<th class="data-rank">' . esc_attr__( 'Pos', 'sportspress' ) . '</th>';
 $output .= '<th class="data-name">' . esc_html( $labels['name'] ) . '</th>';
 
@@ -233,6 +270,9 @@ $output .= '</tbody>';
 		$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
 		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
+	<?php endif; ?>
+	<?php if ( $bl_zero_games_note ) : ?>
+		<p class="bl-sp-table-empty-note"><?php echo esc_html( $bl_zero_games_note ); ?></p>
 	<?php endif; ?>
 	<?php if ( $bl_show_toggle ) : ?>
 		<?php
