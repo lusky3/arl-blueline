@@ -1,7 +1,7 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1). This file is named for what it does (the `settings` WP-CLI command group), not for Blueline_Settings_Command, matching this theme's established file-naming convention (inc/settings/page.php defines no class at all; every other inc/ file is named for its subject, never for a single class it happens to declare).
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed -- the three helpers below (blueline_settings_cli_validate_payload(), blueline_settings_cli_diff_lines(), blueline_settings_cli_flush_page_cache()) are the CLI-SHAPED remainder of this command's logic: everything a second, non-CLI caller also needs has already moved to inc/settings/import.php, and what is left produces CLI output or exists only so a test can reach a branch a constant would otherwise pin. Splitting these three into a fourth file would scatter one command across two files for no reader's benefit, the same trade-off tests/SettingsCacheTest.php's own docblock makes for its Redis fakes. (They are exercised through the subcommands that call them, in tests/SettingsCliCommandTest.php and tests/SettingsCliFlushCacheTest.php -- except blueline_settings_cli_flush_page_cache(), which the latter also calls directly; an earlier version of this line claimed direct unit tests for helpers no test named at all.)
 /**
- * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data`
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data|occasions`
  * -- WP-CLI access to the same one option (BLUELINE_SETTINGS_OPTION) the
  * Appearance -> Blueline panel reads and writes.
  *
@@ -187,7 +187,7 @@ function blueline_settings_cli_flush_page_cache( bool $purge_enabled ): bool {
 }
 
 /**
- * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data`.
+ * `wp blueline settings export|import|validate|repair|reset|flush-cache|delete-all-data|occasions`.
  */
 class Blueline_Settings_Command extends WP_CLI_Command {
 
@@ -724,6 +724,174 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		);
 
 		WP_CLI::error( __( 'Nothing was purged. Run the command above on the server.', 'blueline' ) );
+	}
+
+	/**
+	 * `wp blueline settings occasions list|enable <id>|disable <id>|force <id>`
+	 * -- the original spec's §6.9 command list's `occasions` entry, ruled
+	 * on by design spec §6.5: one subcommand taking an action positional
+	 * argument, not four separately-registered subcommands, matching how
+	 * the spec itself names it as a single command with four listed
+	 * behaviors.
+	 *
+	 * Verb-to-mode mapping (design spec §6.5, the three
+	 * blueline_occasion_modes() values with no fourth invented): `enable`
+	 * -> `auto` (let it run on its own calendar window -- the "normal"
+	 * state), `disable` -> `force_off` (never eligible, regardless of
+	 * window), `force` -> `force_on` (always eligible, "preview it now" --
+	 * the same phrase blueline_occasion_modes()'s own docblock already
+	 * uses for `force_on`).
+	 *
+	 * `enable`/`disable`/`force` on an <id> present in
+	 * blueline_occasion_presets() but absent from the currently STORED
+	 * `occasions` map copies that preset in first (with the requested mode
+	 * applied) -- the CLI equivalent of the panel's "add from preset"
+	 * affordance (2.1b); refusing to would make the CLI strictly less
+	 * capable than the panel already is, for no stated reason. An <id>
+	 * matching neither a stored occasion nor a preset is a WP_CLI::error(),
+	 * matching every other subcommand's not-found handling convention in
+	 * this file.
+	 *
+	 * `list` requires no capability at all -- read-only, matching
+	 * `export`'s own precedent above (and validated BEFORE any capability
+	 * check, since rejecting an unrecognised action needs no authorization
+	 * decision at all). `enable`/`disable`/`force` require
+	 * `manage_options`, matching every mutating subcommand in this file,
+	 * since each one writes to the live settings option.
+	 *
+	 * The actual write goes through the same
+	 * `update_option( BLUELINE_SETTINGS_OPTION, ... )` ->
+	 * `sanitize_option_{$option}` path every other subcommand in this file
+	 * uses: `_tab` is never set on this write, so
+	 * blueline_settings_sanitize_callback()'s `occasions` branch takes its
+	 * pre-existing "programmatic write" path (blueline_sanitize_occasions()
+	 * directly, no id derivation) -- unchanged 2.1a behaviour, since this
+	 * command always supplies an already-correctly-keyed id itself.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <action>
+	 * : One of "list", "enable", "disable", "force".
+	 *
+	 * [<id>]
+	 * : The occasion id. Required for enable/disable/force; ignored for list.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp blueline settings occasions list
+	 *     wp blueline settings occasions enable canada-day
+	 *     wp blueline settings occasions disable canada-day
+	 *     wp blueline settings occasions force christmas --user=admin
+	 *
+	 * @param array<int, string>    $args       Positional arguments: [ $action, $id? ].
+	 * @param array<string, string> $assoc_args Associative arguments (unused).
+	 * @return void
+	 */
+	public function occasions( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes no associative argument.
+		$action = (string) ( $args[0] ?? '' );
+
+		if ( 'list' === $action ) {
+			$this->occasions_list();
+			return;
+		}
+
+		$mode_map = array(
+			'enable'  => 'auto',
+			'disable' => 'force_off',
+			'force'   => 'force_on',
+		);
+
+		if ( ! isset( $mode_map[ $action ] ) ) {
+			WP_CLI::error( sprintf( '"%s" is not a recognised action. Use list, enable, disable, or force.', $action ) );
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+			return;
+		}
+
+		$id = (string) ( $args[1] ?? '' );
+
+		if ( '' === $id ) {
+			WP_CLI::error( 'An occasion id is required for this action.' );
+			return;
+		}
+
+		$stored = blueline_settings( 'occasions' );
+		$stored = is_array( $stored ) ? $stored : array();
+
+		if ( isset( $stored[ $id ] ) && is_array( $stored[ $id ] ) ) {
+			$occasion = $stored[ $id ];
+		} else {
+			$presets = blueline_occasion_presets();
+
+			if ( ! isset( $presets[ $id ] ) ) {
+				WP_CLI::error( sprintf( '"%s" is not a stored occasion or a known preset. Run "wp blueline settings occasions list" to see both.', $id ) );
+				return;
+			}
+
+			// The CLI equivalent of the panel's "add from preset"
+			// affordance -- materialize the preset into the real stored
+			// map on first use.
+			$occasion = $presets[ $id ];
+		}
+
+		$occasion['mode'] = $mode_map[ $action ];
+		$stored[ $id ]    = $occasion;
+
+		$current_option              = get_option( BLUELINE_SETTINGS_OPTION, array() );
+		$current_option              = is_array( $current_option ) ? $current_option : array();
+		$current_option['occasions'] = $stored;
+
+		update_option( BLUELINE_SETTINGS_OPTION, $current_option );
+
+		WP_CLI::success( sprintf( '"%s" is now %s.', $id, $mode_map[ $action ] ) );
+	}
+
+	/**
+	 * `occasions list`'s body: every currently stored occasion, then every
+	 * preset (blueline_occasion_presets()) not already materialized into
+	 * the stored map -- id/label/type/mode for each.
+	 *
+	 * @return void
+	 */
+	private function occasions_list(): void {
+		$stored = blueline_settings( 'occasions' );
+		$stored = is_array( $stored ) ? $stored : array();
+
+		if ( array() === $stored ) {
+			WP_CLI::log( __( 'No occasions are stored yet.', 'blueline' ) );
+		} else {
+			WP_CLI::log( __( 'Stored occasions:', 'blueline' ) );
+			foreach ( $stored as $id => $occasion ) {
+				WP_CLI::log(
+					sprintf(
+						'  %s  label=%s  type=%s  mode=%s',
+						str_pad( (string) $id, 20 ),
+						(string) ( $occasion['label'] ?? '' ),
+						(string) ( $occasion['type'] ?? '' ),
+						(string) ( $occasion['mode'] ?? '' )
+					)
+				);
+			}
+		}
+
+		$unmaterialized = array_diff_key( blueline_occasion_presets(), $stored );
+
+		if ( array() !== $unmaterialized ) {
+			WP_CLI::log( '' );
+			WP_CLI::log( __( 'Presets not yet stored (enable/disable/force materializes one):', 'blueline' ) );
+			foreach ( $unmaterialized as $id => $preset ) {
+				WP_CLI::log(
+					sprintf(
+						'  %s  label=%s',
+						str_pad( (string) $id, 20 ),
+						(string) ( $preset['label'] ?? '' )
+					)
+				);
+			}
+		}
 	}
 }
 

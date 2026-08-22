@@ -88,6 +88,18 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
  *   database write in that case is core's business and is not relied on
  *   here: if it writes anyway, all this check has skipped is a snapshot of
  *   a state identical to the one already stored.)
+ * - A write that differs from what is stored ONLY in bookkeeping keys
+ *   (blueline_settings_diff_is_bookkeeping_only(), inc/settings/store.php).
+ *   This is the same "nothing to undo" judgement as the exact-equality
+ *   check above, applied to the one case exact equality cannot see:
+ *   inc/settings/validation.php's deploy-drift check writes
+ *   `_validated_against` back on every deploy touching style.css or
+ *   contrast-rules.json, and a `_validated_against`-only diff is never
+ *   `===` to the stored array. Restoring such a snapshot would put back a
+ *   state no admin ever chose and that differs from the current one in
+ *   nothing they can see -- while its arrival on the ring evicts one that
+ *   does. A change to any NON-bookkeeping key still snapshots, even when
+ *   it happens to carry a `_validated_against` update alongside it.
  *
  * @param mixed $new_value The merged value about to be written.
  * @param mixed $old_value The value currently stored.
@@ -100,6 +112,10 @@ function blueline_settings_snapshot_on_save( $new_value, $old_value ) {
 
 	if ( $new_value === $old_value ) {
 		return $new_value; // Nothing changes; nothing to undo.
+	}
+
+	if ( is_array( $new_value ) && blueline_settings_diff_is_bookkeeping_only( $old_value, $new_value ) ) {
+		return $new_value; // Bookkeeping only; nothing an admin would undo.
 	}
 
 	blueline_settings_snapshot_take( $old_value );

@@ -13,6 +13,7 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/occasions.php'; // blueline_sanitize_occasions(), which page.php's sanitize callback dispatches to for the `occasions` reserved key.
 require_once __DIR__ . '/../inc/settings/page.php';
 require_once __DIR__ . '/../inc/settings/snapshots.php';
 
@@ -243,6 +244,102 @@ final class SettingsSnapshotsTest extends TestCase {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The League' ) );
 
 		$this->assertSame( $settled, blueline_settings_snapshot_list() );
+	}
+
+	/**
+	 * A settings state that has settled: two writes of the same value, the
+	 * second of which strips the first-write `_posted_fields`/`_tab` quirk
+	 * test_a_save_that_changes_nothing_records_no_snapshot() documents, so
+	 * the store is genuinely at rest and any snapshot taken after this
+	 * point is attributable to the write under test.
+	 *
+	 * @return array<int, array{id: int, time: int, settings: array<string, mixed>}> The history as it stands once settled.
+	 */
+	private function settle_the_store(): array {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The League' ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'The League' ) );
+
+		return blueline_settings_snapshot_list();
+	}
+
+	/**
+	 * One valid occasion, in the shape blueline_sanitize_occasions()
+	 * accepts -- a REAL, admin-meaningful state change, deliberately not a
+	 * bookkeeping key.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function one_occasion(): array {
+		return array(
+			'canada-day' => array(
+				'id'     => 'canada-day',
+				'label'  => 'Canada Day',
+				'type'   => 'decorative',
+				'window' => array(
+					'start_md' => '07-01',
+					'end_md'   => '07-01',
+				),
+				'accent' => '#274a63',
+				'motif'  => 'none',
+				'line'   => '',
+				'mode'   => 'auto',
+			),
+		);
+	}
+
+	/**
+	 * A write whose ONLY difference from the stored value is a bookkeeping
+	 * key must not burn a history slot either -- the case the `===` no-op
+	 * check above structurally cannot see, since a
+	 * `_validated_against`-only diff is never identical to the stored
+	 * array.
+	 *
+	 * This is not hypothetical: inc/settings/validation.php's deploy-drift
+	 * check writes `_validated_against` back on every deploy that touches
+	 * style.css or contrast-rules.json. At one per deploy, ten deploys --
+	 * plausibly one week of active theme work -- would evict an admin's
+	 * entire ten-deep undo history and replace it with snapshots of states
+	 * nobody chose and that differ from each other in nothing an admin can
+	 * see.
+	 *
+	 * The bookkeeping write itself must still HAPPEN; only the snapshot is
+	 * skipped.
+	 */
+	public function test_a_bookkeeping_only_save_records_no_snapshot(): void {
+		$settled = $this->settle_the_store();
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( '_validated_against' => 'a-fresh-inputs-hash' ) );
+
+		$stored = get_option( BLUELINE_SETTINGS_OPTION );
+
+		$this->assertSame( 'a-fresh-inputs-hash', $stored['_validated_against'], 'the bookkeeping value must still be written' );
+		$this->assertSame( $settled, blueline_settings_snapshot_list(), 'a bookkeeping-only write must not push a snapshot' );
+	}
+
+	/**
+	 * The discriminating half of the test above, and the one that would
+	 * catch a bookkeeping check written as "does `_validated_against`
+	 * differ" rather than "does EVERY differing key qualify": a genuine
+	 * `occasions` change carrying an incidental `_validated_against`
+	 * update alongside it is a real, undoable change and must still
+	 * snapshot -- the pre-change state, exactly as any other save does.
+	 */
+	public function test_a_real_change_alongside_a_bookkeeping_change_still_snapshots(): void {
+		$settled = $this->settle_the_store();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'          => $this->one_occasion(),
+				'_validated_against' => 'a-fresh-inputs-hash',
+			)
+		);
+
+		$snapshots = blueline_settings_snapshot_list();
+
+		$this->assertCount( count( $settled ) + 1, $snapshots, 'a real change must still push a snapshot, bookkeeping alongside it or not' );
+		$this->assertArrayNotHasKey( 'occasions', $snapshots[0]['settings'], 'the snapshot records the state being REPLACED -- before the occasion existed' );
+		$this->assertArrayHasKey( 'canada-day', get_option( BLUELINE_SETTINGS_OPTION )['occasions'], 'the real change must have been written' );
 	}
 
 	/**

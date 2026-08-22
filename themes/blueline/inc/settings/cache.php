@@ -101,14 +101,33 @@ add_action( 'add_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_flush_page_cache
  * "off" branches of the policy in the same process while this function
  * alone still reflects the real, deployed constant value.
  *
- * @param mixed  $old_value The value before this save (unused; the purge
- *                          decision does not depend on what changed).
- * @param mixed  $new_value The value just written (unused; see above).
+ * One save is deliberately NOT purged for: one whose only difference from
+ * the stored value is a bookkeeping key
+ * (blueline_settings_diff_is_bookkeeping_only(), inc/settings/store.php).
+ * Nothing any visitor can see derives from `_schema` or
+ * `_validated_against`, so no cached page can have gone stale because one
+ * of them moved -- and inc/settings/validation.php's deploy-drift check
+ * writes `_validated_against` back on every deploy that touches style.css
+ * or contrast-rules.json, which would otherwise raise the persistent
+ * "manual cache purge pending" notice on a wp-admin screen with nothing
+ * behind it that the admin did or could act on. This is the same judgement
+ * core already makes for a true no-op save (which never fires this hook at
+ * all), widened by exactly those two keys: a save that changes ANY other
+ * key still purges, including one carrying an incidental
+ * `_validated_against` update alongside a real change.
+ *
+ * @param mixed  $old_value The value before this save.
+ * @param mixed  $new_value The value just written.
  * @param string $option    The option name (unused; this callback is only
  *                          ever bound to one option).
  * @return void
  */
-function blueline_flush_page_cache( $old_value, $new_value, $option ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with the update_option_{$option} hook's 3-argument dispatch; the purge decision itself needs none of them.
+function blueline_flush_page_cache( $old_value, $new_value, $option ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with the update_option_{$option} hook's 3-argument dispatch; $option itself is never needed, this callback being bound to one option only.
+	if ( is_array( $old_value ) && is_array( $new_value )
+		&& blueline_settings_diff_is_bookkeeping_only( $old_value, $new_value ) ) {
+		return;
+	}
+
 	blueline_maybe_purge_page_cache();
 }
 

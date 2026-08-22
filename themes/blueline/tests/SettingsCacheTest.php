@@ -20,6 +20,9 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
+require_once __DIR__ . '/../inc/settings/store.php'; // blueline_settings_diff_is_bookkeeping_only(), which cache.php's update_option_{$option} callback consults, plus the cross-tab merge every real save runs through.
+require_once __DIR__ . '/../inc/occasions.php'; // blueline_sanitize_occasions(), which page.php's sanitize callback dispatches to for the `occasions` reserved key.
+require_once __DIR__ . '/../inc/settings/page.php'; // The sanitize_option_{$option} callback every real settings write passes through.
 require_once __DIR__ . '/../inc/settings/cache.php';
 
 /**
@@ -322,6 +325,89 @@ final class SettingsCacheTest extends TestCase {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'b@example.com' ) );
 
 		$this->assertTrue( blueline_cache_purge_needed(), 'a save that is not the option\'s first write must also record the manual-purge notice' );
+	}
+
+	/**
+	 * A save that changes NOTHING never reaches this file at all: core (and
+	 * tests/bootstrap.php's faithful stand-in for it) short-circuits an
+	 * identical write before `update_option_{$option}` is dispatched. Pinned
+	 * here rather than assumed, because it is the baseline the
+	 * bookkeeping-only case below widens: both must leave the notice
+	 * unraised, for two different reasons.
+	 */
+	public function test_a_save_that_changes_nothing_records_no_notice(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+		blueline_clear_cache_purge_needed();
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+
+		$this->assertFalse( blueline_cache_purge_needed(), 'a genuine no-op save must not raise the manual-purge notice' );
+	}
+
+	/**
+	 * A save whose only difference from the stored value is a bookkeeping
+	 * key must not raise the notice: nothing a visitor can see derives from
+	 * `_schema` or `_validated_against`, so no cached page can have gone
+	 * stale because one of them moved.
+	 *
+	 * The concrete case this exists for: inc/settings/validation.php's
+	 * deploy-drift check writes `_validated_against` back on every deploy
+	 * touching style.css or contrast-rules.json. Without this, an admin
+	 * would meet a persistent "the page cache is stale" notice on the next
+	 * wp-admin screen after any such deploy, attached to nothing they did
+	 * and nothing they can verify.
+	 */
+	public function test_a_bookkeeping_only_save_records_no_notice(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+		blueline_clear_cache_purge_needed();
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( '_validated_against' => 'a-fresh-inputs-hash' ) );
+
+		$stored = get_option( BLUELINE_SETTINGS_OPTION );
+
+		$this->assertSame( 'a-fresh-inputs-hash', $stored['_validated_against'], 'the bookkeeping value must still be written' );
+		$this->assertFalse( blueline_cache_purge_needed(), 'a bookkeeping-only write must not raise the manual-purge notice' );
+	}
+
+	/**
+	 * The discriminating half: a genuine `occasions` change -- which very
+	 * much CAN leave a cached page stale, since occasions drive rendered
+	 * accent colours and motifs -- still raises the notice even when an
+	 * incidental `_validated_against` update rides along in the same write.
+	 * The bookkeeping check must require that EVERY differing key is
+	 * bookkeeping, not merely that a bookkeeping key differs.
+	 */
+	public function test_a_real_change_alongside_a_bookkeeping_change_still_records_the_notice(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'contact_email' => 'a@example.com' ) );
+		blueline_clear_cache_purge_needed();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'          => array(
+					'canada-day' => array(
+						'id'     => 'canada-day',
+						'label'  => 'Canada Day',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '07-01',
+							'end_md'   => '07-01',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'auto',
+					),
+				),
+				'_validated_against' => 'a-fresh-inputs-hash',
+			)
+		);
+
+		$this->assertArrayHasKey( 'canada-day', get_option( BLUELINE_SETTINGS_OPTION )['occasions'], 'the real change must have been written' );
+		$this->assertTrue( blueline_cache_purge_needed(), 'a real change must still raise the manual-purge notice, bookkeeping alongside it or not' );
 	}
 
 	/**

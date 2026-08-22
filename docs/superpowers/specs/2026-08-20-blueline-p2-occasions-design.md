@@ -425,6 +425,126 @@ including ones currently invalidated by drift, marked as such.
 original spec's §6.9 command list (`export|import|validate|reset|
 flush-cache|occasions`; the first five already exist from P1).
 
+### 6.5 Phase 2.2 rulings
+
+Direct research against the current codebase surfaced six gaps none of
+§6.2-6.4's existing infrastructure answers outright. Ruled here so the plan
+can be written without reopening them per-task.
+
+**Ruling: `_validated_against` is a fifth reserved key, following the
+`_schema`/`aa_acknowledgements` shape, not the `occasions` shape.**
+`_schema` and `aa_acknowledgements` are both excluded from
+`blueline_settings_defaults()`'s return and validated by their own branch
+in `blueline_settings_sanitize_callback()`'s reserved-key dispatch — the
+established pattern for "internal bookkeeping the option carries but no
+ordinary reader ever needs back." `occasions` is the *exception* to that
+shape (it gets a real default because the front-end resolver needs
+`blueline_settings( 'occasions' )` to return something) and is not the
+template here: nothing reads `_validated_against` back through
+`blueline_settings()`. A separate option or transient was considered and
+rejected — it would need its own export/import/snapshot handling to travel
+with the rest of the settings option the way `_schema` already does
+(`inc/cli/settings-command.php`'s `export` already includes `_schema`
+verbatim), for no offsetting benefit; reusing the existing reserved-key
+machinery is zero new infrastructure, not a new one.
+
+**Ruling: exactly one new classification function is the sole source both
+the drift notice and Site Health read from — no duplicated logic.**
+`blueline_occasions_classify_acknowledgements(): array` (return: a map of
+`scope => 'valid' | 'orphaned' | 'stale'`) walks
+`blueline_stored_acknowledgements()`'s full map once. For each
+`occasion:{id}` scope: if `{id}` is absent from `blueline_settings(
+'occasions' )` entirely, classify `orphaned` (the occasion was deleted or
+renamed since the acknowledgement was recorded — report only, never
+delete: `blueline_remove_acknowledgement()`'s own docblock already
+establishes "a stale `inputs_hash` is NOT a valid reason to call this
+function," and drift discovery is not a stronger reason than staleness
+itself). Otherwise, resolve that occasion's current effective accent and
+check `blueline_acknowledgement_covers()` against it with the CURRENT
+`blueline_settings_inputs_hash()`; a `false` result classifies `stale`
+("newly-defaulted" in the spec's own words: on its next resolution this
+occasion silently falls through to `blueline_occasion_accent_default()`
+instead of the admin's acknowledged colour, or fails to activate at all if
+even the default now fails contrast — never a wrong render, per §4.5's
+fail-closed guarantee, but a silent *loss of the admin's override*,
+exactly the drift the spec's notice exists to surface). Team colours need
+no entry in this walk at all — §6.1 already established they self-report
+pass/fail live with no acknowledgement concept to go stale.
+
+**Ruling: the drift check hooks `admin_init`, not the literal global
+`init` the spec's prose names — same cheap-guard structure as
+`blueline_settings_migrate()`, scoped narrower on purpose.**
+`blueline_settings_migrate()`'s existing `init` hook is deliberately
+universal (its own docblock: `admin_init` "never fires for anonymous,
+cron, REST or WP-CLI traffic," and migration correctness must hold before
+*anything* reads the option) — but drift-revalidation's correctness need
+is different in kind: `blueline_resolve_active_occasion()` already
+recomputes contrast and acknowledgement coverage from scratch on every
+request regardless of whether this check has ever run (§4.5's fail-closed
+guarantee holds unconditionally already). This check's only job is
+*surfacing* drift to an admin via a notice and a Site Health field — pure
+diagnostics, with zero front-end/cron/REST/WP-CLI consumer. Computing
+`blueline_settings_inputs_hash()` costs real filesystem stats + a hash,
+unlike `blueline_settings_migrate()`'s O(1) integer compare guard, so
+paying it on every anonymous front-end request for a value nothing on the
+front end reads back would be pure waste. `admin_init` — not
+`update_option_`/`add_option_` (2.1a's own boundary-purge pattern) either,
+since this must catch drift from causes OTHER than a settings write (a
+deploy touching `style.css`'s mtime, an edited `contrast-rules.json`) —
+matches the spec's intent ("automatic, not cron-scheduled") while
+respecting the exact reason `blueline_settings_migrate()` chose `init`
+over `admin_init` (a reason that doesn't apply here).
+
+**Ruling: `_validated_against` updates immediately after classification,
+whether or not any entry classified `orphaned`/`stale` — the notice is a
+one-time surface, not a persistent nag.** On an `admin_init` request where
+the current hash differs from stored `_validated_against`: classify (per
+the ruling above), render the notice if the classification found anything
+non-`valid`, then update `_validated_against` to the current hash
+regardless. The next request's cheap hash-compare then short-circuits
+until the *next* real drift — matching how a one-time, actionable notice
+should behave, not a recurring one an admin has to dismiss every visit.
+
+**Ruling: the drift notice renders a `<ul>` inside its `<section
+class="notice ...">` — the first admin notice in this codebase naming a
+variable-length list, not the fixed one-or-two-slot `sprintf`/`printf`
+every existing notice uses.** No existing precedent conflicts with this;
+a `<ul>` of labeled items inside a `<section>` is still not a bare `<div>`
+and needs no new markup pattern beyond what the panel's own per-row
+AA-override notice already uses for its `<section>` wrapper.
+
+**Ruling: the Site Health "AA acknowledgements" field is one multi-line
+string value, one line per entry, "(needs re-review)" appended to any
+`stale`-classified line** — matching every existing field in
+`inc/settings/site-health.php`, all of which are plain strings; no field
+in that file has ever carried a nested array, and inventing that shape now
+for one field would be a bigger, riskier departure than formatting a list
+as delimited text the way WP core's own Site Health screen already
+expects a multi-line field value to look. An empty map renders as a
+single `'None recorded.'`-style line, matching how every other field's
+empty/off state in this file already reads as plain, unremarkable text
+rather than an absent field.
+
+**Ruling: `wp blueline settings occasions` is one subcommand taking an
+action positional argument (`list`, `enable <id>`, `disable <id>`, `force
+<id>`), not four separately-registered subcommands** — matching how the
+spec names it as a single command with four listed behaviors, not four
+command names. Verb-to-mode mapping (nowhere stated in either spec
+document, resolved here since three verbs must map onto exactly the three
+existing `blueline_occasion_modes()` values with no fourth invented):
+`enable` → `mode = 'auto'` (let it run on its own calendar window, the
+"normal" state), `disable` → `mode = 'force_off'` (never eligible,
+regardless of window), `force` → `mode = 'force_on'` (always eligible,
+"preview it now" — the same phrase 2.1a's own `blueline_occasion_modes()`
+docblock already uses for `force_on`). `enable`/`disable`/`force` on an
+`<id>` present in `blueline_occasion_presets()` but absent from the
+currently *stored* `occasions` map copies that preset in first (with the
+requested mode applied) — the CLI equivalent of the panel's "add from
+preset" affordance; refusing to would make the CLI strictly less capable
+than the panel already is for no stated reason. An `<id>` matching neither
+a stored occasion nor a preset is a `WP_CLI::error()`, matching every
+existing subcommand's not-found handling convention.
+
 ## 7. Testing
 
 Per the original spec's §10, applied per phase:

@@ -163,6 +163,88 @@ function blueline_settings_merge( $new_value, $old_value ) {
 }
 
 /**
+ * The reserved keys that carry PURE BOOKKEEPING -- state this theme writes
+ * about itself, never state an admin typed, chose, or would recognise as
+ * "their settings":
+ *
+ * - `_schema`            -- blueline_settings_migrate()'s forward-only
+ *                           schema-version marker.
+ * - `_validated_against` -- inc/settings/validation.php's deploy-drift
+ *                           inputs-hash marker.
+ *
+ * Deliberately NOT the whole of BLUELINE_SETTINGS_RESERVED_KEYS
+ * (inc/settings/page.php): `occasions` and `aa_acknowledgements` are also
+ * reserved (they are not form fields), but a change to either is a REAL,
+ * user-meaningful change -- an occasion added or retimed, an accessibility
+ * acknowledgement recorded -- exactly the kind of change an admin would
+ * want to be able to undo, and exactly the kind that can leave a cached
+ * page stale. Those two must never be treated as bookkeeping here.
+ */
+const BLUELINE_SETTINGS_BOOKKEEPING_KEYS = array( '_schema', '_validated_against' );
+
+/**
+ * Whether the only difference between two settings states is bookkeeping --
+ * i.e. EVERY key whose value differs (or that is present on one side only)
+ * is named in BLUELINE_SETTINGS_BOOKKEEPING_KEYS.
+ *
+ * ## Why this exists
+ *
+ * This theme hangs two side effects off the settings option's write
+ * pipeline, both of which assume a write means "an admin changed
+ * something":
+ *
+ * - inc/settings/snapshots.php pushes the pre-write state onto a ten-deep
+ *   undo ring.
+ * - inc/settings/cache.php marks a manual page-cache purge as needed and
+ *   surfaces a persistent wp-admin notice about it.
+ *
+ * Neither assumption survives a write that only advances a bookkeeping
+ * marker. inc/settings/validation.php's deploy-drift check writes
+ * `_validated_against` back on every deploy that touches style.css or
+ * contrast-rules.json; ten such deploys -- plausibly a week of active
+ * theme work -- would otherwise evict an admin's entire real undo history,
+ * and each one would raise a "the page cache is stale" notice connected to
+ * nothing the admin did (the drift check changes no rendered value: the
+ * resolver recomputes everything from scratch on every request regardless).
+ *
+ * Both callers already skip a TRUE no-op (`$new === $old`); this is the
+ * same judgement widened by exactly two keys, and no further. A genuine
+ * change to any other key -- including one that also happens to carry a
+ * `_validated_against` update alongside it -- still snapshots and still
+ * purges, which is why this asks whether EVERY differing key is
+ * bookkeeping rather than merely whether a bookkeeping key differs.
+ *
+ * Pure: no WordPress calls, no reads, no writes.
+ *
+ * @param array<string, mixed> $stored   The state currently stored.
+ * @param array<string, mixed> $incoming The state about to be written.
+ * @return bool True when the two states are identical apart from
+ *              bookkeeping keys (including when they are identical
+ *              outright), false as soon as any other key differs or is
+ *              present on only one side.
+ */
+function blueline_settings_diff_is_bookkeeping_only( array $stored, array $incoming ): bool {
+	// The union of both key sets: a key ADDED or REMOVED is a difference
+	// just as much as one whose value changed, and iterating only $stored
+	// would miss the former.
+	foreach ( array_keys( $stored + $incoming ) as $key ) {
+		if ( in_array( $key, BLUELINE_SETTINGS_BOOKKEEPING_KEYS, true ) ) {
+			continue;
+		}
+
+		if ( ! array_key_exists( $key, $stored ) || ! array_key_exists( $key, $incoming ) ) {
+			return false;
+		}
+
+		if ( $stored[ $key ] !== $incoming[ $key ] ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
  * The single read accessor for the settings panel's option.
  *
  * Every field the schema declares always has a value: any field absent from

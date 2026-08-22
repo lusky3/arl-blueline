@@ -33,6 +33,22 @@
  *   is switched on, and whether a manual purge is currently pending --
  *   the two facts that file's own docblock says are otherwise easy to lose
  *   track of on a volunteer-run site.
+ * - Which occasion is active right now, read from the SAME resolver the
+ *   front end uses (blueline_resolve_active_occasion(), inc/occasions.php)
+ *   -- so it can never disagree with what the site is actually showing.
+ *   "Why is the site suddenly wearing Canada Day colours?" (or refusing
+ *   to) is answerable from a support paste alone, without reconstructing
+ *   date windows, `mode` overrides and the fail-closed contrast guarantee
+ *   by hand.
+ * - Every live AA acknowledgement, each one marked when drift has
+ *   invalidated it ("needs re-review" for a stale entry, "occasion no
+ *   longer exists" for an orphaned one). These records are the only reason
+ *   the resolver lets a below-threshold accent render at all, so which
+ *   ones exist -- and which no longer reflect current reality -- is the
+ *   fact behind both "this occasion won't apply" and "this one applies
+ *   even though the contrast checker complains". The one-time drift notice
+ *   that reports the same thing is, by design, one-time; this field is the
+ *   backstop that is still there afterwards.
  *
  * @package blueline
  */
@@ -83,6 +99,17 @@ function blueline_site_health_debug_information( array $info ): array {
 		'manual_purge_pending'  => array(
 			'label' => __( 'Manual cache purge pending', 'blueline' ),
 			'value' => blueline_cache_purge_needed() ? __( 'Yes', 'blueline' ) : __( 'No', 'blueline' ),
+		),
+		'active_occasion'       => array(
+			'label' => __( 'Active occasion', 'blueline' ),
+			'value' => blueline_site_health_active_occasion_label(),
+		),
+		'aa_acknowledgements'   => array(
+			'label' => __( 'AA acknowledgements', 'blueline' ),
+			'value' => blueline_site_health_format_acknowledgements(
+				blueline_stored_acknowledgements(),
+				blueline_occasions_classify_acknowledgements()
+			),
 		),
 	);
 
@@ -164,4 +191,88 @@ function blueline_site_health_link_field( string $key, array $field, array $curr
 				$id
 			),
 	);
+}
+
+/**
+ * The currently-active occasion's own label, or "None" -- design spec
+ * §6.3/§6.9's Site Health requirement, reading the SAME resolver the
+ * front end uses (blueline_resolve_active_occasion(), inc/occasions.php,
+ * unchanged), so this can never disagree with what the site is actually
+ * showing right now.
+ *
+ * @return string
+ */
+function blueline_site_health_active_occasion_label(): string {
+	$active = blueline_resolve_active_occasion();
+
+	if ( null === $active ) {
+		return __( 'None', 'blueline' );
+	}
+
+	return (string) ( $active['label'] ?? $active['id'] ?? '' );
+}
+
+/**
+ * Format `aa_acknowledgements` as ONE multi-line string, one line per
+ * entry -- design spec §6.5's Site Health field-shape ruling: matching
+ * every OTHER field in this file, which are all plain strings; no field
+ * here has ever carried a nested array, and inventing that shape now for
+ * just this one field would be a bigger, riskier departure than
+ * formatting a list as delimited text, which is exactly how WordPress'
+ * own Site Health screen already expects a multi-line field value to
+ * look.
+ *
+ * Every `occasion:*`-scoped entry gets $classifications' own verdict
+ * appended: "(needs re-review)" for `stale` (the ruling's own exact
+ * wording), "(occasion no longer exists)" for `orphaned` -- an addition
+ * beyond the ruling's literal text, but a direct, non-contradicting
+ * application of design spec §6.3's own framing ("every live AA
+ * acknowledgement ... including ones currently invalidated by drift,
+ * marked as such"): an orphaned entry is exactly as invalidated as a
+ * stale one, just for a different reason (the occasion itself is gone,
+ * not merely a hash mismatch), and leaving it printed as an unremarkable,
+ * unmarked line would silently lose that distinction. A `valid` entry,
+ * or one outside the `occasion:` namespace entirely (not present in
+ * $classifications at all -- blueline_occasions_classify_acknowledgements()
+ * only ever classifies scopes it owns), gets no suffix.
+ *
+ * An empty map renders as a single 'None recorded.' line, matching how
+ * every other field's empty/off state in this file already reads as
+ * plain, unremarkable text rather than an absent field.
+ *
+ * @param array<string, array<string, mixed>> $acknowledgements blueline_stored_acknowledgements().
+ * @param array<string, string>               $classifications  blueline_occasions_classify_acknowledgements().
+ * @return string
+ */
+function blueline_site_health_format_acknowledgements( array $acknowledgements, array $classifications ): string {
+	if ( array() === $acknowledgements ) {
+		return __( 'None recorded.', 'blueline' );
+	}
+
+	$lines = array();
+
+	foreach ( $acknowledgements as $scope => $entry ) {
+		$suffix = '';
+
+		if ( isset( $classifications[ $scope ] ) ) {
+			if ( 'stale' === $classifications[ $scope ] ) {
+				$suffix = ' ' . __( '(needs re-review)', 'blueline' );
+			} elseif ( 'orphaned' === $classifications[ $scope ] ) {
+				$suffix = ' ' . __( '(occasion no longer exists)', 'blueline' );
+			}
+		}
+
+		$lines[] = sprintf(
+			/* translators: 1: acknowledgement scope, 2: contrast rule id, 3: contrast ratio (2 decimal places), 4: acknowledging user id, 5: acknowledgement date, 6: an optional "(needs re-review)"/"(occasion no longer exists)" suffix, or an empty string. */
+			__( '%1$s — rule "%2$s", ratio %3$s, user #%4$d, %5$s%6$s', 'blueline' ),
+			$scope,
+			(string) ( $entry['rule_id'] ?? '' ),
+			sprintf( '%.2f', (float) ( $entry['ratio'] ?? 0 ) ),
+			(int) ( $entry['user_id'] ?? 0 ),
+			gmdate( 'Y-m-d H:i:s', (int) ( $entry['date'] ?? 0 ) ),
+			$suffix
+		);
+	}
+
+	return implode( "\n", $lines );
 }
