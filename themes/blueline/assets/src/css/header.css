@@ -40,6 +40,53 @@
 	text-decoration: none;
 	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
+
+	/*
+	 * A11y finding: this link renders fixed at the viewport's top-left,
+	 * BEFORE the header (.bl-header, this file, further down) in DOM order
+	 * -- and .bl-header's own background is --bl-ink-deep, the exact same
+	 * colour as --bl-focus-color. Measured live: outline alone was
+	 * therefore invisible whenever the skip link sat over the header (i.e.
+	 * on first paint, every load), not merely low-contrast -- the ring and
+	 * the chrome behind it were the identical colour. The rest of the site
+	 * never hits this because base.css's global `:focus-visible` rule
+	 * always pairs that dark outline with this same white halo; this
+	 * link's own rule had drifted to outline-only. Matching the global
+	 * rule exactly (same box-shadow, same tokens) is what actually fixes
+	 * it, not a one-off colour choice.
+	 */
+	box-shadow: 0 0 0 calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px) var(--bl-focus-halo);
+}
+
+/*
+ * A11y finding: on a logged-in admin view, WordPress' own admin bar is
+ * fixed at top:0 (or top:0..46px depending on width -- see `.admin-bar
+ * .bl-header` above, whose breakpoints/values this mirrors exactly) with a
+ * z-index far above this link's own 100. The skip link's top offset above
+ * is a flat --bl-space-3 regardless, so on any admin-bar view it rendered
+ * (and received its very first Tab-stop paint) UNDERNEATH that bar instead
+ * of clear of it. Pushing the link down by the admin bar's own height, at
+ * each of the same three breakpoints .bl-header itself already adjusts
+ * for, keeps it fully visible instead of relying on out-ranking the bar's
+ * z-index -- which this link's own 100 cannot do against core's 99999
+ * anyway.
+ */
+.admin-bar .skip-link.screen-reader-text:focus {
+	top: calc(32px + var(--bl-space-3));
+}
+
+@media (max-width: 782.98px) {
+
+	.admin-bar .skip-link.screen-reader-text:focus {
+		top: calc(46px + var(--bl-space-3));
+	}
+}
+
+@media (max-width: 600.98px) {
+
+	.admin-bar .skip-link.screen-reader-text:focus {
+		top: var(--bl-space-3);
+	}
 }
 
 /*

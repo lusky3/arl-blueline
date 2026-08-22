@@ -230,6 +230,37 @@
 		if ( 'Escape' !== event.key ) {
 			return;
 		}
-		closeAllOpenSubmenus();
+		let focusedItem = null;
+
+		closeAllOpenSubmenus( function ( openItem ) {
+			if ( openItem.contains( openItem.ownerDocument.activeElement ) ) {
+				focusedItem = openItem;
+			}
+			return true;
+		} );
+
+		/*
+		 * A11y finding: closeAllOpenSubmenus() above only ever touches
+		 * data-open/aria-expanded -- the JS side of "is this submenu
+		 * open". On desktop the dropdown ALSO opens on its own via
+		 * nav.css's `:focus-within` rule, which keeps matching for as
+		 * long as focus remains anywhere inside `.bl-nav__item`,
+		 * independently of the data-open/aria-expanded state just
+		 * flipped. Confirmed live: without the focus move below, Escape
+		 * correctly announced aria-expanded="false" while the panel
+		 * stayed visibly open and un-Tab-able-out-of. Moving focus back
+		 * to the trigger both matches the WAI-ARIA disclosure pattern
+		 * and is the only thing that also satisfies :focus-within's own
+		 * close condition.
+		 */
+		if ( focusedItem ) {
+			const subButton = focusedItem.querySelector(
+				':scope > .bl-nav__toggle-sub'
+			);
+
+			if ( subButton ) {
+				subButton.focus();
+			}
+		}
 	} );
 } )();
