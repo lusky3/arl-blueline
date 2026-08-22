@@ -132,3 +132,209 @@ function blueline_validated_against(): string {
 
 	return is_string( $stored['_validated_against'] ?? null ) ? $stored['_validated_against'] : '';
 }
+
+/**
+ * Relay a request's drift classification (whatever
+ * blueline_occasions_maybe_revalidate_on_drift() found, filtered down to
+ * non-'valid' entries) from the `admin_init` hook that computes it to the
+ * `admin_notices` hook that renders it -- both fire within the SAME
+ * request (design spec §6.5's ruling that the notice is a one-time,
+ * same-request surface, never a persisted, recurring one), so a
+ * module-level static is all this needs -- the identical pattern
+ * blueline_settings_page_hook() (inc/settings/page.php) already uses for
+ * an unrelated same-request handoff.
+ *
+ * @param array<string, string>|null|false $classifications Omit (or pass
+ *                                                           `false`) to
+ *                                                           read without
+ *                                                           writing. Pass
+ *                                                           an array to
+ *                                                           set it, or
+ *                                                           `null` to
+ *                                                           explicitly
+ *                                                           clear it
+ *                                                           (used by
+ *                                                           tests to
+ *                                                           guarantee no
+ *                                                           leakage
+ *                                                           between
+ *                                                           cases -- this
+ *                                                           static is
+ *                                                           NOT one of
+ *                                                           the stores
+ *                                                           blueline_test_reset()
+ *                                                           already
+ *                                                           clears).
+ * @return array<string, string>|null
+ */
+function blueline_occasions_drift_notice_payload( $classifications = false ): ?array {
+	static $stored = null;
+
+	if ( false !== $classifications ) {
+		$stored = $classifications;
+	}
+
+	return $stored;
+}
+
+add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
+/**
+ * Deploy-drift revalidation (design spec §6.2, ruled on further in
+ * §6.5): if blueline_settings_inputs_hash() has changed since the last
+ * check (blueline_validated_against()), classify every stored
+ * acknowledgement (blueline_occasions_classify_acknowledgements()) and,
+ * if anything is no longer `valid`, hand that off to
+ * blueline_render_occasions_drift_notice() via
+ * blueline_occasions_drift_notice_payload() for THIS SAME request's
+ * `admin_notices` to render. Either way, `_validated_against` is updated
+ * to the current hash immediately -- design spec §6.5's ruling that this
+ * is a one-time notice, not a recurring nag. The next request's cheap
+ * hash-compare then short-circuits until the next real drift.
+ *
+ * Hooked to `admin_init`, deliberately narrower than the spec's own
+ * prose ("on init") and deliberately NOT following
+ * blueline_settings_migrate()'s choice of the universal `init` hook
+ * (design spec §6.5): that migration's correctness has to hold before
+ * ANYTHING reads the option, on every kind of request (anonymous, cron,
+ * REST, WP-CLI) -- this check's correctness need is different in kind.
+ * blueline_resolve_active_occasion() already recomputes contrast and
+ * acknowledgement coverage from scratch on every single request
+ * regardless of whether this check has ever run at all (the fail-closed
+ * guarantee, design spec §4.5, holds unconditionally already); this
+ * check's ONLY job is *surfacing* drift to an admin via a notice and
+ * (inc/settings/site-health.php) a Site Health field -- pure
+ * diagnostics, with zero front-end/cron/REST/WP-CLI consumer.
+ * blueline_settings_inputs_hash() costs a real filesystem stat plus a
+ * hash, unlike blueline_settings_migrate()'s O(1) integer-compare guard,
+ * so paying that on every anonymous front-end request for a value
+ * nothing on the front end ever reads back would be pure waste. Not
+ * `update_option_*`/`add_option_*` either (2.1a's own boundary-purge
+ * pattern), since this must ALSO catch drift from causes other than a
+ * settings write -- a deploy touching style.css's mtime, an edited
+ * contrast-rules.json -- which no options hook would ever fire for.
+ *
+ * @return void
+ */
+function blueline_occasions_maybe_revalidate_on_drift(): void {
+	$current_hash = blueline_settings_inputs_hash();
+
+	if ( blueline_validated_against() === $current_hash ) {
+		// Cheap guard: nothing this mechanism cares about has changed
+		// since the last check. Skip the more expensive classification
+		// walk entirely.
+		return;
+	}
+
+	$classifications = blueline_occasions_classify_acknowledgements();
+
+	$non_valid = array_filter(
+		$classifications,
+		static function ( $status ) {
+			return 'valid' !== $status;
+		}
+	);
+
+	if ( array() !== $non_valid ) {
+		blueline_occasions_drift_notice_payload( $non_valid );
+	}
+
+	// Updated unconditionally, regardless of what the classification
+	// found -- a one-time notice, not a recurring nag. The NEXT request's
+	// cheap hash-compare above then short-circuits until the next real
+	// drift.
+	$stored                       = get_option( BLUELINE_SETTINGS_OPTION, array() );
+	$stored                       = is_array( $stored ) ? $stored : array();
+	$stored['_validated_against'] = $current_hash;
+
+	update_option( BLUELINE_SETTINGS_OPTION, $stored );
+}
+
+/**
+ * A human-readable label for a drift-notice list item: the occasion's
+ * own `label` when the scope names one that still exists (a `stale`
+ * classification), or the raw scope string when it doesn't (an
+ * `orphaned` classification, or -- defensively -- any future scope shape
+ * this function does not specifically recognise).
+ *
+ * @param string                              $scope     A
+ *                                                        blueline_occasions_classify_acknowledgements()
+ *                                                        map key, e.g.
+ *                                                        `occasion:canada-day`.
+ * @param array<string, array<string, mixed>> $occasions blueline_settings( 'occasions' ).
+ * @return string
+ */
+function blueline_occasions_drift_notice_label( string $scope, array $occasions ): string {
+	if ( 0 !== strpos( $scope, 'occasion:' ) ) {
+		return $scope;
+	}
+
+	$id = substr( $scope, strlen( 'occasion:' ) );
+
+	return isset( $occasions[ $id ]['label'] ) && is_string( $occasions[ $id ]['label'] ) && '' !== $occasions[ $id ]['label']
+		? $occasions[ $id ]['label']
+		: $scope;
+}
+
+add_action( 'admin_notices', 'blueline_render_occasions_drift_notice' );
+/**
+ * Render the deploy-drift notice, IF
+ * blueline_occasions_maybe_revalidate_on_drift() found anything
+ * non-`valid` on THIS SAME request (see
+ * blueline_occasions_drift_notice_payload()'s own docblock for why a
+ * same-request static, not persisted storage, is what carries that
+ * here).
+ *
+ * A `<section>`, never a `<div>` (tests/NoticeDivGuardTest.php) -- and
+ * the first admin notice in this codebase naming a variable-length list
+ * (design spec §6.5): a `<ul>` inside the `<section>`, one `<li>` per
+ * non-valid acknowledgement, naming its occasion's label when resolvable
+ * (blueline_occasions_drift_notice_label()) and stating whether it is
+ * orphaned (the occasion no longer exists) or stale (it still exists,
+ * but no longer covers current reality).
+ *
+ * @return void
+ */
+function blueline_render_occasions_drift_notice(): void {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$classifications = blueline_occasions_drift_notice_payload();
+
+	if ( empty( $classifications ) ) {
+		return;
+	}
+
+	$occasions = blueline_settings( 'occasions' );
+	$occasions = is_array( $occasions ) ? $occasions : array();
+	?>
+	<section class="notice notice-warning">
+		<p>
+			<?php
+			esc_html_e(
+				'Blueline detected a change to style.css or contrast-rules.json since the last check. The following accessibility acknowledgements no longer reflect current reality:',
+				'blueline'
+			);
+			?>
+		</p>
+		<ul>
+			<?php foreach ( $classifications as $scope => $status ) : ?>
+				<li>
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: 1: the occasion's label (or its raw scope string, if it no longer exists), 2: why it needs attention. */
+							__( '%1$s — %2$s', 'blueline' ),
+							blueline_occasions_drift_notice_label( $scope, $occasions ),
+							'orphaned' === $status
+								? __( 'this occasion no longer exists; its acknowledgement is still on record but has nothing left to cover', 'blueline' )
+								: __( 'no longer matches its acknowledged value or the current contrast rules; it needs re-review', 'blueline' )
+						)
+					);
+					?>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	</section>
+	<?php
+}
