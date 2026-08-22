@@ -350,7 +350,13 @@ final class OccasionsResolverTest extends TestCase {
 		$resolved = blueline_resolve_active_occasion( $now );
 
 		$this->assertSame( 'canada-day', $resolved['id'] );
-		$this->assertSame( array( 'start_md' => '', 'end_md' => '' ), $resolved['window'] );
+		$this->assertSame(
+			array(
+				'start_md' => '',
+				'end_md'   => '',
+			),
+			$resolved['window']
+		);
 	}
 
 	/**
