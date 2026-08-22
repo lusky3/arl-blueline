@@ -595,3 +595,75 @@ defaults-vs-invariants once `--bl-occasion-accent` exists; `PRODUCT.md`'s
 concretely (§4.5, not just "behind Advanced"); the cutover checklist gains
 occasion scheduling and the srcache boundary-purge verification step; an
 in-panel first-run help pane for the new Occasions tab.
+
+### 9.1 Rulings
+
+Direct research against the current codebase surfaced five gaps in the
+above. Ruled here so the plan can be written without reopening them
+per-task.
+
+**Ruling: the Occasions tab's help pane is a permanent, non-dismissible
+`<details>`/`<summary>` disclosure — no new dismissal infrastructure.**
+No dismissible/first-run notice pattern exists anywhere in `inc/settings/*.php`
+today; the only analog in the theme (`inc/announcement.php`'s
+content-fingerprint + `localStorage` scheme) is front-end, per-browser, and
+architecturally unrelated to an admin-side "has this admin seen this"
+flag — reusing it, or inventing a WP-core-style `is-dismissible` +
+AJAX + user-meta flow (also never used in this theme), would be new
+infrastructure built for exactly one page. A native `<details>` element
+needs zero JS, zero new storage, and is inherently unobtrusive
+(collapsed by default, always available, never nags) — which fits "the
+audience is volunteers and there is otherwise no onboarding" better than
+either a notice that vanishes forever after one click or new
+per-admin-user dismissal state to build and maintain for a single help
+pane.
+
+**Ruling: the new help pane replaces, not supplements, the Occasions
+tab's existing one-sentence intro paragraph.** `blueline_settings_render_occasions_tab()`'s
+current `<p class="description">` already explains, briefly, what
+occasions do and when they activate — the new pane's own intro folds
+that sentence in rather than duplicating it as a second, overlapping
+explanation stacked above or below the disclosure.
+
+**Ruling: `DESIGN.md`'s restated table gains one new row for
+`--bl-occasion-accent` and one new pointer sentence — it is not expanded
+to enumerate all 31 rules in `tools/contrast-rules.json`.** The new
+row's Hex column reads as "resolves to `--bl-ice` (`#74C0E1`) by default;
+admin-settable per occasion" and its "On paper" column names the rule id
+(`ink-on-occasion-accent`, ≥4.5:1) plus the acknowledged-exception
+fallback (§4.5) — a fixed ratio number would misrepresent a value that is
+neither fixed nor unconditionally enforced. A new sentence, near the
+table, states plainly that `tools/contrast-rules.json` is the enforced
+contract (all 31 rules, including several — focus, border,
+success/warning/danger — this table has never listed) and that this
+table is a reference subset, not the contract itself. Restating the
+whole table as a full mirror of the JSON file would just create a second
+copy of the same information to keep in sync, which is the opposite of
+"point the contract at `tools/contrast-rules.json`."
+
+**Ruling: `PRODUCT.md`'s concrete mechanism-naming sentence goes in the
+"Accessibility requirements" section, not into principle #5's own
+one-line statement.** Principle #5 ("Accessibility is a floor, not a
+finish") is a punchy, absolute philosophy statement in a numbered list of
+five principles; lengthening it to carry an exception mechanism's
+mechanics would dilute the rhetorical point it exists to make. The
+"Accessibility requirements" section immediately below it is already
+procedural/mechanism-oriented (CI gate, keyboard traversal, focus
+visibility, skip link) — a natural, unforced place to add one factual
+sentence naming the acknowledgement mechanism (an admin-facing,
+explicitly-consented, logged exception — never a silent bypass) without
+touching principle #5's own wording at all.
+
+**Ruling: the cutover checklist gains exactly two new numbered items,
+sequenced after the existing item 6 (the general srcache purge) and
+before the existing item 8 (final smoke test).** (a) Verify
+`BLUELINE_SRCACHE_PURGE`'s shared-Redis-instance prerequisites — pointing
+at `DESIGN.md`'s own existing four manual verification steps — are
+confirmed BEFORE that flag is ever flipped to `true` in production,
+since item 6 as currently worded covers the mechanism's existence but not
+this precondition. (b) Verify the occasion's WP-Cron boundary-purge event
+(§4.5/§7.8) actually fires correctly against production specifically,
+since this is exactly the case the design spec's own risk #3 already
+flags as unverifiable on staging. The existing checklist's closing
+"Sequence matters" paragraph gets one added clause extending its
+purge-ordering guidance to cover both new items.
