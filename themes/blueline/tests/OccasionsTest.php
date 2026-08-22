@@ -7,6 +7,13 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/cli-stubs.php'; // wp_json_encode(), used by blueline_settings_inputs_hash(), which blueline_occasions_classify_acknowledgements() calls.
+require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/sections.php';
+require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/settings/acknowledgements.php';
+require_once __DIR__ . '/../inc/settings/validation.php';
+require_once __DIR__ . '/../inc/enqueue.php'; // blueline_stylesheet_version(), which blueline_settings_inputs_hash() calls.
 require_once __DIR__ . '/../inc/team-colors.php';
 require_once __DIR__ . '/../inc/occasions.php';
 
@@ -16,6 +23,17 @@ require_once __DIR__ . '/../inc/occasions.php';
  * style.css.
  */
 final class OccasionsTest extends TestCase {
+
+	/**
+	 * Reset every in-memory store before each test -- needed starting with
+	 * this task's own classify_acknowledgements() tests; harmless for
+	 * this file's pre-existing fixture-file-based tests, which never touch
+	 * the options store at all.
+	 */
+	protected function setUp(): void {
+		blueline_test_reset();
+		blueline_test_reset_state();
+	}
 
 	/**
 	 * Writes a minimal fixture stylesheet and returns its path.
@@ -958,5 +976,167 @@ final class OccasionsTest extends TestCase {
 
 		$this->assertArrayHasKey( 'occasion:default-accent', $control );
 		$this->assertSame( BLUELINE_TOKEN_INK, $control['occasion:default-accent']['value'] );
+	}
+
+	/* ---------------------------------------- classify_acknowledgements */
+
+	/**
+	 * A minimal, valid occasion whose accent FAILS contrast against
+	 * BLUELINE_TOKEN_INK -- the same fixture value used throughout this
+	 * suite's other AA-override tests.
+	 *
+	 * @param array<string, mixed> $overrides Keys to override.
+	 * @return array<string, mixed>
+	 */
+	private function classify_fixture_occasion( array $overrides = array() ): array {
+		return array_merge(
+			array(
+				'id'     => 'canada-day',
+				'label'  => 'Canada Day',
+				'type'   => 'decorative',
+				'window' => array(
+					'start_md' => '07-01',
+					'end_md'   => '07-01',
+				),
+				'accent' => '#274a63',
+				'motif'  => 'none',
+				'line'   => '',
+				'mode'   => 'auto',
+			),
+			$overrides
+		);
+	}
+
+	/**
+	 * Nothing stored at all classifies nothing.
+	 */
+	public function test_classify_returns_empty_when_nothing_is_stored(): void {
+		$this->assertSame( array(), blueline_occasions_classify_acknowledgements() );
+	}
+
+	/**
+	 * An acknowledgement whose occasion id no longer exists AT ALL
+	 * classifies `orphaned`.
+	 */
+	public function test_classify_marks_an_acknowledgement_orphaned_when_its_occasion_is_gone(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(), // The occasion was deleted.
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, blueline_settings_inputs_hash(), 1 ),
+			)
+		);
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'orphaned' ),
+			blueline_occasions_classify_acknowledgements()
+		);
+	}
+
+	/**
+	 * An acknowledgement whose value and inputs hash both still match
+	 * current reality classifies `valid`.
+	 */
+	public function test_classify_marks_valid_when_everything_still_matches(): void {
+		$hash = blueline_settings_inputs_hash();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array( 'canada-day' => $this->classify_fixture_occasion() ),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, $hash, 1 ),
+			)
+		);
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'valid' ),
+			blueline_occasions_classify_acknowledgements()
+		);
+	}
+
+	/**
+	 * An acknowledgement whose stored inputs hash no longer matches
+	 * current reality (a deploy touched style.css or contrast-rules.json)
+	 * classifies `stale`, even though the accent value itself is
+	 * unchanged.
+	 */
+	public function test_classify_marks_stale_when_the_inputs_hash_has_drifted(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array( 'canada-day' => $this->classify_fixture_occasion() ),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, 'a-now-stale-hash', 1 ),
+			)
+		);
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'stale' ),
+			blueline_occasions_classify_acknowledgements()
+		);
+	}
+
+	/**
+	 * An acknowledgement recorded for a DIFFERENT accent value than the
+	 * occasion currently stores classifies `stale` -- the admin's override
+	 * no longer covers what would actually render.
+	 */
+	public function test_classify_marks_stale_when_the_accent_value_changed(): void {
+		$hash = blueline_settings_inputs_hash();
+
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array( 'canada-day' => $this->classify_fixture_occasion( array( 'accent' => '#8b0000' ) ) ),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#274a63', 1.66, $hash, 1 ),
+			)
+		);
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'stale' ),
+			blueline_occasions_classify_acknowledgements()
+		);
+	}
+
+	/**
+	 * A live acknowledgement scoped OUTSIDE the `occasion:` namespace is
+	 * not this function's business at all -- skipped entirely, never
+	 * reported as anything.
+	 */
+	public function test_classify_ignores_a_foreign_scope_entirely(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'something-else:entirely', 'some-other-rule', '#274a63', 1.66, blueline_settings_inputs_hash(), 1 ),
+			)
+		);
+
+		$this->assertSame( array(), blueline_occasions_classify_acknowledgements() );
+	}
+
+	/**
+	 * An occasion with an EMPTY `accent` (use the resolved default) is
+	 * classified against that resolved default, not against an empty
+	 * string.
+	 */
+	public function test_classify_resolves_an_empty_accent_to_the_default(): void {
+		$hash = blueline_settings_inputs_hash();
+
+		// The real stylesheet default (--bl-ice, '#74c0e1') passes contrast
+		// outright; an acknowledgement recorded against that SAME resolved
+		// value (an unusual but not impossible history -- e.g. one
+		// recorded while a since-reverted contrast-rules.json threshold
+		// made it fail) is classified against it, not against ''.
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array( 'canada-day' => $this->classify_fixture_occasion( array( 'accent' => '' ) ) ),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#74c0e1', 1.0, $hash, 1 ),
+			)
+		);
+
+		$this->assertSame(
+			array( 'occasion:canada-day' => 'valid' ),
+			blueline_occasions_classify_acknowledgements()
+		);
 	}
 }

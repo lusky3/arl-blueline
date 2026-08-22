@@ -543,6 +543,94 @@ function blueline_occasions_apply_aa_overrides(
 }
 
 /**
+ * Classify every `occasion:*`-scoped entry in `aa_acknowledgements` as
+ * still-`valid`, `orphaned`, or `stale` against CURRENT reality -- design
+ * spec §6.5's ruling that this is the SOLE function both the deploy-drift
+ * notice (inc/settings/validation.php's
+ * blueline_occasions_maybe_revalidate_on_drift()) and Site Health
+ * (inc/settings/site-health.php) read from, so the two surfaces can never
+ * independently drift on what counts as stale.
+ *
+ * For each `occasion:{id}` acknowledgement:
+ *
+ * - `{id}` absent from blueline_settings( 'occasions' ) entirely ->
+ *   `orphaned` (the occasion was deleted or renamed since the
+ *   acknowledgement was recorded).
+ * - Otherwise, resolve that occasion's CURRENT effective accent (its own
+ *   `accent`, or blueline_occasion_accent_default() when empty), sanitize
+ *   it exactly as blueline_resolve_active_occasion() does, and check
+ *   blueline_acknowledgement_covers() against it with the CURRENT
+ *   blueline_settings_inputs_hash() -- `stale` on a `false` result (the
+ *   accent value changed, or style.css/contrast-rules.json moved since
+ *   the acknowledgement was recorded), `valid` otherwise. An unresolvable
+ *   current accent (blueline_sanitize_hex_color() returns '') can never
+ *   be covered by anything, so it classifies `stale` too.
+ *
+ * A scope outside the `occasion:` namespace is not this function's
+ * business at all and is skipped entirely -- not merely left `valid` --
+ * so the returned map's own keys are exactly this function's domain.
+ *
+ * Pure and read-only: never calls blueline_record_acknowledgement() or
+ * blueline_remove_acknowledgement(). A stale or orphaned acknowledgement
+ * is REPORTED, never deleted -- blueline_remove_acknowledgement()'s own
+ * docblock already establishes that a stale hash is not a valid reason
+ * to call it, and drift discovery is not a stronger reason than
+ * staleness itself (design spec §6.5).
+ *
+ * @return array<string, string> Map of acknowledgement scope => 'valid' | 'orphaned' | 'stale'.
+ */
+function blueline_occasions_classify_acknowledgements(): array {
+	$acknowledgements = blueline_stored_acknowledgements();
+
+	$occasions = blueline_settings( 'occasions' );
+	$occasions = is_array( $occasions ) ? $occasions : array();
+
+	$inputs_hash = blueline_settings_inputs_hash();
+
+	$classifications = array();
+
+	foreach ( $acknowledgements as $scope => $entry ) {
+		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
+			continue; // Not this mechanism's business -- e.g. a future non-occasion scope.
+		}
+
+		$id = substr( $scope, strlen( 'occasion:' ) );
+
+		if ( ! isset( $occasions[ $id ] ) || ! is_array( $occasions[ $id ] ) ) {
+			$classifications[ $scope ] = 'orphaned';
+			continue;
+		}
+
+		$occasion = $occasions[ $id ];
+
+		$raw_accent = '' !== ( $occasion['accent'] ?? '' )
+			? $occasion['accent']
+			: blueline_occasion_accent_default();
+
+		$accent = is_string( $raw_accent ) ? blueline_sanitize_hex_color( $raw_accent ) : '';
+
+		if ( '' === $accent ) {
+			// Unresolvable current accent -- nothing can cover this; the
+			// same treatment as a value that plainly changed.
+			$classifications[ $scope ] = 'stale';
+			continue;
+		}
+
+		$covers = blueline_acknowledgement_covers(
+			$acknowledgements,
+			$scope,
+			'ink-on-occasion-accent',
+			$accent,
+			$inputs_hash
+		);
+
+		$classifications[ $scope ] = $covers ? 'valid' : 'stale';
+	}
+
+	return $classifications;
+}
+
+/**
  * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD' --
  * design spec §5/§7.5: "Dates compare in site timezone ... not UTC."
  *
