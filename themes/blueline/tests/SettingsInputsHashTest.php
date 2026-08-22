@@ -10,6 +10,9 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/cli-stubs.php';
 require_once __DIR__ . '/../inc/enqueue.php';
 require_once __DIR__ . '/../inc/settings/validation.php';
+require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/sections.php';
+require_once __DIR__ . '/../inc/settings/store.php';
 
 /**
  * Covers blueline_settings_inputs_hash(): a single hash that changes if,
@@ -17,6 +20,16 @@ require_once __DIR__ . '/../inc/settings/validation.php';
  * rules/thresholds change.
  */
 final class SettingsInputsHashTest extends TestCase {
+
+	/**
+	 * Reset the options store before each test -- needed starting with
+	 * this task's own blueline_validated_against() tests; harmless for
+	 * this file's pre-existing fixture-file-based tests, which never
+	 * touch the options store at all.
+	 */
+	protected function setUp(): void {
+		blueline_test_reset();
+	}
 
 	/**
 	 * Writes a minimal fixture contrast-rules.json and returns its path.
@@ -205,5 +218,37 @@ final class SettingsInputsHashTest extends TestCase {
 
 		$this->assertIsString( $hash );
 		$this->assertNotSame( '', $hash );
+	}
+
+	/* -------------------------------------------------- validated_against */
+
+	/**
+	 * Covers blueline_validated_against() (design spec §6.5's
+	 * storage-shape ruling): a fresh install (nothing stored at all)
+	 * reads as ''.
+	 */
+	public function test_validated_against_defaults_to_empty_string(): void {
+		$this->assertSame( '', blueline_validated_against() );
+	}
+
+	/**
+	 * Reads back whatever was actually stored.
+	 */
+	public function test_validated_against_reads_the_stored_value(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( '_validated_against' => 'abc123hash' ) );
+
+		$this->assertSame( 'abc123hash', blueline_validated_against() );
+	}
+
+	/**
+	 * A malformed stored value (not a string) reads back as '' rather
+	 * than being trusted verbatim -- matching
+	 * blueline_stored_acknowledgements()'s own defensive posture for the
+	 * same shape of bad data.
+	 */
+	public function test_validated_against_repairs_a_non_string_stored_value(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( '_validated_against' => array( 'not' => 'a string' ) ) );
+
+		$this->assertSame( '', blueline_validated_against() );
 	}
 }

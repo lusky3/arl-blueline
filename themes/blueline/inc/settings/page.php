@@ -129,8 +129,8 @@
  * and silently skipping a real future migration.
  *
  * The fix is an explicit reserved-key allow-list -- today
- * `array( '_schema', 'aa_acknowledgements', 'occasions' )` -- rather than
- * "forward anything unrecognised":
+ * `array( '_schema', 'aa_acknowledgements', 'occasions', '_validated_against' )` --
+ * rather than "forward anything unrecognised":
  * any key that is neither a real schema field nor on that list is
  * dropped, exactly as it would be if it were never declared at all.
  * `_schema` itself is still sanitized like everything else (absint(),
@@ -209,17 +209,21 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * Top-level option keys that are neither a real schema field nor the two
  * request-scoped bookkeeping keys (`_posted_fields`, `_tab`) this file's
  * own form emits, but which a write still needs to be able to carry --
- * today three of them: inc/settings/store.php's `_schema` migration
+ * today four of them: inc/settings/store.php's `_schema` migration
  * version, inc/settings/acknowledgements.php's `aa_acknowledgements` map,
- * and inc/occasions.php's `occasions` map (the one reserved key that a
+ * inc/occasions.php's `occasions` map (the one reserved key that a
  * tab-scoped submission may also carry, and only from its OWN tab -- see
- * blueline_settings_sanitize_callback()'s docblock, rule 4).
+ * blueline_settings_sanitize_callback()'s docblock, rule 4), and
+ * inc/settings/validation.php's `_validated_against` deploy-drift
+ * bookkeeping hash (design spec §6.5's storage-shape ruling: follows
+ * `_schema`/`aa_acknowledgements`'s shape, not `occasions`'s -- nothing
+ * reads it back through blueline_settings()).
  * blueline_settings_sanitize_callback() checks every unrecognised key
  * against this explicit allow-list rather than forwarding it merely for
  * being unrecognised -- see this file's own docblock's `_schema` section
  * for why that distinction is load-bearing.
  */
-const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements', 'occasions' );
+const BLUELINE_SETTINGS_RESERVED_KEYS = array( '_schema', 'aa_acknowledgements', 'occasions', '_validated_against' );
 
 /**
  * Nonce action shared by the panel's two import steps (preview, then
@@ -403,8 +407,9 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    section.
  * 4. Every OTHER key is checked against an explicit reserved-key
  *    allow-list (BLUELINE_SETTINGS_RESERVED_KEYS, today `_schema`,
- *    `aa_acknowledgements`, and `occasions`), never forwarded merely for being
- *    unrecognised -- see this file's docblock's `_schema` section for why
+ *    `aa_acknowledgements`, `occasions`, and `_validated_against`), never
+ *    forwarded merely for being unrecognised -- see this file's docblock's
+ *    `_schema` section for why
  *    "forward anything unrecognised" was rejected. A reserved key is still
  *    sanitized, though not identically: `_schema` is sanitized like every
  *    other integer-valued field (absint()) and additionally clamped to
@@ -505,6 +510,23 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// Its own validator drops anything malformed rather than
 				// corrupting the option or crashing a later reader.
 				$output[ $key ] = blueline_sanitize_acknowledgements( $value );
+				continue;
+			}
+
+			if ( '_validated_against' === $key ) {
+				// A hash string (blueline_settings_inputs_hash()'s own
+				// return shape), not an integer like every other reserved
+				// key -- validated as a plain string, defaulting to '' for
+				// anything else. No complex validation is needed here
+				// (design spec §6.5's storage-shape ruling): this key is
+				// never read back through blueline_settings() (see
+				// blueline_settings_defaults()'s own docblock for why),
+				// only through inc/settings/validation.php's
+				// blueline_validated_against(), which applies the
+				// identical is_string()-or-default fallback on read -- so a
+				// malformed stored value can never reach a caller as
+				// anything other than ''.
+				$output[ $key ] = is_string( $value ) ? $value : '';
 				continue;
 			}
 

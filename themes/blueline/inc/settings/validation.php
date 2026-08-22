@@ -107,3 +107,28 @@ function blueline_settings_inputs_hash( ?string $contrast_rules_path_override = 
 
 	return hash( 'sha256', blueline_stylesheet_version() . '|' . blueline_contrast_rules_content_hash( $path ) );
 }
+
+/**
+ * The settings option's own `_validated_against` bookkeeping value: the
+ * blueline_settings_inputs_hash() this option was last checked against
+ * for deploy-drift revalidation (Phase 2.2,
+ * blueline_occasions_maybe_revalidate_on_drift()). '' means either a
+ * fresh install, or one whose drift check has genuinely never run yet.
+ *
+ * Reads get_option() directly, the same shape
+ * blueline_stored_acknowledgements() (inc/settings/acknowledgements.php)
+ * already uses for its own reserved key: `_validated_against` is
+ * deliberately excluded from blueline_settings_defaults()'s return (see
+ * that function's own docblock, inc/settings/defaults.php), so
+ * blueline_settings() can never return it -- there is no ordinary caller
+ * asking for a field VALUE that has any business reading migration/drift
+ * bookkeeping back through that accessor.
+ *
+ * @return string
+ */
+function blueline_validated_against(): string {
+	$stored = get_option( BLUELINE_SETTINGS_OPTION, array() );
+	$stored = is_array( $stored ) ? $stored : array();
+
+	return is_string( $stored['_validated_against'] ?? null ) ? $stored['_validated_against'] : '';
+}

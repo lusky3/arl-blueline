@@ -489,6 +489,16 @@ function blueline_settings_defaults(): array {
 		// blueline_sanitize_acknowledgements()) -- just never a default
 		// value a schema field falls back to.
 
+		// `_validated_against` (design spec §6.5's storage-shape ruling,
+		// Phase 2.2) follows the exact same shape as `aa_acknowledgements`
+		// immediately above, for the identical reason: nothing reads it
+		// back through blueline_settings() (inc/settings/validation.php's
+		// blueline_validated_against() reads get_option() directly
+		// instead), so it stays out of this array too. Still real,
+		// protected storage (BLUELINE_SETTINGS_RESERVED_KEYS,
+		// inc/settings/page.php; validated by that same file's
+		// blueline_settings_sanitize_callback() reserved-key branch).
+
 		// `occasions` (design spec §5) IS listed here, unlike
 		// `aa_acknowledgements` immediately above -- the front-end resolver
 		// (Task 3) needs blueline_settings( 'occasions' ) to return

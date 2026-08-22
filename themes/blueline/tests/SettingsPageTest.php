@@ -1644,6 +1644,47 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
+	 * `_validated_against` (design spec §6.5's storage-shape ruling) is a
+	 * reserved key following `_schema`/`aa_acknowledgements`'s shape: a
+	 * plain string survives a programmatic write.
+	 */
+	public function test_sanitize_callback_lets_validated_against_survive_a_programmatic_write(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( '_validated_against' => 'abc123hash' )
+		);
+
+		$this->assertSame( 'abc123hash', $output['_validated_against'] );
+	}
+
+	/**
+	 * Dropped outright from ANY tab-scoped submission, same as `_schema`/
+	 * `aa_acknowledgements` -- unlike `occasions`, no tab (including the
+	 * Occasions tab's own exception, which names `occasions` specifically)
+	 * is ever exempted for this key.
+	 */
+	public function test_sanitize_callback_drops_validated_against_from_a_form_submission(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'               => 'occasions',
+				'_validated_against' => 'abc123hash',
+			)
+		);
+
+		$this->assertArrayNotHasKey( '_validated_against', $output );
+	}
+
+	/**
+	 * A non-string value is repaired to '' rather than trusted verbatim.
+	 */
+	public function test_sanitize_callback_validates_validated_against_shape(): void {
+		$output = blueline_settings_sanitize_callback(
+			array( '_validated_against' => array( 'not' => 'a string' ) )
+		);
+
+		$this->assertSame( '', $output['_validated_against'] );
+	}
+
+	/**
 	 * The Occasions tab's own submission derives an id from the label
 	 * rather than trusting one the admin typed -- design spec §5.1's
 	 * first ruling, exercised through the real save path.
