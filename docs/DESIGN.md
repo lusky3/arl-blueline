@@ -27,7 +27,10 @@ Ratios are against the paper ground `#F7FBFC`.
 | `--bl-paper` | `#F7FBFC` | — | page ground |
 | `--bl-occasion-accent` | resolves to `--bl-ice` (`#74C0E1`) by default; admin-settable per occasion | `ink-on-occasion-accent`, ≥ 4.5:1 — or a recorded AA-override acknowledgement when it fails (see PRODUCT.md's "Accessibility requirements") | fill only — CTA ribbon, signature band, motif; never text on light |
 
-This table is a reference subset, not the enforced contract: `themes/blueline/tools/contrast-rules.json` is the real, machine-checked contract the build gate reads, and it carries more rules than this table lists — including the focus ring, borders, and the success/warning/danger status colours, none of which this table has ever enumerated.
+This table is a reference subset, not the enforced contract:
+`themes/blueline/tools/contrast-rules.json` is the real, machine-checked contract the build gate
+reads, and it carries more rules than this table lists — including the focus ring, borders, and the
+success/warning/danger status colours, none of which this table has ever enumerated.
 
 **Two rules that fall out of the arithmetic and are not negotiable:**
 

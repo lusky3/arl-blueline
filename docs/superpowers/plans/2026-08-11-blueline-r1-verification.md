@@ -834,7 +834,9 @@ active; 6 happens last, after every other change that could be cached; 7 is inde
 activation timing and must be confirmed before `BLUELINE_SRCACHE_PURGE` is ever set to `true`,
 whenever that happens; 8 can only be confirmed after cutover, at the next occasion window
 boundary, and presumes 6 has already fired at least once so the cache being purged is in a
-known state.
+known state, **and** presumes 7 has already been completed — with `BLUELINE_SRCACHE_PURGE`
+still at its shipped default of `false`, the cron event fires but its purge call never touches
+Redis, so there is nothing for item 8 to verify until item 7's flag flip has actually happened.
 
 ---
 

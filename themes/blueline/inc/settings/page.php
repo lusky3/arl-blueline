@@ -2357,7 +2357,7 @@ function blueline_settings_render_occasions_tab(): void {
 			<p class="description">
 				<?php
 				echo esc_html(
-					__( 'If an occasion accent colour fails the AA contrast check against ink text, saving is blocked unless the row acknowledgement checkbox is ticked. An acknowledgement is re-checked every time settings are saved; if the accent no longer matches what was acknowledged, the occasion falls back to its default colour instead of showing a colour that fails the check.', 'blueline' )
+					__( 'Saving always succeeds. An occasion whose accent colour fails the AA contrast check against ink text simply will not activate unless its row acknowledgement checkbox is ticked. Acknowledgement is re-checked on every page load, not just when settings are saved, so if the accent changes or ever stops matching what was acknowledged, the occasion stops activating rather than showing a colour that fails the check.', 'blueline' )
 				);
 				?>
 			</p>

@@ -627,14 +627,14 @@ explanation stacked above or below the disclosure.
 
 **Ruling: `DESIGN.md`'s restated table gains one new row for
 `--bl-occasion-accent` and one new pointer sentence — it is not expanded
-to enumerate all 31 rules in `tools/contrast-rules.json`.** The new
+to enumerate all 33 rules in `tools/contrast-rules.json`.** The new
 row's Hex column reads as "resolves to `--bl-ice` (`#74C0E1`) by default;
 admin-settable per occasion" and its "On paper" column names the rule id
 (`ink-on-occasion-accent`, ≥4.5:1) plus the acknowledged-exception
 fallback (§4.5) — a fixed ratio number would misrepresent a value that is
 neither fixed nor unconditionally enforced. A new sentence, near the
 table, states plainly that `tools/contrast-rules.json` is the enforced
-contract (all 31 rules, including several — focus, border,
+contract (all 33 rules, including several — focus, border,
 success/warning/danger — this table has never listed) and that this
 table is a reference subset, not the contract itself. Restating the
 whole table as a full mirror of the JSON file would just create a second
