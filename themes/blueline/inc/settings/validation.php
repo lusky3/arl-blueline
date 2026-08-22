@@ -231,13 +231,24 @@ add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
  * not), so the only question is which request gets to report, and an AJAX
  * request is the one that structurally cannot.
  *
+ * `wp-admin/admin-post.php` is the same story again: it fires `admin_init`
+ * (this codebase's own inc/settings/cache.php already routes its cache-
+ * purge-notice dismissal through an `admin_post_{$action}` handler, so
+ * this is a live, already-shipped path, not a hypothetical one) and then
+ * either redirects or exits from inside its `admin_post_{$action}` action
+ * -- never reaching `admin_notices`. Detected via `$GLOBALS['pagenow']`
+ * (core's own admin.php sets it from the current script's basename before
+ * `admin_init` fires) rather than a `DOING_*`-style constant, because core
+ * defines no such constant for this entry point.
+ *
  * @return void
  */
 function blueline_occasions_maybe_revalidate_on_drift(): void {
-	if ( wp_doing_ajax() ) {
+	if ( wp_doing_ajax() || 'admin-post.php' === ( $GLOBALS['pagenow'] ?? '' ) ) {
 		// See this function's docblock: `admin_init` fires on
-		// admin-ajax.php too, and `admin_notices` does not -- so an AJAX
-		// request must not consume this drift event.
+		// admin-ajax.php AND admin-post.php too, and `admin_notices` runs
+		// on neither -- so neither kind of request may consume this drift
+		// event.
 		return;
 	}
 
