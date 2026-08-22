@@ -470,4 +470,532 @@ final class OccasionsTest extends TestCase {
 
 		$this->assertSame( $presets, blueline_sanitize_occasions( $presets ) );
 	}
+
+	/* ------------------------------------------------ assign_unique_ids */
+
+	/**
+	 * Asserts a brand-new row (empty `_original_id`) derives its `id`
+	 * from `sanitize_title( $label )`.
+	 */
+	public function test_assign_unique_ids_derives_a_slug_from_the_label(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertSame( 'canada-day', $result['canada-day']['id'] );
+	}
+
+	/**
+	 * Asserts `_original_id` is stripped from the returned row -- it is
+	 * request-scoped bookkeeping this function consumes, not part of the
+	 * Occasion shape blueline_sanitize_occasions() expects.
+	 */
+	public function test_assign_unique_ids_strips_original_id(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertArrayNotHasKey( '_original_id', $result['canada-day'] );
+	}
+
+	/**
+	 * Asserts two new rows submitted with the same label in one batch are
+	 * de-duplicated against EACH OTHER with an incrementing numeric
+	 * suffix -- design spec §5.1's first ruling.
+	 */
+	public function test_assign_unique_ids_dedupes_within_the_same_batch(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+				'row-2' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertArrayHasKey( 'canada-day-2', $result );
+		$this->assertSame( 'canada-day', $result['canada-day']['id'] );
+		$this->assertSame( 'canada-day-2', $result['canada-day-2']['id'] );
+	}
+
+	/**
+	 * Asserts a new row whose derived slug collides with a DIFFERENT
+	 * currently-stored occasion is de-duplicated against the stored array
+	 * too, not only against the rest of this batch.
+	 */
+	public function test_assign_unique_ids_dedupes_against_a_different_stored_occasion(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'canada-day-2', $result );
+		$this->assertArrayNotHasKey( 'canada-day', $result );
+	}
+
+	/**
+	 * Asserts a row EDITING an existing occasion, whose label is
+	 * unchanged (so its derived slug is unchanged), keeps its own
+	 * existing id rather than being treated as a collision against
+	 * itself.
+	 */
+	public function test_assign_unique_ids_lets_a_row_keep_its_own_unchanged_id(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day' => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Canada Day',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertCount( 1, $result );
+	}
+
+	/**
+	 * Asserts editing an existing occasion's LABEL enough to change its
+	 * derived slug is treated as a rename: the new slug is used, and the
+	 * old key does not reappear in the result (the caller's own
+	 * submission IS the whole new map, so an old key simply not being
+	 * present in the result is what "removed" means here).
+	 */
+	public function test_assign_unique_ids_treats_a_changed_label_as_a_rename(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day' => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Canada Day Long Weekend',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'canada-day-long-weekend', $result );
+		$this->assertArrayNotHasKey( 'canada-day', $result );
+	}
+
+	/**
+	 * Asserts a rename that collides with a DIFFERENT stored occasion is
+	 * de-duplicated rather than silently overwriting it.
+	 */
+	public function test_assign_unique_ids_a_rename_that_collides_is_deduped(): void {
+		$stored = array(
+			'canada-day' => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+			'christmas'  => array(
+				'id'    => 'christmas',
+				'label' => 'Christmas',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day' => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Christmas',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'christmas-2', $result );
+		$this->assertArrayNotHasKey( 'canada-day', $result );
+	}
+
+	/**
+	 * Asserts two rows swapping ids within the SAME save -- row A renaming
+	 * into row B's old slot while row B renames into row A's old slot --
+	 * resolve cleanly to each other's target id, with no spurious `-2`
+	 * suffix from either row transiently reading as "still occupied" by
+	 * the other's not-yet-processed old slot.
+	 */
+	public function test_assign_unique_ids_a_same_save_id_swap_is_not_deduped(): void {
+		$stored = array(
+			'canada-day'   => array(
+				'id'    => 'canada-day',
+				'label' => 'Canada Day',
+			),
+			'victoria-day' => array(
+				'id'    => 'victoria-day',
+				'label' => 'Victoria Day',
+			),
+		);
+
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'canada-day'   => array(
+					'_original_id' => 'canada-day',
+					'label'        => 'Victoria Day',
+				),
+				'victoria-day' => array(
+					'_original_id' => 'victoria-day',
+					'label'        => 'Canada Day',
+				),
+			),
+			$stored
+		);
+
+		$this->assertArrayHasKey( 'victoria-day', $result );
+		$this->assertArrayHasKey( 'canada-day', $result );
+		$this->assertArrayNotHasKey( 'victoria-day-2', $result );
+		$this->assertArrayNotHasKey( 'canada-day-2', $result );
+	}
+
+	/**
+	 * Asserts a row with no usable label (empty, or only whitespace)
+	 * derives no id and is dropped outright -- blueline_sanitize_occasions()
+	 * would reject it for the same reason anyway, so there is no id worth
+	 * manufacturing for it.
+	 */
+	public function test_assign_unique_ids_drops_a_row_with_no_usable_label(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => '',
+				),
+				'row-2' => array(
+					'_original_id' => '',
+					'label'        => '   ',
+				),
+			),
+			array()
+		);
+
+		$this->assertSame( array(), $result );
+	}
+
+	/**
+	 * Asserts a non-array $submitted value sanitizes to an empty map,
+	 * matching blueline_sanitize_occasions()'s own defensive posture for
+	 * the same shape of bad input.
+	 */
+	public function test_assign_unique_ids_non_array_value_returns_empty(): void {
+		foreach ( array( null, 'not-an-array', 42, false ) as $bad ) {
+			$this->assertSame( array(), blueline_occasions_assign_unique_ids( $bad, array() ) );
+		}
+	}
+
+	/**
+	 * Asserts a non-array ROW (not a whole submission) is skipped rather
+	 * than fataling the rest of the batch.
+	 */
+	public function test_assign_unique_ids_skips_a_non_array_row(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => 'not-an-array',
+				'row-2' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+				),
+			),
+			array()
+		);
+
+		$this->assertSame( array( 'canada-day' ), array_keys( $result ) );
+	}
+
+	/**
+	 * Asserts every OTHER key on a row (e.g. a future override checkbox
+	 * field) is copied through unchanged -- this function only ever
+	 * reads `_original_id`/`label` and writes `id`.
+	 */
+	public function test_assign_unique_ids_copies_other_keys_through_unchanged(): void {
+		$result = blueline_occasions_assign_unique_ids(
+			array(
+				'row-1' => array(
+					'_original_id' => '',
+					'label'        => 'Canada Day',
+					'motif'        => 'maple-leaf',
+					'override_aa'  => '1',
+				),
+			),
+			array()
+		);
+
+		$this->assertSame( 'maple-leaf', $result['canada-day']['motif'] );
+		$this->assertSame( '1', $result['canada-day']['override_aa'] );
+	}
+
+	/* ------------------------------------------------ apply_aa_overrides */
+
+	/**
+	 * A minimal, valid, force_on occasion whose accent FAILS contrast
+	 * against BLUELINE_TOKEN_INK -- reuses the exact fixture value
+	 * tests/OccasionsResolverTest.php's own fail-closed/fail-open pair
+	 * already established as failing.
+	 *
+	 * @param array<string, mixed> $overrides Keys to override.
+	 * @return array<string, mixed>
+	 */
+	private function failing_occasion( array $overrides = array() ): array {
+		return array_merge(
+			array(
+				'id'     => 'failing',
+				'label'  => 'Failing',
+				'type'   => 'decorative',
+				'window' => array(
+					'start_md' => '01-01',
+					'end_md'   => '12-31',
+				),
+				'accent' => '#274a63',
+				'motif'  => 'none',
+				'line'   => '',
+				'mode'   => 'force_on',
+			),
+			$overrides
+		);
+	}
+
+	/**
+	 * Asserts a failing accent WITH its override checkbox checked
+	 * records a new acknowledgement scoped `occasion:{id}`.
+	 */
+	public function test_apply_aa_overrides_records_a_checked_failing_row(): void {
+		$hash = 'test-hash';
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'failing' => $this->failing_occasion() ),
+			array( 'failing' => true ),
+			array(),
+			$hash,
+			7
+		);
+
+		$this->assertArrayHasKey( 'occasion:failing', $result );
+		$this->assertSame( 'ink-on-occasion-accent', $result['occasion:failing']['rule_id'] );
+		$this->assertSame( '#274a63', $result['occasion:failing']['value'] );
+		$this->assertSame( $hash, $result['occasion:failing']['inputs_hash'] );
+		$this->assertSame( 7, $result['occasion:failing']['user_id'] );
+	}
+
+	/**
+	 * Asserts a failing accent whose checkbox is NOT checked removes any
+	 * existing acknowledgement for that scope rather than leaving it --
+	 * design spec §5.1's fifth ruling: symmetric, not additive-only.
+	 */
+	public function test_apply_aa_overrides_removes_when_the_checkbox_is_unchecked(): void {
+		$existing = blueline_record_acknowledgement( array(), 'occasion:failing', 'ink-on-occasion-accent', '#274a63', 1.66, 'stale-hash', 1 );
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'failing' => $this->failing_occasion() ),
+			array( 'failing' => false ),
+			$existing,
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayNotHasKey( 'occasion:failing', $result );
+	}
+
+	/**
+	 * Asserts an occasion whose accent now PASSES contrast has its
+	 * acknowledgement removed even if the checkbox happens to still be
+	 * checked in the submission -- nothing left to acknowledge.
+	 */
+	public function test_apply_aa_overrides_removes_when_the_accent_now_passes(): void {
+		$existing = blueline_record_acknowledgement( array(), 'occasion:passing', 'ink-on-occasion-accent', '#274a63', 1.66, 'stale-hash', 1 );
+
+		$passing = $this->failing_occasion(
+			array(
+				'id'     => 'passing',
+				'accent' => '#ffffff',
+			)
+		);
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array( 'passing' => $passing ),
+			array( 'passing' => true ),
+			$existing,
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayNotHasKey( 'occasion:passing', $result );
+	}
+
+	/**
+	 * Asserts an acknowledgement scoped to an occasion id that is no
+	 * longer present in $sanitized AT ALL (deleted, or renamed away
+	 * from) is removed -- orphan cleanup, design spec §5.1's fifth
+	 * ruling.
+	 */
+	public function test_apply_aa_overrides_cleans_up_an_orphaned_acknowledgement(): void {
+		$existing = blueline_record_acknowledgement( array(), 'occasion:deleted-one', 'ink-on-occasion-accent', '#274a63', 1.66, 'test-hash', 1 );
+
+		$result = blueline_occasions_apply_aa_overrides(
+			array(), // Nothing submitted this save -- the occasion is gone.
+			array(),
+			$existing,
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayNotHasKey( 'occasion:deleted-one', $result );
+	}
+
+	/**
+	 * Asserts a live acknowledgement for a scope this mechanism does not
+	 * own (does not start with `occasion:`) is left completely alone --
+	 * orphan cleanup is scoped narrowly to this mechanism's own prefix.
+	 */
+	public function test_apply_aa_overrides_leaves_a_foreign_scope_alone(): void {
+		$existing = blueline_record_acknowledgement( array(), 'something-else:entirely', 'some-other-rule', '#274a63', 1.66, 'test-hash', 1 );
+
+		$result = blueline_occasions_apply_aa_overrides( array(), array(), $existing, 'test-hash', 7 );
+
+		$this->assertArrayHasKey( 'something-else:entirely', $result );
+	}
+
+	/**
+	 * Asserts an occasion with an EMPTY `accent` (use the resolved
+	 * default) is evaluated against that resolved default, and against
+	 * the SAME value blueline_occasion_accent_default() itself returns.
+	 *
+	 * The bare `assertArrayNotHasKey()` this test used to carry was not
+	 * discriminating on its own: "the default resolved and passed" and
+	 * "the default failed to resolve at all" both end in the same
+	 * no-acknowledgement state, because the unresolvable-accent branch
+	 * also removes. The assertions below pin the parts that ARE
+	 * observable here:
+	 *
+	 * 1. The default really does resolve to a hex value (a fixture
+	 *    guard, so a broken stylesheet read fails HERE, loudly, instead
+	 *    of silently making the expectation below vacuous).
+	 * 2. Its contrast against ink genuinely passes -- so "no
+	 *    acknowledgement" is the right expectation for the reason this
+	 *    test claims, and a default that ever changed to a failing
+	 *    colour would fail here rather than quietly flipping this test's
+	 *    meaning.
+	 * 3. An empty accent produces byte-for-byte the same result as
+	 *    passing that resolved default EXPLICITLY -- which is what
+	 *    "resolves to the default" means -- while a resolution to
+	 *    anything else that fails contrast (ink, say) records an
+	 *    acknowledgement instead. The failing control below proves the
+	 *    record path is live under this exact fixture, so the empty
+	 *    accent's absence is a real "it passed", not a dead code path.
+	 *
+	 * The one distinction this function genuinely cannot observe -- a
+	 * PASSING default versus an unresolvable '' -- is pinned where the
+	 * resolved value IS visible: tests/SettingsOccasionsTabTest.php's
+	 * test_an_empty_accent_renders_the_real_resolved_default() (the
+	 * rendered swatch is the default, not the BLUELINE_TOKEN_INK
+	 * failure fallback) and tests/OccasionsResolverTest.php's own
+	 * resolved_accent assertion.
+	 */
+	public function test_apply_aa_overrides_resolves_an_empty_accent_to_the_default(): void {
+		$default = blueline_occasion_accent_default();
+
+		$this->assertNotSame( '', $default, 'Fixture guard: the real stylesheet default must resolve.' );
+		$this->assertGreaterThanOrEqual(
+			blueline_contrast_threshold( 'body' ),
+			blueline_contrast_ratio( BLUELINE_TOKEN_INK, $default ),
+			'Fixture guard: the resolved default is expected to PASS contrast against ink.'
+		);
+
+		$empty = blueline_occasions_apply_aa_overrides(
+			array(
+				'default-accent' => $this->failing_occasion(
+					array(
+						'id'     => 'default-accent',
+						'accent' => '',
+					)
+				),
+			),
+			array( 'default-accent' => true ),
+			array(),
+			'test-hash',
+			7
+		);
+
+		$explicit = blueline_occasions_apply_aa_overrides(
+			array(
+				'default-accent' => $this->failing_occasion(
+					array(
+						'id'     => 'default-accent',
+						'accent' => $default,
+					)
+				),
+			),
+			array( 'default-accent' => true ),
+			array(),
+			'test-hash',
+			7
+		);
+
+		// Same inputs bar the empty-vs-explicit accent: same result.
+		$this->assertSame( $explicit, $empty );
+
+		// The resolved default passes, so nothing is recorded for it...
+		$this->assertArrayNotHasKey( 'occasion:default-accent', $empty );
+
+		// ...and that absence is meaningful, not vacuous: the same
+		// fixture, resolved to a FAILING colour instead, does record.
+		$control = blueline_occasions_apply_aa_overrides(
+			array(
+				'default-accent' => $this->failing_occasion(
+					array(
+						'id'     => 'default-accent',
+						'accent' => BLUELINE_TOKEN_INK,
+					)
+				),
+			),
+			array( 'default-accent' => true ),
+			array(),
+			'test-hash',
+			7
+		);
+
+		$this->assertArrayHasKey( 'occasion:default-accent', $control );
+		$this->assertSame( BLUELINE_TOKEN_INK, $control['occasion:default-accent']['value'] );
+	}
 }

@@ -271,6 +271,118 @@ array first.
   fails, using the panel's existing blocking-notice pattern — no new UI
   pattern is introduced.
 
+### 5.1 Phase 2.1b — Occasions panel UI: rulings
+
+2.1a shipped with zero admin-facing surface (§5's addendum above). This
+section rules on five gaps direct research against the current codebase
+surfaced — none of the existing panel conventions map cleanly onto a
+map-keyed, schema-less Occasions tab, and each gap is a real code decision,
+not something existing infrastructure already answers.
+
+**Ruling: the admin never types an `id`; it is always server-derived and
+de-duplicated.** `occasions` is a map keyed by a stable string id (`design
+spec §5`'s Model), unlike `band_photos`'s index-based repeater (whose
+`renumber()` JS keeps a contiguous 0-based array, not a namespace admins can
+collide in). Two rows submitted under the same string key would silently
+collide in PHP's own associative array before `blueline_sanitize_occasions()`
+ever runs — nothing existing prevents this, and there is no picker UI for a
+raw slug either. Resolving this without touching `blueline_sanitize_occasions()`
+(already shipped, reviewed, and tested in 2.1a — this ruling adds no new
+requirement to it): the panel's own save handler assigns each row's `id` as
+`sanitize_title( $label )`, then de-duplicates the whole submitted batch
+against both itself and the currently-stored `occasions` array (excluding
+whichever stored entry this exact row is editing) with an incrementing
+numeric suffix — the same collision-handling shape WordPress's own
+`wp_unique_post_slug()` already uses for post slugs, not a new pattern. A
+row editing an existing occasion keeps its existing `id` unless the admin
+retypes the label enough to change the derived slug, in which case it is
+treated as a rename (old key removed, new key added) — 2.1b's plan must
+decide the exact UI affordance for this (e.g. an admin-visible, editable
+"slug" field pre-filled from the label, rather than a fully hidden
+derivation) but the *server-side de-duplication* is settled here regardless
+of that UI choice, so it isn't reopened per-task.
+
+**Ruling: the Occasions tab's own save is a narrow, explicit carve-out in
+the existing sanitize callback — not a second save path.**
+`blueline_settings_sanitize_callback()` currently drops ANY reserved key
+outright whenever the submission's `_tab` is non-empty (`inc/settings/page.php`,
+by design — the comment there is explicit that this exists because no
+*existing* tab's generic per-field form ever legitimately submits a reserved
+key). A schema-less Occasions tab breaks that assumption on purpose: its
+form posts `blueline_settings[_tab] = 'occasions'` plus
+`blueline_settings[occasions] = <the whole map>` as one opaque value — never
+through `_posted_fields` per-field carry-forward, since `occasions` isn't a
+scalar schema field. The fix is a narrow, explicit exception tied to this
+one tab name (`'occasions' === $tab`), not a general loosening of "reserved
+keys never survive a tab-scoped submission" for every other reserved key —
+`_schema` and `aa_acknowledgements` keep the existing absolute rule
+unchanged. This keeps the single existing Settings API save mechanism
+(`options.php`, one POST per tab, existing nonce/capability handling) rather
+than introducing a second `admin-post.php`-style path with its own security
+plumbing to build and maintain. `blueline_settings_merge()` needs no change:
+since the Occasions tab's own submission *does* include `occasions`, it is
+present in `$new_value` and simply becomes the new stored value after
+sanitization — the carry-forward logic (for keys *absent* from a submission)
+never triggers on this tab's own save, exactly as it already doesn't today.
+
+**Ruling: the tab itself is one explicit, named exception to "purely
+schema-derived," not a generalized plugin point.** `blueline_settings_tab_slugs()`,
+`blueline_settings_tab_label()`, and the generic per-field `<form>` body in
+`blueline_settings_render_page()` have no existing mechanism for a tab with
+zero schema fields — every current tab is 100% schema-field-driven. 2.1b
+adds `'occasions'` to the tab-slugs list as one literal, explicitly-commented
+exception (not a new "custom tabs" registration system nobody else needs
+yet — YAGNI), a label-map entry, and one `if ( 'occasions' === $current_tab )`
+branch in the page renderer that calls a bespoke `blueline_settings_render_occasions_tab()`
+instead of the generic field loop. This matches how every other special case
+in this codebase (`aa_acknowledgements`, the delete-all-data section) was
+added as a narrow, named branch rather than a new abstraction.
+
+**Ruling: the live contrast readout is genuine client-side JS, with a
+duplicated (not imported) ratio calculation covered by a PHP↔JS parity
+test.** `tools/lib/contrast.mjs` already implements the identical WCAG math
+`inc/team-colors.php`'s `blueline_contrast_ratio()` uses, and the existing
+admin JS precedent (`assets/src/js/settings-photos.js`) is a plain,
+build-step-free source file with progressive enhancement (JS absent → the
+feature still functions, only the enhancement goes inert) — both make a
+genuinely live, JS-computed readout consistent with how this panel already
+works, not a new architectural pattern. Ruled against reusing
+`tools/lib/contrast.mjs` directly via `<script type="module">`: that file is
+dev/build tooling, not a runtime asset, and serving it to the browser mixes
+those two concerns for no real benefit. Instead, 2.1b's admin JS
+(`assets/src/js/settings-occasions.js`) gets its own small, self-contained
+copy of the luminance/ratio math (~15 lines), and — because this is exactly
+the kind of silent-drift risk a code comment in `contrast.mjs` already
+flags for a different function (`mixSrgb`) without ever landing a test — a
+parity test comparing this JS copy's output against `blueline_contrast_ratio()`'s
+PHP output at a fixed set of hex pairs is required, not optional. Without
+JS, the occasion still saves correctly and a post-save, server-rendered
+contrast readout (computed via the same PHP function, from the just-saved
+stored value) is shown — so the feature degrades to "accurate but not
+live," never to "broken."
+
+**Ruling: the AA-override checkbox's save-time behavior is per-occasion,
+symmetric, and cleans up orphans.** Occasions save as one whole map per
+request, unlike the existing "Delete all Blueline data" checkbox (a single
+global action with no per-row concept) — that pattern's markup/gating
+structure (an explanatory blocking notice + an explicit confirm checkbox,
+enforced server-side) is reused, but its all-or-nothing semantics are not:
+for every occasion in the submitted batch, compute its effective accent's
+contrast against `BLUELINE_TOKEN_INK`; if it fails and that row's own
+override checkbox was checked, call `blueline_record_acknowledgement()` for
+scope `occasion:{id}` with the effective accent value and the current
+`blueline_settings_inputs_hash()`; if it now passes, or the checkbox is
+unchecked, call `blueline_remove_acknowledgement()` for that scope
+(idempotent when nothing was recorded). Additionally, on every Occasions-tab
+save, any stored acknowledgement whose scope starts with `occasion:` but
+whose id is no longer present in the submitted map is removed too — without
+this, deleting or renaming an occasion would leave its acknowledgement
+orphaned in storage forever, silently growing `aa_acknowledgements` with
+dead entries. This is the save-side half of the contract 2.1a's resolver
+already reads from (`blueline_acknowledgement_covers()`'s value+hash match) —
+the resolver itself needs no change; this ruling only decides how the write
+side finally populates what it already knows how to read.
+
 ## 6. Phase 2.2 — Correctness & observability
 
 ### 6.1 Team colours (original spec §8) — already done

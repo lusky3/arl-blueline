@@ -385,6 +385,190 @@ function blueline_occasion_presets(): array {
 }
 
 /**
+ * Assign each submitted occasions row a server-derived, de-duplicated
+ * `id` -- design spec §5.1's first ruling: the admin never types an id
+ * directly.
+ *
+ * A row keeps its own existing id when its derived slug is unchanged
+ * from `_original_id`. A row whose derived slug differs from
+ * `_original_id` (a brand-new row, where `_original_id` is '', or an
+ * existing row whose label edit changed the derived slug -- a rename)
+ * is checked for a collision against both the rest of THIS batch and
+ * the currently-stored array, EXCLUDING the row's own original slot,
+ * and bumped with an incrementing numeric suffix on collision -- the
+ * same shape wp_unique_post_slug() already uses for post slugs.
+ *
+ * Deliberately does not call blueline_sanitize_occasions() itself, and
+ * does not validate anything beyond having a usable label: the caller
+ * (inc/settings/page.php's sanitize-callback carve-out) runs the
+ * result through that unchanged validator immediately afterwards. Any
+ * OTHER key a row carries (e.g. a save-time override checkbox a later
+ * task reads) is copied through untouched -- this function only ever
+ * reads `_original_id`/`label` and writes `id`.
+ *
+ * A stored slot whose owning row (the row in THIS batch carrying that
+ * `_original_id`) is itself renaming away from it is being vacated by
+ * this very save, so it must not count as "still occupied" against a
+ * different row that wants to move into it -- two rows trading ids
+ * (A's old slot to B, B's old slot to A) would otherwise each see the
+ * other's not-yet-vacated slot as a collision and both get bumped with
+ * an unnecessary `-2` suffix, silently shifting their AA-acknowledgement
+ * scopes (`occasion:{id}`) along with it. This is precomputed as one
+ * full pass over $submitted before the main assignment loop, so the
+ * result does not depend on which row happens to be processed first.
+ *
+ * @param mixed                               $submitted Raw submitted rows, keyed by an opaque per-request row identifier.
+ * @param array<string, array<string, mixed>> $stored    Currently stored `occasions` map, read BEFORE this save.
+ * @return array<string, array<string, mixed>> The same rows, re-keyed by their final, unique, derived id.
+ */
+function blueline_occasions_assign_unique_ids( $submitted, array $stored ): array {
+	if ( ! is_array( $submitted ) ) {
+		return array();
+	}
+
+	$vacated = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$row_original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$row_base        = sanitize_title( is_string( $row['label'] ?? null ) ? $row['label'] : '' );
+
+		if ( '' !== $row_original_id && '' !== $row_base && $row_base !== $row_original_id ) {
+			$vacated[ $row_original_id ] = true;
+		}
+	}
+
+	$taken  = array();
+	$result = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$label       = is_string( $row['label'] ?? null ) ? $row['label'] : '';
+		$base        = sanitize_title( $label );
+
+		if ( '' === $base ) {
+			// No usable label at all -- blueline_sanitize_occasions()
+			// will reject this row for its own empty-label reason
+			// regardless, so there is no id worth manufacturing for it.
+			continue;
+		}
+
+		$final_id = $base;
+		$suffix   = 2;
+
+		while (
+			isset( $taken[ $final_id ] )
+			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id && ! isset( $vacated[ $final_id ] ) )
+		) {
+			$final_id = $base . '-' . $suffix;
+			++$suffix;
+		}
+
+		$taken[ $final_id ] = true;
+
+		$row['id'] = $final_id;
+		unset( $row['_original_id'] );
+
+		$result[ $final_id ] = $row;
+	}
+
+	return $result;
+}
+
+/**
+ * Compute the new `aa_acknowledgements` map after an Occasions-tab save
+ * -- design spec §5.1's fifth ruling: per-occasion, symmetric
+ * record/remove, plus orphan cleanup.
+ *
+ * For every occasion in $sanitized (already run through
+ * blueline_sanitize_occasions() -- this function trusts it is
+ * well-formed), resolves its effective accent (its own `accent`, or
+ * blueline_occasion_accent_default() when empty), checks contrast
+ * against BLUELINE_TOKEN_INK, and either records or removes its
+ * acknowledgement accordingly. Then removes every acknowledgement
+ * scoped `occasion:*` whose id is not present in $sanitized at all --
+ * deleting or renaming an occasion must not leave its acknowledgement
+ * behind forever.
+ *
+ * Pure: takes the current map and returns a new one; never calls
+ * update_option() itself, matching blueline_record_acknowledgement()/
+ * blueline_remove_acknowledgement()'s own contract.
+ *
+ * @param array<string, array<string, mixed>> $sanitized        This save's new `occasions` value (post blueline_sanitize_occasions()).
+ * @param array<string, bool>                 $raw_overrides    Map of occasion id => whether ITS override checkbox was checked in this submission.
+ * @param array<string, array<string, mixed>> $acknowledgements Currently stored `aa_acknowledgements`.
+ * @param string                              $inputs_hash      blueline_settings_inputs_hash()'s current value.
+ * @param int                                 $user_id          The saving user's id.
+ * @return array<string, array<string, mixed>> The updated map, to be stored under `aa_acknowledgements`.
+ */
+function blueline_occasions_apply_aa_overrides(
+	array $sanitized,
+	array $raw_overrides,
+	array $acknowledgements,
+	string $inputs_hash,
+	int $user_id
+): array {
+	foreach ( $sanitized as $id => $occasion ) {
+		$scope = 'occasion:' . $id;
+
+		$raw_accent = '' !== ( $occasion['accent'] ?? '' )
+			? $occasion['accent']
+			: blueline_occasion_accent_default();
+
+		$accent = blueline_sanitize_hex_color( $raw_accent );
+
+		if ( '' === $accent ) {
+			// Unresolvable accent -- nothing to acknowledge either way;
+			// do not leave a stale acknowledgement behind for a value
+			// that no longer means anything.
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+			continue;
+		}
+
+		$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $accent );
+		$passes = $ratio >= blueline_contrast_threshold( 'body' );
+
+		if ( ! $passes && ! empty( $raw_overrides[ $id ] ) ) {
+			$acknowledgements = blueline_record_acknowledgement(
+				$acknowledgements,
+				$scope,
+				'ink-on-occasion-accent',
+				$accent,
+				$ratio,
+				$inputs_hash,
+				$user_id
+			);
+		} else {
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+		}
+	}
+
+	// Orphan cleanup: an acknowledgement scoped to an occasion id no
+	// longer present in this save's own occasions map at all (deleted,
+	// or renamed away from) has nothing left to cover.
+	foreach ( array_keys( $acknowledgements ) as $scope ) {
+		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
+			continue; // Not this mechanism's business -- e.g. a future non-occasion scope.
+		}
+
+		$id = substr( $scope, strlen( 'occasion:' ) );
+
+		if ( ! isset( $sanitized[ $id ] ) ) {
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+		}
+	}
+
+	return $acknowledgements;
+}
+
+/**
  * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD' --
  * design spec §5/§7.5: "Dates compare in site timezone ... not UTC."
  *

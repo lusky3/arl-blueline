@@ -155,11 +155,14 @@ final class SettingsPageTest extends TestCase {
 	 * The schema's own tab order (content, links, appearance, commerce,
 	 * sections today) must be exactly what the tab nav renders and iterates
 	 * in -- derived from the schema, not hardcoded, so a future tab needs no
-	 * edit here.
+	 * edit here. `occasions` is appended last: it is the one explicit,
+	 * named exception described in
+	 * test_tab_slugs_includes_occasions_as_a_named_exception() below, not a
+	 * schema-derived tab.
 	 */
 	public function test_tab_slugs_reflect_schema_order(): void {
 		$this->assertSame(
-			array( 'content', 'links', 'appearance', 'commerce', 'sections' ),
+			array( 'content', 'links', 'appearance', 'commerce', 'sections', 'occasions' ),
 			blueline_settings_tab_slugs()
 		);
 	}
@@ -1638,5 +1641,425 @@ final class SettingsPageTest extends TestCase {
 		);
 
 		$this->assertSame( array(), $output['occasions'] );
+	}
+
+	/**
+	 * The Occasions tab's own submission derives an id from the label
+	 * rather than trusting one the admin typed -- design spec §5.1's
+	 * first ruling, exercised through the real save path.
+	 */
+	public function test_sanitize_callback_derives_an_id_for_a_new_occasions_row(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(
+					'row-1' => array(
+						'_original_id' => '',
+						'label'        => 'Canada Day',
+						'type'         => 'decorative',
+						'window'       => array(
+							'start_md' => '07-01',
+							'end_md'   => '07-01',
+						),
+						'accent'       => '',
+						'motif'        => 'maple-leaf',
+						'line'         => '',
+						'mode'         => 'auto',
+					),
+				),
+			)
+		);
+
+		$this->assertArrayHasKey( 'canada-day', $output['occasions'] );
+		$this->assertSame( 'canada-day', $output['occasions']['canada-day']['id'] );
+	}
+
+	/**
+	 * Asserts `occasions` submitted from a DIFFERENT tab is still dropped
+	 * outright -- the new exception names `occasions` AND
+	 * `'occasions' === $submitted_tab` together, never `occasions` alone.
+	 */
+	public function test_sanitize_callback_still_drops_occasions_from_a_foreign_tab(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'content',
+				'occasions' => array( 'canada-day' => array( 'anything' => true ) ),
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'occasions', $output );
+	}
+
+	/**
+	 * Asserts the pre-existing programmatic write path (no `_tab` at
+	 * all) is unaffected: a row's `id` is honoured exactly as submitted,
+	 * with NO derivation step run over it. 2.1a's own
+	 * test_sanitize_callback_lets_occasions_survive_a_programmatic_write()
+	 * already covers the happy path; this covers that derivation is
+	 * SKIPPED for this path specifically.
+	 */
+	public function test_sanitize_callback_does_not_re_derive_ids_on_a_programmatic_write(): void {
+		$entry = array(
+			'id'     => 'custom-slug',
+			'label'  => 'Something Else Entirely',
+			'type'   => 'decorative',
+			'window' => array(
+				'start_md' => '07-01',
+				'end_md'   => '07-01',
+			),
+			'accent' => '',
+			'motif'  => 'none',
+			'line'   => '',
+			'mode'   => 'auto',
+		);
+
+		$output = blueline_settings_sanitize_callback(
+			array( 'occasions' => array( 'custom-slug' => $entry ) )
+		);
+
+		$this->assertSame( $entry, $output['occasions']['custom-slug'] );
+	}
+
+	/**
+	 * Asserts `_schema` is STILL dropped outright even when the
+	 * submission's `_tab` is `'occasions'` -- the new carve-out names
+	 * `occasions` AND `'occasions' === $submitted_tab` together; it must
+	 * never be read as "any reserved key survives once the tab is
+	 * occasions".
+	 */
+	public function test_sanitize_callback_still_drops_schema_when_the_tab_is_occasions(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'_schema'   => 99,
+				'occasions' => array(),
+			)
+		);
+
+		$this->assertArrayNotHasKey( '_schema', $output );
+	}
+
+	/**
+	 * Asserts a raw, directly-submitted `aa_acknowledgements` payload is
+	 * STILL never honoured on an occasions-tab save -- same guard as
+	 * above, covering the other reserved key. As of Task 3
+	 * (blueline_occasions_apply_aa_overrides()), an occasions-tab save
+	 * ALWAYS sets `aa_acknowledgements` on the output -- computed from
+	 * the sanitized occasions and the CURRENTLY stored acknowledgements,
+	 * never from whatever the request happened to submit under that
+	 * key -- so this no longer asserts the key is absent; it asserts the
+	 * submitted value was not the one that won.
+	 *
+	 * The forged entry below is deliberately WELL-FORMED (every field
+	 * blueline_sanitize_acknowledgements() requires, correctly typed, and
+	 * `scope` matching its own array key) so that
+	 * blueline_sanitize_acknowledgements() would NOT scrub it on its own
+	 * -- an earlier version of this test used a malformed
+	 * `array( 'anything' => true )` payload, which got scrubbed to
+	 * `array()` regardless of whether the tab guard was correct, so the
+	 * test kept passing even when the guard was broken. `occasions` is
+	 * also submitted BEFORE `aa_acknowledgements` here (the opposite
+	 * order from the old test), so a broken guard can't be saved by the
+	 * `occasions` branch's computed value happening to run, and overwrite
+	 * the forged one, later in iteration order. With both of those fixed,
+	 * this test only passes when the reserved-key guard actually drops
+	 * `aa_acknowledgements` for an occasions-tab submission -- since
+	 * `occasions` is empty here, the real computed result is the
+	 * (empty) stored acknowledgements map, never the forged entry.
+	 */
+	public function test_sanitize_callback_still_drops_acknowledgements_when_the_tab_is_occasions(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'                => 'occasions',
+				'occasions'           => array(),
+				'aa_acknowledgements' => array(
+					'occasion:fake' => array(
+						'rule_id'     => 'ink-on-occasion-accent',
+						'value'       => '#000000',
+						'ratio'       => 1.0,
+						'user_id'     => 999,
+						'date'        => 1,
+						'inputs_hash' => 'forged',
+						'scope'       => 'occasion:fake',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( array(), $output['aa_acknowledgements'] );
+	}
+
+	/**
+	 * End-to-end: the Occasions tab's own submission (a failing accent,
+	 * override checkbox checked) reaches
+	 * blueline_settings_sanitize_callback() and produces BOTH a
+	 * sanitized `occasions` entry AND a new, matching
+	 * `aa_acknowledgements` entry -- design spec §5.1's fifth ruling,
+	 * run through the real save path rather than the pure function
+	 * alone.
+	 *
+	 * The row is submitted under the array key `__new_1`, NOT `failing`.
+	 * That is deliberate and load-bearing: it is the shape a real
+	 * browser-added row actually posts (assets/src/js/settings-occasions.js's
+	 * addRow() always names a fresh row `__new_{n}`, never the slug the
+	 * server will eventually derive), and it is the ONLY shape that can
+	 * catch a regression in how `$raw_overrides` is keyed. The earlier
+	 * version of this test submitted the row under the key `failing`
+	 * with the label `Failing` -- and `sanitize_title( 'Failing' )` is
+	 * `'failing'`, so the submitted key and the final derived id were
+	 * identical by coincidence. A mutation keying `$raw_overrides` by
+	 * the RAW SUBMITTED key instead of each row's final,
+	 * post-blueline_occasions_assign_unique_ids() id passed that test
+	 * (and the whole suite) undetected, while silently discarding the AA
+	 * acknowledgement of every JS-added row in production. With the two
+	 * keys deliberately different, the acknowledgement assertion below
+	 * only holds when the override is read under `failing` -- the FINAL
+	 * id -- exactly as the wiring does.
+	 */
+	public function test_sanitize_callback_records_an_acknowledgement_for_an_occasions_tab_save(): void {
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(
+					'__new_1' => array(
+						'_original_id' => '',
+						'label'        => 'Failing',
+						'type'         => 'decorative',
+						'window'       => array(
+							'start_md' => '01-01',
+							'end_md'   => '12-31',
+						),
+						'accent'       => '#274a63',
+						'motif'        => 'none',
+						'line'         => '',
+						'mode'         => 'force_on',
+						'override_aa'  => '1',
+					),
+				),
+			)
+		);
+
+		// Keyed by the DERIVED id, not by the `__new_1` the row was
+		// submitted under, on both sides.
+		$this->assertArrayHasKey( 'failing', $output['occasions'] );
+		$this->assertArrayNotHasKey( '__new_1', $output['occasions'] );
+		$this->assertSame( 'failing', $output['occasions']['failing']['id'] );
+		$this->assertArrayHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+		$this->assertArrayNotHasKey( 'occasion:__new_1', $output['aa_acknowledgements'] );
+		$this->assertSame( '#274a63', $output['aa_acknowledgements']['occasion:failing']['value'] );
+	}
+
+	/**
+	 * Asserts deleting an occasion (simply omitting it from this save's
+	 * own submission) also removes its now-orphaned acknowledgement, in
+	 * the same real save path.
+	 */
+	public function test_sanitize_callback_cleans_up_an_orphaned_acknowledgement_on_save(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(
+					'failing' => array(
+						'id'     => 'failing',
+						'label'  => 'Failing',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '01-01',
+							'end_md'   => '12-31',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'force_on',
+					),
+				),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:failing', 'ink-on-occasion-accent', '#274a63', 1.66, blueline_settings_inputs_hash(), 1 ),
+			)
+		);
+
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(), // The occasion was removed in this save.
+			)
+		);
+
+		$this->assertSame( array(), $output['occasions'] );
+		$this->assertArrayNotHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+	}
+
+	/**
+	 * The hazard the Occasions tab's hidden `__none__` marker row exists
+	 * for, pinned as its own test: an HTML form cannot post an array
+	 * field with ZERO entries, so an admin who removes every row and
+	 * saves sends a request with no `blueline_settings[occasions][...]`
+	 * key at all.
+	 *
+	 * This test submits exactly that shape -- `_tab => 'occasions'` with
+	 * `occasions` genuinely ABSENT from the input array (not `array()`,
+	 * which is a shape a browser can never produce) -- and asserts the
+	 * documented consequence: the per-key loop never reaches the
+	 * `occasions` branch, `$output['occasions']` is never set, and
+	 * blueline_settings_merge() therefore carries the OLD stored map
+	 * straight back. That is a silent no-op from the admin's point of
+	 * view, which is precisely why
+	 * blueline_settings_render_occasions_tab() renders a marker row that
+	 * cannot be removed -- see the next test for the shape that reaches
+	 * this callback once it is present.
+	 */
+	public function test_sanitize_callback_cannot_clear_occasions_when_the_key_is_absent_entirely(): void {
+		$stored = array(
+			'occasions' => array(
+				'canada-day' => array(
+					'id'     => 'canada-day',
+					'label'  => 'Canada Day',
+					'type'   => 'decorative',
+					'window' => array(
+						'start_md' => '07-01',
+						'end_md'   => '07-01',
+					),
+					'accent' => '',
+					'motif'  => 'maple-leaf',
+					'line'   => '',
+					'mode'   => 'auto',
+				),
+			),
+		);
+
+		update_option( BLUELINE_SETTINGS_OPTION, $stored );
+
+		$output = blueline_settings_sanitize_callback( array( '_tab' => 'occasions' ) );
+
+		$this->assertArrayNotHasKey( 'occasions', $output );
+
+		$merged = blueline_settings_merge( $output, $stored );
+
+		$this->assertSame( $stored['occasions'], $merged['occasions'] );
+	}
+
+	/**
+	 * The marker row's own shape, end to end: a submission carrying ONLY
+	 * `blueline_settings[occasions][__none__][label] = ''` (every real
+	 * row removed in the browser) must clear the stored map outright AND
+	 * take every `occasion:*` acknowledgement with it.
+	 *
+	 * The marker row itself never survives:
+	 * blueline_occasions_assign_unique_ids() drops any row whose label
+	 * yields an empty sanitize_title(), so it is gone before
+	 * blueline_sanitize_occasions() ever sees it -- the assertion below
+	 * is `array()`, not "a map containing __none__".
+	 */
+	public function test_sanitize_callback_clears_occasions_when_only_the_marker_row_is_submitted(): void {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions'           => array(
+					'failing' => array(
+						'id'     => 'failing',
+						'label'  => 'Failing',
+						'type'   => 'decorative',
+						'window' => array(
+							'start_md' => '01-01',
+							'end_md'   => '12-31',
+						),
+						'accent' => '#274a63',
+						'motif'  => 'none',
+						'line'   => '',
+						'mode'   => 'force_on',
+					),
+				),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:failing', 'ink-on-occasion-accent', '#274a63', 1.66, blueline_settings_inputs_hash(), 1 ),
+			)
+		);
+
+		$output = blueline_settings_sanitize_callback(
+			array(
+				'_tab'      => 'occasions',
+				'occasions' => array(
+					// Exactly what the rendered marker field posts once
+					// every real row has been removed.
+					'__none__' => array( 'label' => '' ),
+				),
+			)
+		);
+
+		$this->assertSame( array(), $output['occasions'] );
+		$this->assertArrayNotHasKey( 'occasion:failing', $output['aa_acknowledgements'] );
+
+		// And the merge stage must not resurrect the old map either --
+		// `occasions` IS present in this submission's output, so
+		// blueline_settings_merge()'s carry-forward loop skips it.
+		$merged = blueline_settings_merge(
+			$output,
+			array( 'occasions' => array( 'failing' => array( 'id' => 'failing' ) ) )
+		);
+
+		$this->assertSame( array(), $merged['occasions'] );
+	}
+
+	/**
+	 * `occasions` appears in the tab list as one explicit, named
+	 * exception -- design spec §5.1's third ruling -- while every other
+	 * tab remains exactly what the schema itself declares.
+	 */
+	public function test_tab_slugs_includes_occasions_as_a_named_exception(): void {
+		$slugs = blueline_settings_tab_slugs();
+
+		$this->assertContains( 'occasions', $slugs );
+
+		$schema_tabs = array();
+		foreach ( blueline_settings_schema() as $field ) {
+			$tab = $field['tab'] ?? '';
+			if ( '' !== $tab && ! in_array( $tab, $schema_tabs, true ) ) {
+				$schema_tabs[] = $tab;
+			}
+		}
+
+		$this->assertSame( $schema_tabs, array_values( array_diff( $slugs, array( 'occasions' ) ) ) );
+	}
+
+	/**
+	 * Asserts `occasions` has a real, human-readable tab label rather
+	 * than falling through to the raw-slug guess.
+	 */
+	public function test_tab_label_for_occasions(): void {
+		$this->assertSame( 'Occasions', blueline_settings_tab_label( 'occasions' ) );
+	}
+
+	/**
+	 * On the Occasions tab, blueline_settings_render_page() dispatches
+	 * to the bespoke renderer instead of the generic per-field
+	 * `<table>` loop.
+	 */
+	public function test_render_page_dispatches_to_the_occasions_renderer(): void {
+		$this->grant_manage_options();
+		$_GET['tab'] = 'occasions'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simulating a read-only tab request, matching blueline_settings_current_tab()'s own contract.
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = (string) ob_get_clean();
+
+		unset( $_GET['tab'] );
+
+		$this->assertStringContainsString( 'data-bl-occasions', $html );
+		$this->assertStringNotContainsString( '<table class="form-table"', $html );
+	}
+
+	/**
+	 * A schema-backed tab is unaffected: it still renders the generic
+	 * `<table>` loop, and never the occasions-specific markup.
+	 */
+	public function test_render_page_still_uses_the_generic_loop_for_a_schema_tab(): void {
+		$this->grant_manage_options();
+		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simulating a read-only tab request, matching blueline_settings_current_tab()'s own contract.
+
+		ob_start();
+		blueline_settings_render_page();
+		$html = (string) ob_get_clean();
+
+		unset( $_GET['tab'] );
+
+		$this->assertStringContainsString( '<table class="form-table"', $html );
+		$this->assertStringNotContainsString( 'data-bl-occasions', $html );
 	}
 }

@@ -209,8 +209,11 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * Top-level option keys that are neither a real schema field nor the two
  * request-scoped bookkeeping keys (`_posted_fields`, `_tab`) this file's
  * own form emits, but which a write still needs to be able to carry --
- * today inc/settings/store.php's `_schema` migration version and
- * inc/settings/acknowledgements.php's `aa_acknowledgements` map.
+ * today three of them: inc/settings/store.php's `_schema` migration
+ * version, inc/settings/acknowledgements.php's `aa_acknowledgements` map,
+ * and inc/occasions.php's `occasions` map (the one reserved key that a
+ * tab-scoped submission may also carry, and only from its OWN tab -- see
+ * blueline_settings_sanitize_callback()'s docblock, rule 4).
  * blueline_settings_sanitize_callback() checks every unrecognised key
  * against this explicit allow-list rather than forwarding it merely for
  * being unrecognised -- see this file's own docblock's `_schema` section
@@ -410,7 +413,14 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    blueline_sanitize_acknowledgements() (inc/settings/acknowledgements.php).
  *    Either way, the key is dropped outright when the submission carries a
  *    `_tab` (came from this file's own form, which never legitimately
- *    submits either one).
+ *    submits either one) -- EXCEPT `occasions`, which is the one reserved
+ *    key that DOES survive a tab-scoped submission, and only when that
+ *    submission's own `_tab` is literally `'occasions'` (design spec
+ *    §5.1's second ruling): that tab's own rendered form posts
+ *    `blueline_settings[occasions]` as one opaque map value, never through
+ *    `_posted_fields` per-field carry-forward. `_schema` and
+ *    `aa_acknowledgements` keep the absolute drop-on-any-tab rule
+ *    unchanged.
  *
  * @param mixed $input Raw value from $_POST[BLUELINE_SETTINGS_OPTION], as
  *                      WordPress' sanitize_option_{$option} filter hands it
@@ -473,12 +483,19 @@ function blueline_settings_sanitize_callback( $input ): array {
 				continue;
 			}
 
-			if ( '' !== $submitted_tab ) {
+			if ( '' !== $submitted_tab && ! ( 'occasions' === $key && 'occasions' === $submitted_tab ) ) {
 				// Reserved, but this submission carries `_tab` -- it came
 				// from this file's own rendered form, which never
-				// legitimately submits a reserved key. Dropped, not
-				// honoured, rather than trusted just because it's on the
-				// allow-list.
+				// legitimately submits a reserved key... EXCEPT
+				// `occasions` submitted BY its own Occasions tab (design
+				// spec §5.1's second ruling): that tab's own form posts
+				// `blueline_settings[occasions]` as one opaque map value,
+				// never through `_posted_fields` per-field carry-forward,
+				// since `occasions` is not a scalar schema field at all.
+				// `_schema` and `aa_acknowledgements` keep the absolute
+				// rule unchanged -- this exception names `occasions` AND
+				// `'occasions' === $submitted_tab` together, rather than
+				// loosening the rule for every reserved key.
 				continue;
 			}
 
@@ -492,11 +509,58 @@ function blueline_settings_sanitize_callback( $input ): array {
 			}
 
 			if ( 'occasions' === $key ) {
-				// A map, not an integer like every other reserved key --
-				// its own validator (inc/occasions.php) drops anything
-				// malformed rather than corrupting the option or crashing a
-				// later reader.
-				$output[ $key ] = blueline_sanitize_occasions( $value );
+				if ( 'occasions' === $submitted_tab ) {
+					// The Occasions tab's own save (design spec §5.1's
+					// first ruling): derive and de-duplicate every row's
+					// id server-side BEFORE the unchanged
+					// blueline_sanitize_occasions() ever sees it -- the
+					// admin never types an id directly.
+					$stored_occasions = is_array( $current['occasions'] ?? null ) ? $current['occasions'] : array();
+					$with_ids         = blueline_occasions_assign_unique_ids( $value, $stored_occasions );
+
+					// Per-row override checkboxes ride along inside
+					// $with_ids (blueline_occasions_assign_unique_ids()
+					// copies every OTHER key of a row through untouched)
+					// -- read them here, keyed by each row's own FINAL
+					// id, before blueline_sanitize_occasions() strips the
+					// extra `override_aa` key off (it only ever keeps
+					// the eight documented Occasion keys).
+					$raw_overrides = array();
+					foreach ( $with_ids as $row_id => $row ) {
+						$raw_overrides[ $row_id ] = is_array( $row ) && ! empty( $row['override_aa'] );
+					}
+
+					$sanitized_occasions = blueline_sanitize_occasions( $with_ids );
+
+					$output[ $key ] = $sanitized_occasions;
+
+					// design spec §5.1's fifth ruling: the Occasions
+					// tab's own save is also what decides this save's
+					// new `aa_acknowledgements` value -- per-occasion,
+					// symmetric record/remove, plus orphan cleanup. A
+					// forged `aa_acknowledgements` field in the raw POST
+					// can't overwrite this computed value even though
+					// the rendered form never posts one: the
+					// reserved-key guard above (the `'occasions' ===
+					// $key && 'occasions' === $submitted_tab` check)
+					// only lets `aa_acknowledgements` through this loop
+					// when $submitted_tab is '' (a programmatic write),
+					// never alongside an `occasions`-tab submission --
+					// so this assignment is always the last word.
+					$output['aa_acknowledgements'] = blueline_occasions_apply_aa_overrides(
+						$sanitized_occasions,
+						$raw_overrides,
+						blueline_stored_acknowledgements(),
+						blueline_settings_inputs_hash(),
+						get_current_user_id()
+					);
+				} else {
+					// A programmatic write (WP-CLI, a direct update_option()
+					// call, an import) -- no id derivation: the caller is
+					// expected to already supply final, correctly-keyed
+					// ids, exactly as this branch behaved before 2.1b.
+					$output[ $key ] = blueline_sanitize_occasions( $value );
+				}
 				continue;
 			}
 
@@ -1468,6 +1532,15 @@ function blueline_settings_tab_slugs(): array {
 			$slugs[] = $tab;
 		}
 	}
+
+	// One explicit, named exception (design spec §5.1's third ruling):
+	// `occasions` has zero schema fields of its own -- it is a reserved
+	// settings key (BLUELINE_SETTINGS_RESERVED_KEYS), not a
+	// `type => 'occasions'` schema entry. Every other tab above is still
+	// 100% schema-derived; this is the one deliberate exception, not a
+	// general "custom tabs" registration point nobody else needs.
+	$slugs[] = 'occasions';
+
 	return $slugs;
 }
 
@@ -1486,6 +1559,7 @@ function blueline_settings_tab_label( string $tab_slug ): string {
 		'appearance' => __( 'Appearance', 'blueline' ),
 		'sections'   => __( 'Sections', 'blueline' ),
 		'commerce'   => __( 'Commerce', 'blueline' ),
+		'occasions'  => __( 'Occasions', 'blueline' ),
 	);
 
 	return $labels[ $tab_slug ] ?? ucwords( str_replace( array( '-', '_' ), ' ', $tab_slug ) );
@@ -1757,13 +1831,28 @@ function blueline_settings_render_page(): void {
 				<input type="hidden" name="<?php echo esc_attr( BLUELINE_SETTINGS_OPTION . '[_posted_fields][]' ); ?>" value="<?php echo esc_attr( $field_key ); ?>">
 			<?php endforeach; ?>
 
-			<table class="form-table" role="presentation">
-				<tbody>
-					<?php foreach ( blueline_settings_fields_for_tab( $current_tab ) as $field_key => $field ) : ?>
-						<?php blueline_settings_render_field( $field_key, $field, $field_errors[ $field_key ] ?? null ); ?>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
+			<?php if ( 'occasions' === $current_tab ) : ?>
+				<?php
+				/*
+				 * design spec §5.1's third ruling: one explicit, named
+				 * exception in the page renderer, not a general "custom
+				 * tabs" mechanism. blueline_settings_fields_for_tab(
+				 * 'occasions' ) is always empty (no schema field ever
+				 * declares tab => 'occasions'), so the generic loop below
+				 * would render nothing useful for this tab anyway -- this
+				 * branch swaps it for a bespoke renderer instead.
+				 */
+				?>
+				<?php blueline_settings_render_occasions_tab(); ?>
+			<?php else : ?>
+				<table class="form-table" role="presentation">
+					<tbody>
+						<?php foreach ( blueline_settings_fields_for_tab( $current_tab ) as $field_key => $field ) : ?>
+							<?php blueline_settings_render_field( $field_key, $field, $field_errors[ $field_key ] ?? null ); ?>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
 
 			<?php submit_button(); ?>
 		</form>
@@ -2175,6 +2264,363 @@ function blueline_settings_alignment_label( string $key ): string {
 	return $labels[ $key ] ?? $key;
 }
 
+/**
+ * Render the entire Occasions tab: an "add from preset"/"add blank"
+ * toolbar, one row per stored occasion, and the `<template>` a JS-added
+ * row is cloned from.
+ *
+ * Design spec §5.1's third ruling: this is the bespoke renderer
+ * blueline_settings_render_page() dispatches to for the Occasions tab
+ * INSTEAD of the generic per-field `<table>` loop -- `occasions` has
+ * zero schema fields of its own (it is a reserved settings key, not a
+ * schema field: see BLUELINE_SETTINGS_RESERVED_KEYS's own docblock),
+ * so the generic loop has nothing to render for this tab at all.
+ *
+ * ## The `__none__` marker row
+ *
+ * One hidden `[occasions][__none__][label]` field is rendered OUTSIDE
+ * the repeater `<ul>`, so it survives every "Remove" click. It exists
+ * for exactly one case: an admin deleting EVERY row and saving. An HTML
+ * form cannot post an array field with zero entries -- with no real row
+ * left, no `blueline_settings[occasions][...]` key would appear in the
+ * request at all, blueline_settings_sanitize_callback()'s per-key loop
+ * would never reach its `occasions` branch, `$output['occasions']` would
+ * never be set, and blueline_settings_merge() would then carry the OLD
+ * stored map straight back: the admin sees "Settings saved" and the
+ * occasion (and its AA acknowledgement) is still there. Deleting one row
+ * out of several was always fine; only deleting down to zero was
+ * silently a no-op.
+ *
+ * The marker's own row never survives processing:
+ * blueline_occasions_assign_unique_ids() (inc/occasions.php) drops any
+ * row whose label yields an empty `sanitize_title()`, so this row is
+ * gone before blueline_sanitize_occasions() ever sees it. Its only job
+ * is to make the `occasions` key PRESENT, so the branch runs, computes
+ * an empty map, and the acknowledgement orphan-cleanup runs with it.
+ *
+ * @return void
+ */
+function blueline_settings_render_occasions_tab(): void {
+	$occasions        = blueline_settings( 'occasions' );
+	$occasions        = is_array( $occasions ) ? $occasions : array();
+	$inputs_hash      = blueline_settings_inputs_hash();
+	$acknowledgements = blueline_stored_acknowledgements();
+	$name             = BLUELINE_SETTINGS_OPTION . '[occasions]';
+	?>
+	<div class="bl-occasions" data-bl-occasions data-bl-occasions-name="<?php echo esc_attr( $name ); ?>">
+		<?php // Always-present marker row -- see this function's docblock. Deliberately outside the <ul>, so removing every real row cannot remove it too. ?>
+		<input
+			type="hidden"
+			name="<?php echo esc_attr( $name . '[__none__][label]' ); ?>"
+			value=""
+			data-bl-occasions-marker
+		>
+
+		<p class="description">
+			<?php
+			echo esc_html(
+				__( 'Occasions add a temporary accent colour, a small motif, and an optional line of copy for a set window of the calendar year. Nothing here activates until its Mode is set to something other than "Always off", or its window includes today.', 'blueline' )
+			);
+			?>
+		</p>
+
+		<ul class="bl-occasions__list" data-bl-occasions-list>
+			<?php if ( array() === $occasions ) : ?>
+				<li class="bl-occasions__empty" data-bl-occasions-empty>
+					<?php esc_html_e( 'No occasions configured yet.', 'blueline' ); ?>
+				</li>
+			<?php endif; ?>
+			<?php foreach ( $occasions as $id => $occasion ) : ?>
+				<?php
+				if ( is_array( $occasion ) ) {
+					blueline_settings_render_occasion_row( $name, (string) $id, $occasion, $inputs_hash, $acknowledgements );
+				}
+				?>
+			<?php endforeach; ?>
+		</ul>
+
+		<p class="bl-occasions__toolbar">
+			<label for="bl-occasions-preset-select"><?php esc_html_e( 'Add from preset', 'blueline' ); ?></label>
+			<select id="bl-occasions-preset-select" data-bl-occasions-preset-select>
+				<option value=""><?php esc_html_e( 'Choose a preset', 'blueline' ); ?></option>
+				<?php foreach ( blueline_occasion_presets() as $preset_id => $preset ) : ?>
+					<option
+						value="<?php echo esc_attr( $preset_id ); ?>"
+						data-bl-occasion-preset="<?php echo esc_attr( wp_json_encode( $preset ) ); ?>"
+					>
+						<?php echo esc_html( $preset['label'] ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<button type="button" class="button" data-bl-occasions-add-preset>
+				<?php esc_html_e( 'Add', 'blueline' ); ?>
+			</button>
+			<button type="button" class="button" data-bl-occasions-add-blank>
+				<?php esc_html_e( 'Add a blank occasion', 'blueline' ); ?>
+			</button>
+		</p>
+
+		<template data-bl-occasions-template>
+			<?php
+			blueline_settings_render_occasion_row(
+				$name,
+				'__TEMPLATE__',
+				array(
+					'id'     => '',
+					'label'  => '',
+					'type'   => 'decorative',
+					'window' => array(
+						'start_md' => '',
+						'end_md'   => '',
+					),
+					'accent' => '',
+					'motif'  => 'none',
+					'line'   => '',
+					'mode'   => 'auto',
+				),
+				$inputs_hash,
+				array()
+			);
+			?>
+		</template>
+	</div>
+	<?php
+}
+
+/**
+ * Render one occasion's row: every Task-1-shaped field, the AA-override
+ * checkbox+notice (design spec §5.1's fifth ruling), and a
+ * server-computed contrast readout that is already correct even with
+ * no JS at all.
+ *
+ * @param string                              $name             The `occasions` field's base POST name, e.g. `blueline_settings[occasions]`.
+ * @param string                              $row_key          This row's per-request array key: a real occasion's own id for an existing row, or `__TEMPLATE__` for the `<template>` a later task's JS clones.
+ * @param array<string, mixed>                $occasion         A Task-1-shaped Occasion (or the blank template shape above).
+ * @param string                              $inputs_hash      blueline_settings_inputs_hash()'s current value.
+ * @param array<string, array<string, mixed>> $acknowledgements blueline_stored_acknowledgements()'s current value.
+ * @return void
+ */
+function blueline_settings_render_occasion_row( string $name, string $row_key, array $occasion, string $inputs_hash, array $acknowledgements ): void {
+	$id     = (string) ( $occasion['id'] ?? '' );
+	$label  = (string) ( $occasion['label'] ?? '' );
+	$type   = (string) ( $occasion['type'] ?? 'decorative' );
+	$start  = (string) ( $occasion['window']['start_md'] ?? '' );
+	$end    = (string) ( $occasion['window']['end_md'] ?? '' );
+	$accent = (string) ( $occasion['accent'] ?? '' );
+	$motif  = (string) ( $occasion['motif'] ?? 'none' );
+	$line   = (string) ( $occasion['line'] ?? '' );
+	$mode   = (string) ( $occasion['mode'] ?? 'auto' );
+
+	$resolved_accent = '' !== $accent ? blueline_sanitize_hex_color( $accent ) : blueline_occasion_accent_default();
+	$swatch_accent   = '' !== $resolved_accent ? $resolved_accent : BLUELINE_TOKEN_INK;
+
+	$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $swatch_accent );
+	$passes = $ratio >= blueline_contrast_threshold( 'body' );
+
+	$already_acknowledged = '' !== $id && blueline_acknowledgement_covers(
+		$acknowledgements,
+		'occasion:' . $id,
+		'ink-on-occasion-accent',
+		$swatch_accent,
+		$inputs_hash
+	);
+
+	$base    = $name . '[' . $row_key . ']';
+	$row_uid = 'bl-occasion-' . sanitize_html_class( '' !== $row_key ? $row_key : 'row' );
+	?>
+	<li class="bl-occasions__row" data-bl-occasion-row>
+		<input
+			type="hidden"
+			name="<?php echo esc_attr( $base . '[_original_id]' ); ?>" value="<?php echo esc_attr( $id ); ?>"
+			data-bl-occasion-original-id
+		>
+
+		<p class="bl-occasions__slug">
+			<?php esc_html_e( 'ID:', 'blueline' ); ?>
+			<code data-bl-occasion-slug-preview><?php echo esc_html( '' !== $id ? $id : __( '(new, named from its label)', 'blueline' ) ); ?></code>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-label' ); ?>"><?php esc_html_e( 'Label', 'blueline' ); ?></label>
+			<input
+				type="text"
+				id="<?php echo esc_attr( $row_uid . '-label' ); ?>"
+				name="<?php echo esc_attr( $base . '[label]' ); ?>"
+				value="<?php echo esc_attr( $label ); ?>"
+				data-bl-occasion-label
+			>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-type' ); ?>"><?php esc_html_e( 'Type', 'blueline' ); ?></label>
+			<select id="<?php echo esc_attr( $row_uid . '-type' ); ?>" name="<?php echo esc_attr( $base . '[type]' ); ?>" data-bl-occasion-type>
+				<?php foreach ( blueline_occasion_types() as $type_choice ) : ?>
+					<option value="<?php echo esc_attr( $type_choice ); ?>" <?php selected( $type, $type_choice ); ?>>
+						<?php echo esc_html( blueline_occasion_type_label( $type_choice ) ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-start' ); ?>"><?php esc_html_e( 'Start (MM-DD)', 'blueline' ); ?></label>
+			<input
+				type="text"
+				id="<?php echo esc_attr( $row_uid . '-start' ); ?>"
+				name="<?php echo esc_attr( $base . '[window][start_md]' ); ?>"
+				value="<?php echo esc_attr( $start ); ?>"
+				pattern="\d{2}-\d{2}"
+				placeholder="MM-DD"
+				data-bl-occasion-window-start
+			>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-end' ); ?>"><?php esc_html_e( 'End (MM-DD)', 'blueline' ); ?></label>
+			<input
+				type="text"
+				id="<?php echo esc_attr( $row_uid . '-end' ); ?>"
+				name="<?php echo esc_attr( $base . '[window][end_md]' ); ?>"
+				value="<?php echo esc_attr( $end ); ?>"
+				pattern="\d{2}-\d{2}"
+				placeholder="MM-DD"
+				data-bl-occasion-window-end
+			>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-accent' ); ?>"><?php esc_html_e( 'Accent colour (hex, blank for the theme default)', 'blueline' ); ?></label>
+			<input type="color" value="<?php echo esc_attr( $swatch_accent ); ?>" data-bl-occasion-color tabindex="-1" aria-hidden="true">
+			<input
+				type="text"
+				id="<?php echo esc_attr( $row_uid . '-accent' ); ?>"
+				name="<?php echo esc_attr( $base . '[accent]' ); ?>"
+				value="<?php echo esc_attr( $accent ); ?>"
+				placeholder="#rrggbb"
+				data-bl-occasion-accent
+			>
+		</p>
+
+		<p class="bl-occasions__contrast" data-bl-occasion-contrast aria-live="polite">
+			<?php
+			printf(
+				/* translators: 1: a contrast ratio like "4.5:1", 2: "passes AA" or "fails AA". */
+				esc_html__( 'Contrast against body text: %1$s (%2$s)', 'blueline' ),
+				esc_html( number_format( $ratio, 1 ) . ':1' ),
+				esc_html( $passes ? __( 'passes AA', 'blueline' ) : __( 'fails AA', 'blueline' ) )
+			);
+			?>
+		</p>
+
+		<section class="notice notice-warning bl-occasions__aa-notice" data-bl-occasion-aa-notice<?php echo $passes ? ' hidden' : ''; ?>>
+			<p>
+				<?php
+				echo esc_html(
+					__( 'This accent does not meet the AA contrast requirement against body text. Checking the box below ships it anyway. Leaving it unchecked means this occasion will not activate until the colour passes, or this box is checked and saved.', 'blueline' )
+				);
+				?>
+			</p>
+			<label>
+				<input
+					type="checkbox"
+					name="<?php echo esc_attr( $base . '[override_aa]' ); ?>"
+					value="1"
+					data-bl-occasion-override
+					<?php checked( $already_acknowledged ); ?>
+				>
+				<?php esc_html_e( 'Yes, ship this colour despite the failing contrast', 'blueline' ); ?>
+			</label>
+		</section>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-motif' ); ?>"><?php esc_html_e( 'Motif', 'blueline' ); ?></label>
+			<select id="<?php echo esc_attr( $row_uid . '-motif' ); ?>" name="<?php echo esc_attr( $base . '[motif]' ); ?>" data-bl-occasion-motif>
+				<?php foreach ( blueline_occasion_motifs() as $motif_choice ) : ?>
+					<option value="<?php echo esc_attr( $motif_choice ); ?>" <?php selected( $motif, $motif_choice ); ?>>
+						<?php echo esc_html( blueline_occasion_motif_label( $motif_choice ) ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-line' ); ?>"><?php esc_html_e( 'Optional line of copy', 'blueline' ); ?></label>
+			<input
+				type="text"
+				id="<?php echo esc_attr( $row_uid . '-line' ); ?>"
+				name="<?php echo esc_attr( $base . '[line]' ); ?>"
+				value="<?php echo esc_attr( $line ); ?>"
+				data-bl-occasion-line
+			>
+		</p>
+
+		<p>
+			<label for="<?php echo esc_attr( $row_uid . '-mode' ); ?>"><?php esc_html_e( 'Mode', 'blueline' ); ?></label>
+			<select id="<?php echo esc_attr( $row_uid . '-mode' ); ?>" name="<?php echo esc_attr( $base . '[mode]' ); ?>" data-bl-occasion-mode>
+				<?php foreach ( blueline_occasion_modes() as $mode_choice ) : ?>
+					<option value="<?php echo esc_attr( $mode_choice ); ?>" <?php selected( $mode, $mode_choice ); ?>>
+						<?php echo esc_html( blueline_occasion_mode_label( $mode_choice ) ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+		</p>
+
+		<button type="button" class="button-link bl-occasions__remove" data-bl-occasion-remove>
+			<?php esc_html_e( 'Remove', 'blueline' ); ?>
+		</button>
+	</li>
+	<?php
+}
+
+/**
+ * Human-readable label for an occasion `type` value.
+ *
+ * @param string $type A blueline_occasion_types() value.
+ * @return string
+ */
+function blueline_occasion_type_label( string $type ): string {
+	$labels = array(
+		'decorative'    => __( 'Decorative', 'blueline' ),
+		'commemorative' => __( 'Commemorative', 'blueline' ),
+	);
+
+	return $labels[ $type ] ?? $type;
+}
+
+/**
+ * Human-readable label for an occasion `motif` value.
+ *
+ * @param string $motif A blueline_occasion_motifs() value.
+ * @return string
+ */
+function blueline_occasion_motif_label( string $motif ): string {
+	$labels = array(
+		'none'       => __( 'None', 'blueline' ),
+		'maple-leaf' => __( 'Maple leaf', 'blueline' ),
+		'poppy'      => __( 'Poppy', 'blueline' ),
+		'snowflake'  => __( 'Snowflake', 'blueline' ),
+		'sparkle'    => __( 'Sparkle', 'blueline' ),
+	);
+
+	return $labels[ $motif ] ?? $motif;
+}
+
+/**
+ * Human-readable label for an occasion `mode` value.
+ *
+ * @param string $mode A blueline_occasion_modes() value.
+ * @return string
+ */
+function blueline_occasion_mode_label( string $mode ): string {
+	$labels = array(
+		'auto'      => __( 'Automatic, during its window', 'blueline' ),
+		'force_on'  => __( 'Always on (preview now)', 'blueline' ),
+		'force_off' => __( 'Always off', 'blueline' ),
+	);
+
+	return $labels[ $mode ] ?? $mode;
+}
+
 add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_photo_picker' );
 /**
  * Enqueue the media library and the hero-photograph picker, on this page only.
@@ -2237,4 +2683,55 @@ function blueline_settings_photo_picker_styles(): string {
 		. '.bl-photos__align{margin-inline-start:auto;}'
 		. '.bl-photos__remove{color:#b32d2e;}'
 		. '.bl-photos__empty{color:#646970;font-style:italic;}';
+}
+
+add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_occasions_script' );
+/**
+ * Enqueue the Occasions tab's live contrast-readout/repeater script, on
+ * this page's Occasions tab only.
+ *
+ * A plain source file, no webpack entry -- the same deliberate choice
+ * blueline_settings_maybe_enqueue_photo_picker()'s own docblock
+ * explains for settings-photos.js: no imports, no JSX, no dependencies.
+ * Still linted (npm run lint:js) and still shipped by the same rsync
+ * as everything else.
+ *
+ * blueline_settings_inputs_hash()-adjacent values -- BLUELINE_TOKEN_INK
+ * and blueline_contrast_threshold( 'body' ) -- are read here,
+ * server-side, and handed to the script via wp_localize_script():
+ * real settings data the JS math needs but must never hardcode
+ * independently, which would be a third place these values could
+ * drift out of sync from inc/team-colors.php.
+ *
+ * @param string $hook_suffix The current admin screen's hook suffix.
+ * @return void
+ */
+function blueline_settings_maybe_enqueue_occasions_script( string $hook_suffix ): void {
+	if ( blueline_settings_page_hook() !== $hook_suffix ) {
+		return;
+	}
+
+	if ( 'occasions' !== blueline_settings_current_tab() ) {
+		return;
+	}
+
+	$relative = '/assets/src/js/settings-occasions.js';
+	$path     = BLUELINE_DIR . $relative;
+
+	wp_enqueue_script(
+		'blueline-settings-occasions',
+		BLUELINE_URI . $relative,
+		array(),
+		file_exists( $path ) ? (string) filemtime( $path ) : '1',
+		true
+	);
+
+	wp_localize_script(
+		'blueline-settings-occasions',
+		'blOccasionsData',
+		array(
+			'inkHex'    => BLUELINE_TOKEN_INK,
+			'threshold' => blueline_contrast_threshold( 'body' ),
+		)
+	);
 }
