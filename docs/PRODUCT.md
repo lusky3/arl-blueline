@@ -69,4 +69,5 @@ scroll at 360px, and a working skip link.
 The one narrow exception is explicit and logged, never silent: an admin can
 acknowledge one specific failing colour (for example, an Occasion's accent) at save time, and
 that acknowledgement is scoped to exactly what failed, re-checked live on every request, and
-falls back to the safe default the moment it goes stale or missing.
+the moment it goes stale or missing the occasion simply stops activating -- falling through to
+the next eligible one, or none at all -- rather than showing a colour that fails the check.
