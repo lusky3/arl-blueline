@@ -292,8 +292,46 @@ html body .woocommerce .woocommerce-invalid textarea {
 }
 
 /* ---------------------------------------------------------------------
+ * Breadcrumb -- unstyled by this theme until now, so it fell back to
+ * WooCommerce's own hardcoded #767676-on-white, which measures 4.36:1
+ * against this theme's --bl-content-bg (axe-core: color-contrast,
+ * critical). Both tokens below are already AA-verified for light and
+ * dark (the toggle's own contrast gate covers them), so this is a
+ * straight swap onto the existing system rather than a new colour.
+ * ------------------------------------------------------------------- */
+
+/*
+ * `.woocommerce ...` prefix needed on both, not just the plugin's own
+ * `.woocommerce-breadcrumb` classes: WooCommerce's default rule is
+ * `.woocommerce:where(body:not(.woocommerce-uses-block-theme))
+ * .woocommerce-breadcrumb a` -- :where() zeroes its own specificity, but
+ * the leading .woocommerce class outside it still counts, outranking a
+ * bare `.woocommerce-breadcrumb a` despite this stylesheet loading later.
+ */
+.woocommerce .woocommerce-breadcrumb {
+	color: var(--bl-content-text-secondary);
+}
+
+.woocommerce .woocommerce-breadcrumb a {
+	color: var(--bl-content-link);
+}
+
+/* ---------------------------------------------------------------------
  * Product archive (registration listing).
  * ------------------------------------------------------------------- */
+
+/*
+ * Sale badge -- also unstyled until now, so it fell back to WooCommerce's
+ * own default badge fill, which measured 3.41:1 against white text (axe-
+ * core: color-contrast, serious). --bl-ink-deep is a fixed-chrome token
+ * (never swaps for dark mode, see style.css), so a white label on it stays
+ * AA in both themes without needing a dark-mode variant of its own.
+ */
+.woocommerce span.onsale {
+	background: var(--bl-ink-deep);
+	color: var(--bl-white);
+	border-radius: var(--bl-radius);
+}
 
 .woocommerce ul.products {
 	display: grid;
@@ -336,11 +374,21 @@ html body .woocommerce .woocommerce-invalid textarea {
 	font-weight: 700;
 }
 
+/*
+ * opacity: 1 explicitly cancels WooCommerce's own same-selector rule
+ * (`opacity: 0.7`, woocommerce.css) -- --bl-content-text-secondary is
+ * already AA-verified at full strength (see style.css's contrast
+ * comments), but WC's opacity fades it further regardless of what this
+ * rule's own color declaration says, dropping it to 3.92:1 against
+ * --bl-content-surface (axe-core: color-contrast, serious). The
+ * strikethrough itself already carries the "was" de-emphasis without
+ * needing reduced opacity too.
+ */
 .woocommerce ul.products li.product .price del {
 	margin-inline-end: var(--bl-space-2);
 	color: var(--bl-content-text-secondary);
 	text-decoration: line-through;
-	opacity: 0.7;
+	opacity: 1;
 }
 
 .woocommerce ul.products li.product .price ins {

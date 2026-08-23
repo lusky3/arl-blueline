@@ -1,5 +1,8 @@
 const { test, expect } = require( '@playwright/test' );
 const { assertNoPhpErrors } = require( './helpers/assert-no-php-errors' );
+const {
+	assertNoA11yViolations,
+} = require( './helpers/assert-no-a11y-violations' );
 
 test.describe( 'Homepage, against a clean WordPress + WooCommerce + SportsPress install', () => {
 	test( 'loads, is served by this theme, and leaks no PHP error', async ( { page } ) => {
@@ -14,6 +17,14 @@ test.describe( 'Homepage, against a clean WordPress + WooCommerce + SportsPress 
 		// classes -- confirms the environment actually activated blueline,
 		// not just that SOME theme rendered a 200.
 		await expect( page.locator( 'body.theme-blueline' ) ).toHaveCount( 1 );
+	} );
+
+	test( 'has no critical/serious axe-core accessibility violations', async ( {
+		page,
+	} ) => {
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
+
+		await assertNoA11yViolations( page, 'homepage' );
 	} );
 
 	test( "loads the theme's own stylesheet, not a fallback theme's", async ( { page } ) => {

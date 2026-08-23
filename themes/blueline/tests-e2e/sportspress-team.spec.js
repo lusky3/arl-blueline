@@ -1,5 +1,8 @@
 const { test, expect } = require( '@playwright/test' );
 const { assertNoPhpErrors } = require( './helpers/assert-no-php-errors' );
+const {
+	assertNoA11yViolations,
+} = require( './helpers/assert-no-a11y-violations' );
 
 /**
  * Covers sportspress/single-team.php (this theme's SportsPress template
@@ -27,6 +30,16 @@ test.describe( 'SportsPress team page, against a real sp_team post with real sp_
 		assertNoPhpErrors( html, 'team page' );
 
 		await expect( page.getByRole( 'heading', { name: teamName } ) ).toBeVisible();
+	} );
+
+	test( 'has no critical/serious axe-core accessibility violations', async ( {
+		page,
+	} ) => {
+		await page.goto( `/team/${ teamSlug }/`, {
+			waitUntil: 'domcontentloaded',
+		} );
+
+		await assertNoA11yViolations( page, 'team page' );
 	} );
 
 	test( "derives the team's colour from sp_colors, not a placeholder", async ( { page } ) => {
