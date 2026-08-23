@@ -196,7 +196,8 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 ?>
 <div class="sp-template sp-template-event-list">
 	<?php if ( $title ) : ?>
-		<h4 class="sp-table-caption"><?php echo wp_kses_post( $title ); ?></h4>
+		<?php // h2, not h4: closes the h1 -> h4 heading-level skip every page embedding this block has (team/player/staff pages via the_content(), and the standalone schedule page via its own title) -- see team-lists.php's matching fix for the full reasoning. ?>
+		<h2 class="sp-table-caption"><?php echo wp_kses_post( $title ); ?></h2>
 	<?php endif; ?>
 	<div class="sp-table-wrapper">
 		<table class="sp-event-list sp-event-list-format-homeaway sp-data-table bl-sp-schedule<?php echo $paginated ? ' sp-paginated-table' : ''; ?><?php echo $sortable ? ' sp-sortable-table' : ''; ?><?php echo $responsive ? ' sp-responsive-table ' . esc_attr( $identifier ) : ''; ?><?php echo $scrollable ? ' sp-scrollable-table' : ''; ?>" data-sp-rows="<?php echo esc_attr( $rows ); ?>">

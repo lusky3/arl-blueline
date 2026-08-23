@@ -90,7 +90,13 @@ foreach ( $lists as $list_post ) :
 	}
 
 	if ( $multiple_lists ) {
-		echo '<h4 class="sp-table-caption">' . esc_html( $list_post->post_title ) . '</h4>';
+		// h2, not h4: the team hero (blueline_sp_team_hero(), inc/sportspress.php)
+		// prints the page's only h1, so this list caption is the first
+		// heading after it -- an h1 -> h4 skip broke the document outline
+		// screen readers navigate by (WCAG 1.3.1). .sp-table-caption is
+		// styled by class only (sportspress.css), so this is a pure
+		// semantic fix with no visual change.
+		echo '<h2 class="sp-table-caption">' . esc_html( $list_post->post_title ) . '</h2>';
 	}
 
 	foreach ( $groups as $group ) :
@@ -108,7 +114,10 @@ foreach ( $lists as $list_post ) :
 		}
 
 		if ( $group ) {
-			echo '<h5 class="sp-table-caption bl-sp-team-list__group">' . esc_html( $group->name ) . '</h5>';
+			// h3, one level under the h2 list caption above (or under the
+			// page's own h1 when there is no multi-list caption at all) --
+			// same "close the heading-level skip" reasoning.
+			echo '<h3 class="sp-table-caption bl-sp-team-list__group">' . esc_html( $group->name ) . '</h3>';
 		}
 		?>
 		<ul class="bl-sp-roster">

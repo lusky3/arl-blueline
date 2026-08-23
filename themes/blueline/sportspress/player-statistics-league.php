@@ -69,7 +69,8 @@ if ( empty( $stat_keys ) ) {
 	return;
 }
 
-$output = '<h4 class="sp-table-caption">' . $caption . '</h4>' .
+// h2, not h4 -- same heading-level-skip fix as the other sp-table-caption templates.
+$output = '<h2 class="sp-table-caption">' . $caption . '</h2>' .
 	'<div class="sp-table-wrapper">' .
 	'<table class="sp-player-statistics sp-data-table' . ( $scrollable ? ' sp-scrollable-table' : '' ) . '"><thead><tr>';
 

@@ -224,7 +224,8 @@ $output .= '</tbody>';
 ?>
 <div class="sp-template sp-template-league-table">
 	<?php if ( $title ) : ?>
-		<h4 class="sp-table-caption"><?php echo wp_kses_post( $title ); ?></h4>
+		<?php // h2, not h4 -- same heading-level-skip fix as event-list.php/team-lists.php. ?>
+		<h2 class="sp-table-caption"><?php echo wp_kses_post( $title ); ?></h2>
 	<?php endif; ?>
 	<?php if ( $bl_show_toggle ) : ?>
 		<?php

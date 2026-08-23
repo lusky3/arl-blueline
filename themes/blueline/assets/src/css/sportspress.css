@@ -1341,6 +1341,42 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	border-color: var(--bl-content-link);
 }
 
+/*
+ * Finding: SportsPress's own .sp-selector-redirect binding navigates on a
+ * bare `change` event, which fires on a closed <select> from arrow keys
+ * alone (WCAG 3.2.2) -- see player-selector.php's own docblock. This row
+ * pairs the select with an explicit "Go" button instead; the select no
+ * longer stretches to its own max-width since it now shares a row with
+ * the button rather than sitting alone.
+ */
+.bl-sp-player-selector__row {
+	display: flex;
+	gap: var(--bl-space-2);
+	max-width: 24rem;
+}
+
+.bl-sp-player-selector__row .sp-player-selector {
+	flex: 1 1 auto;
+	max-width: none;
+}
+
+/*
+ * .bl-btn/.bl-btn--secondary (layout.css/header.css) were designed for an
+ * <a> -- which carries no native chrome to begin with -- so this is the
+ * first time either class lands on a real <button>; the reset below
+ * strips the browser's own button chrome so only .bl-skew's fill/border
+ * shows, matching announcement.css's .bl-announce__dismiss precedent for
+ * the same problem.
+ */
+.bl-sp-player-selector__go {
+	flex: 0 0 auto;
+	padding: 0;
+	background: none;
+	border: 0;
+	font: inherit;
+	cursor: pointer;
+}
+
 /* ---- Schedule table override: sportspress/event-list.php (finding 9) ----
  *
  * .sp-event-list's own base alignment/logo rules (.data-home/.data-away
