@@ -44,11 +44,16 @@ Text Domain: blueline
 	 *
 	 * Exception: classic WooCommerce .form-row fields (checkout billing/
 	 * shipping, login, account-edit, the cart/checkout coupon field) don't
-	 * receive this token -- WC core's ".woocommerce form .form-row
+	 * receive this token directly -- WC core's ".woocommerce form .form-row
 	 * .input-text" (0,3,1) outranks the theme's ".woocommerce .input-text"
-	 * (0,2,0), so --wc-form-border-color wins there instead. They pass today
-	 * anyway (~10.7:1), so this is a coverage gap, not a live failure. See
-	 * the spec's "Collisions -- who wins" section.
+	 * (0,2,0), so --wc-form-border-color would otherwise win there instead.
+	 * This was a harmless coverage gap before the light/dark/system toggle
+	 * (still ~10.7:1 on an all-light page either way) but became a live,
+	 * visible failure once dark mode existed -- confirmed live, those
+	 * fields stayed white-on-black islands on an inverted page. Fixed by a
+	 * higher-specificity (0,3,2) override in woocommerce.css using
+	 * --bl-content-border-strong (this token's theme-aware sibling), not by
+	 * changing this token itself.
 	 */
 	--bl-border-strong:    #7C93A8;
 
@@ -153,6 +158,22 @@ Text Domain: blueline
 	--bl-content-border:        var(--bl-border);
 	--bl-content-border-strong: var(--bl-border-strong);
 	--bl-content-link:          var(--bl-accent-text);
+
+	/*
+	 * Without this, a browser's own forced/auto-dark-mode heuristic (common
+	 * on mobile Chrome, and confirmed live in this session's own staging
+	 * check) repaints the page using ITS guessed palette whenever
+	 * prefers-color-scheme is dark -- completely ignoring an explicit
+	 * data-theme="light" choice and the correct #F7FBFC this file resolves
+	 * --bl-content-bg to, because a page that never states an opinion on
+	 * color-scheme is exactly what that heuristic targets. Declaring it
+	 * here tells the browser this theme already handles both palettes
+	 * itself, which is what actually stops the override -- not merely a
+	 * forms/scrollbar hint. "light dark" (not "light"): the default,
+	 * unstamped state IS meant to follow the OS in either direction, so it
+	 * must not pin a specific value the two guarded blocks below.
+	 */
+	color-scheme: light dark;
 }
 
 /*
@@ -185,6 +206,7 @@ Text Domain: blueline
 		--bl-success:                #3DDC84;
 		--bl-warning:                #E8B33D;
 		--bl-danger:                 #FF6B5B;
+		color-scheme: dark;
 	}
 }
 
@@ -200,4 +222,17 @@ Text Domain: blueline
 	--bl-success:                #3DDC84;
 	--bl-warning:                #E8B33D;
 	--bl-danger:                 #FF6B5B;
+	color-scheme: dark;
+}
+
+/*
+ * The explicit LIGHT toggle. No token redefinitions needed here (the
+ * plain :root block above already holds the light values, and this
+ * selector's only job is to keep --not([data-theme="light"]) above from
+ * matching) -- but color-scheme still needs its own explicit rule, to win
+ * back over a dark OS preference the same way the dark override above
+ * wins over a light one.
+ */
+:root[data-theme="light"] {
+	color-scheme: light;
 }

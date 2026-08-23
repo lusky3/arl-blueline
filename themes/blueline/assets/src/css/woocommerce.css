@@ -182,16 +182,85 @@
 	font-size: var(--bl-text-base);
 }
 
-.woocommerce .select2-container .select2-selection--single {
+/*
+ * style.css's own --bl-content-border-strong comment already named this
+ * collision as an accepted "coverage gap, not a live failure" -- WC core's
+ * own `.woocommerce form .form-row .input-text` (0,3,1) outranks the rule
+ * above (0,2,0), so every classic .form-row field (checkout billing/
+ * shipping, login, account-edit, the coupon field) rendered core's own
+ * --wc-form-color-background/--wc-form-color-text (#fff/#000, not theme-
+ * aware) instead. That was cosmetically invisible on an all-light page --
+ * black-on-white still reads fine -- but the light/dark/system toggle
+ * makes it a real, visible failure: confirmed live on /account/edit-
+ * account with data-theme="dark", these fields stayed white-on-black
+ * islands in an otherwise-inverted page. `html` in front adds one type
+ * selector with no visual meaning of its own, bumping this rule to
+ * (0,3,2) so it deterministically beats WC core's (0,3,1) regardless of
+ * which stylesheet the browser happens to load second.
+ */
+html .woocommerce form .form-row .input-text,
+html .woocommerce form .form-row select,
+html .woocommerce form .form-row textarea {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border-strong);
+}
+
+/*
+ * --single is Checkout Field Editor Pro's plain dropdowns (Returning
+ * Player, Level of Experience); --multiple is its tag-style multi-selects
+ * (Preferred Division) -- select2 renders each as a DIFFERENT modifier
+ * class on the same .select2-selection base, confirmed live: covering
+ * only --single left Preferred Division a stray white box.
+ */
+.woocommerce .select2-container .select2-selection--single,
+.woocommerce .select2-container .select2-selection--multiple {
 	height: auto;
 	padding: var(--bl-space-3);
+	background: var(--bl-content-surface);
 	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius);
 }
 
-.woocommerce .woocommerce-invalid .input-text,
-.woocommerce .woocommerce-invalid select,
-.woocommerce .woocommerce-invalid textarea {
+.woocommerce .select2-container .select2-selection--multiple .select2-selection__choice {
+	background: var(--bl-content-bg);
+	border-color: var(--bl-content-border-strong);
+	color: var(--bl-content-text);
+}
+
+/*
+ * The OPEN dropdown panel select2 renders is appended to <body>, not
+ * nested inside .woocommerce -- so none of the rules above ever reach it,
+ * and select2's own default CSS (white panel, black option text) showed
+ * through unchanged. Confirmed live opening "Returning Player" on
+ * /account/edit-account with data-theme="dark": a plain, unthemed white
+ * panel floating over an otherwise-dark page. `body >` targets exactly
+ * where select2 inserts it; the highlighted (hover/keyboard-focus) option
+ * keeps its own blue fill with white text unchanged -- that pairing
+ * already reads fine on either background and isn't part of this token
+ * system.
+ */
+body > .select2-container .select2-dropdown {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border-strong);
+}
+
+body > .select2-container .select2-results__option {
+	color: var(--bl-content-text);
+}
+
+/*
+ * Same (0,3,2) bump as the form-row fix above, and for the same reason:
+ * without it this rule's plain (0,3,0) loses to BOTH WC core's own
+ * (0,3,1) and the form-row fix's (0,3,2), so an invalid field's border
+ * never actually turned red -- html body adds the two type selectors
+ * needed to match, and this rule's later position in the file wins the
+ * resulting tie against the form-row fix above.
+ */
+html body .woocommerce .woocommerce-invalid .input-text,
+html body .woocommerce .woocommerce-invalid select,
+html body .woocommerce .woocommerce-invalid textarea {
 	border-color: var(--bl-danger);
 }
 
