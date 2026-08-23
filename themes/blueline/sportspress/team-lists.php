@@ -76,6 +76,27 @@ foreach ( $lists as $list_post ) :
 		continue;
 	}
 
+	/*
+	 * Modernization sweep finding: $data comes from SP_Player_List::data()
+	 * (SportsPress's own stats-table reader), not a WP_Query, so nothing
+	 * upstream has primed post/term/meta caches for these player IDs --
+	 * the render loop below was hitting get_post_meta()/wp_get_post_terms()/
+	 * get_the_post_thumbnail() one player at a time. A 20-25 player roster
+	 * -- one of this site's most-visited page types -- cost roughly 2-3
+	 * avoidable round trips per player. Primed once per list (covers every
+	 * position group within it, since $groups below only filters the same
+	 * $data), not per player.
+	 */
+	$player_ids = array_map( 'absint', array_keys( $data ) );
+	if ( $player_ids ) {
+		_prime_post_caches( $player_ids, true, true );
+
+		$thumbnail_ids = array_filter( array_map( 'get_post_thumbnail_id', $player_ids ) );
+		if ( $thumbnail_ids ) {
+			_prime_post_caches( array_map( 'absint', $thumbnail_ids ), false, true );
+		}
+	}
+
 	$groups = array( null );
 	if ( 'position' === $grouping && taxonomy_exists( 'sp_position' ) ) {
 		$position_terms = get_terms(
