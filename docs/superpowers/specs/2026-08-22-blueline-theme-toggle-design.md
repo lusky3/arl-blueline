@@ -63,9 +63,21 @@ this, run the script) before it ships.
 individually rather than assumed): `--bl-ink-deep` (chrome background only —
 confirmed zero `color:` uses), `--bl-ice`, `--bl-pale`, `--bl-steel`,
 `--bl-band-ice`/`--bl-band-ink` (sizes, not colours), `--bl-focus*`,
-`--bl-success`/`--bl-warning`/`--bl-danger` (the raw hex; only their
-*consumers* move to the new content tokens), `--bl-occasion-accent` (already
-its own per-request mechanism, orthogonal to this).
+`--bl-occasion-accent` (already its own per-request mechanism, orthogonal to
+this).
+
+**`--bl-success`/`--bl-warning`/`--bl-danger` DO get dark-mode redefinitions**
+(computed: `#3DDC84`/`#E8B33D`/`#FF6B5B`) — the light-mode hexes measured
+2.5–3.4:1 as foreground text against the new `--bl-content-bg`, well under
+4.5:1. One exception, pinned to the light-mode hex in both themes:
+`woocommerce.css`'s `.remove:hover { background: var(--bl-danger); color:
+var(--bl-white); }` — white text needs a *darker* red background to stay
+readable (7.16:1), the exact opposite requirement from danger-as-text on a
+now-dark page (which needs a *brighter* red) — so this one hover state keeps
+its current fixed colours rather than trying to serve both a text role and a
+fill-with-white-text role from a single redefined token. Same reasoning, same
+size of exception, as the ink-fill button language above; the badge simply
+uses `--bl-danger` for the opposite (fill) role instead of text.
 
 ## 4. Consumer classification (the actual CSS change)
 
@@ -77,17 +89,36 @@ the following, confirmed individually and left exactly as they render today:
 
 - Every `--bl-ink-deep` use (chrome background only, 4 sites: `.bl-header`,
   `.bl-footer`, `.bl-nav__submenu`'s open states ×2).
+- **`--bl-ink` used as a `background:`, not `color:` — the "ink fill, paper
+  text" primary-button language** (`woocommerce.css`'s own file comment names
+  this explicitly), 18 sites across `base.css`, `layout.css`, `homepage.css`,
+  `nav.css`, `footer.css`, `blocks.css`, `editor.css`, `woocommerce.css`,
+  `sportspress.css`. A first pass at this classification (before actually
+  reading every file) wrongly assumed bare `--bl-ink` was text-only — it is
+  not; a broken alternation regex hid all 18 of these from the first grep
+  pass, caught by directly reading the file, not by trusting the tool output.
+  These buttons keep their fixed ink-and-paper look in both themes, the same
+  "brand accent stays put" reasoning as the chrome itself, rather than
+  inverting into a light button on a dark page — a real design ruling, not
+  an oversight.
 - `--bl-paper`'s 25 `color:` uses (header/footer/nav text on dark chrome) and
-  its 3 `background:` uses that are chrome hover micro-states, not content
-  (`.bl-header .bl-btn--secondary:hover .bl-skew`, the homepage hero's
-  matching rule, `.sp-scoreboard`'s matching rule) — these three stay on the
-  bare `--bl-paper` token unchanged.
+  its `background:` uses that are button/chrome hover micro-states pairing
+  with the ink-fill buttons above (e.g. `#place_order:hover`,
+  `.bl-header .bl-btn--secondary:hover .bl-skew`, the homepage hero's and
+  `.sp-scoreboard`'s matching rules) — these stay on the bare `--bl-paper`
+  token unchanged, for the same reason.
 - `--bl-ink-mid`'s `background:`/`border-color:` uses that are muted
-  UI-chrome states, not content text (`footer.css:205`,
-  `woocommerce.css:153`'s button-hover, `layout.css:160`/`523`,
+  UI-chrome states or the ink-fill button's own hover-darken step
+  (`footer.css:205`, `woocommerce.css:153`, `layout.css:160`/`523`,
   `blocks.css:204`) — audited individually at implementation time; a use is
   only reassigned if it is genuinely a *content* surface, not a hover/muted
-  state on a chrome-adjacent control.
+  state on a chrome-adjacent or ink-fill-button control.
+
+**Working method for the implementation pass**: given the first classification
+attempt already missed 18 real sites through a tooling mistake, every file is
+audited by reading its actual `background`/`background-color`/`border-color`
+declarations directly (not by trusting a single grep pattern), one file at a
+time, before any token is reassigned in it.
 
 ## 5. Account Details field
 
