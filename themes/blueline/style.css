@@ -236,3 +236,39 @@ Text Domain: blueline
 :root[data-theme="light"] {
 	color-scheme: light;
 }
+
+/*
+ * Print always gets the light palette, regardless of the active screen
+ * preference. Browsers don't print background-color by default (only
+ * foreground/text color survives to the printed page unless the reader
+ * has explicitly enabled "background graphics") -- so an explicit Dark
+ * choice would otherwise print near-white text (--bl-content-text:
+ * #EDF3F8) with no matching dark background under it, on a site whose
+ * schedules/rosters are ordinary, foreseeable things to print.
+ *
+ * `!important` is the only way a bare `:root` rule can out-rank
+ * `:root[data-theme="dark"]`'s own higher selector specificity -- exactly
+ * the same reasoning every print stylesheet relies on to override
+ * screen-context rules, not a shortcut. var() references point back to
+ * the same tokens the base (light) :root block itself resolves to, so
+ * this can never drift out of sync with a future light-palette edit;
+ * --bl-success/--bl-warning/--bl-danger have no such alias to point at
+ * (their light values are already literal in the base block), so those
+ * three repeat the same literal hexes on purpose.
+ */
+@media print {
+
+	:root {
+		--bl-content-bg:             var(--bl-paper) !important;
+		--bl-content-surface:        var(--bl-white) !important;
+		--bl-content-text:           var(--bl-ink) !important;
+		--bl-content-text-secondary: var(--bl-ink-mid) !important;
+		--bl-content-border:         var(--bl-border) !important;
+		--bl-content-border-strong:  var(--bl-border-strong) !important;
+		--bl-content-link:           var(--bl-accent-text) !important;
+		--bl-success:                #1F7A4D !important;
+		--bl-warning:                #8A5A00 !important;
+		--bl-danger:                 #A32C1B !important;
+		color-scheme: light !important;
+	}
+}
