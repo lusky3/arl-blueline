@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared contrast contract. Consumers: tools/check-contrast.mjs (build gate), the PHP save-time validator (P1), and the panel's advisory readout (P2). Adding a rule here must not require editing any consumer.",
+  "$comment": "Shared contrast contract. Consumers: tools/check-contrast.mjs (build gate), the PHP save-time validator (P1), and the panel's advisory readout (P2). Adding a rule here must not require editing any consumer. A rule carrying \"themeAware\": true (the --bl-content-*/status-on-content-bg rules near the end of the list) is checked TWICE by check-contrast.mjs: once here against style.css's plain :root (the light palette, exactly like every other rule), and again in a separate dark-mode pass against style.css's :root[data-theme=\"dark\"] block -- design spec docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md §3/§7. A rule with no such flag is chrome or a fixed button/accent pairing whose value never changes between the two palettes, so re-checking it against the dark block would only repeat the same light-mode number under a misleading label.",
   "version": 1,
   "thresholds": {
     "$comment": "The declared AA floor, read verbatim by inc/team-colors.php's blueline_contrast_threshold(). This used to be INFERRED from rules[].min (body = max of all mins, large = min of all mins) -- a heuristic over data that any future rule could silently move. Adding an AAA-strength rule with \"min\": 7.0 below would have raised 'body' to 7.0 for every team-colour computation on the site with no change anywhere near team-colors.php. Declaring the floor here instead means rules can carry any min/max they need without ever affecting what \"AA\" means elsewhere.",
@@ -38,10 +38,31 @@
     { "id": "success-on-its-tint", "description": "success text on its own 8% tint", "fg": "--bl-success", "bg": { "mix": [ "--bl-success", 8, "--bl-white" ] }, "min": 4.5 },
     { "id": "warning-on-its-tint", "description": "warning text on its own 8% tint", "fg": "--bl-warning", "bg": { "mix": [ "--bl-warning", 8, "--bl-white" ] }, "min": 4.5 },
     { "id": "danger-on-its-tint",  "description": "danger text on its own 8% tint",  "fg": "--bl-danger",  "bg": { "mix": [ "--bl-danger",  8, "--bl-white" ] }, "min": 4.5 },
-    { "id": "ink-on-steel-tint",   "description": "body text on the neutral notice tint", "fg": "--bl-ink", "bg": { "mix": [ "--bl-steel", 8, "--bl-white" ] }, "min": 4.5 },
+    { "id": "ink-on-steel-tint",   "description": "body text on the neutral notice tint", "fg": "--bl-content-text", "bg": { "mix": [ "--bl-steel", 8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
 
     { "id": "body-on-white",      "description": "body text on white (cards, zebra rows)",      "fg": "--bl-ink",         "bg": "--bl-white", "min": 4.5 },
     { "id": "secondary-on-white", "description": "secondary text on white (STRK, table meta)",  "fg": "--bl-ink-mid",     "bg": "--bl-white", "min": 4.5 },
-    { "id": "accent-on-white",    "description": "accent text on white",                        "fg": "--bl-accent-text", "bg": "--bl-white", "min": 4.5 }
+    { "id": "accent-on-white",    "description": "accent text on white",                        "fg": "--bl-accent-text", "bg": "--bl-white", "min": 4.5 },
+
+    { "id": "content-text-on-content-bg",             "description": "content text on content-bg",              "fg": "--bl-content-text",           "bg": "--bl-content-bg",      "min": 4.5, "themeAware": true },
+    { "id": "content-text-on-content-surface",        "description": "content text on content-surface",         "fg": "--bl-content-text",           "bg": "--bl-content-surface", "min": 4.5, "themeAware": true },
+    { "id": "content-text-secondary-on-content-bg",      "description": "content secondary text on content-bg",      "fg": "--bl-content-text-secondary", "bg": "--bl-content-bg",      "min": 4.5, "themeAware": true },
+    { "id": "content-text-secondary-on-content-surface", "description": "content secondary text on content-surface", "fg": "--bl-content-text-secondary", "bg": "--bl-content-surface", "min": 4.5, "themeAware": true },
+    { "id": "content-link-on-content-bg",             "description": "content link on content-bg",               "fg": "--bl-content-link",           "bg": "--bl-content-bg",      "min": 4.5, "themeAware": true },
+    { "id": "content-link-on-content-surface",        "description": "content link on content-surface",          "fg": "--bl-content-link",           "bg": "--bl-content-surface", "min": 4.5, "themeAware": true },
+    { "id": "content-border-strong-on-content-bg",      "description": "content strong border on content-bg",      "fg": "--bl-content-border-strong", "bg": "--bl-content-bg",      "min": 3.0, "themeAware": true },
+    { "id": "content-border-strong-on-content-surface", "description": "content strong border on content-surface", "fg": "--bl-content-border-strong", "bg": "--bl-content-surface", "min": 3.0, "themeAware": true },
+
+    { "id": "success-on-content-bg", "description": "success text on content-bg", "fg": "--bl-success", "bg": "--bl-content-bg", "min": 4.5, "themeAware": true },
+    { "id": "warning-on-content-bg", "description": "warning text on content-bg", "fg": "--bl-warning", "bg": "--bl-content-bg", "min": 4.5, "themeAware": true },
+    { "id": "danger-on-content-bg",  "description": "danger text on content-bg",  "fg": "--bl-danger",  "bg": "--bl-content-bg", "min": 4.5, "themeAware": true },
+
+    { "id": "success-on-its-content-tint", "description": "success text on its own 8% content-surface tint", "fg": "--bl-success", "bg": { "mix": [ "--bl-success", 8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
+    { "id": "warning-on-its-content-tint", "description": "warning text on its own 8% content-surface tint", "fg": "--bl-warning", "bg": { "mix": [ "--bl-warning", 8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
+    { "id": "danger-on-its-content-tint",  "description": "danger text on its own 8% content-surface tint",  "fg": "--bl-danger",  "bg": { "mix": [ "--bl-danger",  8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
+
+    { "id": "content-text-on-success-tint", "description": "body text on the success notice tint (.woocommerce-message, .bl-account-notice--success)", "fg": "--bl-content-text", "bg": { "mix": [ "--bl-success", 8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
+    { "id": "content-text-on-warning-tint", "description": "body text on the warning notice tint",                                                       "fg": "--bl-content-text", "bg": { "mix": [ "--bl-warning", 8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
+    { "id": "content-text-on-danger-tint",  "description": "body text on the danger notice tint (.woocommerce-error, .bl-account-notice base colour)",   "fg": "--bl-content-text", "bg": { "mix": [ "--bl-danger",  8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true }
   ]
 }

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, relative, resolve } from 'node:path';
-import { extractRootTokens, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
+import { extractRootTokens, extractTokensForSelector, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
 import { contrastRatio, evaluateRule } from './lib/contrast.mjs';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
@@ -23,6 +23,39 @@ for ( const rule of rules ) {
 		`${ result.ok ? 'ok  ' : 'FAIL' } ${ result.description }: ${ result.ratio.toFixed( 2 ) } (${ result.bound })`
 	);
 }
+
+/*
+ * Dark-mode pass. Design spec docs/superpowers/specs/2026-08-22-blueline-
+ * theme-toggle-design.md §7: the light palette above is guarded by the loop
+ * that just ran; nothing previously guarded the dark redefinitions in
+ * style.css's `:root[data-theme="dark"]` block, so a future edit to either
+ * palette could silently drift out of AA with no build failure. Every rule
+ * flagged `"themeAware": true` in contrast-rules.json is re-evaluated here
+ * against the dark tokens merged over the light ones (a dark declaration
+ * only overrides the handful of tokens that actually redefine themselves --
+ * every structural/spacing/chrome token not mentioned there keeps its light
+ * value, which is correct: those are exactly the tokens this feature leaves
+ * untouched). Rules with no such flag are chrome or fixed accent pairings
+ * that never change between palettes, so re-checking them here would only
+ * repeat the same light-mode number under a misleading "(dark)" label.
+ */
+const darkOverrides = extractTokensForSelector( css, ':root[data-theme="dark"]' );
+const darkTokens = new Map( [ ...styleTokens, ...darkOverrides ] );
+
+let darkFailed = 0;
+for ( const rule of rules ) {
+	if ( ! rule.themeAware ) {
+		continue;
+	}
+	const result = evaluateRule( rule, darkTokens );
+	if ( ! result.ok ) {
+		darkFailed++;
+	}
+	console.log(
+		`${ result.ok ? 'ok  ' : 'FAIL' } ${ result.description } (dark): ${ result.ratio.toFixed( 2 ) } (${ result.bound })`
+	);
+}
+failed += darkFailed;
 
 /*
  * Token parity: assets/src/css/editor.css duplicates a hand-picked subset of
