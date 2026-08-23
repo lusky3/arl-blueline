@@ -1232,6 +1232,18 @@ if ( ! function_exists( 'bloginfo' ) ) {
 		echo 'Blueline Test Site'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub: a fixed, non-user-controlled string, not real render output.
 	}
 }
+if ( ! function_exists( 'get_bloginfo' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_bloginfo(): the return-value
+	 * counterpart to bloginfo() above, same fixed string regardless of $show.
+	 *
+	 * @param string $show Which piece of info to return (unused, kept for signature parity).
+	 * @return string
+	 */
+	function get_bloginfo( $show = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; fixed stub value regardless of $show.
+		return 'Blueline Test Site';
+	}
+}
 if ( ! function_exists( 'get_the_date' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_the_date() -- returns a fixed,
@@ -1243,6 +1255,19 @@ if ( ! function_exists( 'get_the_date' ) ) {
 	 */
 	function get_the_date( $format = '', $post = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- fixed stub value; no test needs real date formatting.
 		return 'Aug 20';
+	}
+}
+if ( ! function_exists( 'get_the_time' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_the_time() -- returns a fixed,
+	 * recognisable string, mirroring get_the_date() above.
+	 *
+	 * @param string $format Time format (unused, kept for signature parity).
+	 * @param mixed  $post   Post (unused, kept for signature parity).
+	 * @return string
+	 */
+	function get_the_time( $format = '', $post = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- fixed stub value; no test needs real time formatting.
+		return '7:00 PM';
 	}
 }
 if ( ! function_exists( 'get_post_status' ) ) {
@@ -1373,6 +1398,24 @@ if ( ! function_exists( 'get_post_thumbnail_id' ) ) {
 		$state = &blueline_test_state();
 
 		return (int) ( $state['posts'][ (int) $post ]['thumbnail_id'] ?? 0 );
+	}
+}
+if ( ! function_exists( 'get_the_post_thumbnail_url' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_the_post_thumbnail_url(): a
+	 * recognisable, deterministic URL string when a thumbnail_id is set on
+	 * the post (same `posts[id]['thumbnail_id']` state has_post_thumbnail()/
+	 * get_post_thumbnail_id() already read above), or `false` for none --
+	 * matching core's own return contract for a post with no featured image.
+	 *
+	 * @param int|object $post Post ID (only the int form is exercised by this suite).
+	 * @param string     $size Image size (unused, kept for signature parity).
+	 * @return string|false
+	 */
+	function get_the_post_thumbnail_url( $post = null, $size = 'post-thumbnail' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- fixed stub value; no test needs real image-size resolution.
+		$id = get_post_thumbnail_id( $post );
+
+		return $id ? 'https://example.test/thumb-' . $id . '.jpg' : false;
 	}
 }
 if ( ! function_exists( 'get_permalink' ) ) {
