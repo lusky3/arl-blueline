@@ -22,10 +22,17 @@ Text Domain: blueline
 	--bl-paper:        #F7FBFC;
 	--bl-white:        #FFFFFF;
 
-	/* Surfaces */
-	--bl-surface:          var(--bl-white);
-	--bl-surface-sunken:   var(--bl-paper);
-	--bl-surface-inverse:  var(--bl-ink);
+	/*
+	 * Surfaces. Point at the theme-aware content tokens (defined further
+	 * down this file), not the fixed --bl-white/--bl-paper/--bl-ink --
+	 * every existing consumer of these three aliases (account.css,
+	 * sportspress.css, blocks.css, editor.css) is a genuine content
+	 * background, none of them chrome, so redirecting the alias here fixes
+	 * all of them for the light/dark/system toggle with this one edit.
+	 */
+	--bl-surface:          var(--bl-content-surface);
+	--bl-surface-sunken:   var(--bl-content-bg);
+	--bl-surface-inverse:  var(--bl-content-text);
 	--bl-border:           #DBE7F0;
 	/*
 	 * 3.18 on white, 3.06 on paper. This is the sole identifier of every
@@ -115,4 +122,82 @@ Text Domain: blueline
 	 * Phase 2.1), so this must render identically to today until then.
 	 */
 	--bl-occasion-accent: var(--bl-ice);
+
+	/*
+	 * Light/dark/system theme toggle -- design spec
+	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md.
+	 *
+	 * These seven exist ONLY for content-area reading surfaces (page
+	 * background, cards, tables, borders, body/heading text, links) --
+	 * never for the navy chrome (header/footer/hero/nav) or this theme's
+	 * fixed "ink fill, paper text" button language, both of which stay on
+	 * the bare --bl-ink/--bl-paper/--bl-white tokens above in every theme,
+	 * on purpose (the spec's §2 "scope" ruling). Introduced as NEW tokens
+	 * rather than by redefining --bl-paper/--bl-ink/--bl-white themselves,
+	 * because those three are each already dual-role (paper and white are
+	 * also used as TEXT on the dark chrome; ink is also used as a button
+	 * FILL) -- redefining them in place for dark mode would break those
+	 * other, unrelated uses.
+	 *
+	 * Values here are the LIGHT palette (identical to the existing tokens
+	 * they stand in for, so this is a zero-visual-diff baseline); the dark
+	 * palette is defined further down, guarded the same two ways every
+	 * theme-aware token in this codebase now needs to be: a
+	 * prefers-color-scheme media query for System, and an explicit
+	 * html[data-theme] override that wins in both directions over System.
+	 */
+	--bl-content-bg:            var(--bl-paper);
+	--bl-content-surface:       var(--bl-white);
+	--bl-content-text:          var(--bl-ink);
+	--bl-content-text-secondary: var(--bl-ink-mid);
+	--bl-content-border:        var(--bl-border);
+	--bl-content-border-strong: var(--bl-border-strong);
+	--bl-content-link:          var(--bl-accent-text);
+}
+
+/*
+ * Dark palette. Computed with tools/lib/contrast.mjs before being written
+ * here (see the design spec's §3) -- every pair below is verified AA
+ * (4.5:1 text, 3:1 large-text/UI-component), not eyeballed.
+ *
+ * --bl-success/--bl-warning/--bl-danger are redefined here too, even
+ * though they are not new tokens: the light-mode hexes measured 2.5-3.4:1
+ * as foreground text against the new dark content background, well under
+ * 4.5:1, so they need their own dark variant exactly like the seven
+ * content tokens above. One exception is NOT redefined by this: see
+ * woocommerce.css's `.remove:hover` rule, which pins the light-mode
+ * --bl-danger hex deliberately (danger-as-a-white-text-fill needs the
+ * opposite brightness direction from danger-as-text-on-a-dark-page).
+ *
+ * :root:not([data-theme="light"]) -- not a bare :root -- so an explicit
+ * light choice always wins over the OS setting, never just over nothing.
+ */
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) {
+		--bl-content-bg:             #0F1826;
+		--bl-content-surface:        #16233A;
+		--bl-content-text:           #EDF3F8;
+		--bl-content-text-secondary: #9FB7CE;
+		--bl-content-border:         #28374E;
+		--bl-content-border-strong:  #5C7690;
+		--bl-content-link:           #8FBFE8;
+		--bl-success:                #3DDC84;
+		--bl-warning:                #E8B33D;
+		--bl-danger:                 #FF6B5B;
+	}
+}
+
+/* The explicit toggle, winning over System in either direction. */
+:root[data-theme="dark"] {
+	--bl-content-bg:             #0F1826;
+	--bl-content-surface:        #16233A;
+	--bl-content-text:           #EDF3F8;
+	--bl-content-text-secondary: #9FB7CE;
+	--bl-content-border:         #28374E;
+	--bl-content-border-strong:  #5C7690;
+	--bl-content-link:           #8FBFE8;
+	--bl-success:                #3DDC84;
+	--bl-warning:                #E8B33D;
+	--bl-danger:                 #FF6B5B;
 }

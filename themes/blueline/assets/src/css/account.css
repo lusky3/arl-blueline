@@ -56,7 +56,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	text-transform: uppercase;
 	font-size: var(--bl-text-xs);
 	letter-spacing: 0.04em;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-account-nav__list {
@@ -67,13 +67,13 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 
 .bl-account-nav__list--plain {
 	padding-block: var(--bl-space-2);
-	border-block: 1px solid var(--bl-border);
+	border-block: 1px solid var(--bl-content-border);
 }
 
 .bl-account-nav__list a {
 	display: block;
 	padding: var(--bl-space-2) var(--bl-space-3);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	text-decoration: none;
 	border-radius: var(--bl-radius);
 }
@@ -115,19 +115,19 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 .bl-account-notice {
 	margin-block-end: var(--bl-space-5);
 	padding: var(--bl-space-4) var(--bl-space-5);
-	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
 	border: 1px solid var(--bl-steel);
 	border-radius: var(--bl-radius-card);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .bl-account-notice--success {
-	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
 	border-color: var(--bl-success);
 }
 
 .bl-account-notice--error {
-	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-content-surface));
 	border-color: var(--bl-danger);
 	color: var(--bl-danger);
 }
@@ -139,8 +139,8 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 .bl-account-module {
 	padding: var(--bl-space-5);
 	margin-block-end: var(--bl-space-5);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
 }
@@ -182,7 +182,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 
 .bl-account-module__empty-text {
 	margin: 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* ---------------------------------------------------------------------
@@ -200,7 +200,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 
 .bl-account-claim__intro {
 	margin-block-start: 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-account-claim__list {
@@ -219,7 +219,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 }
 
 .bl-account-claim__item + .bl-account-claim__item {
-	border-top: 1px solid var(--bl-border);
+	border-top: 1px solid var(--bl-content-border);
 }
 
 .bl-account-claim__identity {
@@ -238,7 +238,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
  * is what turns "Mike Brown" + "Mike Brown" into two distinguishable people.
  */
 .bl-account-claim__detail {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-weight: 400;
 }
@@ -263,7 +263,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 
 .bl-account-next-game__venue {
 	margin: var(--bl-space-1) 0 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-account-next-game__actions {
@@ -293,7 +293,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	 * Never reordered: order defaults to 0 and the JS only ever sets -1 on a
 	 * button, so the label stays ahead of both.
 	 */
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -340,7 +340,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 .bl-account-team__number,
 .bl-account-team__roster-summary {
 	margin: var(--bl-space-1) 0 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -376,7 +376,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	font-size: var(--bl-text-xs);
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-account-stats__item dd {
@@ -385,13 +385,13 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	font-weight: 800;
 	font-style: italic;
 	font-size: var(--bl-text-2xl);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .bl-account-stats__hint {
 	margin: var(--bl-space-3) 0 0;
 	font-size: var(--bl-text-sm);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* ---------------------------------------------------------------------
@@ -417,12 +417,12 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
  * ~5.1:1 and ~5.5:1 respectively), not hugging the AA line at a higher
  * opacity. */
 .bl-account-registration__status--paid {
-	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
 	color: var(--bl-success);
 }
 
 .bl-account-registration__status--unpaid {
-	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
 	color: var(--bl-warning);
 }
 
@@ -443,7 +443,7 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	font-style: normal;
 	text-transform: none;
 	font-size: var(--bl-text-base);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-account-billing__list {

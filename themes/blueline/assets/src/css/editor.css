@@ -52,8 +52,19 @@
 	--bl-pale: #9acde7;
 	--bl-paper: #f7fbfc;
 	--bl-white: #fff;
-	--bl-surface: var(--bl-white);
-	--bl-surface-sunken: var(--bl-paper);
+
+	/* Light-mode values only -- the block-editor canvas doesn't need the
+	 * light/dark/system toggle (design spec
+	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md
+	 * §8, out of scope), it just needs --bl-surface/--bl-surface-sunken to
+	 * keep resolving to *something* now that style.css points them here
+	 * instead of at --bl-white/--bl-paper directly -- see
+	 * tools/check-contrast.mjs's editor-parity check, which compares this
+	 * declaration text byte-for-byte against style.css's. */
+	--bl-content-surface: var(--bl-white);
+	--bl-content-bg: var(--bl-paper);
+	--bl-surface: var(--bl-content-surface);
+	--bl-surface-sunken: var(--bl-content-bg);
 	--bl-border: #dbe7f0;
 	--bl-border-strong: #7c93a8;
 	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;

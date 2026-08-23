@@ -61,8 +61,14 @@ body {
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-base);
 	line-height: 1.6;
-	color: var(--bl-ink);
-	background: var(--bl-paper);
+
+	/* The page's main reading surface -- toggles with the light/dark/system
+	 * theme preference (design spec
+	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md).
+	 * The navy chrome (header/footer/hero) paints its own background over
+	 * this regardless of which theme is active. */
+	color: var(--bl-content-text);
+	background: var(--bl-content-bg);
 }
 
 /*
@@ -112,8 +118,13 @@ dd {
 	text-wrap: pretty;
 }
 
+/*
+ * Default link colour on content surfaces; toggles with theme. Links
+ * inside the navy chrome (header/footer/nav) override this with their
+ * own fixed --bl-paper, unaffected.
+ */
 a {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 	text-decoration: underline;
 }
 

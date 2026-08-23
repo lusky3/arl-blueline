@@ -19,9 +19,9 @@
 
 .bl-announce {
 	display: block;
-	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
 	border-block-end: var(--bl-band-ink) solid var(--bl-ink-deep);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 /*
@@ -36,7 +36,7 @@
 }
 
 .bl-announce--urgent {
-	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
 	border-block-end-color: var(--bl-warning);
 }
 
@@ -67,7 +67,7 @@
 }
 
 .bl-announce__link {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 }
 
 .bl-announce--urgent .bl-announce__link {
@@ -98,5 +98,5 @@
 }
 
 .bl-announce__dismiss:hover {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 }

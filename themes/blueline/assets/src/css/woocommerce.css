@@ -54,19 +54,19 @@
 	 * the tint can never drift apart. See account.css's own notice component
 	 * for the matching treatment.
 	 */
-	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
 	border: 1px solid var(--bl-steel);
 	border-radius: var(--bl-radius-card);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .woocommerce-message {
-	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
 	border-color: var(--bl-success);
 }
 
 .woocommerce-error {
-	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-content-surface));
 	border-color: var(--bl-danger);
 }
 
@@ -174,9 +174,9 @@
 .woocommerce textarea {
 	width: 100%;
 	padding: var(--bl-space-3);
-	background: var(--bl-white);
-	color: var(--bl-ink);
-	border: 1px solid var(--bl-border-strong);
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius);
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-base);
@@ -185,7 +185,7 @@
 .woocommerce .select2-container .select2-selection--single {
 	height: auto;
 	padding: var(--bl-space-3);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius);
 }
 
@@ -207,7 +207,7 @@
 .woocommerce .form-row label {
 	display: block;
 	margin-block-end: var(--bl-space-2);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-sm);
 	font-weight: 600;
 }
@@ -218,7 +218,7 @@
 }
 
 .woocommerce .form-row label .optional {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-weight: 400;
 }
 
@@ -237,8 +237,8 @@
 
 .woocommerce ul.products li.product {
 	padding: var(--bl-space-5);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
 }
@@ -263,13 +263,13 @@
 .woocommerce ul.products li.product .price {
 	display: block;
 	margin-block-end: var(--bl-space-4);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-weight: 700;
 }
 
 .woocommerce ul.products li.product .price del {
 	margin-inline-end: var(--bl-space-2);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	text-decoration: line-through;
 	opacity: 0.7;
 }
@@ -302,13 +302,13 @@
 
 .woocommerce div.product p.price,
 .woocommerce div.product span.price {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-xl);
 	font-weight: 700;
 }
 
 .woocommerce div.product .woocommerce-product-details__short-description {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .woocommerce div.product form.cart {
@@ -329,7 +329,7 @@
 }
 
 .woocommerce div.product .product_meta {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -433,21 +433,21 @@
 	width: 100%;
 	border-collapse: collapse;
 	margin-block-end: var(--bl-space-6);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
 .woocommerce table.shop_table th,
 .woocommerce table.shop_table td {
 	padding: var(--bl-space-4);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 	text-align: start;
 }
 
 .woocommerce table.shop_table thead th {
-	background: var(--bl-paper);
-	color: var(--bl-ink-mid);
+	background: var(--bl-content-bg);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
@@ -498,8 +498,8 @@
 	max-width: 28rem;
 	margin-inline-start: auto;
 	padding: var(--bl-space-5);
-	background: var(--bl-paper);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -576,8 +576,8 @@
 .woocommerce-form-login {
 	padding: var(--bl-space-5);
 	margin-block-end: var(--bl-space-5);
-	background: var(--bl-paper);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -592,8 +592,8 @@
 
 #payment {
 	margin-block-start: var(--bl-space-5);
-	background: var(--bl-paper);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -605,7 +605,7 @@
 
 #payment .wc_payment_method {
 	padding-block: var(--bl-space-2);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 }
 
 #payment .wc_payment_method:last-child {
@@ -614,7 +614,7 @@
 
 #payment .payment_box {
 	padding: var(--bl-space-3) 0 0 var(--bl-space-6);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -627,7 +627,7 @@
 }
 
 .woocommerce-privacy-policy-text {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -637,8 +637,8 @@
 
 .woocommerce-order {
 	padding: var(--bl-space-6);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
 }
@@ -653,13 +653,13 @@
 }
 
 .woocommerce-order-overview li {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
 .woocommerce-order-overview li strong {
 	display: block;
 	margin-block-start: var(--bl-space-1);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-base);
 }
