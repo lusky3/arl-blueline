@@ -19,9 +19,18 @@ final class ThemePreferenceTest extends TestCase {
 	/**
 	 * Reset every in-memory store before each test, and make sure no
 	 * leftover $_POST from one test leaks into the next.
+	 *
+	 * Deliberately blueline_test_reset_state(), not the narrower
+	 * blueline_test_reset(): this suite's first draft called the latter,
+	 * which resets hooks/options/cache/cron but leaves user_meta and
+	 * current_user_id untouched, and it took reusing the same user id
+	 * across two tests with genuinely different stored values to surface
+	 * it -- several earlier tests happened to still pass with the wrong
+	 * reset, purely because their leftover value coincidentally clamped
+	 * to the same expected result either way.
 	 */
 	protected function setUp(): void {
-		blueline_test_reset();
+		blueline_test_reset_state();
 		unset( $_POST['blueline_theme_preference'] );
 	}
 
@@ -56,6 +65,87 @@ final class ThemePreferenceTest extends TestCase {
 		$state['user_meta'][5]['blueline_theme_preference'] = 'solarized';
 
 		$this->assertSame( 'system', blueline_get_theme_preference( 5 ) );
+	}
+
+	// -----------------------------------------------------------------------
+	// blueline_render_theme_preference_field()
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Capture a renderer's echoed output.
+	 *
+	 * @param callable $renderer Zero-arg callable that echoes markup.
+	 * @return string
+	 */
+	private function render( callable $renderer ): string {
+		ob_start();
+		$renderer();
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_field_marks_the_stored_preference_as_selected(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+		$state['user_meta'][9]['blueline_theme_preference'] = 'dark';
+
+		$html = $this->render( 'blueline_render_theme_preference_field' );
+
+		$this->assertMatchesRegularExpression(
+			'/<option value="dark"\s+selected="selected">/',
+			$html,
+			"the stored 'dark' preference must be the selected <option>"
+		);
+		$this->assertDoesNotMatchRegularExpression(
+			'/<option value="light" selected/',
+			$html
+		);
+		$this->assertDoesNotMatchRegularExpression(
+			'/<option value="system" selected/',
+			$html
+		);
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_field_defaults_to_system_selected_when_nothing_is_stored(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+
+		$html = $this->render( 'blueline_render_theme_preference_field' );
+
+		$this->assertMatchesRegularExpression( '/<option value="system"\s+selected="selected">/', $html );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_field_renders_exactly_the_three_known_preferences(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+
+		$html = $this->render( 'blueline_render_theme_preference_field' );
+
+		$this->assertSame( 3, preg_match_all( '/<option value="[^"]+"/', $html ) );
+		$this->assertStringContainsString( '<option value="system"', $html );
+		$this->assertStringContainsString( '<option value="light"', $html );
+		$this->assertStringContainsString( '<option value="dark"', $html );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_field_labels_the_select_for_accessibility(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+
+		$html = $this->render( 'blueline_render_theme_preference_field' );
+
+		$this->assertStringContainsString( '<label for="blueline_theme_preference">', $html );
+		$this->assertStringContainsString( 'id="blueline_theme_preference"', $html );
 	}
 
 	// -----------------------------------------------------------------------
