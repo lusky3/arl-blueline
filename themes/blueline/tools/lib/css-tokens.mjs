@@ -36,18 +36,54 @@ function stripComments( source ) {
 }
 
 /**
- * Extract every `--bl-*` declaration from the first `:root` rule (optionally a
- * grouped selector such as `:root, .editor-styles-wrapper`).
+ * Extract every `--bl-*` declaration out of the given already-isolated block
+ * body (the text between a rule's `{` and its matching `}`).
  *
- * @param {string} source CSS source text.
+ * @param {string} block Rule body text (no surrounding braces).
  * @return {Map<string,string>} Token name to raw, trimmed value.
  */
-export function extractRootTokens( source ) {
+function extractDeclarations( block ) {
+	const tokens = new Map();
+	const declaration = /(--bl-[\w-]+)\s*:\s*([^;]+);/g;
+	let match;
+	while ( ( match = declaration.exec( block ) ) !== null ) {
+		tokens.set( match[ 1 ], match[ 2 ].trim() );
+	}
+	return tokens;
+}
+
+/**
+ * Extract every `--bl-*` declaration from the first rule whose selector
+ * starts with the given prefix (matched immediately after `\b`, so
+ * `:root` also matches a grouped selector like `:root, .editor-styles-
+ * wrapper` or an attribute-qualified one like `:root[data-theme="dark"]`,
+ * but never a substring of a longer, unrelated selector).
+ *
+ * Brace-depth counting (not the next literal `}`) finds the matching close,
+ * so a rule nested inside `@media (...) { ... }` -- style.css's own dark
+ * palette lives exactly there -- still resolves to the right block.
+ *
+ * @param {string} source        CSS source text.
+ * @param {string} selectorPrefix Selector text to match at a word boundary,
+ *                                 e.g. ':root' or ':root[data-theme="dark"]'.
+ * @return {Map<string,string>} Token name to raw, trimmed value.
+ */
+export function extractTokensForSelector( source, selectorPrefix ) {
 	const clean = stripComments( source );
 
-	const selector = /(^|[};])\s*:root\b[^{]*\{/.exec( clean );
+	const escaped  = selectorPrefix.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+	// \b only makes sense right after a word character -- selectorPrefix can
+	// end in one (':root') or not (':root[data-theme="dark"]"]'), and a \b
+	// glued onto a non-word character never matches (no boundary between two
+	// non-word characters), which would make the whole regex fail silently.
+	const boundary = /\w$/.test( selectorPrefix ) ? '\\b' : '';
+	// `{` is a valid preceding character, not just `}`/`;`/start-of-string:
+	// style.css's own dark palette lives inside `@media (...) { :root:not(...) {`,
+	// so the selector is immediately preceded by its parent @media rule's
+	// OPENING brace, not a sibling rule's closing one.
+	const selector = new RegExp( `(^|[};{])\\s*${ escaped }${ boundary }[^{]*\\{` ).exec( clean );
 	if ( ! selector ) {
-		throw new Error( 'no :root rule found' );
+		throw new Error( `no rule found for selector "${ selectorPrefix }"` );
 	}
 
 	const braceStart = selector.index + selector[ 0 ].length - 1;
@@ -64,14 +100,22 @@ export function extractRootTokens( source ) {
 		}
 	}
 
-	const block = clean.slice( braceStart + 1, end );
-	const tokens = new Map();
-	const declaration = /(--bl-[\w-]+)\s*:\s*([^;]+);/g;
-	let match;
-	while ( ( match = declaration.exec( block ) ) !== null ) {
-		tokens.set( match[ 1 ], match[ 2 ].trim() );
+	return extractDeclarations( clean.slice( braceStart + 1, end ) );
+}
+
+/**
+ * Extract every `--bl-*` declaration from the first `:root` rule (optionally a
+ * grouped selector such as `:root, .editor-styles-wrapper`).
+ *
+ * @param {string} source CSS source text.
+ * @return {Map<string,string>} Token name to raw, trimmed value.
+ */
+export function extractRootTokens( source ) {
+	try {
+		return extractTokensForSelector( source, ':root' );
+	} catch {
+		throw new Error( 'no :root rule found' );
 	}
-	return tokens;
 }
 
 /**

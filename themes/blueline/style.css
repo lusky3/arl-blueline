@@ -22,10 +22,17 @@ Text Domain: blueline
 	--bl-paper:        #F7FBFC;
 	--bl-white:        #FFFFFF;
 
-	/* Surfaces */
-	--bl-surface:          var(--bl-white);
-	--bl-surface-sunken:   var(--bl-paper);
-	--bl-surface-inverse:  var(--bl-ink);
+	/*
+	 * Surfaces. Point at the theme-aware content tokens (defined further
+	 * down this file), not the fixed --bl-white/--bl-paper/--bl-ink --
+	 * every existing consumer of these three aliases (account.css,
+	 * sportspress.css, blocks.css, editor.css) is a genuine content
+	 * background, none of them chrome, so redirecting the alias here fixes
+	 * all of them for the light/dark/system toggle with this one edit.
+	 */
+	--bl-surface:          var(--bl-content-surface);
+	--bl-surface-sunken:   var(--bl-content-bg);
+	--bl-surface-inverse:  var(--bl-content-text);
 	--bl-border:           #DBE7F0;
 	/*
 	 * 3.18 on white, 3.06 on paper. This is the sole identifier of every
@@ -37,11 +44,16 @@ Text Domain: blueline
 	 *
 	 * Exception: classic WooCommerce .form-row fields (checkout billing/
 	 * shipping, login, account-edit, the cart/checkout coupon field) don't
-	 * receive this token -- WC core's ".woocommerce form .form-row
+	 * receive this token directly -- WC core's ".woocommerce form .form-row
 	 * .input-text" (0,3,1) outranks the theme's ".woocommerce .input-text"
-	 * (0,2,0), so --wc-form-border-color wins there instead. They pass today
-	 * anyway (~10.7:1), so this is a coverage gap, not a live failure. See
-	 * the spec's "Collisions -- who wins" section.
+	 * (0,2,0), so --wc-form-border-color would otherwise win there instead.
+	 * This was a harmless coverage gap before the light/dark/system toggle
+	 * (still ~10.7:1 on an all-light page either way) but became a live,
+	 * visible failure once dark mode existed -- confirmed live, those
+	 * fields stayed white-on-black islands on an inverted page. Fixed by a
+	 * higher-specificity (0,3,2) override in woocommerce.css using
+	 * --bl-content-border-strong (this token's theme-aware sibling), not by
+	 * changing this token itself.
 	 */
 	--bl-border-strong:    #7C93A8;
 
@@ -115,4 +127,148 @@ Text Domain: blueline
 	 * Phase 2.1), so this must render identically to today until then.
 	 */
 	--bl-occasion-accent: var(--bl-ice);
+
+	/*
+	 * Light/dark/system theme toggle -- design spec
+	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md.
+	 *
+	 * These seven exist ONLY for content-area reading surfaces (page
+	 * background, cards, tables, borders, body/heading text, links) --
+	 * never for the navy chrome (header/footer/hero/nav) or this theme's
+	 * fixed "ink fill, paper text" button language, both of which stay on
+	 * the bare --bl-ink/--bl-paper/--bl-white tokens above in every theme,
+	 * on purpose (the spec's §2 "scope" ruling). Introduced as NEW tokens
+	 * rather than by redefining --bl-paper/--bl-ink/--bl-white themselves,
+	 * because those three are each already dual-role (paper and white are
+	 * also used as TEXT on the dark chrome; ink is also used as a button
+	 * FILL) -- redefining them in place for dark mode would break those
+	 * other, unrelated uses.
+	 *
+	 * Values here are the LIGHT palette (identical to the existing tokens
+	 * they stand in for, so this is a zero-visual-diff baseline); the dark
+	 * palette is defined further down, guarded the same two ways every
+	 * theme-aware token in this codebase now needs to be: a
+	 * prefers-color-scheme media query for System, and an explicit
+	 * html[data-theme] override that wins in both directions over System.
+	 */
+	--bl-content-bg:            var(--bl-paper);
+	--bl-content-surface:       var(--bl-white);
+	--bl-content-text:          var(--bl-ink);
+	--bl-content-text-secondary: var(--bl-ink-mid);
+	--bl-content-border:        var(--bl-border);
+	--bl-content-border-strong: var(--bl-border-strong);
+	--bl-content-link:          var(--bl-accent-text);
+
+	/*
+	 * Without this, a browser's own forced/auto-dark-mode heuristic (common
+	 * on mobile Chrome, and confirmed live in this session's own staging
+	 * check) repaints the page using ITS guessed palette whenever
+	 * prefers-color-scheme is dark -- completely ignoring an explicit
+	 * data-theme="light" choice and the correct #F7FBFC this file resolves
+	 * --bl-content-bg to, because a page that never states an opinion on
+	 * color-scheme is exactly what that heuristic targets. Declaring it
+	 * here tells the browser this theme already handles both palettes
+	 * itself, which is what actually stops the override -- not merely a
+	 * forms/scrollbar hint. "light dark" (not "light"): the default,
+	 * unstamped state IS meant to follow the OS in either direction, so it
+	 * must not pin a specific value the two guarded blocks below.
+	 */
+	color-scheme: light dark;
+}
+
+/*
+ * Dark palette. Computed with tools/lib/contrast.mjs before being written
+ * here (see the design spec's §3) -- every pair below is verified AA
+ * (4.5:1 text, 3:1 large-text/UI-component), not eyeballed.
+ *
+ * --bl-success/--bl-warning/--bl-danger are redefined here too, even
+ * though they are not new tokens: the light-mode hexes measured 2.5-3.4:1
+ * as foreground text against the new dark content background, well under
+ * 4.5:1, so they need their own dark variant exactly like the seven
+ * content tokens above. One exception is NOT redefined by this: see
+ * woocommerce.css's `.remove:hover` rule, which pins the light-mode
+ * --bl-danger hex deliberately (danger-as-a-white-text-fill needs the
+ * opposite brightness direction from danger-as-text-on-a-dark-page).
+ *
+ * :root:not([data-theme="light"]) -- not a bare :root -- so an explicit
+ * light choice always wins over the OS setting, never just over nothing.
+ */
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) {
+		--bl-content-bg:             #0F1826;
+		--bl-content-surface:        #16233A;
+		--bl-content-text:           #EDF3F8;
+		--bl-content-text-secondary: #9FB7CE;
+		--bl-content-border:         #28374E;
+		--bl-content-border-strong:  #5C7690;
+		--bl-content-link:           #8FBFE8;
+		--bl-success:                #3DDC84;
+		--bl-warning:                #E8B33D;
+		--bl-danger:                 #FF6B5B;
+		color-scheme: dark;
+	}
+}
+
+/* The explicit toggle, winning over System in either direction. */
+:root[data-theme="dark"] {
+	--bl-content-bg:             #0F1826;
+	--bl-content-surface:        #16233A;
+	--bl-content-text:           #EDF3F8;
+	--bl-content-text-secondary: #9FB7CE;
+	--bl-content-border:         #28374E;
+	--bl-content-border-strong:  #5C7690;
+	--bl-content-link:           #8FBFE8;
+	--bl-success:                #3DDC84;
+	--bl-warning:                #E8B33D;
+	--bl-danger:                 #FF6B5B;
+	color-scheme: dark;
+}
+
+/*
+ * The explicit LIGHT toggle. No token redefinitions needed here (the
+ * plain :root block above already holds the light values, and this
+ * selector's only job is to keep --not([data-theme="light"]) above from
+ * matching) -- but color-scheme still needs its own explicit rule, to win
+ * back over a dark OS preference the same way the dark override above
+ * wins over a light one.
+ */
+:root[data-theme="light"] {
+	color-scheme: light;
+}
+
+/*
+ * Print always gets the light palette, regardless of the active screen
+ * preference. Browsers don't print background-color by default (only
+ * foreground/text color survives to the printed page unless the reader
+ * has explicitly enabled "background graphics") -- so an explicit Dark
+ * choice would otherwise print near-white text (--bl-content-text:
+ * #EDF3F8) with no matching dark background under it, on a site whose
+ * schedules/rosters are ordinary, foreseeable things to print.
+ *
+ * `!important` is the only way a bare `:root` rule can out-rank
+ * `:root[data-theme="dark"]`'s own higher selector specificity -- exactly
+ * the same reasoning every print stylesheet relies on to override
+ * screen-context rules, not a shortcut. var() references point back to
+ * the same tokens the base (light) :root block itself resolves to, so
+ * this can never drift out of sync with a future light-palette edit;
+ * --bl-success/--bl-warning/--bl-danger have no such alias to point at
+ * (their light values are already literal in the base block), so those
+ * three repeat the same literal hexes on purpose.
+ */
+@media print {
+
+	:root {
+		--bl-content-bg:             var(--bl-paper) !important;
+		--bl-content-surface:        var(--bl-white) !important;
+		--bl-content-text:           var(--bl-ink) !important;
+		--bl-content-text-secondary: var(--bl-ink-mid) !important;
+		--bl-content-border:         var(--bl-border) !important;
+		--bl-content-border-strong:  var(--bl-border-strong) !important;
+		--bl-content-link:           var(--bl-accent-text) !important;
+		--bl-success:                #1F7A4D !important;
+		--bl-warning:                #8A5A00 !important;
+		--bl-danger:                 #A32C1B !important;
+		color-scheme: light !important;
+	}
 }

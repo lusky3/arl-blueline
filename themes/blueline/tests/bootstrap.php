@@ -915,6 +915,21 @@ if ( ! function_exists( 'get_user_meta' ) ) {
 		return $single ? $value : array( $value );
 	}
 }
+if ( ! function_exists( 'update_user_meta' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' update_user_meta().
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $key     Meta key.
+	 * @param mixed  $value   Meta value.
+	 * @return true
+	 */
+	function update_user_meta( $user_id, $key, $value ) {
+		$state = &blueline_test_state();
+		$state['user_meta'][ (int) $user_id ][ (string) $key ] = $value;
+		return true;
+	}
+}
 if ( ! function_exists( 'get_userdata' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_userdata(): an object carrying

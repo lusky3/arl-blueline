@@ -129,7 +129,7 @@ table.bl-table-self-scroll {
 	font-style: italic;
 	text-transform: uppercase;
 	font-size: var(--bl-text-lg);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .sp-data-table {
@@ -142,23 +142,23 @@ table.bl-table-self-scroll {
 .sp-data-table td {
 	padding: var(--bl-space-2) var(--bl-space-3);
 	text-align: start;
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 	white-space: nowrap;
 }
 
 .sp-data-table thead th {
-	background: var(--bl-paper);
-	color: var(--bl-ink-mid);
+	background: var(--bl-content-bg);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
-	border-bottom: 2px solid var(--bl-border-strong);
+	border-bottom: 2px solid var(--bl-content-border-strong);
 }
 
 /* Zebra rows -- SP's own row classes, .odd/.even. */
 .sp-data-table tbody tr.odd {
-	background: var(--bl-white);
+	background: var(--bl-content-surface);
 }
 
 .sp-data-table tbody tr.even {
@@ -167,7 +167,7 @@ table.bl-table-self-scroll {
 
 .sp-data-table tfoot {
 	font-weight: 700;
-	border-top: 2px solid var(--bl-border-strong);
+	border-top: 2px solid var(--bl-content-border-strong);
 }
 
 /* Real, currently-emitted highlight class: today's calendar cell, a
@@ -256,7 +256,7 @@ table.bl-table-self-scroll {
 
 .sp-event-blocks .sp-event-date {
 	display: block;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-variant-numeric: tabular-nums;
 	white-space: normal;
@@ -272,13 +272,13 @@ table.bl-table-self-scroll {
 
 .sp-event-blocks .sp-event-status {
 	display: block;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
 	text-transform: uppercase;
 }
 
 .sp-event-blocks .sp-event-matchday {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
 }
 
@@ -337,7 +337,7 @@ table.bl-table-self-scroll {
 		gap: var(--bl-space-1) var(--bl-space-3);
 		padding: var(--bl-space-3);
 		margin-block-end: var(--bl-space-3);
-		border: 1px solid var(--bl-border);
+		border: 1px solid var(--bl-content-border);
 		border-radius: var(--bl-radius-card);
 	}
 
@@ -357,7 +357,7 @@ table.bl-table-self-scroll {
 		content: attr(data-label);
 		display: block;
 		margin-block-end: 2px;
-		color: var(--bl-ink-mid);
+		color: var(--bl-content-text-secondary);
 		font-size: var(--bl-text-xs);
 		text-transform: uppercase;
 		letter-spacing: 0.02em;
@@ -389,7 +389,7 @@ table.bl-table-self-scroll {
 	margin: 0 0 var(--bl-space-5);
 	padding: 0;
 	list-style: none;
-	border-top: 1px solid var(--bl-border);
+	border-top: 1px solid var(--bl-content-border);
 }
 
 .bl-sp-roster__row {
@@ -398,7 +398,7 @@ table.bl-table-self-scroll {
 	align-items: center;
 	gap: var(--bl-space-3);
 	padding-block: var(--bl-space-2);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 }
 
 .bl-sp-roster__row:hover,
@@ -409,7 +409,7 @@ table.bl-table-self-scroll {
 .bl-sp-roster__number {
 	font-variant-numeric: tabular-nums;
 	font-weight: 700;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	text-align: end;
 }
 
@@ -442,8 +442,8 @@ table.bl-table-self-scroll {
 .bl-sp-roster__position {
 	justify-self: end;
 	padding: 1px var(--bl-space-2);
-	border: 1px solid var(--bl-border-strong);
-	color: var(--bl-ink-mid);
+	border: 1px solid var(--bl-content-border-strong);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
@@ -460,7 +460,7 @@ table.bl-table-self-scroll {
 	align-items: baseline;
 	gap: var(--bl-space-1);
 	padding: var(--bl-space-1) var(--bl-space-2);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -589,7 +589,7 @@ table.bl-table-self-scroll {
 
 .bl-sp-hero {
 	padding-block: var(--bl-space-7) var(--bl-space-5);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 }
 
 .bl-sp-hero__inner {
@@ -604,7 +604,7 @@ table.bl-table-self-scroll {
 	font-weight: 800;
 	font-style: italic;
 	font-size: var(--bl-text-4xl);
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 	line-height: 1;
 }
 
@@ -623,14 +623,14 @@ table.bl-table-self-scroll {
 	align-items: center;
 	gap: var(--bl-space-3);
 	margin: 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-sp-hero__flag {
 	display: inline-flex;
 	align-items: center;
 	padding: 1px var(--bl-space-2);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	font-size: var(--bl-text-xs);
 	letter-spacing: 0.04em;
 }
@@ -639,7 +639,7 @@ table.bl-table-self-scroll {
 	display: flex;
 	align-items: center;
 	gap: var(--bl-space-2);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	text-decoration: none;
 	font-weight: 600;
 }
@@ -684,7 +684,7 @@ table.bl-table-self-scroll {
    never read as the same kind of object at a glance. */
 .bl-sp-hero__crest--player {
 	overflow: hidden;
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: 50%;
 }
 
@@ -740,7 +740,7 @@ table.bl-table-self-scroll {
 }
 
 .bl-sp-hero--team .bl-sp-hero__meta {
-	color: var(--bl-team-on-primary, var(--bl-ink-mid));
+	color: var(--bl-team-on-primary, var(--bl-content-text-secondary));
 }
 
 /*
@@ -795,7 +795,7 @@ table.bl-table-self-scroll {
 .bl-sp-venue-header__address,
 .bl-sp-venue-header__siblings {
 	margin: 0 0 var(--bl-space-2);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* Finding 3: the upcoming/past section split. */
@@ -806,7 +806,7 @@ table.bl-table-self-scroll {
 	font-style: italic;
 	text-transform: uppercase;
 	font-size: var(--bl-text-lg);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 /* ---- Compact event teaser rows (venue archive, generic SP archive) ---- */
@@ -825,20 +825,20 @@ table.bl-table-self-scroll {
 	grid-template-columns: minmax(0, 1fr) auto;
 	gap: var(--bl-space-1) var(--bl-space-3);
 	padding: var(--bl-space-4);
-	border: 1px solid var(--bl-border);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	text-decoration: none;
 }
 
 .bl-sp-event-teaser:hover,
 .bl-sp-event-teaser:focus-visible {
-	border-color: var(--bl-accent-text);
+	border-color: var(--bl-content-link);
 }
 
 .bl-sp-event-teaser__date {
 	grid-column: 1 / -1;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-variant-numeric: tabular-nums;
 }
@@ -857,7 +857,7 @@ table.bl-table-self-scroll {
 .bl-sp-event-teaser__status {
 	text-align: end;
 	font-variant-numeric: tabular-nums;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* ---- Empty states (no roster, no results yet) ---- */
@@ -879,7 +879,7 @@ table.bl-table-self-scroll {
 
 .bl-sp-empty__text {
 	margin: 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 @media (min-width: 700px) {
@@ -1011,7 +1011,7 @@ table.bl-table-self-scroll {
 .sp-footer-sponsors::after {
 	top: var(--bl-band-ice);
 	height: var(--bl-band-ink);
-	background: var(--bl-ink);
+	background: var(--bl-ink); /* fixed brand signature band, not theme-aware -- see base.css .bl-band--ink */
 }
 
 /* .bl-container's own formula (base.css) -- SportsPress's markup has no
@@ -1056,7 +1056,7 @@ table.bl-table-self-scroll {
  * to (0,3,1), which wins outright regardless of source order.
  */
 body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-2xl);
 
 	/* Pulled out of the logo grid below -- see .sp-footer-sponsors
@@ -1148,7 +1148,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  */
 .sp-countdown-wrapper {
 	padding: var(--bl-space-4);
-	border: 1px solid var(--bl-border);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -1160,7 +1160,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 }
 
 .sp-event-name a {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .sp-event-name .team-logo {
@@ -1170,7 +1170,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 .sp-event-venue,
 .sp-event-league {
 	margin: 0 0 var(--bl-space-1);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -1198,7 +1198,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	font-weight: 800;
 	font-style: italic;
 	font-size: var(--bl-text-lg);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .sp-countdown time span small {
@@ -1206,7 +1206,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	font-weight: 600;
 	font-style: normal;
 	font-size: var(--bl-text-xs);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	text-transform: uppercase;
 }
 
@@ -1249,7 +1249,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	margin: var(--bl-space-1) 0 0;
 	font-size: var(--bl-text-xs);
 	font-weight: 600;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .sp-team-gallery-wrapper .gallery-caption a {
@@ -1259,7 +1259,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 .sp-team-gallery-wrapper .gallery-caption a:hover,
 .sp-team-gallery-wrapper .gallery-caption a:focus-visible {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 	text-decoration: underline;
 }
 
@@ -1277,7 +1277,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 }
 
 .sp-player-details dt {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-weight: 600;
 	text-transform: uppercase;
@@ -1286,7 +1286,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 .sp-player-details dd {
 	margin: 0;
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .bl-sp-player-selector {
@@ -1296,7 +1296,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 .bl-sp-player-selector__label {
 	display: block;
 	margin-block-end: var(--bl-space-1);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
 	font-weight: 600;
 	text-transform: uppercase;
@@ -1307,16 +1307,16 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	width: 100%;
 	max-width: 24rem;
 	padding: var(--bl-space-2) var(--bl-space-3);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius-card);
-	background: var(--bl-white);
-	color: var(--bl-ink);
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-base);
 }
 
 .sp-player-selector:hover,
 .sp-player-selector:focus-visible {
-	border-color: var(--bl-accent-text);
+	border-color: var(--bl-content-link);
 }
 
 /* ---- Schedule table override: sportspress/event-list.php (finding 9) ----
@@ -1333,15 +1333,15 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
    this file would not make either more readable. */
 .bl-sp-date-heading th {
 	padding: var(--bl-space-2) var(--bl-space-3);
-	background: var(--bl-paper);
+	background: var(--bl-content-bg);
 	font-family: var(--bl-font-display);
 	font-weight: 800;
 	font-style: italic;
 	text-transform: uppercase;
 	font-size: var(--bl-text-base);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	text-align: start;
-	border-bottom: 2px solid var(--bl-border-strong);
+	border-bottom: 2px solid var(--bl-content-border-strong);
 }
 
 .bl-sp-schedule td,
@@ -1351,7 +1351,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 .bl-sp-schedule .bl-sp-schedule__time,
 .bl-sp-schedule .bl-sp-schedule__time a {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -1366,7 +1366,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 /* stylelint-enable no-descending-specificity */
 
 .bl-sp-schedule .data-venue {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* ---- Data-table row hover + mobile scroll cue (finding 12) ----
@@ -1467,7 +1467,7 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
  * cannot silently regress.
  */
 .sp-data-table td.data-strk span[style] {
-	color: var(--bl-ink-mid) !important;
+	color: var(--bl-content-text-secondary) !important;
 }
 
 /* ---- Standings "full stats" toggle: sportspress/league-table.php
@@ -1497,9 +1497,9 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 	gap: var(--bl-space-2);
 	margin-block-end: var(--bl-space-3);
 	padding: var(--bl-space-1) var(--bl-space-3);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: 999px;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-weight: 600;
 	cursor: pointer;
@@ -1511,13 +1511,13 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 	display: inline-block;
 	width: 0.9em;
 	height: 0.9em;
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: 3px;
-	background: var(--bl-white);
+	background: var(--bl-content-surface);
 }
 
 .bl-sp-standings-toggle-input:checked ~ .bl-sp-standings-toggle-label {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	border-color: var(--bl-steel);
 }
 

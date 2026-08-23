@@ -87,13 +87,25 @@ function blueline_account_module_empty_state( string $message ) {
  * so reading the query var here needs no nonce of its own.
  *
  * Deliberately its OWN `.bl-account-notice` class, not WooCommerce's
- * `.woocommerce-message`/`.woocommerce-error`: staging (and, presumably,
- * production) carries a pre-existing site-wide custom-CSS snippet
- * (`#simple-css-output`, visible in every page's `<head>`) with
- * `.woocommerce-message { display: none !important; }` -- confirmed live
- * by actually submitting a claim and finding the "you're linked" success
- * notice invisible. Reusing that class would have made the one message a
- * newly-linked user most needs to see silently disappear.
+ * `.woocommerce-message`/`.woocommerce-error`: at the time this was
+ * written, staging (and, presumably, production) carried a site-wide
+ * custom-CSS snippet (`#simple-css-output`, visible in every page's
+ * `<head>`) with `.woocommerce-message { display: none !important; }` --
+ * confirmed live by actually submitting a claim and finding the "you're
+ * linked" success notice invisible. Reusing that class would have made
+ * the one message a newly-linked user most needs to see silently
+ * disappear.
+ *
+ * That specific rule is gone as of the theme-toggle work's own staging
+ * check (2026-08-23): `#simple-css-output` still exists but no longer
+ * contains a `.woocommerce-message` rule at all -- it was evidently
+ * removed in the Task 16 (2026-08-11) prune this same snippet's own
+ * comment describes, or sometime after. `.bl-account-notice` is kept
+ * as-is rather than migrated back: it works, and the focus-management
+ * reasoning below is a genuine, independent reason to keep a
+ * `tabindex="-1"` notice for this specific redirect-driven flow either
+ * way (see assets/src/js/account.js, since broadened to also cover
+ * WooCommerce's own now-visible-again notices for the same reason).
  *
  * This is a server-rendered notice on a normal (non-AJAX) page load, not
  * a live region injected after the fact, so `role="alert"` alone is not

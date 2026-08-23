@@ -54,19 +54,19 @@
 	 * the tint can never drift apart. See account.css's own notice component
 	 * for the matching treatment.
 	 */
-	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
 	border: 1px solid var(--bl-steel);
 	border-radius: var(--bl-radius-card);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .woocommerce-message {
-	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
 	border-color: var(--bl-success);
 }
 
 .woocommerce-error {
-	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-white));
+	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-content-surface));
 	border-color: var(--bl-danger);
 }
 
@@ -174,24 +174,93 @@
 .woocommerce textarea {
 	width: 100%;
 	padding: var(--bl-space-3);
-	background: var(--bl-white);
-	color: var(--bl-ink);
-	border: 1px solid var(--bl-border-strong);
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius);
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-base);
 }
 
-.woocommerce .select2-container .select2-selection--single {
+/*
+ * style.css's own --bl-content-border-strong comment already named this
+ * collision as an accepted "coverage gap, not a live failure" -- WC core's
+ * own `.woocommerce form .form-row .input-text` (0,3,1) outranks the rule
+ * above (0,2,0), so every classic .form-row field (checkout billing/
+ * shipping, login, account-edit, the coupon field) rendered core's own
+ * --wc-form-color-background/--wc-form-color-text (#fff/#000, not theme-
+ * aware) instead. That was cosmetically invisible on an all-light page --
+ * black-on-white still reads fine -- but the light/dark/system toggle
+ * makes it a real, visible failure: confirmed live on /account/edit-
+ * account with data-theme="dark", these fields stayed white-on-black
+ * islands in an otherwise-inverted page. `html` in front adds one type
+ * selector with no visual meaning of its own, bumping this rule to
+ * (0,3,2) so it deterministically beats WC core's (0,3,1) regardless of
+ * which stylesheet the browser happens to load second.
+ */
+html .woocommerce form .form-row .input-text,
+html .woocommerce form .form-row select,
+html .woocommerce form .form-row textarea {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border-strong);
+}
+
+/*
+ * --single is Checkout Field Editor Pro's plain dropdowns (Returning
+ * Player, Level of Experience); --multiple is its tag-style multi-selects
+ * (Preferred Division) -- select2 renders each as a DIFFERENT modifier
+ * class on the same .select2-selection base, confirmed live: covering
+ * only --single left Preferred Division a stray white box.
+ */
+.woocommerce .select2-container .select2-selection--single,
+.woocommerce .select2-container .select2-selection--multiple {
 	height: auto;
 	padding: var(--bl-space-3);
-	border: 1px solid var(--bl-border-strong);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius);
 }
 
-.woocommerce .woocommerce-invalid .input-text,
-.woocommerce .woocommerce-invalid select,
-.woocommerce .woocommerce-invalid textarea {
+.woocommerce .select2-container .select2-selection--multiple .select2-selection__choice {
+	background: var(--bl-content-bg);
+	border-color: var(--bl-content-border-strong);
+	color: var(--bl-content-text);
+}
+
+/*
+ * The OPEN dropdown panel select2 renders is appended to <body>, not
+ * nested inside .woocommerce -- so none of the rules above ever reach it,
+ * and select2's own default CSS (white panel, black option text) showed
+ * through unchanged. Confirmed live opening "Returning Player" on
+ * /account/edit-account with data-theme="dark": a plain, unthemed white
+ * panel floating over an otherwise-dark page. `body >` targets exactly
+ * where select2 inserts it; the highlighted (hover/keyboard-focus) option
+ * keeps its own blue fill with white text unchanged -- that pairing
+ * already reads fine on either background and isn't part of this token
+ * system.
+ */
+body > .select2-container .select2-dropdown {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border-strong);
+}
+
+body > .select2-container .select2-results__option {
+	color: var(--bl-content-text);
+}
+
+/*
+ * Same (0,3,2) bump as the form-row fix above, and for the same reason:
+ * without it this rule's plain (0,3,0) loses to BOTH WC core's own
+ * (0,3,1) and the form-row fix's (0,3,2), so an invalid field's border
+ * never actually turned red -- html body adds the two type selectors
+ * needed to match, and this rule's later position in the file wins the
+ * resulting tie against the form-row fix above.
+ */
+html body .woocommerce .woocommerce-invalid .input-text,
+html body .woocommerce .woocommerce-invalid select,
+html body .woocommerce .woocommerce-invalid textarea {
 	border-color: var(--bl-danger);
 }
 
@@ -207,7 +276,7 @@
 .woocommerce .form-row label {
 	display: block;
 	margin-block-end: var(--bl-space-2);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-sm);
 	font-weight: 600;
 }
@@ -218,7 +287,7 @@
 }
 
 .woocommerce .form-row label .optional {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-weight: 400;
 }
 
@@ -237,8 +306,8 @@
 
 .woocommerce ul.products li.product {
 	padding: var(--bl-space-5);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
 }
@@ -263,13 +332,13 @@
 .woocommerce ul.products li.product .price {
 	display: block;
 	margin-block-end: var(--bl-space-4);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-weight: 700;
 }
 
 .woocommerce ul.products li.product .price del {
 	margin-inline-end: var(--bl-space-2);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	text-decoration: line-through;
 	opacity: 0.7;
 }
@@ -302,13 +371,13 @@
 
 .woocommerce div.product p.price,
 .woocommerce div.product span.price {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-xl);
 	font-weight: 700;
 }
 
 .woocommerce div.product .woocommerce-product-details__short-description {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .woocommerce div.product form.cart {
@@ -329,7 +398,7 @@
 }
 
 .woocommerce div.product .product_meta {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -433,21 +502,21 @@
 	width: 100%;
 	border-collapse: collapse;
 	margin-block-end: var(--bl-space-6);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
 .woocommerce table.shop_table th,
 .woocommerce table.shop_table td {
 	padding: var(--bl-space-4);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 	text-align: start;
 }
 
 .woocommerce table.shop_table thead th {
-	background: var(--bl-paper);
-	color: var(--bl-ink-mid);
+	background: var(--bl-content-bg);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
@@ -498,8 +567,8 @@
 	max-width: 28rem;
 	margin-inline-start: auto;
 	padding: var(--bl-space-5);
-	background: var(--bl-paper);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -576,8 +645,8 @@
 .woocommerce-form-login {
 	padding: var(--bl-space-5);
 	margin-block-end: var(--bl-space-5);
-	background: var(--bl-paper);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -592,8 +661,8 @@
 
 #payment {
 	margin-block-start: var(--bl-space-5);
-	background: var(--bl-paper);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
@@ -605,7 +674,7 @@
 
 #payment .wc_payment_method {
 	padding-block: var(--bl-space-2);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 }
 
 #payment .wc_payment_method:last-child {
@@ -614,7 +683,7 @@
 
 #payment .payment_box {
 	padding: var(--bl-space-3) 0 0 var(--bl-space-6);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -627,7 +696,7 @@
 }
 
 .woocommerce-privacy-policy-text {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
@@ -637,8 +706,8 @@
 
 .woocommerce-order {
 	padding: var(--bl-space-6);
-	background: var(--bl-white);
-	border: 1px solid var(--bl-border);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
 }
@@ -653,13 +722,13 @@
 }
 
 .woocommerce-order-overview li {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
 
 .woocommerce-order-overview li strong {
 	display: block;
 	margin-block-start: var(--bl-space-1);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-base);
 }

@@ -43,7 +43,7 @@
 .bl-comments {
 	margin-block-start: var(--bl-space-8);
 	padding-block-start: var(--bl-space-6);
-	border-top: 1px solid var(--bl-border);
+	border-top: 1px solid var(--bl-content-border);
 }
 
 .bl-comments__title {
@@ -71,7 +71,7 @@
 
 .bl-comments__list > li {
 	padding-block: var(--bl-space-4);
-	border-top: 1px solid var(--bl-border);
+	border-top: 1px solid var(--bl-content-border);
 }
 
 .bl-comments__list .comment-body {
@@ -95,7 +95,7 @@
 
 .bl-comments__list .comment-metadata {
 	font-size: var(--bl-text-xs);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-comments__list .comment-metadata a {
@@ -108,7 +108,7 @@
 }
 
 .bl-comments__closed {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-comments .comment-form p {
@@ -128,11 +128,11 @@
 .bl-comments .comment-form textarea {
 	width: 100%;
 	padding: var(--bl-space-2) var(--bl-space-3);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-base);
-	color: var(--bl-ink);
-	background: var(--bl-white);
+	color: var(--bl-content-text);
+	background: var(--bl-content-surface);
 }
 
 .bl-comments .comment-form input[type="text"]:focus-visible,
@@ -223,7 +223,7 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bl-space-3);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	margin-block-end: var(--bl-space-3);
 }
@@ -243,7 +243,7 @@
 }
 
 .bl-entry-meta__author {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 }
 
 .bl-page-links {
@@ -260,7 +260,7 @@
 .bl-entry__footer {
 	margin-block-start: var(--bl-space-6);
 	padding-block-start: var(--bl-space-4);
-	border-top: 1px solid var(--bl-border);
+	border-top: 1px solid var(--bl-content-border);
 }
 
 /* stylelint-disable-next-line no-descending-specificity -- see comments */
@@ -277,7 +277,7 @@
 	gap: var(--bl-space-4);
 	margin-block-start: var(--bl-space-7);
 	padding-block-start: var(--bl-space-5);
-	border-top: 1px solid var(--bl-border);
+	border-top: 1px solid var(--bl-content-border);
 }
 
 .post-navigation .nav-next {
@@ -286,7 +286,7 @@
 
 .bl-post-nav__label {
 	display: block;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-family: var(--bl-font-display);
 	font-weight: 700;
 	font-style: italic;
@@ -296,7 +296,7 @@
 
 .bl-post-nav__title {
 	display: block;
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 }
 
 /* Archive/search header */
@@ -306,7 +306,7 @@
 }
 
 .bl-archive-header__description {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* Post list (archive/search/blog-index teasers) */
@@ -365,17 +365,17 @@
 
 /* stylelint-disable-next-line no-descending-specificity -- see comments */
 .bl-post-card__title a {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	text-decoration: none;
 }
 
 .bl-post-card__title a:hover,
 .bl-post-card__title a:focus-visible {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 }
 
 .bl-post-card__excerpt {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-post-card__more {
@@ -409,16 +409,16 @@
 	min-width: 2.25rem;
 	min-height: 2.25rem;
 	padding-inline: var(--bl-space-2);
-	border: 1px solid var(--bl-border-strong);
-	color: var(--bl-ink);
+	border: 1px solid var(--bl-content-border-strong);
+	color: var(--bl-content-text);
 	text-decoration: none;
 	font-variant-numeric: tabular-nums;
 }
 
 .bl-pagination .page-numbers a:hover,
 .bl-pagination .page-numbers a:focus-visible {
-	border-color: var(--bl-accent-text);
-	color: var(--bl-accent-text);
+	border-color: var(--bl-content-link);
+	color: var(--bl-content-link);
 }
 
 .bl-pagination .page-numbers.current {
@@ -474,7 +474,7 @@
 }
 
 .bl-empty-state__text {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	margin-block-end: var(--bl-space-6);
 }
 
@@ -499,11 +499,11 @@
 
 .search-form .search-field {
 	padding: var(--bl-space-2) var(--bl-space-3);
-	border: 1px solid var(--bl-border-strong);
+	border: 1px solid var(--bl-content-border-strong);
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-base);
-	color: var(--bl-ink);
-	background: var(--bl-white);
+	color: var(--bl-content-text);
+	background: var(--bl-content-surface);
 }
 
 .search-form .search-submit {

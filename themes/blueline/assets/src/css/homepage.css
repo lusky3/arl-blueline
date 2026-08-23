@@ -317,7 +317,7 @@
 
 .bl-module__empty-text {
 	margin: 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 /* new_here -- P1 finding 5: this is the tonal north star ("Never played?
@@ -387,7 +387,7 @@
 .bl-new-here__intro {
 	max-width: 56ch;
 	margin: 0 0 var(--bl-space-6);
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-size: var(--bl-text-lg);
 }
 
@@ -406,7 +406,7 @@
 
 .bl-new-here__qa-item dd {
 	margin: 0;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-new-here__qa-item a {
@@ -462,13 +462,13 @@
 	grid-template-columns: minmax(0, 1fr);
 	gap: var(--bl-space-1) var(--bl-space-3);
 	padding: var(--bl-space-4);
-	border: 1px solid var(--bl-border);
+	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 }
 
 .bl-next-games__date {
 	grid-column: 1 / -1;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-variant-numeric: tabular-nums;
 }
@@ -487,18 +487,18 @@
 a.bl-next-games__title {
 	color: inherit;
 	text-decoration: underline;
-	text-decoration-color: var(--bl-border);
+	text-decoration-color: var(--bl-content-border);
 	text-underline-offset: 2px;
 }
 
 a.bl-next-games__title:hover,
 a.bl-next-games__title:focus-visible {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 	text-decoration-color: currentcolor;
 }
 
 .bl-next-games__venue {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 
 	/*
@@ -515,13 +515,13 @@ a.bl-next-games__title:focus-visible {
    link on the page instead of looking identical to the plain-text fallback. */
 a.bl-next-games__venue {
 	text-decoration: underline;
-	text-decoration-color: var(--bl-border);
+	text-decoration-color: var(--bl-content-border);
 	text-underline-offset: 2px;
 }
 
 a.bl-next-games__venue:hover,
 a.bl-next-games__venue:focus-visible {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 	text-decoration-color: currentcolor;
 }
 
@@ -542,22 +542,22 @@ a.bl-next-games__venue:focus-visible {
 	justify-content: space-between;
 	gap: var(--bl-space-2);
 	padding-block-end: var(--bl-space-4);
-	border-bottom: 1px solid var(--bl-border);
+	border-bottom: 1px solid var(--bl-content-border);
 }
 
 .bl-latest-news__title {
-	color: var(--bl-ink);
+	color: var(--bl-content-text);
 	font-weight: 600;
 	text-decoration: none;
 }
 
 .bl-latest-news__title:hover,
 .bl-latest-news__title:focus-visible {
-	color: var(--bl-accent-text);
+	color: var(--bl-content-link);
 }
 
 .bl-latest-news__date {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	white-space: nowrap;
 }

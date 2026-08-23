@@ -58,6 +58,38 @@ test( 'extractRootTokens throws when there is no :root rule', () => {
 	assert.throws( () => extractRootTokens( 'body { color: red; }' ), /no :root/ );
 } );
 
+import { extractTokensForSelector } from './css-tokens.mjs';
+
+test( 'extractTokensForSelector finds an attribute-qualified selector, distinct from a plain :root earlier in the file', () => {
+	const source = `
+:root {
+	--bl-content-bg: #f7fbfc;
+}
+:root[data-theme="dark"] {
+	--bl-content-bg: #0f1826;
+}`;
+	const tokens = extractTokensForSelector( source, ':root[data-theme="dark"]' );
+	assert.equal( tokens.get( '--bl-content-bg' ), '#0f1826' );
+} );
+
+test( 'extractTokensForSelector resolves a rule nested inside @media', () => {
+	const source = `
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bl-content-bg: #0f1826;
+	}
+}`;
+	const tokens = extractTokensForSelector( source, ':root:not([data-theme="light"])' );
+	assert.equal( tokens.get( '--bl-content-bg' ), '#0f1826' );
+} );
+
+test( 'extractTokensForSelector throws when the selector is not found', () => {
+	assert.throws(
+		() => extractTokensForSelector( ':root { --bl-ink: #132343; }', ':root[data-theme="dark"]' ),
+		/no rule found/
+	);
+} );
+
 import { resolveToken } from './css-tokens.mjs';
 
 test( 'resolveToken returns a literal unchanged but normalised', () => {

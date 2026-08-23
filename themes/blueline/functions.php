@@ -53,6 +53,7 @@ require_once BLUELINE_DIR . '/inc/account/player-link.php';
 require_once BLUELINE_DIR . '/inc/account/player-data.php';
 require_once BLUELINE_DIR . '/inc/account/dashboard.php';
 require_once BLUELINE_DIR . '/inc/account/avatars.php';
+require_once BLUELINE_DIR . '/inc/account/theme-preference.php';
 
 // WP-CLI only: `wp blueline settings export|import|validate|repair|reset|flush-cache`.
 // Guarded so inc/cli/settings-command.php -- which extends WP_CLI_Command and calls
