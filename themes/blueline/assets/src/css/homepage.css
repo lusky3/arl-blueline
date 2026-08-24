@@ -1,8 +1,25 @@
 /*
- * Blueline — season-aware homepage (Task 7).
+ * Blueline — season-aware homepage (Task 7; restructured for the 2026.2
+ * "Confident Minimal" system).
+ *
  * The hero sits directly under the header's own blue-line bands, so its
  * top padding is zeroed on .bl-main--homepage; the hero closes with its
- * own paired bands before the paper-white module stack begins.
+ * own paired bands (already inert -- --bl-band-ice/--bl-band-ink are 0px
+ * under 2026.2, see style.css) before the module stack begins.
+ *
+ * 2026.2 rewrite. The previous version of this file built a fixed-dark
+ * navy hero band with an ice-fill skewed eyebrow badge, a card-per-game
+ * schedule ticker, and a tinted/watermarked "new_here" panel -- all of it
+ * the "Blue Line" system's own devices, still standing after the token
+ * swap alone recoloured them rather than removing them. PRODUCT.md's
+ * anti-references explicitly name "dark, dense, stat-heavy" pro-broadcast
+ * sites and "anything that implies you need to already be good" as the
+ * thing NOT to build for a beginner-first league; a full-bleed navy hero
+ * is the single most obvious way to build that anyway. This version
+ * follows the chosen "Confident Minimal" concept instead: a light hero,
+ * a plain data table for the schedule, and a hairline-divided <dl> for
+ * the beginner Q&A, all using the theme-aware --bl-content-* tokens so
+ * light/dark/system all keep working.
  */
 
 .bl-main--homepage {
@@ -14,10 +31,19 @@
 .bl-hero {
 	position: relative;
 	overflow: hidden;
-	background: var(--bl-ink);
-	color: var(--bl-paper);
+	background: var(--bl-content-bg);
+	color: var(--bl-content-text);
 }
 
+/*
+ * Concentric-ring motif (Device #3, "faceoff geometry"), kept as the one
+ * decorative device on the hero but re-drawn as a faint line -- a border-
+ * colour stroke on the page's own light ground, the way Concept C's own
+ * hero motif reads, rather than a filled ice shape meant to glow against
+ * navy. Purely decorative (aria-hidden in blueline_render_faceoff_rings());
+ * hidden below 720px so it never competes with the headline on a phone,
+ * where there is no room for it to sit clear of the text anyway.
+ */
 .bl-hero__ring {
 	position: absolute;
 	top: 50%;
@@ -25,18 +51,37 @@
 	width: 420px;
 	height: 420px;
 	transform: translateY(-50%);
-	color: var(--bl-ice);
-	opacity: 0.12;
+	color: var(--bl-content-border);
+	opacity: 0.8;
 	pointer-events: none;
 }
 
+@media (max-width: 720px) {
+
+	.bl-hero__ring {
+		display: none;
+	}
+}
+
 /*
- * ---- Band photography (opt-in) ----
+ * ---- Band photography (opt-in, currently dormant on this hero) ----
  *
- * A league photograph as texture inside a navy band: desaturated so it carries
- * luminance only, tinted back toward --bl-ice so the highlights land in the
- * palette rather than going neutral grey, and masked so it resolves out of the
- * navy at both edges instead of stopping at a hard line.
+ * The redesigned hero above is a themed light surface and no longer opts
+ * into this texture (blueline_render_hero(), inc/homepage-modules.php,
+ * never adds the ' bl-band-photo' modifier class), so nothing below
+ * currently paints. It is kept rather than deleted: the settings panel
+ * (hero photographs + rotation), the sanitizer, and BandPhotoTest all
+ * still exercise this feature independently of whether any page opts in
+ * today, and this task was asked to restyle the hero, not to remove a
+ * working, tested, admin-configurable feature wholesale. A future dark
+ * surface (an Occasion treatment, a different entity hero) can still
+ * apply `.bl-band-photo` and get everything below for free.
+ *
+ * A league photograph as texture inside a dark band: desaturated so it
+ * carries luminance only, tinted back toward --bl-ice so the highlights
+ * land in the palette rather than going neutral grey, and masked so it
+ * resolves out of the band at both edges instead of stopping at a hard
+ * line.
  *
  * DESATURATE-THEN-TINT, not "fade the photo". Ten league photos carry ten
  * different colour casts -- red jerseys, a yellow kickplate, orange boards --
@@ -128,8 +173,7 @@
 
 /*
  * A photograph is decoration. Anyone who has asked for less of it gets the
- * plain navy band, which is the design the rest of the site is built on
- * anyway.
+ * plain band, which is the design the rest of the site is built on anyway.
  */
 @media (prefers-reduced-data: reduce) {
 
@@ -140,17 +184,10 @@
 }
 
 /*
- * The hero carries a photograph INSTEAD of its faceoff rings, never both --
- * two low-opacity textures in one band read as noise rather than art
- * direction. The rings remain the treatment on SportsPress entity heroes
- * (sportspress.css), so both devices stay in use and neither repeats across
- * consecutive page types.
- *
- * Scoped to exactly the conditions where the photograph actually paints.
- * Suppressing the rings unconditionally left a phone with NEITHER -- the photo
- * hidden by the width rule above, the rings hidden by this one -- so the
- * smallest screens quietly lost the texture they already had. The rings are
- * the fallback, so they come back wherever the photograph does not go.
+ * A band opting into the photograph carries it INSTEAD of the faceoff rings,
+ * never both -- two low-opacity textures in one band read as noise rather
+ * than art direction. Scoped to exactly the conditions where the photograph
+ * actually paints, with the rings as the fallback wherever it does not.
  */
 @media (min-width: 600px) {
 
@@ -172,35 +209,60 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: var(--bl-space-5);
+	gap: var(--bl-space-4);
+	max-width: 42rem;
 	padding-block: var(--bl-space-9) var(--bl-space-8);
 }
 
+/*
+ * A plain label, not the old ice-fill skewed badge -- that device read as
+ * a sports-broadcast lower-third, and PRODUCT.md's anti-references name
+ * exactly that register. Muted rather than accented: the eyebrow is a
+ * status line ("Fall 2026 · Registration open"), not the thing asking for
+ * a click, so it should read quieter than the headline and the CTA below.
+ */
 .bl-hero__eyebrow {
 	margin: 0;
-}
-
-.bl-hero__eyebrow .bl-skew > span {
-	display: inline-flex;
-	padding: var(--bl-space-1) var(--bl-space-3);
-	background: var(--bl-ice);
-	color: var(--bl-ink);
-	font-family: var(--bl-font-display);
-	font-weight: 700;
-	font-style: italic;
-	text-transform: uppercase;
+	color: var(--bl-content-text-secondary);
+	font-family: var(--bl-font-body);
+	font-weight: 600;
 	font-size: var(--bl-text-sm);
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
 }
 
+/*
+ * Overrides base.css's sitewide h1 (heavy italic caps -- the "Blue Line"
+ * varsity-lettering register) for this one heading only, via selector
+ * specificity, not by touching that shared rule: every other heading on
+ * the site keeps it, and only the calm, confident hero headline this
+ * task asks for opts out.
+ */
 .bl-hero__headline {
 	max-width: 20ch;
 	margin: 0;
-	color: var(--bl-paper);
+	color: var(--bl-content-text);
+	font-family: var(--bl-font-display);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+	line-height: 1.08;
 	font-size: var(--bl-text-4xl);
 }
 
+/*
+ * --bl-content-link, not --bl-accent-text or the old --bl-ice: this span
+ * sits on the page's own theme-toggled background, and --bl-content-link
+ * is the one accent token this system already redefines for dark mode
+ * (see style.css) precisely so accent-coloured text on a toggled
+ * background stays AA in both palettes. --bl-accent-text is fixed rust in
+ * both themes and was never meant for that job; --bl-ice is a fill-only
+ * tint with nowhere near enough contrast as text on paper -- the highlight
+ * word would have been close to unreadable the moment the hero stopped
+ * being a dark band.
+ */
 .bl-hero__highlight {
-	color: var(--bl-ice);
+	color: var(--bl-content-link);
 }
 
 /*
@@ -208,33 +270,45 @@
  * hero -- the price breakdown line ("Skaters $550 · Goalies $145") when the
  * season's registration products don't share one price, and/or the
  * "Next game: ..." line when registration is open while the season is also
- * being played (blueline_is_playing()). --bl-pale is the one theme token
- * meant for de-emphasised text on a dark ground (9.09:1 on --bl-ink, see
- * DESIGN.md) -- exactly the "quieter than the headline, still AA" register
- * this needs.
+ * being played (blueline_is_playing()). --bl-content-text-secondary is the
+ * theme-toggled secondary-text token, the correct de-emphasised register on
+ * this now-light, theme-aware ground (the old --bl-pale was fixed for the
+ * fixed-dark band this hero no longer is).
  */
 .bl-hero__subcopy {
 	margin: 0;
-	color: var(--bl-pale);
+	max-width: 34rem;
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-base);
 }
 
+.bl-hero__cta {
+	margin-block-start: var(--bl-space-2);
+}
+
 /*
- * Secondary hero CTA on the dark hero ground -- every non-registration_open
- * state shows a secondary-styled action here. Overrides only color/border
- * on top of the shared .bl-btn--secondary defined for light backgrounds in
- * layout.css; the header applies the same pattern for its own CTA in
- * header.css.
+ * layout.css's shared `.bl-btn--secondary .bl-skew` (every non-header
+ * secondary button on the site: 404, pagination-adjacent actions, etc.)
+ * hard-codes --bl-ink/--bl-paper, because every one of ITS call sites
+ * sits on a background that does not itself toggle with the theme. This
+ * hero's background now DOES toggle (--bl-content-bg), so that fixed pair
+ * would put near-black ink text and an ink border on a near-black dark-
+ * mode hero -- a real contrast failure the old fixed-navy hero never hit,
+ * because it was dark in both palettes and this override used to read
+ * --bl-paper/--bl-paper to match. Overriding with the theme-aware content
+ * tokens, scoped to this hero only, is what keeps the secondary CTA
+ * legible in light AND dark instead of just re-hard-coding a different
+ * fixed pair.
  */
 .bl-hero .bl-btn--secondary .bl-skew {
-	color: var(--bl-paper);
-	border-color: var(--bl-paper);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border-strong);
 }
 
 .bl-hero .bl-btn--secondary:hover .bl-skew,
 .bl-hero .bl-btn--secondary:focus-visible .bl-skew {
-	background: var(--bl-paper);
-	color: var(--bl-ink);
+	background: var(--bl-content-text);
+	color: var(--bl-content-bg);
 }
 
 /* Modules */
@@ -244,39 +318,21 @@
 }
 
 /*
- * P1 finding 6: five consecutive modules used to be separated by the same
- * generic 1px hairline as everything else on the site -- one of the things
- * that made the homepage read as "a list of modules" rather than a
- * designed page. Reusing the paired blue-line band device (Device #2,
- * already used to close the hero and every SportsPress hero) as the
- * divider between modules instead is the single change a reviewer flagged
- * as enough to make the site recognisable from a thumbnail. Built with
- * ::before/::after rather than the literal .bl-band/.bl-band--ink markup
- * used elsewhere: this is a decorative divider between two already-labelled
- * sections, not new content, so it does not need its own DOM nodes.
+ * The one deliberate exception to the uniform module rhythm: whichever
+ * module renders immediately under the hero sits closer to it than the
+ * generic top padding would allow, the same way Concept C's own "this
+ * week on the ice" section (`section.week`) takes less top padding than
+ * every other section specifically because it is the one that follows
+ * the hero. The adjacent-sibling selector (not a hardcoded module name)
+ * matches whichever module blueline_homepage_module_order() puts first
+ * for the active season state, not just next_games -- .bl-hero and
+ * .bl-module are both plain <section> elements, so a :first-child/
+ * :first-of-type selector on .bl-module alone would incorrectly match
+ * nothing (the hero, being the same element type, is what's actually
+ * first).
  */
-.bl-module + .bl-module {
-	position: relative;
-	margin-block-start: calc(var(--bl-band-ice) + var(--bl-band-ink));
-}
-
-.bl-module + .bl-module::before,
-.bl-module + .bl-module::after {
-	content: "";
-	position: absolute;
-	inset-inline: 0;
-}
-
-.bl-module + .bl-module::before {
-	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
-	height: var(--bl-band-ice);
-	background: var(--bl-ice);
-}
-
-.bl-module + .bl-module::after {
-	inset-block-start: calc(-1 * var(--bl-band-ink));
-	height: var(--bl-band-ink);
-	background: var(--bl-ink);
+.bl-hero + .bl-module {
+	padding-block-start: var(--bl-space-6);
 }
 
 .bl-module__header {
@@ -288,8 +344,19 @@
 	margin-block-end: var(--bl-space-5);
 }
 
+/*
+ * Same override rationale as .bl-hero__headline above: this opts these
+ * four module headings out of the sitewide heavy-italic-caps h2 default,
+ * without touching that shared rule.
+ */
 .bl-module__title {
 	margin: 0;
+	max-width: 20ch;
+	font-family: var(--bl-font-display);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+	line-height: 1.1;
 	font-size: var(--bl-text-2xl);
 }
 
@@ -320,68 +387,24 @@
 	color: var(--bl-content-text-secondary);
 }
 
-/* new_here -- P1 finding 5: this is the tonal north star ("Never played?
-   Perfect.") and used to be three short bullets with no more visual weight
-   than any other module, less than the standings snippet below it. It now
-   gets a tinted band of its own (breaking the all-paper rhythm, P1 finding
-   6), a bigger heading, and a decorative leaf watermark (Device #4) instead
-   of a plain list.
-
-   Deliberately no `overflow: hidden` on .bl-module--new_here below, even
-   though the watermark can extend slightly past the section's own edge:
-   this class also matches the ".bl-module + .bl-module" divider-band
-   selector above when new_here isn't the first module on the page, and
-   that band is drawn with negative-offset ::before/::after pseudo-elements
-   on this same box -- clipping this element would clip its own top
-   divider. base.css's `html { overflow-x: clip }` (DESIGN.md's documented
-   backstop) already guarantees the page body itself never scrolls
-   horizontally, which is the actual hard constraint; this section does not
-   need its own. */
-
+/*
+ * new_here -- "Never played? Perfect." is PRODUCT.md's tonal north star, so
+ * this module still gets a surface of its own to separate it from the
+ * plain-paper rhythm around it (varied spacing/weight, not a uniform list
+ * of modules). It now uses --bl-content-bg-raised -- the same theme-aware
+ * "raised surface" token the toggle design already defines, so this reads
+ * correctly in light AND dark -- rather than a fixed color-mix() tint plus
+ * a decorative leaf watermark; Concept C's own equivalent ("Fall Session
+ * registration is open") is a plain raised band with no illustration
+ * competing with the copy, and the reassurance copy here is the thing that
+ * has to land, not a background flourish.
+ */
 .bl-module--new_here {
-	position: relative;
-
-	/* --bl-ice at low opacity: a fill use, per DESIGN.md -- no text sits
-	   directly on it that isn't already an AA-passing token colour. Mixed
-	   against transparent, not --bl-white: this section paints straight over
-	   the page's own --bl-paper background (see the "all-paper rhythm"
-	   comment above), not a white one, so the translucent form is the one
-	   that actually reproduces the old rgba()'s composited result. */
-	background: color-mix(in srgb, var(--bl-ice) 8%, transparent);
+	background: var(--bl-content-bg-raised);
 }
 
 .bl-module--new_here .bl-module__title {
-	max-width: 14ch;
 	font-size: var(--bl-text-3xl);
-}
-
-/*
- * inset-inline-end below is a positive container-gutter value, not a
- * negative bleed-past-the-edge one: this element sits inside the
- * full-width .bl-module--new_here section (not the narrower .bl-container),
- * so a negative offset here was pushing part of the mark past the
- * viewport's own right edge at 360px -- a real, scrollable layout overflow
- * the html{overflow-x:clip} backstop turned out NOT to swallow, confirmed
- * live (window could still scroll ~14px right). "The page body never
- * scrolls horizontally at 360px" is a hard constraint; a decorative
- * watermark is not worth risking it over.
- */
-.bl-new-here__watermark {
-	position: absolute;
-	inset-block-start: var(--bl-space-6);
-	inset-inline-end: var(--bl-space-5);
-	z-index: 0;
-	width: 36%;
-	max-width: 220px;
-	color: var(--bl-ice);
-	opacity: 0.16;
-	pointer-events: none;
-}
-
-.bl-new-here__intro,
-.bl-new-here__qa {
-	position: relative;
-	z-index: 1;
 }
 
 .bl-new-here__intro {
@@ -391,16 +414,37 @@
 	font-size: var(--bl-text-lg);
 }
 
+/*
+ * Concept C's beginner Q&A: a plain <dl> with a hairline rule between
+ * items, not the previous 3-column icon+text tile grid. dt/dd sit in a
+ * two-column grid (a narrow question column, a wide answer column) on
+ * anything roomier than a phone, and stack on top of each other below
+ * that -- the same shape as Concept C's own .qa-item, carrying real
+ * beginner-persona copy instead of the mockup's placeholder questions.
+ */
 .bl-new-here__qa {
 	display: grid;
-	gap: var(--bl-space-6);
 	margin: 0;
 	max-width: 56ch;
 }
 
+.bl-new-here__qa-item {
+	display: grid;
+	grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+	gap: var(--bl-space-2) var(--bl-space-5);
+	padding-block: var(--bl-space-4);
+	border-top: 1px solid var(--bl-content-border);
+}
+
+.bl-new-here__qa-item:first-child {
+	padding-block-start: 0;
+	border-top: none;
+}
+
 .bl-new-here__qa-item dt {
-	margin: 0 0 var(--bl-space-2);
-	font-weight: 700;
+	margin: 0;
+	font-family: var(--bl-font-display);
+	font-weight: 600;
 	font-size: var(--bl-text-lg);
 }
 
@@ -411,6 +455,14 @@
 
 .bl-new-here__qa-item a {
 	font-weight: 600;
+}
+
+@media (max-width: 760px) {
+
+	.bl-new-here__qa-item {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--bl-space-1);
+	}
 }
 
 /* A league volunteer's own widgets (see
@@ -426,103 +478,151 @@
 	font-size: var(--bl-text-lg);
 }
 
-@media (min-width: 900px) {
-
-	.bl-new-here__qa {
-		grid-template-columns: repeat(3, 1fr);
-		max-width: none;
-	}
-}
-
-/* next_games */
+/* next_games -- Concept C's "this week on the ice": a plain, legible table
+   (date/time, matchup, rink), not a card-per-game ticker. .bl-table-scroll
+   (assets/src/css/sportspress.css) supplies the horizontal-scroll wrapper
+   behaviour; the rules below are this table's own typography and its
+   phone-width stacked layout. */
 
 .bl-next-games {
-	display: grid;
-	gap: var(--bl-space-4);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--bl-text-base);
 }
 
-/*
- * One column on a phone: date, fixture, arena, stacked.
- *
- * This used to be `minmax(0, 1fr) auto` at every width, which put the fixture
- * and the arena side by side. `auto` gives the arena whatever its label needs,
- * and this league's labels are long -- "Mr. Lube and Tires Arena — Red" -- so
- * the arena took most of a 390px row and squeezed "Puck Dynasty vs Hammers"
- * into what was left, making the least important thing on the row the widest.
- * Stacking gives the fixture the full width and drops the arena to its own
- * line, where its existing smaller, dimmer type reads as the secondary detail
- * it is. No information is lost, which shortening the label to just the pad
- * would have cost.
- */
-.bl-next-games__item {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr);
-	gap: var(--bl-space-1) var(--bl-space-3);
-	padding: var(--bl-space-4);
-	border: 1px solid var(--bl-content-border);
-	border-radius: var(--bl-radius-card);
-}
-
-.bl-next-games__date {
-	grid-column: 1 / -1;
+.bl-next-games thead th {
+	padding-block-end: var(--bl-space-2);
+	border-bottom: 1.5px solid var(--bl-content-border-strong);
 	color: var(--bl-content-text-secondary);
+	font-family: var(--bl-font-body);
+	font-weight: 600;
 	font-size: var(--bl-text-sm);
-	font-variant-numeric: tabular-nums;
+	text-align: start;
+	white-space: nowrap;
 }
 
-.bl-next-games__title {
+.bl-next-games tbody td {
+	padding-block: var(--bl-space-3);
+	border-bottom: 1px solid var(--bl-content-border);
+	vertical-align: middle;
+}
+
+.bl-next-games tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.bl-next-games__matchup {
 	font-weight: 600;
 }
 
 /*
- * The fixture links to its own event page. Same treatment as the venue link
- * beside it -- both are real destinations from this row, so neither should
- * look more clickable than the other. Underlined rather than colour-only,
- * because "Puck Dynasty vs Hammers" sitting in a list of dates and arenas
- * gives no other signal that it is interactive.
+ * The fixture links to its own event page. Underlined rather than
+ * colour-only, because a matchup name sitting in a column of plain dates
+ * and rink names otherwise gives no signal that it is interactive.
+ * color: inherit keeps it as quiet as the plain-text fallback (the same
+ * bold body-text colour) until hover/focus, rather than the sitewide
+ * accent-coloured default every other in-content link gets.
  */
-a.bl-next-games__title {
+.bl-next-games__matchup a {
 	color: inherit;
 	text-decoration: underline;
 	text-decoration-color: var(--bl-content-border);
 	text-underline-offset: 2px;
 }
 
-a.bl-next-games__title:hover,
-a.bl-next-games__title:focus-visible {
+.bl-next-games__matchup a:hover,
+.bl-next-games__matchup a:focus-visible {
 	color: var(--bl-content-link);
 	text-decoration-color: currentcolor;
 }
 
-.bl-next-games__venue {
+/*
+ * P1 finding 3: the venue is a real link (to the sp_venue archive, carrying
+ * the address and any sibling-pad cross-link) whenever one is resolvable.
+ * Secondary-text colour on the cell itself -- inherited by the link, same
+ * as the plain-text fallback when no venue resolves -- keeps the rink a
+ * quieter, de-emphasised detail than the matchup next to it; accent colour
+ * only shows up on hover/focus, same pattern as the matchup link.
+ */
+.bl-next-games__rink {
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
-
-	/*
-	 * Start-aligned while stacked: on its own full-width line, an end-aligned
-	 * arena name sits alone against the right edge with nothing to align to.
-	 * The multi-column layout at >=700px puts it back to end.
-	 */
-	text-align: start;
 }
 
-/* P1 finding 3: the venue is a real link (to the sp_venue archive, carrying
-   the address and any sibling-pad cross-link) whenever one is resolvable --
-   give it the same accent-on-hover/focus treatment as every other inline
-   link on the page instead of looking identical to the plain-text fallback. */
-a.bl-next-games__venue {
+/* stylelint-disable-next-line no-descending-specificity -- __matchup and
+   __rink are mutually exclusive cells in the same row (the fixture column
+   vs. the rink column), never both matched by the same <a>, so the two
+   blocks' shared "a"/"a:hover" shape cannot actually collide. */
+.bl-next-games__rink a {
+	color: inherit;
 	text-decoration: underline;
 	text-decoration-color: var(--bl-content-border);
 	text-underline-offset: 2px;
 }
 
-a.bl-next-games__venue:hover,
-a.bl-next-games__venue:focus-visible {
+.bl-next-games__rink a:hover,
+.bl-next-games__rink a:focus-visible {
 	color: var(--bl-content-link);
 	text-decoration-color: currentcolor;
+}
+
+/*
+ * Below 640px the table stacks into one column per row: the header row
+ * hides and each cell prints its own data-label instead, the same pattern
+ * Concept C's own `table.stack` uses. This is a phone-width readability
+ * choice, not the "body never scrolls horizontally" backstop -- that is
+ * still .bl-table-scroll's job on wider phones/tablets where three columns
+ * fit without stacking.
+ */
+@media (max-width: 640px) {
+
+	.bl-next-games thead {
+		display: none;
+	}
+
+	.bl-next-games,
+	.bl-next-games tbody,
+	.bl-next-games tr {
+		display: block;
+		width: 100%;
+	}
+
+	.bl-next-games tr {
+		padding-block: var(--bl-space-2);
+	}
+
+	.bl-next-games td {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: var(--bl-space-3);
+		padding-block: 0.2rem;
+		border-bottom: none;
+	}
+
+	.bl-next-games td::before {
+		content: attr(data-label);
+		flex-shrink: 0;
+		color: var(--bl-content-text-secondary);
+		font-weight: 600;
+		font-size: var(--bl-text-sm);
+	}
+
+	/*
+	 * `.bl-next-games td.bl-next-games__matchup`, not the bare class: this
+	 * needs to beat the generic `.bl-next-games td` rule just above on the
+	 * `display` property, and a bare class selector alone is LOWER
+	 * specificity than that compound one, not higher, regardless of which
+	 * rule comes later in the file.
+	 */
+	.bl-next-games td.bl-next-games__matchup {
+		display: block;
+	}
+
+	.bl-next-games td.bl-next-games__matchup::before {
+		display: block;
+		margin-block-end: 0.3rem;
+	}
 }
 
 /* latest_news */
@@ -562,26 +662,9 @@ a.bl-next-games__venue:focus-visible {
 	white-space: nowrap;
 }
 
-/* standings_snippet -- SportsPress's own shortcode markup needs only
-   spacing/overflow guards here; its own CSS (enqueued site-wide by
-   SportsPress Pro) supplies the rest. */
-
-.bl-module--standings_snippet .bl-module__body {
-	overflow-x: auto;
-}
-
-@media (min-width: 700px) {
-
-	.bl-next-games__item {
-		grid-template-columns: 180px minmax(0, 1fr) auto;
-	}
-
-	.bl-next-games__date {
-		grid-column: auto;
-	}
-
-	/* Back to a row: the arena aligns to the card's right edge. */
-	.bl-next-games__venue {
-		text-align: end;
-	}
-}
+/* standings_snippet -- SportsPress's own [league_table] shortcode markup
+   (a real <table>, already wrapped in .bl-table-scroll by
+   blueline_homepage_module_standings_snippet(); see that function's own
+   comment) needs no card/border chrome here -- its own CSS (enqueued
+   site-wide by SportsPress Pro, styled in sportspress.css) supplies the
+   rest. */
