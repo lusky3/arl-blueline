@@ -1,0 +1,205 @@
+/*
+ * Blueline — News (blog archive + single post) — 2026.2 pass.
+ *
+ * layout.css already owns .bl-post-card/.bl-entry/.bl-comments/.bl-pagination
+ * (page/post template layout, shared with SportsPress single-entity pages
+ * via content-notitle.php/content-nothumb.php) but is off-limits for this
+ * pass -- other work is restyling it in parallel. Every rule below is an
+ * override layered on top of it (and of base.css's sitewide h1-h4 rule),
+ * scoped as tightly as the shared markup allows so it touches only the
+ * blog's own archive teasers, single-post view and comments -- never a
+ * Page, a SportsPress entity page, or anything living in an off-limits file.
+ *
+ * `.single-post` (WordPress's own body class for a standard blog post, as
+ * opposed to `single-{cpt}` for a SportsPress entity or plain `page`) is the
+ * scoping hook used wherever the shared `.entry-content`/`.bl-entry` markup
+ * needs a blog-only treatment.
+ *
+ * Loaded after layout.css/blocks.css in index.css, so equal-specificity
+ * declarations here win by source order; several rules also carry a higher-
+ * specificity selector on purpose, to win regardless of import order.
+ */
+
+/* ---------------------------------------------------------------------
+ * Headings -- Fraunces at real weight contrast, not the sitewide heavy
+ * italic caps (base.css's `h1, h2, h3, h4` rule). A class selector already
+ * outranks that bare-type rule, so only the properties listed here need
+ * repeating; text-wrap: balance, overflow-wrap and scroll-margin-top all
+ * fall through from base.css untouched.
+ * --------------------------------------------------------------------- */
+
+.bl-post-card__title,
+.bl-entry__title,
+.bl-comments__title {
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+	line-height: 1.15;
+}
+
+.bl-post-card__title {
+	font-size: var(--bl-text-xl);
+}
+
+.bl-entry__title {
+	font-size: var(--bl-text-3xl);
+}
+
+.bl-comments__title {
+	font-size: var(--bl-text-xl);
+}
+
+/*
+ * Headings written into a post's own body (a Gutenberg core/heading block)
+ * carry the same sitewide h1-h4 rule. Scoped to .single-post so a Page or a
+ * SportsPress entity page -- which reuses this same .entry-content wrapper
+ * via content-page.php/content-notitle.php/content-nothumb.php -- keeps
+ * whatever heading treatment its own restyle gives it.
+ */
+.single-post .entry-content :where(h1, h2, h3, h4) {
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+	line-height: 1.25;
+}
+
+/* ---------------------------------------------------------------------
+ * Reading measure -- ~38rem (Concept C), not blocks.css's sitewide 70ch.
+ * Same .single-post scoping as above and for the same reason: 70ch is the
+ * right measure for a Page or a SportsPress caption/fixture title, just not
+ * for blog prose. The extra .single-post ancestor also raises specificity
+ * above blocks.css's `.entry-content :where(...)` rule, so this wins
+ * regardless of import order.
+ * --------------------------------------------------------------------- */
+
+.single-post .entry-content p,
+.single-post .entry-content li,
+.single-post .entry-content :where(h1, h2, h3, h4, h5, h6) {
+	max-width: 38rem;
+}
+
+/* ---------------------------------------------------------------------
+ * Archive/search teaser meta -- drop the filled, italic-caps "eyebrow"
+ * pill for a plain accent-coloured label; calmer, and it no longer competes
+ * with the post title directly under it. blueline_entry_meta() only ever
+ * prints this for the 'post' post type, so it never reaches a Page or a
+ * SportsPress entity -- no extra scoping needed.
+ * --------------------------------------------------------------------- */
+
+.bl-entry-meta__eyebrow a {
+	padding: 0;
+	background: transparent;
+	color: var(--bl-content-link);
+	font-family: var(--bl-font-body);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-size: var(--bl-text-xs);
+	text-decoration: none;
+}
+
+.bl-entry-meta__eyebrow a:hover,
+.bl-entry-meta__eyebrow a:focus-visible {
+	text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------
+ * Post list -- hairline dividers between generously-spaced entries instead
+ * of gap alone. `.bl-post-list`'s gap is zeroed here (same specificity,
+ * later in the cascade) since the spacing now lives in each card's own
+ * padding, paired with its divider.
+ * --------------------------------------------------------------------- */
+
+.bl-post-list {
+	gap: 0;
+}
+
+.bl-post-card {
+	padding-block: var(--bl-space-6);
+	border-top: 1px solid var(--bl-content-border);
+}
+
+.bl-post-card:first-child {
+	padding-block-start: 0;
+	border-top: none;
+}
+
+.bl-post-card:last-child {
+	padding-block-end: 0;
+}
+
+.bl-post-card__excerpt {
+	max-width: 60ch;
+}
+
+/* ---------------------------------------------------------------------
+ * Post navigation (previous/next single post) -- the "Previous"/"Next"
+ * eyebrow label drops the same italic-caps display treatment as the
+ * archive meta above, for the same reason.
+ * --------------------------------------------------------------------- */
+
+.bl-post-nav__label {
+	font-family: var(--bl-font-body);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------------------
+ * Pagination -- the current-page indicator swaps its grayscale ink/paper
+ * fill for the accent colour, as an outline rather than a solid fill: a
+ * solid --bl-accent-text fill is only guaranteed AA with white text (see
+ * woocommerce.css's .button.alt, which relies on that fixed-fill pairing),
+ * and this indicator has no dedicated contrast check of its own. An
+ * accent-coloured outline uses --bl-content-link instead -- the same
+ * theme-aware token the hover/focus state right below it already relies on
+ * -- so it stays correct in dark mode without adding a new colour pairing.
+ * --------------------------------------------------------------------- */
+
+.bl-pagination .page-numbers.current {
+	background: transparent;
+	border-color: var(--bl-content-link);
+	color: var(--bl-content-link);
+	font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------
+ * Comments -- form and list restyle. The submit button drops the ink-fill/
+ * italic-caps treatment (layout.css's own comment on it says as much: it's
+ * a hand-duplicated copy of woocommerce.css's pre-restyle button language)
+ * for the same solid-accent-fill/white-text button language woocommerce.css
+ * already uses for its own primary actions (`.button.alt`, `#place_order`)
+ * -- including its hover/focus treatment, so a future --bl-accent-text edit
+ * can't drift the two out of sync.
+ * --------------------------------------------------------------------- */
+
+.bl-comments .comment-form .submit {
+	border: 1.5px solid var(--bl-accent-text);
+	border-radius: var(--bl-radius);
+	background: var(--bl-accent-text);
+	color: var(--bl-white);
+	font-family: var(--bl-font-body);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+}
+
+.bl-comments .comment-form .submit:hover,
+.bl-comments .comment-form .submit:focus-visible {
+	background: color-mix(in srgb, var(--bl-accent-text) 85%, #000);
+	border-color: color-mix(in srgb, var(--bl-accent-text) 85%, #000);
+}
+
+/*
+ * Text fields pick up the accent on focus too (on top of the sitewide
+ * two-tone focus ring, not instead of it) so the accent shows up somewhere
+ * in the form beyond just the submit button.
+ */
+.bl-comments .comment-form input[type="text"]:focus-visible,
+.bl-comments .comment-form input[type="email"]:focus-visible,
+.bl-comments .comment-form input[type="url"]:focus-visible,
+.bl-comments .comment-form textarea:focus-visible {
+	border-color: var(--bl-content-link);
+}
