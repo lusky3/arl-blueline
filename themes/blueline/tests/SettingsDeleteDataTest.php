@@ -41,6 +41,7 @@ final class SettingsDeleteDataTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+		blueline_test_reset_state();
 
 		// The handler cases below write these, and a value leaking from one
 		// case into the next makes the leak look like the behaviour under

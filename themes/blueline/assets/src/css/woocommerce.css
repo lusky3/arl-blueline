@@ -60,12 +60,14 @@
 	color: var(--bl-content-text);
 }
 
-.woocommerce-message {
+.woocommerce-message,
+.woocommerce-notice--success {
 	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
 	border-color: var(--bl-success);
 }
 
-.woocommerce-error {
+.woocommerce-error,
+.woocommerce-notice--error {
 	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-content-surface));
 	border-color: var(--bl-danger);
 }
@@ -73,16 +75,6 @@
 .woocommerce-error li {
 	list-style: none;
 	color: var(--bl-danger);
-}
-
-.woocommerce-message,
-.woocommerce-notice--success {
-	border-inline-start-color: var(--bl-success);
-}
-
-.woocommerce-error,
-.woocommerce-notice--error {
-	border-inline-start-color: var(--bl-danger);
 }
 
 /* --bl-ice is fill-only (1.94:1); navy text on top keeps this AA. */

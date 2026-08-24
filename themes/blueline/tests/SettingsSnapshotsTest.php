@@ -28,6 +28,7 @@ final class SettingsSnapshotsTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+		blueline_test_reset_state();
 	}
 
 	/**
@@ -425,8 +426,6 @@ final class SettingsSnapshotsTest extends TestCase {
 	 * this theme's implementation.
 	 */
 	public function test_a_snapshot_time_is_labelled_in_the_site_timezone(): void {
-		blueline_test_reset_state();
-
 		$this->assertSame(
 			'2026-02-01 21:40',
 			blueline_settings_snapshot_time_label( 1770000000 )

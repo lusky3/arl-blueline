@@ -287,8 +287,8 @@ function blueline_header_cta(): array {
 	$state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
 
 	$show_register = 'registration_open' === $state
-		&& function_exists( 'blueline_homepage_registration_offer' )
-		&& null !== blueline_homepage_registration_offer( $state_data );
+		&& function_exists( 'blueline_homepage_registration_offers' )
+		&& ! empty( blueline_homepage_registration_offers( $state_data ) );
 
 	if ( $show_register ) {
 		return array(

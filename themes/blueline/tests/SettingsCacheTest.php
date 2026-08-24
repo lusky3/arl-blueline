@@ -247,6 +247,7 @@ final class SettingsCacheTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+		blueline_test_reset_state();
 
 		global $wp_object_cache;
 		$wp_object_cache = null; // phpcs:ignore WordPress.Variables.GlobalVariables.OverrideProhibited -- this IS the global the Redis Object Cache drop-in populates in production; a test must control it directly to exercise every guard.

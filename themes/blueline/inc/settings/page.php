@@ -263,21 +263,21 @@ function blueline_settings_add_page(): void {
 
 /**
  * Stores (and returns) the hook suffix add_theme_page() assigned this
- * screen. A plain module-level static rather than a global: the only two
- * callers are blueline_settings_add_page() (which sets it, once, from
- * admin_menu) and blueline_settings_maybe_enqueue_focus_script() (which
- * reads it, from the later admin_enqueue_scripts), and both always run
- * within the same request.
+ * screen. A $GLOBALS entry rather than a function-local static, so a test
+ * harness can reset it between cases -- the only two production callers
+ * are blueline_settings_add_page() (which sets it, once, from admin_menu)
+ * and blueline_settings_maybe_enqueue_focus_script() (which reads it, from
+ * the later admin_enqueue_scripts), and both always run within the same
+ * request.
  *
  * @param string|null $hook Set once, from blueline_settings_add_page(). Omit to read.
  * @return string|null
  */
 function blueline_settings_page_hook( ?string $hook = null ): ?string {
-	static $stored = null;
 	if ( null !== $hook ) {
-		$stored = $hook;
+		$GLOBALS['blueline_settings_page_hook'] = $hook;
 	}
-	return $stored;
+	return $GLOBALS['blueline_settings_page_hook'] ?? null;
 }
 
 add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_focus_script' );

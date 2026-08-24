@@ -24,7 +24,7 @@ final class LeagueMenuTeamsTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset_state();
 		blueline_test_reset_options();
-		$GLOBALS['bl_test_hooks'] = array();
+		blueline_test_reset_hooks();
 		add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
 	}
 
