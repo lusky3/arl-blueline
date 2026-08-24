@@ -181,7 +181,7 @@ function blueline_checkout_reassurance() {
 	?>
 	<div class="bl-checkout-reassurance">
 		<p>
-			<?php esc_html_e( 'You’re in good company: most people paying this fee have never played an organized game before, and this is the one payment for the whole season — no upsells, no surprise add-ons waiting for you after this.', 'blueline' ); ?>
+			<?php esc_html_e( 'Whether this is your first season or your fifth, this one payment covers the whole season: jersey, socks, officials, and ice time. Nothing else to pay after this.', 'blueline' ); ?>
 		</p>
 		<p>
 			<?php esc_html_e( 'You’ll get an email confirmation right away, and your team, schedule, and roster show up in My Account once the season’s set. Still nervous? That’s normal — ask us anything, or just show up and skate.', 'blueline' ); ?>
