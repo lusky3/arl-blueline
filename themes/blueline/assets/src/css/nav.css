@@ -241,7 +241,7 @@
 		display: none;
 		position: fixed;
 		inset: 0;
-		z-index: 50;
+		z-index: var(--bl-z-drawer);
 		overflow-y: auto;
 
 		/*
@@ -409,7 +409,7 @@
 		position: absolute;
 		top: 100%;
 		right: 0;
-		z-index: 40;
+		z-index: var(--bl-z-nav-submenu);
 		min-width: 260px;
 		max-height: min(78vh, 560px);
 		overflow-y: auto;

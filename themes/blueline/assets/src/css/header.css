@@ -24,7 +24,7 @@
 	position: fixed;
 	top: var(--bl-space-3);
 	left: var(--bl-space-3);
-	z-index: 100;
+	z-index: var(--bl-z-skip-link);
 	width: auto;
 	height: auto;
 	padding: var(--bl-space-2) var(--bl-space-4);
@@ -93,10 +93,11 @@
 	 * DESCENDANT of this element, so this z-index orders the header against
 	 * its siblings and does nothing for its own children. The toggle stays
 	 * reachable because .bl-header__brand / .bl-header__actions carry
-	 * `position: relative; z-index: 55` further down this file -- added
-	 * precisely because 60 up here did not do it.
+	 * `position: relative; z-index: var(--bl-z-header-controls)` (55) further
+	 * down this file -- added precisely because --bl-z-header (60) up here
+	 * did not do it.
 	 */
-	z-index: 60;
+	z-index: var(--bl-z-header);
 	background: var(--bl-ink-deep);
 	color: var(--bl-paper);
 }
@@ -148,7 +149,7 @@
 
 .bl-header__bar {
 	position: relative;
-	z-index: 60;
+	z-index: var(--bl-z-header);
 }
 
 /*
@@ -431,24 +432,25 @@
 	/*
 	 * Keep the bar's own controls above the open drawer.
 	 *
-	 * The drawer is `.bl-nav__menu` -- position:fixed, z-index:50 (nav.css) --
-	 * and it is a DESCENDANT of `.bl-header__bar`, so that bar's own z-index:60
-	 * orders it against the bar's siblings and does nothing for the bar's
-	 * children. Inside the bar's stacking context the drawer is positioned with
-	 * a z-index and these two are static, so the drawer painted over them: with
-	 * the menu open, elementFromPoint() at the hamburger's own centre returned
-	 * the drawer's UL, i.e. the control that opened the drawer could not be
-	 * tapped to close it. (Escape, outside-click and the focus trap all worked,
-	 * so it was never a trap -- just unusable in the obvious way.)
+	 * The drawer is `.bl-nav__menu` -- position:fixed, z-index:var(--bl-z-drawer)
+	 * (50, nav.css) -- and it is a DESCENDANT of `.bl-header__bar`, so that
+	 * bar's own z-index:var(--bl-z-header) (60) orders it against the bar's
+	 * siblings and does nothing for the bar's children. Inside the bar's
+	 * stacking context the drawer is positioned with a z-index and these two
+	 * are static, so the drawer painted over them: with the menu open,
+	 * elementFromPoint() at the hamburger's own centre returned the drawer's
+	 * UL, i.e. the control that opened the drawer could not be tapped to
+	 * close it. (Escape, outside-click and the focus trap all worked, so it
+	 * was never a trap -- just unusable in the obvious way.)
 	 *
-	 * 55 sits above the drawer's 50 and below the bar's 60. Raising
-	 * `.bl-header__inner` instead would not work: the drawer is inside it and
-	 * would come up too.
+	 * --bl-z-header-controls (55) sits above the drawer's 50 and below the
+	 * bar's 60. Raising `.bl-header__inner` instead would not work: the
+	 * drawer is inside it and would come up too.
 	 */
 	.bl-header__brand,
 	.bl-header__actions {
 		position: relative;
-		z-index: 55;
+		z-index: var(--bl-z-header-controls);
 	}
 }
 
