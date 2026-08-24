@@ -8,8 +8,7 @@
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-
-const SITE = process.env.BLUELINE_SITE_URL || 'https://staging.rookiehockey.ca';
+const { SITE } = require( './helpers/site.js' );
 
 /**
  * Read the hero's photo layer and its fallback rings.

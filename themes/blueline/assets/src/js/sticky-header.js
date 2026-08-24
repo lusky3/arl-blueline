@@ -12,6 +12,9 @@
  * and re-expands, and only at a fixed offset.
  */
 
+import { onReady } from './dom-ready.js';
+import { rafThrottle } from './raf-throttle.js';
+
 const HEADER_SELECTOR = '.bl-header';
 const STUCK_CLASS = 'is-stuck';
 
@@ -33,7 +36,6 @@ function initStickyHeader() {
 	}
 
 	let stuck = false;
-	let queued = false;
 
 	/*
 	 * Publish the header's un-shrunk height so .bl-header__spacer can reserve
@@ -60,8 +62,6 @@ function initStickyHeader() {
 	};
 
 	const apply = () => {
-		queued = false;
-
 		const y = window.scrollY;
 
 		// Hysteresis: only act on a crossing, and only of the relevant edge.
@@ -74,20 +74,12 @@ function initStickyHeader() {
 		}
 	};
 
-	const onScroll = () => {
-		if ( queued ) {
-			return;
-		}
-
-		queued = true;
-
-		// Coalesce to one class check per frame. scroll fires far more often
-		// than the browser paints, and reading scrollY in the handler itself
-		// would force a layout flush on every one of those events.
-		window.requestAnimationFrame( apply );
-	};
-
-	window.addEventListener( 'scroll', onScroll, { passive: true } );
+	// Coalesce to one class check per frame. scroll fires far more often than
+	// the browser paints, and reading scrollY in the handler itself would
+	// force a layout flush on every one of those events.
+	window.addEventListener( 'scroll', rafThrottle( apply ), {
+		passive: true,
+	} );
 
 	publishRestHeight();
 
@@ -109,10 +101,6 @@ function initStickyHeader() {
 	apply();
 }
 
-if ( 'loading' === document.readyState ) {
-	document.addEventListener( 'DOMContentLoaded', initStickyHeader );
-} else {
-	initStickyHeader();
-}
+onReady( initStickyHeader );
 
 export { ENTER_AT, EXIT_AT };

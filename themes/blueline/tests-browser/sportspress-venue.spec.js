@@ -8,8 +8,7 @@
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-
-const SITE = process.env.BLUELINE_SITE_URL || 'https://staging.rookiehockey.ca';
+const { SITE } = require( './helpers/site.js' );
 const EVENT = `${ SITE }/?p=116460&post_type=sp_event`;
 
 test.describe( 'event page', () => {

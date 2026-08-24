@@ -53,22 +53,28 @@ function extractDeclarations( block ) {
 }
 
 /**
- * Extract every `--bl-*` declaration from the first rule whose selector
- * starts with the given prefix (matched immediately after `\b`, so
- * `:root` also matches a grouped selector like `:root, .editor-styles-
- * wrapper` or an attribute-qualified one like `:root[data-theme="dark"]`,
- * but never a substring of a longer, unrelated selector).
+ * Extract the raw body text (no surrounding braces, comments already
+ * stripped) of the first rule whose selector starts with the given prefix
+ * (matched immediately after `\b`, so `:root` also matches a grouped
+ * selector like `:root, .editor-styles-wrapper` or an attribute-qualified
+ * one like `:root[data-theme="dark"]`, but never a substring of a longer,
+ * unrelated selector).
  *
  * Brace-depth counting (not the next literal `}`) finds the matching close,
  * so a rule nested inside `@media (...) { ... }` -- style.css's own dark
  * palette lives exactly there -- still resolves to the right block.
  *
- * @param {string} source        CSS source text.
+ * This is the shared, brace-aware primitive behind `extractTokensForSelector()`;
+ * callers who need the raw declarations of a rule rather than just its
+ * `--bl-*` tokens (e.g. a `color: ... !important` override) should reach for
+ * this instead of hand-rolling a second, non-brace-aware regex.
+ *
+ * @param {string} source         CSS source text.
  * @param {string} selectorPrefix Selector text to match at a word boundary,
  *                                 e.g. ':root' or ':root[data-theme="dark"]'.
- * @return {Map<string,string>} Token name to raw, trimmed value.
+ * @return {string} Rule body text, comments stripped.
  */
-export function extractTokensForSelector( source, selectorPrefix ) {
+export function extractRuleBlock( source, selectorPrefix ) {
 	const clean = stripComments( source );
 
 	const escaped  = selectorPrefix.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
@@ -100,7 +106,21 @@ export function extractTokensForSelector( source, selectorPrefix ) {
 		}
 	}
 
-	return extractDeclarations( clean.slice( braceStart + 1, end ) );
+	return clean.slice( braceStart + 1, end );
+}
+
+/**
+ * Extract every `--bl-*` declaration from the first rule whose selector
+ * starts with the given prefix. See `extractRuleBlock()` for the matching
+ * rules.
+ *
+ * @param {string} source        CSS source text.
+ * @param {string} selectorPrefix Selector text to match at a word boundary,
+ *                                 e.g. ':root' or ':root[data-theme="dark"]'.
+ * @return {Map<string,string>} Token name to raw, trimmed value.
+ */
+export function extractTokensForSelector( source, selectorPrefix ) {
+	return extractDeclarations( extractRuleBlock( source, selectorPrefix ) );
 }
 
 /**

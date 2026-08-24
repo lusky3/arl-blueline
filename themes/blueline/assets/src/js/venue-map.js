@@ -17,6 +17,8 @@
  * inside for the map instance -- which SportsPress does not expose anywhere.
  */
 
+import { onReady } from './dom-ready.js';
+
 const CONTAINER = '.leaflet-container';
 
 /**
@@ -73,11 +75,7 @@ function initVenueMap() {
 	containers.forEach( ( el ) => observer.observe( el ) );
 }
 
-if ( 'loading' === document.readyState ) {
-	document.addEventListener( 'DOMContentLoaded', initVenueMap );
-} else {
-	initVenueMap();
-}
+onReady( initVenueMap );
 
 // Maps inside a tab panel only get a real size when the tab is first shown,
 // which happens after DOMContentLoaded and after load.

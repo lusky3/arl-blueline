@@ -17,6 +17,9 @@
  * applies -- losing a hint, never hiding content.
  */
 
+import { onReady } from './dom-ready.js';
+import { rafThrottle } from './raf-throttle.js';
+
 const CONTAINERS = [
 	'.bl-table-scroll',
 	'.sp-scrollable-table-wrapper',
@@ -66,26 +69,15 @@ function initTableScroll() {
 			: null;
 
 	containers.forEach( ( el ) => {
-		let queued = false;
-
+		// One measurement per frame: scroll fires far more often than the
+		// browser paints, and reading scrollLeft/scrollWidth in the handler
+		// forces a layout flush every time.
 		el.addEventListener(
 			'scroll',
-			() => {
-				if ( queued ) {
-					return;
-				}
-
-				queued = true;
-
-				// One measurement per frame: scroll fires far more often than
-				// the browser paints, and reading scrollLeft/scrollWidth in the
-				// handler forces a layout flush every time.
-				window.requestAnimationFrame( () => {
-					queued = false;
-					update( el );
-				} );
-			},
-			{ passive: true }
+			rafThrottle( () => update( el ) ),
+			{
+				passive: true,
+			}
 		);
 
 		if ( observer ) {
@@ -102,8 +94,4 @@ function initTableScroll() {
 	}
 }
 
-if ( 'loading' === document.readyState ) {
-	document.addEventListener( 'DOMContentLoaded', initTableScroll );
-} else {
-	initTableScroll();
-}
+onReady( initTableScroll );

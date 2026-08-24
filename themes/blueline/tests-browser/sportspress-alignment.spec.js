@@ -10,8 +10,7 @@
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-
-const SITE = process.env.BLUELINE_SITE_URL || 'https://staging.rookiehockey.ca';
+const { SITE } = require( './helpers/site.js' );
 
 // Hammers (a long name) vs Kings (a short one) -- the pairing that exposed the
 // drift, since the error is half the difference between the two names.
@@ -22,14 +21,15 @@ const EVENT = `${ SITE }/?p=116460&post_type=sp_event`;
  *
  * @param {import('@playwright/test').Page} page Page under test.
  * @param {string}                          sel  CSS selector.
- * @return {Promise<Object|null>} Box with midpoints.
+ * @return {Promise<Object>} Box with midpoints.
+ * @throws {Error} If no element matches `sel`.
  */
 async function box( page, sel ) {
 	return page.evaluate( ( s ) => {
 		const el = document.querySelector( s );
 
 		if ( ! el ) {
-			return null;
+			throw new Error( `box(): no element matched selector "${ s }"` );
 		}
 
 		const r = el.getBoundingClientRect();

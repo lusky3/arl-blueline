@@ -156,15 +156,39 @@
 	 * exists only to hold a submenu) has nowhere to navigate to, so
 	 * clicking/tapping the label itself toggles the submenu too.
 	 *
-	 * @param {Element}      item      The `.bl-nav__item--parent` <li>.
-	 * @param {Element|null} subButton Its `.bl-nav__toggle-sub` <button>, if any.
-	 * @param {boolean}      open      Whether the submenu should be open.
+	 * @param {Element} item The `.bl-nav__item--parent` <li>.
+	 * @param {boolean} open Whether the submenu should be open.
 	 */
-	function setSubmenuOpen( item, subButton, open ) {
+	function setSubmenuOpen( item, open ) {
+		const subButton = item.querySelector( ':scope > .bl-nav__toggle-sub' );
+
 		item.setAttribute( 'data-open', open ? 'true' : 'false' );
 		if ( subButton ) {
 			subButton.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
 		}
+	}
+
+	/**
+	 * Close every currently open top-level submenu.
+	 *
+	 * Shared by the outside-click and Escape-key handlers below, both of
+	 * which react to "the reader has moved on" by collapsing whatever tap-
+	 * opened submenu was left open.
+	 *
+	 * @param {function(Element): boolean} [shouldClose] Called with each open
+	 *                                                   item; skip closing it when this returns false. Omit to close
+	 *                                                   every open item unconditionally.
+	 */
+	function closeAllOpenSubmenus( shouldClose ) {
+		Array.prototype.forEach.call(
+			nav.querySelectorAll( '.bl-nav__item--parent[data-open="true"]' ),
+			function ( openItem ) {
+				if ( shouldClose && ! shouldClose( openItem ) ) {
+					return;
+				}
+				setSubmenuOpen( openItem, false );
+			}
+		);
 	}
 
 	const parentItems = nav.querySelectorAll( '.bl-nav__item--parent' );
@@ -177,7 +201,6 @@
 			subButton.addEventListener( 'click', function () {
 				setSubmenuOpen(
 					item,
-					subButton,
 					'true' !== item.getAttribute( 'data-open' )
 				);
 			} );
@@ -188,7 +211,6 @@
 				event.preventDefault();
 				setSubmenuOpen(
 					item,
-					subButton,
 					'true' !== item.getAttribute( 'data-open' )
 				);
 			} );
@@ -199,35 +221,15 @@
 	// (rather than hover/focus) collapses again on outside click or
 	// Escape, so it doesn't stay stuck open after the user moves on.
 	document.addEventListener( 'click', function ( event ) {
-		Array.prototype.forEach.call(
-			nav.querySelectorAll( '.bl-nav__item--parent[data-open="true"]' ),
-			function ( openItem ) {
-				if ( ! openItem.contains( event.target ) ) {
-					setSubmenuOpen(
-						openItem,
-						openItem.querySelector(
-							':scope > .bl-nav__toggle-sub'
-						),
-						false
-					);
-				}
-			}
-		);
+		closeAllOpenSubmenus( function ( openItem ) {
+			return ! openItem.contains( event.target );
+		} );
 	} );
 
 	document.addEventListener( 'keydown', function ( event ) {
 		if ( 'Escape' !== event.key ) {
 			return;
 		}
-		Array.prototype.forEach.call(
-			nav.querySelectorAll( '.bl-nav__item--parent[data-open="true"]' ),
-			function ( openItem ) {
-				setSubmenuOpen(
-					openItem,
-					openItem.querySelector( ':scope > .bl-nav__toggle-sub' ),
-					false
-				);
-			}
-		);
+		closeAllOpenSubmenus();
 	} );
 } )();

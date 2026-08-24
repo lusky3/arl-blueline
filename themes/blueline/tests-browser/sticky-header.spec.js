@@ -13,8 +13,7 @@
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-
-const SITE = process.env.BLUELINE_SITE_URL || 'https://staging.rookiehockey.ca';
+const { SITE } = require( './helpers/site.js' );
 
 const REST_LOGO = 80;
 const STUCK_LOGO = 48;
@@ -25,13 +24,14 @@ const STUCK_LOGO = 48;
  * @param {import('@playwright/test').Page} page     Page under test.
  * @param {string}                          selector CSS selector.
  * @return {Promise<Object>} Measurements.
+ * @throws {Error} If no element matches `selector`.
  */
 async function measure( page, selector ) {
 	return page.evaluate( ( sel ) => {
 		const el = document.querySelector( sel );
 
 		if ( ! el ) {
-			return null;
+			throw new Error( `measure(): no element matched selector "${ sel }"` );
 		}
 
 		const rect = el.getBoundingClientRect();

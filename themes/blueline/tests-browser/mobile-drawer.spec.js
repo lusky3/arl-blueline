@@ -11,10 +11,8 @@
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-
-const SITE = process.env.BLUELINE_SITE_URL || 'https://staging.rookiehockey.ca';
-
-const PHONE = { width: 390, height: 780 };
+const { SITE } = require( './helpers/site.js' );
+const { PHONE } = require( './helpers/viewports.js' );
 
 test.describe( 'mobile drawer', () => {
 	test.beforeEach( async ( { page } ) => {
