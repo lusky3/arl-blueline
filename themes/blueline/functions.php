@@ -28,12 +28,16 @@ require_once BLUELINE_DIR . '/inc/settings/snapshots.php';
 require_once BLUELINE_DIR . '/inc/settings/links.php';
 require_once BLUELINE_DIR . '/inc/settings/sanitize.php';
 require_once BLUELINE_DIR . '/inc/settings/import.php';
+require_once BLUELINE_DIR . '/inc/settings/import-export-handlers.php';
 require_once BLUELINE_DIR . '/inc/settings/cache.php';
 // After cache.php: delete-data.php calls blueline_srcache_purge_attempt() and
 // names BLUELINE_CACHE_PURGE_NEEDED_OPTION, both declared there.
 require_once BLUELINE_DIR . '/inc/settings/delete-data.php';
 require_once BLUELINE_DIR . '/inc/settings/commerce.php';
 require_once BLUELINE_DIR . '/inc/settings/acknowledgements.php';
+// Before page.php: blueline_settings_render_page() dispatches to
+// blueline_settings_render_occasions_tab(), declared there.
+require_once BLUELINE_DIR . '/inc/settings/occasions-tab.php';
 require_once BLUELINE_DIR . '/inc/settings/page.php';
 require_once BLUELINE_DIR . '/inc/settings/site-health.php';
 require_once BLUELINE_DIR . '/inc/settings/tokens.php';

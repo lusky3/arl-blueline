@@ -144,34 +144,59 @@ function blueline_validated_against(): string {
  * blueline_settings_page_hook() (inc/settings/page.php) already uses for
  * an unrelated same-request handoff.
  *
- * @param array<string, string>|null|false $classifications Omit (or pass
- *                                                           `false`) to
- *                                                           read without
- *                                                           writing. Pass
- *                                                           an array to
- *                                                           set it, or
- *                                                           `null` to
- *                                                           explicitly
- *                                                           clear it
- *                                                           (used by
- *                                                           tests to
- *                                                           guarantee no
- *                                                           leakage
- *                                                           between
- *                                                           cases -- this
- *                                                           static is
- *                                                           NOT one of
- *                                                           the stores
- *                                                           blueline_test_reset()
- *                                                           already
- *                                                           clears).
+ * Split into this getter and blueline_set_occasions_drift_notice_payload()
+ * below rather than one function overloaded on its argument: the combined
+ * form read as a getter (its name is a noun phrase, not a verb) but
+ * silently overwrote the stored value whenever a caller passed one, which
+ * is exactly the command/query mixing that made a read at any call site
+ * impossible to tell from a write without checking its arguments.
+ *
  * @return array<string, string>|null
  */
-function blueline_occasions_drift_notice_payload( $classifications = false ): ?array {
+function blueline_get_occasions_drift_notice_payload(): ?array {
+	return blueline_occasions_drift_notice_payload_store();
+}
+
+/**
+ * Set (or explicitly clear) this request's drift classification -- see
+ * blueline_get_occasions_drift_notice_payload()'s own docblock for what
+ * this pair is relaying and why a module-level static is enough.
+ *
+ * @param array<string, string>|null $payload An array to store, or `null`
+ *                                             to explicitly clear it (used
+ *                                             by tests to guarantee no
+ *                                             leakage between cases -- this
+ *                                             static is NOT one of the
+ *                                             stores blueline_test_reset()
+ *                                             already clears).
+ * @return void
+ */
+function blueline_set_occasions_drift_notice_payload( ?array $payload ): void {
+	blueline_occasions_drift_notice_payload_store( $payload );
+}
+
+/**
+ * The single request-scoped static both functions above read and write
+ * through -- kept behind this private, deliberately-unexported function
+ * (an implementation detail, not part of this pair's public shape) rather
+ * than a bare module-level static, because a static declared directly in
+ * two different functions would be two independent variables, not one
+ * shared store.
+ *
+ * @param array<string, string>|null|false $payload Internal sentinel:
+ *                                                    `false` (the default)
+ *                                                    reads without writing;
+ *                                                    an array or `null`
+ *                                                    writes. Never called
+ *                                                    with `false` from
+ *                                                    outside this file.
+ * @return array<string, string>|null
+ */
+function blueline_occasions_drift_notice_payload_store( $payload = false ): ?array {
 	static $stored = null;
 
-	if ( false !== $classifications ) {
-		$stored = $classifications;
+	if ( false !== $payload ) {
+		$stored = $payload;
 	}
 
 	return $stored;
@@ -185,7 +210,7 @@ add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
  * acknowledgement (blueline_occasions_classify_acknowledgements()) and,
  * if anything is no longer `valid`, hand that off to
  * blueline_render_occasions_drift_notice() via
- * blueline_occasions_drift_notice_payload() for THIS SAME request's
+ * blueline_set_occasions_drift_notice_payload() for THIS SAME request's
  * `admin_notices` to render. Either way, `_validated_against` is updated
  * to the current hash immediately -- design spec §6.5's ruling that this
  * is a one-time notice, not a recurring nag. The next request's cheap
@@ -271,7 +296,7 @@ function blueline_occasions_maybe_revalidate_on_drift(): void {
 	);
 
 	if ( array() !== $non_valid ) {
-		blueline_occasions_drift_notice_payload( $non_valid );
+		blueline_set_occasions_drift_notice_payload( $non_valid );
 	}
 
 	// Updated unconditionally, regardless of what the classification
@@ -316,7 +341,7 @@ add_action( 'admin_notices', 'blueline_render_occasions_drift_notice' );
  * Render the deploy-drift notice, IF
  * blueline_occasions_maybe_revalidate_on_drift() found anything
  * non-`valid` on THIS SAME request (see
- * blueline_occasions_drift_notice_payload()'s own docblock for why a
+ * blueline_get_occasions_drift_notice_payload()'s own docblock for why a
  * same-request static, not persisted storage, is what carries that
  * here).
  *
@@ -336,7 +361,7 @@ function blueline_render_occasions_drift_notice(): void {
 		return;
 	}
 
-	$classifications = blueline_occasions_drift_notice_payload();
+	$classifications = blueline_get_occasions_drift_notice_payload();
 
 	if ( empty( $classifications ) ) {
 		return;

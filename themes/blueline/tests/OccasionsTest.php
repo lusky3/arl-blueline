@@ -824,9 +824,11 @@ final class OccasionsTest extends TestCase {
 		$result = blueline_occasions_apply_aa_overrides(
 			array( 'failing' => $this->failing_occasion() ),
 			array( 'failing' => true ),
-			array(),
-			$hash,
-			7
+			array(
+				'acknowledgements' => array(),
+				'inputs_hash'      => $hash,
+				'user_id'          => 7,
+			)
 		);
 
 		$this->assertArrayHasKey( 'occasion:failing', $result );
@@ -847,9 +849,11 @@ final class OccasionsTest extends TestCase {
 		$result = blueline_occasions_apply_aa_overrides(
 			array( 'failing' => $this->failing_occasion() ),
 			array( 'failing' => false ),
-			$existing,
-			'test-hash',
-			7
+			array(
+				'acknowledgements' => $existing,
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
 		);
 
 		$this->assertArrayNotHasKey( 'occasion:failing', $result );
@@ -873,9 +877,11 @@ final class OccasionsTest extends TestCase {
 		$result = blueline_occasions_apply_aa_overrides(
 			array( 'passing' => $passing ),
 			array( 'passing' => true ),
-			$existing,
-			'test-hash',
-			7
+			array(
+				'acknowledgements' => $existing,
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
 		);
 
 		$this->assertArrayNotHasKey( 'occasion:passing', $result );
@@ -893,9 +899,11 @@ final class OccasionsTest extends TestCase {
 		$result = blueline_occasions_apply_aa_overrides(
 			array(), // Nothing submitted this save -- the occasion is gone.
 			array(),
-			$existing,
-			'test-hash',
-			7
+			array(
+				'acknowledgements' => $existing,
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
 		);
 
 		$this->assertArrayNotHasKey( 'occasion:deleted-one', $result );
@@ -909,7 +917,15 @@ final class OccasionsTest extends TestCase {
 	public function test_apply_aa_overrides_leaves_a_foreign_scope_alone(): void {
 		$existing = blueline_record_acknowledgement( array(), 'something-else:entirely', 'some-other-rule', '#274a63', 1.66, 'test-hash', 1 );
 
-		$result = blueline_occasions_apply_aa_overrides( array(), array(), $existing, 'test-hash', 7 );
+		$result = blueline_occasions_apply_aa_overrides(
+			array(),
+			array(),
+			array(
+				'acknowledgements' => $existing,
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
+		);
 
 		$this->assertArrayHasKey( 'something-else:entirely', $result );
 	}
@@ -970,9 +986,11 @@ final class OccasionsTest extends TestCase {
 				),
 			),
 			array( 'default-accent' => true ),
-			array(),
-			'test-hash',
-			7
+			array(
+				'acknowledgements' => array(),
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
 		);
 
 		$explicit = blueline_occasions_apply_aa_overrides(
@@ -985,9 +1003,11 @@ final class OccasionsTest extends TestCase {
 				),
 			),
 			array( 'default-accent' => true ),
-			array(),
-			'test-hash',
-			7
+			array(
+				'acknowledgements' => array(),
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
 		);
 
 		// Same inputs bar the empty-vs-explicit accent: same result.
@@ -1008,9 +1028,11 @@ final class OccasionsTest extends TestCase {
 				),
 			),
 			array( 'default-accent' => true ),
-			array(),
-			'test-hash',
-			7
+			array(
+				'acknowledgements' => array(),
+				'inputs_hash'      => 'test-hash',
+				'user_id'          => 7,
+			)
 		);
 
 		$this->assertArrayHasKey( 'occasion:default-accent', $control );

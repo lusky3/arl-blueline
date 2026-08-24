@@ -14,6 +14,7 @@ require_once __DIR__ . '/../inc/settings/snapshots.php';
 require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
+require_once __DIR__ . '/../inc/settings/occasions-tab.php'; // blueline_settings_render_occasions_tab() and its row/label helpers, exercised below.
 require_once __DIR__ . '/../inc/settings/acknowledgements.php';
 require_once __DIR__ . '/../inc/setup.php'; // blueline_active_widget_count(), which blueline_section_widget_warning() calls via the field-row renderer below.
 require_once __DIR__ . '/../inc/team-colors.php';
@@ -351,12 +352,7 @@ final class SettingsPageTest extends TestCase {
 	public function test_sanitize_callback_keeps_the_existing_value_on_a_rejected_field(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'footer_heading' => 'Kept value' ) );
 
-		$output = blueline_settings_sanitize_callback(
-			array(
-				'footer_heading' => 'Save 50% off',
-				'_posted_fields' => array( 'footer_heading' ),
-			)
-		);
+		$output = blueline_settings_sanitize_callback( $this->invalid_save_fixture() );
 
 		$this->assertSame( 'Kept value', $output['footer_heading'] );
 
@@ -729,8 +725,6 @@ final class SettingsPageTest extends TestCase {
 	 * isolation.
 	 */
 	public function test_rejected_value_containing_script_tag_is_never_rendered_unescaped(): void {
-		$this->grant_manage_options();
-
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
@@ -741,9 +735,7 @@ final class SettingsPageTest extends TestCase {
 
 		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringNotContainsStringIgnoringCase(
 			'<script',
@@ -1119,21 +1111,11 @@ final class SettingsPageTest extends TestCase {
 	 * catch (see this class's docblock).
 	 */
 	public function test_error_summary_is_focusable_and_links_to_the_failed_field(): void {
-		$this->grant_manage_options();
-
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array(
-				'footer_heading' => 'Save 50% off',
-				'_posted_fields' => array( 'footer_heading' ),
-			)
-		);
+		update_option( BLUELINE_SETTINGS_OPTION, $this->invalid_save_fixture() );
 
 		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringContainsString( 'id="blueline-settings-error-summary"', $html );
 		$this->assertStringContainsString( 'tabindex="-1"', $html );
@@ -1148,21 +1130,11 @@ final class SettingsPageTest extends TestCase {
 	 * explicit .focus() call).
 	 */
 	public function test_rendered_page_never_uses_the_autofocus_attribute(): void {
-		$this->grant_manage_options();
-
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array(
-				'footer_heading' => 'Save 50% off',
-				'_posted_fields' => array( 'footer_heading' ),
-			)
-		);
+		update_option( BLUELINE_SETTINGS_OPTION, $this->invalid_save_fixture() );
 
 		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringNotContainsString( 'autofocus', $html );
 	}
@@ -1171,12 +1143,9 @@ final class SettingsPageTest extends TestCase {
 	 * No error summary on an ordinary page load with nothing to report.
 	 */
 	public function test_no_error_summary_when_nothing_failed(): void {
-		$this->grant_manage_options();
 		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringNotContainsString( 'blueline-settings-error-summary', $html );
 	}
@@ -1231,12 +1200,9 @@ final class SettingsPageTest extends TestCase {
 	 * (no `role="tab"`/`role="tablist"`), per the task brief.
 	 */
 	public function test_tab_nav_is_plain_links_not_an_aria_tab_widget(): void {
-		$this->grant_manage_options();
 		$_GET['tab'] = 'links'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringNotContainsString( 'role="tab"', $html );
 		$this->assertStringNotContainsString( 'role="tablist"', $html );
@@ -1300,6 +1266,24 @@ final class SettingsPageTest extends TestCase {
 		ob_start();
 		blueline_settings_render_page();
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * A save payload for `footer_heading` that the sanitizer always rejects
+	 * -- a bare "%" with no valid `sprintf()` spec, tripping the
+	 * placeholder-contract check -- paired with the `_posted_fields` entry
+	 * that names it as this submission's own. Shared by every test whose
+	 * point is what happens AFTER a field is rejected (the error summary,
+	 * its focus behaviour, the notice it renders as), rather than the
+	 * rejection itself.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function invalid_save_fixture(): array {
+		return array(
+			'footer_heading' => 'Save 50% off',
+			'_posted_fields' => array( 'footer_heading' ),
+		);
 	}
 
 	/**
@@ -1466,15 +1450,12 @@ final class SettingsPageTest extends TestCase {
 	 * markup cannot see how the notice actually looks.
 	 */
 	public function test_a_failed_restore_renders_as_a_page_notice_not_a_field_error(): void {
-		$this->grant_manage_options();
 		$this->seed_one_snapshot();
 
 		$_POST['blueline_restore_snapshot'] = '9999';
 		$_REQUEST['_wpnonce']               = wp_create_nonce( 'blueline_settings_restore' );
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = (string) ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringContainsString( 'no longer available', $html );
 		$this->assertStringContainsString( 'notice notice-error', $html );
@@ -1488,19 +1469,9 @@ final class SettingsPageTest extends TestCase {
 	 * above must not have moved real field errors out of it.
 	 */
 	public function test_a_field_rejection_still_renders_in_the_error_summary(): void {
-		$this->grant_manage_options();
+		update_option( BLUELINE_SETTINGS_OPTION, $this->invalid_save_fixture() );
 
-		update_option(
-			BLUELINE_SETTINGS_OPTION,
-			array(
-				'footer_heading' => 'Save 50% off',
-				'_posted_fields' => array( 'footer_heading' ),
-			)
-		);
-
-		ob_start();
-		blueline_settings_render_page();
-		$html = (string) ob_get_clean();
+		$html = $this->render_page();
 
 		$this->assertStringContainsString( 'blueline-settings-error-summary', $html );
 		$this->assertStringContainsString( 'href="#blueline-field-footer_heading"', $html );
@@ -2073,12 +2044,9 @@ final class SettingsPageTest extends TestCase {
 	 * `<table>` loop.
 	 */
 	public function test_render_page_dispatches_to_the_occasions_renderer(): void {
-		$this->grant_manage_options();
 		$_GET['tab'] = 'occasions'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simulating a read-only tab request, matching blueline_settings_current_tab()'s own contract.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = (string) ob_get_clean();
+		$html = $this->render_page();
 
 		unset( $_GET['tab'] );
 
@@ -2091,12 +2059,9 @@ final class SettingsPageTest extends TestCase {
 	 * `<table>` loop, and never the occasions-specific markup.
 	 */
 	public function test_render_page_still_uses_the_generic_loop_for_a_schema_tab(): void {
-		$this->grant_manage_options();
 		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simulating a read-only tab request, matching blueline_settings_current_tab()'s own contract.
 
-		ob_start();
-		blueline_settings_render_page();
-		$html = (string) ob_get_clean();
+		$html = $this->render_page();
 
 		unset( $_GET['tab'] );
 

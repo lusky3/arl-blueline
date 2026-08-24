@@ -338,6 +338,32 @@ function blueline_placeholder_mismatch_reasons( array $required, array $found ):
 }
 
 /**
+ * Whether two placeholder lists are the same MULTISET -- same specs, same
+ * count of each, order irrelevant.
+ *
+ * A plain `$required === $found` would fail for the identical contract
+ * satisfied in a different order (e.g. `%2$s ... %1$s` vs `%1$s ... %2$s`),
+ * and a set-based compare (array_diff() in either direction) would miss a
+ * spec repeated the wrong number of times -- see
+ * blueline_placeholder_mismatch_reasons()'s own docblock for that failure
+ * mode. Sorting a copy of each array first, then comparing, is the cheapest
+ * correct multiset compare for the small lists this deals with.
+ *
+ * @param string[] $required Declared placeholder contract (may contain
+ *                            duplicates on purpose, e.g. a spec used twice).
+ * @param string[] $found    Placeholders actually present in a value.
+ * @return bool
+ */
+function blueline_placeholders_match( array $required, array $found ): bool {
+	$required_sorted = $required;
+	sort( $required_sorted );
+	$found_sorted = $found;
+	sort( $found_sorted );
+
+	return $required_sorted === $found_sorted;
+}
+
+/**
  * Sanitize one settings-panel field value according to its schema type,
  * enforcing the `placeholders` sprintf() contract for every string-valued
  * field.
@@ -535,6 +561,29 @@ function blueline_sanitize_field( $value, array $field ) {
 		return $submitted;
 	}
 
+	return blueline_sanitize_placeholder_text( $value, $field );
+}
+
+/**
+ * Sanitize the default text-field branch: `sanitize_text_field()` plus a
+ * `choices` allow-list check (when the schema declares one) plus the
+ * `placeholders` sprintf() contract every string-valued field must satisfy
+ * exactly, with no third "unchecked" state.
+ *
+ * Every type blueline_sanitize_field() dispatches to a WP_Error or a coerced
+ * scalar of its own BEFORE reaching here (`bool`/`section`, `page_id`/`term_id`,
+ * `band_photos`, `email`, `date`) falls through to this branch instead --
+ * `text`, `textarea`, and any `choices`-bearing field (`season_state_override`,
+ * `announcement_severity`) among them.
+ *
+ * @param mixed $value Raw submitted value.
+ * @param array $field The field's schema entry.
+ * @return string|WP_Error The sanitized value, or an error describing the
+ *                          rejection.
+ */
+function blueline_sanitize_placeholder_text( $value, array $field ) {
+	$label = $field['label'] ?? '';
+
 	$sanitized = sanitize_text_field( (string) $value );
 	$required  = (array) ( $field['placeholders'] ?? array() );
 
@@ -609,12 +658,9 @@ function blueline_sanitize_field( $value, array $field ) {
 		// mode this message exists to prevent.
 		$corrected = blueline_escape_stray_percents( $sanitized, $required );
 
-		$required_sorted = $required;
-		sort( $required_sorted );
 		$corrected_found = blueline_extract_placeholders( $corrected );
-		sort( $corrected_found );
 
-		if ( $corrected_found === $required_sorted ) {
+		if ( blueline_placeholders_match( $required, $corrected_found ) ) {
 			return new WP_Error(
 				'blueline_unsafe_format_specifier',
 				sprintf(
@@ -646,12 +692,7 @@ function blueline_sanitize_field( $value, array $field ) {
 
 	$found = blueline_extract_placeholders( $sanitized );
 
-	$required_sorted = $required;
-	sort( $required_sorted );
-	$found_sorted = $found;
-	sort( $found_sorted );
-
-	if ( $required_sorted === $found_sorted ) {
+	if ( blueline_placeholders_match( $required, $found ) ) {
 		return $sanitized;
 	}
 

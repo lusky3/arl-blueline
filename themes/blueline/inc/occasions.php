@@ -501,20 +501,26 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
  * update_option() itself, matching blueline_record_acknowledgement()/
  * blueline_remove_acknowledgement()'s own contract.
  *
- * @param array<string, array<string, mixed>> $sanitized        This save's new `occasions` value (post blueline_sanitize_occasions()).
- * @param array<string, bool>                 $raw_overrides    Map of occasion id => whether ITS override checkbox was checked in this submission.
- * @param array<string, array<string, mixed>> $acknowledgements Currently stored `aa_acknowledgements`.
- * @param string                              $inputs_hash      blueline_settings_inputs_hash()'s current value.
- * @param int                                 $user_id          The saving user's id.
+ * $ack_context bundles the three values that travel together at every call
+ * site of this function (see inc/settings/page.php's own call, and
+ * blueline_record_acknowledgement()'s own call shape, which takes the same
+ * hash/user_id pair) -- `acknowledgements`, `inputs_hash`, and `user_id`,
+ * keyed exactly as named here.
+ *
+ * @param array<string, array<string, mixed>>                                                             $sanitized     This save's new `occasions` value (post blueline_sanitize_occasions()).
+ * @param array<string, bool>                                                                             $raw_overrides Map of occasion id => whether ITS override checkbox was checked in this submission.
+ * @param array{acknowledgements: array<string, array<string, mixed>>, inputs_hash: string, user_id: int} $ack_context Currently stored `aa_acknowledgements`, plus the inputs hash and saving user id every acknowledgement recorded during this call is stamped with.
  * @return array<string, array<string, mixed>> The updated map, to be stored under `aa_acknowledgements`.
  */
 function blueline_occasions_apply_aa_overrides(
 	array $sanitized,
 	array $raw_overrides,
-	array $acknowledgements,
-	string $inputs_hash,
-	int $user_id
+	array $ack_context
 ): array {
+	$acknowledgements = is_array( $ack_context['acknowledgements'] ?? null ) ? $ack_context['acknowledgements'] : array();
+	$inputs_hash      = (string) ( $ack_context['inputs_hash'] ?? '' );
+	$user_id          = (int) ( $ack_context['user_id'] ?? 0 );
+
 	foreach ( $sanitized as $id => $occasion ) {
 		$scope = 'occasion:' . $id;
 
@@ -730,54 +736,36 @@ function blueline_occasion_compare( array $a, array $b ): int {
 }
 
 /**
- * The one active occasion right now, or null.
+ * Every eligible Occasion candidate for $today_md, normalized and sorted by
+ * precedence -- the first half of blueline_resolve_active_occasion()'s own
+ * job, split out on its own so that function's second half (the AA-override
+ * walk that picks the actual winner) reads as a short, separate step. Matches
+ * the existing decomposition style of blueline_occasion_window_contains()/
+ * blueline_occasion_compare(), this file's other two helpers already carved
+ * out of the resolver.
  *
- * Reads ONLY blueline_settings( 'occasions' ) -- never
- * blueline_occasion_presets(), which is a read-only catalog with no
- * bearing on what is actually live (design spec §5's second ruling; see
+ * Reads only the `$occasions` array passed in -- never
+ * blueline_occasion_presets(), which is a read-only catalog with no bearing
+ * on what is actually live (design spec §5's second ruling; see
  * tests/OccasionsResolverTest.php's own source-scan test for the
  * enforcement).
  *
  * Eligibility: `force_off` is never eligible, regardless of window.
  * `force_on` is always eligible, regardless of window. `auto` (or an
- * unset mode) is eligible only while blueline_occasion_today_md()
- * currently falls inside its window -- and only if both stored bounds are
- * well-formed `MM-DD` values in the first place (see the inline note on
- * that check: a malformed bound would otherwise read as "always active").
+ * unset mode) is eligible only while $today_md currently falls inside its
+ * window -- and only if both stored bounds are well-formed `MM-DD` values
+ * in the first place (see the inline note on that check: a malformed bound
+ * would otherwise read as "always active").
  *
- * Among eligible candidates, blueline_occasion_compare() orders by
- * precedence. Each candidate is then checked, in that order, against the
- * AA-override mechanism (design spec §4.5): resolve its effective accent
- * (its own `accent`, or blueline_occasion_accent_default() when empty --
- * that default is computed at most once per call, on first need, and
- * reused for every later candidate with an empty `accent`), run it
- * through blueline_sanitize_hex_color() (blueline_settings() does not
- * sanitize on read -- inc/settings/store.php's own docblock -- so a
- * stored `accent` can be malformed even though blueline_sanitize_occasions()
- * rejects one on write), and, if that yields a real hex colour, compute
- * its real contrast ratio against BLUELINE_TOKEN_INK; and -- only if it
- * fails blueline_contrast_threshold( 'body' ) -- require a live,
- * hash-matching acknowledgement scoped to `occasion:{id}`
- * (blueline_acknowledgement_covers()) before accepting it. A candidate
- * whose effective accent cannot be resolved to a real hex colour at all,
- * or that fails the contrast gate unacknowledged, is skipped entirely,
- * falling through to the next-best candidate; the first candidate that
- * either passes contrast outright or is validly acknowledged wins. null
- * if none does (including when nothing is stored at all).
- *
- * @param int|null $now_override Unix timestamp to evaluate against;
- *                                defaults to the current time. Tests pass
- *                                this so an assertion about a window
- *                                keeps meaning the same thing later.
- * @return array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string, resolved_accent:string}|null
+ * @param array<int, array<string, mixed>> $occasions Raw stored occasions
+ *                                                      (blueline_settings( 'occasions' )'s value, or an equivalent test fixture).
+ * @param string                           $today_md  Today's date in SITE
+ *                                                     timezone, 'MM-DD' (blueline_occasion_today_md()'s return shape).
+ * @return array<int, array<string, mixed>> Eligible candidates, normalized
+ *                                            (every entry carries a well-formed `window` array regardless of mode)
+ *                                            and ordered by blueline_occasion_compare(). Possibly empty.
  */
-function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
-	$now      = $now_override ?? time();
-	$today_md = blueline_occasion_today_md( $now );
-
-	$occasions = blueline_settings( 'occasions' );
-	$occasions = is_array( $occasions ) ? $occasions : array();
-
+function blueline_occasion_eligible_candidates( array $occasions, string $today_md ): array {
 	$candidates = array();
 
 	foreach ( $occasions as $occasion ) {
@@ -834,11 +822,55 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 		$candidates[] = $occasion;
 	}
 
+	usort( $candidates, 'blueline_occasion_compare' );
+
+	return $candidates;
+}
+
+/**
+ * The one active occasion right now, or null.
+ *
+ * Candidate discovery -- window matching, mode eligibility, and precedence
+ * ordering -- is blueline_occasion_eligible_candidates()'s own job; this
+ * function calls that helper and then walks its result applying the
+ * AA-override gate (design spec §4.5) to pick the actual winner: resolve
+ * each candidate's effective accent in turn (its own `accent`, or
+ * blueline_occasion_accent_default() when empty -- that default is computed
+ * at most once per call, on first need, and reused for every later candidate
+ * with an empty `accent`), run it through blueline_sanitize_hex_color()
+ * (blueline_settings() does not sanitize on read -- inc/settings/store.php's
+ * own docblock -- so a stored `accent` can be malformed even though
+ * blueline_sanitize_occasions() rejects one on write), and, if that yields a
+ * real hex colour, compute its real contrast ratio against
+ * BLUELINE_TOKEN_INK; and -- only if it fails
+ * blueline_contrast_threshold( 'body' ) -- require a live, hash-matching
+ * acknowledgement scoped to `occasion:{id}`
+ * (blueline_acknowledgement_covers()) before accepting it. A candidate
+ * whose effective accent cannot be resolved to a real hex colour at all,
+ * or that fails the contrast gate unacknowledged, is skipped entirely,
+ * falling through to the next-best candidate; the first candidate that
+ * either passes contrast outright or is validly acknowledged wins. null
+ * if none does (including when nothing is stored, or nothing is eligible,
+ * at all).
+ *
+ * @param int|null $now_override Unix timestamp to evaluate against;
+ *                                defaults to the current time. Tests pass
+ *                                this so an assertion about a window
+ *                                keeps meaning the same thing later.
+ * @return array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string, resolved_accent:string}|null
+ */
+function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
+	$now      = $now_override ?? time();
+	$today_md = blueline_occasion_today_md( $now );
+
+	$occasions = blueline_settings( 'occasions' );
+	$occasions = is_array( $occasions ) ? $occasions : array();
+
+	$candidates = blueline_occasion_eligible_candidates( $occasions, $today_md );
+
 	if ( array() === $candidates ) {
 		return null;
 	}
-
-	usort( $candidates, 'blueline_occasion_compare' );
 
 	$inputs_hash      = blueline_settings_inputs_hash();
 	$acknowledgements = blueline_stored_acknowledgements();

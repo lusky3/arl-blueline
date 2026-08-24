@@ -505,115 +505,25 @@ function blueline_settings_sanitize_callback( $input ): array {
 			}
 
 			if ( 'aa_acknowledgements' === $key ) {
-				// Not an integer like every other reserved key today -- a map
-				// of acknowledgement entries (inc/settings/acknowledgements.php).
-				// Its own validator drops anything malformed rather than
-				// corrupting the option or crashing a later reader.
-				$output[ $key ] = blueline_sanitize_acknowledgements( $value );
+				$output[ $key ] = blueline_settings_sanitize_reserved_aa_acknowledgements( $value );
 				continue;
 			}
 
 			if ( '_validated_against' === $key ) {
-				// A hash string (blueline_settings_inputs_hash()'s own
-				// return shape), not an integer like every other reserved
-				// key -- validated as a plain string, defaulting to '' for
-				// anything else. No complex validation is needed here
-				// (design spec §6.5's storage-shape ruling): this key is
-				// never read back through blueline_settings() (see
-				// blueline_settings_defaults()'s own docblock for why),
-				// only through inc/settings/validation.php's
-				// blueline_validated_against(), which applies the
-				// identical is_string()-or-default fallback on read -- so a
-				// malformed stored value can never reach a caller as
-				// anything other than ''.
-				$output[ $key ] = is_string( $value ) ? $value : '';
+				$output[ $key ] = blueline_settings_sanitize_reserved_validated_against( $value );
 				continue;
 			}
 
 			if ( 'occasions' === $key ) {
-				if ( 'occasions' === $submitted_tab ) {
-					// The Occasions tab's own save (design spec §5.1's
-					// first ruling): derive and de-duplicate every row's
-					// id server-side BEFORE the unchanged
-					// blueline_sanitize_occasions() ever sees it -- the
-					// admin never types an id directly.
-					$stored_occasions = is_array( $current['occasions'] ?? null ) ? $current['occasions'] : array();
-					$with_ids         = blueline_occasions_assign_unique_ids( $value, $stored_occasions );
-
-					// Per-row override checkboxes ride along inside
-					// $with_ids (blueline_occasions_assign_unique_ids()
-					// copies every OTHER key of a row through untouched)
-					// -- read them here, keyed by each row's own FINAL
-					// id, before blueline_sanitize_occasions() strips the
-					// extra `override_aa` key off (it only ever keeps
-					// the eight documented Occasion keys).
-					$raw_overrides = array();
-					foreach ( $with_ids as $row_id => $row ) {
-						$raw_overrides[ $row_id ] = is_array( $row ) && ! empty( $row['override_aa'] );
-					}
-
-					$sanitized_occasions = blueline_sanitize_occasions( $with_ids );
-
-					$output[ $key ] = $sanitized_occasions;
-
-					// design spec §5.1's fifth ruling: the Occasions
-					// tab's own save is also what decides this save's
-					// new `aa_acknowledgements` value -- per-occasion,
-					// symmetric record/remove, plus orphan cleanup. A
-					// forged `aa_acknowledgements` field in the raw POST
-					// can't overwrite this computed value even though
-					// the rendered form never posts one: the
-					// reserved-key guard above (the `'occasions' ===
-					// $key && 'occasions' === $submitted_tab` check)
-					// only lets `aa_acknowledgements` through this loop
-					// when $submitted_tab is '' (a programmatic write),
-					// never alongside an `occasions`-tab submission --
-					// so this assignment is always the last word.
-					$output['aa_acknowledgements'] = blueline_occasions_apply_aa_overrides(
-						$sanitized_occasions,
-						$raw_overrides,
-						blueline_stored_acknowledgements(),
-						blueline_settings_inputs_hash(),
-						get_current_user_id()
-					);
-				} else {
-					// A programmatic write (WP-CLI, a direct update_option()
-					// call, an import) -- no id derivation: the caller is
-					// expected to already supply final, correctly-keyed
-					// ids, exactly as this branch behaved before 2.1b.
-					$output[ $key ] = blueline_sanitize_occasions( $value );
-				}
+				$output = array_merge(
+					$output,
+					blueline_settings_sanitize_reserved_occasions( $value, $submitted_tab, $current )
+				);
 				continue;
 			}
 
-			// A programmatic write (blueline_settings_migrate()'s own
-			// update_option() call, WP-CLI, an import script) -- exactly
-			// the path a reserved key like `_schema` needs to keep
-			// surviving. Still sanitized like everything else, never
-			// trusted as opaque data.
-			$sanitized_reserved = absint( $value );
-
-			if ( '_schema' === $key ) {
-				// Clamped to BLUELINE_SETTINGS_SCHEMA_VERSION, matching
-				// the limit blueline_settings_import_prepare()
-				// (inc/settings/import.php) enforces on an import's own
-				// `_schema` -- for the CLI and the panel alike, since
-				// fe37280 unified them (there, by refusing the whole
-				// import outright; here, by clamping, since this path
-				// returns a value to store rather than an all-or-nothing
-				// operation to abort). Without this, a `_schema` at or
-				// above the running code's version -- written via any
-				// direct update_option() call this reserved-key branch
-				// lets through -- would make
-				// blueline_settings_migrate()'s forward-only guard
-				// (inc/settings/store.php) treat the install as already
-				// current, permanently and silently skipping every
-				// future migration, recoverable only via WP-CLI or the
-				// database directly.
-				$sanitized_reserved = min( $sanitized_reserved, BLUELINE_SETTINGS_SCHEMA_VERSION );
-			}
-
-			$output[ $key ] = $sanitized_reserved;
+			// The only reserved key with no explicit branch above.
+			$output[ $key ] = blueline_settings_sanitize_reserved_schema( $value );
 			continue;
 		}
 
@@ -638,6 +548,138 @@ function blueline_settings_sanitize_callback( $input ): array {
 	$output['_tab']           = $submitted_tab;
 
 	return $output;
+}
+
+/**
+ * Sanitize a reserved `aa_acknowledgements` submission.
+ *
+ * Not an integer like every other reserved key today -- a map of
+ * acknowledgement entries (inc/settings/acknowledgements.php). Its own
+ * validator drops anything malformed rather than corrupting the option or
+ * crashing a later reader.
+ *
+ * @param mixed $value Raw posted (or programmatically written) value.
+ * @return array<string, array<string, mixed>>
+ */
+function blueline_settings_sanitize_reserved_aa_acknowledgements( $value ): array {
+	return blueline_sanitize_acknowledgements( $value );
+}
+
+/**
+ * Sanitize a reserved `_validated_against` submission.
+ *
+ * A hash string (blueline_settings_inputs_hash()'s own return shape), not an
+ * integer like every other reserved key -- validated as a plain string,
+ * defaulting to '' for anything else. No complex validation is needed here
+ * (design spec §6.5's storage-shape ruling): this key is never read back
+ * through blueline_settings() (see blueline_settings_defaults()'s own
+ * docblock for why), only through inc/settings/validation.php's
+ * blueline_validated_against(), which applies the identical
+ * is_string()-or-default fallback on read -- so a malformed stored value can
+ * never reach a caller as anything other than ''.
+ *
+ * @param mixed $value Raw posted (or programmatically written) value.
+ * @return string
+ */
+function blueline_settings_sanitize_reserved_validated_against( $value ): string {
+	return is_string( $value ) ? $value : '';
+}
+
+/**
+ * Sanitize a reserved `occasions` submission -- the only reserved key with
+ * two structurally different sub-branches, depending on WHERE the write
+ * came from.
+ *
+ * @param mixed                $value          Raw posted (or programmatically written) value.
+ * @param string               $submitted_tab  The submission's own `_tab`, '' for a
+ *                                              programmatic write.
+ * @param array<string, mixed> $current blueline_settings()'s current value,
+ *                                       for reading the stored occasions map
+ *                                       an Occasions-tab submission derives
+ *                                       ids against.
+ * @return array<string, mixed> The `occasions` key, and -- only for an
+ *                               Occasions-tab submission -- the
+ *                               `aa_acknowledgements` key it also decides.
+ */
+function blueline_settings_sanitize_reserved_occasions( $value, string $submitted_tab, array $current ): array {
+	if ( 'occasions' !== $submitted_tab ) {
+		// A programmatic write (WP-CLI, a direct update_option() call, an
+		// import) -- no id derivation: the caller is expected to already
+		// supply final, correctly-keyed ids, exactly as this branch behaved
+		// before 2.1b.
+		return array( 'occasions' => blueline_sanitize_occasions( $value ) );
+	}
+
+	// The Occasions tab's own save (design spec §5.1's first ruling): derive
+	// and de-duplicate every row's id server-side BEFORE the unchanged
+	// blueline_sanitize_occasions() ever sees it -- the admin never types an
+	// id directly.
+	$stored_occasions = is_array( $current['occasions'] ?? null ) ? $current['occasions'] : array();
+	$with_ids         = blueline_occasions_assign_unique_ids( $value, $stored_occasions );
+
+	// Per-row override checkboxes ride along inside $with_ids
+	// (blueline_occasions_assign_unique_ids() copies every OTHER key of a
+	// row through untouched) -- read them here, keyed by each row's own
+	// FINAL id, before blueline_sanitize_occasions() strips the extra
+	// `override_aa` key off (it only ever keeps the eight documented
+	// Occasion keys).
+	$raw_overrides = array();
+	foreach ( $with_ids as $row_id => $row ) {
+		$raw_overrides[ $row_id ] = is_array( $row ) && ! empty( $row['override_aa'] );
+	}
+
+	$sanitized_occasions = blueline_sanitize_occasions( $with_ids );
+
+	// design spec §5.1's fifth ruling: the Occasions tab's own save is also
+	// what decides this save's new `aa_acknowledgements` value --
+	// per-occasion, symmetric record/remove, plus orphan cleanup. A forged
+	// `aa_acknowledgements` field in the raw POST can't overwrite this
+	// computed value even though the rendered form never posts one: the
+	// reserved-key guard in blueline_settings_sanitize_callback() (the
+	// `'occasions' === $key && 'occasions' === $submitted_tab` check) only
+	// lets `aa_acknowledgements` through that loop when $submitted_tab is ''
+	// (a programmatic write), never alongside an `occasions`-tab submission
+	// -- so this assignment is always the last word.
+	return array(
+		'occasions'           => $sanitized_occasions,
+		'aa_acknowledgements' => blueline_occasions_apply_aa_overrides(
+			$sanitized_occasions,
+			$raw_overrides,
+			array(
+				'acknowledgements' => blueline_stored_acknowledgements(),
+				'inputs_hash'      => blueline_settings_inputs_hash(),
+				'user_id'          => get_current_user_id(),
+			)
+		),
+	);
+}
+
+/**
+ * Sanitize the one reserved key with no explicit branch of its own:
+ * `_schema`, today the only member of BLUELINE_SETTINGS_RESERVED_KEYS that
+ * blueline_settings_sanitize_callback() has not already dispatched by name.
+ *
+ * A programmatic write (blueline_settings_migrate()'s own update_option()
+ * call, WP-CLI, an import script) -- exactly the path this reserved key
+ * needs to keep surviving. Still sanitized like everything else, never
+ * trusted as opaque data, then clamped to BLUELINE_SETTINGS_SCHEMA_VERSION,
+ * matching the limit blueline_settings_import_prepare()
+ * (inc/settings/import.php) enforces on an import's own `_schema` -- for the
+ * CLI and the panel alike, since fe37280 unified them (there, by refusing
+ * the whole import outright; here, by clamping, since this path returns a
+ * value to store rather than an all-or-nothing operation to abort). Without
+ * this, a `_schema` at or above the running code's version -- written via
+ * any direct update_option() call this reserved-key branch lets through --
+ * would make blueline_settings_migrate()'s forward-only guard
+ * (inc/settings/store.php) treat the install as already current,
+ * permanently and silently skipping every future migration, recoverable
+ * only via WP-CLI or the database directly.
+ *
+ * @param mixed $value Raw posted (or programmatically written) value.
+ * @return int
+ */
+function blueline_settings_sanitize_reserved_schema( $value ): int {
+	return min( absint( $value ), BLUELINE_SETTINGS_SCHEMA_VERSION );
 }
 
 add_action( 'admin_notices', 'blueline_settings_newer_schema_notice' );
@@ -770,11 +812,7 @@ function blueline_settings_maybe_restore(): void {
 		return;
 	}
 
-	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_die( esc_html__( 'You do not have permission to restore Blueline settings.', 'blueline' ) );
-	}
-
-	check_admin_referer( 'blueline_settings_restore' );
+	blueline_settings_require_manage_options_and_nonce( 'blueline_settings_restore' );
 
 	// is_scalar() first: PHP evaluates a non-empty array to 1 on the way
 	// through absint(), so an array-shaped POST value (`...[]=x`) would
@@ -783,7 +821,7 @@ function blueline_settings_maybe_restore(): void {
 	// restore nobody asked for, which is bad enough. 0 is never a real
 	// snapshot id (they start at 1), so a non-scalar falls into the
 	// "no longer available" branch below and says so.
-	$id = is_scalar( $_POST['blueline_restore_snapshot'] ) ? absint( wp_unslash( $_POST['blueline_restore_snapshot'] ) ) : 0;
+	$id = is_scalar( $_POST['blueline_restore_snapshot'] ) ? absint( wp_unslash( $_POST['blueline_restore_snapshot'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- the nonce is verified by blueline_settings_require_manage_options_and_nonce() immediately above.
 
 	if ( blueline_settings_snapshot_restore( $id ) ) {
 		add_settings_error(
@@ -907,341 +945,6 @@ function blueline_settings_render_snapshots(): void {
 const BLUELINE_SETTINGS_EXPORT_NONCE = 'blueline_settings_export';
 
 /**
- * The exact bytes the panel's Download button hands back -- the SAME
- * payload and the SAME JSON flags `wp blueline settings export` prints, so
- * the two surfaces cannot drift into two shapes `import` would then have to
- * accept both of. tests/SettingsPanelImportExportTest.php asserts that
- * equality directly rather than trusting this comment.
- *
- * @return string
- */
-function blueline_settings_export_json(): string {
-	return (string) wp_json_encode( blueline_settings_export_payload(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
-}
-
-/**
- * The download's filename: dated, in the SITE's timezone (wp_timezone(),
- * the same source inc/settings/snapshots.php uses for its own labels)
- * rather than UTC, because the admin reading their downloads folder thinks
- * in local time. Dated at all so two exports taken from two environments on
- * two days do not both land as one anonymous "settings.json".
- *
- * @return string
- */
-function blueline_settings_export_filename(): string {
-	return 'blueline-settings-' . ( new DateTimeImmutable( 'now', wp_timezone() ) )->format( 'Y-m-d' ) . '.json';
-}
-
-add_action( 'admin_post_blueline_settings_export', 'blueline_settings_handle_export' );
-/**
- * Serve the export as a file download.
- *
- * On `admin_post_*` rather than inside the panel's own render, because a
- * download has to send its headers before any other output -- rendering
- * half a wp-admin page and then trying to become a file is not something
- * that can be recovered from.
- *
- * Capability first, then nonce: an export hands the caller every stored
- * setting, so it is gated exactly as the panel itself is.
- *
- * The final four lines (the headers, the echo and the exit) are the one
- * part of these controls no test here exercises -- a PHPUnit process cannot
- * usefully assert on headers it also has to keep running after. Everything
- * they depend on (the payload, the filename, the capability refusal) is
- * covered separately.
- *
- * @return void
- */
-function blueline_settings_handle_export(): void {
-	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_die( esc_html__( 'You do not have permission to export Blueline settings.', 'blueline' ) );
-	}
-
-	check_admin_referer( BLUELINE_SETTINGS_EXPORT_NONCE );
-
-	$json = blueline_settings_export_json();
-
-	header( 'Content-Type: application/json; charset=utf-8' );
-	header( 'Content-Disposition: attachment; filename="' . blueline_settings_export_filename() . '"' );
-	header( 'Content-Length: ' . strlen( $json ) );
-
-	echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this response IS a JSON file, not HTML: escaping it would corrupt the download it exists to produce. Its content comes from blueline_settings(), which every write path has already sanitized, and wp_json_encode() has already escaped it as JSON.
-	exit;
-}
-
-/**
- * Work out what an import of $raw would do, without doing any of it.
- *
- * Runs the identical machinery `wp blueline settings import --dry-run`
- * runs, in the identical order (inc/settings/import.php): bound and decode,
- * refuse a newer `_schema`, collect the keys the schema does not declare,
- * then walk every recognised field through blueline_sanitize_field(). The
- * diff is built from the SANITIZED values, never the file's own text,
- * because that sanitizer normalises as well as validates -- a preview built
- * from the raw payload would report a change to a value the import is never
- * going to store.
- *
- * A payload with any rejected field returns `diff => null` deliberately:
- * a rejected field keeps its currently-stored value, so a diff drawn
- * alongside the failures would be a preview of something that is not going
- * to happen. The caller withholds the apply control in that case, which is
- * the panel's equivalent of the CLI dry run's "fix the file and re-run to
- * see the diff".
- *
- * @param string $raw Raw JSON, from an upload or a paste.
- * @return array{errors: string[], dropped: string[], diff: array<string, array{status:string, from:mixed, to:mixed}>|null, prepared: array<string, mixed>, raw: string}
- */
-function blueline_settings_import_preview_state( string $raw ): array {
-	$state = array(
-		'errors'   => array(),
-		'dropped'  => array(),
-		'diff'     => null,
-		'prepared' => array(),
-		'raw'      => $raw,
-	);
-
-	$payload = blueline_settings_import_decode( $raw );
-
-	if ( is_wp_error( $payload ) ) {
-		$state['errors'][] = $payload->get_error_message();
-		return $state;
-	}
-
-	$prepared = blueline_settings_import_prepare( $payload, BLUELINE_SETTINGS_SCHEMA_VERSION );
-
-	if ( is_wp_error( $prepared ) ) {
-		$state['errors'][] = $prepared->get_error_message();
-		return $state;
-	}
-
-	$schema = blueline_settings_schema();
-
-	$state['prepared'] = $prepared;
-	$state['dropped']  = blueline_settings_import_dropped_keys( $prepared, $schema );
-
-	$sanitized = blueline_settings_import_sanitize_payload( $prepared, $schema );
-
-	if ( ! empty( $sanitized['errors'] ) ) {
-		$state['errors'] = $sanitized['errors'];
-		return $state;
-	}
-
-	$state['diff'] = blueline_settings_diff( blueline_settings(), $sanitized['values'] );
-
-	return $state;
-}
-
-/**
- * Read the bytes an import submission is offering, from whichever of its
- * two inputs was used.
- *
- * The form offers both an upload and a paste box, in that order of
- * precedence. Two inputs rather than one because an admin who can reach
- * wp-admin cannot necessarily get a file onto the machine they are browsing
- * from (a shared laptop, a phone), and the whole point of this feature is
- * moving a small config between environments.
- *
- * @return string|WP_Error The raw payload, or an error naming what went
- *                          wrong with the submission itself (not with its
- *                          contents, which is blueline_settings_import_preview_state()'s
- *                          job).
- */
-function blueline_settings_import_submitted_payload() {
-	// Both sniffs are silenced on the line itself rather than from the line
-	// above: phpcs lets a trailing annotation REPLACE a preceding-line one, so
-	// splitting them across two comments silently drops the first.
-	$file = isset( $_FILES['blueline_import_file'] ) && is_array( $_FILES['blueline_import_file'] ) ? $_FILES['blueline_import_file'] : null; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- the nonce for this submission is verified by blueline_settings_maybe_handle_import(), this function's only caller, before it is called; and this is an upload descriptor, not text: every field it reads is cast and validated in blueline_settings_import_read_upload(), and its bytes go through the JSON decoder's own bounds rather than a text sanitizer.
-
-	if ( null !== $file && UPLOAD_ERR_NO_FILE !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
-		return blueline_settings_import_read_upload( $file );
-	}
-
-	$pasted = isset( $_POST['blueline_import_json'] ) ? trim( (string) wp_unslash( $_POST['blueline_import_json'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified by the only caller, as above; and deliberately NOT run through sanitize_text_field(): this value is a JSON document, and stripping tags/newlines out of it would corrupt a valid payload rather than protect anything. It is validated by blueline_settings_import_decode()'s size, depth and shape bounds, and every value inside it by blueline_sanitize_field(), before any of it is stored.
-
-	if ( '' !== $pasted ) {
-		return $pasted;
-	}
-
-	return new WP_Error(
-		'blueline_import_nothing_submitted',
-		__( 'Choose a settings file, or paste one in, and try again.', 'blueline' )
-	);
-}
-
-/**
- * Turn one `$_FILES` entry into its contents, refusing anything that is not
- * a plausible settings file BEFORE reading it.
- *
- * The size check happens on the size the upload REPORTS, ahead of any read:
- * a browser upload is a much easier thing to point at an enormous file than
- * a CLI invocation is, and a bound applied only after the bytes are in
- * memory would not be much of a bound.
- *
- * is_uploaded_file() is the last gate before the read. It is what
- * distinguishes a path PHP itself created while parsing a multipart request
- * from any other path that might somehow appear in this array.
- *
- * @param array<string, mixed> $file One `$_FILES` entry.
- * @return string|WP_Error
- */
-function blueline_settings_import_read_upload( array $file ) {
-	$upload_error = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
-
-	if ( UPLOAD_ERR_OK !== $upload_error ) {
-		return new WP_Error(
-			'blueline_import_upload_failed',
-			__( 'That file did not finish uploading. Try again, or paste its contents instead.', 'blueline' )
-		);
-	}
-
-	$size = isset( $file['size'] ) ? (int) $file['size'] : 0;
-
-	if ( $size > BLUELINE_SETTINGS_IMPORT_MAX_BYTES ) {
-		return new WP_Error( 'blueline_import_too_large', blueline_settings_import_too_large_message( $size ) );
-	}
-
-	$tmp_name = isset( $file['tmp_name'] ) ? (string) $file['tmp_name'] : '';
-
-	if ( '' === $tmp_name || ! is_uploaded_file( $tmp_name ) ) {
-		return new WP_Error(
-			'blueline_import_upload_failed',
-			__( 'That file did not finish uploading. Try again, or paste its contents instead.', 'blueline' )
-		);
-	}
-
-	return (string) file_get_contents( $tmp_name ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local temp file PHP itself just wrote from a multipart upload (proven by is_uploaded_file() immediately above), not an HTTP fetch; wp_remote_get() is for URLs.
-}
-
-/**
- * Handle an import submission, if this request carries one.
- *
- * Called from blueline_settings_render_page() BEFORE anything is rendered,
- * for the same reason blueline_settings_maybe_restore() is: an applied
- * import rewrites the very values the fields below are about to be filled
- * from.
- *
- * Guards, in this order and shared by both steps:
- *
- * 1. Neither `blueline_import_preview` nor `blueline_import_apply` in the
- *    POST: not an import request at all, return before touching anything.
- * 2. `manage_options`.
- * 3. check_admin_referer() against BLUELINE_SETTINGS_IMPORT_NONCE. The
- *    apply step carries its own copy of the token rather than inheriting
- *    the preview's: it is a separate request, and a separate write.
- *
- * @return array<string, mixed>|null The preview to render, or null when
- *                                    there is nothing to show (not an
- *                                    import request, or an apply that
- *                                    succeeded and has said so via
- *                                    add_settings_error()).
- */
-function blueline_settings_maybe_handle_import(): ?array {
-	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- presence checks only, to decide whether this is an import request at all; the nonce is verified below before anything is read or written.
-	$is_apply = isset( $_POST['blueline_import_apply'] );
-	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- see above.
-	$is_preview = isset( $_POST['blueline_import_preview'] );
-
-	if ( ! $is_apply && ! $is_preview ) {
-		return null;
-	}
-
-	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_die( esc_html__( 'You do not have permission to import Blueline settings.', 'blueline' ) );
-	}
-
-	check_admin_referer( BLUELINE_SETTINGS_IMPORT_NONCE );
-
-	if ( $is_apply ) {
-		return blueline_settings_apply_import();
-	}
-
-	$raw = blueline_settings_import_submitted_payload();
-
-	if ( is_wp_error( $raw ) ) {
-		return array(
-			'errors'   => array( $raw->get_error_message() ),
-			'dropped'  => array(),
-			'diff'     => null,
-			'prepared' => array(),
-			'raw'      => '',
-		);
-	}
-
-	return blueline_settings_import_preview_state( $raw );
-}
-
-/**
- * Apply the payload the preview step handed back through a hidden field.
- *
- * Re-runs the whole preview -- decode, bounds, `_schema` refusal, sanitizer
- * walk -- rather than trusting that the payload has not changed between the
- * two requests. It has travelled through a browser in the meantime, and the
- * preview's verdict is not a token of any kind.
- *
- * ALL OR NOTHING: if any field is refused, nothing is written at all. The
- * ordinary panel save deliberately does the opposite (a rejected field
- * keeps its stored value while every other field in the same submission
- * saves), because there a human is looking at one form and can fix the one
- * field. An import is a file the admin has just been shown a preview of; a
- * partial application would leave the site in a state that preview never
- * described.
- *
- * The write goes through update_option(), so the same
- * `sanitize_option_{$option}` callback and the same merge every other write
- * runs apply here too -- which is also what makes an omitted key carry its
- * stored value forward rather than resetting, exactly as the preview said.
- *
- * @return array<string, mixed>|null The preview state again when nothing
- *                                    could be applied (so the page can
- *                                    re-show why), or null on success.
- */
-function blueline_settings_apply_import(): ?array {
-	$raw = isset( $_POST['blueline_import_payload'] ) ? (string) wp_unslash( $_POST['blueline_import_payload'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified by blueline_settings_maybe_handle_import(), this function's only caller, immediately before it is called; and this is a JSON document, not text -- see blueline_settings_import_submitted_payload() for why a text sanitizer would corrupt rather than protect it, and what does validate it instead.
-
-	$state = blueline_settings_import_preview_state( $raw );
-
-	if ( ! empty( $state['errors'] ) || null === $state['diff'] ) {
-		add_settings_error(
-			BLUELINE_SETTINGS_OPTION,
-			'blueline_settings_import_failed',
-			esc_html__( 'Nothing was imported. The problems below have to be fixed in the file first.', 'blueline' ),
-			'error'
-		);
-
-		return $state;
-	}
-
-	update_option( BLUELINE_SETTINGS_OPTION, $state['prepared'] );
-
-	$changed = 0;
-	$kept    = 0;
-
-	foreach ( $state['diff'] as $entry ) {
-		if ( 'changed' === $entry['status'] ) {
-			++$changed;
-		} elseif ( 'carried_forward' === $entry['status'] ) {
-			++$kept;
-		}
-	}
-
-	add_settings_error(
-		BLUELINE_SETTINGS_OPTION,
-		'blueline_settings_imported',
-		esc_html(
-			sprintf(
-				/* translators: 1: how many settings the file changed, 2: how many settings the file did not mention. */
-				__( 'Imported. %1$d setting(s) changed; %2$d the file did not mention were left exactly as they were.', 'blueline' ),
-				$changed,
-				$kept
-			)
-		),
-		'success'
-	);
-
-	return null;
-}
-
-/**
  * The admin-facing label for one blueline_settings_diff() status.
  *
  * `carried_forward` gets the longest one on purpose: it is the state an
@@ -1340,123 +1043,6 @@ function blueline_settings_render_data_tools( ?array $preview ): void {
 	</section>
 	<?php
 	blueline_settings_render_delete_all_data();
-}
-
-/**
- * Render the "Delete all Blueline data" control -- but only when the Advanced
- * toggle is on.
- *
- * This is what `advanced_enabled` gates, and the pairing is the point: the spec
- * calls Advanced a "here be dragons" disclosure affordance, and this is the
- * most dragon-like control the panel has. Hiding it by default costs an admin
- * who genuinely wants it one extra checkbox, and stops everyone else from
- * finding it next to the harmless-looking export button.
- *
- * It is a DISCLOSURE, not a lock, and the copy on the toggle itself says so.
- * Anyone who can see this page holds `manage_options` and could delete these
- * rows by other means; hiding the button protects against the slip, not
- * against the determined.
- *
- * @return void
- */
-function blueline_settings_render_delete_all_data(): void {
-	if ( ! blueline_settings( 'advanced_enabled' ) ) {
-		return;
-	}
-	?>
-	<section class="bl-settings-data bl-settings-data--danger">
-		<h2><?php echo esc_html( __( 'Delete all Blueline data', 'blueline' ) ); ?></h2>
-
-		<p>
-			<?php
-			echo esc_html(
-				__( 'Removes every setting on this page, the saved copies under "Recent saves", and nothing else. Your pages, posts, players, events, photographs and member accounts are untouched -- this deletes the theme\'s own settings, not your content.', 'blueline' )
-			);
-			?>
-		</p>
-
-		<p>
-			<?php
-			echo esc_html(
-				__( 'This is not the same as resetting. Resetting puts every field back to its default and leaves the saved copies in place, so you can undo it. This deletes the saved copies too: afterwards there is nothing to restore from except a database backup. The site keeps working and falls back to the same defaults either way.', 'blueline' )
-			);
-			?>
-		</p>
-
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<?php wp_nonce_field( 'blueline_settings_delete_all_data' ); ?>
-			<input type="hidden" name="action" value="blueline_settings_delete_all_data">
-			<p>
-				<label>
-					<input type="checkbox" name="blueline_delete_confirm" value="1">
-					<?php echo esc_html( __( 'Yes, delete all Blueline settings and their saved copies', 'blueline' ) ); ?>
-				</label>
-			</p>
-			<button type="submit" class="button button-secondary">
-				<?php echo esc_html( __( 'Delete all Blueline data', 'blueline' ) ); ?>
-			</button>
-		</form>
-	</section>
-	<?php
-}
-
-add_action( 'admin_post_blueline_settings_delete_all_data', 'blueline_settings_handle_delete_all_data' );
-
-/**
- * Handle the "Delete all Blueline data" submission.
- *
- * Three gates, in the order that fails most cheaply first: capability, nonce,
- * then the explicit confirmation checkbox. The checkbox is not ceremony -- it
- * is the only one of the three a logged-in admin cannot satisfy by accident,
- * since both of the others are satisfied merely by being who they already are
- * and clicking something on a page they already have open.
- *
- * @return void
- */
-function blueline_settings_handle_delete_all_data(): void {
-	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_die( esc_html__( 'You are not allowed to manage this site\'s settings.', 'blueline' ) );
-	}
-
-	check_admin_referer( 'blueline_settings_delete_all_data' );
-
-	$confirmed = isset( $_POST['blueline_delete_confirm'] ) && '1' === $_POST['blueline_delete_confirm']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared against an exact literal rather than used as text, so there is nothing for a sanitizer to strip; the nonce is verified immediately above.
-
-	if ( ! $confirmed ) {
-		add_settings_error(
-			BLUELINE_SETTINGS_OPTION,
-			'blueline_settings_delete_unconfirmed',
-			__( 'Nothing was deleted: the confirmation box was not ticked.', 'blueline' ),
-			'warning'
-		);
-		set_transient( 'settings_errors', get_settings_errors(), 30 );
-		wp_safe_redirect( blueline_settings_tab_url( blueline_settings_current_tab() ) );
-		exit;
-	}
-
-	$result = blueline_settings_delete_all_data();
-
-	if ( ! $result['deleted'] ) {
-		add_settings_error(
-			BLUELINE_SETTINGS_OPTION,
-			'blueline_settings_delete_nothing_stored',
-			__( 'There was nothing to delete: no Blueline settings were stored.', 'blueline' ),
-			'warning'
-		);
-	} else {
-		add_settings_error(
-			BLUELINE_SETTINGS_OPTION,
-			'blueline_settings_deleted',
-			$result['purge_ran']
-				? __( 'All Blueline data deleted. The site is now using the built-in defaults.', 'blueline' )
-				: __( 'All Blueline data deleted. The site is now using the built-in defaults. The page cache was not purged, so visitors may keep seeing the old settings until it is purged by hand.', 'blueline' ),
-			'success'
-		);
-	}
-
-	set_transient( 'settings_errors', get_settings_errors(), 30 );
-	wp_safe_redirect( blueline_settings_tab_url( blueline_settings_current_tab() ) );
-	exit;
 }
 
 /**
@@ -1887,6 +1473,24 @@ function blueline_settings_render_page(): void {
 }
 
 /**
+ * Echo `aria-invalid`/`aria-describedby` for a field's input, when (and only
+ * when) that field failed the last save -- the exact markup
+ * blueline_settings_render_field() and its per-type renderers each need
+ * wherever their control can carry a validation error, extracted once
+ * rather than repeated at every one of those sites.
+ *
+ * @param bool   $has_error Whether this field failed the last save.
+ * @param string $error_id  The id of the `<p>` that error's text is
+ *                           rendered into.
+ * @return void
+ */
+function blueline_settings_render_field_aria_attrs( bool $has_error, string $error_id ): void {
+	if ( $has_error ) {
+		echo 'aria-invalid="true" aria-describedby="' . esc_attr( $error_id ) . '"';
+	}
+}
+
+/**
  * Render one field's table row: a real `<label for>`, the input itself
  * (a wp_dropdown_pages()-style select for `page_id` fields -- an admin
  * picks "FAQs", never types a raw post ID; a wp_dropdown_categories()-style
@@ -1971,10 +1575,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 				<select
 					id="<?php echo esc_attr( $input_id ); ?>"
 					name="<?php echo esc_attr( $name ); ?>"
-					<?php
-					if ( $has_error ) :
-						?>
-						aria-invalid="true" aria-describedby="<?php echo esc_attr( $error_id ); ?>"<?php endif; ?>
+					<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
 				>
 					<?php foreach ( (array) $field['choices'] as $choice_value => $choice_label ) : ?>
 						<option
@@ -2017,57 +1618,11 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					<?php checked( (bool) $value ); ?>
 				>
 			<?php elseif ( 'page_id' === $type ) : ?>
-				<?php
-				wp_dropdown_pages(
-					array(
-						'name'              => esc_attr( $name ),
-						'id'                => esc_attr( $input_id ),
-						'selected'          => (int) $value,
-						'show_option_none'  => esc_html__( '— Use built-in page —', 'blueline' ),
-						'option_none_value' => 0,
-					)
-				);
-				?>
+				<?php blueline_settings_render_page_id_field( $field_key, $field, $name, $input_id, $value ); ?>
 			<?php elseif ( 'term_id' === $type && ! empty( $field['taxonomy'] ) ) : ?>
-				<?php
-				wp_dropdown_categories(
-					array(
-						'taxonomy'          => $field['taxonomy'],
-						'name'              => esc_attr( $name ),
-						'id'                => esc_attr( $input_id ),
-						'selected'          => (int) $value,
-						'show_option_none'  => esc_html__( '— Use built-in category —', 'blueline' ),
-						'option_none_value' => 0,
-						'hide_empty'        => false,
-					)
-				);
-				?>
+				<?php blueline_settings_render_term_id_field( $field_key, $field, $name, $input_id, $value ); ?>
 			<?php elseif ( 'date' === $type ) : ?>
-				<?php
-				/*
-				 * Task 6: without this branch a `date` field falls through
-				 * to the plain text input below -- no error, just a text box
-				 * an admin has to know to type YYYY-MM-DD into, against a
-				 * sanitizer that rejects anything else. `<input type="date">`
-				 * is what makes the stored format and the entered format the
-				 * same thing.
-				 *
-				 * Unlike `page_id`/`term_id`, a `date` CAN fail validation
-				 * (blueline_sanitize_field() returns a WP_Error for a
-				 * malformed value), so this branch carries the same
-				 * aria-invalid/aria-describedby wiring the text input does.
-				 */
-				?>
-				<input
-					type="date"
-					id="<?php echo esc_attr( $input_id ); ?>"
-					name="<?php echo esc_attr( $name ); ?>"
-					value="<?php echo esc_attr( (string) $value ); ?>"
-					<?php
-					if ( $has_error ) :
-						?>
-						aria-invalid="true" aria-describedby="<?php echo esc_attr( $error_id ); ?>"<?php endif; ?>
-				>
+				<?php blueline_settings_render_date_field( $field_key, $field, $name, $input_id, $value, $has_error, $error_id ); ?>
 			<?php elseif ( 'term_id' === $type ) : ?>
 				<input
 					type="number"
@@ -2085,10 +1640,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					name="<?php echo esc_attr( $name ); ?>"
 					value="<?php echo esc_attr( (string) $value ); ?>"
 					class="regular-text"
-					<?php
-					if ( $has_error ) :
-						?>
-						aria-invalid="true" aria-describedby="<?php echo esc_attr( $error_id ); ?>"<?php endif; ?>
+					<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
 				>
 			<?php endif; ?>
 
@@ -2133,6 +1685,99 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 			<?php endif; ?>
 		</td>
 	</tr>
+	<?php
+}
+
+/**
+ * Render a `page_id` field: a dropdown of every published page, plus a
+ * "use the built-in default" option at 0.
+ *
+ * @param string $field_key Schema key (unused directly here, but kept for
+ *                           the same call shape as this file's other
+ *                           per-type field renderers).
+ * @param array  $field     Schema entry (likewise unused; kept for shape).
+ * @param string $name      The `name` attribute for this field's control.
+ * @param string $input_id  The field's input id.
+ * @param mixed  $value     The currently stored (or posted-back) value.
+ * @return void
+ */
+function blueline_settings_render_page_id_field( string $field_key, array $field, string $name, string $input_id, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key and $field are unused here but kept for call-shape parity with this file's other per-type field renderers (blueline_settings_render_band_photos(), blueline_settings_render_term_id_field(), blueline_settings_render_date_field()).
+	wp_dropdown_pages(
+		array(
+			'name'              => esc_attr( $name ),
+			'id'                => esc_attr( $input_id ),
+			'selected'          => (int) $value,
+			'show_option_none'  => esc_html__( '— Use built-in page —', 'blueline' ),
+			'option_none_value' => 0,
+		)
+	);
+}
+
+/**
+ * Render a `term_id` field whose schema names a `taxonomy`: a dropdown of
+ * every term in that taxonomy, plus a "use the built-in default" option at 0.
+ *
+ * A `term_id` field with no `taxonomy` set falls through to a plain number
+ * input instead -- see blueline_settings_render_field()'s own `term_id`
+ * branch below this one -- so this function is never called for that case.
+ *
+ * @param string $field_key Schema key (unused directly here; kept for shape).
+ * @param array  $field     Schema entry -- read for its `taxonomy`.
+ * @param string $name      The `name` attribute for this field's control.
+ * @param string $input_id  The field's input id.
+ * @param mixed  $value     The currently stored (or posted-back) value.
+ * @return void
+ */
+function blueline_settings_render_term_id_field( string $field_key, array $field, string $name, string $input_id, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key is unused here but kept for call-shape parity, as above.
+	wp_dropdown_categories(
+		array(
+			'taxonomy'          => $field['taxonomy'],
+			'name'              => esc_attr( $name ),
+			'id'                => esc_attr( $input_id ),
+			'selected'          => (int) $value,
+			'show_option_none'  => esc_html__( '— Use built-in category —', 'blueline' ),
+			'option_none_value' => 0,
+			'hide_empty'        => false,
+		)
+	);
+}
+
+/**
+ * Render a `date` field as a real `<input type="date">`, rather than letting
+ * it fall through to the plain text input every other unrecognised type
+ * gets.
+ *
+ * Task 6: without this, a `date` field falls through to the plain text
+ * input below -- no error, just a text box an admin has to know to type
+ * YYYY-MM-DD into, against a sanitizer that rejects anything else.
+ * `<input type="date">` is what makes the stored format and the entered
+ * format the same thing.
+ *
+ * Unlike `page_id`/`term_id`, a `date` CAN fail validation
+ * (blueline_sanitize_field() returns a WP_Error for a malformed value), so
+ * this branch carries the same aria-invalid/aria-describedby wiring the
+ * text input does.
+ *
+ * @param string $field_key Schema key (unused directly here; kept for shape).
+ * @param array  $field     Schema entry (likewise unused; kept for shape).
+ * @param string $name      The `name` attribute for this field's control.
+ * @param string $input_id  The field's input id.
+ * @param mixed  $value     The currently stored (or posted-back) value.
+ * @param bool   $has_error Whether blueline_settings_render_field()'s caller
+ *                           found a validation error for this field.
+ * @param string $error_id  The id of the `<p>` that error's text is
+ *                           rendered into, for aria-describedby.
+ * @return void
+ */
+function blueline_settings_render_date_field( string $field_key, array $field, string $name, string $input_id, $value, bool $has_error, string $error_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key and $field are unused here but kept for call-shape parity, as above.
+	?>
+	<input
+		type="date"
+		id="<?php echo esc_attr( $input_id ); ?>"
+		name="<?php echo esc_attr( $name ); ?>"
+		value="<?php echo esc_attr( (string) $value ); ?>"
+		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
+	>
 	<?php
 }
 
@@ -2284,380 +1929,6 @@ function blueline_settings_alignment_label( string $key ): string {
 	);
 
 	return $labels[ $key ] ?? $key;
-}
-
-/**
- * Render the entire Occasions tab: an "add from preset"/"add blank"
- * toolbar, one row per stored occasion, and the `<template>` a JS-added
- * row is cloned from.
- *
- * Design spec §5.1's third ruling: this is the bespoke renderer
- * blueline_settings_render_page() dispatches to for the Occasions tab
- * INSTEAD of the generic per-field `<table>` loop -- `occasions` has
- * zero schema fields of its own (it is a reserved settings key, not a
- * schema field: see BLUELINE_SETTINGS_RESERVED_KEYS's own docblock),
- * so the generic loop has nothing to render for this tab at all.
- *
- * ## The `__none__` marker row
- *
- * One hidden `[occasions][__none__][label]` field is rendered OUTSIDE
- * the repeater `<ul>`, so it survives every "Remove" click. It exists
- * for exactly one case: an admin deleting EVERY row and saving. An HTML
- * form cannot post an array field with zero entries -- with no real row
- * left, no `blueline_settings[occasions][...]` key would appear in the
- * request at all, blueline_settings_sanitize_callback()'s per-key loop
- * would never reach its `occasions` branch, `$output['occasions']` would
- * never be set, and blueline_settings_merge() would then carry the OLD
- * stored map straight back: the admin sees "Settings saved" and the
- * occasion (and its AA acknowledgement) is still there. Deleting one row
- * out of several was always fine; only deleting down to zero was
- * silently a no-op.
- *
- * The marker's own row never survives processing:
- * blueline_occasions_assign_unique_ids() (inc/occasions.php) drops any
- * row whose label yields an empty `sanitize_title()`, so this row is
- * gone before blueline_sanitize_occasions() ever sees it. Its only job
- * is to make the `occasions` key PRESENT, so the branch runs, computes
- * an empty map, and the acknowledgement orphan-cleanup runs with it.
- *
- * @return void
- */
-function blueline_settings_render_occasions_tab(): void {
-	$occasions        = blueline_settings( 'occasions' );
-	$occasions        = is_array( $occasions ) ? $occasions : array();
-	$inputs_hash      = blueline_settings_inputs_hash();
-	$acknowledgements = blueline_stored_acknowledgements();
-	$name             = BLUELINE_SETTINGS_OPTION . '[occasions]';
-	?>
-	<div class="bl-occasions" data-bl-occasions data-bl-occasions-name="<?php echo esc_attr( $name ); ?>">
-		<?php // Always-present marker row -- see this function's docblock. Deliberately outside the <ul>, so removing every real row cannot remove it too. ?>
-		<input
-			type="hidden"
-			name="<?php echo esc_attr( $name . '[__none__][label]' ); ?>"
-			value=""
-			data-bl-occasions-marker
-		>
-
-		<details class="bl-occasions__help">
-			<summary><?php esc_html_e( 'How Occasions work', 'blueline' ); ?></summary>
-			<p class="description">
-				<?php
-				echo esc_html(
-					__( 'Occasions add a temporary accent colour, a small motif, and an optional line of copy for a set window of the calendar year. Nothing here activates until its Mode is set to something other than "Always off", or its window includes today.', 'blueline' )
-				);
-				?>
-			</p>
-			<p class="description">
-				<?php
-				echo esc_html(
-					__( 'Add one from the preset list below, or start with a blank occasion. Each row has its own Mode, which decides when it can activate: "Automatic, during its window" lets its date range decide, "Always on (preview now)" turns it on right now no matter what the calendar says, and "Always off" disables it no matter what the window says.', 'blueline' )
-				);
-				?>
-			</p>
-			<p class="description">
-				<?php
-				echo esc_html(
-					__( 'Saving always succeeds. An occasion whose accent colour fails the AA contrast check against ink text simply will not activate unless its row acknowledgement checkbox is ticked. Acknowledgement is re-checked on every page load, not just when settings are saved, so if the accent changes or ever stops matching what was acknowledged, the occasion stops activating rather than showing a colour that fails the check.', 'blueline' )
-				);
-				?>
-			</p>
-		</details>
-
-		<ul class="bl-occasions__list" data-bl-occasions-list>
-			<?php if ( array() === $occasions ) : ?>
-				<li class="bl-occasions__empty" data-bl-occasions-empty>
-					<?php esc_html_e( 'No occasions configured yet.', 'blueline' ); ?>
-				</li>
-			<?php endif; ?>
-			<?php foreach ( $occasions as $id => $occasion ) : ?>
-				<?php
-				if ( is_array( $occasion ) ) {
-					blueline_settings_render_occasion_row( $name, (string) $id, $occasion, $inputs_hash, $acknowledgements );
-				}
-				?>
-			<?php endforeach; ?>
-		</ul>
-
-		<p class="bl-occasions__toolbar">
-			<label for="bl-occasions-preset-select"><?php esc_html_e( 'Add from preset', 'blueline' ); ?></label>
-			<select id="bl-occasions-preset-select" data-bl-occasions-preset-select>
-				<option value=""><?php esc_html_e( 'Choose a preset', 'blueline' ); ?></option>
-				<?php foreach ( blueline_occasion_presets() as $preset_id => $preset ) : ?>
-					<option
-						value="<?php echo esc_attr( $preset_id ); ?>"
-						data-bl-occasion-preset="<?php echo esc_attr( wp_json_encode( $preset ) ); ?>"
-					>
-						<?php echo esc_html( $preset['label'] ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-			<button type="button" class="button" data-bl-occasions-add-preset>
-				<?php esc_html_e( 'Add', 'blueline' ); ?>
-			</button>
-			<button type="button" class="button" data-bl-occasions-add-blank>
-				<?php esc_html_e( 'Add a blank occasion', 'blueline' ); ?>
-			</button>
-		</p>
-
-		<template data-bl-occasions-template>
-			<?php
-			blueline_settings_render_occasion_row(
-				$name,
-				'__TEMPLATE__',
-				array(
-					'id'     => '',
-					'label'  => '',
-					'type'   => 'decorative',
-					'window' => array(
-						'start_md' => '',
-						'end_md'   => '',
-					),
-					'accent' => '',
-					'motif'  => 'none',
-					'line'   => '',
-					'mode'   => 'auto',
-				),
-				$inputs_hash,
-				array()
-			);
-			?>
-		</template>
-	</div>
-	<?php
-}
-
-/**
- * Render one occasion's row: every Task-1-shaped field, the AA-override
- * checkbox+notice (design spec §5.1's fifth ruling), and a
- * server-computed contrast readout that is already correct even with
- * no JS at all.
- *
- * @param string                              $name             The `occasions` field's base POST name, e.g. `blueline_settings[occasions]`.
- * @param string                              $row_key          This row's per-request array key: a real occasion's own id for an existing row, or `__TEMPLATE__` for the `<template>` a later task's JS clones.
- * @param array<string, mixed>                $occasion         A Task-1-shaped Occasion (or the blank template shape above).
- * @param string                              $inputs_hash      blueline_settings_inputs_hash()'s current value.
- * @param array<string, array<string, mixed>> $acknowledgements blueline_stored_acknowledgements()'s current value.
- * @return void
- */
-function blueline_settings_render_occasion_row( string $name, string $row_key, array $occasion, string $inputs_hash, array $acknowledgements ): void {
-	$id     = (string) ( $occasion['id'] ?? '' );
-	$label  = (string) ( $occasion['label'] ?? '' );
-	$type   = (string) ( $occasion['type'] ?? 'decorative' );
-	$start  = (string) ( $occasion['window']['start_md'] ?? '' );
-	$end    = (string) ( $occasion['window']['end_md'] ?? '' );
-	$accent = (string) ( $occasion['accent'] ?? '' );
-	$motif  = (string) ( $occasion['motif'] ?? 'none' );
-	$line   = (string) ( $occasion['line'] ?? '' );
-	$mode   = (string) ( $occasion['mode'] ?? 'auto' );
-
-	$resolved_accent = '' !== $accent ? blueline_sanitize_hex_color( $accent ) : blueline_occasion_accent_default();
-	$swatch_accent   = '' !== $resolved_accent ? $resolved_accent : BLUELINE_TOKEN_INK;
-
-	$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $swatch_accent );
-	$passes = $ratio >= blueline_contrast_threshold( 'body' );
-
-	$already_acknowledged = '' !== $id && blueline_acknowledgement_covers(
-		$acknowledgements,
-		'occasion:' . $id,
-		'ink-on-occasion-accent',
-		$swatch_accent,
-		$inputs_hash
-	);
-
-	$base    = $name . '[' . $row_key . ']';
-	$row_uid = 'bl-occasion-' . sanitize_html_class( '' !== $row_key ? $row_key : 'row' );
-	?>
-	<li class="bl-occasions__row" data-bl-occasion-row>
-		<input
-			type="hidden"
-			name="<?php echo esc_attr( $base . '[_original_id]' ); ?>" value="<?php echo esc_attr( $id ); ?>"
-			data-bl-occasion-original-id
-		>
-
-		<p class="bl-occasions__slug">
-			<?php esc_html_e( 'ID:', 'blueline' ); ?>
-			<code data-bl-occasion-slug-preview><?php echo esc_html( '' !== $id ? $id : __( '(new, named from its label)', 'blueline' ) ); ?></code>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-label' ); ?>"><?php esc_html_e( 'Label', 'blueline' ); ?></label>
-			<input
-				type="text"
-				id="<?php echo esc_attr( $row_uid . '-label' ); ?>"
-				name="<?php echo esc_attr( $base . '[label]' ); ?>"
-				value="<?php echo esc_attr( $label ); ?>"
-				data-bl-occasion-label
-			>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-type' ); ?>"><?php esc_html_e( 'Type', 'blueline' ); ?></label>
-			<select id="<?php echo esc_attr( $row_uid . '-type' ); ?>" name="<?php echo esc_attr( $base . '[type]' ); ?>" data-bl-occasion-type>
-				<?php foreach ( blueline_occasion_types() as $type_choice ) : ?>
-					<option value="<?php echo esc_attr( $type_choice ); ?>" <?php selected( $type, $type_choice ); ?>>
-						<?php echo esc_html( blueline_occasion_type_label( $type_choice ) ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-start' ); ?>"><?php esc_html_e( 'Start (MM-DD)', 'blueline' ); ?></label>
-			<input
-				type="text"
-				id="<?php echo esc_attr( $row_uid . '-start' ); ?>"
-				name="<?php echo esc_attr( $base . '[window][start_md]' ); ?>"
-				value="<?php echo esc_attr( $start ); ?>"
-				pattern="\d{2}-\d{2}"
-				placeholder="MM-DD"
-				data-bl-occasion-window-start
-			>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-end' ); ?>"><?php esc_html_e( 'End (MM-DD)', 'blueline' ); ?></label>
-			<input
-				type="text"
-				id="<?php echo esc_attr( $row_uid . '-end' ); ?>"
-				name="<?php echo esc_attr( $base . '[window][end_md]' ); ?>"
-				value="<?php echo esc_attr( $end ); ?>"
-				pattern="\d{2}-\d{2}"
-				placeholder="MM-DD"
-				data-bl-occasion-window-end
-			>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-accent' ); ?>"><?php esc_html_e( 'Accent colour (hex, blank for the theme default)', 'blueline' ); ?></label>
-			<input type="color" value="<?php echo esc_attr( $swatch_accent ); ?>" data-bl-occasion-color tabindex="-1" aria-hidden="true">
-			<input
-				type="text"
-				id="<?php echo esc_attr( $row_uid . '-accent' ); ?>"
-				name="<?php echo esc_attr( $base . '[accent]' ); ?>"
-				value="<?php echo esc_attr( $accent ); ?>"
-				placeholder="#rrggbb"
-				data-bl-occasion-accent
-			>
-		</p>
-
-		<p class="bl-occasions__contrast" data-bl-occasion-contrast aria-live="polite">
-			<?php
-			printf(
-				/* translators: 1: a contrast ratio like "4.5:1", 2: "passes AA" or "fails AA". */
-				esc_html__( 'Contrast against body text: %1$s (%2$s)', 'blueline' ),
-				esc_html( number_format( $ratio, 1 ) . ':1' ),
-				esc_html( $passes ? __( 'passes AA', 'blueline' ) : __( 'fails AA', 'blueline' ) )
-			);
-			?>
-		</p>
-
-		<section class="notice notice-warning bl-occasions__aa-notice" data-bl-occasion-aa-notice<?php echo $passes ? ' hidden' : ''; ?>>
-			<p>
-				<?php
-				echo esc_html(
-					__( 'This accent does not meet the AA contrast requirement against body text. Checking the box below ships it anyway. Leaving it unchecked means this occasion will not activate until the colour passes, or this box is checked and saved.', 'blueline' )
-				);
-				?>
-			</p>
-			<label>
-				<input
-					type="checkbox"
-					name="<?php echo esc_attr( $base . '[override_aa]' ); ?>"
-					value="1"
-					data-bl-occasion-override
-					<?php checked( $already_acknowledged ); ?>
-				>
-				<?php esc_html_e( 'Yes, ship this colour despite the failing contrast', 'blueline' ); ?>
-			</label>
-		</section>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-motif' ); ?>"><?php esc_html_e( 'Motif', 'blueline' ); ?></label>
-			<select id="<?php echo esc_attr( $row_uid . '-motif' ); ?>" name="<?php echo esc_attr( $base . '[motif]' ); ?>" data-bl-occasion-motif>
-				<?php foreach ( blueline_occasion_motifs() as $motif_choice ) : ?>
-					<option value="<?php echo esc_attr( $motif_choice ); ?>" <?php selected( $motif, $motif_choice ); ?>>
-						<?php echo esc_html( blueline_occasion_motif_label( $motif_choice ) ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-line' ); ?>"><?php esc_html_e( 'Optional line of copy', 'blueline' ); ?></label>
-			<input
-				type="text"
-				id="<?php echo esc_attr( $row_uid . '-line' ); ?>"
-				name="<?php echo esc_attr( $base . '[line]' ); ?>"
-				value="<?php echo esc_attr( $line ); ?>"
-				data-bl-occasion-line
-			>
-		</p>
-
-		<p>
-			<label for="<?php echo esc_attr( $row_uid . '-mode' ); ?>"><?php esc_html_e( 'Mode', 'blueline' ); ?></label>
-			<select id="<?php echo esc_attr( $row_uid . '-mode' ); ?>" name="<?php echo esc_attr( $base . '[mode]' ); ?>" data-bl-occasion-mode>
-				<?php foreach ( blueline_occasion_modes() as $mode_choice ) : ?>
-					<option value="<?php echo esc_attr( $mode_choice ); ?>" <?php selected( $mode, $mode_choice ); ?>>
-						<?php echo esc_html( blueline_occasion_mode_label( $mode_choice ) ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-		</p>
-
-		<button type="button" class="button-link bl-occasions__remove" data-bl-occasion-remove>
-			<?php esc_html_e( 'Remove', 'blueline' ); ?>
-		</button>
-	</li>
-	<?php
-}
-
-/**
- * Human-readable label for an occasion `type` value.
- *
- * @param string $type A blueline_occasion_types() value.
- * @return string
- */
-function blueline_occasion_type_label( string $type ): string {
-	$labels = array(
-		'decorative'    => __( 'Decorative', 'blueline' ),
-		'commemorative' => __( 'Commemorative', 'blueline' ),
-	);
-
-	return $labels[ $type ] ?? $type;
-}
-
-/**
- * Human-readable label for an occasion `motif` value.
- *
- * @param string $motif A blueline_occasion_motifs() value.
- * @return string
- */
-function blueline_occasion_motif_label( string $motif ): string {
-	$labels = array(
-		'none'       => __( 'None', 'blueline' ),
-		'maple-leaf' => __( 'Maple leaf', 'blueline' ),
-		'poppy'      => __( 'Poppy', 'blueline' ),
-		'snowflake'  => __( 'Snowflake', 'blueline' ),
-		'sparkle'    => __( 'Sparkle', 'blueline' ),
-	);
-
-	return $labels[ $motif ] ?? $motif;
-}
-
-/**
- * Human-readable label for an occasion `mode` value.
- *
- * @param string $mode A blueline_occasion_modes() value.
- * @return string
- */
-function blueline_occasion_mode_label( string $mode ): string {
-	$labels = array(
-		'auto'      => __( 'Automatic, during its window', 'blueline' ),
-		'force_on'  => __( 'Always on (preview now)', 'blueline' ),
-		'force_off' => __( 'Always off', 'blueline' ),
-	);
-
-	return $labels[ $mode ] ?? $mode;
 }
 
 add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_photo_picker' );

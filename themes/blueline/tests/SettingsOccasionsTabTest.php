@@ -18,6 +18,7 @@ require_once __DIR__ . '/../inc/enqueue.php'; // blueline_stylesheet_version(), 
 require_once __DIR__ . '/../inc/team-colors.php';
 require_once __DIR__ . '/../inc/occasions.php';
 require_once __DIR__ . '/../inc/settings/page.php';
+require_once __DIR__ . '/../inc/settings/occasions-tab.php'; // blueline_settings_render_occasions_tab() and its row/label helpers, exercised below.
 require_once __DIR__ . '/cli-stubs.php'; // wp_json_encode(), used by the "add from preset" options.
 
 /**
