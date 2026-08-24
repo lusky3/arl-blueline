@@ -21,10 +21,6 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Custom nav walker for the primary menu.
  *
- * Renders each item's label inside a counter-skewed `.bl-skew` wrapper
- * (top level only) so the focusable <a> itself stays un-skewed — the
- * focus ring drawn on it is always a true rectangle, never slanted.
- *
  * Items with children get a sibling <button> (aria-expanded/aria-controls)
  * so submenus can be opened by click/tap in addition to the CSS-only
  * hover/:focus-within mechanism, which matters for touch devices that
@@ -136,8 +132,8 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 	}
 
 	/**
-	 * Renders one <li>: the link (skewed label at top level, plain
-	 * otherwise) and, for parents, the submenu toggle button.
+	 * Renders one <li>: the link and, for parents, the submenu toggle
+	 * button.
 	 *
 	 * @param string   $output Passed by reference.
 	 * @param WP_Post  $item   Menu item data object.
@@ -216,9 +212,7 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 		/** This filter is documented in wp-includes/class-walker-nav-menu.php */
 		$title = apply_filters( 'nav_menu_item_title', $title, $item, $args, $depth );
 
-		$label = 0 === $depth
-			? '<span class="bl-skew"><span>' . $title . '</span></span>'
-			: '<span>' . $title . '</span>';
+		$label = '<span>' . $title . '</span>';
 
 		$output .= '<a' . $attributes . '>' . $label . '</a>';
 
@@ -549,9 +543,14 @@ function blueline_utility_login_menu_item( $url ) {
 }
 
 /**
- * Output the site header: skip link, navy bar (logo, primary nav, sponsors
- * placeholder, season-aware CTA, mobile toggle), then the paired blue-line
- * bands that separate the header from the paper-white content body.
+ * Output the site header: skip link, then the themed bar (logo, primary
+ * nav, sponsors placeholder, season-aware CTA, mobile toggle). The bar's
+ * own background is a theme-aware surface (--bl-content-bg-raised,
+ * header.css), not a fixed dark band, so -- unlike the retired "Blue
+ * Line" system -- nothing further is needed to separate it from the
+ * content body below; the paired blue-line rule that used to do that job
+ * has no equivalent in the 2026.2 palette (style.css's own comment on
+ * --bl-band-ice/--bl-band-ink).
  */
 function blueline_site_header() {
 	$cta = blueline_header_cta();
@@ -624,7 +623,7 @@ function blueline_site_header() {
 					<?php endif; ?>
 
 					<a class="bl-btn <?php echo esc_attr( $cta['class'] ); ?>" href="<?php echo esc_url( $cta['url'] ); ?>">
-						<span class="bl-skew"><span><?php echo esc_html( $cta['label'] ); ?></span></span>
+						<?php echo esc_html( $cta['label'] ); ?>
 					</a>
 
 					<button type="button" class="bl-nav__toggle" aria-expanded="false" aria-controls="bl-primary-menu">
@@ -668,9 +667,6 @@ function blueline_site_header() {
 		 * reserving 64px and clawing it back a moment later.
 		 */
 		?>
-
-		<div class="bl-band" aria-hidden="true"></div>
-		<div class="bl-band--ink" aria-hidden="true"></div>
 	</header>
 	<?php
 	/*

@@ -218,7 +218,20 @@ img {
 	padding-inline: var(--bl-space-5);
 }
 
-/* Signature devices */
+/*
+ * Signature devices.
+ *
+ * .bl-skew: --bl-skew is 0deg in the 2026.2 palette (style.css), so this
+ * is now a true no-op for every consumer still wrapping a label in it --
+ * left in place rather than hunted down at each call site (see style.css's
+ * own comment on --bl-skew).
+ *
+ * The paired blue-line band device (.bl-band/.bl-band--ink) has no
+ * equivalent in the 2026.2 palette -- --bl-band-ice/--bl-band-ink are both
+ * 0px, and this rule is removed outright rather than kept as a permanent
+ * zero-height no-op; header.php/footer.css no longer draw it, having their
+ * own themed border instead.
+ */
 
 .bl-skew {
 	transform: skewX(var(--bl-skew));
@@ -227,14 +240,4 @@ img {
 .bl-skew > * {
 	display: inline-block;
 	transform: skewX(calc(var(--bl-skew) * -1));
-}
-
-.bl-band {
-	height: var(--bl-band-ice);
-	background: var(--bl-ice);
-}
-
-.bl-band--ink {
-	height: var(--bl-band-ink);
-	background: var(--bl-ink);
 }

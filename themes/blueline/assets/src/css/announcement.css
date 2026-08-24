@@ -8,19 +8,19 @@
  * band across the page.
  *
  * THE JOIN. .bl-main--homepage zeroes its top padding (homepage.css) so the
- * navy hero butts straight against the header's paired blue-line bands. With
- * a banner present the hero butts against the BANNER instead, and that seam
- * has to look intended rather than like two strips that happened to end up
- * adjacent. The banner closes with its own ink rule at --bl-band-ink — the
- * same weight as the header's own closing band — so whatever follows begins
- * below a deliberate dark edge: on the homepage the hero's navy, everywhere
- * else the paper-white content body.
+ * hero butts straight against the header. With a banner present the hero
+ * butts against the BANNER instead, and that seam has to look intended
+ * rather than like two strips that happened to end up adjacent. There is no
+ * paired blue-line band to close with any more (--bl-band-ice/--bl-band-ink
+ * are both 0px in the 2026.2 palette -- see style.css's own comment on those
+ * tokens), so a plain themed hairline, matching the header's own
+ * border-bottom, does the same "where this strip ends" job instead.
  */
 
 .bl-announce {
 	display: block;
 	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
-	border-block-end: var(--bl-band-ink) solid var(--bl-ink-deep);
+	border-block-end: 1px solid var(--bl-content-border);
 	color: var(--bl-content-text);
 }
 

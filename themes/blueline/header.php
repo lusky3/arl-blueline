@@ -15,19 +15,33 @@ defined( 'ABSPATH' ) || exit;
 <?php
 /*
  * Colours the mobile browser's own UI chrome (status bar / address bar)
- * to match this site's, rather than leaving it at the browser's own
- * default (usually plain white). A single, fixed value -- not one that
- * varies with the light/dark/system content-area toggle -- because the
- * thing theme-color is actually matching is the site's own header/nav
- * bar, and that bar is deliberately fixed navy in every theme per the
- * toggle's own design spec (docs/superpowers/specs/2026-08-22-blueline-
- * theme-toggle-design.md §2); a value that changed with the toggle would
- * desync from the fixed header the instant a reader scrolled to it.
- * #0D1729 is --bl-ink-deep, the header/footer's own background -- see
- * style.css's :root block for that token's own definition.
+ * to match this site's header/footer background, which -- since the
+ * 2026.2 "Confident Minimal" repaint -- IS one of the themed surfaces
+ * that follows the light/dark/system toggle (--bl-content-bg-raised in
+ * style.css's :root block), not a fixed navy band. So this meta tag has
+ * to follow the same toggle: a logged-in visitor with an explicit
+ * preference gets a single value matching what the server is about to
+ * render (blueline_get_theme_preference(), inc/account/theme-preference.php);
+ * everyone else (guests, and a logged-in "system" preference) gets both
+ * light and dark values behind their own `media` attribute, so the
+ * browser itself picks the one matching prefers-color-scheme -- exactly
+ * mirroring style.css's own two-guard pattern for every other themed
+ * token. The two hex values are --bl-content-bg-raised's light/dark
+ * values; see style.css's :root and :root[data-theme="dark"] blocks.
  */
+$blueline_theme_color_pref = 'system';
+if ( is_user_logged_in() && function_exists( 'blueline_get_theme_preference' ) ) {
+	$blueline_theme_color_pref = blueline_get_theme_preference( get_current_user_id() );
+}
 ?>
-<meta name="theme-color" content="#0D1729">
+<?php if ( 'light' === $blueline_theme_color_pref ) : ?>
+<meta name="theme-color" content="#E7EBEE">
+<?php elseif ( 'dark' === $blueline_theme_color_pref ) : ?>
+<meta name="theme-color" content="#1A2028">
+<?php else : ?>
+<meta name="theme-color" content="#E7EBEE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A2028" media="(prefers-color-scheme: dark)">
+<?php endif; ?>
 <link rel="profile" href="https://gmpg.org/xfn/11">
 <?php wp_head(); ?>
 </head>

@@ -1,7 +1,12 @@
 /*
  * Blueline — site header.
- * Navy chrome (--bl-ink-deep) with the logo, primary nav, sponsors
- * placeholder and Register CTA, closed off by the paired blue-line bands.
+ *
+ * 2026.2 "Confident Minimal": the header is a themed surface like
+ * everything else (--bl-content-bg-raised, light/dark/system-aware), not
+ * the old system's fixed dark-navy band -- see style.css's own comment on
+ * --bl-content-bg-raised. There is no closing paired blue-line band either
+ * (--bl-band-ice/--bl-band-ink are both 0px now); a plain 1px border does
+ * the same "where the chrome ends" job.
  */
 
 /*
@@ -98,8 +103,9 @@
 	 * did not do it.
 	 */
 	z-index: var(--bl-z-header);
-	background: var(--bl-ink-deep);
-	color: var(--bl-paper);
+	background: var(--bl-content-bg-raised);
+	color: var(--bl-content-text);
+	border-bottom: 1px solid var(--bl-content-border);
 }
 
 /*
@@ -214,7 +220,7 @@
 	align-items: center;
 	gap: var(--bl-space-2);
 	min-width: 0;
-	color: var(--bl-paper);
+	color: var(--bl-content-text);
 }
 
 /*
@@ -222,12 +228,15 @@
  * wordmark's meaning, so it stays aria-hidden (blueline_leaf_mark()) with
  * no separate accessible name of its own; the link's visible text
  * (.bl-header__site-title) is the one thing a screen reader announces.
+ * Coloured with the one committed accent rather than --bl-ice: on the
+ * header's now-light-toned ground, --bl-ice (a pale fill-only tint) would
+ * read as almost invisible.
  */
 .bl-header__mark {
 	width: 32px;
 	height: 32px;
 	flex: 0 0 auto;
-	color: var(--bl-ice);
+	color: var(--bl-content-link);
 }
 
 .bl-header__site-title {
@@ -298,8 +307,9 @@
  * when logged out -- see blueline_utility_nav_auth_state() in
  * inc/template-tags.php): visually secondary to the primary row and the
  * Register CTA. Plain body font, no skew/pill treatment, no
- * bold/italic/uppercase. --bl-pale on --bl-ink-deep is 10.46:1
- * (tools/check-contrast.mjs), comfortably above the 4.5:1 AA text minimum.
+ * bold/italic/uppercase. Uses the theme-aware secondary content text
+ * colour rather than a fixed light-on-dark pairing, since the header is a
+ * themed surface now, not a fixed dark band.
  *
  * P3 finding 4: "My ARL Account" measured 94x15px at 360px -- well under
  * WCAG 2.2's 24x24 minimum target size, sitting directly beside "Log Out"
@@ -321,7 +331,7 @@
 	align-items: center;
 	min-height: 24px;
 	padding-block: var(--bl-space-2);
-	color: var(--bl-pale);
+	color: var(--bl-content-text-secondary);
 	font-family: var(--bl-font-body);
 	font-size: var(--bl-text-xs);
 	white-space: nowrap;
@@ -329,7 +339,7 @@
 
 .bl-utility-nav__menu a:hover,
 .bl-utility-nav__menu a:focus-visible {
-	color: var(--bl-paper);
+	color: var(--bl-content-text);
 }
 
 /*
@@ -527,9 +537,17 @@
 }
 
 /*
- * Primary button (Register CTA). Device #1 (the skew) applies to the
- * decorative inner .bl-skew shape only — the <a> itself stays un-skewed
- * so its :focus-visible ring is a true, unrotated rectangle.
+ * Primary button (Register CTA), base shape shared by every .bl-btn
+ * consumer sitewide. Still just `.bl-btn { display: inline-flex; position:
+ * relative; }` here -- the chrome (padding/font treatment) and the fill
+ * colours live on `.bl-btn .bl-skew`/`.bl-btn--primary .bl-skew` below,
+ * because every OTHER consumer of these classes (cart-empty.php, 404.php,
+ * the account dashboard, the SportsPress player selector) still wraps its
+ * label in that span. Retired as a skew, kept as the one place this shape
+ * is defined: `.bl-skew` itself just degrades to `transform: skewX(0deg)`
+ * now (base.css), a true no-op, so leaving those wrapper spans in place
+ * elsewhere costs nothing and this rule needs no change to keep working
+ * for them.
  */
 .bl-btn {
 	display: inline-flex;
@@ -552,22 +570,46 @@
 }
 
 /*
- * Secondary CTA on the header's dark ground -- Season State (Task 7) shows
- * this instead of the primary Register button in every state but
- * registration_open, per the brief's "drop the ice fill" rule. Overrides
- * only color/border on top of the shared .bl-btn--secondary defined for
- * light backgrounds in layout.css; the homepage hero applies the same
- * pattern in homepage.css for its own dark ground.
+ * The header's OWN Register CTA no longer wraps its label in `.bl-skew` --
+ * that wrapper existed only to counter-skew the label against device #1
+ * (retired, --bl-skew: 0deg), and blueline_site_header() stopped emitting
+ * it. So the header needs its own, equivalent rule applied directly to
+ * `.bl-btn`/`.bl-btn--primary`/`.bl-btn--secondary`, scoped under
+ * `.bl-header` so it cannot affect any of the other, still-wrapped
+ * consumers listed above.
  */
-.bl-header .bl-btn--secondary .bl-skew {
-	color: var(--bl-paper);
-	border-color: var(--bl-paper);
+.bl-header .bl-btn {
+	padding: var(--bl-space-2) var(--bl-space-3);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	white-space: nowrap;
 }
 
-.bl-header .bl-btn--secondary:hover .bl-skew,
-.bl-header .bl-btn--secondary:focus-visible .bl-skew {
-	background: var(--bl-paper);
+.bl-header .bl-btn--primary {
+	background: var(--bl-ice);
 	color: var(--bl-ink);
+}
+
+/*
+ * Secondary CTA -- Season State (Task 7) shows this instead of the primary
+ * Register button in every state but registration_open, per the brief's
+ * "drop the ice fill" rule. An outline button using the theme-aware
+ * content-text/content-bg pair (rather than a fixed ink/paper pairing),
+ * since the header's own ground now follows the light/dark/system toggle
+ * instead of staying a fixed dark band.
+ */
+.bl-header .bl-btn--secondary {
+	background: transparent;
+	color: var(--bl-content-text);
+	border: 2px solid var(--bl-content-text);
+}
+
+.bl-header .bl-btn--secondary:hover,
+.bl-header .bl-btn--secondary:focus-visible {
+	background: var(--bl-content-text);
+	color: var(--bl-content-bg);
 }
 
 @media (min-width: 880px) {
