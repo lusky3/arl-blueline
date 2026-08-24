@@ -63,9 +63,9 @@ final class TeamColorsTest extends TestCase {
 	 * value the CSS contrast guard also asserts.
 	 */
 	public function test_contrast_ratio_matches_the_known_token_pairing(): void {
-		// The same 14.94 the CSS contrast guard asserts for ink on paper.
+		// The same 16.14 the CSS contrast guard asserts for ink on paper.
 		$this->assertEqualsWithDelta(
-			14.94,
+			16.14,
 			blueline_contrast_ratio( BLUELINE_TOKEN_INK, BLUELINE_TOKEN_PAPER ),
 			0.01
 		);
@@ -437,9 +437,9 @@ final class TeamColorsTest extends TestCase {
 	 * on the given background, rather than failing silently.
 	 */
 	public function test_readable_foreground_reports_when_neither_option_passes(): void {
-		// #808080 has no AA-passing foreground from {ink, paper}: best is ~3.9.
+		// #7A7A7A has no AA-passing foreground from {ink, paper}: best is ~4.15.
 		$passes = null;
-		$fg     = blueline_readable_foreground( '#808080', $passes );
+		$fg     = blueline_readable_foreground( '#7A7A7A', $passes );
 
 		$this->assertNotNull( $fg, 'it must still return a colour to render' );
 		$this->assertFalse( $passes, 'but it must report that the colour fails' );

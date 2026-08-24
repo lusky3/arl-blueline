@@ -52,7 +52,7 @@ final class OccasionsTest extends TestCase {
 	 * literal value.
 	 */
 	public function test_resolves_the_real_stylesheet(): void {
-		$this->assertSame( '#74c0e1', blueline_occasion_accent_default() );
+		$this->assertSame( '#f3e3d3', blueline_occasion_accent_default() );
 	}
 
 	/**
@@ -1182,7 +1182,7 @@ final class OccasionsTest extends TestCase {
 	public function test_classify_resolves_an_empty_accent_to_the_default(): void {
 		$hash = blueline_settings_inputs_hash();
 
-		// The real stylesheet default (--bl-ice, '#74c0e1') passes contrast
+		// The real stylesheet default (--bl-ice, '#f3e3d3') passes contrast
 		// outright; an acknowledgement recorded against that SAME resolved
 		// value (an unusual but not impossible history -- e.g. one
 		// recorded while a since-reverted contrast-rules.json threshold
@@ -1191,7 +1191,7 @@ final class OccasionsTest extends TestCase {
 			BLUELINE_SETTINGS_OPTION,
 			array(
 				'occasions'           => array( 'canada-day' => $this->classify_fixture_occasion( array( 'accent' => '' ) ) ),
-				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#74c0e1', 1.0, $hash, 1 ),
+				'aa_acknowledgements' => blueline_record_acknowledgement( array(), 'occasion:canada-day', 'ink-on-occasion-accent', '#f3e3d3', 1.0, $hash, 1 ),
 			)
 		);
 

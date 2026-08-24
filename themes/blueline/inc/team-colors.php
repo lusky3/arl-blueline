@@ -38,8 +38,8 @@ defined( 'ABSPATH' ) || exit;
  * style.css, the same way it already guards editor.css's duplicated tokens --
  * so drift fails the build rather than silently producing wrong maths.
  */
-const BLUELINE_TOKEN_INK   = '#132343';
-const BLUELINE_TOKEN_PAPER = '#F7FBFC';
+const BLUELINE_TOKEN_INK   = '#14181f';
+const BLUELINE_TOKEN_PAPER = '#f2f4f6';
 
 /**
  * Log, at most once per call site, that tools/contrast-rules.json could not
