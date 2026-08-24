@@ -60,6 +60,23 @@
 	color: var(--bl-content-text);
 }
 
+/*
+ * WooCommerce's own icon font (::before, absolutely positioned at
+ * left: 1.5em/top: 1em) assumes the 3.5em-left padding its stock rule
+ * sets on this same selector. The flex layout above replaces that
+ * with a smaller, symmetric padding, so the glyph renders on top of
+ * the notice's first couple of characters instead of beside them --
+ * confirmed live on an empty My Account page. The border/tint
+ * language above already carries the same success/warning/danger
+ * meaning, so the icon is redundant as well as broken: hide it rather
+ * than re-deriving the asymmetric padding it needs to sit correctly.
+ */
+.woocommerce-message::before,
+.woocommerce-error::before,
+.woocommerce-info::before {
+	content: none;
+}
+
 .woocommerce-message,
 .woocommerce-notice--success {
 	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
