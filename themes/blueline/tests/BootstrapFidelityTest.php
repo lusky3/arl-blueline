@@ -420,36 +420,9 @@ final class BootstrapFidelityTest extends TestCase {
 	}
 
 	/**
-	 * Test case: registers a filter that the NEXT test method in this class
-	 * (below) must not see. Deliberately registers first and asserts the
-	 * filter fires here, so a reader can tell this test genuinely added the
-	 * hook rather than the assertion coincidentally matching an empty
-	 * filter chain.
-	 *
-	 * Relies on PHPUnit's default declaration-order execution -- this
-	 * project's phpunit.xml sets no --order-by, so these two methods run in
-	 * the order they appear in this file.
-	 */
-	public function test_a_filter_registered_here_fires_within_this_test(): void {
-		add_filter( 'bl_test_leak', static fn( $v ) => $v . '-leaked' );
-
-		$this->assertSame( 'x-leaked', apply_filters( 'bl_test_leak', 'x' ) );
-	}
-
-	/**
-	 * Test case: proves the previous test's 'bl_test_leak' registration did
-	 * not survive into this test's setUp(). Without blueline_test_reset()
-	 * (or blueline_test_reset_hooks()) running between tests, this would
-	 * fail with 'x-leaked' instead of 'x'.
-	 */
-	public function test_a_filter_registered_in_a_previous_test_does_not_leak_here(): void {
-		$this->assertSame( 'x', apply_filters( 'bl_test_leak', 'x' ) );
-	}
-
-	/**
-	 * Test case: the same isolation as the pair above, but self-contained
-	 * in one test rather than depending on method execution order, so this
-	 * assertion holds regardless of how the suite is ordered.
+	 * Test case: proves a filter registration does not survive a hook reset,
+	 * self-contained in one test rather than depending on method execution
+	 * order, so this assertion holds regardless of how the suite is ordered.
 	 */
 	public function test_reset_hooks_removes_a_registration_added_since_the_baseline(): void {
 		add_filter( 'bl_test_leak_direct', static fn( $v ) => $v . '-leaked' );

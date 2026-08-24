@@ -143,6 +143,17 @@
 	outline-offset: var(--bl-focus-offset);
 }
 
+/*
+ * This ink-fill/paper-text/display-italic-caps treatment intentionally
+ * mirrors the shared button language in woocommerce.css (the
+ * ".woocommerce a.button, .woocommerce button.button, ..." selector list,
+ * ~line 100-121). It is hand-duplicated rather than sharing a class because
+ * this is a plain <input class="submit"> from comment_form() -- it has no
+ * children, so it cannot take the .bl-btn/.bl-skew pattern used elsewhere
+ * (see header.css), which relies on a nested .bl-skew span for the actual
+ * styling. Keep these declarations in sync with that woocommerce.css block
+ * by hand if the recipe changes.
+ */
 .bl-comments .comment-form .submit {
 	padding: var(--bl-space-2) var(--bl-space-4);
 	border: 2px solid var(--bl-ink);
@@ -506,6 +517,17 @@
 	background: var(--bl-content-surface);
 }
 
+/*
+ * This ink-fill/paper-text/display-italic-caps treatment intentionally
+ * mirrors the shared button language in woocommerce.css (the
+ * ".woocommerce a.button, .woocommerce button.button, ..." selector list,
+ * ~line 100-121). It is hand-duplicated rather than sharing a class because
+ * this is a plain <input class="search-submit"> from get_search_form() -- it
+ * has no children, so it cannot take the .bl-btn/.bl-skew pattern used
+ * elsewhere (see header.css), which relies on a nested .bl-skew span for the
+ * actual styling. Keep these declarations in sync with that woocommerce.css
+ * block by hand if the recipe changes.
+ */
 .search-form .search-submit {
 	padding: var(--bl-space-2) var(--bl-space-4);
 	border: 2px solid var(--bl-ink);

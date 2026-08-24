@@ -104,6 +104,30 @@ Text Domain: blueline
 	--bl-shadow-raised: 0 10px 34px rgba(10, 20, 40, 0.18);
 
 	--bl-container: 1200px;
+
+	/*
+	 * Stacking order. Header/nav is the only part of the design system with
+	 * more than one layer of overlapping fixed/absolute elements, so this is
+	 * the whole scale -- low to high:
+	 *
+	 *   --bl-z-nav-submenu     desktop dropdown submenu (nav.css)
+	 *   --bl-z-drawer          mobile nav drawer (nav.css)
+	 *   --bl-z-header-controls .bl-header__brand/__actions, raised above the
+	 *                          mobile drawer -- see the comment on
+	 *                          .bl-header__bar in header.css for why the
+	 *                          header's own z-index can't do this instead
+	 *   --bl-z-header          the sticky header bar itself (header.css)
+	 *   --bl-z-skip-link       the keyboard skip-link, above everything
+	 *
+	 * Values are unchanged from the bare integers header.css/nav.css used
+	 * before this scale existed; this is a rename, not a re-order.
+	 */
+	--bl-z-nav-submenu: 40;
+	--bl-z-drawer: 50;
+	--bl-z-header-controls: 55;
+	--bl-z-header: 60;
+	--bl-z-skip-link: 100;
+
 	/*
 	 * Two-tone focus indicator. The ring is drawn on grounds ranging from
 	 * --bl-white to --bl-ink-deep, and NO single colour clears 3:1 against all

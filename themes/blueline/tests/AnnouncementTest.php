@@ -326,15 +326,19 @@ final class AnnouncementTest extends TestCase {
 			)
 		);
 
-		$this->assertNotSame( 'next tuesday-ish', blueline_settings( 'announcement_from' ) );
+		// The field is rejected outright and the previously-stored value
+		// kept -- here, the un-set default, since setUp() starts every test
+		// with an empty option store (see blueline_settings_defaults()).
+		$this->assertSame( '', blueline_settings( 'announcement_from' ) );
 	}
 
 	/**
-	 * Severity is clamped to the two the stylesheet actually knows about.
-	 * The value reaches a class attribute, so an unrecognised one must
-	 * resolve to a known modifier rather than being echoed through.
+	 * Either of the two severities the stylesheet actually knows about
+	 * round-trips unchanged -- neither is mistaken for the other, and
+	 * neither is clamped away. The clamp itself (an unrecognised value
+	 * being forced to a known one) is covered separately below.
 	 */
-	public function test_severity_is_clamped_to_the_two_known_values(): void {
+	public function test_known_severities_pass_through_unchanged(): void {
 		$this->set_announcement( array( 'announcement_severity' => 'urgent' ) );
 		$this->assertSame( 'urgent', blueline_announcement_severity() );
 
@@ -393,7 +397,10 @@ final class AnnouncementTest extends TestCase {
 	public function test_an_unrecognised_severity_cannot_be_stored_through_the_save_path(): void {
 		$this->set_announcement( array( 'announcement_severity' => 'apocalyptic' ) );
 
-		$this->assertNotSame( 'apocalyptic', blueline_settings( 'announcement_severity' ) );
+		// The field is rejected outright and the previously-stored value
+		// kept -- here, the un-set default, since setUp() starts every test
+		// with an empty option store (see blueline_settings_defaults()).
+		$this->assertSame( 'info', blueline_settings( 'announcement_severity' ) );
 	}
 
 	/**

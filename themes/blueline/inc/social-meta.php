@@ -137,19 +137,13 @@ function blueline_social_meta_data() {
  * @return array{title:string,description:string,image:string,url:string,type:string}
  */
 function blueline_social_meta_data_for_event( $event_id, $logo ) {
-	$teams  = array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+	$teams  = blueline_sp_event_team_ids( $event_id );
 	$team_a = $teams[0] ?? 0;
 	$team_b = $teams[1] ?? 0;
 	$name_a = $team_a ? blueline_sp_title( $team_a ) : __( 'TBD', 'blueline' );
 	$name_b = $team_b ? blueline_sp_title( $team_b ) : __( 'TBD', 'blueline' );
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
-	$venue_name  = '';
-	if ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) {
-		$venue_name = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_terms[0]->term_id )
-			: $venue_terms[0]->name;
-	}
+	$venue_name = blueline_sp_event_venue_label( $event_id );
 
 	$when = sprintf(
 		/* translators: 1: event date, 2: event time. */
@@ -244,7 +238,7 @@ function blueline_sports_event_schema( $event_id ) {
 		return null;
 	}
 
-	$teams  = array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+	$teams  = blueline_sp_event_team_ids( $event_id );
 	$team_a = $teams[0] ?? 0;
 	$team_b = $teams[1] ?? 0;
 
@@ -266,11 +260,8 @@ function blueline_sports_event_schema( $event_id ) {
 		'eventStatus' => 'https://schema.org/EventScheduled',
 	);
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
-	if ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) {
-		$venue_name         = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_terms[0]->term_id )
-			: $venue_terms[0]->name;
+	$venue_name = blueline_sp_event_venue_label( $event_id );
+	if ( '' !== $venue_name ) {
 		$schema['location'] = array(
 			'@type' => 'Place',
 			'name'  => $venue_name,

@@ -28,6 +28,16 @@
 const ROOT = '[data-bl-occasions]';
 
 /**
+ * Fallback for `window.blOccasionsData` when the localized settings data
+ * (inc/settings/page.php's `wp_localize_script()` call) is unavailable --
+ * e.g. this script loaded outside the admin settings page it is written
+ * for. Matches style.css's --bl-ink and the Occasions tab's default AA
+ * threshold, so the live readout still shows a sane number rather than
+ * throwing on a missing property.
+ */
+const DEFAULT_OCCASIONS_DATA = { inkHex: '#132343', threshold: 4.5 };
+
+/**
  * WCAG relative luminance of a `#rrggbb` colour. Byte-for-byte the
  * same formula as inc/team-colors.php's blueline_relative_luminance().
  *
@@ -164,6 +174,49 @@ function blOccasionApplyRowKey( row, rowKey ) {
 }
 
 /**
+ * Fill a freshly cloned row's fields from a preset object.
+ *
+ * A preset only ever supplies the fields it cares about (a blank "Add"
+ * click passes `{}`), so every field falls back to clearing itself rather
+ * than being left at whatever the `<template>` markup happened to contain.
+ *
+ * @param {Element} row    A cloned `[data-bl-occasion-row]` element, already
+ *                         past `blOccasionApplyRowKey()`.
+ * @param {Object}  preset A blueline_occasion_presets() entry, or {} for blank.
+ * @return {void}
+ */
+function populateRowFromPreset( row, preset ) {
+	const setField = ( selector, value ) => {
+		const field = row.querySelector( selector );
+		if ( field && undefined !== value ) {
+			field.value = value;
+		}
+	};
+
+	setField( '[data-bl-occasion-label]', preset.label || '' );
+	setField( '[data-bl-occasion-accent]', preset.accent || '' );
+	setField( '[data-bl-occasion-line]', preset.line || '' );
+
+	if ( preset.window ) {
+		setField(
+			'[data-bl-occasion-window-start]',
+			preset.window.start_md || ''
+		);
+		setField( '[data-bl-occasion-window-end]', preset.window.end_md || '' );
+	}
+
+	[ 'type', 'motif', 'mode' ].forEach( ( key ) => {
+		if ( ! preset[ key ] ) {
+			return;
+		}
+		const field = row.querySelector( `[data-bl-occasion-${ key }]` );
+		if ( field ) {
+			field.value = preset[ key ];
+		}
+	} );
+}
+
+/**
  * Append a new row, cloned from the server-rendered `<template>`,
  * filled from either a preset or a blank shape.
  *
@@ -195,35 +248,7 @@ function addRow( root, preset ) {
 	const row = template.content.firstElementChild.cloneNode( true );
 
 	blOccasionApplyRowKey( row, rowKey );
-
-	const setField = ( selector, value ) => {
-		const field = row.querySelector( selector );
-		if ( field && undefined !== value ) {
-			field.value = value;
-		}
-	};
-
-	setField( '[data-bl-occasion-label]', preset.label || '' );
-	setField( '[data-bl-occasion-accent]', preset.accent || '' );
-	setField( '[data-bl-occasion-line]', preset.line || '' );
-
-	if ( preset.window ) {
-		setField(
-			'[data-bl-occasion-window-start]',
-			preset.window.start_md || ''
-		);
-		setField( '[data-bl-occasion-window-end]', preset.window.end_md || '' );
-	}
-
-	[ 'type', 'motif', 'mode' ].forEach( ( key ) => {
-		if ( ! preset[ key ] ) {
-			return;
-		}
-		const field = row.querySelector( `[data-bl-occasion-${ key }]` );
-		if ( field ) {
-			field.value = preset[ key ];
-		}
-	} );
+	populateRowFromPreset( row, preset );
 
 	if ( empty ) {
 		empty.hidden = true;
@@ -231,18 +256,70 @@ function addRow( root, preset ) {
 
 	list.appendChild( row );
 
-	const data = window.blOccasionsData || {
-		inkHex: '#132343',
-		threshold: 4.5,
-	};
+	const data = window.blOccasionsData || DEFAULT_OCCASIONS_DATA;
 	updateRow( row, data.inkHex, data.threshold );
 }
 
+/**
+ * Remove the row a "remove" control sits in, if the click landed on one.
+ *
+ * @param {Element} root  The field wrapper.
+ * @param {Event}   event The delegated click event.
+ * @return {void}
+ */
+function handleRemoveRowClick( root, event ) {
+	const remove = event.target.closest( '[data-bl-occasion-remove]' );
+
+	if ( ! remove ) {
+		return;
+	}
+
+	const row = remove.closest( '[data-bl-occasion-row]' );
+	if ( row ) {
+		row.remove();
+	}
+}
+
+/**
+ * Append a blank row, if the click landed on the "add blank" control.
+ *
+ * @param {Element} root  The field wrapper.
+ * @param {Event}   event The delegated click event.
+ * @return {void}
+ */
+function handleAddBlankRowClick( root, event ) {
+	if ( event.target.closest( '[data-bl-occasions-add-blank]' ) ) {
+		addRow( root, {} );
+	}
+}
+
+/**
+ * Append a row from the currently selected preset, if the click landed on
+ * the "add preset" control.
+ *
+ * @param {Element} root  The field wrapper.
+ * @param {Event}   event The delegated click event.
+ * @return {void}
+ */
+function handleAddPresetRowClick( root, event ) {
+	if ( ! event.target.closest( '[data-bl-occasions-add-preset]' ) ) {
+		return;
+	}
+
+	const select = root.querySelector( '[data-bl-occasions-preset-select]' );
+	const chosen = select ? select.options[ select.selectedIndex ] : null;
+	const preset =
+		chosen && chosen.dataset.blOccasionPreset
+			? JSON.parse( chosen.dataset.blOccasionPreset )
+			: null;
+
+	if ( preset ) {
+		addRow( root, preset );
+	}
+}
+
 function initOccasionsField( root ) {
-	const data = window.blOccasionsData || {
-		inkHex: '#132343',
-		threshold: 4.5,
-	};
+	const data = window.blOccasionsData || DEFAULT_OCCASIONS_DATA;
 
 	root.querySelectorAll( '[data-bl-occasion-row]' ).forEach( ( row ) => {
 		updateRow( row, data.inkHex, data.threshold );
@@ -274,38 +351,13 @@ function initOccasionsField( root ) {
 		}
 	} );
 
+	// Three unrelated actions share this one delegated listener; each
+	// handler is a no-op unless the click actually landed on its own
+	// control, so trying all three in sequence is safe.
 	root.addEventListener( 'click', ( event ) => {
-		const remove = event.target.closest( '[data-bl-occasion-remove]' );
-
-		if ( remove ) {
-			const row = remove.closest( '[data-bl-occasion-row]' );
-			if ( row ) {
-				row.remove();
-			}
-			return;
-		}
-
-		if ( event.target.closest( '[data-bl-occasions-add-blank]' ) ) {
-			addRow( root, {} );
-			return;
-		}
-
-		if ( event.target.closest( '[data-bl-occasions-add-preset]' ) ) {
-			const select = root.querySelector(
-				'[data-bl-occasions-preset-select]'
-			);
-			const chosen = select
-				? select.options[ select.selectedIndex ]
-				: null;
-			const preset =
-				chosen && chosen.dataset.blOccasionPreset
-					? JSON.parse( chosen.dataset.blOccasionPreset )
-					: null;
-
-			if ( preset ) {
-				addRow( root, preset );
-			}
-		}
+		handleRemoveRowClick( root, event );
+		handleAddBlankRowClick( root, event );
+		handleAddPresetRowClick( root, event );
 	} );
 }
 

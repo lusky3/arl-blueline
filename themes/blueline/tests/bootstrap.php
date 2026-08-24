@@ -1715,6 +1715,8 @@ function blueline_test_reset(): void {
 	blueline_test_reset_settings_errors();
 	blueline_test_reset_admin_pages();
 	blueline_test_reset_inline_scripts();
+	blueline_test_reset_registered_settings();
+	blueline_test_reset_settings_page_hook();
 }
 
 if ( ! function_exists( 'add_filter' ) ) {
@@ -2285,6 +2287,7 @@ if ( ! function_exists( 'wp_unschedule_event' ) ) {
 $GLOBALS['bl_test_settings_errors']     = array();
 $GLOBALS['bl_test_registered_settings'] = array();
 $GLOBALS['bl_test_admin_pages']         = array();
+$GLOBALS['blueline_settings_page_hook'] = null;
 
 /**
  * Reset the in-memory settings-errors store. Call from setUp() (directly,
@@ -2306,6 +2309,32 @@ function blueline_test_reset_settings_errors(): void {
  */
 function blueline_test_reset_admin_pages(): void {
 	$GLOBALS['bl_test_admin_pages'] = array();
+}
+
+/**
+ * Reset the in-memory register_setting() call log. Call from setUp()
+ * (directly, or via blueline_test_reset()) in any test that asserts
+ * against it, so a stale entry from an earlier test cannot make a
+ * regressed registration look present.
+ *
+ * @return void
+ */
+function blueline_test_reset_registered_settings(): void {
+	$GLOBALS['bl_test_registered_settings'] = array();
+}
+
+/**
+ * Reset blueline_settings_page_hook()'s stored hook suffix. Call from
+ * setUp() (directly, or via blueline_test_reset()) in any test that reads
+ * or sets it, so one test's admin_menu registration cannot leak into the
+ * next -- the same shape as blueline_test_reset_hooks()'s own baseline
+ * problem, but for a single production value instead of the whole hook
+ * store.
+ *
+ * @return void
+ */
+function blueline_test_reset_settings_page_hook(): void {
+	$GLOBALS['blueline_settings_page_hook'] = null;
 }
 
 if ( ! function_exists( 'wp_unslash' ) ) {

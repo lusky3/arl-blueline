@@ -213,3 +213,32 @@ function blueline_section_widget_warning( string $key ): string {
 		$count
 	);
 }
+
+/**
+ * The capability-then-nonce guard every one of this theme's `admin-post`
+ * handlers opens with (the settings panel's export, import, restore,
+ * delete-all-data and cache-purge-notice-dismiss handlers today), extracted
+ * once rather than repeated near-verbatim at each site.
+ *
+ * Lives here, in inc/settings/sections.php, rather than in any one of those
+ * handlers' own files: it has no connection to this file's actual topic
+ * (section presence toggles), but this file is already require_once'd
+ * ahead of every one of theirs (see functions.php) and by every test that
+ * exercises them, which is what a genuinely cross-cutting helper like this
+ * one actually needs from wherever it lives.
+ *
+ * Capability first, then nonce, in that order deliberately: telling an
+ * unprivileged caller their nonce was wrong first would concede that a
+ * valid one exists for this action at all.
+ *
+ * @param string $nonce_action The check_admin_referer() action this
+ *                              request's nonce is checked against.
+ * @return void
+ */
+function blueline_settings_require_manage_options_and_nonce( string $nonce_action ): void {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( esc_html__( 'You are not allowed to do this.', 'blueline' ), 403 );
+	}
+
+	check_admin_referer( $nonce_action );
+}

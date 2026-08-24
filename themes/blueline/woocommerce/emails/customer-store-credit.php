@@ -9,7 +9,7 @@ endif;
 ?>
 
 
-<p><?php echo sprintf( __( "To redeem your credit use the following code during your next registration:", 'woocommerce-store-credit' ), $blogname ); ?></p>
+<p><?php echo esc_html__( 'To redeem your credit use the following code during your next registration:', 'woocommerce-store-credit' ); ?></p>
 
 <p style="margin: 40px 0;">
 <strong style="display: block; font-size: 2em; line-height: 1.2em; text-align: center;"><?php echo esc_html( $coupon->get_code() ); ?></strong>

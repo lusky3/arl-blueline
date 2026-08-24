@@ -12,7 +12,10 @@
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates
- * @version 11.0.0 (ARL override: adds arl_review_order_after_subtotal)
+ * @version 11.0.0 (ARL override: adds arl_review_order_after_subtotal;
+ * "Product" column header renamed to "Registration" to match the
+ * Order->Registration renames in thankyou.php and the Customer->Player
+ * renames in form-login.php)
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -20,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
 <table class="shop_table woocommerce-checkout-review-order-table">
 	<thead>
 		<tr>
-			<th class="product-name"><?php esc_html_e( 'Product', 'woocommerce' ); ?></th>
+			<th class="product-name"><?php esc_html_e( 'Registration', 'woocommerce' ); ?></th>
 			<th class="product-total"><?php esc_html_e( 'Subtotal', 'woocommerce' ); ?></th>
 		</tr>
 	</thead>

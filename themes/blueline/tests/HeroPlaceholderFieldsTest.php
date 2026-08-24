@@ -226,7 +226,7 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( 'blueline_placeholder_mismatch', $result->get_error_code() );
 		$this->assertStringContainsString( '%s', $result->get_error_message() );
-		$this->assertStringContainsString( "it's missing", $result->get_error_message() );
+		$this->assertStringContainsString( 'which is missing', $result->get_error_message() );
 	}
 
 	/**

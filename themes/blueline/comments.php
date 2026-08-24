@@ -34,10 +34,7 @@ if ( post_password_required() ) {
 		</h2>
 
 		<?php if ( get_comment_pages_count() > 1 && get_option( 'page_comments' ) ) : ?>
-			<nav class="bl-comments__nav" aria-label="<?php esc_attr_e( 'Comments', 'blueline' ); ?>">
-				<div class="bl-comments__nav-previous"><?php previous_comments_link( esc_html__( '&larr; Older comments', 'blueline' ) ); ?></div>
-				<div class="bl-comments__nav-next"><?php next_comments_link( esc_html__( 'Newer comments &rarr;', 'blueline' ) ); ?></div>
-			</nav>
+			<?php blueline_comments_nav(); ?>
 		<?php endif; ?>
 
 		<ol class="bl-comments__list">
@@ -53,10 +50,7 @@ if ( post_password_required() ) {
 		</ol>
 
 		<?php if ( get_comment_pages_count() > 1 && get_option( 'page_comments' ) ) : ?>
-			<nav class="bl-comments__nav" aria-label="<?php esc_attr_e( 'Comments', 'blueline' ); ?>">
-				<div class="bl-comments__nav-previous"><?php previous_comments_link( esc_html__( '&larr; Older comments', 'blueline' ) ); ?></div>
-				<div class="bl-comments__nav-next"><?php next_comments_link( esc_html__( 'Newer comments &rarr;', 'blueline' ) ); ?></div>
-			</nav>
+			<?php blueline_comments_nav(); ?>
 		<?php endif; ?>
 
 	<?php endif; ?>

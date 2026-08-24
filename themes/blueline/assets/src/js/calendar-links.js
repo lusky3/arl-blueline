@@ -13,6 +13,8 @@
  * on anything that is not clearly a phone both stay exactly as authored.
  */
 
+import { onReady } from './dom-ready.js';
+
 const WRAPPER = '[data-calendar-links]';
 
 /**
@@ -76,8 +78,4 @@ function initCalendarLinks() {
 	} );
 }
 
-if ( 'loading' === document.readyState ) {
-	document.addEventListener( 'DOMContentLoaded', initCalendarLinks );
-} else {
-	initCalendarLinks();
-}
+onReady( initCalendarLinks );

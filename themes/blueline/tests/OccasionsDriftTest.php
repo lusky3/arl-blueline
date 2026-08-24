@@ -40,7 +40,7 @@ final class OccasionsDriftTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
-		blueline_occasions_drift_notice_payload( null );
+		blueline_set_occasions_drift_notice_payload( null );
 		unset( $GLOBALS['bl_test_doing_ajax'] );
 		unset( $GLOBALS['pagenow'] );
 	}
@@ -78,7 +78,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		blueline_occasions_maybe_revalidate_on_drift();
 
-		$this->assertNull( blueline_occasions_drift_notice_payload() );
+		$this->assertNull( blueline_get_occasions_drift_notice_payload() );
 	}
 
 	/**
@@ -91,7 +91,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		blueline_occasions_maybe_revalidate_on_drift();
 
-		$this->assertNull( blueline_occasions_drift_notice_payload() );
+		$this->assertNull( blueline_get_occasions_drift_notice_payload() );
 		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
 	}
 
@@ -127,7 +127,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		$this->assertSame(
 			array( 'occasion:canada-day' => 'stale' ),
-			blueline_occasions_drift_notice_payload()
+			blueline_get_occasions_drift_notice_payload()
 		);
 		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
 	}
@@ -174,7 +174,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		blueline_occasions_maybe_revalidate_on_drift();
 
-		$this->assertNull( blueline_occasions_drift_notice_payload(), 'an AJAX request must set no notice payload -- nothing would ever render it' );
+		$this->assertNull( blueline_get_occasions_drift_notice_payload(), 'an AJAX request must set no notice payload -- nothing would ever render it' );
 		$this->assertSame( 'a-stale-hash', blueline_validated_against(), 'an AJAX request must not advance _validated_against past a drift it cannot report' );
 
 		unset( $GLOBALS['bl_test_doing_ajax'] );
@@ -183,7 +183,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		$this->assertSame(
 			array( 'occasion:canada-day' => 'stale' ),
-			blueline_occasions_drift_notice_payload(),
+			blueline_get_occasions_drift_notice_payload(),
 			'the very same drift must still be found on the next non-AJAX call'
 		);
 		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
@@ -226,7 +226,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		blueline_occasions_maybe_revalidate_on_drift();
 
-		$this->assertNull( blueline_occasions_drift_notice_payload(), 'an admin-post.php request must set no notice payload -- nothing would ever render it' );
+		$this->assertNull( blueline_get_occasions_drift_notice_payload(), 'an admin-post.php request must set no notice payload -- nothing would ever render it' );
 		$this->assertSame( 'a-stale-hash', blueline_validated_against(), 'an admin-post.php request must not advance _validated_against past a drift it cannot report' );
 
 		unset( $GLOBALS['pagenow'] );
@@ -235,7 +235,7 @@ final class OccasionsDriftTest extends TestCase {
 
 		$this->assertSame(
 			array( 'occasion:canada-day' => 'stale' ),
-			blueline_occasions_drift_notice_payload(),
+			blueline_get_occasions_drift_notice_payload(),
 			'the very same drift must still be found on the next non-admin-post call'
 		);
 		$this->assertSame( blueline_settings_inputs_hash(), blueline_validated_against() );
@@ -247,7 +247,7 @@ final class OccasionsDriftTest extends TestCase {
 	 * Nothing renders without `manage_options`, even with a payload set.
 	 */
 	public function test_notice_renders_nothing_without_manage_options(): void {
-		blueline_occasions_drift_notice_payload( array( 'occasion:canada-day' => 'stale' ) );
+		blueline_set_occasions_drift_notice_payload( array( 'occasion:canada-day' => 'stale' ) );
 
 		ob_start();
 		blueline_render_occasions_drift_notice();
@@ -297,7 +297,7 @@ final class OccasionsDriftTest extends TestCase {
 				),
 			)
 		);
-		blueline_occasions_drift_notice_payload( array( 'occasion:canada-day' => 'stale' ) );
+		blueline_set_occasions_drift_notice_payload( array( 'occasion:canada-day' => 'stale' ) );
 
 		ob_start();
 		blueline_render_occasions_drift_notice();
@@ -315,7 +315,7 @@ final class OccasionsDriftTest extends TestCase {
 	public function test_notice_names_the_raw_scope_for_an_orphaned_entry(): void {
 		$this->grant_manage_options();
 
-		blueline_occasions_drift_notice_payload( array( 'occasion:ghost' => 'orphaned' ) );
+		blueline_set_occasions_drift_notice_payload( array( 'occasion:ghost' => 'orphaned' ) );
 
 		ob_start();
 		blueline_render_occasions_drift_notice();
@@ -332,7 +332,7 @@ final class OccasionsDriftTest extends TestCase {
 	 */
 	public function test_notice_markup_is_a_ul_inside_a_section(): void {
 		$this->grant_manage_options();
-		blueline_occasions_drift_notice_payload( array( 'occasion:ghost' => 'orphaned' ) );
+		blueline_set_occasions_drift_notice_payload( array( 'occasion:ghost' => 'orphaned' ) );
 
 		ob_start();
 		blueline_render_occasions_drift_notice();

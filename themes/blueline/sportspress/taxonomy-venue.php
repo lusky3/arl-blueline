@@ -189,7 +189,13 @@ if ( $term_id && $address && taxonomy_exists( 'sp_venue' ) ) {
 				?>
 
 				<?php if ( ! $has_any_events ) : ?>
-					<?php get_template_part( 'content', 'none' ); ?>
+					<?php
+					// This template already rendered its own H1 above
+					// (the_archive_title(), in the header just above), so
+					// content-none.php's own heading must not be a second
+					// H1 on the page.
+					get_template_part( 'content', 'none', array( 'heading_level' => 'h2' ) );
+					?>
 				<?php endif; ?>
 
 				<?php if ( $upcoming_query->have_posts() ) : ?>

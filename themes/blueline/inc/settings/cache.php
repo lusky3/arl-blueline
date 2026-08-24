@@ -477,11 +477,7 @@ add_action( 'admin_post_blueline_dismiss_cache_purge_notice', 'blueline_handle_d
  * @return void
  */
 function blueline_handle_dismiss_cache_purge_notice(): void {
-	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_die( esc_html__( 'You are not allowed to do this.', 'blueline' ), 403 );
-	}
-
-	check_admin_referer( 'blueline_dismiss_cache_purge_notice' );
+	blueline_settings_require_manage_options_and_nonce( 'blueline_dismiss_cache_purge_notice' );
 
 	blueline_clear_cache_purge_needed();
 

@@ -10,11 +10,9 @@ defined( 'ABSPATH' ) || exit;
 get_header();
 
 $has_sidebar = is_active_sidebar( 'sidebar-1' );
+
+blueline_page_wrapper_start( $has_sidebar );
 ?>
-<main id="main" class="bl-main" tabindex="-1">
-	<div class="bl-container">
-		<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
-			<div class="bl-content-layout__primary">
 				<?php
 				while ( have_posts() ) :
 					the_post();
@@ -26,12 +24,7 @@ $has_sidebar = is_active_sidebar( 'sidebar-1' );
 					endif;
 				endwhile;
 				?>
-			</div>
-			<?php if ( $has_sidebar ) : ?>
-				<?php get_sidebar(); ?>
-			<?php endif; ?>
-		</div>
-	</div>
-</main>
 <?php
+blueline_page_wrapper_end( $has_sidebar );
+
 get_footer();

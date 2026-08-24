@@ -60,12 +60,31 @@
 	color: var(--bl-content-text);
 }
 
-.woocommerce-message {
+/*
+ * WooCommerce's own icon font (::before, absolutely positioned at
+ * left: 1.5em/top: 1em) assumes the 3.5em-left padding its stock rule
+ * sets on this same selector. The flex layout above replaces that
+ * with a smaller, symmetric padding, so the glyph renders on top of
+ * the notice's first couple of characters instead of beside them --
+ * confirmed live on an empty My Account page. The border/tint
+ * language above already carries the same success/warning/danger
+ * meaning, so the icon is redundant as well as broken: hide it rather
+ * than re-deriving the asymmetric padding it needs to sit correctly.
+ */
+.woocommerce-message::before,
+.woocommerce-error::before,
+.woocommerce-info::before {
+	content: none;
+}
+
+.woocommerce-message,
+.woocommerce-notice--success {
 	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
 	border-color: var(--bl-success);
 }
 
-.woocommerce-error {
+.woocommerce-error,
+.woocommerce-notice--error {
 	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-content-surface));
 	border-color: var(--bl-danger);
 }
@@ -73,16 +92,6 @@
 .woocommerce-error li {
 	list-style: none;
 	color: var(--bl-danger);
-}
-
-.woocommerce-message,
-.woocommerce-notice--success {
-	border-inline-start-color: var(--bl-success);
-}
-
-.woocommerce-error,
-.woocommerce-notice--error {
-	border-inline-start-color: var(--bl-danger);
 }
 
 /* --bl-ice is fill-only (1.94:1); navy text on top keeps this AA. */
@@ -682,6 +691,27 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 .woocommerce-checkout .create-account {
 	margin-block-start: var(--bl-space-3);
+}
+
+/*
+ * blueline_checkout_reassurance() (inc/woocommerce.php) -- a short brand-
+ * voice note above the form, same card treatment as the coupon/login
+ * toggles just below it.
+ */
+.bl-checkout-reassurance {
+	padding: var(--bl-space-5);
+	margin-block-end: var(--bl-space-5);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-checkout-reassurance p {
+	margin: 0 0 var(--bl-space-3);
+}
+
+.bl-checkout-reassurance p:last-child {
+	margin-block-end: 0;
 }
 
 .woocommerce-form-coupon-toggle,

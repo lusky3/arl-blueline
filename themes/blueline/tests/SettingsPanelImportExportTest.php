@@ -46,6 +46,7 @@ require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/import.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
+require_once __DIR__ . '/../inc/settings/import-export-handlers.php'; // The export and import request handlers exercised below.
 
 if ( ! defined( 'WP_CLI' ) ) {
 	define( 'WP_CLI', true );

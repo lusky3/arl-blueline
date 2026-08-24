@@ -5,19 +5,19 @@
  * About 84% of current-season players carry sp_user (76 of the 90 players
  * tagged with the current sp_season term, measured on staging 2026-08-11), so
  * everything here must still behave sensibly for the remaining ~16% with no
- * link -- a real minority to serve well, not the default case.
+ * link, a real minority to serve well, not the default case.
  *
  * CORRECTED PREMISE (found during Task 14's review, 2026-08-11; the
  * percentages above are Task 16's corrected figures): the original "12%"
  * figure, and the original candidate pool below, were both
  * built on `sp_current_team NOT IN ('','0')` as the definition of
- * "current-season player." That field is NOT season-scoped -- it is a
+ * "current-season player." That field is NOT season-scoped; it is a
  * STICKY "last team this player was ever rostered onto" value, set on
  * 2,037 of 2,134 sp_player posts ever created (95% of every player in the
  * system's history). Filtering on it alone meant every unlinked user's
  * claim card was scored against two decades of names, including players who
  * last played years ago, raising the odds of a wrong-identity match on a
- * common name -- the one failure mode this whole feature exists to avoid.
+ * common name, which is the one failure mode this whole feature exists to avoid.
  * Real season membership lives in the `sp_season` taxonomy instead (a
  * genuine per-season tag on sp_player, confirmed live: term 674 "W2026-27"
  * tags exactly 90 posts, term 654 "W2025-26" tags 524). See
@@ -83,12 +83,12 @@ function blueline_name_match_score( string $a, string $b ): float {
  * must carry before a blueline_name_match_score() between them may be trusted
  * to identify a person.
  *
- * Two, because one is not a name -- it is a fragment that identifies nobody.
+ * Two, because one is not a name; it is a fragment that identifies nobody.
  */
 const BLUELINE_MATCH_MIN_TOKENS = 2;
 
 /**
- * The distinct, normalised tokens of $name -- the same token set
+ * The distinct, normalised tokens of $name, which are the same token set
  * blueline_name_match_score() scores against, exposed on its own so the
  * candidate gate below can reason about set SIZE without reimplementing
  * (or perturbing) that function's normalisation.
@@ -101,7 +101,7 @@ function blueline_name_tokens( string $name ): array {
 }
 
 /**
- * SECURITY GATE -- may a score between these two names be offered as a
+ * SECURITY GATE: may a score between these two names be offered as a
  * candidate identity at all?
  *
  * The matcher, blueline_name_match_score(), divides the token intersection by
@@ -112,14 +112,14 @@ function blueline_name_tokens( string $name ): array {
  *   "Smith"   vs "John Smith"         => 1.0000
  *
  * That formula is plan-mandated and pinned by six verbatim unit tests, and is
- * deliberately NOT changed -- scoring against the smaller set is what lets a
+ * deliberately NOT changed, because scoring against the smaller set is what lets a
  * real "Cody James Lusk" match "Cody Lusk". The hazard is not the arithmetic;
  * it is WHICH pairs are allowed to reach it. blueline_user_match_name() builds
  * the account side of that comparison from `billing_first_name` +
  * `billing_last_name`, both of which the account holder edits themselves at
  * /account/edit-address/. A user who blanks their surname and sets their given
  * name to a single common token would otherwise be offered EVERY current-season
- * player sharing that token at a perfect 1.0, one click from confirming -- and
+ * player sharing that token at a perfect 1.0, one click from confirming, and
  * blueline_link_player_to_user()'s three invariants would not stop it, because
  * they check that the CHOSEN player is unclaimed, not that the candidate list
  * was honestly derived. The consequence is identity squatting: the claimant
@@ -127,7 +127,7 @@ function blueline_name_tokens( string $name ): array {
  * real player is then permanently locked out with `already_linked`.
  *
  * The same hole reached scripts/one-off/2026-08-11-sp-user-backfill.php, whose
- * AUTO rule is "exactly one candidate >= 0.95" -- because its pool excludes
+ * AUTO rule is "exactly one candidate >= 0.95", because its pool excludes
  * already-linked players, a single-token name whose only remaining namesake is
  * the WRONG one is a unique 1.0 and would have been written automatically.
  *
@@ -158,7 +158,7 @@ function blueline_name_pair_is_specific_enough( string $a, string $b ): bool {
  *
  * A plain function-static can only be reached from inside the one function
  * that declares it, so the shared state lives here instead, behind a
- * by-reference accessor -- still request-scoped (it resets on every PHP
+ * by-reference accessor. It is still request-scoped (it resets on every PHP
  * process), just visible to more than one function.
  *
  * @return array<int, int|null> Reference to the live cache.
@@ -227,7 +227,7 @@ function blueline_forget_linked_player_cache( int $user_id ): void {
  * ATTACKER-CONTROLLED: both billing fields are editable by the account holder
  * at /account/edit-address/, and display_name is editable at
  * /account/edit-account/. Nothing this returns may be treated as evidence of
- * identity on its own -- see blueline_name_pair_is_specific_enough().
+ * identity on its own; see blueline_name_pair_is_specific_enough().
  *
  * @param int $user_id WordPress user ID.
  * @return string Trimmed full name, possibly empty for a user with neither.
@@ -258,15 +258,15 @@ function blueline_user_match_name( int $user_id ): string {
  * roster starts at zero and fills in gradually as registrants are assigned
  * to teams over the weeks a registration window is open, so the meaningful
  * question is "how much of last season's final roster size has this one
- * reached so far" -- a ratio that self-calibrates to however large the
+ * reached so far," which is a ratio that self-calibrates to however large the
  * league happens to be, rather than a constant that would need re-tuning as
  * the league grows or shrinks year to year.
  *
  * Verified live 2026-08-11, the exact case this function exists for:
- * newest = W2026-27 (90 players), previous = W2025-26 (524) -- 90/524 =~
+ * newest = W2026-27 (90 players), previous = W2025-26 (524); 90/524 =~
  * 17%, clearly still filling in. Restricting the claim pool to those 90
  * alone right now would make ~1,947 other sp_current_team players
- * (including many who registered for W2026-27 this same week -- see Task
+ * (including many who registered for W2026-27 this same week; see Task
  * 14's report) invisible to both the self-service claim flow and the
  * backfill script, simply because SportsPress has not yet re-tagged their
  * player post with the new season term.
@@ -281,7 +281,7 @@ function blueline_is_claim_pool_sparse( int $current_count, int $previous_count 
 	}
 
 	if ( $previous_count <= 0 ) {
-		return false; // Nothing to compare against -- take the newest term at face value.
+		return false; // Nothing to compare against, so take the newest term at face value.
 	}
 
 	return ( $current_count / $previous_count ) < BLUELINE_CLAIM_POOL_SPARSE_RATIO;
@@ -289,20 +289,20 @@ function blueline_is_claim_pool_sparse( int $current_count, int $previous_count 
 
 /**
  * Recognised sp_season slug shape: a leading session letter ("w" for
- * Winter, "s" for Summer) immediately followed by a digit -- e.g.
+ * Winter, "s" for Summer) immediately followed by a digit, e.g.
  * "w2026-27", "s2026". Deliberately a real pattern match, not "whichever
  * character the slug happens to start with": the latter would silently
  * treat any future slugging convention starting with something else (e.g.
  * a year-first "2026-winter") as belonging to session "2" for every term
  * that happened to share that first character, silently re-merging Winter
- * and Summer into one pool -- exactly the cross-session bug this pattern
+ * and Summer into one pool, which is exactly the cross-session bug this pattern
  * exists to keep from coming back unnoticed.
  */
 const BLUELINE_SEASON_SLUG_SESSION_PATTERN = '/^([ws])\d/i';
 
 /**
  * The session letter ("w" or "s") a sp_season slug belongs to, per
- * BLUELINE_SEASON_SLUG_SESSION_PATTERN -- or null if the slug does not
+ * BLUELINE_SEASON_SLUG_SESSION_PATTERN, or null if the slug does not
  * match that recognised shape at all. Null is a real, load-bearing answer
  * here, not an error to paper over: callers must not guess a session for a
  * slug this can't classify.
@@ -320,7 +320,7 @@ function blueline_season_slug_session_letter( string $slug ): ?string {
 
 /**
  * Report a sp_season term whose slug does not match
- * BLUELINE_SEASON_SLUG_SESSION_PATTERN -- loudly, under WP_DEBUG, rather
+ * BLUELINE_SEASON_SLUG_SESSION_PATTERN, loudly and under WP_DEBUG, rather
  * than silently excluding or silently guessing its session. A slug this
  * cannot classify is exactly the situation that let W2026-27/S2026 merge
  * into one pool before that specific case was caught; the next unrecognised
@@ -334,7 +334,7 @@ function blueline_log_nonconforming_season_slug( int $term_id, string $slug ): v
 		return;
 	}
 
-	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- WP_DEBUG-gated, deliberate: an unclassifiable sp_season slug must never fail silently -- see blueline_resolve_claim_pool_term_ids()'s docblock.
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- WP_DEBUG-gated, deliberate: an unclassifiable sp_season slug must never fail silently; see blueline_resolve_claim_pool_term_ids()'s docblock.
 	error_log(
 		sprintf(
 			'[blueline] sp_season term %1$d has slug "%2$s", which does not match the recognised w<digit>/s<digit> session shape. Excluded from the claim/backfill candidate pool rather than guessed into a session.',
@@ -346,10 +346,10 @@ function blueline_log_nonconforming_season_slug( int $term_id, string $slug ): v
 
 /**
  * The number of sp_player posts tagged with $term_id in the sp_season
- * taxonomy -- deliberately NOT the term's own ->count property from
+ * taxonomy, deliberately NOT the term's own ->count property from
  * get_terms(). That property counts every post type sp_season is
  * registered for (sp_event, sp_table, sp_player all share this one
- * taxonomy), not sp_player specifically -- confirmed live 2026-08-11: term
+ * taxonomy), not sp_player specifically. Confirmed live 2026-08-11: term
  * 666 "S2026" reports ->count = 568, but only 350 of those relationships
  * are to sp_player posts (the rest are events/tables tagged with the same
  * season). Using the raw ->count would make a season with many tagged
@@ -382,28 +382,28 @@ function blueline_sp_season_player_count( int $term_id ): int {
 
 /**
  * Pure resolver: given a list of non-playoff sp_season terms as plain data
- * (already ordered newest-first by term_id -- e.g. from get_terms()), and a
+ * (already ordered newest-first by term_id, e.g. from get_terms()), and a
  * callable that reports a term's real sp_player member count, decide which
  * term_id(s) form the claim/backfill candidate pool. Kept free of WordPress
  * calls (get_terms()/WP_Query live in blueline_claim_pool_season_term_ids(),
- * the thin wrapper below) so this -- the actual fragile decision logic --
+ * the thin wrapper below) so this, the actual fragile decision logic,
  * can be unit tested directly, the same pure/impure split this file already
  * uses for blueline_is_claim_pool_sparse() vs. the query functions around it.
  *
  * ADDITIVE, not exclusive-or: the newest term is ALWAYS included in the
  * result, even when it is judged sparse; a fallback term is ADDED alongside
  * it, never substituted in its place. A single-term result would make a
- * genuine first-time registrant -- tagged only with the brand-new season,
- * carrying no history at all -- invisible during exactly the early-season
+ * genuine first-time registrant, tagged only with the brand-new season and
+ * carrying no history at all, invisible during exactly the early-season
  * window they are most likely to need the claim flow. Verified live
  * 2026-08-11 that this matters, not just in theory: today's real newest
  * term (674 "W2026-27", 90 players) is judged sparse against 654's 524, so
- * the resolved pool is BOTH terms -- a returning player tagged only with
+ * the resolved pool is BOTH terms: a returning player tagged only with
  * 654 and a first-timer tagged only with 674 are both reachable.
  *
  * Session-scoped: every comparison and fallback stays within the terms
  * sharing the newest term's own session letter
- * (blueline_season_slug_session_letter()) -- see
+ * (blueline_season_slug_session_letter()); see
  * blueline_claim_pool_season_term_ids()'s docblock for why crossing
  * sessions (Winter vs. Summer) is a real, previously-live bug, not a
  * hypothetical. A term whose slug does not match the recognised session
@@ -411,13 +411,13 @@ function blueline_sp_season_player_count( int $term_id ): int {
  * blueline_log_nonconforming_season_slug() by the caller, since this
  * function is pure and does no logging itself) rather than guessed into
  * either session. If the NEWEST term itself is unclassifiable, this
- * returns an empty array -- the caller then degrades to the broad,
+ * returns an empty array; the caller then degrades to the broad,
  * pre-fix pool, since there is no reliable session anchor to scope by at
  * all.
  *
  * @param array<int, array{term_id:int, slug:string}> $terms    Non-playoff sp_season terms, newest first.
  * @param callable                                    $count_fn int $term_id -> int sp_player member count.
- * @return int[] Term ID(s) to include in the pool -- empty if nothing usable.
+ * @return int[] Term ID(s) to include in the pool; empty if nothing usable.
  */
 function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn ): array {
 	if ( empty( $terms ) ) {
@@ -427,7 +427,7 @@ function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn 
 	$current_letter = blueline_season_slug_session_letter( $terms[0]['slug'] );
 
 	if ( null === $current_letter ) {
-		return array(); // Anchor term's shape is unreliable -- no session to scope by.
+		return array(); // Anchor term's shape is unreliable, so there is no session to scope by.
 	}
 
 	$same_session_terms = array();
@@ -463,7 +463,7 @@ function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn 
 
 /**
  * The sp_season term_id(s) whose members form the claim/backfill candidate
- * pool -- always including the current season, additionally including the
+ * pool: always including the current season, additionally including the
  * most recent one with actual sp_player members when the current one is
  * still sparse. The actual decision logic lives in
  * blueline_resolve_claim_pool_term_ids() (pure, unit tested); this function
@@ -471,19 +471,19 @@ function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn 
  * reports anything unclassifiable.
  *
  * Playoff sub-terms (e.g. "S2026 Playoffs") are excluded from consideration
- * entirely -- same "slug contains playoff" signal Season State uses
- * (inc/season-state.php) -- because they are a POSTSEASON SUBSET of a
+ * entirely, the same "slug contains playoff" signal Season State uses
+ * (inc/season-state.php), because they are a POSTSEASON SUBSET of a
  * season's roster, not its base roster; comparing a fresh regular season's
  * count against an already-final playoff round's count would compare the
  * wrong two populations.
  *
  * This league runs BOTH a Winter and a Summer session, tagged with
- * interleaved sp_season terms sharing one term_id sequence -- confirmed
+ * interleaved sp_season terms sharing one term_id sequence. Confirmed
  * live 2026-08-11: 674 "W2026-27", 666 "S2026", 654 "W2025-26", 647
  * "S2025", ... A fallback that walked that sequence blindly by term_id
  * would, and on this exact live data DID before this restriction was added,
  * land on the newest term of the OTHER session (S2026) instead of the
- * previous term of the SAME session (W2025-26) -- silently excluding any
+ * previous term of the SAME session (W2025-26), silently excluding any
  * genuinely-current Winter registrant whose player post happens not to
  * carry a Summer tag simply because they don't play the other session
  * (verified live: a real current W2026-27 registrant carries W2025-26 and
@@ -525,7 +525,7 @@ function blueline_claim_pool_season_term_ids(): array {
 
 	// The newest non-playoff term is the anchor the whole resolution below
 	// depends on. If ITS shape can't be classified, there is no reliable
-	// session to scope by at all -- treating the next-newest term as if IT
+	// session to scope by at all; treating the next-newest term as if IT
 	// were "current" instead would itself be a guess (possibly the wrong
 	// one, if the true newest term really was this season's, just
 	// unconventionally named). Degrade to the broad, pre-fix pool entirely
@@ -539,7 +539,7 @@ function blueline_claim_pool_season_term_ids(): array {
 	foreach ( $non_playoff_terms as $term ) {
 		if ( null === blueline_season_slug_session_letter( $term->slug ) ) {
 			blueline_log_nonconforming_season_slug( (int) $term->term_id, $term->slug );
-			continue; // Not the anchor -- safely excluded rather than guessed into a session.
+			continue; // Not the anchor, so it's safely excluded rather than guessed into a session.
 		}
 
 		$season_terms[] = array(
@@ -554,12 +554,12 @@ function blueline_claim_pool_season_term_ids(): array {
 /**
  * Current-season (plus, during the pre-roster window described by
  * blueline_claim_pool_season_term_ids(), the most-recent-populated season
- * too -- ADDITIVE, both at once, not one-or-the-other) sp_player post IDs
+ * too, ADDITIVE, both at once, not one-or-the-other) sp_player post IDs
  * that are not already linked to a DIFFERENT user than
  * $exclude_linked_to_user_id.
  *
  * Season-scoped via blueline_claim_pool_season_term_ids() as of the Task 14
- * review fixes (2026-08-11) -- see this file's header docblock for why the
+ * review fixes (2026-08-11); see this file's header docblock for why the
  * previous `sp_current_team`-only definition let the claim pool include two
  * decades of retired players. `sp_current_team` (still required to be set,
  * defense in depth: a season-tagged player with genuinely no team would be
@@ -568,7 +568,7 @@ function blueline_claim_pool_season_term_ids(): array {
  *
  * Why additive: an EARLIER version of this fix scoped to a single term
  * (current, or the fallback when current was sparse) and was caught in
- * review before shipping -- during the pre-roster window right now, that
+ * review before shipping, because during the pre-roster window right now, that
  * would have made a genuine first-time registrant (tagged only with the
  * brand-new current season, no history at all) invisible to the claim card
  * for the exact weeks they most need it, since only 4 RETURNING players
@@ -582,10 +582,10 @@ function blueline_claim_pool_season_term_ids(): array {
  * has no usable terms, or the newest term's slug can't be classified into a
  * session at all (blueline_claim_pool_season_term_ids() returns an empty
  * array in every one of those cases), this falls back to the PRE-FIX,
- * sp_current_team-only pool -- broader and more collision-prone, but a
+ * sp_current_team-only pool: broader and more collision-prone, but a
  * working claim flow beats a broken one.
  *
- * Queried lean -- ids only, via meta_query/tax_query at the SQL level --
+ * Queried lean, ids only, via meta_query/tax_query at the SQL level,
  * because this can run on a logged-in page load; loading full post objects
  * just to filter in PHP would not scale.
  *
@@ -636,7 +636,7 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
 			array(
 				'taxonomy' => 'sp_season',
 				'field'    => 'term_id',
-				'terms'    => $season_term_ids, // Array + default 'compare' => 'IN' -- additive OR, see docblock.
+				'terms'    => $season_term_ids, // Array + default 'compare' => 'IN' means additive OR; see docblock.
 			),
 		);
 	}
@@ -650,13 +650,13 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
  *
  * Excludes players already linked to a different user; a player already
  * claimed by someone else is never offered here, which is also what keeps
- * the admin_post_blueline_claim_player handler safe -- it only accepts a
+ * the admin_post_blueline_claim_player handler safe, since it only accepts a
  * player_id that appears in this list.
  *
  * The name this scores with is USER-EDITABLE (blueline_user_match_name() reads
  * billing_first_name/billing_last_name, which the account holder sets at
  * /account/edit-address/), so every pair must clear
- * blueline_name_pair_is_specific_enough() before it is scored at all -- see
+ * blueline_name_pair_is_specific_enough() before it is scored at all; see
  * blueline_score_player_candidates().
  *
  * @param int $user_id WordPress user ID.
@@ -706,8 +706,8 @@ function blueline_find_player_candidates( int $user_id ): array {
 }
 
 /**
- * Disambiguating detail for one claim candidate -- team, season, jersey
- * number -- shown alongside the bare name on the claim card (P4 finding 6).
+ * Disambiguating detail for one claim candidate: team, season, jersey
+ * number, shown alongside the bare name on the claim card (P4 finding 6).
  * Without it, two players sharing a common name are offered as identical
  * rows with an identical "Yes, that's me" button, and the user is guessing.
  *
@@ -735,7 +735,7 @@ function blueline_player_candidate_detail( int $player_id ): array {
 
 /**
  * The name of whichever blueline_claim_pool_season_term_ids() term
- * $player_id actually carries -- the season that made this player a claim
+ * $player_id actually carries, the season that made this player a claim
  * candidate in the first place, not their entire multi-year sp_season tag
  * history. Pool terms are newest-first, so a player tagged with both the
  * current and a sparse-pool fallback season reports the current one.
@@ -774,13 +774,13 @@ function blueline_player_candidate_season_label( int $player_id ): string {
  * Pure scorer: given one account name and a player_id => player_name map,
  * the candidates worth offering, best first.
  *
- * This is the single gate every claim path crosses --
+ * This is the single gate every claim path crosses:
  * blueline_find_player_candidates() above, and therefore
  * scripts/one-off/2026-08-11-sp-user-backfill.php's AUTO path too, since that
  * script delegates all matching here rather than reimplementing it. A
  * candidate must clear BOTH bars to be offered:
  *
- *   1. blueline_name_pair_is_specific_enough() -- neither side may be a
+ *   1. blueline_name_pair_is_specific_enough(): neither side may be a
  *      single-token fragment. See that function for the identity-squatting
  *      attack this closes.
  *   2. BLUELINE_MATCH_THRESHOLD on blueline_name_match_score().
@@ -822,7 +822,7 @@ function blueline_score_player_candidates( string $name, array $player_names ): 
 }
 
 /**
- * The post_title for each of $post_ids, in one query -- a targeted title
+ * The post_title for each of $post_ids, in one query: a targeted title
  * fetch instead of get_the_title()/get_post() per row, which would each hit
  * the object cache (or the DB, on a miss) once per candidate.
  *
@@ -900,7 +900,7 @@ add_action( 'admin_post_blueline_claim_player', 'blueline_handle_claim_player_su
  *
  * The nonce ties the submission to blueline_claim_player, and the submitted
  * player_id is only ever honoured if it appears in that user's OWN current
- * blueline_find_player_candidates() list -- so even a tampered request
+ * blueline_find_player_candidates() list, so even a tampered request
  * cannot be used to claim a player who is not a genuine name match for the
  * logged-in account, and never one already claimed by someone else.
  */

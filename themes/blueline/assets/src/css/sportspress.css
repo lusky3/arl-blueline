@@ -3,13 +3,13 @@
  *
  * Correction (P0/P1 pass): sportspress_enable_frontend_css is unset
  * (defaults to "no"), which does turn off the plugin's big, TOGGLE-gated
- * frontend stylesheet -- but a SEPARATE, small, always-loaded core
+ * frontend stylesheet, but a SEPARATE, small, always-loaded core
  * stylesheet (includes/sportspress/assets/css/sportspress.css, confirmed
  * live regardless of that option) ships with the plugin unconditionally.
- * It supplies structural rules this file relies on rather than repeats --
- * `.sp-header{z-index:10000}` (the P0 finding 1 bug), `.data-home`/
- * `.data-away` text-align, `.team-logo` base sizing, `date{display:none}`
- * inside .sp-event-list -- so "SportsPress emits no CSS" is not quite true;
+ * It supplies structural rules this file relies on rather than repeats,
+ * such as `.sp-header{z-index:10000}` (the P0 finding 1 bug), `.data-home`/
+ * `.data-away` text-align, `.team-logo` base sizing, and `date{display:none}`
+ * inside .sp-event-list. So "SportsPress emits no CSS" is not quite true;
  * "SportsPress emits no VISUAL/colour styling" is the accurate version.
  * Reuses base.css utilities (.bl-container, .bl-skew, .bl-band/.bl-band--ink,
  * table defaults) rather than redefining them.
@@ -46,8 +46,8 @@
 
 	/* The hero (.sp-scoreboard / .bl-sp-hero) sits flush under the header's
 	   own blue-line bands, exactly like .bl-main--homepage does for the
-	   season hero -- .bl-main's normal top padding would otherwise leave a
-	   paper-white gap above it. */
+	   season hero, because .bl-main's normal top padding would otherwise
+	   leave a paper-white gap above it. */
 	padding-block-start: 0;
 }
 
@@ -59,13 +59,14 @@
  * wrapper's own content is never taller than itself, so it should never
  * need to scroll vertically at all. It was added while chasing a sticky-
  * table-header attempt (see .sp-league-table's own comment below for the
- * full finding) -- explicitly declaring "no vertical overflow behaviour
+ * full finding); explicitly declaring "no vertical overflow behaviour
  * wanted" here did NOT restore position: sticky for content inside this
  * wrapper (confirmed empirically: even overflow-y: visible forced via an
  * !important inline style still computed as "auto" once overflow-x is
- * non-visible -- there is no per-axis escape from that pairing while this
- * wrapper needs horizontal scrolling). Kept anyway since it is harmless
- * and semantically accurate; the sticky-header idea itself was abandoned.
+ * non-visible, since there is no per-axis escape from that pairing while
+ * this wrapper needs horizontal scrolling). Kept anyway since it is
+ * harmless and semantically accurate; the sticky-header idea itself was
+ * abandoned.
  */
 .bl-table-scroll {
 	overflow-x: auto;
@@ -75,20 +76,21 @@
 
 /*
  * Self-contained scroll fallback for a <table> that has no .bl-table-scroll
- * wrapper ancestor -- added directly to the table itself by
+ * wrapper ancestor, added directly to the table itself by
  * blueline_sp_ensure_tables_scroll() (inc/sportspress.php) for any table
  * SportsPress (or a future SportsPress update, or any other plugin) emits
  * without its own wrapper. event-venue.php's embedded Leaflet-map table is
  * the one that needs this today (confirmed live at 390px: its fixed pixel
  * width overflowed the page body by 26px before this existed), but the
- * class is deliberately generic, not named after that one table -- this is
- * the defence-in-depth layer, not a special case for a single selector.
+ * class is deliberately generic, not named after that one table, because
+ * this is the defence-in-depth layer, not a special case for a single
+ * selector.
  *
  * min-width: 0 overrides the generic .sp-data-table's own
  * min-width: max-content below (that rule exists so *wrapper-scrolled*
  * tables never squish their columns, but it would also force a
- * self-scrolled table wider than its own 100% width -- min-width always
- * wins over a conflicting width, which is exactly how the original
+ * self-scrolled table wider than its own 100% width, since min-width
+ * always wins over a conflicting width, which is exactly how the original
  * body-overflow bug happened here).
  *
  * `table.bl-table-self-scroll` (element + class), not just `.bl-table-
@@ -96,7 +98,7 @@
  * elements (blueline_sp_ensure_tables_scroll() only ever queries //table),
  * and the extra element-type specificity guarantees this rule beats
  * .sp-data-table's single-class specificity regardless of which rule
- * happens to come first in the file -- confirmed live that a same-
+ * happens to come first in the file. This was confirmed live: a same-
  * specificity version of this exact rule silently lost to .sp-data-table
  * (min-width stayed max-content, the table stayed 391.5px wide, and the
  * body overflowed exactly as before) purely because of source order.
@@ -108,13 +110,13 @@ table.bl-table-self-scroll {
 	min-width: 0;
 	overflow-x: auto;
 
-	/* overflow-y: clip -- defensive, not load-bearing; see .bl-table-scroll's
+	/* overflow-y: clip is defensive, not load-bearing; see .bl-table-scroll's
 	   own comment above. */
 	overflow-y: clip;
 }
 
 /* ---- Generic SP data-table chrome (league table, event blocks, event
-   calendar, player list, player statistics, event details/venue -- every
+   calendar, player list, player statistics, event details/venue: every
    .sp-data-table wherever it appears) ---- */
 
 .sp-table-wrapper {
@@ -156,7 +158,7 @@ table.bl-table-self-scroll {
 	border-bottom: 2px solid var(--bl-content-border-strong);
 }
 
-/* Zebra rows -- SP's own row classes, .odd/.even. */
+/* Zebra rows: SP's own row classes, .odd/.even. */
 .sp-data-table tbody tr.odd {
 	background: var(--bl-content-surface);
 }
@@ -172,12 +174,12 @@ table.bl-table-self-scroll {
 
 /* Real, currently-emitted highlight class: today's calendar cell, a
    player/team's own row in a trimmed table, the active-season stat column.
-   Fill only, ink text on top -- the same vetted 7.69:1 pairing as
+   Fill only, ink text on top, matching the same vetted 7.69:1 pairing as
    .bl-btn--primary's ice fill (tools/check-contrast.mjs).
 
    Finding 13: on a team's own single page, --bl-team-primary/-on-primary are
    declared on <main> itself (single-team.php), which is an ANCESTOR of this
-   cell (the_content()'s own league-table markup) -- so a team's own division
+   cell (the_content()'s own league-table markup), so a team's own division
    row picks up ITS colour here instead of the theme's generic ice fill,
    purely through custom-property inheritance. Everywhere else on the site
    (standings page, calendars, any other .sp-highlight) those properties are
@@ -204,23 +206,24 @@ table.bl-table-self-scroll {
 	margin-inline-end: var(--bl-space-2);
 	object-fit: contain;
 
-	/* Team logos sit on light ground here -- never invert them. */
+	/* Team logos sit on light ground here, so never invert them. */
 	filter: none;
 }
 
 /* ---- League table: header emphasis, --bl-ice position column ----
  *
- * position: sticky on the header row was attempted and removed -- verified
- * live, and disclosing rather than shipping non-functional CSS: this
+ * position: sticky on the header row was attempted and removed after being
+ * verified live not to work; this comment discloses that finding rather
+ * than shipping non-functional CSS silently. This
  * table's own .sp-table-wrapper needs overflow-x: auto for the horizontal-
  * scroll hard constraint, and per the CSS Overflow spec, any ancestor with
  * a non-visible overflow-x makes that same ancestor a scroll container on
  * BOTH axes (confirmed empirically: forcing overflow-y: visible on the
  * wrapper via an !important inline style still computed as "auto", and the
- * same was true for overflow-y: clip -- there is no per-axis escape from
- * this pairing once overflow-x is non-visible). That makes .sp-table-
+ * same was true for overflow-y: clip, since there is no per-axis escape
+ * from this pairing once overflow-x is non-visible). That makes .sp-table-
  * wrapper, not the page viewport, the sticky-positioning containing block
- * for anything nested inside it -- and since the wrapper is never taller
+ * for anything nested inside it, and since the wrapper is never taller
  * than the table itself, "sticky within the wrapper" has no room to
  * visibly do anything as the outer page scrolls. This is a well-known,
  * general CSS limitation (sticky headers inside a horizontally-scrollable
@@ -294,7 +297,7 @@ table.bl-table-self-scroll {
 /* ---- Player list (SP's own <table class="sp-player-list">) ----
    The brief names .sp-player-list alongside .sp-team-list for "roster
    grids". team-lists.php's own override never emits .sp-player-list (it
-   builds .sp-team-list cards directly instead) -- this class is what
+   builds .sp-team-list cards directly instead); this class is what
    SportsPress's [player_list] shortcode/player-list.php template emits
    wherever it's used outside that override (e.g. embedded directly in a
    page). Below a real card-grid width, this table restructures into a
@@ -371,11 +374,11 @@ table.bl-table-self-scroll {
 
 /* ---- Theme-owned roster list override: sportspress/team-lists.php ----
  *
- * Finding 8: replaces the earlier 16-up identical-card grid (banned pattern
- * -- big number, small name, "SKATER" repeated on almost every card) with a
+ * Finding 8: replaces the earlier 16-up identical-card grid (banned pattern:
+ * big number, small name, "SKATER" repeated on almost every card) with a
  * compact list. A roster is scanned for NAMES, so the name is now the
  * largest, most prominent element in each row (~18px, the same link colour
- * team names get in the tables below -- .sp-data-table's own default `a`
+ * team names get in the tables below; .sp-data-table's own default `a`
  * styling, not overridden to plain ink the way the old card grid did), the
  * number is a small fixed-width tabular column, and position shows only
  * when it isn't "Skater".
@@ -527,7 +530,7 @@ table.bl-table-self-scroll {
 	height: 64px;
 	object-fit: contain;
 
-	/* Team logos sit on the hero's navy ground; still not inverted -- most
+	/* Team logos sit on the hero's navy ground; still not inverted, because most
 	   crests already carry their own light backing shape. */
 	background: var(--bl-white);
 	border-radius: 50%;
@@ -679,9 +682,9 @@ table.bl-table-self-scroll {
 }
 
 /* Finding 7: players get the same photo/fallback treatment teams get
-   (previously the player hero had no image slot at all) -- circular rather
-   than the team's rounded-square plate, so a player photo and a team crest
-   never read as the same kind of object at a glance. */
+   (previously the player hero had no image slot at all), using a circular
+   shape rather than the team's rounded-square plate, so a player photo and
+   a team crest never read as the same kind of object at a glance. */
 .bl-sp-hero__crest--player {
 	overflow: hidden;
 	border: 1px solid var(--bl-content-border-strong);
@@ -721,13 +724,13 @@ table.bl-table-self-scroll {
  */
 
 /*
- * Finding 13: the hero itself is now the coloured band -- a fill, so the
+ * Finding 13: the hero itself is now the coloured band (a fill), so the
  * raw primary is safe here (the same "any colour works as a fill" rule the
- * top-of-section comment states) -- with the derived on-primary foreground
- * for its own text. The paired blue-line band (Device #2) underneath, in
- * team primary + ink, replaces the old border-top/box-shadow approximation
- * with the real .bl-band/.bl-band--ink elements every other hero already
- * uses (see blueline_sp_team_hero(), inc/sportspress.php).
+ * top-of-section comment states), paired with the derived on-primary
+ * foreground for its own text. The paired blue-line band (Device #2)
+ * underneath, in team primary + ink, replaces the old border-top/box-shadow
+ * approximation with the real .bl-band/.bl-band--ink elements every other
+ * hero already uses (see blueline_sp_team_hero(), inc/sportspress.php).
  */
 .bl-sp-hero--team {
 	position: relative;
@@ -744,8 +747,8 @@ table.bl-table-self-scroll {
 }
 
 /*
- * Crest plate. Filled with the derived on-primary colour -- NOT the raw
- * team primary -- so the plate stays visible against a hero band that is
+ * Crest plate. Filled with the derived on-primary colour, not the raw
+ * team primary, so the plate stays visible against a hero band that is
  * now ALSO the team's primary colour; using the same colour for both would
  * make the crest plate invisible against its own background. The ring uses
  * the same on-primary colour, guaranteed (by construction) to contrast
@@ -761,7 +764,7 @@ table.bl-table-self-scroll {
 }
 
 /* The fallback leaf mark sits ON the plate, so it takes the team's primary
-   colour back again -- the plate is on-primary, the mark is primary, the
+   colour back again: the plate is on-primary, the mark is primary, so the
    pair always contrasts by construction. */
 .bl-sp-hero--team .bl-sp-hero__crest--fallback {
 	color: var(--bl-team-primary, var(--bl-ice));
@@ -770,11 +773,12 @@ table.bl-table-self-scroll {
 /*
  * Deliberately no .bl-sp-hero--team .bl-sp-hero__flag rule.
  *
- * The team hero emits no flag element -- .bl-sp-hero__flag comes only from the
- * PLAYER hero (inc/sportspress.php) -- so the rule that used to sit here
- * matched nothing. It was also unsound: it painted --bl-team-accent, which is
- * derived for contrast against --bl-paper, on top of a --bl-team-primary fill.
- * For any dark team colour blueline_darken_to_contrast() returns its input
+ * The team hero emits no flag element, because .bl-sp-hero__flag comes only
+ * from the PLAYER hero (inc/sportspress.php), so the rule that used to sit
+ * here matched nothing. It was also unsound: it painted --bl-team-accent,
+ * which is derived for contrast against --bl-paper, on top of a
+ * --bl-team-primary fill. For any dark team colour
+ * blueline_darken_to_contrast() returns its input
  * unchanged, so the chip rendered at 1.00:1 against its own background.
  *
  * If the team hero ever gains division chips, derive a SECOND accent against
@@ -923,32 +927,32 @@ table.bl-table-self-scroll {
 	max-width: 100%;
 	height: auto;
 
-	/* Sponsor logos sit on light ground here -- never invert them, same
-	   rule as .team-logo img above. */
+	/* Sponsor logos sit on light ground here, so never invert them, per the
+	   same rule as .team-logo img above. */
 	filter: none;
 }
 
 /*
- * [sponsors] with orderby="rand" -- this site's configured order for both
- * the header and footer sponsor slots (sportspress_header_sponsors_orderby/
- * sportspress_footer_sponsors_orderby options, verified live) -- renders
+ * [sponsors] with orderby="rand" (this site's configured order for both
+ * the header and footer sponsor slots: sportspress_header_sponsors_orderby/
+ * sportspress_footer_sponsors_orderby options, verified live) renders
  * this element empty and fills it by AJAX after first paint
  * (sportspress-pro's own sportspress-sponsors.js:
  * $('.sp-sponsors-loader').each(...).post(...)). With no size of its own,
  * the arriving logo used to push the rest of the page down. The
  * placeholder already carries the intended box as its own data-width/
- * data-height attributes -- 256x128 for both slots on this site
+ * data-height attributes, 256x128 for both slots on this site
  * (sportspress_header_sponsor_width/height and
- * sportspress_footer_sponsor_width/height options, verified live) -- so
+ * sportspress_footer_sponsor_width/height options, verified live), so
  * reserving that same 2:1 ratio, capped at 256px, from first paint closes
  * the gap instead of starting from zero height.
  *
  * assets/src/js/sponsors.js watches this element for the AJAX response and
  * adds .is-empty if it resolves with genuinely nothing (a slot that is
- * enabled but currently has no matching sponsor) -- so an empty slot
+ * enabled but currently has no matching sponsor), so an empty slot
  * collapses back to nothing instead of sitting as a permanent blank box.
  * See header.css's own `.bl-header__sponsors` comment for the header
- * instance's second (DOM-move) half of this fix -- the footer instance
+ * instance's second (DOM-move) half of this fix; the footer instance
  * never moves, so this element's own box reservation is the only fix it
  * needs.
  */
@@ -977,15 +981,15 @@ table.bl-table-self-scroll {
  * SportsPress Pro's own footer sponsors block, injected sitewide (every
  * page, not just the homepage) directly above <footer> by
  * SportsPress_Sponsors::footer(). The theme's own homepage sponsors module
- * was removed as a duplicate (inc/homepage-modules.php) -- this is now the
+ * was removed as a duplicate (inc/homepage-modules.php); this is now the
  * only sponsor surface anywhere on the site, so it gets full token-based
  * treatment rather than the plugin's own hard-coded #f4f4f4/#363f48
  * (neutralised on the front end by blueline_sp_blank_frontend_option() in
  * inc/sportspress.php).
  *
  * On the homepage this band sits directly under the last module and above
- * .bl-footer -- the same paper-to-navy transition the header's own hero
- * makes into the module stack -- so it closes with the same paired
+ * .bl-footer (the same paper-to-navy transition the header's own hero
+ * makes into the module stack), so it closes with the same paired
  * blue-line band device (Device #2, DESIGN.md) rather than the modules'
  * own plain 1px border-top.
  */
@@ -1011,12 +1015,12 @@ table.bl-table-self-scroll {
 .sp-footer-sponsors::after {
 	top: var(--bl-band-ice);
 	height: var(--bl-band-ink);
-	background: var(--bl-ink); /* fixed brand signature band, not theme-aware -- see base.css .bl-band--ink */
+	background: var(--bl-ink); /* fixed brand signature band, not theme-aware; see base.css .bl-band--ink */
 }
 
-/* .bl-container's own formula (base.css) -- SportsPress's markup has no
-   wrapper element this theme can attach that class to, so the same
-   max-width/centering/side-padding is applied directly here instead. */
+/* .bl-container's own formula (base.css) applies here because SportsPress's
+   markup has no wrapper element this theme can attach that class to, so the
+   same max-width/centering/side-padding is applied directly here instead. */
 .sp-footer-sponsors .sp-sponsors {
 	max-width: var(--bl-container);
 	margin-inline: auto;
@@ -1025,15 +1029,15 @@ table.bl-table-self-scroll {
 	/* Finding 6: every other heading on the site is left-aligned;
 	   .sp-sponsors's own base rule (above) centres itself and everything
 	   that inherits from it, which is correct for the SMALL header slot but
-	   wrong for this full-width band. Scoped to the footer instance only --
+	   wrong for this full-width band. Scoped to the footer instance only;
 	   the header sponsors slot keeps its own, differently-sized treatment
 	   in header.css. */
 	text-align: left;
 
 	/* SportsPress's own markup (sponsors.php/sponsors-content.php) has no
-	   wrapper element around the individual sponsor links -- .sp-sponsors
+	   wrapper element around the individual sponsor links: .sp-sponsors
 	   itself holds the optional <h3> title AND every `.sponsor` <a> as
-	   direct siblings -- so THIS element is the grid; the title is pulled
+	   direct siblings, so THIS element is the grid; the title is pulled
 	   back out of the column flow below rather than requiring a wrapper
 	   this theme has no hook to add. */
 	display: grid;
@@ -1044,13 +1048,13 @@ table.bl-table-self-scroll {
 
 /*
  * `body` is load-bearing here, not decorative: SportsPress's own enqueued
- * sportspress-sponsors.css (confirmed loading on this site -- see the
+ * sportspress-sponsors.css (confirmed loading on this site; see the
  * top-of-file comment's correction below) hard-codes
  * `.sp-footer-sponsors .sp-sponsors .sp-sponsors-title { color: #ffffff; }`,
  * a three-class (0,3,0) selector. Matching it at the same three classes
  * would still lose on a tie (the plugin's stylesheet and this one are both
  * enqueued in <head>; which prints second is not something this theme
- * controls or should depend on) -- confirmed live: without the extra
+ * controls or should depend on). This was confirmed live: without the extra
  * qualifier this rule loses and the title renders invisible white text on
  * this band's light background. The element qualifier pushes specificity
  * to (0,3,1), which wins outright regardless of source order.
@@ -1059,7 +1063,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	color: var(--bl-content-text);
 	font-size: var(--bl-text-2xl);
 
-	/* Pulled out of the logo grid below -- see .sp-footer-sponsors
+	/* Pulled out of the logo grid below; see .sp-footer-sponsors
 	   .sp-sponsors's own comment for why the title is a grid sibling of
 	   the logos rather than living in a separate wrapper. */
 	grid-column: 1 / -1;
@@ -1073,19 +1077,19 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * its own inline `style="max-width:256px; max-height:128px;"` (rendered by
  * SportsPress's own sponsors-content.php from the
  * sportspress_footer_sponsor_width/height options). A uniform grid with a
- * uniform logo max-height fixes both -- 1-4 sponsors sit in one row of
+ * uniform logo max-height fixes both: 1-4 sponsors sit in one row of
  * even columns instead of a tall stack, regardless of how many more get
  * added later.
  *
  * `!important` on the logo's max-height is deliberate, not a shortcut:
  * SportsPress hard-codes `style="max-height:{option}px"` directly on the
  * <img> tag itself (see the docblock above blueline_sp_blank_frontend_option()
- * in inc/sportspress.php for the general rule this follows) -- an inline
+ * in inc/sportspress.php for the general rule this follows): an inline
  * style attribute beats any external stylesheet rule regardless of
- * specificity, `!important` is the one thing that still wins. Blanking the
+ * specificity; `!important` is the one thing that still wins. Blanking the
  * driving option instead (this file's usual pattern) was ruled out here
  * because that SAME option also sizes the AJAX loader's reserved
- * placeholder box (.sp-sponsors-loader, below) -- blanking it would reopen
+ * placeholder box (.sp-sponsors-loader, below); blanking it would reopen
  * the layout-shift bug that box exists to prevent.
  */
 .sp-footer-sponsors .sponsor {
@@ -1106,22 +1110,22 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 /*
  * This site's actual configuration (sportspress_footer_sponsors_orderby =
  * "rand", verified live) means the sponsor links above never render as
- * direct children of .sp-sponsors at all -- SportsPress's own AJAX loader
+ * direct children of .sp-sponsors at all; SportsPress's own AJAX loader
  * (.sp-sponsors-loader, documented in full below) injects them INSIDE
  * itself client-side (`self.html(response)`, sportspress-sponsors.js), so
- * the loader itself -- not .sp-sponsors -- is the real grid container once
+ * the loader itself, not .sp-sponsors, is the real grid container once
  * populated. `:not(:empty)` is the signal: the loader has zero children
  * before that response arrives, so this cannot apply to the still-loading
  * placeholder box (sized separately below), only to one that has actually
- * received sponsor markup. Scoped to the footer band only -- the header
+ * received sponsor markup. Scoped to the footer band only; the header
  * slot's loader stays the small single-logo box it already is.
  */
 .sp-footer-sponsors .sp-sponsors-loader {
 
 	/* Spans the full band width rather than sitting in one column of
-	   .sp-sponsors's own outer grid (alongside the title) -- it becomes ITS
-	   OWN grid of logos below once populated, and needs the full row to lay
-	   them out in. */
+	   .sp-sponsors's own outer grid (alongside the title), because it becomes
+	   ITS OWN grid of logos below once populated and needs the full row to
+	   lay them out in. */
 	grid-column: 1 / -1;
 }
 
@@ -1138,7 +1142,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 /* ---- Countdown widget (finding 4) ----
  *
  * sidebar-1 renders on all seven sportspress/*.php templates, and the
- * countdown widget is the one thing that historically lives there -- but
+ * countdown widget is the one thing that historically lives there, but
  * nothing anywhere styled .sp-countdown-wrapper/.sp-event-name/.sp-countdown,
  * so it rendered as bare, unstyled text, and its own <time> re-rendered
  * every second with variable-width digits (no tabular-nums), reflowing the
@@ -1215,9 +1219,9 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * SportsPress's own team-gallery.php/team-gallery-thumbnail.php templates
  * (used on /rosters-and-stats) render a bare <dl class="gallery-item"> per
  * team with dead Foundation classes (small-3 columns) and no styling of any
- * kind -- the theme declares html5 gallery support (inc/setup.php), so the
- * plugin's own inline <style> fallback never even prints. This is CSS-only:
- * the markup itself needs no structural override, just real layout.
+ * kind, because the theme declares html5 gallery support (inc/setup.php),
+ * so the plugin's own inline <style> fallback never even prints. This is
+ * CSS-only: the markup itself needs no structural override, just real layout.
  */
 .sp-team-gallery-wrapper {
 	display: grid;
@@ -1292,7 +1296,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 /*
  * Event Officials (event-officials-list.php): the same dt/dd label-then-
  * value shape as .sp-player-details above, given its own explicit rule
- * rather than left to the bare-dt/dd fallback inherited from body -- both
+ * rather than left to the bare-dt/dd fallback inherited from body. Both
  * already resolve correctly (body's own content-text is theme-aware
  * either way), but leaving one of two structurally identical components
  * unstyled while the other gets a bespoke secondary/primary-text split is
@@ -1344,7 +1348,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 /*
  * Finding: SportsPress's own .sp-selector-redirect binding navigates on a
  * bare `change` event, which fires on a closed <select> from arrow keys
- * alone (WCAG 3.2.2) -- see player-selector.php's own docblock. This row
+ * alone (WCAG 3.2.2); see player-selector.php's own docblock. This row
  * pairs the select with an explicit "Go" button instead; the select no
  * longer stretches to its own max-width since it now shares a row with
  * the button rather than sitting alone.
@@ -1362,7 +1366,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 /*
  * .bl-btn/.bl-btn--secondary (layout.css/header.css) were designed for an
- * <a> -- which carries no native chrome to begin with -- so this is the
+ * <a>, which carries no native chrome to begin with, so this is the
  * first time either class lands on a real <button>; the reset below
  * strips the browser's own button chrome so only .bl-skew's fill/border
  * shows, matching announcement.css's .bl-announce__dismiss precedent for
@@ -1381,7 +1385,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  *
  * .sp-event-list's own base alignment/logo rules (.data-home/.data-away
  * text-align, .team-logo sizing) come from SportsPress's own always-loaded
- * core stylesheet -- see the top-of-file correction -- and are left alone;
+ * core stylesheet (see the top-of-file correction) and are left alone;
  * these rules only add what that stylesheet doesn't: the date-group
  * heading row, de-emphasised (not link-blue) date/arena, and a tighter row.
  */
@@ -1454,24 +1458,24 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 }
 
 /*
- * Edge fade on the mobile scroll wrapper -- a visual cue that the table
+ * Edge fade on the mobile scroll wrapper: a visual cue that the table
  * keeps going sideways, discoverable without first accidentally swiping.
  * A background gradient on the wrapper would be painted UNDER every row's
  * own opaque zebra background (.sp-data-table tbody tr.odd/.even) and never
- * actually be visible -- `mask-image` instead fades the wrapper's own FINAL
+ * actually be visible; `mask-image` instead fades the wrapper's own FINAL
  * composited rendering (rows and all), which is unaffected by anything
  * being opaque underneath it. Masked against the wrapper's own box, not
  * against scroll position, so it's a permanent "there's more here" hint
- * rather than a shadow that reacts as you scroll -- simpler, and sufficient
- * for the job of being discoverable in the first place. Degrades to no
- * mask (full opacity, no cue, no harm) in a browser without mask-image
- * support.
+ * rather than a shadow that reacts as you scroll, which is simpler and
+ * sufficient for the job of being discoverable in the first place.
+ * Degrades to no mask (full opacity, no cue, no harm) in a browser without
+ * mask-image support.
  *
  * .sp-scrollable-table-wrapper is SportsPress's OWN always-loaded core JS
- * (`$(".sp-scrollable-table").wrap(...)`, confirmed live) -- the ACTUAL
+ * (`$(".sp-scrollable-table").wrap(...)`, confirmed live); the ACTUAL
  * scroll container for any table still carrying that class is this one, not
  * .bl-table-scroll around it (that outer wrapper never itself overflows,
- * since its one child -- this inner wrapper -- already clips to the same
+ * since its one child, this inner wrapper, already clips to the same
  * width). Both get the cue so it appears regardless of which of the two
  * actually ends up doing the scrolling for a given table.
  */
@@ -1481,15 +1485,15 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * first and last 24px of every table whether or not anything was hidden there.
  * A table that fitted its column still had its leading characters greyed
  * ("ᴛIME", "ᴀUGUST 14, 2026", "₁0:30 pm"), and a table scrolled fully left
- * still faded a left edge with nothing behind it -- the cue was covering the
+ * still faded a left edge with nothing behind it: the cue was covering the
  * information it exists to help people find.
  *
  * The mask now follows the scroll state instead. assets/src/js/table-scroll.js
  * measures each container and sets data-fade-start/data-fade-end for the sides
  * that genuinely have more content; CSS has no overflow or scroll-position
  * selector, so this cannot be expressed in the stylesheet alone. With no JS
- * neither attribute is ever set and no mask applies, which loses a hint but
- * never hides content -- the safe direction to fail in.
+ * neither attribute is ever set and no mask applies. That loses a hint but
+ * never hides content, which is the safe direction to fail in.
  */
 .bl-table-scroll[data-fade-start],
 .sp-scrollable-table-wrapper[data-fade-start],
@@ -1516,13 +1520,13 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 /* ---- SportsPress inline-style neutralisation (finding 11) ----
  *
  * SP_League_Table::data() prints the STRK column as raw
- * `<span style="color:{outcome-colour}">` -- #888888 for any outcome with
- * no colour configured, 3.40:1 on white, below the 4.5:1 AA floor. An
- * inline style attribute beats any external rule regardless of selector
- * specificity except one marked !important, which is the one thing that
- * still wins -- see tools/check-contrast.mjs's own new section asserting
- * this rule keeps existing and keeps passing AA, so this class of failure
- * cannot silently regress.
+ * `<span style="color:{outcome-colour}">`, defaulting to #888888 for any
+ * outcome with no colour configured (3.40:1 on white, below the 4.5:1 AA
+ * floor). An inline style attribute beats any external rule regardless of
+ * selector specificity except one marked !important, which is the one
+ * thing that still wins; see tools/check-contrast.mjs's own new section
+ * asserting this rule keeps existing and keeps passing AA, so this class
+ * of failure cannot silently regress.
  */
 .sp-data-table td.data-strk span[style] {
 	color: var(--bl-content-text-secondary) !important;
@@ -1608,8 +1612,8 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
  * That is a deliberate design, and it breaks on real data: the two sides are
  * only symmetric when the two team names happen to be the same length. Measured
  * on /event/116460, "Hammers" is 77px and "Kings" is 45px, so the two halves
- * came out 210px and 178px and the kick-off time -- the thing the whole lockup
- * is built around -- sat 16px right of centre. Every fixture on the site is off
+ * came out 210px and 178px and the kick-off time, the thing the whole lockup
+ * is built around, sat 16px right of centre. Every fixture on the site is off
  * by half the difference between its two team names.
  *
  * Both surfaces below therefore stop mirroring and become symmetric by

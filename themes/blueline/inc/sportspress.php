@@ -22,13 +22,13 @@ defined( 'ABSPATH' ) || exit;
  * "<strong class=\"sp-player-number\">27</strong> " / "<strong
  * class=\"sp-staff-role\">Referee</strong> " badge (confirmed live:
  * get_the_title() on a player named "Matthew Mascola" returns that literal
- * markup plus text) -- this theme's own hero markup already shows that same
+ * markup plus text), and this theme's own hero markup already shows that same
  * number/role in its own badge, so the prefix would both duplicate it and,
  * if merely HTML-escaped, print the literal tags as visible text.
  *
  * Review finding: an earlier version of this function used
  * get_post_field( 'post_title', $id, 'raw' ) for every post type, which
- * bypasses the ENTIRE 'the_title' filter chain -- not just SportsPress's
+ * bypasses the ENTIRE 'the_title' filter chain, not just SportsPress's
  * badge, but also wptexturize()/convert_chars() (smart quotes, em-dashes)
  * that every other post type's title still needs. Narrowed to only the two
  * post types with the actual badge problem; sp_event/sp_team (and anything
@@ -50,13 +50,69 @@ function blueline_sp_title( $post_id ) {
  * is_active_sidebar('sidebar-1') check page.php/archive.php already use,
  * promoted to a named, filterable function because all seven sportspress/
  * templates need the same decision (sidebar-1 historically carries SP-
- * relevant widgets -- countdown, recent posts -- so showing it here is
+ * relevant widgets, e.g. countdown, recent posts, so showing it here is
  * intentional, not an oversight).
  *
  * @return bool
  */
 function blueline_sp_has_sidebar(): bool {
 	return (bool) apply_filters( 'blueline_sp_has_sidebar', is_active_sidebar( 'sidebar-1' ) );
+}
+
+/**
+ * The shared skeleton behind sportspress/single-event.php, single-player.php,
+ * single-staff.php, and single-team.php: those four templates were
+ * byte-identical (get_header() -> the sidebar-active check above -> the
+ * entity's own hero -> `.bl-content-layout` wrapper -> the_content() ->
+ * comments -> sidebar -> get_footer()) except for which hero function runs
+ * and, on single-team.php alone, one extra colour-related attribute on the
+ * `<main>` tag. This is that shared body; each of the four templates is now
+ * just get_header(), one call here, and get_footer().
+ *
+ * @param callable $hero_callback   The entity's own hero renderer (e.g.
+ *                                   'blueline_sp_event_hero'), called with the
+ *                                   current post's ID at the point the hero used
+ *                                   to render inline. All four hero functions are
+ *                                   declared unconditionally in this same file, so
+ *                                   they are always callable here.
+ * @param string   $extra_main_attr Extra, already-escaped markup echoed into
+ *                                   `<main>`'s opening tag: single-team.php's own
+ *                                   team-colour custom properties
+ *                                   (blueline_team_color_style_attr()). Empty for
+ *                                   the other three templates.
+ */
+function blueline_render_sp_single( callable $hero_callback, string $extra_main_attr = '' ): void {
+	$has_sidebar = blueline_sp_has_sidebar();
+	?>
+	<main id="main" class="bl-main bl-main--sp bl-main--sp-hero" tabindex="-1"<?php echo $extra_main_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller-supplied markup is already escaped at its own source; see single-team.php. ?>>
+		<?php
+		while ( have_posts() ) :
+			the_post();
+
+			$hero_callback( get_the_ID() );
+			?>
+			<div class="bl-container">
+				<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
+					<div class="bl-content-layout__primary">
+						<div class="entry-content bl-entry__content">
+							<?php the_content(); ?>
+						</div>
+						<?php
+						if ( comments_open() || get_comments_number() ) :
+							comments_template();
+						endif;
+						?>
+					</div>
+					<?php if ( $has_sidebar ) : ?>
+						<?php get_sidebar(); ?>
+					<?php endif; ?>
+				</div>
+			</div>
+			<?php
+		endwhile;
+		?>
+	</main>
+	<?php
 }
 
 add_filter( 'body_class', 'blueline_sp_body_class' );
@@ -96,15 +152,15 @@ add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_o
  * P0 finding 1: SportsPress Pro's "League Menu" sub-module
  * (includes/sportspress-league-menu/sportspress-league-menu.php) is a
  * separate always-loaded plugin feature, not something this theme's own
- * header renders. Its own JS -- confirmed in the installed plugin,
- * includes/sportspress/assets/js/sportspress.js -- unconditionally prepends
+ * header renders. Its own JS, confirmed in the installed plugin at
+ * includes/sportspress/assets/js/sportspress.js, unconditionally prepends
  * `<div class="sp-header sp-header-loaded">` to <body> on EVERY front-end
  * page, before .bl-site and before this theme's own skip link; a small
  * always-loaded core stylesheet (sportspress.css, not the
  * sportspress_enable_frontend_css-gated one) gives that div
  * `position: relative; z-index: 10000;`. SportsPress_League_Menu::menu()
  * then fills it with one team-logo link per team configured in
- * `sportspress_league_menu_teams` -- 22 on this site -- UNLESS that option
+ * `sportspress_league_menu_teams` (22 on this site) UNLESS that option
  * (and the title/logo options that would otherwise still render an empty
  * bar) evaluate empty, in which case menu() returns before printing
  * anything and the wrapper div stays empty. An empty div has no focusable
@@ -121,7 +177,7 @@ add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_o
  * touch the plugin, does not delete the site's saved configuration, and
  * survives a SportsPress update. The theme's own header already carries
  * the brand mark, and DESIGN.md's whole point is a light, unintimidating
- * first impression -- not a wall of competitive crests above the fold.
+ * first impression, not a wall of competitive crests above the fold.
  */
 
 /**
@@ -136,8 +192,8 @@ add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_o
  * puts it straight back.
  *
  * Note the filter is is_admin()-scoped, which means WP-CLI (where is_admin()
- * is false) sees the blanked value too -- `wp option get
- * sportspress_league_menu_teams` returns '' on this site and that is the filter
+ * is false) sees the blanked value too: `wp option get
+ * sportspress_league_menu_teams` returns '' on this site, and that is the filter
  * working, not a missing option.
  *
  * @return int[] Published sp_team post ids, in the order the admin arranged
@@ -189,12 +245,12 @@ add_filter( 'option_sportspress_header_sponsors_limit', 'blueline_sp_header_spon
  *             into it ...
  *     }
  *
- * The entire method -- both the sponsor markup and the relocation script --
+ * The entire method (both the sponsor markup and the relocation script)
  * is inside that one `if ( $limit )`. An earlier version of this fix only
  * changed `sportspress_header_sponsors_selector` to something unmatchable,
  * on the theory that SportsPress would then have nowhere to prepend the
  * block. That was wrong: with $limit still truthy, `header()` still prints
- * `.sp-header-sponsors` and still runs the prepend script -- prepending an
+ * `.sp-header-sponsors` and still runs the prepend script; prepending an
  * empty jQuery selection is simply a no-op, so the sponsor markup just
  * stays wherever `wp_footer` put it (stranded at the end of the page, not
  * hidden) instead of never being printed. Forcing $limit itself to 0 is
@@ -203,7 +259,7 @@ add_filter( 'option_sportspress_header_sponsors_limit', 'blueline_sp_header_spon
  * Scoped to the front end only (is_admin() passes the real value straight
  * through), matching blueline_sp_blank_frontend_option()'s own convention
  * below, so the Sponsors settings screen keeps showing/editing the site's
- * actual saved limit -- turning the control-panel toggle off must not look
+ * actual saved limit; turning the control-panel toggle off must not look
  * like the admin's own SportsPress setting silently changed.
  *
  * @param mixed $value Stored option value.
@@ -222,14 +278,14 @@ add_filter( 'sportspress_header_sponsors_selector', 'blueline_header_sponsors_se
  * Tell SportsPress which element the header sponsors should be inserted into.
  *
  * The function above, blueline_sp_header_sponsors_limit(), is what actually
- * stops SportsPress printing anything while `chrome_sponsors` is off -- see
+ * stops SportsPress printing anything while `chrome_sponsors` is off; see
  * its own docblock for why forcing the limit to 0, not this selector, is
  * the real gate. While that toggle is off, `SportsPress_Sponsors::header()`
  * never reaches the line that reads this filter at all, so this branch is
  * never actually exercised on a real request in that state.
  *
  * `:not(*)` is returned anyway, as defence in depth: a selector that
- * matches nothing, in both CSS and jQuery, by construction -- unlike
+ * matches nothing, in both CSS and jQuery, by construction, unlike
  * `.bl-header__sponsors--disabled`, an earlier version of this fix's
  * choice, which is a BEM modifier of a class (`.bl-header__sponsors`) this
  * theme really emits elsewhere, and so the single edit most likely to be
@@ -259,19 +315,19 @@ add_filter( 'option_sportspress_footer_sponsors_css_text', 'blueline_sp_blank_fr
 /**
  * Blank one of SportsPress Sponsors' own decorative option values on the
  * front end only, so this theme's own token-based CSS is the only styling
- * that reaches the browser for these two surfaces -- consistent with
+ * that reaches the browser for these two surfaces, consistent with
  * DESIGN.md's stated constraint that the theme supplies the only styling
  * SportsPress surfaces get.
  *
  * SportsPress_Sponsors::header() prints
  * `style="margin-top: {$top}px; margin-right: {$right}px;"` directly on
- * `.sp-header-sponsors` as an inline HTML attribute -- no CSS selector,
+ * `.sp-header-sponsors` as an inline HTML attribute, so no CSS selector,
  * however specific, can ever override that from an external stylesheet.
  * Blanking the two option values makes it print `style="margin-top: px;
  * margin-right: px;"`; a value-less declaration like `margin-top: px;` is
  * invalid CSS and is simply dropped by the browser, which is equivalent to
  * 0 for this purpose. The offset it would otherwise apply exists to nudge
- * a sponsor logo away from a generic theme's own header edge --
+ * a sponsor logo away from a generic theme's own header edge:
  * `.bl-header__sponsors`/`.sp-sponsors-loader` (header.css/sportspress.css)
  * already reserve and center that exact space, so the extra offset only
  * pushes the logo outside the box those rules size to.
@@ -279,7 +335,7 @@ add_filter( 'option_sportspress_footer_sponsors_css_text', 'blueline_sp_blank_fr
  * SportsPress_Sponsors::footer() prints a real `<style>` block containing
  * `.sp-footer-sponsors { background: ...; color: ...; }` directly into the
  * page (not gated by sportspress_enable_frontend_css, which this site
- * otherwise leaves off) -- an external stylesheet rule of matching
+ * otherwise leaves off), so an external stylesheet rule of matching
  * specificity loses to it purely because that block appears later in the
  * document. Blanking the two colour option values makes those two
  * declarations value-less and equally droppable, leaving
@@ -300,7 +356,7 @@ function blueline_sp_blank_frontend_option( $value ) {
 add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
 /**
  * Guarantee every SportsPress <table> in rendered content either sits
- * inside a scroll container or gets one of its own -- "the page body must
+ * inside a scroll container or gets one of its own, because "the page body must
  * never scroll horizontally" is a site-wide hard invariant, not a
  * today's-markup-shaped one, so this must not depend on SportsPress's exact
  * current class names.
@@ -310,7 +366,7 @@ add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
  * already have a working .wp-block-table wrapper of their own, and forcing
  * display:block onto them via bl-table-self-scroll would be an untested,
  * out-of-scope behaviour change). The scoping problem is that SP tables can
- * legitimately appear on an ordinary Page too -- /standings embeds
+ * legitimately appear on an ordinary Page too: /standings embeds
  * [team_standings] shortcodes directly in page content, so a page-type
  * check (is_singular(sp_post_types())/is_tax(sp_taxonomies())) would
  * incorrectly skip it. What every SportsPress table genuinely has in
@@ -328,7 +384,7 @@ add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
  *    player-statistics-league.php, event-details.php, event-list.php,
  *    player-list.php, event-officials-table.php, event-logos-block.php) all
  *    wrap their <table> in an identical, class-only
- *    `<div class="sp-table-wrapper">` -- confirmed by reading every
+ *    `<div class="sp-table-wrapper">`, confirmed by reading every
  *    occurrence in the installed plugin. A cheap string check/replace
  *    handles this, the overwhelming common case, without any parsing.
  * 2. A cheap `strpos( $content, 'sp-' )` pre-check, then
@@ -338,8 +394,8 @@ add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
  *    self-contained scroll class directly. This is what actually closes
  *    the gap: event-venue.php is the one SP template today that renders
  *    its <table> with no wrapper at all (its embedded Leaflet map
- *    overflowed the page body at mobile widths until this was added -- see
- *    the Task 8 fix report) -- and a future SportsPress update changing
+ *    overflowed the page body at mobile widths until this was added (see
+ *    the Task 8 fix report), and a future SportsPress update changing
  *    any table's class list, or adding a new unwrapped one, is still
  *    caught by this pass as long as it keeps SP's own sp- prefix
  *    convention, which every SP class already does today. Runs after
@@ -365,8 +421,8 @@ function blueline_sp_wrap_tables_for_scroll( $content ) {
 	// Cheap pre-check before the DOMDocument parse below: nothing
 	// SportsPress renders is ever without an sp- prefixed class somewhere,
 	// so content with no "sp-" substring at all cannot contain a
-	// SportsPress table and the expensive DOM pass is skipped entirely --
-	// an ordinary blog post with a block-editor table (<table
+	// SportsPress table and the expensive DOM pass is skipped entirely. An
+	// ordinary blog post with a block-editor table (<table
 	// class="wp-block-table">, no "sp-" anywhere) never reaches
 	// DOMDocument at all.
 	if ( false === strpos( $content, 'sp-' ) ) {
@@ -387,7 +443,7 @@ function blueline_sp_wrap_tables_for_scroll( $content ) {
  * carry a class starting with "sp-"? SportsPress's class-name convention is
  * universal across every table-producing template in the installed plugin
  * (sp-data-table, sp-league-table, sp-event-blocks, sp-event-calendar,
- * sp-player-list, sp-player-statistics, sp-event-details, sp-event-venue --
+ * sp-player-list, sp-player-statistics, sp-event-details, sp-event-venue,
  * always directly on the <table> element itself), so this is a durable
  * signal that survives a future SportsPress markup change, unlike matching
  * one specific class. An ordinary WordPress block-editor table
@@ -420,7 +476,7 @@ function blueline_dom_table_is_sportspress( DOMElement $table ) {
  * above, or by any future mechanism) or bl-table-self-scroll, or it gets
  * bl-table-self-scroll added directly to itself. A table that is NOT
  * SportsPress's own output (an ordinary block-editor table, for instance)
- * is left completely untouched -- see
+ * is left completely untouched; see
  * blueline_sp_wrap_tables_for_scroll()'s docblock for why this exists.
  *
  * @param string $content Post content.
@@ -439,7 +495,7 @@ function blueline_sp_ensure_tables_scroll( $content ) {
 	libxml_use_internal_errors( $libxml_state );
 
 	if ( ! $loaded ) {
-		// Malformed fragment -- leave content untouched rather than risk
+		// Malformed fragment: leave content untouched rather than risk
 		// corrupting it; the CSS backstop still applies.
 		return $content;
 	}
@@ -459,7 +515,7 @@ function blueline_sp_ensure_tables_scroll( $content ) {
 		}
 
 		if ( ! blueline_dom_table_is_sportspress( $table ) ) {
-			continue; // Not SportsPress's own markup -- e.g. an ordinary block-editor table. Leave it untouched.
+			continue; // Not SportsPress's own markup (e.g. an ordinary block-editor table). Leave it untouched.
 		}
 
 		if ( blueline_dom_find_class_ancestor( $table, 'bl-table-scroll' )
@@ -524,7 +580,7 @@ function blueline_dom_has_class( DOMElement $element, $class_name ) {
 
 /**
  * Whether a DOM element's class attribute contains any class token starting
- * with a given prefix (e.g. "sp-"). Token-exact prefix matching -- a class
+ * with a given prefix (e.g. "sp-"). Token-exact prefix matching: a class
  * like "responsive-table" does NOT match prefix "sp-" just because that
  * substring appears mid-word ("re-sp-onsive"); only a class that itself
  * starts with "sp-" counts.
@@ -564,7 +620,7 @@ add_action( 'pre_get_posts', 'blueline_sp_venue_archive_include_future' );
 /**
  * WordPress's default main-query post_status is 'publish' only, which would
  * silently hide every upcoming (future-status) game from a venue's own
- * archive page -- the exact under-counting bug this project has already
+ * archive page, which is the exact under-counting bug this project has already
  * shipped twice in custom queries (Tasks 6/7). This is the equivalent fix
  * for the one query Task 8 does not build itself: the taxonomy-venue.php
  * main loop, which WordPress core populates before the template ever runs.
@@ -607,7 +663,7 @@ function blueline_sp_event_start_timestamp( $event_id ) {
  *
  * P0 finding 2: blueline_sp_event_hero() used to decide pre/post-game
  * purely from `sp_get_status() === 'results'`, which SportsPress only ever
- * returns once a result row exists in `sp_results` -- confirmed live,
+ * returns once a result row exists in `sp_results`. Confirmed live:
  * eleven published events in the last 90 days have no `sp_results` row at
  * all, so an event dated well in the past still advertised "Preview" and
  * offered a live "Add to calendar" link. This function is pure (no
@@ -616,13 +672,13 @@ function blueline_sp_event_start_timestamp( $event_id ) {
  * starts, it returns exactly one of three states, gated on the clock
  * rather than on data entry:
  *
- *   'final'   -- a result has been recorded. Always wins regardless of time
+ *   'final'   : a result has been recorded. Always wins regardless of time
  *                (a game can be scored before its listed start passes, e.g.
  *                a corrected/backdated entry).
- *   'pending' -- no result yet, but the start time has already passed.
+ *   'pending' : no result yet, but the start time has already passed.
  *                "Result pending", never "Preview", and never a calendar
  *                link for a game that has already happened.
- *   'preview' -- no result, and the start time has not passed yet. The
+ *   'preview' : no result, and the start time has not passed yet. The
  *                only state that gets a calendar link.
  *
  * @param bool      $has_results     Whether sp_get_status() returned 'results'.
@@ -653,7 +709,7 @@ function blueline_sp_event_state( $has_results, $start_timestamp, $now_timestamp
 /**
  * Subscribe URLs for a team's whole SportsPress calendar.
  *
- * The league already publishes one iCal feed per team -- an sp_calendar post
+ * The league already publishes one iCal feed per team: an sp_calendar post
  * carrying `sp_team` = the team's id, whose permalink serves iCal when asked
  * with `?feed=sp-ical`. Each team's own page links it by hand in its post
  * content; this resolves the same feed from a team id so the account dashboard
@@ -663,7 +719,7 @@ function blueline_sp_event_state( $has_results, $start_timestamp, $now_timestamp
  * what iOS and macOS hand to Calendar, and what Outlook takes on Windows;
  * Android generally does nothing with it, and wants Google's own add-by-URL
  * screen instead. Choosing between them is a presentation decision, made in
- * the template and refined by assets/src/js/calendar-links.js -- not here.
+ * the template and refined by assets/src/js/calendar-links.js, not here.
  *
  * A SUBSCRIPTION, not an export: the reader's calendar re-reads the feed, so a
  * rescheduled game corrects itself instead of leaving a stale entry behind, and
@@ -719,7 +775,7 @@ function blueline_team_calendar_urls( $team_id ) {
 		/*
 		 * Encoded HERE, deliberately. add_query_arg() does NOT encode values:
 		 * it builds through build_query(), which calls
-		 * _http_build_query( $data, null, '&', '', false ) -- that last `false`
+		 * _http_build_query( $data, null, '&', '', false ); that last `false`
 		 * is $urlencode (wp-includes/functions.php, verified against the
 		 * installed core rather than assumed). Without this the cid would
 		 * carry a literal "://" and a second "?", and Google truncates the
@@ -735,7 +791,7 @@ function blueline_team_calendar_urls( $team_id ) {
 
 /**
  * A Google Calendar "add event" link for a single upcoming sp_event. No JS, no
- * external dependency beyond the calendar.google.com URL scheme -- a plain
+ * external dependency beyond the calendar.google.com URL scheme: a plain
  * <a href> that works with or without a Google account.
  *
  * Kept for one-off use; the account dashboard offers the team's whole season
@@ -777,18 +833,18 @@ function blueline_sp_event_calendar_url( $event_id ) {
 }
 
 /**
- * One team's own scoreline for a played sp_event, looked up by team ID --
+ * One team's own scoreline for a played sp_event, looked up by team ID,
  * never by position in a shared results array.
  *
  * Review finding: SP_Event::main_results() (SportsPress core) returns a
  * plain, re-indexed array built by looping $teams and doing
- * `$output[] = $team_result` only `if ( null != $team_result )` -- so a
+ * `$output[] = $team_result` only `if ( null != $team_result )`, so a
  * team with no result recorded for this event (a bye, an incomplete score
  * entry, etc.) is skipped entirely, shifting every following team's score
  * left by one slot. Zipping that array against this theme's own
  * separately-fetched $teams array by index (the original implementation)
  * would silently attribute one team's score to a different team the moment
- * either team is missing a value -- home/away meta-row order is meaningful
+ * either team is missing a value: home/away meta-row order is meaningful
  * on this site but not guaranteed to line up with a differently-derived,
  * gap-compacted results array. This function re-derives one specific
  * team's own result directly from the sp_results meta, keyed by that
@@ -832,12 +888,66 @@ function blueline_sp_team_result( $event_id, $team_id ) {
 }
 
 /**
- * The event masthead: teams, "vs", venue (via blueline_venue_label() --
- * P0 finding 10 -- so this reads "Mr. Lube and Tires Arena — Red" rather
+ * The team ids attached to an sp_event's `sp_team` meta, absint()'d and
+ * de-duplicated of anything that doesn't resolve to a real (positive) id:
+ * the exact get_post_meta()/array_map()/array_filter() shape
+ * blueline_sp_event_hero(), blueline_sp_event_teaser(),
+ * blueline_social_meta_data_for_event() (inc/social-meta.php), and
+ * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
+ * verbatim. Callers that split this into a "team A"/"team B" pair (most of
+ * them) still do that split themselves; this only resolves the raw id
+ * list.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return int[] Team ids, re-indexed from 0, in the order SportsPress stored them.
+ */
+function blueline_sp_event_team_ids( int $event_id ): array {
+	return array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+}
+
+/**
+ * The player-facing venue label for a single sp_event's own `sp_venue`
+ * term: "{Arena name} — {Pad name}" via blueline_venue_label() (P0 finding
+ * 10) when that function exists, else the term's own name; '' when the
+ * taxonomy doesn't exist, the event has no venue term at all, or the term
+ * lookup errors.
+ *
+ * The exact wp_get_post_terms()/is_wp_error()/blueline_venue_label()-or-
+ * fallback shape blueline_sp_event_hero(), blueline_sp_event_teaser(),
+ * blueline_social_meta_data_for_event() (inc/social-meta.php), and
+ * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
+ * verbatim.
+ * blueline_homepage_next_event_line() (inc/homepage-modules.php) used a
+ * wp_get_object_terms() variant of the same lookup (functionally
+ * identical for a single post's own terms), and now calls this one
+ * canonical version instead.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string
+ */
+function blueline_sp_event_venue_label( int $event_id ): string {
+	if ( ! taxonomy_exists( 'sp_venue' ) ) {
+		return '';
+	}
+
+	$venue_terms = wp_get_post_terms( $event_id, 'sp_venue' );
+
+	if ( is_wp_error( $venue_terms ) || empty( $venue_terms ) ) {
+		return '';
+	}
+
+	return function_exists( 'blueline_venue_label' )
+		? blueline_venue_label( $venue_terms[0]->term_id )
+		: $venue_terms[0]->name;
+}
+
+/**
+ * The event masthead: teams, "vs", venue (via blueline_venue_label(),
+ * P0 finding 10, so this reads "Mr. Lube and Tires Arena — Red" rather
  * than just the pad name), and either an add-to-calendar link (game has not
  * started), "Result pending" (game has started but no score is in yet), or
  * the final score (a result has been recorded). Purely additive to what
- * the_content() renders below it -- SportsPress's own event-logos/
+ * the_content() renders below it: SportsPress's own event-logos/
  * event-details/event-venue sections still appear and are styled via
  * sportspress.css.
  *
@@ -848,7 +958,7 @@ function blueline_sp_event_hero( $event_id ) {
 		return;
 	}
 
-	$teams = array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+	$teams = blueline_sp_event_team_ids( $event_id );
 
 	$has_results = ( 'results' === sp_get_status( $event_id ) );
 	$start_ts    = blueline_sp_event_start_timestamp( $event_id );
@@ -861,13 +971,7 @@ function blueline_sp_event_hero( $event_id ) {
 		'preview' => __( 'Preview', 'blueline' ),
 	);
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
-	$venue_name  = '';
-	if ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) {
-		$venue_name = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_terms[0]->term_id )
-			: $venue_terms[0]->name;
-	}
+	$venue_name = blueline_sp_event_venue_label( $event_id );
 
 	$calendar_url = ( 'preview' === $state ) ? blueline_sp_event_calendar_url( $event_id ) : '';
 	?>
@@ -938,7 +1042,7 @@ function blueline_sp_event_hero( $event_id ) {
 
 /**
  * The player masthead: number, position (read from the sp_position
- * taxonomy -- never a meta field), current team, and nationality (escaped
+ * taxonomy, never a meta field), current team, and nationality (escaped
  * for the attribute context it is used in, per the Task 8 brief).
  *
  * @param int $player_id sp_player post ID.
@@ -1014,7 +1118,7 @@ function blueline_sp_player_hero( $player_id ) {
 
 /**
  * The team masthead: crest, division(s). Record is deliberately not
- * recomputed here -- SportsPress's own standings table (auto-rendered by
+ * recomputed here: SportsPress's own standings table (auto-rendered by
  * the_content() below, via team-tables.php) already highlights this team's
  * row with .sp-highlight, which is the correct, already-computed source for
  * W/L/T/PTS rather than a second, hand-rolled aggregation.
@@ -1023,7 +1127,7 @@ function blueline_sp_player_hero( $player_id ) {
  * text = the derived on-primary foreground) with a paired blue-line band
  * (Device #2) underneath in team primary + ink, in place of the old
  * border-top/box-shadow approximation. See single-team.php for the second
- * half of finding 13 -- it prints this same style attribute again on
+ * half of finding 13: it prints this same style attribute again on
  * <main>, promoting the custom properties to a scope the_content()'s own
  * league table (rendered as a SIBLING of this <header>, not a descendant)
  * can also see, which is what lets .sp-highlight (sportspress.css) pick up
@@ -1046,7 +1150,7 @@ function blueline_sp_team_hero( $team_id ) {
 	 * The team's own colour, as scoped custom properties. Returns '' for a
 	 * team with no usable `sp_colors`, in which case every rule below falls
 	 * back to its theme token and the hero renders exactly as it always has.
-	 * See inc/team-colors.php for why the stored palette is not used as-is --
+	 * See inc/team-colors.php for why the stored palette is not used as-is:
 	 * that derivation guard (the fills-vs-boundaries split and the
 	 * achromatic withholding) is unchanged by this finding.
 	 */
@@ -1128,14 +1232,14 @@ function blueline_sp_staff_hero( $staff_id ) {
 }
 
 /**
- * A compact single-line teaser for one sp_event -- used in archive/taxonomy
+ * A compact single-line teaser for one sp_event, used in archive/taxonomy
  * listings (taxonomy-venue.php) where showing every event's full,
  * the_content()-rendered detail would be far too heavy per row.
  *
  * Same P0 finding 2/10 fixes as blueline_sp_event_hero(): "Preview" is
  * gated on the clock via blueline_sp_event_state(), not on whether a score
- * has been entered, and the venue -- when the venue archive itself does not
- * already say it via the page title -- reads through blueline_venue_label()
+ * has been entered, and the venue (when the venue archive itself does not
+ * already say it via the page title) reads through blueline_venue_label()
  * so a cross-pad "Also plays at this arena" link elsewhere on the page has
  * something concrete to distinguish from.
  *
@@ -1153,12 +1257,12 @@ function blueline_sp_event_teaser( $event_id ) {
 	);
 
 	// Keyed by team ID (blueline_sp_team_result()), not positionally zipped
-	// against a shared results array -- see that function's own docblock
+	// against a shared results array. See that function's own docblock
 	// for why a positional pairing can silently attribute one team's score
 	// to the other.
 	$scores = array();
 	if ( $is_played ) {
-		$teams = array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) );
+		$teams = blueline_sp_event_team_ids( $event_id );
 		foreach ( $teams as $team_id ) {
 			$score = blueline_sp_team_result( $event_id, $team_id );
 			if ( null !== $score && '' !== $score ) {
@@ -1167,13 +1271,7 @@ function blueline_sp_event_teaser( $event_id ) {
 		}
 	}
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
-	$venue_name  = '';
-	if ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) {
-		$venue_name = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_terms[0]->term_id )
-			: $venue_terms[0]->name;
-	}
+	$venue_name = blueline_sp_event_venue_label( $event_id );
 	?>
 	<a class="bl-sp-event-teaser" href="<?php echo esc_url( get_permalink( $event_id ) ); ?>">
 		<span class="bl-sp-event-teaser__date">
@@ -1196,12 +1294,12 @@ function blueline_sp_event_teaser( $event_id ) {
  * The known street-address -> arena-name map, filterable so a site owner
  * can correct or extend it without a code deploy. P0 finding 10: SportsPress
  * venue *terms* only ever carry a pad name ("Red", "Black") plus a street
- * address (`sp_address`, in `get_option( 'taxonomy_' . $term_id )`) -- there
+ * address (`sp_address`, in `get_option( 'taxonomy_' . $term_id )`); there
  * is no structured "arena name" field anywhere in the taxonomy. The arena
  * itself was also just renamed: /register (post 11113, live copy) now reads
  * "Mr. Lube and Tires Arena (formerly known as the Wave Twin Rinks)", but
  * the venue terms' own `description` fields (site content, not theme code)
- * still say only "Wave Twin Rinks" -- confirmed live for terms 13/14/151/152.
+ * still say only "Wave Twin Rinks"; confirmed live for terms 13/14/151/152.
  *
  * This intentionally does NOT try to parse that description text for a name:
  * reading every sp_venue term on this site showed the description's
@@ -1209,7 +1307,7 @@ function blueline_sp_event_teaser( $event_id ) {
  * "APPLEBY ICE CENTRE"), sometimes a rink-specific heading that would
  * duplicate the pad name if reused ("Mainway Recreation Centre - Rink A"),
  * sometimes a full sentence, and sometimes blank/decorative markup
- * (`&nbsp;`) -- there is no reliable convention to parse, so guessing would
+ * (`&nbsp;`); there is no reliable convention to parse, so guessing would
  * ship wrong names as confidently as right ones. A small address-keyed map
  * is auditable and correct for the one rename this task has confirmed;
  * everywhere else this returns '' and blueline_venue_label() falls back to
@@ -1235,7 +1333,7 @@ function blueline_venue_arena_name_for_address( $address ) {
 		array(
 			// Both forms seen live: Red/Black (term 14/13) store the address
 			// without a postal code, StoneRidge Red/Wave Twin Rinks Blue
-			// (term 151/152) store it with one -- same building, two strings.
+			// (term 151/152) store it with one; same building, two strings.
 			'1179 northside rd, burlington, on l7m, canada'      => 'Mr. Lube and Tires Arena',
 			'1179 northside rd, burlington, on l7m 1h5, canada'  => 'Mr. Lube and Tires Arena',
 		)
@@ -1266,7 +1364,7 @@ function blueline_venue_arena_name( $term_id ) {
 }
 
 /**
- * The player-facing venue label: "{Arena name} — {Pad name}" -- P0 finding
+ * The player-facing venue label: "{Arena name} — {Pad name}", per P0 finding
  * 10, PRODUCT.md principle 4 ("the pad, not just the arena"). Falls back to
  * the term's own name alone (today's behaviour, unchanged) whenever no
  * confidently-known arena name exists for that venue's address, or when the
@@ -1312,7 +1410,7 @@ function blueline_venue_label( $term_id ) {
 
 add_filter( 'get_the_archive_title', 'blueline_sp_venue_archive_title' );
 /**
- * The venue archive's own page title, via blueline_venue_label() -- P0
+ * The venue archive's own page title, via blueline_venue_label(), per P0
  * finding 10. Scoped strictly to the sp_venue taxonomy archive so every
  * other archive/page title on the site is untouched.
  *
@@ -1333,4 +1431,19 @@ function blueline_sp_venue_archive_title( $title ) {
 	$label = blueline_venue_label( $term->term_id );
 
 	return '' !== $label ? esc_html( $label ) : $title;
+}
+
+/**
+ * The `bl-sp-col-extra` class fragment for one league-table column, shared by
+ * sportspress/league-table.php's header-building and row-building loops;
+ * both used to repeat `in_array( $key, $bl_extra_keys, true ) ? '
+ * bl-sp-col-extra' : ''` verbatim.
+ *
+ * @param string   $key         The column key being rendered.
+ * @param string[] $extra_keys  Column keys marked "extra" (hidden until the
+ *                               full-stats toggle is checked).
+ * @return string ' bl-sp-col-extra' when $key is one of $extra_keys, '' otherwise.
+ */
+function blueline_sp_extra_class( string $key, array $extra_keys ): string {
+	return in_array( $key, $extra_keys, true ) ? ' bl-sp-col-extra' : '';
 }

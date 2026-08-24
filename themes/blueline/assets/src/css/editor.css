@@ -152,10 +152,6 @@ td {
 thead th {
 	background: var(--bl-ink);
 	color: var(--bl-paper);
-	font-family: var(--bl-font-display);
-	font-weight: 700;
-	font-style: italic;
-	text-transform: uppercase;
 }
 
 .wp-block-table.is-style-stripes tbody tr:nth-child(odd) {
@@ -220,7 +216,7 @@ figcaption {
 .wp-block-separator.is-style-dots::before {
 	content: "\00b7 \00b7 \00b7";
 	color: var(--bl-steel);
-	font-size: var(--bl-text-xl);
+	font-size: var(--bl-text-2xl);
 	letter-spacing: var(--bl-space-2);
 }
 

@@ -19,11 +19,9 @@ defined( 'ABSPATH' ) || exit;
 get_header();
 
 $has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
+
+blueline_page_wrapper_start( $has_sidebar, 'bl-main--sp' );
 ?>
-<main id="main" class="bl-main bl-main--sp" tabindex="-1">
-	<div class="bl-container">
-		<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
-			<div class="bl-content-layout__primary">
 				<?php if ( is_archive() ) : ?>
 
 					<header class="bl-archive-header">
@@ -48,7 +46,13 @@ $has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_s
 						</ul>
 						<?php blueline_pagination(); ?>
 					<?php else : ?>
-						<?php get_template_part( 'content', 'none' ); ?>
+						<?php
+						// This template already rendered its own H1 above
+						// (the_archive_title(), in the header just above),
+						// so content-none.php's own heading must not be a
+						// second H1 on the page.
+						get_template_part( 'content', 'none', array( 'heading_level' => 'h2' ) );
+						?>
 					<?php endif; ?>
 
 				<?php elseif ( have_posts() ) : ?>
@@ -65,12 +69,7 @@ $has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_s
 					?>
 
 				<?php endif; ?>
-			</div>
-			<?php if ( $has_sidebar ) : ?>
-				<?php get_sidebar(); ?>
-			<?php endif; ?>
-		</div>
-	</div>
-</main>
 <?php
+blueline_page_wrapper_end( $has_sidebar );
+
 get_footer();

@@ -63,7 +63,7 @@ if ( ! empty( $order->get_billing_first_name() ) ) {
 		printf(
 			wp_kses(
 			/* translators: %1$s Site title, %2$s Order pay link */
-				__( 'An registration has been created for you on %1$s. Your registration details are below, with a link to make your payment: %2$s', 'woocommerce' ),
+				__( 'A registration has been created for you on %1$s. Your registration details are below, with a link to make your payment: %2$s', 'woocommerce' ),
 				array(
 					'a' => array(
 						'href' => array(),
