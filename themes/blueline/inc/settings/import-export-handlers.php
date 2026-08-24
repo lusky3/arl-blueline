@@ -1,13 +1,13 @@
 <?php
 /**
- * The settings panel's export download and import preview/apply requests --
+ * The settings panel's export download and import preview/apply requests:
  * the request-handling layer that sits between inc/settings/import.php's pure
  * decode/prepare/sanitize logic and the panel's own UI (still rendered from
  * inc/settings/page.php).
  *
  * Export is a real `admin_post_*` handler, registered below, because the
- * response is a file download and has to send its own headers. Import is not
- * -- it is read directly out of $_POST by blueline_settings_render_page()
+ * response is a file download and has to send its own headers. Import is
+ * not, since it is read directly out of $_POST by blueline_settings_render_page()
  * before that function renders anything (see blueline_settings_maybe_handle_import()'s
  * own docblock for why), so both the preview and apply steps live here as
  * plain functions rather than admin-post callbacks.
@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The exact bytes the panel's Download button hands back -- the SAME
+ * The exact bytes the panel's Download button hands back: the SAME
  * payload and the SAME JSON flags `wp blueline settings export` prints, so
  * the two surfaces cannot drift into two shapes `import` would then have to
  * accept both of. tests/SettingsPanelImportExportTest.php asserts that
@@ -48,7 +48,7 @@ add_action( 'admin_post_blueline_settings_export', 'blueline_settings_handle_exp
  * Serve the export as a file download.
  *
  * On `admin_post_*` rather than inside the panel's own render, because a
- * download has to send its headers before any other output -- rendering
+ * download has to send its headers before any other output; rendering
  * half a wp-admin page and then trying to become a file is not something
  * that can be recovered from.
  *
@@ -56,8 +56,8 @@ add_action( 'admin_post_blueline_settings_export', 'blueline_settings_handle_exp
  * setting, so it is gated exactly as the panel itself is.
  *
  * The final four lines (the headers, the echo and the exit) are the one
- * part of these controls no test here exercises -- a PHPUnit process cannot
- * usefully assert on headers it also has to keep running after. Everything
+ * part of these controls no test here exercises, because a PHPUnit process
+ * cannot usefully assert on headers it also has to keep running after. Everything
  * they depend on (the payload, the filename, the capability refusal) is
  * covered separately.
  *
@@ -72,7 +72,7 @@ function blueline_settings_handle_export(): void {
 	header( 'Content-Disposition: attachment; filename="' . blueline_settings_export_filename() . '"' );
 	header( 'Content-Length: ' . strlen( $json ) );
 
-	echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this response IS a JSON file, not HTML: escaping it would corrupt the download it exists to produce. Its content comes from blueline_settings(), which every write path has already sanitized, and wp_json_encode() has already escaped it as JSON.
+	echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this response IS a JSON file, not HTML, so escaping it would corrupt the download it exists to produce. Its content comes from blueline_settings(), which every write path has already sanitized, and wp_json_encode() has already escaped it as JSON.
 	exit;
 }
 
@@ -84,9 +84,9 @@ function blueline_settings_handle_export(): void {
  * refuse a newer `_schema`, collect the keys the schema does not declare,
  * then walk every recognised field through blueline_sanitize_field(). The
  * diff is built from the SANITIZED values, never the file's own text,
- * because that sanitizer normalises as well as validates -- a preview built
- * from the raw payload would report a change to a value the import is never
- * going to store.
+ * because that sanitizer normalises as well as validates, and a preview
+ * built from the raw payload would report a change to a value the import
+ * is never going to store.
  *
  * A payload with any rejected field returns `diff => null` deliberately:
  * a rejected field keeps its currently-stored value, so a diff drawn
@@ -157,13 +157,13 @@ function blueline_settings_import_submitted_payload() {
 	// Both sniffs are silenced on the line itself rather than from the line
 	// above: phpcs lets a trailing annotation REPLACE a preceding-line one, so
 	// splitting them across two comments silently drops the first.
-	$file = isset( $_FILES['blueline_import_file'] ) && is_array( $_FILES['blueline_import_file'] ) ? $_FILES['blueline_import_file'] : null; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- the nonce for this submission is verified by blueline_settings_maybe_handle_import(), this function's only caller, before it is called; and this is an upload descriptor, not text: every field it reads is cast and validated in blueline_settings_import_read_upload(), and its bytes go through the JSON decoder's own bounds rather than a text sanitizer.
+	$file = isset( $_FILES['blueline_import_file'] ) && is_array( $_FILES['blueline_import_file'] ) ? $_FILES['blueline_import_file'] : null; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- the nonce for this submission is verified by blueline_settings_maybe_handle_import(), this function's only caller, before it is called. This is an upload descriptor, not text: every field it reads is cast and validated in blueline_settings_import_read_upload(), and its bytes go through the JSON decoder's own bounds rather than a text sanitizer.
 
 	if ( null !== $file && UPLOAD_ERR_NO_FILE !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
 		return blueline_settings_import_read_upload( $file );
 	}
 
-	$pasted = isset( $_POST['blueline_import_json'] ) ? trim( (string) wp_unslash( $_POST['blueline_import_json'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified by the only caller, as above; and deliberately NOT run through sanitize_text_field(): this value is a JSON document, and stripping tags/newlines out of it would corrupt a valid payload rather than protect anything. It is validated by blueline_settings_import_decode()'s size, depth and shape bounds, and every value inside it by blueline_sanitize_field(), before any of it is stored.
+	$pasted = isset( $_POST['blueline_import_json'] ) ? trim( (string) wp_unslash( $_POST['blueline_import_json'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified by the only caller, as above. It is deliberately NOT run through sanitize_text_field(), because this value is a JSON document, and stripping tags/newlines out of it would corrupt a valid payload rather than protect anything. It is validated by blueline_settings_import_decode()'s size, depth and shape bounds, and every value inside it by blueline_sanitize_field(), before any of it is stored.
 
 	if ( '' !== $pasted ) {
 		return $pasted;
@@ -216,7 +216,7 @@ function blueline_settings_import_read_upload( array $file ) {
 		);
 	}
 
-	return (string) file_get_contents( $tmp_name ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local temp file PHP itself just wrote from a multipart upload (proven by is_uploaded_file() immediately above), not an HTTP fetch; wp_remote_get() is for URLs.
+	return (string) file_get_contents( $tmp_name ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local temp file PHP itself just wrote from a multipart upload (proven by is_uploaded_file() immediately above), not an HTTP fetch, since wp_remote_get() is for URLs.
 }
 
 /**
@@ -276,8 +276,8 @@ function blueline_settings_maybe_handle_import(): ?array {
 /**
  * Apply the payload the preview step handed back through a hidden field.
  *
- * Re-runs the whole preview -- decode, bounds, `_schema` refusal, sanitizer
- * walk -- rather than trusting that the payload has not changed between the
+ * Re-runs the whole preview (decode, bounds, `_schema` refusal, sanitizer
+ * walk) rather than trusting that the payload has not changed between the
  * two requests. It has travelled through a browser in the meantime, and the
  * preview's verdict is not a token of any kind.
  *
@@ -291,7 +291,7 @@ function blueline_settings_maybe_handle_import(): ?array {
  *
  * The write goes through update_option(), so the same
  * `sanitize_option_{$option}` callback and the same merge every other write
- * runs apply here too -- which is also what makes an omitted key carry its
+ * runs apply here too, which is also what makes an omitted key carry its
  * stored value forward rather than resetting, exactly as the preview said.
  *
  * @return array<string, mixed>|null The preview state again when nothing
@@ -299,7 +299,7 @@ function blueline_settings_maybe_handle_import(): ?array {
  *                                    re-show why), or null on success.
  */
 function blueline_settings_apply_import(): ?array {
-	$raw = isset( $_POST['blueline_import_payload'] ) ? (string) wp_unslash( $_POST['blueline_import_payload'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified by blueline_settings_maybe_handle_import(), this function's only caller, immediately before it is called; and this is a JSON document, not text -- see blueline_settings_import_submitted_payload() for why a text sanitizer would corrupt rather than protect it, and what does validate it instead.
+	$raw = isset( $_POST['blueline_import_payload'] ) ? (string) wp_unslash( $_POST['blueline_import_payload'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified by blueline_settings_maybe_handle_import(), this function's only caller, immediately before it is called. This is a JSON document, not text; see blueline_settings_import_submitted_payload() for why a text sanitizer would corrupt rather than protect it, and what does validate it instead.
 
 	$state = blueline_settings_import_preview_state( $raw );
 

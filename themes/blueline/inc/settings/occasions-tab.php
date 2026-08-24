@@ -22,17 +22,17 @@ defined( 'ABSPATH' ) || exit;
  *
  * Design spec §5.1's third ruling: this is the bespoke renderer
  * blueline_settings_render_page() dispatches to for the Occasions tab
- * INSTEAD of the generic per-field `<table>` loop -- `occasions` has
+ * INSTEAD of the generic per-field `<table>` loop, because `occasions` has
  * zero schema fields of its own (it is a reserved settings key, not a
- * schema field: see BLUELINE_SETTINGS_RESERVED_KEYS's own docblock),
- * so the generic loop has nothing to render for this tab at all.
+ * schema field: see BLUELINE_SETTINGS_RESERVED_KEYS's own docblock);
+ * the generic loop therefore has nothing to render for this tab at all.
  *
  * ## The `__none__` marker row
  *
  * One hidden `[occasions][__none__][label]` field is rendered OUTSIDE
  * the repeater `<ul>`, so it survives every "Remove" click. It exists
  * for exactly one case: an admin deleting EVERY row and saving. An HTML
- * form cannot post an array field with zero entries -- with no real row
+ * form cannot post an array field with zero entries: with no real row
  * left, no `blueline_settings[occasions][...]` key would appear in the
  * request at all, blueline_settings_sanitize_callback()'s per-key loop
  * would never reach its `occasions` branch, `$output['occasions']` would
@@ -59,7 +59,7 @@ function blueline_settings_render_occasions_tab(): void {
 	$name             = BLUELINE_SETTINGS_OPTION . '[occasions]';
 	?>
 	<div class="bl-occasions" data-bl-occasions data-bl-occasions-name="<?php echo esc_attr( $name ); ?>">
-		<?php // Always-present marker row -- see this function's docblock. Deliberately outside the <ul>, so removing every real row cannot remove it too. ?>
+		<?php // Always-present marker row; see this function's docblock. Deliberately outside the <ul>, so removing every real row cannot remove it too. ?>
 		<input
 			type="hidden"
 			name="<?php echo esc_attr( $name . '[__none__][label]' ); ?>"

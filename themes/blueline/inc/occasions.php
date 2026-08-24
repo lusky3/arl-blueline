@@ -7,7 +7,7 @@
  *
  *   - The Occasion model. Its three closed enumerations (types, motifs,
  *     activation modes), the annually-recurring `MM-DD` shape check, and
- *     blueline_sanitize_occasions() -- the validator inc/settings/page.php
+ *     blueline_sanitize_occasions(), the validator inc/settings/page.php
  *     runs the reserved `occasions` key through on every write that
  *     reaches update_option().
  *   - blueline_occasion_presets(): the four shipped templates, as a
@@ -19,7 +19,7 @@
  *   - blueline_occasion_accent_default(), which resolves
  *     --bl-occasion-accent's own declared default (`var(--bl-ice)`) to a
  *     literal hex value by reading style.css's :root block. Deliberately
- *     NOT a general :root parser -- exactly one var() hop for exactly one
+ *     NOT a general :root parser; it follows exactly one var() hop for exactly one
  *     token. See
  *     docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md
  *     §4.1: a recursive :root parser was descoped as premature generality
@@ -45,7 +45,7 @@ defined( 'ABSPATH' ) || exit;
  * fatal, never a _doing_it_wrong() notice a visitor could see, just a
  * server-log trace of a silently degraded fallback.
  *
- * @param string $path   The stylesheet path that could not be used --
+ * @param string $path   The stylesheet path that could not be used; it is
  *                        passed through by the caller, which accepts a
  *                        $path_override, so the log names whichever file
  *                        was actually being read rather than always
@@ -61,7 +61,7 @@ function blueline_occasion_accent_default_read_failure( string $path, string $re
 	}
 	$logged = true;
 
-	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- deliberate: mirrors inc/team-colors.php's blueline_contrast_rules_read_failure() -- see that function's own docblock for why a silent fallback should still leave a server-log trace.
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- deliberate: mirrors inc/team-colors.php's blueline_contrast_rules_read_failure(); see that function's own docblock for why a silent fallback should still leave a server-log trace.
 	error_log(
 		sprintf( "Blueline: could not resolve --bl-occasion-accent's default from %s (%s).", $path, $reason )
 	);
@@ -71,7 +71,7 @@ function blueline_occasion_accent_default_read_failure( string $path, string $re
  * Resolve --bl-occasion-accent's own declared default to a literal hex
  * value, by reading style.css's :root block directly.
  *
- * Style.css declares `--bl-occasion-accent: var(--bl-ice);` -- one var()
+ * Style.css declares `--bl-occasion-accent: var(--bl-ice);`, one var()
  * hop to a token that is itself a plain hex literal. This follows exactly
  * that one hop and no more: it does not resolve clamp(), rgba(), or a
  * chain of more than one var(). Never fatal: a missing file, a missing
@@ -93,7 +93,7 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
 		return '';
 	}
 
-	$css = (string) file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo file, not a remote URL.
+	$css = (string) file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- this is a local repo file, not a remote URL.
 
 	// Strip comments first so a mention inside one cannot be mistaken for
 	// a real declaration.
@@ -125,7 +125,7 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
  * The two occasion types the model recognises (design spec §5/§7.1).
  * `commemorative` is validated separately by its own rules elsewhere
  * (Task 5's announcement-severity suppression, and the panel-side "only
- * the poppy motif" restriction 2.1b will add) -- this enumeration is only
+ * the poppy motif" restriction 2.1b will add); this enumeration is only
  * the shape check.
  *
  * @return string[]
@@ -135,7 +135,7 @@ function blueline_occasion_types(): array {
 }
 
 /**
- * The shipped, enumerated motif set (design spec §5/§7.7) -- never
+ * The shipped, enumerated motif set (design spec §5/§7.7). It is never
  * uploadable, so this list is exhaustive and closed.
  *
  * @return string[]
@@ -146,8 +146,8 @@ function blueline_occasion_motifs(): array {
 
 /**
  * The three activation modes (design spec §5/§7.5): `auto` (window-
- * driven), `force_on` (always eligible, regardless of window --
- * "preview it now"), `force_off` (never eligible, regardless of window --
+ * driven), `force_on` (always eligible, regardless of window:
+ * "preview it now"), `force_off` (never eligible, regardless of window:
  * "pull it now").
  *
  * @return string[]
@@ -163,7 +163,7 @@ function blueline_occasion_modes(): array {
  * Validated against 2024 (a leap year) deliberately: an occasion window
  * is a RECURRING annual date, not a single instant, so `02-29` must be
  * accepted as a real recurring day even though it does not exist every
- * year -- Task 3's resolver and Task 6's cron boundary calculation are
+ * year; Task 3's resolver and Task 6's cron boundary calculation are
  * both what actually decide what happens to a `02-29` window in a
  * non-leap target year, not this shape check.
  *
@@ -182,13 +182,13 @@ function blueline_occasion_valid_md( $value ): bool {
  * Validate and repair a stored `occasions` value.
  *
  * Called from inc/settings/page.php's blueline_settings_sanitize_callback()
- * reserved-key branch -- the same choke point `_schema`/`aa_acknowledgements`
+ * reserved-key branch, the same choke point `_schema`/`aa_acknowledgements`
  * already go through, so this runs on every write that actually reaches
  * update_option() for this option (WP-CLI, a direct update_option() call,
  * a future 2.1b panel save), not only ones that pass through wp-admin.
  *
  * A map keyed by occasion id (design spec §5/§7.1: "stored flat inside
- * blueline_settings['occasions'] -- a map keyed by `id`"). Never fatal
+ * blueline_settings['occasions'], a map keyed by `id`"). Never fatal
  * and, like blueline_sanitize_band_photos() and
  * blueline_sanitize_acknowledgements() before it, drops a malformed
  * entry rather than corrupting the whole map over one bad row: a
@@ -300,7 +300,7 @@ function blueline_sanitize_occasions( $value ): array {
 }
 
 /**
- * The four shipped occasion templates -- design spec §5's second ruling:
+ * The four shipped occasion templates, per design spec §5's second ruling:
  * a READ-ONLY catalog for a future admin UI's "add from preset"
  * affordance (2.1b), never pre-populated into the real stored
  * `occasions` array. blueline_resolve_active_occasion() (Task 3) never
@@ -312,8 +312,8 @@ function blueline_sanitize_occasions( $value ): array {
  * Every preset ships `mode => 'auto'`, deliberately: there is no
  * `enabled` field in the model at all (an `auto` entry sitting in the
  * REAL stored array during its calendar window would activate whether
- * or not an admin ever opened the panel -- the model has no separate
- * on/off switch, by design), so "shipped but inert" is achieved entirely
+ * or not an admin ever opened the panel, because the model has no separate
+ * on/off switch by design), so "shipped but inert" is achieved entirely
  * by these presets living here instead of in the real stored array, not
  * by any flag on the entries themselves.
  *
@@ -364,7 +364,7 @@ function blueline_occasion_presets(): array {
 			'line'   => '',
 			'mode'   => 'auto',
 		),
-		// Crosses the year boundary (start_md > end_md) by design -- see
+		// Crosses the year boundary (start_md > end_md) by design; see
 		// Task 3's blueline_occasion_window_contains() and Task 6's
 		// blueline_occasion_next_occurrence_timestamp() for the two places
 		// that must, and do, handle this correctly.
@@ -386,16 +386,16 @@ function blueline_occasion_presets(): array {
 
 /**
  * Assign each submitted occasions row a server-derived, de-duplicated
- * `id` -- design spec §5.1's first ruling: the admin never types an id
+ * `id`, per design spec §5.1's first ruling: the admin never types an id
  * directly.
  *
  * A row keeps its own existing id when its derived slug is unchanged
  * from `_original_id`. A row whose derived slug differs from
  * `_original_id` (a brand-new row, where `_original_id` is '', or an
- * existing row whose label edit changed the derived slug -- a rename)
+ * existing row whose label edit changed the derived slug, i.e. a rename)
  * is checked for a collision against both the rest of THIS batch and
  * the currently-stored array, EXCLUDING the row's own original slot,
- * and bumped with an incrementing numeric suffix on collision -- the
+ * and bumped with an incrementing numeric suffix on collision, the
  * same shape wp_unique_post_slug() already uses for post slugs.
  *
  * Deliberately does not call blueline_sanitize_occasions() itself, and
@@ -403,13 +403,13 @@ function blueline_occasion_presets(): array {
  * (inc/settings/page.php's sanitize-callback carve-out) runs the
  * result through that unchanged validator immediately afterwards. Any
  * OTHER key a row carries (e.g. a save-time override checkbox a later
- * task reads) is copied through untouched -- this function only ever
+ * task reads) is copied through untouched, because this function only ever
  * reads `_original_id`/`label` and writes `id`.
  *
  * A stored slot whose owning row (the row in THIS batch carrying that
  * `_original_id`) is itself renaming away from it is being vacated by
  * this very save, so it must not count as "still occupied" against a
- * different row that wants to move into it -- two rows trading ids
+ * different row that wants to move into it. Two rows trading ids
  * (A's old slot to B, B's old slot to A) would otherwise each see the
  * other's not-yet-vacated slot as a collision and both get bumped with
  * an unnecessary `-2` suffix, silently shifting their AA-acknowledgement
@@ -454,7 +454,7 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
 		$base        = sanitize_title( $label );
 
 		if ( '' === $base ) {
-			// No usable label at all -- blueline_sanitize_occasions()
+			// No usable label at all. blueline_sanitize_occasions()
 			// will reject this row for its own empty-label reason
 			// regardless, so there is no id worth manufacturing for it.
 			continue;
@@ -483,18 +483,18 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
 }
 
 /**
- * Compute the new `aa_acknowledgements` map after an Occasions-tab save
- * -- design spec §5.1's fifth ruling: per-occasion, symmetric
+ * Compute the new `aa_acknowledgements` map after an Occasions-tab save,
+ * per design spec §5.1's fifth ruling: per-occasion, symmetric
  * record/remove, plus orphan cleanup.
  *
  * For every occasion in $sanitized (already run through
- * blueline_sanitize_occasions() -- this function trusts it is
+ * blueline_sanitize_occasions(), so this function trusts it is
  * well-formed), resolves its effective accent (its own `accent`, or
  * blueline_occasion_accent_default() when empty), checks contrast
  * against BLUELINE_TOKEN_INK, and either records or removes its
  * acknowledgement accordingly. Then removes every acknowledgement
- * scoped `occasion:*` whose id is not present in $sanitized at all --
- * deleting or renaming an occasion must not leave its acknowledgement
+ * scoped `occasion:*` whose id is not present in $sanitized at all,
+ * because deleting or renaming an occasion must not leave its acknowledgement
  * behind forever.
  *
  * Pure: takes the current map and returns a new one; never calls
@@ -504,7 +504,7 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
  * $ack_context bundles the three values that travel together at every call
  * site of this function (see inc/settings/page.php's own call, and
  * blueline_record_acknowledgement()'s own call shape, which takes the same
- * hash/user_id pair) -- `acknowledgements`, `inputs_hash`, and `user_id`,
+ * hash/user_id pair): `acknowledgements`, `inputs_hash`, and `user_id`,
  * keyed exactly as named here.
  *
  * @param array<string, array<string, mixed>>                                                             $sanitized     This save's new `occasions` value (post blueline_sanitize_occasions()).
@@ -531,7 +531,7 @@ function blueline_occasions_apply_aa_overrides(
 		$accent = blueline_sanitize_hex_color( $raw_accent );
 
 		if ( '' === $accent ) {
-			// Unresolvable accent -- nothing to acknowledge either way;
+			// Unresolvable accent, so there is nothing to acknowledge either way;
 			// do not leave a stale acknowledgement behind for a value
 			// that no longer means anything.
 			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
@@ -561,7 +561,7 @@ function blueline_occasions_apply_aa_overrides(
 	// or renamed away from) has nothing left to cover.
 	foreach ( array_keys( $acknowledgements ) as $scope ) {
 		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
-			continue; // Not this mechanism's business -- e.g. a future non-occasion scope.
+			continue; // Not this mechanism's business, e.g. a future non-occasion scope.
 		}
 
 		$id = substr( $scope, strlen( 'occasion:' ) );
@@ -576,7 +576,7 @@ function blueline_occasions_apply_aa_overrides(
 
 /**
  * Classify every `occasion:*`-scoped entry in `aa_acknowledgements` as
- * still-`valid`, `orphaned`, or `stale` against CURRENT reality -- design
+ * still-`valid`, `orphaned`, or `stale` against CURRENT reality, per design
  * spec §6.5's ruling that this is the SOLE function both the deploy-drift
  * notice (inc/settings/validation.php's
  * blueline_occasions_maybe_revalidate_on_drift()) and Site Health
@@ -592,19 +592,19 @@ function blueline_occasions_apply_aa_overrides(
  *   `accent`, or blueline_occasion_accent_default() when empty), sanitize
  *   it exactly as blueline_resolve_active_occasion() does, and check
  *   blueline_acknowledgement_covers() against it with the CURRENT
- *   blueline_settings_inputs_hash() -- `stale` on a `false` result (the
+ *   blueline_settings_inputs_hash(): `stale` on a `false` result (the
  *   accent value changed, or style.css/contrast-rules.json moved since
  *   the acknowledgement was recorded), `valid` otherwise. An unresolvable
  *   current accent (blueline_sanitize_hex_color() returns '') can never
  *   be covered by anything, so it classifies `stale` too.
  *
  * A scope outside the `occasion:` namespace is not this function's
- * business at all and is skipped entirely -- not merely left `valid` --
+ * business at all and is skipped entirely, not merely left `valid`,
  * so the returned map's own keys are exactly this function's domain.
  *
  * Pure and read-only: never calls blueline_record_acknowledgement() or
  * blueline_remove_acknowledgement(). A stale or orphaned acknowledgement
- * is REPORTED, never deleted -- blueline_remove_acknowledgement()'s own
+ * is REPORTED, never deleted; blueline_remove_acknowledgement()'s own
  * docblock already establishes that a stale hash is not a valid reason
  * to call it, and drift discovery is not a stronger reason than
  * staleness itself (design spec §6.5).
@@ -623,7 +623,7 @@ function blueline_occasions_classify_acknowledgements(): array {
 
 	foreach ( $acknowledgements as $scope => $entry ) {
 		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
-			continue; // Not this mechanism's business -- e.g. a future non-occasion scope.
+			continue; // Not this mechanism's business, e.g. a future non-occasion scope.
 		}
 
 		$id = substr( $scope, strlen( 'occasion:' ) );
@@ -642,7 +642,7 @@ function blueline_occasions_classify_acknowledgements(): array {
 		$accent = is_string( $raw_accent ) ? blueline_sanitize_hex_color( $raw_accent ) : '';
 
 		if ( '' === $accent ) {
-			// Unresolvable current accent -- nothing can cover this; the
+			// Unresolvable current accent, so nothing can cover this; it gets the
 			// same treatment as a value that plainly changed.
 			$classifications[ $scope ] = 'stale';
 			continue;
@@ -663,7 +663,7 @@ function blueline_occasions_classify_acknowledgements(): array {
 }
 
 /**
- * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD' --
+ * Today's calendar date, in SITE timezone (not UTC), as 'MM-DD', per
  * design spec §5/§7.5: "Dates compare in site timezone ... not UTC."
  *
  * @param int $timestamp Unix timestamp.
@@ -678,8 +678,8 @@ function blueline_occasion_today_md( int $timestamp ): string {
  * window [$start_md, $end_md].
  *
  * Handles a window that crosses the year boundary (start_md > end_md,
- * e.g. New Year's own 12-27..01-02 -- blueline_occasion_presets()'s
- * `new-year` entry forces this case to be real, not hypothetical) by
+ * e.g. New Year's own 12-27..01-02, which blueline_occasion_presets()'s
+ * `new-year` entry forces to be real rather than hypothetical) by
  * treating it as "today >= start OR today <= end" instead of the normal
  * "start <= today <= end". String comparison is safe here because every
  * `MM-DD` value is exactly two zero-padded two-digit fields, which sort
@@ -701,7 +701,7 @@ function blueline_occasion_window_contains( string $start_md, string $end_md, st
 /**
  * Precedence comparator for usort(): `force_on` beats `auto`;
  * `commemorative` beats `decorative`; then earliest `start_md`; then
- * `id` ascending -- design spec §5/§7.5, in that exact order, so the
+ * `id` ascending, per design spec §5/§7.5, in that exact order, so the
  * winner among several eligible candidates is always deterministic.
  *
  * @param array<string, mixed> $a One Occasion.
@@ -737,14 +737,14 @@ function blueline_occasion_compare( array $a, array $b ): int {
 
 /**
  * Every eligible Occasion candidate for $today_md, normalized and sorted by
- * precedence -- the first half of blueline_resolve_active_occasion()'s own
+ * precedence. This is the first half of blueline_resolve_active_occasion()'s own
  * job, split out on its own so that function's second half (the AA-override
  * walk that picks the actual winner) reads as a short, separate step. Matches
  * the existing decomposition style of blueline_occasion_window_contains()/
  * blueline_occasion_compare(), this file's other two helpers already carved
  * out of the resolver.
  *
- * Reads only the `$occasions` array passed in -- never
+ * Reads only the `$occasions` array passed in, never
  * blueline_occasion_presets(), which is a read-only catalog with no bearing
  * on what is actually live (design spec §5's second ruling; see
  * tests/OccasionsResolverTest.php's own source-scan test for the
@@ -753,7 +753,7 @@ function blueline_occasion_compare( array $a, array $b ): int {
  * Eligibility: `force_off` is never eligible, regardless of window.
  * `force_on` is always eligible, regardless of window. `auto` (or an
  * unset mode) is eligible only while $today_md currently falls inside its
- * window -- and only if both stored bounds are well-formed `MM-DD` values
+ * window, and only if both stored bounds are well-formed `MM-DD` values
  * in the first place (see the inline note on that check: a malformed bound
  * would otherwise read as "always active").
  *
@@ -780,7 +780,7 @@ function blueline_occasion_eligible_candidates( array $occasions, string $today_
 		}
 
 		// Normalize the stored `window` shape for EVERY mode, including
-		// `force_on` -- `occasions` is a reserved settings key, not a schema
+		// `force_on`: `occasions` is a reserved settings key, not a schema
 		// field, so blueline_settings_repair()'s schema-field walk never
 		// revalidates it, and an out-of-band write (a hand-edited row, a
 		// restored dump, a migration script) is the only thing that can put
@@ -806,7 +806,7 @@ function blueline_occasion_eligible_candidates( array $occasions, string $today_
 			// does with the same stored data. Unvalidated, an empty
 			// `start_md` makes blueline_occasion_window_contains() take its
 			// non-wrapping branch and return true for EVERY possible
-			// $today_md -- permanently activating the occasion site-wide.
+			// $today_md, permanently activating the occasion site-wide.
 			// Same reasoning as the blueline_sanitize_hex_color() pass over
 			// `accent` further down: validate defensively on read, skip
 			// rather than fatal.
@@ -830,20 +830,20 @@ function blueline_occasion_eligible_candidates( array $occasions, string $today_
 /**
  * The one active occasion right now, or null.
  *
- * Candidate discovery -- window matching, mode eligibility, and precedence
- * ordering -- is blueline_occasion_eligible_candidates()'s own job; this
+ * Candidate discovery (window matching, mode eligibility, and precedence
+ * ordering) is blueline_occasion_eligible_candidates()'s own job; this
  * function calls that helper and then walks its result applying the
  * AA-override gate (design spec §4.5) to pick the actual winner: resolve
  * each candidate's effective accent in turn (its own `accent`, or
- * blueline_occasion_accent_default() when empty -- that default is computed
+ * blueline_occasion_accent_default() when empty, since that default is computed
  * at most once per call, on first need, and reused for every later candidate
  * with an empty `accent`), run it through blueline_sanitize_hex_color()
- * (blueline_settings() does not sanitize on read -- inc/settings/store.php's
- * own docblock -- so a stored `accent` can be malformed even though
+ * (blueline_settings() does not sanitize on read, per inc/settings/store.php's
+ * own docblock, so a stored `accent` can be malformed even though
  * blueline_sanitize_occasions() rejects one on write), and, if that yields a
  * real hex colour, compute its real contrast ratio against
- * BLUELINE_TOKEN_INK; and -- only if it fails
- * blueline_contrast_threshold( 'body' ) -- require a live, hash-matching
+ * BLUELINE_TOKEN_INK; then, only if it fails
+ * blueline_contrast_threshold( 'body' ), require a live, hash-matching
  * acknowledgement scoped to `occasion:{id}`
  * (blueline_acknowledgement_covers()) before accepting it. A candidate
  * whose effective accent cannot be resolved to a real hex colour at all,
@@ -887,8 +887,8 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 
 		if ( '' === $raw_accent ) {
 			// The default itself could not be resolved (Phase 2.0's own
-			// blueline_occasion_accent_default() already logs why) --
-			// nothing to apply for this candidate. Skip, never fatal.
+			// blueline_occasion_accent_default() already logs why); nothing to
+			// apply for this candidate. Skip, never fatal.
 			continue;
 		}
 
@@ -896,7 +896,7 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 		// own docblock): a stored `accent` can be malformed (a hand-edited
 		// row, a migration script) even though blueline_sanitize_occasions()
 		// rejects one on write. Run it through the same sanitizer used
-		// there before it ever reaches contrast math -- never trust a raw
+		// there before it ever reaches contrast math; never trust a raw
 		// stored string as a real hex colour.
 		$accent = blueline_sanitize_hex_color( $raw_accent );
 
@@ -933,7 +933,7 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 
 /**
  * The maple leaf motif (Canada Day). Purely decorative: aria-hidden, no
- * text alternative needed -- matches the existing house style
+ * text alternative needed, matching the existing house style
  * (inc/template-tags.php's blueline_leaf_mark(), inc/homepage-modules.php's
  * blueline_render_faceoff_rings()): `stroke`/`fill="currentColor"` so CSS
  * (specifically --bl-occasion-accent, once a template applies it as the
@@ -988,7 +988,7 @@ function blueline_render_occasion_motif_sparkle(): void {
 
 /**
  * Render the named motif, or nothing for 'none' or an unrecognised name
- * -- never fatal, matching every other read path in this file.
+; never fatal, matching every other read path in this file.
  *
  * @param string $motif One of blueline_occasion_motifs().
  * @return void
@@ -1015,7 +1015,7 @@ function blueline_render_occasion_motif( string $motif ): void {
 
 /**
  * Clamp the announcement's severity from 'urgent' down to 'info' while a
- * commemorative occasion is the currently resolved-active one -- design
+ * commemorative occasion is the currently resolved-active one, per design
  * spec §5/§7.6. Hooked onto the `blueline_announcement_severity` filter
  * inc/announcement.php's blueline_announcement_severity() applies its
  * return value through.
@@ -1050,11 +1050,11 @@ const BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK = 'blueline_occasion_boundary_purge'
  * timezone) strictly after $after.
  *
  * A `02-29` $md in a target year that is not itself a leap year rolls
- * forward to March 1st -- PHP's own DateTimeImmutable date-parsing
+ * forward to March 1st, which is PHP's own DateTimeImmutable date-parsing
  * behaviour for an out-of-range day, accepted here rather than worked
  * around: none of the four shipped presets (blueline_occasion_presets())
  * uses `02-29`, and this is a purge-TIMING calculation only (design spec
- * §5/§7.8) -- a purge landing a day off in a leap-adjacent year for a
+ * §5/§7.8), so a purge landing a day off in a leap-adjacent year for a
  * hypothetical future `02-29` occasion delays cache visibility by at
  * most a day, never producing a wrong resolved result (the resolver,
  * Task 3, is unaffected by this function entirely).
@@ -1080,12 +1080,12 @@ function blueline_occasion_next_occurrence_timestamp( string $md, int $after ): 
 }
 
 /**
- * The `MM-DD` on which a window ending on $end_md actually DEACTIVATES --
+ * The `MM-DD` on which a window ending on $end_md actually DEACTIVATES:
  * the day AFTER it.
  *
  * The window (blueline_occasion_window_contains()) is INCLUSIVE of the
  * occasion's `end_md`: it is active through all of `end_md` and stops at
- * `end_md + 1 day, 00:00`. So `end_md 00:00` is not a boundary at all --
+ * `end_md + 1 day, 00:00`. So `end_md 00:00` is not a boundary at all;
  * nothing changes at that instant, because the occasion has already been
  * active since `start_md`. The instant something changes is the start of
  * the following day, which is what this returns the calendar date of.
@@ -1093,7 +1093,7 @@ function blueline_occasion_next_occurrence_timestamp( string $md, int $after ): 
  * Calendar arithmetic, never `+86400`: month lengths (`01-31` -> `02-01`)
  * and the year wrap (`12-31` -> `01-01`) both have to come out right.
  * Stepped in UTC because the value being produced is a recurring `MM-DD`
- * with no clock in it -- there is no wall-clock time here for a DST
+ * with no clock in it, so there is no wall-clock time here for a DST
  * transition to shift, and the site-timezone 00:00 resolution happens
  * afterwards, in blueline_occasion_next_occurrence_timestamp(). Stepped
  * from 2024, the same leap year blueline_occasion_valid_md() validates
@@ -1112,17 +1112,17 @@ function blueline_occasion_end_boundary_md( string $end_md ): string {
 
 /**
  * The soonest "something changes" instant across every stored auto-mode
- * occasion's activation AND deactivation boundary -- the moment WP-Cron
+ * occasion's activation AND deactivation boundary: the moment WP-Cron
  * should next fire blueline_occasion_cron_boundary_purge().
  * `force_on`/`force_off` occasions are excluded: their activation is not
  * date-driven, so they have no boundary to purge for.
  *
  * The activation boundary is `start_md 00:00`. The deactivation boundary
- * is the start of the day AFTER `end_md`, not `end_md 00:00` -- see
+ * is the start of the day AFTER `end_md`, not `end_md 00:00`; see
  * blueline_occasion_end_boundary_md() for why the inclusive window makes
  * `end_md 00:00` an instant at which nothing changes.
  *
- * Never the correctness mechanism itself (design spec §5/§7.8) -- only
+ * Never the correctness mechanism itself (design spec §5/§7.8); only
  * ever a purge-timing hint. blueline_resolve_active_occasion() (Task 3)
  * always recomputes from scratch on every request regardless of whether
  * this ever ran.
@@ -1169,8 +1169,8 @@ function blueline_occasion_next_boundary_timestamp( array $occasions, int $now )
  * (Re)schedule the single WP-Cron event that purges the page cache at
  * the next occasion window boundary (design spec §5/§7.8). A no-op when
  * no auto-mode occasion is stored (the common case today: `occasions`
- * defaults to an empty array, and 2.1a ships no UI to populate it) --
- * any previously scheduled event is cleared in that case. Also a no-op
+ * defaults to an empty array, and 2.1a ships no UI to populate it); any
+ * previously scheduled event is cleared in that case. Also a no-op
  * when the correct boundary is ALREADY scheduled, mirroring
  * blueline_settings_migrate()'s own early-exit shape
  * (inc/settings/store.php).
@@ -1179,7 +1179,7 @@ function blueline_occasion_next_boundary_timestamp( array $occasions, int $now )
  *                                defaults to the current time. Exists
  *                                purely for testability, matching Task
  *                                3's `blueline_resolve_active_occasion()`
- *                                precedent -- never passed by the real
+ *                                precedent; never passed by the real
  *                                hook registrations below.
  * @return void
  */
@@ -1210,16 +1210,16 @@ function blueline_occasion_schedule_next_boundary_purge( ?int $now_override = nu
 	wp_schedule_single_event( $next, BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK );
 }
 // Scheduled on activation, and re-derived on every write to the settings
-// option -- exactly the two hooks inc/settings/cache.php's own purge
+// option: exactly the two hooks inc/settings/cache.php's own purge
 // trigger already uses for "react to a settings write" (add_option_/
-// update_option_ -- see that file's own add_action() pair), rather than
+// update_option_; see that file's own add_action() pair), rather than
 // polling on `init` for every ordinary page view.
 //
 // All three pass `10, 0` deliberately. Every one of these hooks fires with
 // arguments this callback must never receive: `after_switch_theme` passes
 // the OUTGOING theme's NAME (a string), and the option hooks pass option
 // values. Against the `?int $now_override` signature, PHP's coercive
-// typing throws a TypeError on a non-numeric string -- a fatal at the
+// typing throws a TypeError on a non-numeric string, which is a fatal at the
 // exact moment an admin activates the theme. Zero accepted args is what
 // keeps the real hook registrations honest about "never passed by the real
 // hook registrations below" in that parameter's own docblock.
@@ -1229,7 +1229,7 @@ add_action( 'update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_occasion_sche
 
 /**
  * The cron callback itself: purge, then reschedule for the FOLLOWING
- * boundary (never the same one twice) -- design spec §5/§7.8's "purges
+ * boundary (never the same one twice), per design spec §5/§7.8's "purges
  * ... and reschedules".
  *
  * @param int|null $now_override Forwarded to
@@ -1245,7 +1245,7 @@ add_action( BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK, 'blueline_occasion_cron_bound
 
 /**
  * Clear the scheduled boundary-purge event when this theme is switched
- * away from. `switch_theme` fires on the OUTGOING theme -- the closest
+ * away from. `switch_theme` fires on the OUTGOING theme, the closest
  * thing a theme has to a deactivation hook, and the same convention
  * inc/account/endpoints.php already establishes for `after_switch_theme`
  * (its own flush_rewrite_rules() registration) on the activation side.
@@ -1267,14 +1267,14 @@ add_action( 'switch_theme', 'blueline_occasion_clear_scheduled_boundary_purge' )
 
 /**
  * Append occasion CSS to the block editor canvas's own style list, via
- * the one filter core actually clones into `.editor-styles-wrapper` --
- * design spec §5/§7.9, and see inc/enqueue.php's own docblock
+ * the one filter core actually clones into `.editor-styles-wrapper`,
+ * per design spec §5/§7.9, and see inc/enqueue.php's own docblock
  * (immediately preceding its `add_theme_support( 'editor-styles' )` /
  * `add_editor_style()` pair in inc/setup.php) for why
  * `enqueue_block_editor_assets()` was tried and reverted instead.
  *
- * Emits ONLY `--bl-occasion-accent` -- the sole occasion-related custom
- * property that exists -- and only when an occasion is actually
+ * Emits ONLY `--bl-occasion-accent` (the sole occasion-related custom
+ * property that exists), and only when an occasion is actually
  * resolved-active right now. When none is, the token's own CSS default
  * (`var(--bl-ice)`, already present in both style.css and
  * assets/src/css/editor.css) already applies, so there is nothing to
@@ -1294,7 +1294,7 @@ function blueline_occasion_editor_styles( array $settings ): array {
 
 	if ( ! preg_match( '/^#[0-9a-f]{6}$/', $accent ) ) {
 		// Defensive: never emit anything that is not exactly the validated
-		// hex shape the sanitizer/resolver already guarantee -- this is
+		// hex shape the sanitizer/resolver already guarantee; this is
 		// the last point before the value reaches raw CSS text.
 		return $settings;
 	}
