@@ -1,5 +1,8 @@
 const { test, expect } = require( '@playwright/test' );
 const { assertNoPhpErrors } = require( './helpers/assert-no-php-errors' );
+const {
+	assertNoA11yViolations,
+} = require( './helpers/assert-no-a11y-violations' );
 
 /**
  * Covers this theme's woocommerce/ template overrides against a real,
@@ -34,5 +37,18 @@ test.describe( 'WooCommerce pages, against a clean install with no products', ()
 
 		expect( response.status() ).toBe( 200 );
 		assertNoPhpErrors( await page.content(), 'my account page' );
+	} );
+
+	test( 'shop, cart, and my account pages have no critical/serious axe-core violations', async ( {
+		page,
+	} ) => {
+		await page.goto( '/shop/', { waitUntil: 'domcontentloaded' } );
+		await assertNoA11yViolations( page, 'shop page' );
+
+		await page.goto( '/cart/', { waitUntil: 'domcontentloaded' } );
+		await assertNoA11yViolations( page, 'cart page' );
+
+		await page.goto( '/my-account/', { waitUntil: 'domcontentloaded' } );
+		await assertNoA11yViolations( page, 'my account page' );
 	} );
 } );

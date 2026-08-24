@@ -1289,6 +1289,28 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	color: var(--bl-content-text);
 }
 
+/*
+ * Event Officials (event-officials-list.php): the same dt/dd label-then-
+ * value shape as .sp-player-details above, given its own explicit rule
+ * rather than left to the bare-dt/dd fallback inherited from body -- both
+ * already resolve correctly (body's own content-text is theme-aware
+ * either way), but leaving one of two structurally identical components
+ * unstyled while the other gets a bespoke secondary/primary-text split is
+ * a real, if minor, inconsistency worth closing.
+ */
+.sp-event-officials dt {
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+.sp-event-officials dd {
+	margin: 0;
+	color: var(--bl-content-text);
+}
+
 .bl-sp-player-selector {
 	margin: 0 0 var(--bl-space-5);
 }
@@ -1317,6 +1339,42 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 .sp-player-selector:hover,
 .sp-player-selector:focus-visible {
 	border-color: var(--bl-content-link);
+}
+
+/*
+ * Finding: SportsPress's own .sp-selector-redirect binding navigates on a
+ * bare `change` event, which fires on a closed <select> from arrow keys
+ * alone (WCAG 3.2.2) -- see player-selector.php's own docblock. This row
+ * pairs the select with an explicit "Go" button instead; the select no
+ * longer stretches to its own max-width since it now shares a row with
+ * the button rather than sitting alone.
+ */
+.bl-sp-player-selector__row {
+	display: flex;
+	gap: var(--bl-space-2);
+	max-width: 24rem;
+}
+
+.bl-sp-player-selector__row .sp-player-selector {
+	flex: 1 1 auto;
+	max-width: none;
+}
+
+/*
+ * .bl-btn/.bl-btn--secondary (layout.css/header.css) were designed for an
+ * <a> -- which carries no native chrome to begin with -- so this is the
+ * first time either class lands on a real <button>; the reset below
+ * strips the browser's own button chrome so only .bl-skew's fill/border
+ * shows, matching announcement.css's .bl-announce__dismiss precedent for
+ * the same problem.
+ */
+.bl-sp-player-selector__go {
+	flex: 0 0 auto;
+	padding: 0;
+	background: none;
+	border: 0;
+	font: inherit;
+	cursor: pointer;
 }
 
 /* ---- Schedule table override: sportspress/event-list.php (finding 9) ----

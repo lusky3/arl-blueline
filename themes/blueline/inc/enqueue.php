@@ -77,6 +77,13 @@ function blueline_enqueue_assets() {
 		array( 'blueline-tokens' ),
 		blueline_dist_version( 'index' )
 	);
+	// wp-scripts' build already emits assets/dist/index-rtl.css (kept in
+	// lockstep with index.css by the same build step); without this call
+	// WordPress never knows that file exists, so an RTL locale would
+	// silently get the LTR stylesheet with none of its logical-property
+	// fixes. This is the one line core actually requires to enable the
+	// swap -- see wp_style_add_data()'s 'rtl' key in wp-includes/functions.wp-styles.php.
+	wp_style_add_data( 'blueline', 'rtl', 'replace' );
 
 	wp_enqueue_script(
 		'blueline',

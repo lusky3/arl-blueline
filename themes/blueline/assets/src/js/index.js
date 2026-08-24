@@ -5,5 +5,6 @@ import './venue-map.js';
 import './table-scroll.js';
 import './calendar-links.js';
 import './account.js';
+import './player-selector.js';
 import './sponsors.js';
 import './announcement.js';

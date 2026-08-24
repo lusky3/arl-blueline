@@ -85,6 +85,29 @@ add_action( 'woocommerce_after_main_content', 'blueline_wc_wrapper_end' );
 add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_start', 5 );
 add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_end', 15 );
 
+add_action( 'wp_enqueue_scripts', 'blueline_dequeue_cart_fragments', 20 );
+/**
+ * Drop WooCommerce core's `wc-cart-fragments` script everywhere except
+ * cart/checkout. That script's entire job is refreshing a mini-cart
+ * fragment via an AJAX round-trip to admin-ajax.php on every page load --
+ * this theme has no mini-cart, no cart icon, and no `.widget_shopping_cart`
+ * anywhere (header.php carries no cart markup at all), so on every other
+ * page -- schedule, standings, a team or player page, which is most of
+ * this site's real traffic -- it was pure dead weight: a script parse/exec
+ * plus a same-origin POST that also sets the `woocommerce_cart_hash`
+ * cookie on an otherwise-anonymous, cacheable visitor. Priority 20 runs
+ * after WC core's own registration (`WC_Frontend_Scripts::load_scripts()`,
+ * priority 10), which is required for `wp_dequeue_script()` to find
+ * anything to remove.
+ */
+function blueline_dequeue_cart_fragments() {
+	if ( is_cart() || is_checkout() ) {
+		return;
+	}
+
+	wp_dequeue_script( 'wc-cart-fragments' );
+}
+
 /**
  * Open a container around whatever `do_action( 'woocommerce_sidebar' )`
  * renders (core's `woocommerce_get_sidebar()` -> `get_sidebar()` ->

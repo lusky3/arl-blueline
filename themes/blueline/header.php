@@ -12,6 +12,22 @@ defined( 'ABSPATH' ) || exit;
 <head>
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<?php
+/*
+ * Colours the mobile browser's own UI chrome (status bar / address bar)
+ * to match this site's, rather than leaving it at the browser's own
+ * default (usually plain white). A single, fixed value -- not one that
+ * varies with the light/dark/system content-area toggle -- because the
+ * thing theme-color is actually matching is the site's own header/nav
+ * bar, and that bar is deliberately fixed navy in every theme per the
+ * toggle's own design spec (docs/superpowers/specs/2026-08-22-blueline-
+ * theme-toggle-design.md §2); a value that changed with the toggle would
+ * desync from the fixed header the instant a reader scrolled to it.
+ * #0D1729 is --bl-ink-deep, the header/footer's own background -- see
+ * style.css's :root block for that token's own definition.
+ */
+?>
+<meta name="theme-color" content="#0D1729">
 <link rel="profile" href="https://gmpg.org/xfn/11">
 <?php wp_head(); ?>
 </head>

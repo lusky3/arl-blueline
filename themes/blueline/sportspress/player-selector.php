@@ -21,9 +21,17 @@
  *     number on file still appears in their own team's list, and the current
  *     page's own player can therefore always end up `selected`.
  *
- * The redirect behaviour (`.sp-selector-redirect`, SportsPress's own always-
- * loaded assets/js/sportspress.js) is untouched -- same class name, so no JS
- * of this theme's own is needed.
+ * Modernization sweep finding: SportsPress's own redirect behaviour
+ * (`.sp-selector-redirect`, its always-loaded assets/js/sportspress.js)
+ * navigates on the bare `change` event -- and in every major browser,
+ * arrow-keying a CLOSED <select> fires `change` on every keystroke
+ * without ever opening the options list. A keyboard or screen-reader
+ * user arrow-cursoring through "Jump to a teammate" to preview the list
+ * gets redirected away on the very first keypress: WCAG 3.2.2 (On
+ * Input) requires an explicit submit before a value change becomes a
+ * change of context. `.sp-selector-redirect` is deliberately NOT used
+ * here any more; assets/src/js/player-selector.js instead navigates
+ * only on an explicit "Go" button activation.
  *
  * @package blueline
  */
@@ -131,19 +139,24 @@ if ( count( $options ) > 1 ) :
 		<label class="bl-sp-player-selector__label" for="<?php echo esc_attr( $select_id ); ?>">
 			<?php esc_html_e( 'Jump to a teammate', 'blueline' ); ?>
 		</label>
-		<select id="<?php echo esc_attr( $select_id ); ?>" class="sp-profile-selector sp-player-selector sp-selector-redirect">
-			<?php
-			echo wp_kses(
-				implode( '', $options ),
-				array(
-					'option' => array(
-						'value'    => array(),
-						'selected' => array(),
-					),
-				)
-			);
-			?>
-		</select>
+		<div class="bl-sp-player-selector__row">
+			<select id="<?php echo esc_attr( $select_id ); ?>" class="sp-profile-selector sp-player-selector bl-sp-player-selector__select">
+				<?php
+				echo wp_kses(
+					implode( '', $options ),
+					array(
+						'option' => array(
+							'value'    => array(),
+							'selected' => array(),
+						),
+					)
+				);
+				?>
+			</select>
+			<button type="button" class="bl-btn bl-btn--secondary bl-sp-player-selector__go">
+				<span class="bl-skew"><span><?php esc_html_e( 'Go', 'blueline' ); ?></span></span>
+			</button>
+		</div>
 	</div>
 	<?php
 endif;

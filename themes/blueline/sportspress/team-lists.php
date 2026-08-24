@@ -76,6 +76,27 @@ foreach ( $lists as $list_post ) :
 		continue;
 	}
 
+	/*
+	 * Modernization sweep finding: $data comes from SP_Player_List::data()
+	 * (SportsPress's own stats-table reader), not a WP_Query, so nothing
+	 * upstream has primed post/term/meta caches for these player IDs --
+	 * the render loop below was hitting get_post_meta()/wp_get_post_terms()/
+	 * get_the_post_thumbnail() one player at a time. A 20-25 player roster
+	 * -- one of this site's most-visited page types -- cost roughly 2-3
+	 * avoidable round trips per player. Primed once per list (covers every
+	 * position group within it, since $groups below only filters the same
+	 * $data), not per player.
+	 */
+	$player_ids = array_map( 'absint', array_keys( $data ) );
+	if ( $player_ids ) {
+		_prime_post_caches( $player_ids, true, true );
+
+		$thumbnail_ids = array_filter( array_map( 'get_post_thumbnail_id', $player_ids ) );
+		if ( $thumbnail_ids ) {
+			_prime_post_caches( array_map( 'absint', $thumbnail_ids ), false, true );
+		}
+	}
+
 	$groups = array( null );
 	if ( 'position' === $grouping && taxonomy_exists( 'sp_position' ) ) {
 		$position_terms = get_terms(
@@ -90,7 +111,13 @@ foreach ( $lists as $list_post ) :
 	}
 
 	if ( $multiple_lists ) {
-		echo '<h4 class="sp-table-caption">' . esc_html( $list_post->post_title ) . '</h4>';
+		// h2, not h4: the team hero (blueline_sp_team_hero(), inc/sportspress.php)
+		// prints the page's only h1, so this list caption is the first
+		// heading after it -- an h1 -> h4 skip broke the document outline
+		// screen readers navigate by (WCAG 1.3.1). .sp-table-caption is
+		// styled by class only (sportspress.css), so this is a pure
+		// semantic fix with no visual change.
+		echo '<h2 class="sp-table-caption">' . esc_html( $list_post->post_title ) . '</h2>';
 	}
 
 	foreach ( $groups as $group ) :
@@ -108,7 +135,10 @@ foreach ( $lists as $list_post ) :
 		}
 
 		if ( $group ) {
-			echo '<h5 class="sp-table-caption bl-sp-team-list__group">' . esc_html( $group->name ) . '</h5>';
+			// h3, one level under the h2 list caption above (or under the
+			// page's own h1 when there is no multi-list caption at all) --
+			// same "close the heading-level skip" reasoning.
+			echo '<h3 class="sp-table-caption bl-sp-team-list__group">' . esc_html( $group->name ) . '</h3>';
 		}
 		?>
 		<ul class="bl-sp-roster">
