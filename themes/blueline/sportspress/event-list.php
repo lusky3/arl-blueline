@@ -15,13 +15,9 @@
  *    the event (the schedule page's own on-page copy says "Click a time or
  *    date to see the event page" -- that affordance is kept, just no
  *    longer styled with the same weight as an actual team-name link).
- *  - Drops the venue cell's link (no link -- team names are the only thing
- *    this table still styles as a link) and names it via
- *    blueline_venue_label() (finding 10) instead of the bare pad name. It
- *    stays full-weight --bl-content-text, not muted like the time column:
- *    PRODUCT.md is explicit that which sheet of ice to walk to is a product
- *    requirement, not a nicety, for the reader this table serves.
- *    (2026.2 palette pass, sportspress.css's own schedule-override comment.)
+ *  - Drops the venue cell to plain --bl-ink-mid text (no link -- team names
+ *    are the only thing this table still styles as a link) and names it via
+ *    blueline_venue_label() (finding 10) instead of the bare pad name.
  *  - Leaves team-name links exactly as SportsPress renders them (still real
  *    <a> elements, still the accent-coloured link a beginner expects to be
  *    clickable).

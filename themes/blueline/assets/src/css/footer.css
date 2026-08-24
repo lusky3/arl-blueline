@@ -1,58 +1,72 @@
 /*
  * Blueline — site footer.
- *
- * 2026.2 "Confident Minimal": a themed surface (--bl-content-bg-raised,
- * the same token the header uses), not the old system's fixed dark band --
- * a static trust column plus any populated widget columns, then a bottom
- * bar with the leaf mark and copyright. Text uses the theme-aware
- * content-text/content-text-secondary/content-link tokens throughout, so
- * it stays readable in both light and dark rather than assuming a fixed
- * dark ground -- the one exception is a widget that sets its own
- * background, scoped separately below.
+ * A static trust column plus any populated widget columns on --bl-ink-deep,
+ * then a bottom bar with the leaf mark and copyright. Text on the dark
+ * ground itself uses --bl-pale or --bl-paper only, per the contrast guard
+ * -- the one exception is a widget that sets its own (light) background,
+ * scoped separately below.
  */
 
 /*
- * No closing paired blue-line band above the footer any more --
- * --bl-band-ice/--bl-band-ink are both 0px in the 2026.2 palette (see
- * style.css's own comment on those tokens) and this surface no longer
- * needs one: it is not a hard dark-to-light seam, just another themed
- * surface bordering the one above it, so a plain top border (matching the
- * header's own bottom border) marks the boundary instead.
+ * P3 finding 7: chrome/content boundaries get the paired blue-line band
+ * (device #2) instead of a generic hairline, same device Package 2 already
+ * uses between homepage modules (homepage.css's `.bl-module + .bl-module`)
+ * -- reused here via the identical margin + ::before/::after technique
+ * rather than the literal .bl-band/.bl-band--ink markup, since this is a
+ * decorative divider at an already-labelled boundary (content ending,
+ * footer chrome starting), not new content needing its own DOM nodes.
  */
 .bl-footer {
 	position: relative;
-	background: var(--bl-content-bg-raised);
-	color: var(--bl-content-text-secondary);
-	border-top: 1px solid var(--bl-content-border);
+	background: var(--bl-ink-deep);
+	color: var(--bl-pale);
+	margin-block-start: calc(var(--bl-band-ice) + var(--bl-band-ink));
 	padding-block: var(--bl-space-7) var(--bl-space-6);
 }
 
+.bl-footer::before,
+.bl-footer::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+}
+
+.bl-footer::before {
+	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
+	height: var(--bl-band-ice);
+	background: var(--bl-ice);
+}
+
+.bl-footer::after {
+	inset-block-start: calc(-1 * var(--bl-band-ink));
+	height: var(--bl-band-ink);
+	background: var(--bl-ink);
+}
+
 .bl-footer a {
-	color: var(--bl-content-link);
+	color: var(--bl-pale);
 	text-decoration: underline;
 }
 
 .bl-footer a:hover,
 .bl-footer a:focus-visible {
-	color: var(--bl-content-text);
+	color: var(--bl-paper);
 }
 
 /*
  * P3 finding 5: a widget/block that sets its own background (WordPress
  * core block editor's `.has-background` convention -- e.g. this footer's
  * own yellow "WE STAND WITH UKRAINE" block, a paragraph with an inline
- * `background-color` style) is opting OUT of the footer's own themed
- * ground -- and that background is a fixed editor colour, not a
- * light/dark-aware token, so the text on top of it needs a fixed colour
- * too rather than one of this file's theme-aware tokens (which could
- * legitimately resolve to a near-white in dark mode, unreadable on a
- * fixed light yellow fill regardless of the site's own theme). --bl-ink is
- * used rather than `inherit`: a widget that sets ONLY a background (no
- * text colour of its own) would otherwise still inherit `.bl-footer`'s own
- * colour, leaving the same failure. A block that DOES set its own inline
- * text colour (`has-text-color`, e.g. the Ukraine block above) keeps it
- * regardless -- an inline `style` attribute always wins over any external
- * stylesheet rule, this one included.
+ * `background-color` style) is opting OUT of the footer's dark ground.
+ * `.bl-footer a`'s blanket --bl-pale doesn't know that: measured live,
+ * that link rendered at ~1.5:1 on the widget's yellow background, and
+ * --bl-pale is documented as "text only on dark" for exactly this reason.
+ * --bl-ink is used rather than `inherit`: a widget that sets ONLY a
+ * background (no text colour of its own) would otherwise still inherit
+ * --bl-pale from .bl-footer above, leaving the same failure. A block that
+ * DOES set its own inline text colour (`has-text-color`, e.g. the Ukraine
+ * block above) keeps it regardless -- an inline `style` attribute always
+ * wins over any external stylesheet rule, this one included.
  */
 .bl-footer .has-background,
 .bl-footer .has-background a {
@@ -93,7 +107,7 @@
 .bl-footer__column .widget-title,
 .bl-footer__column h2,
 .bl-footer__column h3 {
-	color: var(--bl-content-text);
+	color: var(--bl-paper);
 	font-size: var(--bl-text-lg);
 	margin-block: 0 var(--bl-space-3);
 }
@@ -110,7 +124,7 @@
 
 .bl-footer__bottom {
 	margin-top: var(--bl-space-7);
-	border-top: 1px solid var(--bl-content-border);
+	border-top: 1px solid var(--bl-ink-mid);
 }
 
 .bl-footer__bottom-inner {
@@ -120,17 +134,11 @@
 	padding-block: var(--bl-space-5) 0;
 }
 
-/*
- * Coloured with the one committed accent rather than --bl-ice: on the
- * footer's now-light-toned ground, --bl-ice (a pale fill-only tint) would
- * read as almost invisible -- same reasoning as .bl-header__mark
- * (header.css).
- */
 .bl-leaf-mark {
 	width: 28px;
 	height: 28px;
 	flex: 0 0 auto;
-	color: var(--bl-content-link);
+	color: var(--bl-ice);
 }
 
 .bl-footer__copyright {
@@ -150,7 +158,7 @@
  */
 .bl-footer__teams {
 	margin-top: var(--bl-space-7);
-	border-top: 1px solid var(--bl-content-border);
+	border-top: 1px solid var(--bl-ink-mid);
 	padding-block-start: var(--bl-space-5);
 }
 
@@ -192,16 +200,9 @@
 	line-height: 1.2;
 }
 
-/*
- * A tint of the surrounding text colour rather than a fixed fill: it
- * needs to read as a hover highlight against this surface's own
- * background in both light and dark, and a percentage mix of
- * --bl-content-text automatically darkens-on-light / lightens-on-dark
- * with the toggle, the same way a fixed colour could not.
- */
 .bl-footer__teams-link:hover,
 .bl-footer__teams-link:focus-visible {
-	background: color-mix(in srgb, var(--bl-content-text) 12%, transparent);
+	background: var(--bl-ink-mid);
 }
 
 .bl-footer__teams-crest {
@@ -224,5 +225,5 @@
  */
 .bl-footer__credit {
 	display: inline-block;
-	color: var(--bl-content-text-secondary);
+	color: var(--bl-ink-mid);
 }

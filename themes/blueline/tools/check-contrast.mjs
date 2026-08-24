@@ -305,7 +305,7 @@ function checkNoLiteralRgba( styleTokens ) {
 	// exception can't see.
 	const RGBA_LINT_ALLOWLIST = new Map( [
 		[
-			'style.css::20,24,31',
+			'style.css::19,35,67',
 			"--bl-shadow-card's alpha-composited shadow intentionally keeps --bl-ink's literal channels -- a shadow composites over whatever ground it falls on, so color-mix() against one fixed ground would be wrong here. See style.css's own comment above --bl-shadow-card/--bl-shadow-raised.",
 		],
 	] );

@@ -19,14 +19,7 @@
  * its :focus-visible ring as well as the label, which the project has
  * already rejected once for that reason. These follow that same, already-
  * reviewed precedent: same on-brand button language (ink fill, paper text,
- * heavy italic caps), kept upright -- EXCEPT on the cart and checkout
- * pages, where the "Cart & checkout button restyle" block further down
- * (scoped to the woocommerce-cart/woocommerce-checkout body classes)
- * retires that language for the 2026.2 palette: a plain body-face button
- * with a quiet border for secondary actions, and the one committed accent
- * fill for #place_order/.button.alt. That scoping is deliberate -- My
- * Account and the single-product registration page share these exact same
- * selectors and are out of scope for this pass.
+ * heavy italic caps), kept upright.
  *
  * A handful of selectors below target #place_order/#order_review_heading:
  * WooCommerce core hard-codes those ids in the (unmodified) stock templates
@@ -118,13 +111,7 @@
 /* ---------------------------------------------------------------------
  * Shared button language -- see file-level comment on why these stay
  * upright rather than taking the .bl-btn skew treatment, and on the
- * #place_order stylelint-disable below. Left exactly as the rest of the
- * site (product listing, single-product add-to-cart, My Account) still
- * has it: this pass's colour/typography restyle is scoped to the cart and
- * checkout pages only, in the body.woocommerce-cart/body.woocommerce-
- * checkout block immediately below, precisely because these same generic
- * .button/#place_order-shaped selectors are also relied on by pages this
- * task is not restyling.
+ * #place_order stylelint-disable below.
  * ------------------------------------------------------------------- */
 
 .woocommerce a.button,
@@ -183,108 +170,6 @@
 #place_order:disabled {
 	opacity: 0.6;
 	cursor: not-allowed;
-}
-
-/* ---------------------------------------------------------------------
- * Cart & checkout button restyle, 2026.2 "Confident Minimal" palette.
- * Scoped to the woocommerce-cart/woocommerce-checkout body classes WC
- * core adds via wc_body_class() (the same scoping technique account.css
- * already uses for woocommerce-account) rather than editing the shared
- * rule above, so the retired skew/varsity-lettering language (see
- * style.css's --bl-skew comment) drops away on the two pages this pass
- * actually redesigned -- not on My Account or the single-product
- * registration page, which reuse the exact same .button/#place_order
- * selectors above but are out of scope here.
- *
- * Two weights, matching the confident-minimal concept's own .btn-ghost/
- * .btn-primary split: a quiet bordered style for secondary actions
- * (Apply coupon), and the one committed accent fill for the actions that
- * actually move a player toward playing -- #place_order and .button.alt
- * (the cart's "Proceed to Checkout").
- * ------------------------------------------------------------------- */
-
-body.woocommerce-cart .woocommerce a.button,
-body.woocommerce-cart .woocommerce button.button,
-body.woocommerce-cart .woocommerce input.button,
-body.woocommerce-checkout .woocommerce a.button,
-body.woocommerce-checkout .woocommerce button.button,
-body.woocommerce-checkout .woocommerce input.button,
-body.woocommerce-checkout .woocommerce #respond input#submit,
-/* stylelint-disable-next-line selector-id-pattern */
-body.woocommerce-checkout #place_order {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--bl-space-2);
-	min-height: 44px;
-	background: var(--bl-content-surface);
-	color: var(--bl-content-text);
-	font-family: var(--bl-font-body);
-	font-weight: 600;
-	font-style: normal;
-	text-transform: none;
-	border: 1.5px solid var(--bl-content-border-strong);
-}
-
-/*
- * --bl-accent-text has no dark-mode override (see style.css's alias
- * comments on --bl-ice/--bl-pale/--bl-steel): it is a fixed brand fill,
- * the same role the single-product registration CTA already relies on,
- * so white text on it stays AA (6.6:1) regardless of the light/dark/
- * system toggle.
- */
-body.woocommerce-cart .woocommerce a.button.alt,
-body.woocommerce-cart .woocommerce button.button.alt,
-body.woocommerce-checkout .woocommerce a.button.alt,
-body.woocommerce-checkout .woocommerce button.button.alt,
-/* stylelint-disable-next-line selector-id-pattern */
-body.woocommerce-checkout #place_order {
-	background: var(--bl-accent-text);
-	color: var(--bl-white);
-	border-color: var(--bl-accent-text);
-}
-
-/* stylelint-disable-next-line selector-id-pattern */
-body.woocommerce-checkout #place_order {
-	width: 100%;
-	margin-block-start: var(--bl-space-5);
-	font-size: var(--bl-text-lg);
-	font-weight: 700;
-}
-
-body.woocommerce-cart .woocommerce a.button:hover,
-body.woocommerce-cart .woocommerce a.button:focus-visible,
-body.woocommerce-cart .woocommerce button.button:hover,
-body.woocommerce-cart .woocommerce button.button:focus-visible,
-body.woocommerce-checkout .woocommerce a.button:hover,
-body.woocommerce-checkout .woocommerce a.button:focus-visible,
-body.woocommerce-checkout .woocommerce button.button:hover,
-body.woocommerce-checkout .woocommerce button.button:focus-visible,
-body.woocommerce-checkout .woocommerce input.button:hover,
-body.woocommerce-checkout .woocommerce input.button:focus-visible {
-	background: var(--bl-content-bg);
-	border-color: var(--bl-content-text-secondary);
-}
-
-body.woocommerce-cart .woocommerce a.button.alt:hover,
-body.woocommerce-cart .woocommerce a.button.alt:focus-visible,
-body.woocommerce-cart .woocommerce button.button.alt:hover,
-body.woocommerce-cart .woocommerce button.button.alt:focus-visible,
-body.woocommerce-checkout .woocommerce a.button.alt:hover,
-body.woocommerce-checkout .woocommerce a.button.alt:focus-visible,
-body.woocommerce-checkout .woocommerce button.button.alt:hover,
-body.woocommerce-checkout .woocommerce button.button.alt:focus-visible,
-/* stylelint-disable-next-line selector-id-pattern */
-body.woocommerce-checkout #place_order:hover,
-/* stylelint-disable-next-line selector-id-pattern */
-body.woocommerce-checkout #place_order:focus-visible {
-
-	/* Darkened via color-mix rather than a second literal hex, so this can
-	 * never drift out of sync with a future --bl-accent-text edit -- same
-	 * technique the add-to-cart hover overlay further down uses. */
-	background: color-mix(in srgb, var(--bl-accent-text) 85%, #000);
-	border-color: color-mix(in srgb, var(--bl-accent-text) 85%, #000);
-	color: var(--bl-white);
 }
 
 /* ---------------------------------------------------------------------
@@ -749,20 +634,6 @@ html body .woocommerce .woocommerce-invalid textarea {
 	border: 0;
 }
 
-/*
- * The one row a nervous first-timer actually needs to find fast -- given
- * more room and a heavier rule than the shared shop_table cells above, the
- * same "real, legible table" treatment the checkout review table below
- * gets, so the number they're about to pay never gets lost among subtotal/
- * coupon/shipping rows.
- */
-.woocommerce .cart_totals table.shop_table tr.order-total th,
-.woocommerce .cart_totals table.shop_table tr.order-total td {
-	padding-block-start: var(--bl-space-4);
-	font-size: var(--bl-text-lg);
-	border-top: 2px solid var(--bl-content-border-strong);
-}
-
 .woocommerce .wc-proceed-to-checkout {
 	margin-block-start: var(--bl-space-5);
 }
@@ -824,25 +695,19 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 /*
  * blueline_checkout_reassurance() (inc/woocommerce.php) -- a short brand-
- * voice note above the form. Deliberately NOT a boxed callout (no fill, no
- * border-radius, no surrounding border on all four sides): the nervous
- * first-timer this note is for is one field away from paying, and a card
- * with a heavy border reads as a warning or a terms notice, not a calm
- * reassurance. A single rule below it is enough to separate the note from
- * the form fields that follow, the same restrained device the confident-
- * minimal concept uses between its own qa-list rows and included-list
- * items -- text at the secondary colour, not a filled panel.
+ * voice note above the form, same card treatment as the coupon/login
+ * toggles just below it.
  */
 .bl-checkout-reassurance {
-	max-width: 42rem;
-	padding-block-end: var(--bl-space-5);
+	padding: var(--bl-space-5);
 	margin-block-end: var(--bl-space-5);
-	border-block-end: 1px solid var(--bl-content-border);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
 }
 
 .bl-checkout-reassurance p {
 	margin: 0 0 var(--bl-space-3);
-	color: var(--bl-content-text-secondary);
 }
 
 .bl-checkout-reassurance p:last-child {
@@ -870,19 +735,6 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 .woocommerce-checkout-review-order-table {
 	margin-block-end: var(--bl-space-5);
-}
-
-/* Same "the total should never get lost" treatment as the cart's own
- * order-total row above -- this is the number the checkout page exists to
- * collect. `table.shop_table` is added to match that same selector's
- * specificity pattern (both classes already sit on this one <table>), so
- * this doesn't read as lower-specificity-after-higher against the shared
- * shop_table rules earlier in the file. */
-.woocommerce table.shop_table.woocommerce-checkout-review-order-table tr.order-total th,
-.woocommerce table.shop_table.woocommerce-checkout-review-order-table tr.order-total td {
-	padding-block-start: var(--bl-space-4);
-	font-size: var(--bl-text-lg);
-	border-top: 2px solid var(--bl-content-border-strong);
 }
 
 #payment {

@@ -43,14 +43,14 @@
 
 :root,
 .editor-styles-wrapper {
-	--bl-ink: #14181f;
-	--bl-ink-deep: #0b0e12;
-	--bl-ink-mid: #454c56;
-	--bl-accent-text: #9a4413;
-	--bl-steel: #6b7280;
-	--bl-ice: #f3e3d3;
-	--bl-pale: #edae6b;
-	--bl-paper: #f2f4f6;
+	--bl-ink: #132343;
+	--bl-ink-deep: #0d1729;
+	--bl-ink-mid: #2e4a74;
+	--bl-accent-text: #3f6e9d;
+	--bl-steel: #5188b7;
+	--bl-ice: #74c0e1;
+	--bl-pale: #9acde7;
+	--bl-paper: #f7fbfc;
 	--bl-white: #fff;
 
 	/* Light-mode values only -- the block-editor canvas doesn't need the
@@ -65,10 +65,10 @@
 	--bl-content-bg: var(--bl-paper);
 	--bl-surface: var(--bl-content-surface);
 	--bl-surface-sunken: var(--bl-content-bg);
-	--bl-border: #d3d9de;
-	--bl-border-strong: #767d86;
-	--bl-font-display: "Fraunces", georgia, "Iowan Old Style", "Times New Roman", serif;
-	--bl-font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--bl-border: #dbe7f0;
+	--bl-border-strong: #7c93a8;
+	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+	--bl-font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 	--bl-text-xs: 0.75rem;
 	--bl-text-sm: 0.875rem;
 	--bl-text-base: 1rem;
@@ -79,7 +79,7 @@
 	--bl-space-3: 0.75rem;
 	--bl-space-5: 1.5rem;
 	--bl-space-6: 2rem;
-	--bl-radius: 6px;
+	--bl-radius: 0px;
 	--bl-occasion-accent: var(--bl-ice);
 }
 

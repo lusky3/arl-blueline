@@ -11,32 +11,15 @@ Text Domain: blueline
 */
 
 :root {
-	/*
-	 * 2026.2 "Confident Minimal" system — a full palette/typography
-	 * replacement of the original navy/ice "Blue Line" identity, chosen
-	 * from three independently-built concept directions (editorial-warm,
-	 * bold-energetic, confident-minimal). Cool-tinted neutrals plus one
-	 * committed accent (a warm rust/amber), used deliberately rather than
-	 * scattered. Ratios verified by tools/check-contrast.mjs.
-	 *
-	 * The old system's five-step ink/steel/ice/pale ramp existed to
-	 * support a FIXED dark-navy chrome that never followed the light/dark
-	 * toggle. This system has no fixed chrome -- header/footer/nav are
-	 * themed surfaces like everything else -- so that ramp collapses to
-	 * three roles: ink (text), a mid tone (secondary text/large-only
-	 * strokes), and the one accent. --bl-ice/--bl-steel/--bl-pale/
-	 * --bl-ink-deep are kept as aliases (not deleted) only because many
-	 * component files still reference them by name; each alias below
-	 * documents which of the three roles it now plays.
-	 */
-	--bl-ink:          #14181F; /* 14.9 on paper — body text */
-	--bl-ink-deep:     #0B0E12; /* darker still, for the rare spot wanting more than --bl-ink */
-	--bl-ink-mid:      #454C56; /*  7.5 on paper — secondary text */
-	--bl-accent-text:  #9A4413; /*  5.9 on paper — links, accent text, the one committed accent */
-	--bl-steel:        #6B7280; /* alias: large-text/UI-stroke role, 3.7 on paper */
-	--bl-ice:          #F3E3D3; /* alias: fill-only soft accent tint (was "ice"; now the accent-soft tint) */
-	--bl-pale:         #EDAE6B; /* alias: decorative/text-on-dark role (dark-mode accent-hover) */
-	--bl-paper:        #F2F4F6;
+	/* Brand — sampled from ARL2026-Logo-Final. Ratios verified by tools/check-contrast.mjs. */
+	--bl-ink:          #132343; /* 14.94 on paper */
+	--bl-ink-deep:     #0D1729;
+	--bl-ink-mid:      #2E4A74; /*  8.59 on paper */
+	--bl-accent-text:  #3F6E9D; /*  5.13 on paper — links/accent text on light */
+	--bl-steel:        #5188B7; /*  3.63 — borders, large text, strokes ONLY */
+	--bl-ice:          #74C0E1; /*  1.94 — FILL ONLY, never text on light */
+	--bl-pale:         #9ACDE7; /*  text only on dark (9.09 on ink) */
+	--bl-paper:        #F7FBFC;
 	--bl-white:        #FFFFFF;
 
 	/*
@@ -50,15 +33,29 @@ Text Domain: blueline
 	--bl-surface:          var(--bl-content-surface);
 	--bl-surface-sunken:   var(--bl-content-bg);
 	--bl-surface-inverse:  var(--bl-content-text);
-	--bl-border:           #D3D9DE;
+	--bl-border:           #DBE7F0;
 	/*
-	 * Needs 3:1 against both --bl-white and --bl-paper for the same
-	 * SC 1.4.11 reason the original comment on this token explained; the
-	 * exception it documented (classic WooCommerce .form-row fields
-	 * needing a (0,3,2) override in woocommerce.css) still applies
-	 * unchanged, since it's about selector specificity, not this value.
+	 * 3.18 on white, 3.06 on paper. This is the sole identifier of every
+	 * field it governs -- select2, textarea, search box, comment form,
+	 * pagination chip, quantity input -- because their fill is --bl-white
+	 * against a --bl-paper page (1.05:1), so the boundary carries the whole
+	 * affordance. SC 1.4.11 requires 3:1 for exactly this. The previous
+	 * #C3D6E4 was 1.49.
+	 *
+	 * Exception: classic WooCommerce .form-row fields (checkout billing/
+	 * shipping, login, account-edit, the cart/checkout coupon field) don't
+	 * receive this token directly -- WC core's ".woocommerce form .form-row
+	 * .input-text" (0,3,1) outranks the theme's ".woocommerce .input-text"
+	 * (0,2,0), so --wc-form-border-color would otherwise win there instead.
+	 * This was a harmless coverage gap before the light/dark/system toggle
+	 * (still ~10.7:1 on an all-light page either way) but became a live,
+	 * visible failure once dark mode existed -- confirmed live, those
+	 * fields stayed white-on-black islands on an inverted page. Fixed by a
+	 * higher-specificity (0,3,2) override in woocommerce.css using
+	 * --bl-content-border-strong (this token's theme-aware sibling), not by
+	 * changing this token itself.
 	 */
-	--bl-border-strong:    #767D86; /* 3.77 on paper, 4.16 on white */
+	--bl-border-strong:    #7C93A8;
 
 	/* Semantic */
 	--bl-success: #1F7A4D;
@@ -66,8 +63,8 @@ Text Domain: blueline
 	--bl-danger:  #A32C1B;
 
 	/* Type */
-	--bl-font-display: "Fraunces", georgia, "Iowan Old Style", "Times New Roman", serif;
-	--bl-font-body:    "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+	--bl-font-body:    "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
 	--bl-text-xs:   0.75rem;
 	--bl-text-sm:   0.875rem;
@@ -83,22 +80,13 @@ Text Domain: blueline
 	--bl-space-4: 1rem;     --bl-space-5: 1.5rem;   --bl-space-6: 2rem;
 	--bl-space-7: 3rem;     --bl-space-8: 4rem;     --bl-space-9: 6rem;
 
-	/*
-	 * Signature devices, 2026.2. The skew/varsity-lettering motif is
-	 * retired with this palette: --bl-skew is 0deg rather than deleted, so
-	 * every component that still applies `transform: skewX(var(--bl-skew))`
-	 * degrades to a true no-op instead of needing each site found and
-	 * removed one at a time. --bl-band-ice/--bl-band-ink (the paired
-	 * blue-line rule between page bands) has no equivalent in this
-	 * system; component CSS that drew it should stop drawing it, not
-	 * substitute a same-shaped rule in the new colours.
-	 */
-	--bl-skew: 0deg;
-	--bl-band-ice: 0px;
-	--bl-band-ink: 0px;
+	/* Signature devices */
+	--bl-skew: -11deg;
+	--bl-band-ice: 9px;
+	--bl-band-ink: 4px;
 
-	--bl-radius: 6px;
-	--bl-radius-card: 10px;
+	--bl-radius: 0px;
+	--bl-radius-card: 14px;
 
 	/*
 	 * Both shadows keep a literal rgba() rather than color-mix() with a
@@ -106,11 +94,14 @@ Text Domain: blueline
 	 * which varies per placement, so alpha (not an opaque mix against
 	 * --bl-white) is the construct that is actually correct here.
 	 *
-	 * Channels are --bl-ink's (20, 24, 31), not an arbitrary navy, so a
-	 * future ink-token edit and these shadows can't quietly drift apart.
+	 * --bl-shadow-card's channels (19, 35, 67) are --bl-ink's exactly, on
+	 * purpose. --bl-shadow-raised's (10, 20, 40) are a manually darkened,
+	 * ink-like navy for a heavier shadow -- deliberately close to --bl-ink
+	 * but not equal to it or to any other token, so it is not a case of the
+	 * same bug this task fixes elsewhere.
 	 */
-	--bl-shadow-card: 0 6px 20px rgba(20, 24, 31, 0.08);
-	--bl-shadow-raised: 0 10px 34px rgba(20, 24, 31, 0.16);
+	--bl-shadow-card: 0 6px 20px rgba(19, 35, 67, 0.06);
+	--bl-shadow-raised: 0 10px 34px rgba(10, 20, 40, 0.18);
 
 	--bl-container: 1200px;
 
@@ -147,7 +138,7 @@ Text Domain: blueline
 	 */
 	--bl-focus-width:  3px;
 	--bl-focus-style:  solid;
-	--bl-focus-color:  #14181F;
+	--bl-focus-color:  #0D1729;
 	--bl-focus-halo:   #FFFFFF;
 	--bl-focus-offset: 2px;
 
@@ -156,12 +147,8 @@ Text Domain: blueline
 	 * surface (see tools/tokens.json's "tunable" flag and the design
 	 * spec's §4.1, and §1 for the confirmed non-goal against raw token
 	 * editing, for why every other token here stays non-tunable).
-	 * Defaults to --bl-ice, same as before this palette existed: no
-	 * occasion exists yet to override it (that is Phase 2.1), so this must
-	 * render identically to today until then. --bl-ice keeps its original
-	 * ROLE under the new palette (a light, fill-only tint that dark ink
-	 * text sits on top of) even though its VALUE changed from a blue fill
-	 * to this system's soft accent tint -- see the alias comment above.
+	 * Defaults to --bl-ice: no occasion exists yet to override it (that is
+	 * Phase 2.1), so this must render identically to today until then.
 	 */
 	--bl-occasion-accent: var(--bl-ice);
 
@@ -169,33 +156,32 @@ Text Domain: blueline
 	 * Light/dark/system theme toggle -- design spec
 	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md.
 	 *
-	 * Unlike the original "Blue Line" palette, this system has no fixed
-	 * navy chrome band: header/footer/hero/nav are themed surfaces like
-	 * everything else, using --bl-content-bg-raised below rather than a
-	 * bare --bl-ink-deep that never changed with the toggle. The seven
-	 * original content tokens plus the new "raised" pair below all follow
-	 * the same two-guard pattern every theme-aware token in this codebase
-	 * needs: a prefers-color-scheme media query for System, and an
-	 * explicit html[data-theme] override that wins in both directions
-	 * over System.
+	 * These seven exist ONLY for content-area reading surfaces (page
+	 * background, cards, tables, borders, body/heading text, links) --
+	 * never for the navy chrome (header/footer/hero/nav) or this theme's
+	 * fixed "ink fill, paper text" button language, both of which stay on
+	 * the bare --bl-ink/--bl-paper/--bl-white tokens above in every theme,
+	 * on purpose (the spec's §2 "scope" ruling). Introduced as NEW tokens
+	 * rather than by redefining --bl-paper/--bl-ink/--bl-white themselves,
+	 * because those three are each already dual-role (paper and white are
+	 * also used as TEXT on the dark chrome; ink is also used as a button
+	 * FILL) -- redefining them in place for dark mode would break those
+	 * other, unrelated uses.
+	 *
+	 * Values here are the LIGHT palette (identical to the existing tokens
+	 * they stand in for, so this is a zero-visual-diff baseline); the dark
+	 * palette is defined further down, guarded the same two ways every
+	 * theme-aware token in this codebase now needs to be: a
+	 * prefers-color-scheme media query for System, and an explicit
+	 * html[data-theme] override that wins in both directions over System.
 	 */
 	--bl-content-bg:            var(--bl-paper);
-	--bl-content-bg-raised:     #E7EBEE;
 	--bl-content-surface:       var(--bl-white);
 	--bl-content-text:          var(--bl-ink);
 	--bl-content-text-secondary: var(--bl-ink-mid);
 	--bl-content-border:        var(--bl-border);
 	--bl-content-border-strong: var(--bl-border-strong);
 	--bl-content-link:          var(--bl-accent-text);
-	/*
-	 * White text on the accent fill in light mode; near-black in dark mode
-	 * (dark mode's accent is a light amber, not a dark rust, so white text
-	 * on it would fail). Any component filling a solid area with
-	 * --bl-content-link/--bl-accent-text needs this for its label, not
-	 * --bl-content-text or --bl-white directly, or it silently breaks in
-	 * one of the two themes the moment it's introduced.
-	 */
-	--bl-content-link-contrast: #FFFFFF;
 
 	/*
 	 * Without this, a browser's own forced/auto-dark-mode heuristic (common
@@ -234,15 +220,13 @@ Text Domain: blueline
 @media (prefers-color-scheme: dark) {
 
 	:root:not([data-theme="light"]) {
-		--bl-content-bg:             #10141A;
-		--bl-content-bg-raised:      #1A2028;
-		--bl-content-surface:        #1A2028;
-		--bl-content-text:           #ECEEF1;
-		--bl-content-text-secondary: #B7BEC7;
-		--bl-content-border:         #2B323C;
-		--bl-content-border-strong:  #6B7280;
-		--bl-content-link:           #E2984B;
-		--bl-content-link-contrast:  #1B1006;
+		--bl-content-bg:             #0F1826;
+		--bl-content-surface:        #16233A;
+		--bl-content-text:           #EDF3F8;
+		--bl-content-text-secondary: #9FB7CE;
+		--bl-content-border:         #28374E;
+		--bl-content-border-strong:  #5C7690;
+		--bl-content-link:           #8FBFE8;
 		--bl-success:                #3DDC84;
 		--bl-warning:                #E8B33D;
 		--bl-danger:                 #FF6B5B;
@@ -252,14 +236,13 @@ Text Domain: blueline
 
 /* The explicit toggle, winning over System in either direction. */
 :root[data-theme="dark"] {
-	--bl-content-bg:             #10141A;
-	--bl-content-bg-raised:      #1A2028;
-	--bl-content-surface:        #1A2028;
-	--bl-content-text:           #ECEEF1;
-	--bl-content-text-secondary: #B7BEC7;
-	--bl-content-border:         #2B323C;
-	--bl-content-border-strong:  #6B7280;
-	--bl-content-link:           #E2984B;
+	--bl-content-bg:             #0F1826;
+	--bl-content-surface:        #16233A;
+	--bl-content-text:           #EDF3F8;
+	--bl-content-text-secondary: #9FB7CE;
+	--bl-content-border:         #28374E;
+	--bl-content-border-strong:  #5C7690;
+	--bl-content-link:           #8FBFE8;
 	--bl-success:                #3DDC84;
 	--bl-warning:                #E8B33D;
 	--bl-danger:                 #FF6B5B;
@@ -301,14 +284,12 @@ Text Domain: blueline
 
 	:root {
 		--bl-content-bg:             var(--bl-paper) !important;
-		--bl-content-bg-raised:      #E7EBEE !important;
 		--bl-content-surface:        var(--bl-white) !important;
 		--bl-content-text:           var(--bl-ink) !important;
 		--bl-content-text-secondary: var(--bl-ink-mid) !important;
 		--bl-content-border:         var(--bl-border) !important;
 		--bl-content-border-strong:  var(--bl-border-strong) !important;
 		--bl-content-link:           var(--bl-accent-text) !important;
-		--bl-content-link-contrast:  #FFFFFF !important;
 		--bl-success:                #1F7A4D !important;
 		--bl-warning:                #8A5A00 !important;
 		--bl-danger:                 #A32C1B !important;

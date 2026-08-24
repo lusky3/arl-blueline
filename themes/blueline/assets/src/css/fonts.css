@@ -1,26 +1,66 @@
 /*
  * Self-hosted webfonts.
- * Fraunces and Public Sans, both SIL Open Font License 1.1.
- * See assets/fonts/OFL-Fraunces.txt and assets/fonts/OFL-PublicSans.txt.
+ * Barlow Condensed and Inter, both SIL Open Font License 1.1.
+ * See assets/fonts/OFL-BarlowCondensed.txt and assets/fonts/OFL-Inter.txt.
  *
- * Both ship as single variable fonts (Fraunces wght 300-900, Public Sans
- * wght 100-900); one @font-face each with a font-weight range covers
- * every weight this theme actually uses (400-700) without extra requests,
- * matching this theme's existing self-hosting convention.
+ * Inter ships as a single variable font (wght 100-900); one @font-face
+ * with a font-weight range covers 400-700 without extra requests. Barlow
+ * Condensed ships as static instances, so 600/700/800 (+ italics) each
+ * need their own file.
  */
 
 @font-face {
-	font-family: Fraunces;
+	font-family: Inter;
 	font-style: normal;
-	font-weight: 300 900;
+	font-weight: 400 700;
 	font-display: swap;
-	src: url(../../fonts/fraunces-variable.woff2) format("woff2");
+	src: url(../../fonts/inter-variable.woff2) format("woff2");
 }
 
 @font-face {
-	font-family: "Public Sans";
+	font-family: "Barlow Condensed";
 	font-style: normal;
-	font-weight: 100 900;
+	font-weight: 600;
 	font-display: swap;
-	src: url(../../fonts/public-sans-variable.woff2) format("woff2");
+	src: url(../../fonts/barlow-condensed-600.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Barlow Condensed";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(../../fonts/barlow-condensed-700.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Barlow Condensed";
+	font-style: normal;
+	font-weight: 800;
+	font-display: swap;
+	src: url(../../fonts/barlow-condensed-800.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Barlow Condensed";
+	font-style: italic;
+	font-weight: 600;
+	font-display: swap;
+	src: url(../../fonts/barlow-condensed-600italic.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Barlow Condensed";
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url(../../fonts/barlow-condensed-700italic.woff2) format("woff2");
+}
+
+@font-face {
+	font-family: "Barlow Condensed";
+	font-style: italic;
+	font-weight: 800;
+	font-display: swap;
+	src: url(../../fonts/barlow-condensed-800italic.woff2) format("woff2");
 }

@@ -594,11 +594,10 @@ function blueline_band_shots(): array {
 
 
 /**
- * Render the season-aware homepage hero: a plain eyebrow label, headline
- * with one accent-highlighted word, primary/secondary CTA, and the
- * faceoff-ring/blue-line-band chrome. Falls back to the offseason variant
- * for any value outside the five known states; this theme never invents a
- * sixth.
+ * Render the season-aware homepage hero: skewed eyebrow, headline with one
+ * --bl-ice highlighted word, primary CTA, and the faceoff-ring/blue-line-band
+ * chrome. Falls back to the offseason variant for any value outside the
+ * five known states; this theme never invents a sixth.
  *
  * The bl-hero--{state} class is always taken from the EFFECTIVE state
  * blueline_homepage_hero_content() actually rendered, not the requested
@@ -625,25 +624,28 @@ function blueline_render_hero( string $state ): string {
 	?>
 	<?php
 	/*
-	 * 2026.2 redesign: the hero is now a themed light surface -- see
-	 * PRODUCT.md principle 1 ("light, not dark") and style.css's own
-	 * comment on --bl-band-ice/--bl-band-ink -- not the fixed navy band the
-	 * "Blue Line" system painted a photograph texture onto. This section no
-	 * longer opts into that texture (the ' bl-band-photo' modifier class is
-	 * never added below), but blueline_render_band_photo_head() still runs:
-	 * it is a no-op when nothing on the page reads the custom properties it
-	 * prints, and leaving it in place keeps the opt-in band-photography
-	 * feature -- its settings panel, sanitizer and BandPhotoTest coverage --
-	 * intact for whatever surface next asks for a dark band, rather than
-	 * half-removing a feature this task was not asked to delete.
+	 * The photograph is set on :root by blueline_render_band_photo_head()
+	 * immediately below, NOT inline on this section: an inline style would win
+	 * over :root and defeat the rotation, which has to happen in the browser
+	 * because the page itself is cached (see that function for the full
+	 * reasoning). The section only opts in; it never names a photograph.
+	 *
+	 * .bl-band-photo suppresses the faceoff rings (homepage.css) at the widths
+	 * where the photograph actually paints; the rings stay the treatment on
+	 * SportsPress entity heroes and remain the fallback on phones, so the two
+	 * devices alternate by page type rather than stacking.
 	 */
+	$bl_has_photo = (bool) blueline_band_photo_sources();
+
 	blueline_render_band_photo_head();
 	?>
-	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?>">
+	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?><?php echo $bl_has_photo ? ' bl-band-photo' : ''; ?>">
 		<?php blueline_render_faceoff_rings(); ?>
 
 		<div class="bl-container bl-hero__inner">
-			<p class="bl-hero__eyebrow"><?php echo esc_html( $content['eyebrow'] ); ?></p>
+			<p class="bl-hero__eyebrow">
+				<span class="bl-skew"><span><?php echo esc_html( $content['eyebrow'] ); ?></span></span>
+			</p>
 
 			<h1 class="bl-hero__headline">
 				<?php echo wp_kses( $content['headline_html'], array( 'span' => array( 'class' => array() ) ) ); ?>
@@ -837,87 +839,61 @@ function blueline_homepage_module_next_games() {
 	if ( empty( $events ) ) {
 		blueline_homepage_module_empty_state( __( 'No games on the schedule yet — check back soon.', 'blueline' ) );
 	} else {
-		/*
-		 * 2026.2 redesign: a plain, legible row list (Concept C's "this week
-		 * on the ice" table), not the old card-per-game ticker -- see
-		 * PRODUCT.md's second persona ("wants one fact, fast, usually on a
-		 * phone"), which a real <table> serves better than a stack of
-		 * bordered boxes. .bl-table-scroll is the theme's existing generic
-		 * horizontal-scroll wrapper (assets/src/css/sportspress.css,
-		 * assets/src/js/table-scroll.js), reused rather than redefined here
-		 * so this table gets the same scroll/fade behaviour as every other
-		 * data table on the site for free.
-		 */
 		?>
-		<div class="bl-table-scroll">
-			<table class="bl-next-games">
-				<caption class="screen-reader-text"><?php esc_html_e( 'Upcoming games', 'blueline' ); ?></caption>
-				<thead>
-					<tr>
-						<th scope="col"><?php esc_html_e( 'When', 'blueline' ); ?></th>
-						<th scope="col"><?php esc_html_e( 'Matchup', 'blueline' ); ?></th>
-						<th scope="col"><?php esc_html_e( 'Rink', 'blueline' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $events as $event ) : ?>
-						<?php
-						// P1 finding 3: this used to print only the pad name ("Red")
-						// as plain text, the same value /schedule links to
-						// /venue/red, which carries the street address and the
-						// sibling-pad cross-link. blueline_venue_label() (package 1)
-						// gives the arena name too ("Mr. Lube and Tires Arena —
-						// Red"), matching PRODUCT.md principle 4 ("the pad, not just
-						// the arena"), and linking it gives a phone-in-a-car-park
-						// player one tap to the address.
-						$venue_terms = taxonomy_exists( 'sp_venue' )
-							? wp_get_object_terms( $event->ID, 'sp_venue' )
-							: array();
-						$venue_term  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0] : null;
-						$venue_label = '';
-						$venue_url   = '';
+		<ul class="bl-next-games">
+			<?php foreach ( $events as $event ) : ?>
+				<?php
+				// P1 finding 3: this used to print only the pad name ("Red")
+				// as plain text, the same value /schedule links to
+				// /venue/red, which carries the street address and the
+				// sibling-pad cross-link. blueline_venue_label() (package 1)
+				// gives the arena name too ("Mr. Lube and Tires Arena —
+				// Red"), matching PRODUCT.md principle 4 ("the pad, not just
+				// the arena"), and linking it gives a phone-in-a-car-park
+				// player one tap to the address.
+				$venue_terms = taxonomy_exists( 'sp_venue' )
+					? wp_get_object_terms( $event->ID, 'sp_venue' )
+					: array();
+				$venue_term  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0] : null;
+				$venue_label = '';
+				$venue_url   = '';
 
-						if ( $venue_term instanceof WP_Term ) {
-							$venue_label = function_exists( 'blueline_venue_label' )
-								? blueline_venue_label( $venue_term->term_id )
-								: $venue_term->name;
+				if ( $venue_term instanceof WP_Term ) {
+					$venue_label = function_exists( 'blueline_venue_label' )
+						? blueline_venue_label( $venue_term->term_id )
+						: $venue_term->name;
 
-							$term_link = get_term_link( $venue_term );
-							$venue_url = ( ! is_wp_error( $term_link ) ) ? $term_link : '';
-						}
-
-						// The fixture itself links to its event page (box score, past
-						// meetings, the arena map). The venue link in the next cell
-						// stays separate and keeps going to the arena: two
-						// destinations a reader genuinely wants from this row, kept
-						// as two distinct links in two distinct cells rather than one
-						// row-wide anchor, since nested anchors are invalid and
-						// browsers drop the inner one.
-						$event_permalink = get_permalink( $event );
-						?>
-						<tr>
-							<td data-label="<?php esc_attr_e( 'When', 'blueline' ); ?>">
-								<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event ) ); ?>
-							</td>
-							<td data-label="<?php esc_attr_e( 'Matchup', 'blueline' ); ?>" class="bl-next-games__matchup">
-								<?php if ( $event_permalink ) : ?>
-									<a href="<?php echo esc_url( $event_permalink ); ?>"><?php echo esc_html( get_the_title( $event ) ); ?></a>
-								<?php else : ?>
-									<?php echo esc_html( get_the_title( $event ) ); ?>
-								<?php endif; ?>
-							</td>
-							<td data-label="<?php esc_attr_e( 'Rink', 'blueline' ); ?>" class="bl-next-games__rink">
-								<?php if ( $venue_label && $venue_url ) : ?>
-									<a href="<?php echo esc_url( $venue_url ); ?>"><?php echo esc_html( $venue_label ); ?></a>
-								<?php elseif ( $venue_label ) : ?>
-									<?php echo esc_html( $venue_label ); ?>
-								<?php endif; ?>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-		</div>
+					$term_link = get_term_link( $venue_term );
+					$venue_url = ( ! is_wp_error( $term_link ) ) ? $term_link : '';
+				}
+				?>
+				<?php
+				// The fixture itself links to its event page (box score, past
+				// meetings, the arena map). The venue link below stays separate
+				// and keeps going to the arena: two destinations a reader
+				// genuinely wants from this row, so this is deliberately NOT a
+				// single row-wide link: an <a> wrapping the whole <li> could
+				// not contain the venue's own <a>, since nested anchors are
+				// invalid and browsers drop the inner one.
+				$event_permalink = get_permalink( $event );
+				?>
+				<li class="bl-next-games__item">
+					<span class="bl-next-games__date">
+						<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event ) ); ?>
+					</span>
+					<?php if ( $event_permalink ) : ?>
+						<a class="bl-next-games__title bl-next-games__title--link" href="<?php echo esc_url( $event_permalink ); ?>"><?php echo esc_html( get_the_title( $event ) ); ?></a>
+					<?php else : ?>
+						<span class="bl-next-games__title"><?php echo esc_html( get_the_title( $event ) ); ?></span>
+					<?php endif; ?>
+					<?php if ( $venue_label && $venue_url ) : ?>
+						<a class="bl-next-games__venue" href="<?php echo esc_url( $venue_url ); ?>"><?php echo esc_html( $venue_label ); ?></a>
+					<?php elseif ( $venue_label ) : ?>
+						<span class="bl-next-games__venue"><?php echo esc_html( $venue_label ); ?></span>
+					<?php endif; ?>
+				</li>
+			<?php endforeach; ?>
+		</ul>
 		<?php
 	}
 
@@ -1165,6 +1141,10 @@ function blueline_homepage_new_here_default_content() {
  */
 function blueline_homepage_module_new_here() {
 	blueline_homepage_module_start( 'new_here', blueline_settings( 'module_new_here_heading' ), blueline_resolve_link( 'page_faqs' ), blueline_settings( 'module_new_here_cta' ) );
+
+	if ( function_exists( 'blueline_leaf_mark' ) ) {
+		blueline_leaf_mark( 'bl-new-here__watermark' );
+	}
 
 	if ( is_active_sidebar( 'bl-homepage-new-here' ) ) {
 		dynamic_sidebar( 'bl-homepage-new-here' );

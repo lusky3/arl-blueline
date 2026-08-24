@@ -11,8 +11,8 @@
  * `.data-away` text-align, `.team-logo` base sizing, and `date{display:none}`
  * inside .sp-event-list. So "SportsPress emits no CSS" is not quite true;
  * "SportsPress emits no VISUAL/colour styling" is the accurate version.
- * Reuses base.css utilities (.bl-container, .bl-skew, table defaults)
- * rather than redefining them.
+ * Reuses base.css utilities (.bl-container, .bl-skew, .bl-band/.bl-band--ink,
+ * table defaults) rather than redefining them.
  *
  * Class provenance, so a future edit doesn't guess wrong:
  *   Real SportsPress markup (confirmed by reading the installed plugin's
@@ -297,27 +297,18 @@ table.bl-table-self-scroll {
 /* ---- Player list (SP's own <table class="sp-player-list">) ----
    The brief names .sp-player-list alongside .sp-team-list for "roster
    grids". team-lists.php's own override never emits .sp-player-list (it
-   builds the .bl-sp-roster list directly instead); this class is what
+   builds .sp-team-list cards directly instead); this class is what
    SportsPress's [player_list] shortcode/player-list.php template emits
    wherever it's used outside that override (e.g. embedded directly in a
-   page).
-
-   2026.2 correction: below used to restructure each row into its own
-   bordered, rounded "card" (a CSS grid of cells inside a bordered box per
-   player) once the viewport got narrow -- exactly the wrap-rows-of-
-   comparable-data-in-cards pattern the new design system's own reference
-   concept rules out for genuinely tabular data (see PRODUCT.md's "data
-   must stay readable" principle and league-table.php's docblock for the
-   prior, related "table clipped on a phone" finding this must not
-   reintroduce a variant of). This is a stat table -- name, number, and
-   whatever GP/G/A/PIM columns the shortcode carries -- not a set of
-   independent cards, so narrow viewports now get the same real-<table>-
-   plus-stacked-rows treatment the homepage-concept reference uses (each
-   row stays one row, header cells move into a data-label label in front
-   of each value via ::before, SP's own per-cell data-label attribute),
-   not a second grid layout. At wider widths it stays a normal, tabular
-   .sp-data-table, since multi-column stat lists read better with real
-   column alignment than as stacked rows once there's room for it. */
+   page). Below a real card-grid width, this table restructures into a
+   grid of roster cards using SP's own per-cell data-label attributes
+   (confirmed present on every <td> in player-list.php) rather than a
+   second, unrelated visual language from .sp-team-list's own markup,
+   which is a <ul> of <a> cards, not a <table>, and can't be reused
+   directly on a semantically different element. At wider widths it stays
+   a normal, tabular .sp-data-table, since multi-column stat lists (GP/G/A/
+   PIM alongside name/number) read better with real column alignment than
+   as cards once there's room for it. */
 
 .sp-player-list td.data-name.has-photo {
 	display: flex;
@@ -344,34 +335,33 @@ table.bl-table-self-scroll {
 	}
 
 	.sp-player-list tr {
-		padding-block: var(--bl-space-2);
-		border-bottom: 1px solid var(--bl-content-border);
-	}
-
-	.sp-player-list tbody tr:last-child {
-		border-bottom: none;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+		gap: var(--bl-space-1) var(--bl-space-3);
+		padding: var(--bl-space-3);
+		margin-block-end: var(--bl-space-3);
+		border: 1px solid var(--bl-content-border);
+		border-radius: var(--bl-radius-card);
 	}
 
 	.sp-player-list td {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: var(--bl-space-3);
-		padding: 0.2rem 0;
+		display: block;
+		padding: 0;
 		border: 0;
 		white-space: normal;
 	}
 
 	.sp-player-list td.data-name {
+		grid-column: 1 / -1;
 		font-weight: 600;
 	}
 
 	.sp-player-list td[data-label]::before {
 		content: attr(data-label);
-		flex-shrink: 0;
+		display: block;
+		margin-block-end: 2px;
 		color: var(--bl-content-text-secondary);
 		font-size: var(--bl-text-xs);
-		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.02em;
 	}
@@ -734,19 +724,22 @@ table.bl-table-self-scroll {
  */
 
 /*
- * Finding 13: the hero itself is the coloured band (a fill), so the raw
- * primary is safe here (the same "any colour works as a fill" rule the
+ * Finding 13: the hero itself is now the coloured band (a fill), so the
+ * raw primary is safe here (the same "any colour works as a fill" rule the
  * top-of-section comment states), paired with the derived on-primary
- * foreground for its own text. It used to close with a second, paired
- * blue-line band (Device #2, retired -- --bl-band-ice/--bl-band-ink are
- * both 0px in the 2026.2 palette, see style.css's own comment on those
- * tokens), which has been removed rather than kept as a zero-height
- * no-op override.
+ * foreground for its own text. The paired blue-line band (Device #2)
+ * underneath, in team primary + ink, replaces the old border-top/box-shadow
+ * approximation with the real .bl-band/.bl-band--ink elements every other
+ * hero already uses (see blueline_sp_team_hero(), inc/sportspress.php).
  */
 .bl-sp-hero--team {
 	position: relative;
 	background: var(--bl-team-primary, transparent);
 	color: var(--bl-team-on-primary, inherit);
+}
+
+.bl-sp-hero--team .bl-band {
+	background: var(--bl-team-primary, var(--bl-ice));
 }
 
 .bl-sp-hero--team .bl-sp-hero__meta {
@@ -994,18 +987,35 @@ table.bl-table-self-scroll {
  * (neutralised on the front end by blueline_sp_blank_frontend_option() in
  * inc/sportspress.php).
  *
- * It used to close with the paired blue-line band device (Device #2,
- * retired). That device has no equivalent in the 2026.2 palette
- * (--bl-band-ice/--bl-band-ink are both 0px -- see style.css's own
- * comment on those tokens), so this band sits directly under the last
- * module and above .bl-footer with a plain 1px border-top instead, the
- * same treatment every other stacked section on the site already uses.
+ * On the homepage this band sits directly under the last module and above
+ * .bl-footer (the same paper-to-navy transition the header's own hero
+ * makes into the module stack), so it closes with the same paired
+ * blue-line band device (Device #2, DESIGN.md) rather than the modules'
+ * own plain 1px border-top.
  */
 .sp-footer-sponsors {
 	position: relative;
 	background: var(--bl-surface-sunken);
-	border-top: 1px solid var(--bl-content-border);
-	padding-block: var(--bl-space-8);
+	padding-block: calc(var(--bl-band-ice) + var(--bl-band-ink) + var(--bl-space-8)) var(--bl-space-8);
+}
+
+.sp-footer-sponsors::before,
+.sp-footer-sponsors::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+}
+
+.sp-footer-sponsors::before {
+	top: 0;
+	height: var(--bl-band-ice);
+	background: var(--bl-ice);
+}
+
+.sp-footer-sponsors::after {
+	top: var(--bl-band-ice);
+	height: var(--bl-band-ink);
+	background: var(--bl-ink); /* fixed brand signature band, not theme-aware; see base.css .bl-band--ink */
 }
 
 /* .bl-container's own formula (base.css) applies here because SportsPress's
@@ -1377,15 +1387,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * text-align, .team-logo sizing) come from SportsPress's own always-loaded
  * core stylesheet (see the top-of-file correction) and are left alone;
  * these rules only add what that stylesheet doesn't: the date-group
- * heading row, a de-emphasised (not link-blue) time column, and a
- * tighter row.
- *
- * The venue cell is deliberately NOT de-emphasised the same way: PRODUCT.md
- * is explicit that which sheet of ice to walk to is a product requirement,
- * not a nicety, for exactly the reader this table serves (an existing
- * player checking their next game on a phone). It reads at full
- * --bl-content-text weight, same as the team names beside it, rather than
- * the muted --bl-content-text-secondary the per-row time link uses.
+ * heading row, de-emphasised (not link-blue) date/arena, and a tighter row.
  */
 /* stylelint-disable no-descending-specificity -- this whole block is one
    unrelated component (the schedule override); ordering it purely to
@@ -1426,7 +1428,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 /* stylelint-enable no-descending-specificity */
 
 .bl-sp-schedule .data-venue {
-	color: var(--bl-content-text);
+	color: var(--bl-content-text-secondary);
 }
 
 /* ---- Data-table row hover + mobile scroll cue (finding 12) ----

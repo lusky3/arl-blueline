@@ -38,7 +38,7 @@
 	align-items: center;
 	gap: var(--bl-space-2);
 	padding: var(--bl-space-3) var(--bl-space-4);
-	color: var(--bl-content-text);
+	color: var(--bl-paper);
 	font-family: var(--bl-font-display);
 	font-weight: 700;
 	font-style: italic;
@@ -50,25 +50,65 @@
 
 .bl-nav__link:hover,
 .bl-nav__link:focus-visible {
-	color: var(--bl-content-link);
-	border-bottom-color: var(--bl-content-link);
+	color: var(--bl-pale);
+}
+
+/* Active item's link colour; the chip fill/text itself is set on .bl-skew
+   below, after the base .bl-nav .bl-skew layout rule (selector-order,
+   ascending specificity, matches stylelint's no-descending-specificity). */
+.bl-nav__link[aria-current="page"] {
+	color: var(--bl-paper);
 }
 
 /*
- * Active chip. --bl-ice fill with --bl-ink text is the palette's
- * documented accent-as-fill pairing (7.69:1, tools/check-contrast.mjs's
- * "ink on ice fill" rule), and it is deliberately NOT theme-aware -- --bl-ice
- * is a fixed light tint by design (style.css's own comment on that token),
- * so the chip reads the same "selected" pill on either the light or the
- * dark header. Applied directly to the link now rather than to a nested
- * `.bl-skew` wrapper: that wrapper existed only to counter-skew this label
- * against device #1 (retired, --bl-skew: 0deg), and Blueline_Nav_Walker no
- * longer emits it.
+ * The skewed label wrapper must not contribute layout width, or nav items
+ * sit at different widths depending on whether their background happens to
+ * be showing, and the row reads as unevenly spaced.
+ *
+ * Every nav label is wrapped in `.bl-skew` (inc/template-tags.php), but the
+ * skewed background is only *visible* on the active item. Previously this
+ * wrapper carried its own `padding: space-1 space-3` nested inside the
+ * link's own `padding: space-3 space-4`, which produced two problems:
+ *
+ *   1. 1.75rem of horizontal padding per side on every item, so labels were
+ *      spaced further apart than they looked like they should be, and
+ *   2. because `skewX(-11deg)` leans the box, its top edge sits ~tan(11°) x
+ *      height further right than its bottom edge (~5.4px at this nav's
+ *      ~28px label height). Equal padding therefore *renders* unequal: the
+ *      glyphs appear pushed left of centre inside their own ribbon.
+ *
+ * Now the padding is applied with an equal, opposite margin, so the ribbon
+ * still bleeds out around the glyphs when it is visible but adds nothing to
+ * layout width — every item is spaced purely by the link's own padding, and
+ * active/inactive items are identical in size. `padding-inline-end` carries
+ * the slant compensation so the label reads optically centred in the ribbon
+ * rather than mathematically centred in its box.
  */
-.bl-nav__link[aria-current="page"] {
+.bl-nav .bl-skew {
+	padding-block: var(--bl-space-1);
+	padding-inline: var(--bl-space-3) calc(var(--bl-space-3) + 0.18em);
+	margin-block: calc(var(--bl-space-1) * -1);
+	margin-inline: calc(var(--bl-space-3) * -1) calc((var(--bl-space-3) + 0.18em) * -1);
+	line-height: 1.2;
+}
+
+/*
+ * P3 finding 2: the active chip's fill used to be --bl-ink on this bar's
+ * own --bl-ink-deep ground -- 1.28:1, so the only thing that actually read
+ * as "active" was the underline that used to sit on .bl-nav__link[aria-
+ * current="page"], which is not one of the four signature devices. The
+ * chip now uses the palette's documented accent-as-fill pairing instead:
+ * --bl-ice fill with --bl-ink text, 7.69:1 (tools/check-contrast.mjs's
+ * "ink on ice fill" rule already asserts this exact pair). The underline
+ * is dropped in favour of the chip alone -- it was compensating for the
+ * fill not reading, and doubling ice fill + ice underline on the same
+ * active item looked like a single thick block once the fill itself was
+ * visible. Hard constraint unaffected: --bl-ice still never appears as
+ * unfilled text on light.
+ */
+.bl-nav__link[aria-current="page"] .bl-skew {
 	background: var(--bl-ice);
 	color: var(--bl-ink);
-	border-radius: var(--bl-radius);
 }
 
 /*
@@ -84,23 +124,14 @@
 	width: 100%;
 }
 
-/*
- * Inverted fill (content-text as background, content-bg as text) rather
- * than a fixed dark/light pairing: the dropdown itself is now a themed
- * surface (--bl-content-surface below), so a fixed --bl-ink fill would be
- * almost indistinguishable from the dropdown's own background in dark
- * mode, where --bl-ink stays a fixed dark colour. The theme-aware pair
- * inverts correctly in both directions.
- */
 .bl-nav__submenu .bl-nav__link:hover,
 .bl-nav__submenu .bl-nav__link:focus-visible {
-	background: var(--bl-content-text);
-	color: var(--bl-content-bg);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
 }
 
 .bl-nav__submenu .bl-nav__link[aria-current="page"] {
-	background: var(--bl-content-text);
-	color: var(--bl-content-bg);
+	background: var(--bl-ink);
 }
 
 .bl-nav__toggle-sub {
@@ -113,7 +144,7 @@
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: var(--bl-content-text);
+	color: var(--bl-paper);
 	cursor: pointer;
 }
 
@@ -170,7 +201,7 @@
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: var(--bl-content-text);
+	color: var(--bl-paper);
 	cursor: pointer;
 }
 
@@ -214,22 +245,17 @@
 		overflow-y: auto;
 
 		/*
-		 * The drawer is a themed surface now (--bl-content-bg-raised, same as
-		 * the header bar it opens from), not a fixed-dark scroll container, so
-		 * it no longer forces `color-scheme: dark` -- that would fight a light
-		 * explicit toggle choice the same way the browser's own forced-dark
-		 * heuristic does (see style.css's own comment on `color-scheme: light
-		 * dark` in its :root block). Leaving color-scheme unset here lets it
-		 * inherit whatever the page has already resolved. The scrollbar thumb
-		 * uses the theme-aware border-strong token instead of a fixed one so
-		 * it stays visible against this surface in both directions.
-		 * `overscroll-behavior: contain` stops the page behind the drawer
-		 * scrolling when the drawer itself reaches its end.
+		 * Same dark-scroll-container contract as the desktop dropdown: this
+		 * drawer is full-viewport navy and scrolls, so without color-scheme
+		 * it gets a light native scrollbar. `overscroll-behavior: contain`
+		 * also stops the page behind the drawer scrolling when the drawer
+		 * itself reaches its end.
 		 */
+		color-scheme: dark;
 		scrollbar-width: thin;
-		scrollbar-color: var(--bl-content-border-strong) transparent;
+		scrollbar-color: var(--bl-steel) transparent;
 		overscroll-behavior: contain;
-		background: var(--bl-content-bg-raised);
+		background: var(--bl-ink-deep);
 
 		/*
 		 * Full-bleed fixed overlay, so it has to respect the device's own
@@ -300,7 +326,7 @@
 	}
 
 	.bl-nav__menu > .bl-nav__item {
-		border-bottom: 1px solid var(--bl-content-border);
+		border-bottom: 1px solid var(--bl-ink-mid);
 	}
 
 	.bl-nav__link {
@@ -330,10 +356,14 @@
 	}
 
 	/*
-	 * A visible gap between top-level items, so the active chip's own
-	 * background/border-radius (now painted directly on `.bl-nav__link`,
-	 * contained within its own box -- see that rule's comment) has clear
-	 * air on both sides rather than sitting flush against its neighbours.
+	 * P3 finding 2: .bl-nav .bl-skew's padding/negative-margin pair (above)
+	 * deliberately adds no layout width, so the active item's ribbon
+	 * bleeds ~12px plus ~5px of slant beyond its own link box -- with zero
+	 * gap between adjacent <li>s that bleed ran straight into the next
+	 * item's box (measured live: the active chip visibly collided with
+	 * "SPONSORS" on /standings). This gap gives the bleed room on both
+	 * sides without adding any width to the (already tight, see below)
+	 * per-item footprint itself.
 	 */
 	.bl-nav__menu {
 		display: flex;
@@ -383,24 +413,29 @@
 		min-width: 260px;
 		max-height: min(78vh, 560px);
 		overflow-y: auto;
-		background: var(--bl-content-surface);
-		border: 1px solid var(--bl-content-border);
+		background: var(--bl-ink-deep);
 		box-shadow: var(--bl-shadow-raised);
 		padding-block: var(--bl-space-2);
 
 		/*
-		 * A themed panel now (--bl-content-surface, the same token cards and
-		 * other raised surfaces use elsewhere), not a fixed-dark scroll
-		 * container -- so it no longer forces `color-scheme: dark`, which
-		 * would fight an explicit light toggle choice (see the mobile
-		 * drawer's own comment on this, above). The scrollbar thumb uses the
-		 * theme-aware border-strong token so it stays visible against this
-		 * surface in both directions, without a single `::-webkit-scrollbar`
-		 * rule. `overscroll-behavior: contain` stops a flick inside the
-		 * dropdown from chaining into the page once the list hits its end.
+		 * This panel is a dark scroll container, so it needs both halves of
+		 * the dark-surface contract or the scrollbar renders as a bright
+		 * light-mode bar straight down a navy dropdown -- which is what it
+		 * did, and what read as "unstyled scrollbars on long menu items".
+		 *
+		 * `color-scheme: dark` is the part that actually fixes the native
+		 * widget (Chromium and Safari paint the UA scrollbar from it, and
+		 * it needs no vendor-prefixed pseudo-element); the two
+		 * `scrollbar-*` properties are the standard, non-prefixed controls
+		 * Firefox honours. Together they cover every engine this site sees
+		 * without a single `::-webkit-scrollbar` rule.
+		 *
+		 * `overscroll-behavior: contain` stops a flick inside the dropdown
+		 * from chaining into the page once the list hits its end.
 		 */
+		color-scheme: dark;
 		scrollbar-width: thin;
-		scrollbar-color: var(--bl-content-border-strong) transparent;
+		scrollbar-color: var(--bl-steel) transparent;
 		overscroll-behavior: contain;
 	}
 
