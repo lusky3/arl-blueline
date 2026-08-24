@@ -93,14 +93,17 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 
 	/**
 	 * Reduces a URL to a comparable path: lower-cased, no trailing slash,
-	 * scheme/host/query/fragment stripped.
+	 * scheme/host/query/fragment stripped. Delegates to the free function
+	 * blueline_utility_normalize_path() (below, in this same file), which
+	 * carries the one real implementation of this logic; kept as its own
+	 * method rather than inlined at each call site because it is protected
+	 * and scoped to this class's Register-CTA de-dup use.
 	 *
 	 * @param string $url URL to normalize.
 	 * @return string
 	 */
 	protected static function normalize_path( $url ) {
-		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
-		return rtrim( strtolower( $path ), '/' );
+		return blueline_utility_normalize_path( $url );
 	}
 
 	/**
@@ -263,6 +266,101 @@ function blueline_leaf_mark( $extra_class = '' ) {
 }
 
 /**
+ * Open the shared root-template chrome: `<main id="main" class="bl-main...">`,
+ * `.bl-container`, and -- for a template that has a sidebar concept at all --
+ * the `.bl-content-layout`/`.bl-content-layout__primary` wrapper around the
+ * primary column. Pair with blueline_page_wrapper_end(). This is the
+ * identical open-half markup that archive.php, search.php, single.php,
+ * page.php, and the root sportspress.php each used to repeat verbatim --
+ * this theme's existing convention for exactly this shape (see
+ * blueline_wc_wrapper_start()/_end() in inc/woocommerce.php, and
+ * blueline_account_module_start()/_end() in inc/account/dashboard.php).
+ *
+ * $has_sidebar is nullable, not a plain bool: pass a real bool for a
+ * template that reserves a sidebar column at all, to get the
+ * `.bl-content-layout` wrapper (with or without its `--has-sidebar`
+ * modifier, matching that bool); pass null for a template with no sidebar
+ * concept whatsoever -- index.php is the one root template that never grew
+ * this wrapper at all -- to render just `<main><div class="bl-container">`,
+ * with no content-layout wrapper, exactly as it already did.
+ *
+ * @param bool|null $has_sidebar      Whether this request has an active sidebar
+ *                                     to reserve a column for, or null for a
+ *                                     template with no sidebar concept at all.
+ * @param string    $extra_main_class Extra class(es) appended to `bl-main`
+ *                                     (e.g. 'bl-main--sp' for the root
+ *                                     sportspress.php). Empty for the plain
+ *                                     content templates.
+ * @return void
+ */
+function blueline_page_wrapper_start( ?bool $has_sidebar = null, string $extra_main_class = '' ): void {
+	$main_class = 'bl-main' . ( '' !== $extra_main_class ? ' ' . $extra_main_class : '' );
+	?>
+	<main id="main" class="<?php echo esc_attr( $main_class ); ?>" tabindex="-1">
+		<div class="bl-container">
+			<?php if ( null !== $has_sidebar ) : ?>
+			<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
+				<div class="bl-content-layout__primary">
+			<?php endif; ?>
+	<?php
+}
+
+/**
+ * Close the chrome opened by blueline_page_wrapper_start() -- see that
+ * function's own docblock, including why $has_sidebar is nullable.
+ *
+ * @param bool|null $has_sidebar Must be the exact same value passed to the
+ *                                matching blueline_page_wrapper_start() call.
+ * @return void
+ */
+function blueline_page_wrapper_end( ?bool $has_sidebar = null ): void {
+	?>
+			<?php if ( null !== $has_sidebar ) : ?>
+				</div>
+				<?php if ( $has_sidebar ) : ?>
+					<?php get_sidebar(); ?>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
+		</div>
+	</main>
+	<?php
+}
+
+/**
+ * Splits a paginated post's content across page numbers with this theme's
+ * `<nav class="bl-page-links">` wrapper -- the identical wp_link_pages()
+ * call content-single.php, content-page.php, content-notitle.php, and
+ * content-nothumb.php each used to repeat verbatim.
+ *
+ * @return void
+ */
+function blueline_page_links(): void {
+	wp_link_pages(
+		array(
+			'before' => '<nav class="bl-page-links" aria-label="' . esc_attr__( 'Page', 'blueline' ) . '">' . esc_html__( 'Pages:', 'blueline' ),
+			'after'  => '</nav>',
+		)
+	);
+}
+
+/**
+ * Comment pagination nav, rendered identically above and below comments.php's
+ * comment list -- the `<nav class="bl-comments__nav">...</nav>` block that
+ * file used to repeat byte-for-byte in both spots.
+ *
+ * @return void
+ */
+function blueline_comments_nav(): void {
+	?>
+	<nav class="bl-comments__nav" aria-label="<?php esc_attr_e( 'Comments', 'blueline' ); ?>">
+		<div class="bl-comments__nav-previous"><?php previous_comments_link( esc_html__( '&larr; Older comments', 'blueline' ) ); ?></div>
+		<div class="bl-comments__nav-next"><?php next_comments_link( esc_html__( 'Newer comments &rarr;', 'blueline' ) ); ?></div>
+	</nav>
+	<?php
+}
+
+/**
  * Header CTA content, driven by Season State (Task 6/7): "Register to Play"
  * with the ice fill only while a real registration is open AND its product
  * is purchasable right now, re-checked live rather than trusting a possibly
@@ -324,11 +422,10 @@ function blueline_utility_login_url() {
 
 /**
  * Reduces a URL to a comparable path -- lower-cased, no trailing slash,
- * scheme/host/query/fragment stripped. Mirrors
- * Blueline_Nav_Walker::normalize_path()'s identical logic (kept separate
- * rather than shared: that method is protected and scoped to the
- * Register-CTA de-dup, a different feature that happens to need the same
- * comparison).
+ * scheme/host/query/fragment stripped. The one real implementation of this
+ * logic; Blueline_Nav_Walker::normalize_path() (protected, scoped to that
+ * class's Register-CTA de-dup) delegates to this function rather than
+ * duplicating it.
  *
  * @param string $url URL to normalize.
  * @return string

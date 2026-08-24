@@ -28,12 +28,7 @@ defined( 'ABSPATH' ) || exit;
 		<?php
 		the_content();
 
-		wp_link_pages(
-			array(
-				'before' => '<nav class="bl-page-links" aria-label="' . esc_attr__( 'Page', 'blueline' ) . '">' . esc_html__( 'Pages:', 'blueline' ),
-				'after'  => '</nav>',
-			)
-		);
+		blueline_page_links();
 		?>
 	</div>
 </article>

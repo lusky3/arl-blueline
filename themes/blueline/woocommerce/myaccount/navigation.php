@@ -26,31 +26,45 @@ $blueline_nav_group_labels = array(
 	'billing' => __( 'Account & Billing', 'blueline' ),
 );
 
-$blueline_nav_current_group = false;
+// Phase 1: split $blueline_nav_items into CONTIGUOUS runs of the same
+// 'group' value -- one segment per run, each becoming its own <ul> below.
+// This must stay runs, not a group-name => items map: 'dashboard' and
+// 'customer-logout' both carry no group (null) but sit at the opposite ends
+// of the list with 'league' and 'billing' items in between, and the
+// original markup renders each of those two null-group items as its own
+// separate <ul> rather than merging them into one.
+$blueline_nav_segments = array();
+foreach ( $blueline_nav_items as $blueline_nav_item ) {
+	$blueline_last_index = count( $blueline_nav_segments ) - 1;
+
+	if ( $blueline_last_index < 0 || $blueline_nav_segments[ $blueline_last_index ]['group'] !== $blueline_nav_item['group'] ) {
+		$blueline_nav_segments[] = array(
+			'group' => $blueline_nav_item['group'],
+			'items' => array(),
+		);
+		++$blueline_last_index;
+	}
+
+	$blueline_nav_segments[ $blueline_last_index ]['items'][] = $blueline_nav_item;
+}
 ?>
 <nav class="woocommerce-MyAccount-navigation bl-account-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
-	<?php foreach ( $blueline_nav_items as $blueline_nav_item ) : ?>
-		<?php if ( $blueline_nav_item['group'] !== $blueline_nav_current_group ) : ?>
-			<?php if ( false !== $blueline_nav_current_group ) : ?>
-				</ul>
-			<?php endif; ?>
-			<?php if ( $blueline_nav_item['group'] && isset( $blueline_nav_group_labels[ $blueline_nav_item['group'] ] ) ) : ?>
-				<h2 class="bl-account-nav__group-title bl-account-nav__group-title--<?php echo esc_attr( $blueline_nav_item['group'] ); ?>">
-					<?php echo esc_html( $blueline_nav_group_labels[ $blueline_nav_item['group'] ] ); ?>
-				</h2>
-			<?php endif; ?>
-			<ul class="bl-account-nav__list<?php echo $blueline_nav_item['group'] ? '' : ' bl-account-nav__list--plain'; ?>">
-			<?php $blueline_nav_current_group = $blueline_nav_item['group']; ?>
+	<?php foreach ( $blueline_nav_segments as $blueline_nav_segment ) : ?>
+		<?php if ( $blueline_nav_segment['group'] && isset( $blueline_nav_group_labels[ $blueline_nav_segment['group'] ] ) ) : ?>
+			<h2 class="bl-account-nav__group-title bl-account-nav__group-title--<?php echo esc_attr( $blueline_nav_segment['group'] ); ?>">
+				<?php echo esc_html( $blueline_nav_group_labels[ $blueline_nav_segment['group'] ] ); ?>
+			</h2>
 		<?php endif; ?>
-		<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
-			<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
-				<?php echo esc_html( $blueline_nav_item['label'] ); ?>
-			</a>
-		</li>
-	<?php endforeach; ?>
-	<?php if ( ! empty( $blueline_nav_items ) ) : ?>
+		<ul class="bl-account-nav__list<?php echo $blueline_nav_segment['group'] ? '' : ' bl-account-nav__list--plain'; ?>">
+			<?php foreach ( $blueline_nav_segment['items'] as $blueline_nav_item ) : ?>
+				<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
+					<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+						<?php echo esc_html( $blueline_nav_item['label'] ); ?>
+					</a>
+				</li>
+			<?php endforeach; ?>
 		</ul>
-	<?php endif; ?>
+	<?php endforeach; ?>
 </nav>
 <?php
 

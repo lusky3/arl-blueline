@@ -192,6 +192,29 @@ function blueline_settings_cli_flush_page_cache( bool $purge_enabled ): bool {
 class Blueline_Settings_Command extends WP_CLI_Command {
 
 	/**
+	 * The `manage_options` guard every mutating subcommand in this file
+	 * shares (`import`, `repair`, `reset`, `delete_all_data`, `flush_cache`,
+	 * `occasions`) -- see this file's own docblock, point 1, for why the
+	 * check exists and why it fails closed with no `--user` passed.
+	 *
+	 * Reports the same WP_CLI::error() message every call site used to
+	 * inline; callers still need their own `return;` immediately after a
+	 * `false` result, since WP_CLI::error() does not itself halt execution
+	 * in every registered handler context.
+	 *
+	 * @return bool True when the current user may proceed; false when
+	 *              WP_CLI::error() has already reported the refusal.
+	 */
+	private function require_manage_options(): bool {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Print the current Blueline settings as JSON.
 	 *
 	 * The stored `_schema` version is included explicitly (blueline_settings()
@@ -286,8 +309,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	public function import( $args, $assoc_args ) {
 		$dry_run = ! empty( $assoc_args['dry-run'] );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+		if ( ! $this->require_manage_options() ) {
 			return;
 		}
 
@@ -507,8 +529,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * @return void
 	 */
 	public function repair( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes neither a positional nor an associative argument.
-		if ( ! current_user_can( 'manage_options' ) ) {
-			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+		if ( ! $this->require_manage_options() ) {
 			return;
 		}
 
@@ -573,8 +594,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * @return void
 	 */
 	public function reset( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes no positional argument.
-		if ( ! current_user_can( 'manage_options' ) ) {
-			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+		if ( ! $this->require_manage_options() ) {
 			return;
 		}
 
@@ -618,8 +638,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * @return void
 	 */
 	public function delete_all_data( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes no positional argument.
-		if ( ! current_user_can( 'manage_options' ) ) {
-			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+		if ( ! $this->require_manage_options() ) {
 			return;
 		}
 
@@ -699,8 +718,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * @return void
 	 */
 	public function flush_cache( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes neither a positional nor an associative argument.
-		if ( ! current_user_can( 'manage_options' ) ) {
-			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+		if ( ! $this->require_manage_options() ) {
 			return;
 		}
 
@@ -806,8 +824,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 			return;
 		}
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			WP_CLI::error( __( 'The current user is not allowed to manage_options. Re-run with --user=<an administrator>.', 'blueline' ) );
+		if ( ! $this->require_manage_options() ) {
 			return;
 		}
 

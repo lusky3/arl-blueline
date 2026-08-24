@@ -59,6 +59,62 @@ function blueline_sp_has_sidebar(): bool {
 	return (bool) apply_filters( 'blueline_sp_has_sidebar', is_active_sidebar( 'sidebar-1' ) );
 }
 
+/**
+ * The shared skeleton behind sportspress/single-event.php, single-player.php,
+ * single-staff.php, and single-team.php: those four templates were
+ * byte-identical (get_header() -> the sidebar-active check above -> the
+ * entity's own hero -> `.bl-content-layout` wrapper -> the_content() ->
+ * comments -> sidebar -> get_footer()) except for which hero function runs
+ * and, on single-team.php alone, one extra colour-related attribute on the
+ * `<main>` tag. This is that shared body -- each of the four templates is now
+ * just get_header(), one call here, and get_footer().
+ *
+ * @param callable $hero_callback   The entity's own hero renderer (e.g.
+ *                                   'blueline_sp_event_hero'), called with the
+ *                                   current post's ID at the point the hero used
+ *                                   to render inline. All four hero functions are
+ *                                   declared unconditionally in this same file, so
+ *                                   they are always callable here.
+ * @param string   $extra_main_attr Extra, already-escaped markup echoed into
+ *                                   `<main>`'s opening tag -- single-team.php's own
+ *                                   team-colour custom properties
+ *                                   (blueline_team_color_style_attr()). Empty for
+ *                                   the other three templates.
+ */
+function blueline_render_sp_single( callable $hero_callback, string $extra_main_attr = '' ): void {
+	$has_sidebar = blueline_sp_has_sidebar();
+	?>
+	<main id="main" class="bl-main bl-main--sp bl-main--sp-hero" tabindex="-1"<?php echo $extra_main_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller-supplied markup is already escaped at its own source; see single-team.php. ?>>
+		<?php
+		while ( have_posts() ) :
+			the_post();
+
+			$hero_callback( get_the_ID() );
+			?>
+			<div class="bl-container">
+				<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
+					<div class="bl-content-layout__primary">
+						<div class="entry-content bl-entry__content">
+							<?php the_content(); ?>
+						</div>
+						<?php
+						if ( comments_open() || get_comments_number() ) :
+							comments_template();
+						endif;
+						?>
+					</div>
+					<?php if ( $has_sidebar ) : ?>
+						<?php get_sidebar(); ?>
+					<?php endif; ?>
+				</div>
+			</div>
+			<?php
+		endwhile;
+		?>
+	</main>
+	<?php
+}
+
 add_filter( 'body_class', 'blueline_sp_body_class' );
 /**
  * Add bl-sp / bl-sp-{post_type-or-taxonomy} body classes on SportsPress
@@ -832,6 +888,60 @@ function blueline_sp_team_result( $event_id, $team_id ) {
 }
 
 /**
+ * The team ids attached to an sp_event's `sp_team` meta, absint()'d and
+ * de-duplicated of anything that doesn't resolve to a real (positive) id --
+ * the exact get_post_meta()/array_map()/array_filter() shape
+ * blueline_sp_event_hero(), blueline_sp_event_teaser(),
+ * blueline_social_meta_data_for_event() (inc/social-meta.php), and
+ * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
+ * verbatim. Callers that split this into a "team A"/"team B" pair (most of
+ * them) still do that split themselves -- this only resolves the raw id
+ * list.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return int[] Team ids, re-indexed from 0, in the order SportsPress stored them.
+ */
+function blueline_sp_event_team_ids( int $event_id ): array {
+	return array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+}
+
+/**
+ * The player-facing venue label for a single sp_event's own `sp_venue`
+ * term: "{Arena name} — {Pad name}" via blueline_venue_label() (P0 finding
+ * 10) when that function exists, else the term's own name; '' when the
+ * taxonomy doesn't exist, the event has no venue term at all, or the term
+ * lookup errors.
+ *
+ * The exact wp_get_post_terms()/is_wp_error()/blueline_venue_label()-or-
+ * fallback shape blueline_sp_event_hero(), blueline_sp_event_teaser(),
+ * blueline_social_meta_data_for_event() (inc/social-meta.php), and
+ * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
+ * verbatim.
+ * blueline_homepage_next_event_line() (inc/homepage-modules.php) used a
+ * wp_get_object_terms() variant of the same lookup -- functionally
+ * identical for a single post's own terms -- and now calls this one
+ * canonical version instead.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string
+ */
+function blueline_sp_event_venue_label( int $event_id ): string {
+	if ( ! taxonomy_exists( 'sp_venue' ) ) {
+		return '';
+	}
+
+	$venue_terms = wp_get_post_terms( $event_id, 'sp_venue' );
+
+	if ( is_wp_error( $venue_terms ) || empty( $venue_terms ) ) {
+		return '';
+	}
+
+	return function_exists( 'blueline_venue_label' )
+		? blueline_venue_label( $venue_terms[0]->term_id )
+		: $venue_terms[0]->name;
+}
+
+/**
  * The event masthead: teams, "vs", venue (via blueline_venue_label() --
  * P0 finding 10 -- so this reads "Mr. Lube and Tires Arena — Red" rather
  * than just the pad name), and either an add-to-calendar link (game has not
@@ -848,7 +958,7 @@ function blueline_sp_event_hero( $event_id ) {
 		return;
 	}
 
-	$teams = array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+	$teams = blueline_sp_event_team_ids( $event_id );
 
 	$has_results = ( 'results' === sp_get_status( $event_id ) );
 	$start_ts    = blueline_sp_event_start_timestamp( $event_id );
@@ -861,13 +971,7 @@ function blueline_sp_event_hero( $event_id ) {
 		'preview' => __( 'Preview', 'blueline' ),
 	);
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
-	$venue_name  = '';
-	if ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) {
-		$venue_name = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_terms[0]->term_id )
-			: $venue_terms[0]->name;
-	}
+	$venue_name = blueline_sp_event_venue_label( $event_id );
 
 	$calendar_url = ( 'preview' === $state ) ? blueline_sp_event_calendar_url( $event_id ) : '';
 	?>
@@ -1158,7 +1262,7 @@ function blueline_sp_event_teaser( $event_id ) {
 	// to the other.
 	$scores = array();
 	if ( $is_played ) {
-		$teams = array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) );
+		$teams = blueline_sp_event_team_ids( $event_id );
 		foreach ( $teams as $team_id ) {
 			$score = blueline_sp_team_result( $event_id, $team_id );
 			if ( null !== $score && '' !== $score ) {
@@ -1167,13 +1271,7 @@ function blueline_sp_event_teaser( $event_id ) {
 		}
 	}
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
-	$venue_name  = '';
-	if ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) {
-		$venue_name = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_terms[0]->term_id )
-			: $venue_terms[0]->name;
-	}
+	$venue_name = blueline_sp_event_venue_label( $event_id );
 	?>
 	<a class="bl-sp-event-teaser" href="<?php echo esc_url( get_permalink( $event_id ) ); ?>">
 		<span class="bl-sp-event-teaser__date">
@@ -1333,4 +1431,19 @@ function blueline_sp_venue_archive_title( $title ) {
 	$label = blueline_venue_label( $term->term_id );
 
 	return '' !== $label ? esc_html( $label ) : $title;
+}
+
+/**
+ * The `bl-sp-col-extra` class fragment for one league-table column, shared by
+ * sportspress/league-table.php's header-building and row-building loops --
+ * both used to repeat `in_array( $key, $bl_extra_keys, true ) ? '
+ * bl-sp-col-extra' : ''` verbatim.
+ *
+ * @param string   $key         The column key being rendered.
+ * @param string[] $extra_keys  Column keys marked "extra" (hidden until the
+ *                               full-stats toggle is checked).
+ * @return string ' bl-sp-col-extra' when $key is one of $extra_keys, '' otherwise.
+ */
+function blueline_sp_extra_class( string $key, array $extra_keys ): string {
+	return in_array( $key, $extra_keys, true ) ? ' bl-sp-col-extra' : '';
 }

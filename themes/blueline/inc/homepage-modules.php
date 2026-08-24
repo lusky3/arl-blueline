@@ -319,15 +319,7 @@ function blueline_homepage_next_event_line( int $event_id ): string {
 
 	$date = get_the_date( 'D, M j \a\t g:ia', $event_id );
 
-	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_object_terms( $event_id, 'sp_venue' ) : array();
-	$venue_term  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0] : null;
-	$venue_label = '';
-
-	if ( $venue_term instanceof WP_Term ) {
-		$venue_label = function_exists( 'blueline_venue_label' )
-			? blueline_venue_label( $venue_term->term_id )
-			: $venue_term->name;
-	}
+	$venue_label = function_exists( 'blueline_sp_event_venue_label' ) ? blueline_sp_event_venue_label( $event_id ) : '';
 
 	return $venue_label
 		/* translators: 1: next game's date/time, 2: venue label. */
@@ -532,26 +524,35 @@ function blueline_homepage_hero_content( string $state, array $state_data ): arr
 		$state = ! empty( $state_data['next_event_id'] ) ? 'preseason' : 'offseason';
 	}
 
-	if ( 'preseason' === $state ) {
-		$content          = blueline_homepage_hero_preseason_content( $state_data );
-		$content['state'] = 'preseason';
-		return $content;
-	}
+	/*
+	 * One builder per remaining state, each taking $state_data and
+	 * returning the hero content array minus its own 'state' key -- the
+	 * same $orders[ $state ] ?? $orders['offseason'] lookup shape
+	 * blueline_homepage_module_order() below already uses for the same
+	 * "one of five states" problem, so a new state later is a one-line
+	 * map entry rather than a new branch. 'offseason' doubles as both a
+	 * real state and the safe fallback for anything else reaching this
+	 * point (an unrecognised value, or the registration_open fallback
+	 * above with no next event) -- the ?? covers both in one expression.
+	 * blueline_homepage_hero_offseason_content() itself takes no
+	 * arguments, unlike the other three, so it is wrapped here rather
+	 * than referenced directly, keeping every entry callable the same way.
+	 */
+	$builders = array(
+		'preseason' => 'blueline_homepage_hero_preseason_content',
+		'in_season' => 'blueline_homepage_hero_in_season_content',
+		'playoffs'  => 'blueline_homepage_hero_playoffs_content',
+		'offseason' => static function ( array $state_data ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- deliberately unused; every entry in this map is called the same way below, and blueline_homepage_hero_offseason_content() itself simply takes no arguments.
+			return blueline_homepage_hero_offseason_content();
+		},
+	);
 
-	if ( 'in_season' === $state ) {
-		$content          = blueline_homepage_hero_in_season_content( $state_data );
-		$content['state'] = 'in_season';
-		return $content;
-	}
+	$effective_state = isset( $builders[ $state ] ) ? $state : 'offseason';
+	$builder         = $builders[ $effective_state ];
 
-	if ( 'playoffs' === $state ) {
-		$content          = blueline_homepage_hero_playoffs_content( $state_data );
-		$content['state'] = 'playoffs';
-		return $content;
-	}
+	$content          = $builder( $state_data );
+	$content['state'] = $effective_state;
 
-	$content          = blueline_homepage_hero_offseason_content();
-	$content['state'] = 'offseason';
 	return $content;
 }
 

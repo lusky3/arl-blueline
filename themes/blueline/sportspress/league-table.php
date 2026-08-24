@@ -123,7 +123,7 @@ foreach ( $labels as $key => $label ) :
 	if ( is_array( $columns ) && ! in_array( $key, $columns, true ) ) {
 		continue;
 	}
-	$bl_extra_class = in_array( $key, $bl_extra_keys, true ) ? ' bl-sp-col-extra' : '';
+	$bl_extra_class = blueline_sp_extra_class( $key, $bl_extra_keys );
 	$output        .= '<th class="data-' . esc_attr( $key ) . esc_attr( $bl_extra_class ) . '">' . esc_html( $label ) . '</th>';
 endforeach;
 
@@ -209,7 +209,7 @@ foreach ( $data as $team_id => $row ) :
 		if ( is_array( $columns ) && ! in_array( $key, $columns, true ) ) {
 			continue;
 		}
-		$bl_extra_class = in_array( $key, $bl_extra_keys, true ) ? ' bl-sp-col-extra' : '';
+		$bl_extra_class = blueline_sp_extra_class( $key, $bl_extra_keys );
 		$output        .= '<td class="data-' . esc_attr( $key ) . esc_attr( $bl_extra_class ) . $td_class . '" data-label="' . esc_attr( $labels[ $key ] ) . '">' . wp_kses_post( (string) sp_array_value( $row, $key, '&mdash;' ) ) . '</td>';
 	endforeach;
 
