@@ -676,6 +676,27 @@ html body .woocommerce .woocommerce-invalid textarea {
 	margin-block-start: var(--bl-space-3);
 }
 
+/*
+ * blueline_checkout_reassurance() (inc/woocommerce.php) -- a short brand-
+ * voice note above the form, same card treatment as the coupon/login
+ * toggles just below it.
+ */
+.bl-checkout-reassurance {
+	padding: var(--bl-space-5);
+	margin-block-end: var(--bl-space-5);
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+}
+
+.bl-checkout-reassurance p {
+	margin: 0 0 var(--bl-space-3);
+}
+
+.bl-checkout-reassurance p:last-child {
+	margin-block-end: 0;
+}
+
 .woocommerce-form-coupon-toggle,
 .woocommerce-form-login-toggle {
 	margin-block-end: var(--bl-space-5);

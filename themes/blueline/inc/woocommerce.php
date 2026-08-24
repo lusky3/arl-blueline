@@ -149,3 +149,43 @@ function blueline_wc_wrapper_end() {
 	</main>
 	<?php
 }
+
+/*
+ * woocommerce/cart/cart-empty.php renders its own themed message and
+ * registration CTA in place of the stock "Your cart is currently empty"
+ * notice + "return to shop" link (this site has no shop page to return
+ * to). wc_empty_cart_message() is core's callback on
+ * 'woocommerce_cart_is_empty' (priority 10) that prints that stock
+ * notice; removing it here, rather than editing the override template to
+ * suppress it, keeps that action available for anything else that might
+ * hook into it -- the override template still fires it, just with core's
+ * own listener gone.
+ */
+remove_action( 'woocommerce_cart_is_empty', 'wc_empty_cart_message' );
+
+add_action( 'woocommerce_before_checkout_form', 'blueline_checkout_reassurance' );
+/**
+ * A short reassurance note above the checkout form -- the same nervous
+ * first-timer persona the homepage's 'new_here' module exists to calm (see
+ * blueline_homepage_module_new_here() in inc/homepage-modules.php), except
+ * here they are one field away from actually paying, which was previously
+ * the one place in the whole registration flow with zero brand-voice copy
+ * anywhere on the page (see this file's own docblock on woocommerce/ being
+ * a byte-identical port). Hooked onto 'woocommerce_before_checkout_form'
+ * rather than edited into the ported woocommerce/checkout/form-checkout.php
+ * template, so that file's "byte-identical port" claim stays true and this
+ * note can be found/changed in one place instead of inside vendor-shaped
+ * markup.
+ */
+function blueline_checkout_reassurance() {
+	?>
+	<div class="bl-checkout-reassurance">
+		<p>
+			<?php esc_html_e( 'You’re in good company: most people paying this fee have never played an organized game before, and this is the one payment for the whole season — no upsells, no surprise add-ons waiting for you after this.', 'blueline' ); ?>
+		</p>
+		<p>
+			<?php esc_html_e( 'You’ll get an email confirmation right away, and your team, schedule, and roster show up in My Account once the season’s set. Still nervous? That’s normal — ask us anything, or just show up and skate.', 'blueline' ); ?>
+		</p>
+	</div>
+	<?php
+}
