@@ -190,7 +190,10 @@ final class SeasonStateOverrideTest extends TestCase {
 	public function test_a_malformed_expiry_cannot_be_stored_through_the_save_path(): void {
 		$this->set_override( 'playoffs', 'sometime next year' );
 
-		$this->assertNotSame( 'sometime next year', blueline_settings( 'season_state_override_until' ) );
+		// The field is rejected outright and the previously-stored value
+		// kept -- here, the un-set default, since setUp() starts every test
+		// with an empty option store (see blueline_settings_defaults()).
+		$this->assertSame( '', blueline_settings( 'season_state_override_until' ) );
 	}
 
 	/**
@@ -232,8 +235,11 @@ final class SeasonStateOverrideTest extends TestCase {
 	public function test_an_unknown_state_cannot_be_stored_through_the_save_path_at_all(): void {
 		$this->set_override( 'world_cup', '2036-12-31' );
 
-		$this->assertNotSame(
-			'world_cup',
+		// The field is rejected outright and the previously-stored value
+		// kept -- here, the un-set default, since setUp() starts every test
+		// with an empty option store (see blueline_settings_defaults()).
+		$this->assertSame(
+			'',
 			blueline_settings( 'season_state_override' ),
 			'update_option() runs the sanitizer, so an off-list value must never reach storage'
 		);
