@@ -2,7 +2,10 @@
  * Blueline — page/post template layout.
  * Content area + optional sidebar, entry chrome (title/meta/thumbnail),
  * post teaser cards, pagination, comments, empty states (search/archive/
- * 404) and default widget-area styling.
+ * 404), default widget-area styling, and optional opt-in patterns
+ * (Q&A/definition-list, callout, accent CTA) that plain admin-authored
+ * Pages -- Register, Rules, and the like -- can adopt without any
+ * template markup change. See "Generic Page content" below.
  */
 
 .bl-main {
@@ -225,8 +228,16 @@
 	border-radius: var(--bl-radius-card);
 }
 
+/*
+ * --bl-space-5, not the tighter -3: matches .bl-entry__thumbnail's own
+ * bottom margin above, so the title sits with the same generous, calm
+ * breathing room on either side -- a cramped -3 gap read as an accident
+ * of the display face's tight 0.92 line-height rather than a deliberate
+ * choice, on a plain admin-authored page with nothing else to fill the
+ * space.
+ */
 .bl-entry__title {
-	margin-block-end: var(--bl-space-3);
+	margin-block-end: var(--bl-space-5);
 }
 
 .bl-entry-meta {
@@ -278,6 +289,119 @@
 .bl-entry__tags a {
 	margin-inline-end: var(--bl-space-2);
 	font-size: var(--bl-text-sm);
+}
+
+/*
+ * Generic Page content — optional, opt-in patterns for admin-authored
+ * WYSIWYG Pages (Register, Rules, and similar plain reference/prose
+ * pages, no SportsPress/WooCommerce data involved). All three below are
+ * additive: nothing here is required, nothing here changes what plain
+ * paragraphs/headings/lists render as, and none of it forces new markup
+ * on existing content -- an editor opts in per-block, the same way core
+ * already lets a Group/Button block take a custom CSS class.
+ *
+ * Scoped under .entry-content (not .bl-entry) to match blocks.css's own
+ * convention for editor-authored content, and to keep these class names
+ * out of reach of unrelated areas (widgets, comments) that happen to
+ * reuse a name like "callout" for something else.
+ */
+
+/*
+ * Q&A / definition-list pattern -- the hairline-rule <dl> treatment from
+ * the 2026.2 concept reference ("What to expect" style FAQ blocks). Add
+ * class="bl-qa-list" to a <dl> (a Custom HTML block, typically) with each
+ * question/answer pair wrapped in a class="bl-qa-item" <div> containing a
+ * <dt> and a <dd> -- exactly the concept's own markup shape. A plain <dl>
+ * without these classes is untouched by this rule and keeps the browser
+ * default.
+ */
+.entry-content .bl-qa-list {
+	max-width: 46rem;
+}
+
+.entry-content .bl-qa-item {
+	display: grid;
+	grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+	gap: var(--bl-space-4);
+	padding-block: var(--bl-space-4);
+	border-top: 1px solid var(--bl-content-border);
+}
+
+.entry-content .bl-qa-item:first-child {
+	padding-block-start: 0;
+	border-top: none;
+}
+
+.entry-content .bl-qa-item dt {
+	margin: 0;
+	font-family: var(--bl-font-display);
+	font-weight: 600;
+	font-style: normal;
+	text-transform: none;
+	font-size: var(--bl-text-lg);
+	color: var(--bl-content-text);
+}
+
+.entry-content .bl-qa-item dd {
+	margin: 0;
+	color: var(--bl-content-text-secondary);
+}
+
+@media (max-width: 760px) {
+
+	.entry-content .bl-qa-item {
+		grid-template-columns: 1fr;
+		gap: var(--bl-space-2);
+	}
+}
+
+/*
+ * Callout / note box -- a calm aside (a gear reminder on Register, an
+ * exception on Rules) that stays out of the "boxed card" register: a
+ * raised-surface fill plus a single accent-coloured edge, never a thick
+ * border or a filled accent block. Add class="bl-callout" to a Group
+ * block (or a Custom HTML wrapper) around one or more paragraphs.
+ * --bl-content-link, not the fixed --bl-accent-text: this surface
+ * toggles with the light/dark/system theme, and --bl-accent-text alone
+ * fails 3:1 against the dark palette's content background/surface
+ * (~2.5-2.8:1, measured) where --bl-content-link's dark-mode value does
+ * not.
+ */
+.entry-content .bl-callout {
+	padding: var(--bl-space-5);
+	background: var(--bl-content-bg-raised);
+	border-inline-start: 3px solid var(--bl-content-link);
+	border-radius: var(--bl-radius-card);
+}
+
+.entry-content .bl-callout > * + * {
+	margin-block-start: var(--bl-space-3);
+}
+
+/*
+ * Accent CTA -- the one-committed-accent primary-action treatment for a
+ * link that matters more than blocks.css's default ink-fill button (e.g.
+ * a Register page's link through to checkout). Add class="bl-cta" in a
+ * Button block's "Additional CSS class(es)" field; blocks.css's own
+ * .wp-block-button__link styling still applies for every button that
+ * doesn't opt in. Fill/text use the same theme-aware pair as .bl-callout
+ * above, for the same dark-mode contrast reason -- verified 5.9:1 (light)
+ * / 7.8:1 (dark).
+ */
+.entry-content .wp-block-button__link.bl-cta {
+	background: var(--bl-content-link);
+	color: var(--bl-content-bg);
+	border-radius: var(--bl-radius);
+	font-family: var(--bl-font-body);
+	font-weight: 700;
+	font-style: normal;
+	text-transform: none;
+}
+
+.entry-content .wp-block-button__link.bl-cta:hover,
+.entry-content .wp-block-button__link.bl-cta:focus-visible {
+	background: var(--bl-content-text);
+	color: var(--bl-content-bg);
 }
 
 /* Post navigation (previous/next single post -- core the_post_navigation()) */
