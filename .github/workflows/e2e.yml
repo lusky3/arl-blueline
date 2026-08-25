@@ -108,6 +108,26 @@ jobs:
           docker cp /tmp/blueline-clean sp-test:/var/www/html/wp-content/themes/blueline
           docker exec sp-test wp theme activate blueline --allow-root
 
+      - name: Configure the static front page
+        # template-homepage.php's own docblock: "Assign this template to the
+        # static front page under Settings > Reading" -- a one-time site
+        # configuration step, not something theme activation does on its
+        # own. Without this, WordPress serves its default "latest posts"
+        # blog index at / instead of blueline_homepage_module_*() content,
+        # so every homepage-module assertion (including every standings-tab
+        # one) is testing the wrong page entirely. Confirmed live: a fresh
+        # sandbox container has show_on_front=posts and no page at all using
+        # this template, and the tab strip genuinely renders once this step
+        # runs -- this was never a fixture/event-resolution bug, that fix
+        # (see this repo's own git history for the retagging commit) was
+        # necessary but not sufficient on its own.
+        run: |
+          HOME_PAGE_ID=$(docker exec sp-test wp post create \
+            --post_type=page --post_title="Home" --post_status=publish \
+            --page_template=template-homepage.php --allow-root --porcelain)
+          docker exec sp-test wp option update show_on_front page --allow-root
+          docker exec sp-test wp option update page_on_front "$HOME_PAGE_ID" --allow-root
+
       - name: Seed a demo SportsPress team
         # Gives sportspress-team.spec.js a real sp_team post with real
         # sp_colors postmeta to render inc/team-colors.php's derived-colour
