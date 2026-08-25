@@ -10,22 +10,34 @@
  * a read (does the stored pair for this event differ from the current
  * one?) and a write (record the current pair as seen).
  *
+ * Reads and writes `blueline:next-game-seen`, NOT
+ * `blueline:next-game-dismissed` -- a real bug found live 2026-08-25: this
+ * file used to share the SAME key the floating widget's dismiss button
+ * writes, on the theory that "viewing this card counts as having
+ * acknowledged the change." It does, but sharing one key meant simply
+ * VISITING My Account silently marked the floating widget as fully
+ * DISMISSED everywhere else, with no dismiss click ever happening -- the
+ * widget would flash on the very next page (server always renders it) and
+ * immediately hide itself, on every page after that. See
+ * assets/src/js/floating-next-game.js's own docblock for the full
+ * explanation and the two-key split: `...-dismissed` controls ONLY
+ * whether the floating widget shows itself; `...-seen` controls ONLY
+ * whether either surface's "Updated" indicator shows. This file only ever
+ * touches the latter.
+ *
  * Deliberately its own small file rather than added to assets/src/js/
- * account.js: this reads and writes the exact same `blueline:next-game-
- * dismissed` localStorage key and `event_id:fingerprint` pair shape
- * assets/src/js/floating-next-game.js already owns, so both surfaces share
- * one acknowledgment state -- viewing this card counts as having seen a
- * change, and the floating widget elsewhere then stops flagging it. The
- * parsing logic below is intentionally a second, small copy of
- * floating-next-game.js's own parseNextGameState() rather than an import
- * from it: this codebase's established precedent (compare this file's own
- * readStored()/writeStored() with announcement.js's and floating-next-
- * game.js's nearly identical localStorage try/catch wrappers) is to
- * duplicate a small per-feature helper rather than share it through a new
- * cross-file dependency.
+ * account.js: shares its storage key and `event_id:fingerprint` pair
+ * shape with assets/src/js/floating-next-game.js, so both surfaces agree
+ * on what "seen" means. The parsing logic below is intentionally a
+ * second, small copy of floating-next-game.js's own parseNextGameState()
+ * rather than an import from it: this codebase's established precedent
+ * (compare this file's own readStored()/writeStored() with
+ * announcement.js's and floating-next-game.js's nearly identical
+ * localStorage try/catch wrappers) is to duplicate a small per-feature
+ * helper rather than share it through a new cross-file dependency.
  */
 
-const STORAGE_KEY = 'blueline:next-game-dismissed';
+const SEEN_KEY = 'blueline:next-game-seen';
 
 /**
  * Parse a stored or server-rendered `event_id:fingerprint` pair into its two
@@ -61,13 +73,14 @@ function parseNextGameState( raw ) {
 
 /**
  * The `event_id:fingerprint` pair this browser last saw (from either this
- * card or the floating widget -- they share one key), or null.
+ * card or the floating widget -- they share this one "seen" key, but NOT
+ * the widget's separate "dismissed" key), or null.
  *
  * @return {string|null} The stored pair.
  */
 function readStored() {
 	try {
-		return window.localStorage.getItem( STORAGE_KEY );
+		return window.localStorage.getItem( SEEN_KEY );
 	} catch {
 		// Storage disabled or unavailable -- treat as never seen.
 		return null;
@@ -84,7 +97,7 @@ function readStored() {
  */
 function writeStored( state ) {
 	try {
-		window.localStorage.setItem( STORAGE_KEY, state );
+		window.localStorage.setItem( SEEN_KEY, state );
 	} catch {
 		// Intentionally ignored -- see this function's own docblock.
 	}
