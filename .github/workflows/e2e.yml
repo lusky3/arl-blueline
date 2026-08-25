@@ -38,20 +38,23 @@ env:
 
 jobs:
   e2e:
-    # ubuntu-latest, NOT the self-hosted "amy" runner: tried switching to
-    # amy (a shared GitHub 2 vCPU runner was observed live going into
-    # generalised resource contention under this job's load -- most of the
-    # suite failing with wildly inconsistent per-test timing, 1.3s to 1.2m
-    # for the identical test across retries), but amy's own "Install
-    # Playwright's Chromium" step fails outright: `npx playwright install
+    # self-hosted "amy", not ubuntu-latest: this is a private repo on
+    # GitHub's Free plan, so hosted-runner minutes are a real budget, not
+    # just a resource-contention concern. amy's own "Install Playwright's
+    # Chromium" step used to fail outright: `npx playwright install
     # --with-deps chromium` needs sudo to install Chromium's system
     # dependencies, and amy's runner user ("ghrunner") doesn't have sudo
     # rights -- confirmed live, "sudo: I'm sorry ghrunner. I'm afraid I
-    # can't do that". Needs a machine-level fix (grant that user sudo, or
-    # pre-install Chromium's system deps on amy outside this workflow)
-    # before amy can run this job at all; reverted here rather than left
-    # broken.
-    runs-on: ubuntu-latest
+    # can't do that". Fixed at the machine level (2026-08-25) rather than
+    # by granting ghrunner standing sudo: `npx playwright@1.62.1
+    # install-deps chromium` was run once as root on amy, installing
+    # Chromium's system libraries permanently at the OS level. The step
+    # below now only downloads the browser binary itself (no --with-deps,
+    # no sudo, no root needed) -- keep this pinned to Playwright's actual
+    # resolved version (see themes/blueline/package-lock.json) if it ever
+    # moves, or the browser download step and the pre-installed system
+    # libs can drift out of sync.
+    runs-on: [self-hosted, Linux, X64]
     # 7 tests x up to 3 attempts (2 retries, see playwright.e2e.config.js) x
     # a 60s per-test timeout is a 21-minute worst case for the suite alone;
     # give real headroom above that plus setup.
@@ -71,7 +74,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Start the WordPress + WooCommerce + SportsPress environment
         run: |
