@@ -33,6 +33,8 @@ env:
   BLUELINE_E2E_TEAM_SLUG: testville-icebreakers
   BLUELINE_E2E_TEAM_NAME: Testville Icebreakers
   BLUELINE_E2E_TEAM_COLOR: '#0b3d91'
+  BLUELINE_E2E_SEASON_LABEL: E2E Test Season
+  BLUELINE_E2E_SEASON_SLUG: e2e-test-season
 
 jobs:
   e2e:
@@ -101,6 +103,38 @@ jobs:
             --allow-root --porcelain)
           docker exec sp-test wp post meta update "$TEAM_ID" sp_colors \
             "{\"primary\":\"$BLUELINE_E2E_TEAM_COLOR\"}" --format=json --allow-root
+
+      - name: Seed multiple standings divisions for the homepage tab strip
+        # Gives homepage.spec.js's multi-division test (and the existing
+        # a11y scan, for free) real sp_table posts to render
+        # blueline_homepage_standings_tabs() against -- without this, the
+        # homepage's standings module only ever has zero divisions to show
+        # and every test here only ever exercises its empty-state branch,
+        # never the actual tab-strip markup.
+        #
+        # blueline_homepage_current_standings_tables() (inc/homepage-
+        # modules.php) matches sp_table posts by TITLE, searching for the
+        # active season's own resolved label as a substring -- it never
+        # reads the sp_season taxonomy off the table posts themselves. Only
+        # the sp_event below needs that term, to resolve "which season is
+        # active" in the first place; the two division tables just need
+        # titles containing that same label.
+        run: |
+          docker exec sp-test wp term create sp_season "$BLUELINE_E2E_SEASON_LABEL" \
+            --slug="$BLUELINE_E2E_SEASON_SLUG" --allow-root
+
+          EVENT_ID=$(docker exec sp-test wp post create \
+            --post_type=sp_event --post_title="E2E Test Event" \
+            --post_status=publish --allow-root --porcelain)
+          docker exec sp-test wp post term add "$EVENT_ID" sp_season \
+            "$BLUELINE_E2E_SEASON_SLUG" --by=slug --allow-root
+
+          docker exec sp-test wp post create --post_type=sp_table \
+            --post_title="Division 1 | $BLUELINE_E2E_SEASON_LABEL" \
+            --post_status=publish --allow-root
+          docker exec sp-test wp post create --post_type=sp_table \
+            --post_title="Division 2 | $BLUELINE_E2E_SEASON_LABEL" \
+            --post_status=publish --allow-root
 
       - name: Warm up PHP opcache and MySQL's query cache before timing anything
         # First real run against this environment: page.goto('/shop/') hit
