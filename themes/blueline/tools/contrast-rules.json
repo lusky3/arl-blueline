@@ -39,6 +39,7 @@
     { "id": "warning-on-its-tint", "description": "warning text on its own 8% tint", "fg": "--bl-warning", "bg": { "mix": [ "--bl-warning", 8, "--bl-white" ] }, "min": 4.5 },
     { "id": "danger-on-its-tint",  "description": "danger text on its own 8% tint",  "fg": "--bl-danger",  "bg": { "mix": [ "--bl-danger",  8, "--bl-white" ] }, "min": 4.5 },
     { "id": "ink-on-steel-tint",   "description": "body text on the neutral notice tint", "fg": "--bl-content-text", "bg": { "mix": [ "--bl-steel", 8, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
+    { "id": "content-text-on-mine-row-tint", "description": "row text on the viewer's own \"mine\" row tint (league-table.php's .bl-sp-row--mine fallback)", "fg": "--bl-content-text", "bg": { "mix": [ "--bl-ice", 10, "--bl-content-surface" ] }, "min": 4.5, "themeAware": true },
 
     { "id": "body-on-white",      "description": "body text on white (cards, zebra rows)",      "fg": "--bl-ink",         "bg": "--bl-white", "min": 4.5 },
     { "id": "secondary-on-white", "description": "secondary text on white (STRK, table meta)",  "fg": "--bl-ink-mid",     "bg": "--bl-white", "min": 4.5 },

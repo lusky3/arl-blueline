@@ -146,6 +146,13 @@ $bl_zero_games_note = function_exists( 'blueline_sp_zero_games_note' )
 	)
 	: '';
 
+// The viewer's own current team(s) -- possibly more than one, since a
+// player can be rostered onto several current teams across divisions
+// (blueline_current_user_team_ids()'s own docblock). Read ONCE, outside the
+// row loop, not once per row: it is the same answer for every row this
+// template renders.
+$bl_my_team_ids = function_exists( 'blueline_current_user_team_ids' ) ? blueline_current_user_team_ids() : array();
+
 $output  = '<th class="data-rank">' . esc_attr__( 'Pos', 'sportspress' ) . '</th>';
 $output .= '<th class="data-name">' . esc_html( $labels['name'] ) . '</th>';
 
@@ -213,7 +220,28 @@ foreach ( $data as $team_id => $row ) :
 		$td_class = ' sp-highlight';
 	endif;
 
-	$output .= '<tr class="' . ( 0 === $i % 2 ? 'odd' : 'even' ) . $tr_class . ' sp-row-no-' . (int) $i . '">';
+	/*
+	 * A distinct, per-VIEWER "this is your team" cue -- deliberately its own
+	 * class, never folded into .sp-highlight/.highlighted above: those mark
+	 * an admin-chosen "featured team" (sp_highlight post meta), a completely
+	 * different, editorial concept that must keep meaning exactly that. The
+	 * two can coexist -- an admin's featured team and the viewer's own team
+	 * can be the same row, or different ones, with no conflict, since this
+	 * adds a class rather than replacing $tr_class.
+	 *
+	 * blueline_team_color_style_attr() (inc/team-colors.php) is scoped to
+	 * THIS ROW only -- not printed on <main> or any page-wide ancestor the
+	 * way single-team.php does it -- because a league table can (and on
+	 * /standings, does) list many teams on one page; only the viewer's own
+	 * row may carry their team's colour.
+	 */
+	$bl_mine_attr = '';
+	if ( in_array( $team_id, $bl_my_team_ids, true ) ) :
+		$tr_class    .= ' bl-sp-row--mine';
+		$bl_mine_attr = function_exists( 'blueline_team_color_style_attr' ) ? blueline_team_color_style_attr( $team_id ) : '';
+	endif;
+
+	$output .= '<tr class="' . ( 0 === $i % 2 ? 'odd' : 'even' ) . $tr_class . ' sp-row-no-' . (int) $i . '"' . $bl_mine_attr . '>';
 
 	$output .= '<td class="data-rank' . $td_class . '" data-label="' . esc_attr( $labels['pos'] ) . '">' . esc_html( (string) sp_array_value( $row, 'pos' ) ) . '</td>';
 

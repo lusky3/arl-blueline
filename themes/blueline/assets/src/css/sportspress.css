@@ -206,6 +206,37 @@ table.bl-table-self-scroll {
 	font-weight: 700;
 }
 
+/*
+ * The signed-in viewer's OWN current team's row (league-table.php's
+ * $bl_my_team_ids), a distinct, per-VIEWER cue from .sp-highlight's
+ * admin-chosen "featured team" above -- the two mean different things and
+ * can coexist on the same or different rows. Deliberately a subtle tint
+ * plus a left-edge accent, not .sp-highlight's solid fill + bold text:
+ * this is one row inside a shared table (often with several other
+ * .sp-highlight-eligible tables on the same /standings page), not a
+ * standalone callout, so it needs to read as "yours" without competing
+ * with an admin's own highlight for the same visual language.
+ *
+ * Same var(--bl-team-primary, ...) custom-property inheritance
+ * .sp-highlight relies on -- league-table.php scopes it to THIS row only
+ * (via blueline_team_color_style_attr()), never page-wide, since a
+ * standings page lists many teams and only the viewer's own row may carry
+ * their colour. The fallback (10% --bl-ice mixed into --bl-content-surface,
+ * text left at the table's own default --bl-content-text; the border
+ * falling back to --bl-content-border-strong) is what renders everywhere
+ * blueline_team_color_style_attr() returns '' -- a team with no usable
+ * stored colour, or a table with no signed-in viewer on it at all -- and is
+ * the pairing tools/contrast-rules.json's own
+ * content-text-on-mine-row-tint / content-border-strong-on-content-surface
+ * rules verify; the dynamic --bl-team-primary/--bl-content-border-strong
+ * branch is guarded server-side by blueline_team_color_style_attr()'s own
+ * WCAG check instead (same guard .sp-highlight already trusts).
+ */
+.bl-sp-row--mine {
+	background: color-mix(in srgb, var(--bl-team-primary, var(--bl-ice)) 10%, var(--bl-content-surface));
+	border-inline-start: 3px solid var(--bl-team-primary, var(--bl-content-border-strong));
+}
+
 .sp-view-all-link {
 	margin-block-start: var(--bl-space-3);
 	font-size: var(--bl-text-sm);
