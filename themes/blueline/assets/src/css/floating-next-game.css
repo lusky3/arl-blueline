@@ -1,0 +1,117 @@
+/*
+ * Blueline — sitewide floating "next game" widget.
+ *
+ * position: fixed, bottom-right -- this theme's first floating/overlay
+ * element (the announcement banner is in-flow), so there is no existing
+ * corner convention to follow; bottom-right is common, unobtrusive ground
+ * for persistent utility chrome and stays clear of the header/nav's own
+ * fixed elements at the top of the viewport.
+ *
+ * --bl-z-floating-widget (style.css's centralized scale) sits between
+ * --bl-z-nav-submenu and --bl-z-drawer on purpose: above ordinary page
+ * content, but below the mobile nav drawer, so opening navigation is never
+ * visually obscured by this widget.
+ *
+ * A capped width, not a percentage of the viewport, keeps this a small
+ * chip rather than a second column at any width -- and never causes the
+ * page body to scroll sideways at this theme's 360px floor (base.css's own
+ * invariant): `right`/`left` insets plus `max-width: calc(100vw - ...)`
+ * keep it inside the viewport rather than assuming a fixed width fits.
+ */
+
+.bl-floating-next-game {
+	position: fixed;
+	z-index: var(--bl-z-floating-widget);
+	right: var(--bl-space-4);
+	bottom: var(--bl-space-4);
+	left: auto;
+	box-sizing: border-box;
+	width: 280px;
+	max-width: calc(100vw - (2 * var(--bl-space-4)));
+	padding: var(--bl-space-4);
+	padding-inline-end: var(--bl-space-7);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-raised);
+	color: var(--bl-content-text);
+}
+
+/*
+ * floating-next-game.js hides a dismissed widget with the `hidden`
+ * attribute. Same author-rule requirement as .bl-announce[hidden]
+ * (announcement.css) -- the plain `position: fixed` declaration above
+ * would otherwise win over the browser's own [hidden] user-agent style
+ * regardless of specificity.
+ */
+.bl-floating-next-game[hidden] {
+	display: none;
+}
+
+.bl-floating-next-game__date {
+	margin: 0 0 var(--bl-space-1);
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-xs);
+}
+
+.bl-floating-next-game__matchup {
+	display: block;
+	margin: 0 0 var(--bl-space-1);
+	color: var(--bl-content-text);
+	font-weight: 600;
+	font-size: var(--bl-text-base);
+	text-decoration: none;
+}
+
+.bl-floating-next-game__matchup:hover {
+	text-decoration: underline;
+}
+
+.bl-floating-next-game__venue {
+	margin: 0;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-floating-next-game__venue a {
+	color: var(--bl-content-link);
+}
+
+/*
+ * Overhangs the card's own top-right corner slightly, same treatment as
+ * .bl-announce__dismiss -- a 44px hit area for a small glyph, without
+ * making the card itself taller than its text needs.
+ */
+.bl-floating-next-game__dismiss {
+	position: absolute;
+	top: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	background: none;
+	border: 0;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-lg);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bl-floating-next-game__dismiss:hover {
+	color: var(--bl-content-text);
+}
+
+/*
+ * Stays clear of a phone's own bottom safe-area inset (home indicator /
+ * gesture bar) on devices that report one, additive to the normal spacing
+ * rather than replacing it.
+ */
+@supports ( bottom: env( safe-area-inset-bottom ) ) {
+
+	.bl-floating-next-game {
+		bottom: calc(var(--bl-space-4) + env(safe-area-inset-bottom));
+	}
+}

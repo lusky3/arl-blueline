@@ -101,6 +101,14 @@ function blueline_section_definitions(): array {
 			'label' => 'Footer widget area 4',
 			'group' => 'Site chrome',
 		),
+		// Independent of account_next_game below: an admin may want the My
+		// Account "My next game" card without this sitewide floating chip,
+		// or vice versa -- see blueline_render_floating_next_game()
+		// (inc/floating-next-game.php) for the renderer this guards.
+		'floating_next_game'       => array(
+			'label' => 'Floating next-game widget',
+			'group' => 'Site chrome',
+		),
 		'account_next_game'        => array(
 			'label' => 'My next game',
 			'group' => 'My Account',
