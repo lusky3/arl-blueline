@@ -367,6 +367,39 @@ function blueline_current_sp_season_term_id(): ?int {
 }
 
 /**
+ * A stable identifier for the schedule facts of one event -- changes if and
+ * only if the date/time, venue, opponent, or home/away flag changes, and
+ * stays identical across repeated calls given the same four inputs. A plain
+ * hash, not cryptography: this only needs to detect a change, not resist a
+ * forgery, so md5() is enough and needs no salt.
+ *
+ * Split out as its own pure function -- no WP_Query, no WordPress bootstrap
+ * needed -- specifically so it can be unit tested directly; see
+ * tests/PlayerDataTest.php. blueline_get_player_next_event() is the only
+ * caller. Design spec: docs/superpowers/specs/2026-08-25-blueline-schedule-
+ * change-notice-design.md.
+ *
+ * @param int|null $timestamp        Event start timestamp, or null.
+ * @param int|null $venue_term_id    sp_venue term id, or null.
+ * @param int|null $opponent_team_id Opponent sp_team post id, or null.
+ * @param bool     $is_home          Whether the player's own team is home.
+ * @return string An md5 hash of the four inputs.
+ */
+function blueline_event_schedule_fingerprint( ?int $timestamp, ?int $venue_term_id, ?int $opponent_team_id, bool $is_home ): string {
+	return md5(
+		implode(
+			'|',
+			array(
+				(string) $timestamp,
+				(string) $venue_term_id,
+				(string) $opponent_team_id,
+				$is_home ? '1' : '0',
+			)
+		)
+	);
+}
+
+/**
  * The soonest sp_event whose sp_team meta includes $player_id's current
  * team, today or later. post_status MUST include 'future' -- WordPress
  * core assigns that status (not 'publish') to any post dated ahead of now,
@@ -376,7 +409,7 @@ function blueline_current_sp_season_term_id(): ?int {
  * would silently show a player's LAST game as their "next" one.
  *
  * @param int $player_id sp_player post ID.
- * @return array{event_id:int, timestamp:int|null, venue:string, venue_term_id:?int, opponent_team_id:?int, is_home:bool}|null
+ * @return array{event_id:int, timestamp:int|null, venue:string, venue_term_id:?int, opponent_team_id:?int, is_home:bool, fingerprint:string}|null
  */
 function blueline_get_player_next_event( int $player_id ): ?array {
 	if ( $player_id <= 0 || ! post_type_exists( 'sp_event' ) ) {
@@ -435,13 +468,17 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 
 	$timestamp = function_exists( 'blueline_sp_event_start_timestamp' ) ? blueline_sp_event_start_timestamp( $event_id ) : false;
 
+	$timestamp_value = $timestamp ? $timestamp : null;
+	$venue_term_id   = $venue_term ? (int) $venue_term->term_id : null;
+
 	return array(
 		'event_id'         => $event_id,
-		'timestamp'        => $timestamp ? $timestamp : null,
+		'timestamp'        => $timestamp_value,
 		'venue'            => $venue_term ? (string) $venue_term->name : '',
-		'venue_term_id'    => $venue_term ? (int) $venue_term->term_id : null,
+		'venue_term_id'    => $venue_term_id,
 		'opponent_team_id' => $opponent_team_id,
 		'is_home'          => $is_home,
+		'fingerprint'      => blueline_event_schedule_fingerprint( $timestamp_value, $venue_term_id, $opponent_team_id, $is_home ),
 	);
 }
 
