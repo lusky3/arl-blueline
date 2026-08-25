@@ -1,10 +1,11 @@
 <?php
 /**
- * E2E fixture: seeds one sp_season term, one sp_event tagged with it (so
- * blueline_homepage_active_event_season_term_id() resolves it), and two
- * sp_table posts titled to match it -- run via `wp eval-file` inside the
- * sportspress-sandbox container by .github/workflows/e2e.yml. Never
- * shipped to, or run against, a real site.
+ * E2E fixture: seeds one sp_season term, retags whichever sp_event
+ * blueline_homepage_active_event_season_term_id() will actually resolve
+ * (see the comment on that below for why a brand new event isn't enough),
+ * and creates two sp_table posts titled to match it -- run via
+ * `wp eval-file` inside the sportspress-sandbox container by
+ * .github/workflows/e2e.yml. Never shipped to, or run against, a real site.
  *
  * The WordPress PHP API is used directly (wp_insert_term()/wp_insert_post()),
  * not the `wp term create`/`wp post create` WP-CLI subcommands: confirmed
@@ -64,18 +65,57 @@ if ( ! $season_term_id ) {
 	$season_term_id = (int) $season_term['term_id'];
 }
 
-$event_id = wp_insert_post(
-	array(
-		'post_type'   => 'sp_event',
-		'post_title'  => 'E2E Test Event',
-		'post_status' => 'publish',
-	),
-	true
-);
+/*
+ * Retag whichever sp_event blueline_homepage_active_event_season_term_id()
+ * (inc/homepage-modules.php) will ACTUALLY resolve, rather than creating a
+ * brand new one and assuming it wins. That function's own algorithm --
+ * mirrored exactly below, not called directly, since it only returns the
+ * resolved TERM id, not the event id backing it -- is: prefer
+ * blueline_season_state_data()['next_event_id'] if set, else the most
+ * recently published sp_event. Live-confirmed this matters: this sandbox
+ * image's own SportsPress sample data (config/scripts/generate-extra-data.php,
+ * baked into the image) already seeds sp_event posts, and one of those was
+ * winning the resolution over a freshly wp_insert_post()'d "E2E Test
+ * Event" every time -- the tab strip rendered zero divisions as a result,
+ * not because the fixture's own posts were wrong, but because the theme
+ * was resolving an entirely different, unrelated event's season instead.
+ */
+$state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+$event_id   = ! empty( $state_data['next_event_id'] ) ? (int) $state_data['next_event_id'] : 0;
 
-if ( is_wp_error( $event_id ) ) {
-	fwrite( STDERR, 'Failed to create sp_event: ' . $event_id->get_error_message() . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- see the earlier fwrite() call's own reason above.
-	exit( 1 );
+if ( ! $event_id ) {
+	$recent = get_posts(
+		array(
+			'post_type'      => 'sp_event',
+			'post_status'    => 'publish',
+			'posts_per_page' => 1,
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+		)
+	);
+
+	$event_id = ! empty( $recent ) ? (int) $recent[0] : 0;
+}
+
+if ( ! $event_id ) {
+	// No sp_event exists at all (shouldn't happen given this sandbox's own
+	// sample data, but stay robust) -- create one as a fallback so there is
+	// still something to retag.
+	$event_id = wp_insert_post(
+		array(
+			'post_type'   => 'sp_event',
+			'post_title'  => 'E2E Test Event',
+			'post_status' => 'publish',
+		),
+		true
+	);
+
+	if ( is_wp_error( $event_id ) ) {
+		fwrite( STDERR, 'Failed to create a fallback sp_event: ' . $event_id->get_error_message() . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- see the earlier fwrite() call's own reason above.
+		exit( 1 );
+	}
 }
 
 wp_set_object_terms( $event_id, array( $season_term_id ), 'sp_season' );
