@@ -574,6 +574,94 @@ a.bl-next-games__venue:focus-visible {
 	overflow-x: auto;
 }
 
+/*
+ * Division tab strip -- inc/homepage-modules.php's
+ * blueline_homepage_standings_tabs(), shown instead of a single table once
+ * the active season has more than one division. Same no-JavaScript
+ * mechanism as sportspress.css's .bl-sp-standings-toggle-input: a visually
+ * hidden radio plus a `~` sibling selector, extended from a single on/off
+ * toggle to a mutually-exclusive set via :nth-of-type pairing (radio and
+ * panel share a position, not an id -- sp_table post ids aren't known when
+ * this file is authored). Radios/labels/panels are flat siblings of
+ * .bl-standings-tabs (see that function's own comment on why), so labels
+ * -- inline -- and panels -- block -- fall into two visual rows for free,
+ * with no flex/grid needed on the wrapper.
+ */
+
+.bl-standings-tabs__input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+}
+
+.bl-standings-tabs__label {
+	display: inline-flex;
+	margin-inline-end: var(--bl-space-2);
+	margin-block-end: var(--bl-space-2);
+	cursor: pointer;
+	user-select: none;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- unrelated to
+   the hero CTA's own higher-specificity .bl-skew rule above. */
+.bl-standings-tabs__label .bl-skew {
+	padding: var(--bl-space-1) var(--bl-space-3);
+	border: 1px solid var(--bl-content-border-strong);
+	border-radius: 999px;
+	color: var(--bl-content-text-secondary);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	font-size: var(--bl-text-sm);
+}
+
+/* Same ink-on-ice accent chip as the primary nav's own active item (nav.css
+   .bl-nav__link[aria-current="page"] .bl-skew) -- a fixed brand pairing,
+   not a theme-aware one, so it reads correctly in light and dark alike. */
+.bl-standings-tabs__input:checked ~ .bl-standings-tabs__label .bl-skew {
+	background: var(--bl-ice);
+	border-color: var(--bl-ice);
+	color: var(--bl-ink);
+}
+
+.bl-standings-tabs__input:focus-visible ~ .bl-standings-tabs__label {
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
+	outline-offset: var(--bl-focus-offset);
+}
+
+.bl-standings-tabs__panel {
+	display: none;
+	margin-block-start: var(--bl-space-3);
+}
+
+/*
+ * :nth-of-type counts by tag name among siblings, not by class -- radios
+ * are the only <input>s here and panels the only <div>s, so "1st input" and
+ * "1st div" both correctly mean "this division's own pair" with no id
+ * matching needed. 12 pairs is well above this site's own historical
+ * maximum (7 lettered groups, one winter season); a season that somehow
+ * exceeds it degrades to exactly today's behaviour for the extra
+ * divisions -- reachable on /standings, just not toggleable from this
+ * strip -- never to a blank or broken tab.
+ */
+.bl-standings-tabs__input:nth-of-type(1):checked ~ .bl-standings-tabs__panel:nth-of-type(1),
+.bl-standings-tabs__input:nth-of-type(2):checked ~ .bl-standings-tabs__panel:nth-of-type(2),
+.bl-standings-tabs__input:nth-of-type(3):checked ~ .bl-standings-tabs__panel:nth-of-type(3),
+.bl-standings-tabs__input:nth-of-type(4):checked ~ .bl-standings-tabs__panel:nth-of-type(4),
+.bl-standings-tabs__input:nth-of-type(5):checked ~ .bl-standings-tabs__panel:nth-of-type(5),
+.bl-standings-tabs__input:nth-of-type(6):checked ~ .bl-standings-tabs__panel:nth-of-type(6),
+.bl-standings-tabs__input:nth-of-type(7):checked ~ .bl-standings-tabs__panel:nth-of-type(7),
+.bl-standings-tabs__input:nth-of-type(8):checked ~ .bl-standings-tabs__panel:nth-of-type(8),
+.bl-standings-tabs__input:nth-of-type(9):checked ~ .bl-standings-tabs__panel:nth-of-type(9),
+.bl-standings-tabs__input:nth-of-type(10):checked ~ .bl-standings-tabs__panel:nth-of-type(10),
+.bl-standings-tabs__input:nth-of-type(11):checked ~ .bl-standings-tabs__panel:nth-of-type(11),
+.bl-standings-tabs__input:nth-of-type(12):checked ~ .bl-standings-tabs__panel:nth-of-type(12) {
+	display: block;
+}
+
 @media (min-width: 700px) {
 
 	.bl-next-games__item {

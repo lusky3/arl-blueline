@@ -948,34 +948,42 @@ function blueline_homepage_active_event_season_term_id() {
 }
 
 /**
- * The sp_table post id for the division/season snippet to show on the
- * homepage. Prefers the lowest-numbered division for the active season
- * (sp_table titles on this site follow "Division N | <Season>", e.g.
- * "Division 1 | S2026", or "Division N | Playoffs <Season>").
+ * Every sp_table post id + short tab label for the active season's
+ * division/group standings (sp_table titles on this site follow "Division
+ * N | <Season>", e.g. "Division 1 | S2026", or "Division N | Playoffs
+ * <Season>" -- older seasons in the archive instead use "Group A".."Group
+ * G"). Returned in the order sp_table titles naturally sort, which already
+ * puts both naming conventions in the right reading order for a single
+ * season without any extra parsing.
  *
  * Playoffs-ness must be read off the resolved sp_season TERM's own name,
  * not $state alone: the term can already say "Playoffs" (e.g. "S2026
  * Playoffs") while $state has moved on to 'registration_open' for the next
  * season, since the two track different things.
  *
+ * Used to be blueline_homepage_current_standings_table_id() (singular),
+ * returning only the lowest-numbered division -- see this function's
+ * caller for why showing just one division stopped making sense once
+ * there are several.
+ *
  * @param string $state Season state.
- * @return int|null
+ * @return array<int, array{id:int, label:string}>
  */
-function blueline_homepage_current_standings_table_id( string $state ) {
+function blueline_homepage_current_standings_tables( string $state ): array {
 	if ( ! post_type_exists( 'sp_table' ) || ! taxonomy_exists( 'sp_season' ) ) {
-		return null;
+		return array();
 	}
 
 	$season_term_id = blueline_homepage_active_event_season_term_id();
 
 	if ( ! $season_term_id ) {
-		return null;
+		return array();
 	}
 
 	$season_term = get_term( $season_term_id, 'sp_season' );
 
 	if ( ! $season_term || is_wp_error( $season_term ) ) {
-		return null;
+		return array();
 	}
 
 	// Rebuild the needle in title word order ("Playoffs S2026"), which is
@@ -998,6 +1006,8 @@ function blueline_homepage_current_standings_table_id( string $state ) {
 		)
 	);
 
+	$tables = array();
+
 	foreach ( $candidates as $candidate_id ) {
 		$title = get_the_title( $candidate_id );
 
@@ -1009,31 +1019,64 @@ function blueline_homepage_current_standings_table_id( string $state ) {
 			continue; // Exclude playoff tables outside the playoffs state.
 		}
 
-		return (int) $candidate_id;
+		$tables[] = array(
+			'id'    => (int) $candidate_id,
+			'label' => blueline_homepage_standings_table_label( $title ),
+		);
 	}
 
-	return null;
+	return $tables;
 }
 
 /**
- * The standings_snippet module: the current season's Division 1 table (or its
- * Playoffs variant during the playoffs state), rendered through
- * SportsPress's own [league_table] shortcode, not a custom entity
- * template, which stays out of Task 7's scope.
+ * The tab label for one sp_table title: everything before the "|" that
+ * separates division from season (e.g. "Division 1 | S2026" -> "Division
+ * 1"), with a leading "Division "/"Group " dropped so the tab itself just
+ * reads "1"/"A" -- the prefix is redundant once every tab in the strip is
+ * already a division/group. A title matching neither convention (e.g. the
+ * archive's older "Open Division | S2019") falls back to the text before
+ * "|" unchanged, so a tab is never silently blank.
+ *
+ * Pure string function, split out purely so it's unit-testable without a
+ * WordPress install, matching blueline_resolve_team_events_season()'s own
+ * trade-off (inc/sportspress.php) for the same reason.
+ *
+ * @param string $title Full sp_table post title.
+ * @return string
+ */
+function blueline_homepage_standings_table_label( string $title ): string {
+	$label = trim( explode( '|', $title, 2 )[0] );
+
+	if ( preg_match( '/^(?:Division|Group)\s+(.+)$/i', $label, $matches ) ) {
+		return $matches[1];
+	}
+
+	return $label;
+}
+
+/**
+ * The standings_snippet module: every current-season division's table,
+ * rendered through SportsPress's own [league_table] shortcode (not a
+ * custom entity template, which stays out of Task 7's scope). A single
+ * division renders directly, as it always has; more than one gets a tab
+ * strip (blueline_homepage_standings_tabs()) so a visitor whose team is in
+ * Division 3 isn't left looking at Division 1's table with no way to reach
+ * their own from the homepage.
  */
 function blueline_homepage_module_standings_snippet() {
-	$state    = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
-	$table_id = blueline_homepage_current_standings_table_id( $state );
+	$state  = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
+	$tables = blueline_homepage_current_standings_tables( $state );
+	$panels = array();
 
-	blueline_homepage_module_start( 'standings_snippet', __( 'Standings', 'blueline' ), blueline_resolve_link( 'page_standings' ), __( 'Full standings', 'blueline' ) );
+	foreach ( $tables as $table ) {
+		$table_html = shortcode_exists( 'league_table' )
+			? do_shortcode( '[league_table id="' . absint( $table['id'] ) . '"]' )
+			: '';
 
-	$table_html = $table_id && shortcode_exists( 'league_table' )
-		? do_shortcode( '[league_table id="' . absint( $table_id ) . '"]' )
-		: '';
+		if ( '' === trim( wp_strip_all_tags( $table_html ) ) ) {
+			continue;
+		}
 
-	if ( '' === trim( wp_strip_all_tags( $table_html ) ) ) {
-		blueline_homepage_module_empty_state( __( 'Standings aren’t posted yet.', 'blueline' ) );
-	} else {
 		// P1 finding 2: inc/sportspress.php's blueline_sp_wrap_tables_for_scroll()
 		// only ever hooks 'the_content'; do_shortcode() above bypasses that
 		// filter entirely, so without this call the table reached the page with
@@ -1042,12 +1085,24 @@ function blueline_homepage_module_standings_snippet() {
 		// only Pos/Team/GP stayed reachable; W/L/Tie/PTS/GF/GA/Diff/L10/Strk
 		// were not. Running the shortcode's own output through the SAME wrap
 		// function /standings gets via the_content (owned by package 1;
-		// called here, not duplicated) keeps this one table scrollable exactly
-		// like every other SportsPress table on the site.
+		// called here, not duplicated) keeps every one of these tables
+		// scrollable exactly like every other SportsPress table on the site.
 		if ( function_exists( 'blueline_sp_wrap_tables_for_scroll' ) ) {
 			$table_html = blueline_sp_wrap_tables_for_scroll( $table_html );
 		}
 
+		$panels[] = array(
+			'id'    => $table['id'],
+			'label' => $table['label'],
+			'html'  => $table_html,
+		);
+	}
+
+	blueline_homepage_module_start( 'standings_snippet', __( 'Standings', 'blueline' ), blueline_resolve_link( 'page_standings' ), __( 'Full standings', 'blueline' ) );
+
+	if ( empty( $panels ) ) {
+		blueline_homepage_module_empty_state( __( 'Standings aren’t posted yet.', 'blueline' ) );
+	} elseif ( 1 === count( $panels ) ) {
 		// Deliberately NOT wp_kses_post(). That filter allows no `data-*`
 		// attribute of any kind, so running SportsPress's own table through it
 		// stripped `data-sp-rows` (the hook SP's own pagination script reads)
@@ -1059,10 +1114,59 @@ function blueline_homepage_module_standings_snippet() {
 		// to two different sanitisation policies depending on which template
 		// renders it; this is the /standings policy, applied here too.
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SportsPress's own shortcode output, escaped by SP itself, and treated exactly as the_content treats it on /standings; see comment above.
-		echo $table_html;
+		echo $panels[0]['html'];
+	} else {
+		blueline_homepage_standings_tabs( $panels );
 	}
 
 	blueline_homepage_module_end();
+}
+
+/**
+ * The standings module's tab strip: one radio + label per division, one
+ * panel per division, CSS alone deciding which panel shows -- the same
+ * hidden-radio + sibling-selector mechanism sportspress/league-table.php's
+ * own "Show full stats" checkbox already uses (assets/src/css/
+ * sportspress.css's .bl-sp-standings-toggle-input), extended from a single
+ * on/off toggle to a mutually-exclusive set. Every panel is server-rendered
+ * regardless of which is showing, so this works with no JavaScript at all;
+ * assets/src/js/standings-tabs.js layers a progressive enhancement on top
+ * (remembers the division a visitor last picked) that this markup does not
+ * depend on.
+ *
+ * Radios, labels, and panels are deliberately flat siblings of the same
+ * wrapper, not nested inside separate "tab list" / "panel list"
+ * containers: assets/src/css/homepage.css's :nth-of-type pairing (the only
+ * way to match "this panel" to "that radio" in pure CSS without knowing
+ * sp_table post ids in advance) requires each pairing's radio and panel to
+ * both be reachable via the `~` general sibling combinator, which only
+ * matches elements sharing a parent.
+ *
+ * @param array<int, array{id:int, label:string, html:string}> $panels At least 2 entries.
+ */
+function blueline_homepage_standings_tabs( array $panels ) {
+	?>
+	<div class="bl-standings-tabs" role="radiogroup" aria-label="<?php esc_attr_e( 'Division', 'blueline' ); ?>">
+		<?php foreach ( $panels as $index => $panel ) : ?>
+			<input
+				type="radio"
+				name="bl-standings-tab"
+				id="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>"
+				class="bl-standings-tabs__input"
+				value="<?php echo esc_attr( $panel['id'] ); ?>"
+				<?php checked( 0 === $index ); ?>
+			>
+			<label class="bl-standings-tabs__label" for="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>">
+				<span class="bl-skew"><span><?php echo esc_html( $panel['label'] ); ?></span></span>
+			</label>
+		<?php endforeach; ?>
+		<?php foreach ( $panels as $panel ) : ?>
+			<div class="bl-standings-tabs__panel">
+				<?php echo $panel['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SportsPress's own shortcode output; see blueline_homepage_module_standings_snippet()'s own comment on why this is not wp_kses_post()'d. ?>
+			</div>
+		<?php endforeach; ?>
+	</div>
+	<?php
 }
 
 add_action( 'widgets_init', 'blueline_homepage_new_here_widgets_init' );
