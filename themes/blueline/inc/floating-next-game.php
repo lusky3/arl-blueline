@@ -42,6 +42,16 @@ defined( 'ABSPATH' ) || exit;
  * visitor can act on whenever they like, not an urgent interruption, so
  * assistive tech should not be interrupted by it on every page load.
  *
+ * `data-bl-next-game` carries `event_id:fingerprint`, not a bare event id --
+ * see the schedule-change-notice design spec
+ * (docs/superpowers/specs/2026-08-25-blueline-schedule-change-notice-design.md).
+ * assets/src/js/floating-next-game.js parses that pair to tell "this is a
+ * new next game" (different event id) apart from "this is the SAME game and
+ * its details changed since it was dismissed" (same event id, different
+ * fingerprint), and reveals `[data-bl-next-game-updated]` -- rendered here,
+ * hidden, same "always render server-side, JS decides what shows"
+ * convention as the rest of this widget -- only for the latter.
+ *
  * @return void
  */
 function blueline_render_floating_next_game(): void {
@@ -74,7 +84,7 @@ function blueline_render_floating_next_game(): void {
 	<div
 		class="bl-floating-next-game"
 		role="status"
-		data-bl-next-game="<?php echo esc_attr( (string) $event['event_id'] ); ?>"
+		data-bl-next-game="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>"
 	>
 		<button
 			type="button"
@@ -82,6 +92,9 @@ function blueline_render_floating_next_game(): void {
 			data-bl-next-game-dismiss
 			aria-label="<?php esc_attr_e( 'Dismiss next game reminder', 'blueline' ); ?>"
 		><span aria-hidden="true">&times;</span></button>
+		<span class="bl-floating-next-game__updated" data-bl-next-game-updated hidden>
+			<?php esc_html_e( 'Updated', 'blueline' ); ?>
+		</span>
 		<p class="bl-floating-next-game__date">
 			<?php
 			echo esc_html(

@@ -279,4 +279,72 @@ final class PlayerDataTest extends TestCase {
 		$this->assertSame( 972, blueline_current_user_player_id() );
 		$this->assertSame( array( 100251, 2469, 79 ), blueline_current_user_team_ids() );
 	}
+
+	/**
+	 * The fingerprint function is a pure function over four already-known
+	 * scalars -- no WP_Query, no bootstrap -- so it is covered directly
+	 * rather than through blueline_get_player_next_event()'s own
+	 * WP-Query-heavy resolution. Same inputs, same fingerprint, every time.
+	 */
+	public function test_fingerprint_is_stable_for_the_same_inputs(): void {
+		$first  = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, true );
+		$second = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, true );
+
+		$this->assertSame( $first, $second );
+	}
+
+	/**
+	 * Changing the timestamp alone (a reschedule) must change the
+	 * fingerprint.
+	 */
+	public function test_fingerprint_changes_when_timestamp_changes(): void {
+		$before = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, true );
+		$after  = blueline_event_schedule_fingerprint( 1700086400, 5, 115100, true );
+
+		$this->assertNotSame( $before, $after );
+	}
+
+	/**
+	 * Changing the venue alone (a venue move) must change the fingerprint.
+	 */
+	public function test_fingerprint_changes_when_venue_changes(): void {
+		$before = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, true );
+		$after  = blueline_event_schedule_fingerprint( 1700000000, 9, 115100, true );
+
+		$this->assertNotSame( $before, $after );
+	}
+
+	/**
+	 * Changing the opponent alone must change the fingerprint.
+	 */
+	public function test_fingerprint_changes_when_opponent_changes(): void {
+		$before = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, true );
+		$after  = blueline_event_schedule_fingerprint( 1700000000, 5, 972, true );
+
+		$this->assertNotSame( $before, $after );
+	}
+
+	/**
+	 * Changing home/away alone must change the fingerprint -- otherwise a
+	 * flipped is_home with the same opponent, venue, and time would read as
+	 * unchanged.
+	 */
+	public function test_fingerprint_changes_when_home_away_flips(): void {
+		$before = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, true );
+		$after  = blueline_event_schedule_fingerprint( 1700000000, 5, 115100, false );
+
+		$this->assertNotSame( $before, $after );
+	}
+
+	/**
+	 * Null venue/opponent (a bye or a venue-less event) must not collide
+	 * with any real term/team id -- (string) null casts to '', which must
+	 * stay distinct from a real numeric string like '0'.
+	 */
+	public function test_fingerprint_handles_null_venue_and_opponent(): void {
+		$with_nulls = blueline_event_schedule_fingerprint( 1700000000, null, null, true );
+		$with_zero  = blueline_event_schedule_fingerprint( 1700000000, 0, 0, true );
+
+		$this->assertNotSame( $with_nulls, $with_zero );
+	}
 }
