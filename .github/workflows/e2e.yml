@@ -83,16 +83,36 @@ jobs:
             "$SPORTSPRESS_TEST_ENV_IMAGE"
 
       - name: Wait for the health endpoint
+        # "status":"ready" only means WordPress core is installed and the DB
+        # is reachable -- the sandbox image's own async first-boot setup
+        # (supervisord-managed: WooCommerce onboarding, sample product
+        # creation, exporting /var/lib/baseline/baseline.sql) keeps running
+        # in the background after that and takes several more seconds.
+        # Confirmed live: that setup script itself activates its own
+        # baseline theme ("rookie") as part of finishing, and if this
+        # workflow's "Install this theme into the container" step (which
+        # activates blueline) races ahead of it, the async setup's later
+        # activation silently wins and reverts back to rookie -- every
+        # request after that serves a site with blueline installed but
+        # NOT active, so nothing this theme renders (including the
+        # standings tab strip) shows up, no error, no PHP fault, just the
+        # wrong theme. "baseline_exists" flips true only once that async
+        # setup has actually finished, so wait on that flag specifically,
+        # not just a 200 from this endpoint.
         run: |
-          for i in $(seq 1 40); do
-            if curl -sf --max-time 3 http://localhost:8082/wp-json/test/v1/health; then
-              echo ""
-              echo "ready on attempt $i"
-              exit 0
+          for i in $(seq 1 60); do
+            RESPONSE=$(curl -sf --max-time 3 http://localhost:8082/wp-json/test/v1/health || true)
+            if [ -n "$RESPONSE" ]; then
+              echo "$RESPONSE"
+              if printf '%s' "$RESPONSE" | grep -q '"baseline_exists":true'; then
+                echo ""
+                echo "baseline ready on attempt $i"
+                exit 0
+              fi
             fi
             sleep 5
           done
-          echo "health endpoint did not respond in time" >&2
+          echo "health endpoint never reported baseline_exists:true in time" >&2
           docker logs sp-test --tail 200
           exit 1
 
