@@ -179,6 +179,83 @@ function blueline_account_render_claim_notice() {
 }
 
 /**
+ * Whether the CURRENT request is viewing the site's configured standings
+ * page -- resolved through blueline_resolve_link() (inc/settings/links.php),
+ * the same single source of truth every other "which page is this"
+ * decision in this theme already goes through (the homepage standings
+ * module's "Full standings" link, the header's Standings nav item),
+ * rather than a second, independently-drifting page-ID or hardcoded-URL
+ * check. No dedicated "is this the standings page" helper existed before
+ * this feature needed one.
+ *
+ * @return bool
+ */
+function blueline_is_standings_page(): bool {
+	if ( ! function_exists( 'blueline_resolve_link' ) || ! is_page() ) {
+		return false;
+	}
+
+	$current = get_permalink();
+	$target  = blueline_resolve_link( 'page_standings' );
+
+	if ( ! $current || ! $target ) {
+		return false;
+	}
+
+	return untrailingslashit( $current ) === untrailingslashit( $target );
+}
+
+/**
+ * A short, single-line nudge for a signed-in visitor who has not yet
+ * claimed a player -- shown on the standings page (blueline_is_standings_page())
+ * and on any team's own page (single-team.php), the two places a viewer
+ * would most want to see their own team called out but currently can't,
+ * because blueline_current_user_team_ids() has nothing to work with until
+ * they link a player.
+ *
+ * Mirrors blueline_account_render_claim_notice()'s own markup/class/focus
+ * convention: a `<section role="alert" tabindex="-1">`, never a `<div>`
+ * (tests/NoticeDivGuardTest.php bans a theme-emitted notice `<div>`
+ * outright), and the bare, unmodified `.bl-account-notice` class so
+ * assets/src/js/account.js's existing "move focus to the notice on load"
+ * behaviour picks it up with no JS changes of its own. This is deliberately
+ * a much shorter nudge than blueline_account_render_claim_card() (Task 11)
+ * -- no candidate matching, no confirm form -- since it renders on pages
+ * that are not the account dashboard, where that full card would be out of
+ * place; it only ever points there.
+ *
+ * A logged-out visitor gets nothing: there is no account yet to link a
+ * player to, and a claim nudge would only send them into a login form with
+ * no way back to what they were looking at.
+ */
+function blueline_render_claim_nudge(): void {
+	if ( ! is_user_logged_in() || ! function_exists( 'blueline_current_user_player_id' ) || blueline_current_user_player_id() ) {
+		return;
+	}
+
+	$account_url = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : '';
+
+	if ( ! $account_url ) {
+		return;
+	}
+
+	$message = sprintf(
+		wp_kses(
+			/* translators: 1: opening <a> tag to My Account, 2: closing </a> tag. */
+			__( 'Want to see your own team highlighted? %1$sLink your player in My Account%2$s.', 'blueline' ),
+			array( 'a' => array( 'href' => array() ) )
+		),
+		'<a href="' . esc_url( $account_url ) . '">',
+		'</a>'
+	);
+	?>
+	<section class="bl-account-notice" role="alert" tabindex="-1">
+		<?php echo wp_kses_post( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses_post() over an already wp_kses()'d string built from a translatable format string with a caller-escaped URL, the same idiom blueline_account_render_claim_card() uses for its "Contact the league" link. ?>
+	</section>
+	<?php
+}
+
+/**
  * Page-specific framing for the claim card's "no candidates" message,
  * appended after the contact-the-league sentence. Live-site review:
  * /account/my-team and /account/my-schedule showed the exact same claim
