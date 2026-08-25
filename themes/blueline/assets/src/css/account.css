@@ -251,6 +251,30 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
  * My next game
  * ------------------------------------------------------------------- */
 
+/*
+ * "Updated since you last checked" -- revealed by assets/src/js/
+ * account-next-game.js when this event's own fingerprint differs from
+ * what this browser last stored for it (see blueline_account_render_
+ * next_game()'s own docblock, inc/account/dashboard.php). Reuses
+ * .bl-account-notice's own neutral tint/text pairing -- already covered
+ * by tools/contrast-rules.json's "ink-on-steel-tint" rule, so no new rule
+ * is needed -- rather than success/warning/danger: a schedule change is
+ * neither good nor bad news, just a fact worth surfacing.
+ */
+.bl-account-next-game__updated {
+	margin: 0 0 var(--bl-space-3);
+	padding: var(--bl-space-2) var(--bl-space-3);
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
+	border-radius: var(--bl-radius-card);
+	color: var(--bl-content-text);
+	font-weight: 600;
+	font-size: var(--bl-text-sm);
+}
+
+.bl-account-next-game__updated[hidden] {
+	display: none;
+}
+
 .bl-account-next-game__date {
 	margin: 0;
 	font-weight: 600;

@@ -641,6 +641,21 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
  * this one is already shipped, tested in production use on single-event
  * pages, and adds no new query var or request handler to secure.
  *
+ * `data-bl-next-game-account` carries `event_id:fingerprint`, the same
+ * pair shape and the same `blueline:next-game-dismissed` localStorage key
+ * assets/src/js/floating-next-game.js uses -- see the schedule-change-
+ * notice design spec (docs/superpowers/specs/2026-08-25-blueline-schedule-
+ * change-notice-design.md). This card is never dismissible -- it's
+ * permanent account content, not ambient chrome, so it renders no dismiss
+ * control -- but assets/src/js/account-next-game.js reveals
+ * `[data-bl-next-game-account-updated]` (rendered here, hidden, same
+ * "always render server-side, JS decides what shows" convention as the
+ * floating widget) when this event's own fingerprint differs from what
+ * this browser last stored for it. Viewing this card ALSO writes the
+ * current pair to that same key, deliberately: seeing "Updated" here
+ * counts as having seen the change, so the floating widget elsewhere
+ * doesn't keep flagging an already-acknowledged change.
+ *
  * @param int $player_id sp_player post ID.
  */
 function blueline_account_render_next_game( int $player_id ) {
@@ -673,7 +688,10 @@ function blueline_account_render_next_game( int $player_id ) {
 			: null;
 		$venue_url     = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
-		<div class="bl-account-next-game">
+		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>">
+			<p class="bl-account-next-game__updated" data-bl-next-game-account-updated hidden>
+				<?php esc_html_e( 'Updated since you last checked', 'blueline' ); ?>
+			</p>
 			<p class="bl-account-next-game__date">
 				<?php
 				echo esc_html(
