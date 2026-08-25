@@ -59,6 +59,18 @@ if ( empty( $lists ) ) {
 
 $multiple_lists = count( $lists ) > 1;
 
+// Heading level depends on where this template is actually rendered -- see
+// blueline_sp_caption_heading_level()'s own docblock (inc/sportspress.php)
+// for the accessibility finding this fixes (team-lists.php's own caption
+// used to be a hardcoded h4 that, on a team page, followed the hero's h1
+// with nothing else in between). $bl_group_level always trails
+// $bl_caption_level by exactly one, whether or not the caption itself is
+// actually printed below (it is conditional on $multiple_lists, the group
+// heading is not) -- so the group heading is never left one level too deep
+// for a caption that never rendered.
+$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+$bl_group_level   = $bl_caption_level + 1;
+
 foreach ( $lists as $list_post ) :
 	$list_id  = $list_post->ID;
 	$grouping = get_post_meta( $list_id, 'sp_grouping', true );
@@ -111,13 +123,7 @@ foreach ( $lists as $list_post ) :
 	}
 
 	if ( $multiple_lists ) {
-		// h2, not h4: the team hero (blueline_sp_team_hero(), inc/sportspress.php)
-		// prints the page's only h1, so this list caption is the first
-		// heading after it -- an h1 -> h4 skip broke the document outline
-		// screen readers navigate by (WCAG 1.3.1). .sp-table-caption is
-		// styled by class only (sportspress.css), so this is a pure
-		// semantic fix with no visual change.
-		echo '<h2 class="sp-table-caption">' . esc_html( $list_post->post_title ) . '</h2>';
+		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, esc_html( $list_post->post_title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; the title is already escaped via esc_html().
 	}
 
 	foreach ( $groups as $group ) :
@@ -135,10 +141,7 @@ foreach ( $lists as $list_post ) :
 		}
 
 		if ( $group ) {
-			// h3, one level under the h2 list caption above (or under the
-			// page's own h1 when there is no multi-list caption at all) --
-			// same "close the heading-level skip" reasoning.
-			echo '<h3 class="sp-table-caption bl-sp-team-list__group">' . esc_html( $group->name ) . '</h3>';
+			printf( '<h%1$d class="sp-table-caption bl-sp-team-list__group">%2$s</h%1$d>', $bl_group_level, esc_html( $group->name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_group_level is always $bl_caption_level + 1 (an int), never user input; the group name is already escaped via esc_html().
 		}
 		?>
 		<ul class="bl-sp-roster">

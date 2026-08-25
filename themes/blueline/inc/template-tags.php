@@ -567,6 +567,34 @@ function blueline_site_header() {
 	<header class="bl-header">
 		<div class="bl-header__bar">
 			<div class="bl-container bl-header__inner">
+				<?php
+				/*
+				 * A11y finding, investigated and deliberately left as-is: the
+				 * logo (below, either the_custom_logo() or the fallback link)
+				 * and a "Home" item in the primary menu (rendered by
+				 * wp_nav_menu() further down) would be adjacent, redundant tab
+				 * stops if both point at "/" -- a real defect when it happens.
+				 *
+				 * It cannot be fixed here by simply un-focusing the logo (e.g.
+				 * tabindex="-1"), because that redundancy is not guaranteed to
+				 * exist. wp_nav_menu() is called below with 'fallback_cb' =>
+				 * false, so the 'primary' theme location renders EXACTLY what
+				 * an admin assigned to it -- no menu, or a menu with no "Home"
+				 * item at all, are both real, reachable configurations this
+				 * codebase's own terms allow (a league running the site could
+				 * reassign the primary menu at any time; nothing enforces a
+				 * "Home" item's presence). Removing the logo's own
+				 * focusability unconditionally would make it keyboard-
+				 * unreachable on exactly that configuration, which is a worse
+				 * defect than the one this would fix. blueline_leaf_mark()'s
+				 * icon inside the logo is already aria-hidden (device #4,
+				 * "logo is decorative, the text version already forms the
+				 * accessible name") -- that half of the redundancy problem is
+				 * already handled; the link-vs-menu-item duplication is a
+				 * content/menu-configuration concern this template cannot
+				 * safely resolve on its own.
+				 */
+				?>
 				<div class="bl-header__brand">
 					<?php if ( has_custom_logo() ) : ?>
 						<?php the_custom_logo(); ?>

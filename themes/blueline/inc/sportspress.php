@@ -115,6 +115,48 @@ function blueline_render_sp_single( callable $hero_callback, string $extra_main_
 	<?php
 }
 
+/**
+ * The heading level SportsPress's own auto-injected table/list captions
+ * ("Division 1 | S2026", "Upcoming Games", a roster list's own title, a
+ * player's per-league stats caption -- sportspress/league-table.php,
+ * event-list.php, team-lists.php and player-statistics-league.php) should
+ * render at.
+ *
+ * A11y finding: these four templates are shared across two structurally
+ * different contexts, and neither can be known when the markup is written
+ * -- only at request time:
+ *
+ *   - On a SportsPress singular view (sp_team/sp_player/sp_staff/sp_event),
+ *     the theme's own hero prints the page's ONE <h1> (blueline_sp_title(),
+ *     e.g. sportspress/single-team.php) and then the_content() drops
+ *     SportsPress's auto-injected sections straight in below it with
+ *     NOTHING else in between -- confirmed live: a team page's outline
+ *     went h1 -> [this caption], not h1 -> h2 -> [this caption]. The
+ *     correct next level there is h2.
+ *   - Everywhere else these four templates are used today (the homepage's
+ *     standings_snippet module, via [league_table] --
+ *     blueline_homepage_module_standings_snippet()), an h2 section title
+ *     ("Standings") already precedes them, so the correct next level is
+ *     h3. A page whose own content places one of these shortcodes at some
+ *     other depth (e.g. /standings' own [team_standings], sitting directly
+ *     in page-editor content the theme does not control) is a content
+ *     concern, not this function's -- h3 is the right default because it
+ *     is correct for every case this theme itself renders.
+ *
+ * Hardcoding h4 regardless of context (the bug this fixes) skipped a level
+ * in BOTH cases: h2 -> h4 on the homepage, and h1 -> h4 -- skipping two
+ * levels at once -- on every SportsPress singular page.
+ *
+ * @return int Either 2 or 3.
+ */
+function blueline_sp_caption_heading_level(): int {
+	if ( function_exists( 'sp_post_types' ) && is_singular( sp_post_types() ) ) {
+		return 2;
+	}
+
+	return 3;
+}
+
 add_filter( 'body_class', 'blueline_sp_body_class' );
 /**
  * Add bl-sp / bl-sp-{post_type-or-taxonomy} body classes on SportsPress

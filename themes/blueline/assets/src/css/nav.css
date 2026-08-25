@@ -134,6 +134,44 @@
 	background: var(--bl-ink);
 }
 
+/*
+ * A11y finding: tabbing through a submenu (desktop dropdown or the mobile
+ * drawer's in-flow accordion) produced no visible focus change at all --
+ * base.css's global `:focus-visible` rule was firing (confirmed via
+ * computed styles, not skipped by anything here), but its ring bleeds
+ * OUTWARD from the link: outline-offset is positive, and the halo
+ * box-shadow has a larger positive spread again on top of that.
+ *
+ * `.bl-nav__item > .bl-nav__submenu` (both the desktop dropdown above and
+ * the mobile accordion in the max-width block below) sets overflow-y: auto
+ * so a long list (~20 items on "Past Standings") scrolls instead of
+ * overflowing the viewport -- but per the CSS Overflow spec, a declared
+ * overflow-y other than "visible" forces the un-set overflow-x to "auto"
+ * as well (a mismatched visible/non-visible pair always resolves this
+ * way), so this panel is a scroll container on BOTH axes even though only
+ * vertical scrolling was ever intended. Submenu links are full-width with
+ * zero inline padding of their own (see the "full-width rows" comment
+ * above), so the outward-bleeding ring had no room at all before hitting
+ * that clipping edge -- it was not dim, it was entirely gone.
+ *
+ * Fix: flip the ring inward instead of trying to reclaim clipped space. A
+ * negative outline-offset draws the outline just inside the link's own
+ * border box rather than outside it, and the halo becomes an inset
+ * box-shadow doing the same -- both stay entirely within the link's box no
+ * matter how the ancestor clips. In practice only the halo's white shows:
+ * this row's hover/focus background is --bl-ink (immediately above), so
+ * the dark outline is exactly the case base.css's own comment already
+ * describes ("the light ring provides the 3:1 the dark outline cannot"),
+ * doubly so here since the background is the outline's own colour family.
+ * The outline is kept anyway, also flipped inward, purely for
+ * forced-colors mode, where box-shadow is stripped and outline is the
+ * only part of the ring that survives (base.css, same comment).
+ */
+.bl-nav__submenu .bl-nav__link:focus-visible {
+	outline-offset: calc(var(--bl-focus-width) * -1);
+	box-shadow: inset 0 0 0 var(--bl-focus-width) var(--bl-focus-halo);
+}
+
 .bl-nav__toggle-sub {
 	display: inline-flex;
 	align-items: center;
