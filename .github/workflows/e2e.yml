@@ -38,16 +38,20 @@ env:
 
 jobs:
   e2e:
-    # Self-hosted ("amy") rather than GitHub's shared ubuntu-latest runner:
-    # this job runs nginx + PHP-FPM + MariaDB + Playwright/Chromium all at
-    # once, and the shared 2 vCPU runner was observed live going into
-    # generalised resource contention under that load (most of the suite
-    # failing with wildly inconsistent per-test timing, 1.3s to 1.2m for
-    # the identical test across retries) -- not a defect in the theme code
-    # under test, but the runner itself starved. A dedicated machine with
-    # real, consistent resources removes that variable instead of just
-    # tolerating it via this job's own continue-on-error below.
-    runs-on: [self-hosted, Linux, X64]
+    # ubuntu-latest, NOT the self-hosted "amy" runner: tried switching to
+    # amy (a shared GitHub 2 vCPU runner was observed live going into
+    # generalised resource contention under this job's load -- most of the
+    # suite failing with wildly inconsistent per-test timing, 1.3s to 1.2m
+    # for the identical test across retries), but amy's own "Install
+    # Playwright's Chromium" step fails outright: `npx playwright install
+    # --with-deps chromium` needs sudo to install Chromium's system
+    # dependencies, and amy's runner user ("ghrunner") doesn't have sudo
+    # rights -- confirmed live, "sudo: I'm sorry ghrunner. I'm afraid I
+    # can't do that". Needs a machine-level fix (grant that user sudo, or
+    # pre-install Chromium's system deps on amy outside this workflow)
+    # before amy can run this job at all; reverted here rather than left
+    # broken.
+    runs-on: ubuntu-latest
     # 7 tests x up to 3 attempts (2 retries, see playwright.e2e.config.js) x
     # a 60s per-test timeout is a 21-minute worst case for the suite alone;
     # give real headroom above that plus setup.
