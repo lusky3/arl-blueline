@@ -9,14 +9,21 @@
  * The WordPress PHP API is used directly (wp_insert_term()/wp_insert_post()),
  * not the `wp term create`/`wp post create` WP-CLI subcommands: confirmed
  * live against this exact environment that `wp term create sp_season ...`
- * fails outright
- * with "Invalid taxonomy", even though sp_season is real and already
- * populated by the sandbox's own fixture generator (config/scripts/
- * generate-extra-data.php, baked into the image, which seeds it the same
- * way this file does -- through the PHP API via `wp eval-file`, never the
- * CLI subcommand). Whatever bootstrap context WP-CLI's own term/post-create
- * commands check taxonomy/post-type registration in, it isn't the same one
- * a normal WordPress PHP call runs in.
+ * fails outright with "Invalid taxonomy".
+ *
+ * That turned out to be true of wp_insert_term() too, live-confirmed on a
+ * second run: SportsPress's own SP_Post_types::register_taxonomies()
+ * (ThemeBoy/SportsPress, includes/class-sp-post-types.php) only registers
+ * sp_season when `apply_filters( 'sportspress_has_seasons', true )` resolves
+ * truthy, and something in this sandbox image's exact plugin/settings state
+ * resolves it false -- a real difference from production, not this fixture
+ * doing anything wrong. Rather than depend on understanding why (a
+ * throwaway CI environment's exact plugin configuration, not this theme's
+ * concern), this file registers sp_season itself, with the same object
+ * types SportsPress's own core class registers it against, whenever it
+ * isn't already registered -- idempotent, and harmless if core's own
+ * registration is merely running on a later hook this file's `wp eval-file`
+ * invocation runs before.
  *
  * This script never renders to a browser -- output below is CI console
  * text (stdout/stderr in a throwaway container), not HTML, so the escaping
@@ -26,6 +33,19 @@
  *
  * @package blueline
  */
+
+if ( ! taxonomy_exists( 'sp_season' ) ) {
+	register_taxonomy(
+		'sp_season',
+		array( 'sp_event', 'sp_calendar', 'sp_team', 'sp_table', 'sp_player', 'sp_list', 'sp_staff' ),
+		array(
+			'label'        => 'Seasons',
+			'public'       => true,
+			'hierarchical' => true,
+			'rewrite'      => array( 'slug' => 'season' ),
+		)
+	);
+}
 
 $season_label = getenv( 'BLUELINE_E2E_SEASON_LABEL' ) ? getenv( 'BLUELINE_E2E_SEASON_LABEL' ) : 'E2E Test Season';
 $season_slug  = getenv( 'BLUELINE_E2E_SEASON_SLUG' ) ? getenv( 'BLUELINE_E2E_SEASON_SLUG' ) : 'e2e-test-season';
