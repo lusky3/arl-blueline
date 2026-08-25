@@ -237,6 +237,18 @@
 	height: 28px;
 	flex: 0 0 auto;
 	object-fit: contain;
+
+	/* Finding 8 (live review): one team's real crest is confirmed near-
+	   invisible against this theme's dark surfaces -- a content/asset
+	   problem this theme cannot fix without the real, higher-contrast
+	   file. Every team logo thumbnail site-wide gets this same small,
+	   fixed light backdrop instead; see sportspress.css's identical
+	   .team-logo img / .gallery-icon img rules for the other two places
+	   this finding names. --bl-white, not --bl-paper -- this footer band
+	   is already --bl-ink-deep (dark), and the chip must look identical
+	   here and on the paper-white content body alike. */
+	background: var(--bl-white);
+	border-radius: var(--bl-radius-sm, 4px);
 }
 
 .bl-footer__teams-name {

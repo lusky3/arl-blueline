@@ -266,6 +266,33 @@ if ( ! function_exists( 'wp_nav_menu' ) ) {
 		return null;
 	}
 }
+if ( ! function_exists( 'get_nav_menu_locations' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_nav_menu_locations(): a
+	 * location => menu-id map, entirely from
+	 * $GLOBALS['bl_test_nav_menu_assignments'] a test populates directly
+	 * (e.g. `array( 'primary' => 12 )`).
+	 *
+	 * @return array<string,int>
+	 */
+	function get_nav_menu_locations() {
+		return $GLOBALS['bl_test_nav_menu_assignments'] ?? array();
+	}
+}
+if ( ! function_exists( 'wp_get_nav_menu_items' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_nav_menu_items(): the flat item
+	 * list a test seeded at $GLOBALS['bl_test_nav_menu_items'][$menu_id], or
+	 * false for an unknown menu id -- matching core's own "no such menu"
+	 * return value.
+	 *
+	 * @param int $menu_id Menu (term) id.
+	 * @return object[]|false
+	 */
+	function wp_get_nav_menu_items( $menu_id ) {
+		return $GLOBALS['bl_test_nav_menu_items'][ $menu_id ] ?? false;
+	}
+}
 if ( ! function_exists( 'has_custom_logo' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' has_custom_logo(): always false, so
@@ -1654,13 +1681,15 @@ if ( ! function_exists( 'wp_get_post_terms' ) ) {
 		return $terms;
 	}
 }
-$GLOBALS['bl_test_hooks']              = array();
-$GLOBALS['bl_test_options']            = array();
-$GLOBALS['bl_test_option_autoload']    = array();
-$GLOBALS['bl_test_transients']         = array();
-$GLOBALS['bl_test_cache']              = array();
-$GLOBALS['bl_test_nav_menu_locations'] = array();
-$GLOBALS['bl_test_cron']               = array();
+$GLOBALS['bl_test_hooks']                = array();
+$GLOBALS['bl_test_options']              = array();
+$GLOBALS['bl_test_option_autoload']      = array();
+$GLOBALS['bl_test_transients']           = array();
+$GLOBALS['bl_test_cache']                = array();
+$GLOBALS['bl_test_nav_menu_locations']   = array();
+$GLOBALS['bl_test_nav_menu_assignments'] = array();
+$GLOBALS['bl_test_nav_menu_items']       = array();
+$GLOBALS['bl_test_cron']                 = array();
 
 /**
  * Reset the in-memory option store. Call from setUp() (directly, or via the

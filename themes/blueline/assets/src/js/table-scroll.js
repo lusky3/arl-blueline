@@ -15,10 +15,26 @@
  * state is measured here and published as two data attributes, and sportspress
  * .css maps them to the mask. With no JS the attributes are absent and no mask
  * applies -- losing a hint, never hiding content.
+ *
+ * Live-review finding: a schedule table's Arena column clipped at the
+ * viewport edge with only a faint native scrollbar as a cue -- the fade
+ * mask above never appeared for it. Root cause: `.sp-scrollable-table-wrapper`
+ * is not server-rendered by this theme at all -- it is created at RUNTIME by
+ * SportsPress's own bundled jQuery script, which wraps an existing
+ * `<table class="sp-scrollable-table">` in it on that script's own DOM-ready
+ * handler. This file's own DOMContentLoaded handler is a SEPARATE listener
+ * whose firing order relative to that one is not something this theme
+ * controls (it depends on script enqueue order and jQuery's own ready
+ * timing). A one-time `querySelectorAll( CONTAINERS )` snapshot, taken here
+ * before that wrap() call has run, would find zero `.sp-scrollable-table-
+ * wrapper` elements and -- with no later re-scan -- would never attach an
+ * update()/observer to the one that eventually appears. Native scrolling
+ * would still work (the wrapper's own CSS `overflow-x: auto` needs no JS),
+ * but the fade cue this file exists to provide would silently never show,
+ * for that table, ever: exactly the reported symptom. The MutationObserver
+ * below catches any such container the moment it actually appears in the
+ * DOM, instead of assuming the initial snapshot already saw everything.
  */
-
-import { onReady } from './dom-ready.js';
-import { rafThrottle } from './raf-throttle.js';
 
 const CONTAINERS = [
 	'.bl-table-scroll',
@@ -54,44 +70,119 @@ function update( el ) {
 	el.toggleAttribute( 'data-fade-end', from < max - SLOP );
 }
 
-function initTableScroll() {
-	const containers = document.querySelectorAll( CONTAINERS );
-
-	if ( ! containers.length ) {
+/**
+ * Wire up one scroll container: the scroll listener, the resize observer
+ * (when available), and an immediate first measurement. Safe to call more
+ * than once for the same element -- $seen makes every call after the first
+ * a no-op, so a container the initial scan already found and a later
+ * MutationObserver hit for the same element never double-attach listeners.
+ *
+ * @param {Element}             el             Scroll container.
+ * @param {ResizeObserver|null} resizeObserver Shared observer instance, or null when unsupported.
+ * @param {WeakSet}             seen           Elements already wired up.
+ * @return {void}
+ */
+function attach( el, resizeObserver, seen ) {
+	if ( seen.has( el ) ) {
 		return;
 	}
 
-	const observer =
+	seen.add( el );
+
+	let queued = false;
+
+	el.addEventListener(
+		'scroll',
+		() => {
+			if ( queued ) {
+				return;
+			}
+
+			queued = true;
+
+			// One measurement per frame: scroll fires far more often than
+			// the browser paints, and reading scrollLeft/scrollWidth in the
+			// handler forces a layout flush every time.
+			window.requestAnimationFrame( () => {
+				queued = false;
+				update( el );
+			} );
+		},
+		{ passive: true }
+	);
+
+	if ( resizeObserver ) {
+		resizeObserver.observe( el );
+	}
+
+	update( el );
+}
+
+/**
+ * Attach every scroll container within $root (inclusive of $root itself) --
+ * used both for the initial document-wide scan and for each node a later
+ * DOM mutation adds.
+ *
+ * @param {Node}                root           Node to scan.
+ * @param {ResizeObserver|null} resizeObserver Shared observer instance, or null when unsupported.
+ * @param {WeakSet}             seen           Elements already wired up.
+ * @return {void}
+ */
+function attachWithin( root, resizeObserver, seen ) {
+	if ( ! root || 1 !== root.nodeType ) {
+		return;
+	}
+
+	if ( root.matches( CONTAINERS ) ) {
+		attach( root, resizeObserver, seen );
+	}
+
+	root.querySelectorAll( CONTAINERS ).forEach( ( el ) =>
+		attach( el, resizeObserver, seen )
+	);
+}
+
+function initTableScroll() {
+	const seen = new WeakSet();
+
+	const resizeObserver =
 		'undefined' !== typeof window.ResizeObserver
 			? new window.ResizeObserver( ( entries ) => {
 					entries.forEach( ( entry ) => update( entry.target ) );
 			  } )
 			: null;
 
-	containers.forEach( ( el ) => {
-		// One measurement per frame: scroll fires far more often than the
-		// browser paints, and reading scrollLeft/scrollWidth in the handler
-		// forces a layout flush every time.
-		el.addEventListener(
-			'scroll',
-			rafThrottle( () => update( el ) ),
-			{
-				passive: true,
-			}
-		);
+	attachWithin( document.body, resizeObserver, seen );
 
-		if ( observer ) {
-			observer.observe( el );
-		}
-
-		update( el );
-	} );
+	// See this file's own top-of-file docblock: a container SportsPress's own
+	// script creates after this handler has already run must still be found.
+	if ( 'undefined' !== typeof window.MutationObserver ) {
+		new window.MutationObserver( ( mutations ) => {
+			mutations.forEach( ( mutation ) => {
+				mutation.addedNodes.forEach( ( node ) =>
+					attachWithin( node, resizeObserver, seen )
+				);
+			} );
+		} ).observe( document.body, { childList: true, subtree: true } );
+	}
 
 	// Late web fonts change column widths, which changes whether a table
 	// overflows at all.
 	if ( document.fonts && document.fonts.ready ) {
-		document.fonts.ready.then( () => containers.forEach( update ) );
+		document.fonts.ready.then( () =>
+			document.querySelectorAll( CONTAINERS ).forEach( update )
+		);
 	}
 }
 
-onReady( initTableScroll );
+if ( typeof document !== 'undefined' ) {
+	if ( 'loading' === document.readyState ) {
+		document.addEventListener( 'DOMContentLoaded', initTableScroll );
+	} else {
+		initTableScroll();
+	}
+}
+
+if ( typeof module !== 'undefined' && module.exports ) {
+	module.exports = { update, attach, attachWithin };
+}

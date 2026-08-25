@@ -132,4 +132,85 @@ final class NavWalkerDedupTest extends TestCase {
 
 		$this->assertSame( '', $html );
 	}
+
+	/**
+	 * Live-review finding: "SCHEDULE" rendered twice in the desktop
+	 * header -- once as this permanent nav item, once as the header's own
+	 * CTA button, whenever the CTA was showing Schedule (i.e. every state
+	 * but registration_open). The walker's second constructor argument
+	 * exists to de-duplicate exactly this pairing, mirroring the Register
+	 * mechanism above via its OWN, separately-gated property.
+	 */
+	public function test_item_matching_the_schedule_cta_url_is_hidden(): void {
+		$walker = new Blueline_Nav_Walker( '', 'https://example.test/schedule' );
+		$html   = $this->render( $walker, $this->menu_item( 'https://example.test/schedule', 'Schedule' ) );
+
+		$this->assertSame( '', $html, 'the duplicate Schedule item must render nothing at all, not even an empty <li>' );
+	}
+
+	/**
+	 * The Schedule dedup path must never hide the "Register to Play" item --
+	 * the two paths are independent properties, not one generalised slot.
+	 */
+	public function test_register_item_is_never_hidden_by_the_schedule_dedup(): void {
+		$walker = new Blueline_Nav_Walker( '', 'https://example.test/schedule' );
+		$html   = $this->render( $walker, $this->menu_item( 'https://example.test/register', 'Register to Play' ) );
+
+		$this->assertStringContainsString( '<li', $html );
+		$this->assertStringContainsString( 'Register to Play', $html );
+	}
+
+	/**
+	 * Both de-dup paths can be set at once (blueline_site_header() never
+	 * actually does this today, since only one CTA shows at a time, but the
+	 * walker itself must not assume that) -- each hides only its own item.
+	 */
+	public function test_register_and_schedule_dedup_paths_are_independent(): void {
+		$walker = new Blueline_Nav_Walker( 'https://example.test/register', 'https://example.test/schedule' );
+
+		$register = $this->render( $walker, $this->menu_item( 'https://example.test/register', 'Register to Play' ) );
+		$schedule = $this->render( $walker, $this->menu_item( 'https://example.test/schedule', 'Schedule' ) );
+		$news     = $this->render( $walker, $this->menu_item( 'https://example.test/news', 'News' ) );
+
+		$this->assertSame( '', $register );
+		$this->assertSame( '', $schedule );
+		$this->assertStringContainsString( 'News', $news );
+	}
+
+	/**
+	 * When the header CTA is NOT Schedule (e.g. it is showing "Register to
+	 * Play"), blueline_site_header() constructs the walker with an empty
+	 * Schedule de-dup path -- confirmed here by simulating exactly that and
+	 * proving the menu's own real "Schedule" item survives.
+	 */
+	public function test_empty_schedule_dedup_path_hides_nothing(): void {
+		$walker = new Blueline_Nav_Walker( 'https://example.test/register', '' );
+
+		$schedule = $this->render( $walker, $this->menu_item( 'https://example.test/schedule', 'Schedule' ) );
+
+		$this->assertStringContainsString( 'Schedule', $schedule );
+	}
+
+	/**
+	 * A PARENT item sharing the Schedule CTA's URL must still render --
+	 * mirrors test_parent_item_matching_register_url_is_not_hidden() for
+	 * the Schedule path.
+	 */
+	public function test_parent_item_matching_schedule_url_is_not_hidden(): void {
+		$walker = new Blueline_Nav_Walker( '', 'https://example.test/schedule' );
+		$html   = $this->render( $walker, $this->menu_item( 'https://example.test/schedule', 'Schedule' ), 0, true );
+
+		$this->assertStringContainsString( '<li', $html );
+	}
+
+	/**
+	 * The Schedule de-dup only ever applies at depth 0, mirroring the
+	 * Register path's own submenu exemption.
+	 */
+	public function test_submenu_item_matching_schedule_url_is_not_hidden(): void {
+		$walker = new Blueline_Nav_Walker( '', 'https://example.test/schedule' );
+		$html   = $this->render( $walker, $this->menu_item( 'https://example.test/schedule', 'Schedule' ), 1 );
+
+		$this->assertStringContainsString( '<li', $html );
+	}
 }

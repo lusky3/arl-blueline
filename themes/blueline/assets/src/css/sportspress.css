@@ -123,6 +123,21 @@ table.bl-table-self-scroll {
 	margin-block: var(--bl-space-4);
 }
 
+/*
+ * Finding 7 (live review): a division whose season/playoff round hasn't
+ * started yet rendered every team at position 0 with a 0-0-0-0 record and
+ * no explanatory text -- reading as broken rather than "nothing has
+ * happened here yet." sportspress/league-table.php only prints this note
+ * when it has actually detected zero games played across every listed
+ * team; this is styling only.
+ */
+.bl-sp-table-empty-note {
+	margin-block: 0 var(--bl-space-3);
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	font-style: italic;
+}
+
 .sp-table-caption,
 .sp-heading {
 	margin-block: var(--bl-space-6) var(--bl-space-3);
@@ -195,6 +210,26 @@ table.bl-table-self-scroll {
 	margin-block-start: var(--bl-space-3);
 	font-size: var(--bl-text-sm);
 	font-weight: 600;
+}
+
+/*
+ * Finding 8 (live review): one team's real crest is confirmed near-
+ * invisible against this theme's dark surfaces (the header/countdown
+ * widget's navy ground chief among them) -- a content/asset problem this
+ * theme cannot fix without the real, higher-contrast file. Rather than
+ * patch that one team, EVERY team logo thumbnail site-wide gets a small,
+ * fixed light backdrop behind it -- .bl-footer__teams-crest (footer.css)
+ * gets the identical treatment for the footer team directory. --bl-white,
+ * not --bl-paper: this chip must look identical wherever it sits (paper-
+ * white content body AND navy header/countdown widget alike), and
+ * --bl-paper is itself a body-background token a future re-theme could
+ * change independently of --bl-white. No new tools/check-contrast.mjs rule
+ * needed: this is a backdrop behind a decorative image, not a text/
+ * background pairing that check enumerates.
+ */
+.team-logo img {
+	background: var(--bl-white);
+	border-radius: var(--bl-radius-sm, 4px);
 }
 
 .team-logo img,
@@ -1214,6 +1249,18 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	text-transform: uppercase;
 }
 
+/*
+ * Finding 4 (live review): the countdown widget stuck on a past game with
+ * no result used to render 00:00:00:00 forever -- sportspress/countdown.php
+ * only prints this state (a plain line of text, not the digit row above)
+ * once it has confirmed nothing future exists anywhere in scope to count
+ * down to.
+ */
+.bl-sp-countdown--past {
+	color: var(--bl-ink-mid);
+	font-style: italic;
+}
+
 /* ---- Team gallery: [team_gallery] (finding 5) ----
  *
  * SportsPress's own team-gallery.php/team-gallery-thumbnail.php templates
@@ -1247,6 +1294,11 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	aspect-ratio: 1;
 	object-fit: contain;
 	margin-inline: auto;
+
+	/* Finding 8 (live review) -- see .team-logo img's own comment above;
+	   /rosters-and-stats is one of the three places that finding names. */
+	background: var(--bl-white);
+	border-radius: var(--bl-radius-sm, 4px);
 }
 
 .sp-team-gallery-wrapper .gallery-caption {
@@ -1429,6 +1481,18 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 .bl-sp-schedule .data-venue {
 	color: var(--bl-content-text-secondary);
+}
+
+/*
+ * Finding 5 (live review): a played-but-unentered game and a genuinely
+ * future one both used to render the same plain em dash in the Result
+ * column -- this is the one visual distinction between them (sportspress/
+ * event-list.php only prints this span for the 'pending' state, never for
+ * a real future game, which still gets the plain dash).
+ */
+.bl-sp-schedule__pending {
+	color: var(--bl-ink-mid);
+	font-style: italic;
 }
 
 /* ---- Data-table row hover + mobile scroll cue (finding 12) ----
