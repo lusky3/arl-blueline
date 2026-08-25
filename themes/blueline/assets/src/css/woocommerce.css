@@ -172,6 +172,34 @@
 	cursor: not-allowed;
 }
 
+/*
+ * Live-review finding: the disabled "Update cart" button on /cart was
+ * measured invisible at ~390px -- color and background-color both computed
+ * to #132343, the same navy this file's own button rule (above) already
+ * uses for background. The cause is WooCommerce core's OWN disabled-button
+ * rule (plugins/woocommerce/assets/css/woocommerce.css), which sets
+ * `color: inherit` rather than a fixed colour, at a selector list that
+ * includes a `:disabled[disabled]` alternative specifically to out-rank a
+ * plain `:disabled` override -- our own disabled rule just above never set
+ * `color` at all, so that inherited value (this theme's ambient body-text
+ * navy) was the only one in play, landing on the exact same navy as the
+ * button's own background.
+ *
+ * Re-declared here at matching specificity (the same `:disabled[disabled]`
+ * shape core uses, only reachable by real <button>/<input> elements --
+ * `:disabled` never matches an anchor, so `a.button` keeps the `.disabled`
+ * class variant core also ships) so this stylesheet -- which loads after
+ * WooCommerce's own, see the <link> order confirmed live -- wins on source
+ * order rather than reaching for !important. The colour is simply this
+ * button's own enabled-state text colour, so "disabled" still reads as a
+ * faded (opacity: 0.6, above) version of the real button, not a new look.
+ */
+.woocommerce a.button.disabled,
+.woocommerce button.button:disabled[disabled],
+.woocommerce input.button:disabled[disabled] {
+	color: var(--bl-paper);
+}
+
 /* ---------------------------------------------------------------------
  * Form fields -- shared by the checkout's ~16 Checkout Field Editor Pro
  * fields (styled purely by these generic selectors, per the file-level
@@ -300,6 +328,74 @@ html body .woocommerce .woocommerce-invalid textarea {
 	font-weight: 400;
 }
 
+/*
+ * Live-review findings 1 & 2 ("Preferred Division" has no example text;
+ * "Requested Team"/"Requested Partner"'s real caveats live in a truncated,
+ * disappears-once-you-type placeholder) both move guidance from a field's
+ * `placeholder` into its `description` (see inc/woocommerce.php's
+ * blueline_wc_checkout_field_guidance_for_key()) -- but a `description` on a
+ * WooCommerce field is NOT plain visible helper text by default. WooCommerce
+ * core's own woocommerce.css renders `.woocommerce-input-wrapper .description`
+ * as a `display: none` speech-bubble tooltip (confirmed live: computed
+ * `display: none` on every one of this checkout's existing field
+ * descriptions, e.g. arl_team's "If you would like to be placed on a
+ * specific team."). Moving guidance into `description` would have been a
+ * silent no-op fix without overriding that.
+ *
+ * A SECOND, higher-specificity fight sits on top of core's rule, for the
+ * exact fields this finding cares about: an active site-specific Code
+ * Snippets entry (id 47, "Fix Checkout Description Tooltip" -- confirmed
+ * live via `wp db query` against wp_snippets; not in this repo, not part of
+ * WooCommerce or WCFE Pro, and not editable from theme code) injects an
+ * inline `<style>` block hard-coding `#arl_team-description`,
+ * `#arl_request(2|3)-description` and `#arl_relation-description` to
+ * `display: none`, revealed only via `#arl_team:focus + #arl_team-description`
+ * (etc.) -- i.e. a previous attempt at exactly this same problem, which
+ * still leaves the guidance disappearing the moment the field is blurred,
+ * not persistently visible as this finding asks for. Its ID selectors
+ * inherently outrank any class-based override this file could write, and
+ * writing our own matching per-field ID selectors here would break the
+ * file-level comment's "do not add per-field selectors" rule for exactly
+ * the fields the live review flagged. `!important` on `display` alone is
+ * the narrow, still-generic way to win regardless of how many fields that
+ * snippet's ID list does or doesn't cover.
+ *
+ * Re-declared at the same selector shape core uses (form + three classes)
+ * and restyled as plain, persistently-visible helper text -- this theme's
+ * usual muted colour/size, not core's blue bubble+arrow -- rather than a
+ * tooltip that needs an interaction to reveal. Generic per the file-level
+ * comment: this affects every Checkout Field Editor Pro field's description
+ * site-wide, not just the ones the live review flagged.
+ */
+.woocommerce form .form-row .woocommerce-input-wrapper .description {
+	display: block !important;
+	position: static;
+	clear: none;
+	margin: var(--bl-space-2) 0 0;
+	padding: 0;
+	background: none;
+	color: var(--bl-ink-mid);
+	font-size: var(--bl-text-sm);
+	border-radius: 0;
+}
+
+.woocommerce form .form-row .woocommerce-input-wrapper .description::before {
+	display: none;
+}
+
+/*
+ * Unrelated to the product-loop `a` rule later in this file (a checkout
+ * field description's own link vs. a shop-loop card link) -- higher
+ * specificity here only because this targets a link nested three levels
+ * deep inside one specific field-description component.
+ */
+.woocommerce form .form-row .woocommerce-input-wrapper .description a {
+	color: inherit;
+	text-decoration: underline;
+	border: 0;
+	box-shadow: none;
+}
+
 /* ---------------------------------------------------------------------
  * Breadcrumb -- unstyled by this theme until now, so it fell back to
  * WooCommerce's own hardcoded #767676-on-white, which measures 4.36:1
@@ -321,6 +417,8 @@ html body .woocommerce .woocommerce-invalid textarea {
 	color: var(--bl-content-text-secondary);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- unrelated to the
+   higher-specificity checkout-field-description `a` rule above. */
 .woocommerce .woocommerce-breadcrumb a {
 	color: var(--bl-content-link);
 }
@@ -359,6 +457,12 @@ html body .woocommerce .woocommerce-invalid textarea {
 	box-shadow: var(--bl-shadow-card);
 }
 
+/*
+ * Flagged against the checkout field description's own `a` rule above --
+ * a shop-loop card link and a link nested inside one field-description
+ * component, not an override relationship.
+ */
+/* stylelint-disable-next-line no-descending-specificity -- see note above */
 .woocommerce ul.products li.product a {
 	display: block;
 	color: inherit;
@@ -424,6 +528,31 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 .woocommerce div.product .product_title {
 	margin-block-start: 0;
+}
+
+/*
+ * Live-review finding 5: /register's two products don't actually link
+ * anywhere -- the title is plain text and the image opens only a
+ * decorative-artwork zoom lightbox, even though a real single-product page
+ * for each exists (WooCommerce's [product_page] shortcode, which /register
+ * uses per registration.php's own content -- see inc/woocommerce.php's
+ * blueline_wc_product_page_shortcode_title_link_open()/_close() and
+ * blueline_wc_product_page_shortcode_thumbnail_link()). These two classes
+ * are added by those hooks ONLY on that shortcode embed, never on the real
+ * single-product page itself, so they need their own unstyled-link
+ * treatment here rather than inheriting `.product_title`'s plain text
+ * colour or the gallery's zoom-cursor styling.
+ */
+.blueline-wc-product-page-title-link,
+.blueline-wc-product-page-image-link {
+	display: block;
+	color: inherit;
+	text-decoration: none;
+}
+
+.blueline-wc-product-page-title-link:hover,
+.blueline-wc-product-page-title-link:focus-visible {
+	text-decoration: underline;
 }
 
 .woocommerce div.product p.price,
@@ -664,6 +793,30 @@ html body .woocommerce .woocommerce-invalid textarea {
 .woocommerce table.cart td.actions .coupon .input-text {
 	width: auto;
 	min-width: 12em;
+}
+
+/*
+ * Live-review finding: a dangling "Quantity" column with nothing visible
+ * under it. Every product this store carries is a season registration,
+ * always `sold_individually` (confirmed live: WooCommerce renders
+ * `<input type="hidden" ... value="1">` for the quantity, not the usual
+ * number spinner, plus a genuinely screen-reader-only label -- both
+ * correct, standard WooCommerce behaviour for a sold-individually product,
+ * not a bug in either template). The visible defect is purely that the
+ * column header survives with nothing under it: no spinner, no number, no
+ * text. Since this store has no product that is ever sold any other way,
+ * the cleanest fix is to drop the column entirely -- header and cells
+ * together -- rather than inventing visible filler text for a control that
+ * was never meant to be shown or changed here.
+ *
+ * If a non-sold-individually product is ever added to this store's cart,
+ * this rule would also hide its real, editable quantity spinner -- an
+ * intentional trade-off given every product here always has been, and is
+ * expected to remain, sold individually; revisit if that ever changes.
+ */
+.woocommerce table.cart th.product-quantity,
+.woocommerce table.cart td.product-quantity {
+	display: none;
 }
 
 /* ---------------------------------------------------------------------

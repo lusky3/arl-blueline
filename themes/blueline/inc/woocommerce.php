@@ -189,3 +189,288 @@ function blueline_checkout_reassurance() {
 	</div>
 	<?php
 }
+
+/*
+ * Live-site UX review findings 1 & 2 -- checkout field guidance.
+ *
+ * "Preferred Division" (arl_division) and "Requested Team"/"Requested
+ * Partner" (arl_team/arl_request/arl_request2/arl_request3) are four of the
+ * ~16 custom fields the "WooCommerce Checkout Field Editor Pro" plugin (not
+ * in this repo -- see this file's own top-level docblock on that boundary)
+ * renders inside #customer_details on a live registration checkout. Neither
+ * field's problem is a markup bug this theme can edit directly.
+ *
+ * Field keys and current content were read live off staging
+ * (wp_options.thwcfe_sections, decoded via a one-off wp eval-file script
+ * against the actual site, not guessed):
+ *
+ * - arl_division ("Preferred Division", section "player_profile"): a
+ *   REQUIRED multiselect of skill levels ("5 - Beginner" .. "1 - Advanced"),
+ *   not free text as first suspected from the live review alone -- but it
+ *   had no placeholder and no description, so nothing on the page explains
+ *   that this choice is what decides which numbered division (see
+ *   /standings -- Division 1 through Division 5 on this site) a player is
+ *   placed into.
+ * - arl_team ("Requested Team"): placeholder was "Team or Captain's name.
+ *   Remember: this is only a *request* and not a *guarantee*" -- the actual
+ *   caveat that matters, sitting in a placeholder that truncates visually
+ *   and disappears entirely once the field has a value.
+ * - arl_request / arl_request2 / arl_request3 ("Requested Partner" /
+ *   "Additional Partner" x2): all three share the identical placeholder
+ *   "Please enter only 1 name... Do not use this field for captains or team
+ *   names." -- same mechanism, same fix, applied to all three rather than
+ *   just the first for consistency.
+ *
+ * Each fix is guarded by matching the EXISTING placeholder text (not just
+ * the field key) before rewriting it, because the very same field keys are
+ * reused, with different and already-fine short placeholders ("Team Name",
+ * "Person's Name"), by a separate "waitlist" section on a different
+ * product's checkout -- confirmed live in the same thwcfe_sections dump.
+ * Matching on content rather than trusting the key alone means this can
+ * never touch that other section's fields, even if this site's field
+ * config changes which section name is used for which product in the
+ * future.
+ *
+ * TWO filters, not one, are needed to actually change what renders --
+ * confirmed live (deployed the `woocommerce_checkout_fields` filter alone
+ * first; the checkout page's HTML did not change at all). WooCommerce
+ * Checkout Field Editor Pro's custom sections (like "player_profile") are
+ * NOT rendered from the array that filter produces: they render via
+ * THWCFE_Public_Checkout::output_custom_section_single(), which reads the
+ * field's args straight from its own stored section config and calls
+ * WooCommerce core's woocommerce_form_field( $name, $field, $value )
+ * directly -- and core's woocommerce_form_field() is what applies the
+ * `woocommerce_form_field_args` filter, on every field it renders,
+ * regardless of where its args array came from. That is the hook that
+ * actually reaches the rendered HTML.
+ *
+ * `woocommerce_checkout_fields` is kept as well, at priority 1100 (WCFE
+ * Pro hooks its own callback there at priority 1000 by default -- see
+ * THWCFE_Public_Checkout::define_public_hooks() -- so this must run after
+ * it, not before it finds anything to fix), because
+ * `WC()->checkout->checkout_fields` -- populated via that same filter --
+ * is what WCFE Pro's own required-field validation
+ * (woo_checkout_fields_validation()) and admin/e-mail field display read
+ * back later, and those should see the same corrected copy.
+ *
+ * blueline_wc_checkout_field_guidance_for_key() is deliberately a pure,
+ * one-field-at-a-time function (no WordPress calls beyond __(), which is a
+ * no-op pass-through even in the plain-PHPUnit test environment) so it can
+ * be unit tested exactly like blueline_homepage_registration_cta_pricing()
+ * (tests/RegistrationPricingTest.php) is: real WooCommerce/WCFE array
+ * shapes in, asserted array shapes out, no WordPress install required. Both
+ * filters below are thin wrappers around it.
+ */
+add_filter( 'woocommerce_form_field_args', 'blueline_wc_checkout_form_field_guidance', 20, 2 );
+add_filter( 'woocommerce_checkout_fields', 'blueline_wc_checkout_field_guidance', 1100 );
+
+/**
+ * `woocommerce_form_field_args` wrapper -- the filter that actually reaches
+ * the rendered checkout HTML. See the registration comment above for why
+ * this is required in addition to (not instead of) the
+ * `woocommerce_checkout_fields` filter below.
+ *
+ * @param array  $args WooCommerce form-field args, as accepted by
+ *                      woocommerce_form_field() -- notably 'placeholder'
+ *                      and 'description'.
+ * @param string $key  The field's id/name (e.g. 'arl_division').
+ * @return array $args, with only a matched field's 'placeholder' and/or
+ *               'description' entries changed.
+ */
+function blueline_wc_checkout_form_field_guidance( $args, $key ) {
+	if ( ! is_array( $args ) ) {
+		return $args;
+	}
+
+	return blueline_wc_checkout_field_guidance_for_key( (string) $key, $args );
+}
+
+/**
+ * `woocommerce_checkout_fields` wrapper -- keeps
+ * `WC()->checkout->checkout_fields` (validation, admin/e-mail field
+ * display) in sync with the same correction. See the registration comment
+ * above for why this alone does not fix the rendered checkout HTML.
+ *
+ * @param array $fields WooCommerce checkout fields, keyed by section then
+ *                       field id (each field id => array of args accepted
+ *                       by woocommerce_form_field()).
+ * @return array The same shape, with only matched fields' args changed.
+ */
+function blueline_wc_checkout_field_guidance( array $fields ): array {
+	foreach ( $fields as $section => $section_fields ) {
+		if ( ! is_array( $section_fields ) ) {
+			continue;
+		}
+
+		foreach ( $section_fields as $key => $field_args ) {
+			if ( is_array( $field_args ) ) {
+				$fields[ $section ][ $key ] = blueline_wc_checkout_field_guidance_for_key( (string) $key, $field_args );
+			}
+		}
+	}
+
+	return $fields;
+}
+
+/**
+ * Move truncating/disappearing checkout-field placeholder caveats into a
+ * persistent description, and give the "Preferred Division" field the
+ * example text it never had, for exactly one field. See the registration
+ * comment above blueline_wc_checkout_form_field_guidance() for the
+ * live-audited field keys/content this acts on, and why matching is
+ * guarded by the field's EXISTING placeholder content rather than its key
+ * alone.
+ *
+ * @param string $key  The field's id/name (e.g. 'arl_division').
+ * @param array  $args WooCommerce form-field args for this one field.
+ * @return array $args, unchanged unless this exact field matched.
+ */
+function blueline_wc_checkout_field_guidance_for_key( string $key, array $args ): array {
+	if ( 'arl_division' === $key ) {
+		$args['placeholder'] = __( 'Select skill level(s)', 'blueline' );
+		$args['description'] = __(
+			"This decides which numbered division you're placed in -- select every skill level you'd be comfortable playing at (see /standings for this season's actual divisions).",
+			'blueline'
+		);
+
+		return $args;
+	}
+
+	if ( 'arl_team' === $key && false !== strpos( (string) ( $args['placeholder'] ?? '' ), 'Remember' ) ) {
+		$args['placeholder'] = __( "Team or captain's name", 'blueline' );
+		$args['description'] = trim(
+			( (string) ( $args['description'] ?? '' ) )
+			. ' ' . __( 'Remember: this is only a request, not a guarantee.', 'blueline' )
+		);
+
+		return $args;
+	}
+
+	$is_partner_key = in_array( $key, array( 'arl_request', 'arl_request2', 'arl_request3' ), true );
+	if ( $is_partner_key && false !== strpos( (string) ( $args['placeholder'] ?? '' ), 'Please enter only 1 name' ) ) {
+		$args['placeholder'] = __( "Person's full name", 'blueline' );
+		$args['description'] = trim(
+			( (string) ( $args['description'] ?? '' ) )
+			. ' ' . __( 'Enter only 1 name -- do not use this field for captains or team names.', 'blueline' )
+		);
+	}
+
+	return $args;
+}
+
+/*
+ * Live-site UX review finding 5 -- /register's product title and image link
+ * nowhere.
+ *
+ * /register embeds each registration product with WooCommerce's own
+ * `[product_page sku="..."]` shortcode (confirmed live: the page's content
+ * literally contains `[product_page sku="116522-P"]` /
+ * `[product_page sku="116522-G"]`), which renders the SAME
+ * content-single-product.php template a real single-product page uses --
+ * this theme does not override that template (checked: woocommerce/ has no
+ * content-single-product.php or single-product/product-image.php), and
+ * neither should it, since the real single-product page at e.g.
+ * /registration/player-registration-w2026-27 renders correctly on its own
+ * and must keep working exactly as-is.
+ *
+ * The two hooks below only change anything when is_product() is false --
+ * i.e. only on the /register embed, never on that real single-product page
+ * -- which is exactly the same "am I on my own singular page or embedded
+ * elsewhere" check WooCommerce's own shortcode class already makes (see
+ * WC_Shortcodes::product_page()'s `if ( ! is_singular( 'product' ) )`
+ * branch, which is why the "Awaiting review"/excerpt already behave
+ * differently there today). On /register that makes the title a link to
+ * the product's own real permalink, and replaces the image's normal
+ * zoom-into-full-size-artwork link with a link to that same permalink --
+ * matching how a normal, non-overridden WooCommerce product LOOP links its
+ * title and thumbnail, which is what this shortcode is actually being used
+ * to imitate here, rather than a real single-product view.
+ */
+add_action( 'woocommerce_single_product_summary', 'blueline_wc_product_page_shortcode_title_link_open', 4 );
+add_action( 'woocommerce_single_product_summary', 'blueline_wc_product_page_shortcode_title_link_close', 6 );
+add_filter( 'woocommerce_single_product_image_thumbnail_html', 'blueline_wc_product_page_shortcode_thumbnail_link', 20, 2 );
+
+/**
+ * Open a link to the current product's real permalink immediately before
+ * `woocommerce_template_single_title()` (hooked at priority 5) prints the
+ * `<h1>`, but only when this product is being rendered somewhere other than
+ * its own single-product page (the /register shortcode embed).
+ */
+function blueline_wc_product_page_shortcode_title_link_open() {
+	if ( is_product() ) {
+		return;
+	}
+
+	global $product;
+	if ( ! ( $product instanceof WC_Product ) ) {
+		return;
+	}
+
+	$permalink = get_permalink( $product->get_id() );
+	if ( ! $permalink ) {
+		return;
+	}
+
+	printf(
+		'<a href="%s" class="blueline-wc-product-page-title-link">',
+		esc_url( $permalink )
+	);
+}
+
+/**
+ * Close the link opened by blueline_wc_product_page_shortcode_title_link_open().
+ */
+function blueline_wc_product_page_shortcode_title_link_close() {
+	if ( is_product() ) {
+		return;
+	}
+
+	global $product;
+	if ( ! ( $product instanceof WC_Product ) ) {
+		return;
+	}
+
+	echo '</a>';
+}
+
+/**
+ * Replace the single-product gallery's own zoom-into-full-size-image link
+ * with a link to the product's real permalink, but only off the real
+ * single-product page (the /register shortcode embed) -- the real
+ * single-product page keeps WooCommerce's own gallery and zoom lightbox
+ * completely untouched.
+ *
+ * @param string $html          Gallery image markup, as built by
+ *                               wc_get_gallery_image_html() (a
+ *                               `.woocommerce-product-gallery__image` div
+ *                               wrapping an `<a href="{full-size image}">`).
+ * @param int    $attachment_id Attachment ID for the image being rendered.
+ * @return string The unchanged $html on the real single-product page, or a
+ *                simple `<a href="{permalink}">{image}</a>` off it.
+ */
+function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_id ) {
+	if ( is_product() ) {
+		return $html;
+	}
+
+	global $product;
+	if ( ! ( $product instanceof WC_Product ) ) {
+		return $html;
+	}
+
+	$permalink = get_permalink( $product->get_id() );
+	if ( ! $permalink ) {
+		return $html;
+	}
+
+	$image = wp_get_attachment_image( $attachment_id, 'woocommerce_single', false, array( 'class' => 'wp-post-image' ) );
+	if ( '' === $image ) {
+		return $html;
+	}
+
+	return sprintf(
+		'<a href="%s" class="blueline-wc-product-page-image-link">%s</a>',
+		esc_url( $permalink ),
+		$image
+	);
+}
