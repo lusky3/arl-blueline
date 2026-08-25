@@ -41,7 +41,7 @@ if ( $blueline_dashboard_player_id ) {
 	blueline_account_render_claim_card( $blueline_dashboard_user_id );
 }
 
-blueline_account_render_registration( $blueline_dashboard_user_id );
+blueline_account_render_registration( $blueline_dashboard_user_id, $blueline_dashboard_player_id );
 blueline_account_render_billing_group();
 
 /**

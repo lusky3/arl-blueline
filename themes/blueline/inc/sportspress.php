@@ -1489,3 +1489,66 @@ function blueline_sp_venue_archive_title( $title ) {
 function blueline_sp_extra_class( string $key, array $extra_keys ): string {
 	return in_array( $key, $extra_keys, true ) ? ' bl-sp-col-extra' : '';
 }
+
+/**
+ * Pure decision behind blueline_team_events_current_season_id(): given
+ * SportsPress' own filter value ($season -- its plugin default of 0, or
+ * whatever an earlier-priority `sp_team_events_season` callback already
+ * set) and this theme's own resolved "current season" answer, decide which
+ * one actually wins.
+ *
+ * Split out purely so this decision is unit-testable without going through
+ * blueline_current_sp_season_term_id()'s own get_posts()/transient-backed
+ * resolution path (inc/account/player-data.php) -- that function's own
+ * WordPress dependencies stay entirely outside this one's test surface.
+ *
+ * @param int      $season           SportsPress' own filter value.
+ * @param int|null $resolved_current blueline_current_sp_season_term_id()'s answer.
+ * @return int
+ */
+function blueline_resolve_team_events_season( int $season, ?int $resolved_current ): int {
+	if ( $season > 0 ) {
+		// Something upstream already chose a season (a future filter running
+		// at a later priority, or a caller passing one explicitly) -- never
+		// override a real value with our own guess.
+		return $season;
+	}
+
+	return $resolved_current ? $resolved_current : $season;
+}
+
+add_filter( 'sp_team_events_season', 'blueline_team_events_current_season_id' );
+/**
+ * Scope a team's public "Upcoming Games"/"Results" cards
+ * (sportspress/team-events.php, the theme's own override of SportsPress'
+ * team-events.php) to the season currently driving the schedule.
+ *
+ * Live-site review: a team's Results section showed games from years
+ * earlier (e.g. 2017) directly beneath Upcoming Games, with nothing
+ * distinguishing them from the current season. Root cause, confirmed
+ * against the SportsPress plugin's own team-events.php/
+ * event-fixtures-results.php: the 'blocks' display format (this site's own
+ * configured `sportspress_team_events_format`) calls
+ * `sp_get_template( 'event-fixtures-results.php', array( 'team' => $id ) )`
+ * with NO season argument at all, so SP_Calendar falls back to every
+ * sp_event the team has EVER played. The 'list' format already exposes an
+ * `sp_team_events_season` filter for exactly this purpose (unused on this
+ * site, but honoured here too, for free, since both formats now read the
+ * same filter); the theme's own team-events.php override adds the
+ * equivalent call for the 'blocks' format, whose plugin default takes no
+ * filter input at all.
+ *
+ * Reuses blueline_current_sp_season_term_id() (inc/account/player-data.php)
+ * -- the same season-resolution the account dashboard's own My Season/My
+ * Next Game readers already use -- rather than inventing a second rule for
+ * "which season is current."
+ *
+ * @param int $season SportsPress' own filter value (its plugin default of 0
+ *                     unless another filter already set one).
+ * @return int
+ */
+function blueline_team_events_current_season_id( $season = 0 ) {
+	$resolved = function_exists( 'blueline_current_sp_season_term_id' ) ? blueline_current_sp_season_term_id() : null;
+
+	return blueline_resolve_team_events_season( (int) $season, $resolved );
+}

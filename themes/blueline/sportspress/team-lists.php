@@ -27,6 +27,13 @@
  * uses -- so grouping, filtering and sorting stay correct even though the
  * markup below is entirely custom.
  *
+ * Live-site review fix: when SP_Team::lists() has nothing (see the inline
+ * comment further down for why that is a separate, easily-forgotten admin
+ * step and not the same thing as "this team has no roster"), this falls
+ * back to blueline_get_team_roster() -- the account dashboard's own
+ * sp_current_team-based roster reader -- rather than declaring the roster
+ * unposted while the SAME data shows a real one elsewhere on this site.
+ *
  * @package blueline
  */
 
@@ -43,16 +50,67 @@ if ( ! $id || ! class_exists( 'SP_Team' ) || ! class_exists( 'SP_Player_List' ) 
 $team  = new SP_Team( $id );
 $lists = $team->lists();
 
+/*
+ * Live-site review: a team can be fully, correctly rostered on the account
+ * dashboard's own My Team module (blueline_get_team_roster(),
+ * inc/account/dashboard.php, reading the sp_current_team meta every
+ * player carries directly) while this public page still said "Roster not
+ * posted yet" for the SAME team -- a real, current contradiction, not a
+ * hypothetical.
+ *
+ * Root cause, confirmed against SportsPress' own class-sp-team.php:
+ * SP_Team::lists() answers a genuinely different, more restrictive
+ * question than sp_current_team does. It returns only sp_list posts that
+ * (a) exist, (b) are scoped to this team (or to "all teams"), AND (c) have
+ * been explicitly checked for this team in the team's own admin screen --
+ * a separate, manual curation step with no relationship to whether players
+ * are actually, correctly assigned to the team via sp_current_team.
+ * Checked live on staging (2026-08-22): 4 of 143 published teams currently
+ * have real sp_current_team-rostered players (9, 1, 20, and 15 of them)
+ * but no checked sp_list at all, so every one of those teams' public pages
+ * says "not posted" today.
+ *
+ * Falling back to the dashboard's own roster reader when SportsPress' own
+ * curated-list mechanism has nothing is therefore the correct fix, not a
+ * cosmetic one: it uses the SAME underlying data source the account
+ * dashboard already treats as authoritative for "who is on this team,"
+ * rather than requiring a second, easily-forgotten admin step before a
+ * real roster becomes publicly visible. The curated $lists path (grouping,
+ * per-list captions, position sections) still takes priority whenever an
+ * admin HAS gone through the trouble of curating one -- this is a
+ * fallback, not a replacement.
+ */
 if ( empty( $lists ) ) {
-	?>
-	<div class="bl-sp-empty">
-		<?php
-		if ( function_exists( 'blueline_leaf_mark' ) ) {
-			blueline_leaf_mark( 'bl-sp-empty__mark' );
-		}
+	$fallback_roster = function_exists( 'blueline_get_team_roster' ) ? blueline_get_team_roster( $id ) : array();
+
+	if ( empty( $fallback_roster ) ) {
 		?>
-		<p class="bl-sp-empty__text"><?php esc_html_e( 'Roster not posted yet.', 'blueline' ); ?></p>
-	</div>
+		<div class="bl-sp-empty">
+			<?php
+			if ( function_exists( 'blueline_leaf_mark' ) ) {
+				blueline_leaf_mark( 'bl-sp-empty__mark' );
+			}
+			?>
+			<p class="bl-sp-empty__text"><?php esc_html_e( 'Roster not posted yet.', 'blueline' ); ?></p>
+		</div>
+		<?php
+		return;
+	}
+	?>
+	<ul class="bl-sp-roster">
+		<?php foreach ( $fallback_roster as $mate ) : ?>
+			<?php $number = get_post_meta( $mate['player_id'], 'sp_number', true ); ?>
+			<li class="bl-sp-roster__row">
+				<span class="bl-sp-roster__number"><?php echo ( '' !== $number && null !== $number ) ? esc_html( $number ) : ''; ?></span>
+				<a class="bl-sp-roster__name" href="<?php echo esc_url( get_permalink( $mate['player_id'] ) ); ?>">
+					<?php if ( has_post_thumbnail( $mate['player_id'] ) ) : ?>
+						<span class="bl-sp-roster__photo"><?php echo get_the_post_thumbnail( $mate['player_id'], 'thumbnail' ); ?></span>
+					<?php endif; ?>
+					<?php echo esc_html( $mate['name'] ); ?>
+				</a>
+			</li>
+		<?php endforeach; ?>
+	</ul>
 	<?php
 	return;
 }

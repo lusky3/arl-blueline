@@ -968,10 +968,13 @@ if ( ! function_exists( 'get_userdata' ) ) {
 }
 if ( ! function_exists( 'get_posts' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' get_posts(), supporting only the one
-	 * shape this suite exercises: blueline_get_linked_player_id()'s
-	 * post_type + meta_key/meta_value + fields=ids lookup, resolved against
-	 * blueline_test_state()'s post_meta store.
+	 * Minimal stand-in for WordPress' get_posts(), supporting only the
+	 * shapes this suite exercises: blueline_get_linked_player_id()'s
+	 * post_type + meta_key/meta_value + fields=ids lookup, plus (added for
+	 * blueline_get_team_roster(), inc/account/dashboard.php) the single-
+	 * condition `meta_query => [ [ 'key' => ..., 'value' => ... ] ]` shape --
+	 * no relation/AND/OR nesting, since no caller in this suite needs one --
+	 * both resolved against blueline_test_state()'s post_meta store.
 	 *
 	 * @param array $args Query args.
 	 * @return int[]
@@ -981,6 +984,11 @@ if ( ! function_exists( 'get_posts' ) ) {
 
 		$key   = (string) ( $args['meta_key'] ?? '' );
 		$value = (string) ( $args['meta_value'] ?? '' );
+
+		if ( '' === $key && isset( $args['meta_query'][0]['key'] ) ) {
+			$key   = (string) $args['meta_query'][0]['key'];
+			$value = (string) ( $args['meta_query'][0]['value'] ?? '' );
+		}
 
 		if ( '' === $key ) {
 			return array();
