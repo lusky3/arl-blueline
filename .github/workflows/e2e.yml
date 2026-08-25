@@ -116,25 +116,24 @@ jobs:
         # modules.php) matches sp_table posts by TITLE, searching for the
         # active season's own resolved label as a substring -- it never
         # reads the sp_season taxonomy off the table posts themselves. Only
-        # the sp_event below needs that term, to resolve "which season is
-        # active" in the first place; the two division tables just need
+        # the sp_event resolves "which season is active" in the first
+        # place, via that taxonomy; the two division tables just need
         # titles containing that same label.
+        #
+        # tests-e2e/fixtures/seed-standings-divisions.php does the actual
+        # work via `wp eval-file`, not `wp term create`/`wp post create` --
+        # see that file's own docblock for why: confirmed live against this
+        # exact environment that those CLI subcommands fail outright with
+        # "Invalid taxonomy" even though sp_season is real and already
+        # populated by the sandbox's own baked-in fixture generator, which
+        # seeds it the same PHP-API way this file does.
         run: |
-          docker exec sp-test wp term create sp_season "$BLUELINE_E2E_SEASON_LABEL" \
-            --slug="$BLUELINE_E2E_SEASON_SLUG" --allow-root
-
-          EVENT_ID=$(docker exec sp-test wp post create \
-            --post_type=sp_event --post_title="E2E Test Event" \
-            --post_status=publish --allow-root --porcelain)
-          docker exec sp-test wp post term add "$EVENT_ID" sp_season \
-            "$BLUELINE_E2E_SEASON_SLUG" --by=slug --allow-root
-
-          docker exec sp-test wp post create --post_type=sp_table \
-            --post_title="Division 1 | $BLUELINE_E2E_SEASON_LABEL" \
-            --post_status=publish --allow-root
-          docker exec sp-test wp post create --post_type=sp_table \
-            --post_title="Division 2 | $BLUELINE_E2E_SEASON_LABEL" \
-            --post_status=publish --allow-root
+          docker cp tests-e2e/fixtures/seed-standings-divisions.php \
+            sp-test:/tmp/seed-standings-divisions.php
+          docker exec \
+            -e BLUELINE_E2E_SEASON_LABEL="$BLUELINE_E2E_SEASON_LABEL" \
+            -e BLUELINE_E2E_SEASON_SLUG="$BLUELINE_E2E_SEASON_SLUG" \
+            sp-test wp eval-file /tmp/seed-standings-divisions.php --allow-root
 
       - name: Warm up PHP opcache and MySQL's query cache before timing anything
         # First real run against this environment: page.goto('/shop/') hit
