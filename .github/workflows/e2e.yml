@@ -33,10 +33,28 @@ env:
   BLUELINE_E2E_TEAM_SLUG: testville-icebreakers
   BLUELINE_E2E_TEAM_NAME: Testville Icebreakers
   BLUELINE_E2E_TEAM_COLOR: '#0b3d91'
+  BLUELINE_E2E_SEASON_LABEL: E2E Test Season
+  BLUELINE_E2E_SEASON_SLUG: e2e-test-season
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    # self-hosted "amy", not ubuntu-latest: this is a private repo on
+    # GitHub's Free plan, so hosted-runner minutes are a real budget, not
+    # just a resource-contention concern. amy's own "Install Playwright's
+    # Chromium" step used to fail outright: `npx playwright install
+    # --with-deps chromium` needs sudo to install Chromium's system
+    # dependencies, and amy's runner user ("ghrunner") doesn't have sudo
+    # rights -- confirmed live, "sudo: I'm sorry ghrunner. I'm afraid I
+    # can't do that". Fixed at the machine level (2026-08-25) rather than
+    # by granting ghrunner standing sudo: `npx playwright@1.62.1
+    # install-deps chromium` was run once as root on amy, installing
+    # Chromium's system libraries permanently at the OS level. The step
+    # below now only downloads the browser binary itself (no --with-deps,
+    # no sudo, no root needed) -- keep this pinned to Playwright's actual
+    # resolved version (see themes/blueline/package-lock.json) if it ever
+    # moves, or the browser download step and the pre-installed system
+    # libs can drift out of sync.
+    runs-on: [self-hosted, Linux, X64]
     # 7 tests x up to 3 attempts (2 retries, see playwright.e2e.config.js) x
     # a 60s per-test timeout is a 21-minute worst case for the suite alone;
     # give real headroom above that plus setup.
@@ -56,7 +74,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Start the WordPress + WooCommerce + SportsPress environment
         run: |
@@ -65,16 +83,36 @@ jobs:
             "$SPORTSPRESS_TEST_ENV_IMAGE"
 
       - name: Wait for the health endpoint
+        # "status":"ready" only means WordPress core is installed and the DB
+        # is reachable -- the sandbox image's own async first-boot setup
+        # (supervisord-managed: WooCommerce onboarding, sample product
+        # creation, exporting /var/lib/baseline/baseline.sql) keeps running
+        # in the background after that and takes several more seconds.
+        # Confirmed live: that setup script itself activates its own
+        # baseline theme ("rookie") as part of finishing, and if this
+        # workflow's "Install this theme into the container" step (which
+        # activates blueline) races ahead of it, the async setup's later
+        # activation silently wins and reverts back to rookie -- every
+        # request after that serves a site with blueline installed but
+        # NOT active, so nothing this theme renders (including the
+        # standings tab strip) shows up, no error, no PHP fault, just the
+        # wrong theme. "baseline_exists" flips true only once that async
+        # setup has actually finished, so wait on that flag specifically,
+        # not just a 200 from this endpoint.
         run: |
-          for i in $(seq 1 40); do
-            if curl -sf --max-time 3 http://localhost:8082/wp-json/test/v1/health; then
-              echo ""
-              echo "ready on attempt $i"
-              exit 0
+          for i in $(seq 1 60); do
+            RESPONSE=$(curl -sf --max-time 3 http://localhost:8082/wp-json/test/v1/health || true)
+            if [ -n "$RESPONSE" ]; then
+              echo "$RESPONSE"
+              if printf '%s' "$RESPONSE" | grep -q '"baseline_exists":true'; then
+                echo ""
+                echo "baseline ready on attempt $i"
+                exit 0
+              fi
             fi
             sleep 5
           done
-          echo "health endpoint did not respond in time" >&2
+          echo "health endpoint never reported baseline_exists:true in time" >&2
           docker logs sp-test --tail 200
           exit 1
 
@@ -90,6 +128,26 @@ jobs:
           docker cp /tmp/blueline-clean sp-test:/var/www/html/wp-content/themes/blueline
           docker exec sp-test wp theme activate blueline --allow-root
 
+      - name: Configure the static front page
+        # template-homepage.php's own docblock: "Assign this template to the
+        # static front page under Settings > Reading" -- a one-time site
+        # configuration step, not something theme activation does on its
+        # own. Without this, WordPress serves its default "latest posts"
+        # blog index at / instead of blueline_homepage_module_*() content,
+        # so every homepage-module assertion (including every standings-tab
+        # one) is testing the wrong page entirely. Confirmed live: a fresh
+        # sandbox container has show_on_front=posts and no page at all using
+        # this template, and the tab strip genuinely renders once this step
+        # runs -- this was never a fixture/event-resolution bug, that fix
+        # (see this repo's own git history for the retagging commit) was
+        # necessary but not sufficient on its own.
+        run: |
+          HOME_PAGE_ID=$(docker exec sp-test wp post create \
+            --post_type=page --post_title="Home" --post_status=publish \
+            --page_template=template-homepage.php --allow-root --porcelain)
+          docker exec sp-test wp option update show_on_front page --allow-root
+          docker exec sp-test wp option update page_on_front "$HOME_PAGE_ID" --allow-root
+
       - name: Seed a demo SportsPress team
         # Gives sportspress-team.spec.js a real sp_team post with real
         # sp_colors postmeta to render inc/team-colors.php's derived-colour
@@ -101,6 +159,37 @@ jobs:
             --allow-root --porcelain)
           docker exec sp-test wp post meta update "$TEAM_ID" sp_colors \
             "{\"primary\":\"$BLUELINE_E2E_TEAM_COLOR\"}" --format=json --allow-root
+
+      - name: Seed multiple standings divisions for the homepage tab strip
+        # Gives homepage.spec.js's multi-division test (and the existing
+        # a11y scan, for free) real sp_table posts to render
+        # blueline_homepage_standings_tabs() against -- without this, the
+        # homepage's standings module only ever has zero divisions to show
+        # and every test here only ever exercises its empty-state branch,
+        # never the actual tab-strip markup.
+        #
+        # blueline_homepage_current_standings_tables() (inc/homepage-
+        # modules.php) matches sp_table posts by TITLE, searching for the
+        # active season's own resolved label as a substring -- it never
+        # reads the sp_season taxonomy off the table posts themselves. Only
+        # the sp_event resolves "which season is active" in the first
+        # place, via that taxonomy; the two division tables just need
+        # titles containing that same label.
+        #
+        # tests-e2e/fixtures/seed-standings-divisions.php does the actual
+        # work via `wp eval-file`, not `wp term create`/`wp post create` --
+        # see that file's own docblock for why: confirmed live against this
+        # exact environment that those CLI subcommands fail outright with
+        # "Invalid taxonomy" even though sp_season is real and already
+        # populated by the sandbox's own baked-in fixture generator, which
+        # seeds it the same PHP-API way this file does.
+        run: |
+          docker cp tests-e2e/fixtures/seed-standings-divisions.php \
+            sp-test:/tmp/seed-standings-divisions.php
+          docker exec \
+            -e BLUELINE_E2E_SEASON_LABEL="$BLUELINE_E2E_SEASON_LABEL" \
+            -e BLUELINE_E2E_SEASON_SLUG="$BLUELINE_E2E_SEASON_SLUG" \
+            sp-test wp eval-file /tmp/seed-standings-divisions.php --allow-root
 
       - name: Warm up PHP opcache and MySQL's query cache before timing anything
         # First real run against this environment: page.goto('/shop/') hit
