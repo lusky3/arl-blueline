@@ -417,6 +417,8 @@ html body .woocommerce .woocommerce-invalid textarea {
 	color: var(--bl-content-text-secondary);
 }
 
+/* stylelint-disable-next-line no-descending-specificity -- unrelated to the
+   higher-specificity checkout-field-description `a` rule above. */
 .woocommerce .woocommerce-breadcrumb a {
 	color: var(--bl-content-link);
 }
