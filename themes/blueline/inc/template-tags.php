@@ -493,7 +493,8 @@ function blueline_utility_normalize_path( $url ) {
 
 add_filter( 'wp_nav_menu_objects', 'blueline_utility_nav_auth_state', 10, 2 );
 /**
- * Makes the header's utility nav (account links) state-aware.
+ * Makes the header's utility nav (account links) -- and, more simply, the
+ * primary nav -- state-aware.
  *
  * The 'utility' theme location is a static, admin-managed wp_nav_menu: on
  * this site it holds "My ARL Account" (-> /account) and "Log Out" (a
@@ -503,26 +504,39 @@ add_filter( 'wp_nav_menu_objects', 'blueline_utility_nav_auth_state', 10, 2 );
  * form, with nothing to actually get logged in with. Verified live: the
  * menu carries no separate "Log In" item at all.
  *
- * This filters the resolved items for the 'utility' location only, and
- * only for a logged-out visitor: any item whose URL is a logout action
- * (`action=logout`, matching both wp_logout_url() and the site's own
- * wp-login.php?action=logout link) is dropped -- there is nothing to log
- * out of. An item that already points at the resolved login destination
- * (on this site, "My ARL Account" -- both it and the login link resolve
- * to the same /account page) is RELABELLED to "Log In" rather than left
- * alone: an early version of this fix appended a separate "Log In" item
- * whenever the menu had no item whose TITLE already said "log in", which
- * left "My ARL Account" and "Log In" rendering side by side, both
- * pointing at the identical URL -- confirmed live. Only when no item
- * points at the login URL at all is a new one appended. A logged-in
- * visitor's menu is returned completely untouched.
+ * Found live 2026-08-25, same bug, second location: the 'primary' menu
+ * (general site navigation -- Home, Standings, Register, etc., NOT an
+ * account-links menu the way 'utility' is) ALSO had an admin-added "Log
+ * Out" item shown unconditionally. 'primary' gets the simpler half of this
+ * fix only: the dead logout link is dropped, but nothing is appended in
+ * its place -- injecting a "Log In" item into general site navigation
+ * doesn't fit its purpose the way it fits 'utility', which is already the
+ * one dedicated home for account-state-aware links. A logged-out visitor
+ * who wants to log in still has 'utility' for that.
+ *
+ * This filters the resolved items for the 'utility' and 'primary'
+ * locations only, and only for a logged-out visitor: any item whose URL is
+ * a logout action (`action=logout`, matching both wp_logout_url() and the
+ * site's own wp-login.php?action=logout link) is dropped -- there is
+ * nothing to log out of. For 'utility' only, an item that already points
+ * at the resolved login destination (on this site, "My ARL Account" --
+ * both it and the login link resolve to the same /account page) is
+ * RELABELLED to "Log In" rather than left alone: an early version of this
+ * fix appended a separate "Log In" item whenever the menu had no item
+ * whose TITLE already said "log in", which left "My ARL Account" and "Log
+ * In" rendering side by side, both pointing at the identical URL --
+ * confirmed live. Only when no item points at the login URL at all is a
+ * new one appended, and only for 'utility'. A logged-in visitor's menu, on
+ * either location, is returned completely untouched.
  *
  * @param WP_Post[]|object[] $items Nav menu items resolved for this call.
  * @param stdClass           $args  wp_nav_menu() args object.
  * @return WP_Post[]|object[]
  */
 function blueline_utility_nav_auth_state( $items, $args ) {
-	if ( empty( $args->theme_location ) || 'utility' !== $args->theme_location ) {
+	$location = ! empty( $args->theme_location ) ? $args->theme_location : '';
+
+	if ( 'utility' !== $location && 'primary' !== $location ) {
 		return $items;
 	}
 
@@ -530,11 +544,7 @@ function blueline_utility_nav_auth_state( $items, $args ) {
 		return $items;
 	}
 
-	$login_url  = blueline_utility_login_url();
-	$login_path = blueline_utility_normalize_path( $login_url );
-
-	$has_login_link = false;
-	$filtered       = array();
+	$filtered = array();
 
 	foreach ( $items as $item ) {
 		$url = isset( $item->url ) ? (string) $item->url : '';
@@ -544,6 +554,24 @@ function blueline_utility_nav_auth_state( $items, $args ) {
 		if ( false !== strpos( $url, 'action=logout' ) ) {
 			continue;
 		}
+
+		$filtered[] = $item;
+	}
+
+	if ( 'primary' === $location ) {
+		// General site navigation, not an account-links menu -- drop the
+		// dead logout link and stop there; see this function's own
+		// docblock for why nothing is appended here the way 'utility' does.
+		return $filtered;
+	}
+
+	$login_url  = blueline_utility_login_url();
+	$login_path = blueline_utility_normalize_path( $login_url );
+
+	$has_login_link = false;
+
+	foreach ( $filtered as $item ) {
+		$url = isset( $item->url ) ? (string) $item->url : '';
 
 		if ( '' !== $login_path && blueline_utility_normalize_path( $url ) === $login_path ) {
 			// Same destination as the login link this filter would
@@ -556,8 +584,6 @@ function blueline_utility_nav_auth_state( $items, $args ) {
 				$has_login_link = true;
 			}
 		}
-
-		$filtered[] = $item;
 	}
 
 	if ( ! $has_login_link ) {
