@@ -618,16 +618,50 @@ a.bl-next-games__venue:focus-visible {
 	font-size: var(--bl-text-sm);
 }
 
-/* Same ink-on-ice accent chip as the primary nav's own active item (nav.css
-   .bl-nav__link[aria-current="page"] .bl-skew) -- a fixed brand pairing,
-   not a theme-aware one, so it reads correctly in light and dark alike. */
-.bl-standings-tabs__input:checked ~ .bl-standings-tabs__label .bl-skew {
+/*
+ * Same ink-on-ice accent chip as the primary nav's own active item (nav.css
+ * .bl-nav__link[aria-current="page"] .bl-skew) -- a fixed brand pairing,
+ * not a theme-aware one, so it reads correctly in light and dark alike.
+ *
+ * :nth-of-type pairing again (see the panel rule below for the full
+ * reasoning): a plain `:checked ~ .bl-standings-tabs__label` with no
+ * position match would style EVERY label after whichever radio is checked,
+ * not just that radio's own -- confirmed live (all five division pills lit
+ * up instead of only the checked one) before this was position-paired the
+ * same way the panels already were.
+ */
+.bl-standings-tabs__input:nth-of-type(1):checked ~ .bl-standings-tabs__label:nth-of-type(1) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(2):checked ~ .bl-standings-tabs__label:nth-of-type(2) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(3):checked ~ .bl-standings-tabs__label:nth-of-type(3) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(4):checked ~ .bl-standings-tabs__label:nth-of-type(4) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(5):checked ~ .bl-standings-tabs__label:nth-of-type(5) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(6):checked ~ .bl-standings-tabs__label:nth-of-type(6) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(7):checked ~ .bl-standings-tabs__label:nth-of-type(7) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(8):checked ~ .bl-standings-tabs__label:nth-of-type(8) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(9):checked ~ .bl-standings-tabs__label:nth-of-type(9) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(10):checked ~ .bl-standings-tabs__label:nth-of-type(10) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(11):checked ~ .bl-standings-tabs__label:nth-of-type(11) .bl-skew,
+.bl-standings-tabs__input:nth-of-type(12):checked ~ .bl-standings-tabs__label:nth-of-type(12) .bl-skew {
 	background: var(--bl-ice);
 	border-color: var(--bl-ice);
 	color: var(--bl-ink);
 }
 
-.bl-standings-tabs__input:focus-visible ~ .bl-standings-tabs__label {
+/* :nth-of-type pairing again -- see the checked-chip rule above; without
+   it, focusing any one radio would ring every label after it, not just
+   its own. */
+.bl-standings-tabs__input:nth-of-type(1):focus-visible ~ .bl-standings-tabs__label:nth-of-type(1),
+.bl-standings-tabs__input:nth-of-type(2):focus-visible ~ .bl-standings-tabs__label:nth-of-type(2),
+.bl-standings-tabs__input:nth-of-type(3):focus-visible ~ .bl-standings-tabs__label:nth-of-type(3),
+.bl-standings-tabs__input:nth-of-type(4):focus-visible ~ .bl-standings-tabs__label:nth-of-type(4),
+.bl-standings-tabs__input:nth-of-type(5):focus-visible ~ .bl-standings-tabs__label:nth-of-type(5),
+.bl-standings-tabs__input:nth-of-type(6):focus-visible ~ .bl-standings-tabs__label:nth-of-type(6),
+.bl-standings-tabs__input:nth-of-type(7):focus-visible ~ .bl-standings-tabs__label:nth-of-type(7),
+.bl-standings-tabs__input:nth-of-type(8):focus-visible ~ .bl-standings-tabs__label:nth-of-type(8),
+.bl-standings-tabs__input:nth-of-type(9):focus-visible ~ .bl-standings-tabs__label:nth-of-type(9),
+.bl-standings-tabs__input:nth-of-type(10):focus-visible ~ .bl-standings-tabs__label:nth-of-type(10),
+.bl-standings-tabs__input:nth-of-type(11):focus-visible ~ .bl-standings-tabs__label:nth-of-type(11),
+.bl-standings-tabs__input:nth-of-type(12):focus-visible ~ .bl-standings-tabs__label:nth-of-type(12) {
 	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
 }
