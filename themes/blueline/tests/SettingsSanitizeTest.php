@@ -799,7 +799,8 @@ final class SettingsSanitizeTest extends TestCase {
 	 * both defaulting to the empty "no bound" value that branch has to
 	 * accept), Task 7's 2 season-state break-glass fields (the second of
 	 * them the third `date` field), and the 16 `section` presence toggles (12 plus the Task 5 fix
-	 * round's 4 `chrome_footer_widgets_N` entries) generated from
+	 * round's 4 `chrome_footer_widgets_N` entries, plus the floating
+	 * next-game widget's own `floating_next_game` entry) generated from
 	 * blueline_section_definitions()
 	 * (inc/settings/sections.php) -- must still validate through
 	 * blueline_sanitize_field() unchanged. A default that failed here would
@@ -816,7 +817,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 51, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 52, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );
