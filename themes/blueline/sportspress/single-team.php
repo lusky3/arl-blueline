@@ -29,6 +29,14 @@ $team_color_attr = function_exists( 'blueline_team_color_style_attr' )
 	? blueline_team_color_style_attr( get_queried_object_id() )
 	: '';
 
-blueline_render_sp_single( 'blueline_sp_team_hero', $team_color_attr );
+// A logged-in, unclaimed visitor's nudge to link their player, above the
+// roster -- see blueline_render_claim_nudge()'s own docblock
+// (inc/account/dashboard.php). Passed as a callback rather than called
+// unconditionally inside blueline_render_sp_single() itself: that function
+// is the shared skeleton behind all four SportsPress single templates, and
+// this nudge belongs on a team's own page only.
+$bl_before_content = function_exists( 'blueline_render_claim_nudge' ) ? 'blueline_render_claim_nudge' : null;
+
+blueline_render_sp_single( 'blueline_sp_team_hero', $team_color_attr, $bl_before_content );
 
 get_footer();

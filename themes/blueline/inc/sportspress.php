@@ -69,19 +69,27 @@ function blueline_sp_has_sidebar(): bool {
  * `<main>` tag. This is that shared body; each of the four templates is now
  * just get_header(), one call here, and get_footer().
  *
- * @param callable $hero_callback   The entity's own hero renderer (e.g.
- *                                   'blueline_sp_event_hero'), called with the
- *                                   current post's ID at the point the hero used
- *                                   to render inline. All four hero functions are
- *                                   declared unconditionally in this same file, so
- *                                   they are always callable here.
- * @param string   $extra_main_attr Extra, already-escaped markup echoed into
- *                                   `<main>`'s opening tag: single-team.php's own
- *                                   team-colour custom properties
- *                                   (blueline_team_color_style_attr()). Empty for
- *                                   the other three templates.
+ * @param callable      $hero_callback     The entity's own hero renderer (e.g.
+ *                                          'blueline_sp_event_hero'), called with the
+ *                                          current post's ID at the point the hero used
+ *                                          to render inline. All four hero functions are
+ *                                          declared unconditionally in this same file, so
+ *                                          they are always callable here.
+ * @param string        $extra_main_attr   Extra, already-escaped markup echoed into
+ *                                          `<main>`'s opening tag: single-team.php's own
+ *                                          team-colour custom properties
+ *                                          (blueline_team_color_style_attr()). Empty for
+ *                                          the other three templates.
+ * @param callable|null $before_content_cb Optional, called with no arguments
+ *                                          immediately before the_content() (and
+ *                                          therefore above every SportsPress
+ *                                          auto-injected section, including the
+ *                                          roster) -- single-team.php's own claim
+ *                                          nudge (blueline_render_claim_nudge()).
+ *                                          Null (the default) for the other three
+ *                                          templates, which need no such content.
  */
-function blueline_render_sp_single( callable $hero_callback, string $extra_main_attr = '' ): void {
+function blueline_render_sp_single( callable $hero_callback, string $extra_main_attr = '', ?callable $before_content_cb = null ): void {
 	$has_sidebar = blueline_sp_has_sidebar();
 	?>
 	<main id="main" class="bl-main bl-main--sp bl-main--sp-hero" tabindex="-1"<?php echo $extra_main_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller-supplied markup is already escaped at its own source; see single-team.php. ?>>
@@ -94,6 +102,9 @@ function blueline_render_sp_single( callable $hero_callback, string $extra_main_
 			<div class="bl-container">
 				<div class="bl-content-layout<?php echo $has_sidebar ? ' bl-content-layout--has-sidebar' : ''; ?>">
 					<div class="bl-content-layout__primary">
+						<?php if ( $before_content_cb ) : ?>
+							<?php $before_content_cb(); ?>
+						<?php endif; ?>
 						<div class="entry-content bl-entry__content">
 							<?php the_content(); ?>
 						</div>

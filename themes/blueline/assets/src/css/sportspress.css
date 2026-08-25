@@ -206,6 +206,37 @@ table.bl-table-self-scroll {
 	font-weight: 700;
 }
 
+/*
+ * The signed-in viewer's OWN current team's row (league-table.php's
+ * $bl_my_team_ids), a distinct, per-VIEWER cue from .sp-highlight's
+ * admin-chosen "featured team" above -- the two mean different things and
+ * can coexist on the same or different rows. Deliberately a subtle tint
+ * plus a left-edge accent, not .sp-highlight's solid fill + bold text:
+ * this is one row inside a shared table (often with several other
+ * .sp-highlight-eligible tables on the same /standings page), not a
+ * standalone callout, so it needs to read as "yours" without competing
+ * with an admin's own highlight for the same visual language.
+ *
+ * Same var(--bl-team-primary, ...) custom-property inheritance
+ * .sp-highlight relies on -- league-table.php scopes it to THIS row only
+ * (via blueline_team_color_style_attr()), never page-wide, since a
+ * standings page lists many teams and only the viewer's own row may carry
+ * their colour. The fallback (10% --bl-ice mixed into --bl-content-surface,
+ * text left at the table's own default --bl-content-text; the border
+ * falling back to --bl-content-border-strong) is what renders everywhere
+ * blueline_team_color_style_attr() returns '' -- a team with no usable
+ * stored colour, or a table with no signed-in viewer on it at all -- and is
+ * the pairing tools/contrast-rules.json's own
+ * content-text-on-mine-row-tint / content-border-strong-on-content-surface
+ * rules verify; the dynamic --bl-team-primary/--bl-content-border-strong
+ * branch is guarded server-side by blueline_team_color_style_attr()'s own
+ * WCAG check instead (same guard .sp-highlight already trusts).
+ */
+.bl-sp-row--mine {
+	background: color-mix(in srgb, var(--bl-team-primary, var(--bl-ice)) 10%, var(--bl-content-surface));
+	border-inline-start: 3px solid var(--bl-team-primary, var(--bl-content-border-strong));
+}
+
 .sp-view-all-link {
 	margin-block-start: var(--bl-space-3);
 	font-size: var(--bl-text-sm);
@@ -432,7 +463,12 @@ table.bl-table-self-scroll {
 
 .bl-sp-roster__row {
 	display: grid;
-	grid-template-columns: 2.5rem 1fr auto;
+
+	/* Fourth (auto) track for .bl-sp-roster__you -- a goalie's own row can
+	   legitimately carry BOTH .bl-sp-roster__position and the "You" badge at
+	   once, and a 3-column template would wrap the 4th item onto its own
+	   implicit row instead of sitting beside .bl-sp-roster__position. */
+	grid-template-columns: 2.5rem 1fr auto auto;
 	align-items: center;
 	gap: var(--bl-space-3);
 	padding-block: var(--bl-space-2);
@@ -483,6 +519,36 @@ table.bl-table-self-scroll {
 	border: 1px solid var(--bl-content-border-strong);
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+/*
+ * "You" marker: the signed-in viewer's own row on their team's own roster
+ * (sportspress/team-lists.php, both the SP_Player_List-driven loop and the
+ * blueline_get_team_roster() fallback). Visible TEXT, not just a colour or
+ * icon, so the cue does not rely on colour alone (WCAG 1.4.1). Same small
+ * pill shape this theme already uses for a toggle/tab chip
+ * (.bl-sp-standings-toggle-label / .bl-standings-tabs__label .bl-skew,
+ * border-radius: 999px), but filled rather than outlined -- this is a
+ * status marker, not an interactive control -- reusing the same ink-on-ice
+ * fill/text pairing .sp-highlight and .bl-btn--primary already rely on
+ * (tools/contrast-rules.json's "ink-on-ice" rule), so no new contrast rule
+ * is needed. No team-colour tinting here on purpose: this template only
+ * ever renders on a team's own single page, already uniformly team-
+ * coloured via single-team.php's own blueline_team_color_style_attr() on
+ * <main> -- a team-coloured badge here would blend into an
+ * already-team-coloured page and distinguish nothing.
+ */
+.bl-sp-roster__you {
+	justify-self: end;
+	padding: 1px var(--bl-space-3);
+	border-radius: 999px;
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-size: var(--bl-text-xs);
+	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 	white-space: nowrap;

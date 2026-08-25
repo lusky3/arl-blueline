@@ -51,6 +51,19 @@ $team  = new SP_Team( $id );
 $lists = $team->lists();
 
 /*
+ * The signed-in viewer's own linked player, if any -- read once, not per
+ * row, since it is the same answer for both roster loops below (the
+ * SP_Player_List-driven one and the blueline_get_team_roster() fallback).
+ * Deliberately no team-colour tinting here (unlike league-table.php's
+ * .bl-sp-row--mine): this template only ever renders on a team's OWN
+ * single page, already uniformly team-coloured via single-team.php's own
+ * blueline_team_color_style_attr() on <main> -- tinting a roster row here
+ * too would colour the whole roster and distinguish nothing. A plain "You"
+ * text badge is the whole treatment.
+ */
+$bl_current_user_player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
+
+/*
  * Live-site review: a team can be fully, correctly rostered on the account
  * dashboard's own My Team module (blueline_get_team_roster(),
  * inc/account/dashboard.php, reading the sp_current_team meta every
@@ -108,6 +121,9 @@ if ( empty( $lists ) ) {
 					<?php endif; ?>
 					<?php echo esc_html( $mate['name'] ); ?>
 				</a>
+				<?php if ( $bl_current_user_player_id && $mate['player_id'] === $bl_current_user_player_id ) : ?>
+					<span class="bl-sp-roster__you"><?php esc_html_e( 'You', 'blueline' ); ?></span>
+				<?php endif; ?>
 			</li>
 		<?php endforeach; ?>
 	</ul>
@@ -243,6 +259,9 @@ foreach ( $lists as $list_post ) :
 					</a>
 					<?php if ( $show_position ) : ?>
 						<span class="bl-sp-roster__position"><?php echo esc_html( $position_label ); ?></span>
+					<?php endif; ?>
+					<?php if ( $bl_current_user_player_id && (int) $player_id === $bl_current_user_player_id ) : ?>
+						<span class="bl-sp-roster__you"><?php esc_html_e( 'You', 'blueline' ); ?></span>
 					<?php endif; ?>
 				</li>
 				<?php
