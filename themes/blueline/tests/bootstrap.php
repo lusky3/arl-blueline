@@ -266,32 +266,6 @@ if ( ! function_exists( 'wp_nav_menu' ) ) {
 		return null;
 	}
 }
-if ( ! function_exists( 'is_singular' ) ) {
-	/**
-	 * Minimal stand-in for WordPress' is_singular(): true only when the
-	 * requested post type (or one of the requested types) matches
-	 * $GLOBALS['bl_test_is_singular_post_type'] -- a single post-type string
-	 * a test sets to simulate "currently viewing one singular post of this
-	 * type", or '' (the default) to simulate any non-singular request
-	 * (an archive, a taxonomy view, 404, etc.).
-	 *
-	 * @param string|string[] $post_types Optional. Post type(s) to check.
-	 * @return bool
-	 */
-	function is_singular( $post_types = '' ) {
-		$current = $GLOBALS['bl_test_is_singular_post_type'] ?? '';
-
-		if ( '' === $current ) {
-			return false;
-		}
-
-		if ( '' === $post_types ) {
-			return true;
-		}
-
-		return in_array( $current, (array) $post_types, true );
-	}
-}
 if ( ! function_exists( 'get_nav_menu_locations' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_nav_menu_locations(): a
@@ -1707,16 +1681,15 @@ if ( ! function_exists( 'wp_get_post_terms' ) ) {
 		return $terms;
 	}
 }
-$GLOBALS['bl_test_hooks']                 = array();
-$GLOBALS['bl_test_options']               = array();
-$GLOBALS['bl_test_option_autoload']       = array();
-$GLOBALS['bl_test_transients']            = array();
-$GLOBALS['bl_test_cache']                 = array();
-$GLOBALS['bl_test_nav_menu_locations']    = array();
-$GLOBALS['bl_test_nav_menu_assignments']  = array();
-$GLOBALS['bl_test_nav_menu_items']        = array();
-$GLOBALS['bl_test_is_singular_post_type'] = '';
-$GLOBALS['bl_test_cron']                  = array();
+$GLOBALS['bl_test_hooks']                = array();
+$GLOBALS['bl_test_options']              = array();
+$GLOBALS['bl_test_option_autoload']      = array();
+$GLOBALS['bl_test_transients']           = array();
+$GLOBALS['bl_test_cache']                = array();
+$GLOBALS['bl_test_nav_menu_locations']   = array();
+$GLOBALS['bl_test_nav_menu_assignments'] = array();
+$GLOBALS['bl_test_nav_menu_items']       = array();
+$GLOBALS['bl_test_cron']                 = array();
 
 /**
  * Reset the in-memory option store. Call from setUp() (directly, or via the

@@ -34,9 +34,8 @@ final class SpNavCurrentItemTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
-		$GLOBALS['bl_test_is_singular_post_type'] = '';
-		$GLOBALS['bl_test_nav_menu_assignments']  = array();
-		$GLOBALS['bl_test_nav_menu_items']        = array();
+		$GLOBALS['bl_test_nav_menu_assignments'] = array();
+		$GLOBALS['bl_test_nav_menu_items']       = array();
 	}
 
 	/**
@@ -85,7 +84,7 @@ final class SpNavCurrentItemTest extends TestCase {
 	 * 'utility' account menu must never be touched.
 	 */
 	public function test_non_primary_location_is_left_untouched(): void {
-		$GLOBALS['bl_test_is_singular_post_type'] = 'sp_event';
+		blueline_test_set_queried_post_type( 'sp_event' );
 
 		$items = array( $this->menu_item( 'https://example.test/schedule' ) );
 
@@ -99,9 +98,9 @@ final class SpNavCurrentItemTest extends TestCase {
 	 * page_schedule's resolved link as current.
 	 */
 	public function test_singular_event_marks_the_schedule_item_current(): void {
-		$GLOBALS['bl_test_is_singular_post_type'] = 'sp_event';
-		$state                                    = &blueline_test_state();
-		$state['post_types']                      = array( 'sp_team' );
+		blueline_test_set_queried_post_type( 'sp_event' );
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_team' );
 
 		$items = array(
 			$this->menu_item( 'https://example.test/news' ),
@@ -122,11 +121,11 @@ final class SpNavCurrentItemTest extends TestCase {
 	 * blueline_sp_primary_nav_title_url()'s own docblock).
 	 */
 	public function test_singular_team_marks_the_rosters_item_current(): void {
-		$GLOBALS['bl_test_is_singular_post_type'] = 'sp_team';
-		$state                                    = &blueline_test_state();
-		$state['post_types']                      = array( 'sp_team' );
-		$GLOBALS['bl_test_nav_menu_assignments']  = array( 'primary' => 12 );
-		$GLOBALS['bl_test_nav_menu_items'][12]    = array(
+		blueline_test_set_queried_post_type( 'sp_team' );
+		$state                                   = &blueline_test_state();
+		$state['post_types']                     = array( 'sp_team' );
+		$GLOBALS['bl_test_nav_menu_assignments'] = array( 'primary' => 12 );
+		$GLOBALS['bl_test_nav_menu_items'][12]   = array(
 			(object) array(
 				'title'            => 'Rosters / Stats',
 				'url'              => 'https://example.test/rosters-and-stats',
