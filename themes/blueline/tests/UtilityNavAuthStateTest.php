@@ -19,6 +19,12 @@ require_once __DIR__ . '/../inc/template-tags.php';
  * 'wp_nav_menu_objects' filter added in inc/template-tags.php) is what
  * fixes that; these tests call it directly, the same pattern
  * NavWalkerDedupTest.php uses for the walker.
+ *
+ * Also covers the same bug's second instance, found live 2026-08-25: the
+ * 'primary' menu (general site navigation) had an admin-added "Log Out"
+ * item with the identical problem. 'primary' gets a simpler fix than
+ * 'utility' -- see blueline_utility_nav_auth_state()'s own docblock for
+ * why no "Log In" item is appended there.
  */
 final class UtilityNavAuthStateTest extends TestCase {
 
@@ -46,11 +52,79 @@ final class UtilityNavAuthStateTest extends TestCase {
 	}
 
 	/**
-	 * A call for a location OTHER than 'utility' must pass its items
-	 * through completely untouched, regardless of login state.
+	 * A call for a location that is neither 'utility' nor 'primary' (e.g.
+	 * 'footer') must pass its items through completely untouched,
+	 * regardless of login state -- this filter has no business touching a
+	 * menu location it was never asked to fix.
 	 */
-	public function test_non_utility_location_is_left_untouched(): void {
+	public function test_unrelated_location_is_left_untouched(): void {
 		$items = array( $this->menu_item( 'https://example.test/wp-login.php?action=logout', 'Log Out' ) );
+		$args  = (object) array( 'theme_location' => 'footer' );
+
+		$result = blueline_utility_nav_auth_state( $items, $args );
+
+		$this->assertSame( $items, $result );
+	}
+
+	/**
+	 * The second live bug, found 2026-08-25: the SAME dead "Log Out" link
+	 * problem existed in the 'primary' menu (general site navigation) too,
+	 * not just 'utility'. A logged-out visitor must never see it there
+	 * either.
+	 */
+	public function test_primary_location_logged_out_drops_the_logout_link(): void {
+		$items = array(
+			$this->menu_item( 'https://example.test/', 'Home' ),
+			$this->menu_item( 'https://example.test/wp-login.php?action=logout&_wpnonce=abc', 'Log Out' ),
+			$this->menu_item( 'https://example.test/standings', 'Standings' ),
+		);
+		$args  = (object) array( 'theme_location' => 'primary' );
+
+		$result = blueline_utility_nav_auth_state( $items, $args );
+
+		foreach ( $result as $item ) {
+			$this->assertStringNotContainsString( 'action=logout', $item->url );
+		}
+	}
+
+	/**
+	 * 'primary' is general site navigation, not an account-links menu the
+	 * way 'utility' is -- unlike 'utility', it must NOT get a "Log In" item
+	 * appended in the logout link's place. Just the two real nav items
+	 * should remain.
+	 */
+	public function test_primary_location_logged_out_does_not_gain_a_login_link(): void {
+		$items = array(
+			$this->menu_item( 'https://example.test/', 'Home' ),
+			$this->menu_item( 'https://example.test/wp-login.php?action=logout&_wpnonce=abc', 'Log Out' ),
+			$this->menu_item( 'https://example.test/standings', 'Standings' ),
+		);
+		$args  = (object) array( 'theme_location' => 'primary' );
+
+		$result = blueline_utility_nav_auth_state( $items, $args );
+
+		$titles = array_map(
+			static function ( $item ) {
+				return $item->title;
+			},
+			$result
+		);
+
+		$this->assertSame( array( 'Home', 'Standings' ), $titles );
+	}
+
+	/**
+	 * A logged-IN visitor's primary menu must render exactly as configured
+	 * -- same guarantee 'utility' already has.
+	 */
+	public function test_primary_location_logged_in_visitor_menu_is_untouched(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 42;
+
+		$items = array(
+			$this->menu_item( 'https://example.test/', 'Home' ),
+			$this->menu_item( 'https://example.test/wp-login.php?action=logout&_wpnonce=abc', 'Log Out' ),
+		);
 		$args  = (object) array( 'theme_location' => 'primary' );
 
 		$result = blueline_utility_nav_auth_state( $items, $args );
