@@ -8,33 +8,41 @@
  * on dismiss rather than the element removed) but is kept a separate module
  * -- see inc/floating-next-game.php's own docblock for why this is a
  * distinct sitewide feature from the announcement banner, not a variant of
- * it -- with its own localStorage key and `data-*` attribute so the two
+ * it -- with its own localStorage keys and `data-*` attribute so the two
  * scripts never collide.
  *
- * The one deliberate difference from announcement.js: the stored/compared
- * value here is `event_id:fingerprint` (`data-bl-next-game`), not a content
- * hash of the rendered text. Design spec: docs/superpowers/specs/2026-08-25-
- * blueline-schedule-change-notice-design.md. `event_id` alone (this file's
- * original shape) meant a dismissal only ever suppressed that one game and
- * the widget naturally reappeared once blueline_get_player_next_event()
- * started returning a different event -- that property is unchanged.
- * `fingerprint` (a hash of the event's own date/time, venue, opponent, and
- * home/away flag -- blueline_event_schedule_fingerprint() in inc/account/
- * player-data.php) adds a second property on top: a dismissal of THIS
- * version of the game must not suppress a later, changed version of the
- * SAME game. Three outcomes when comparing the stored pair against the
- * current one:
+ * TWO separate keys, not one -- a real bug found live 2026-08-25: an
+ * earlier version of this feature used ONE shared `event_id:fingerprint`
+ * value for both "the visitor explicitly dismissed this widget" AND "the
+ * visitor viewed the My Account next-game card" (assets/src/js/
+ * account-next-game.js writes on every view of that card, by design, so
+ * the "Updated" flag there doesn't keep nagging once you've looked). Since
+ * both surfaces describe the SAME underlying game, sharing one key meant
+ * merely visiting My Account silently marked the FLOATING WIDGET as
+ * dismissed too -- it would flash on the very next page (server always
+ * renders it) and then immediately hide itself, on every single page
+ * after that, with no dismiss click ever happening. Splitting the concern
+ * into two keys fixes it:
  *
- * - Equal event id, equal fingerprint: unchanged since it was dismissed --
- *   hidden, same as before this feature existed.
- * - Equal event id, different fingerprint: the same game, but its details
- *   changed since this browser last saw it -- shown, with the "Updated"
- *   indicator revealed, even if the old version was already dismissed.
- * - Different event id (or nothing stored yet): a genuinely different next
- *   game, not a change to one already seen -- shown normally, no indicator.
+ * - `blueline:next-game-dismissed` -- written ONLY by this widget's own
+ *   dismiss button. Read ONLY to decide whether to hide the widget.
+ *   Visiting My Account never touches this key.
+ * - `blueline:next-game-seen` -- written by dismissing this widget AND by
+ *   viewing the My Account card (account-next-game.js). Read ONLY to
+ *   decide whether to reveal the "Updated" indicator -- never affects
+ *   whether the widget itself is shown or hidden.
+ *
+ * The stored/compared value under each key is still `event_id:fingerprint`
+ * (`data-bl-next-game`), not a content hash of the rendered text. Design
+ * spec: docs/superpowers/specs/2026-08-25-blueline-schedule-change-notice-
+ * design.md. `fingerprint` (a hash of the event's own date/time, venue,
+ * opponent, and home/away flag -- blueline_event_schedule_fingerprint() in
+ * inc/account/player-data.php) is what lets a dismissal of THIS version of
+ * a game not suppress a later, changed version of the SAME game.
  */
 
-const STORAGE_KEY = 'blueline:next-game-dismissed';
+const DISMISSED_KEY = 'blueline:next-game-dismissed';
+const SEEN_KEY = 'blueline:next-game-seen';
 
 /**
  * Parse a stored or server-rendered `event_id:fingerprint` pair into its two
@@ -70,29 +78,31 @@ function parseNextGameState( raw ) {
 }
 
 /**
- * The `event_id:fingerprint` pair this browser last dismissed, or null.
+ * The `event_id:fingerprint` pair stored under the given key, or null.
  *
+ * @param {string} key The localStorage key to read.
  * @return {string|null} The stored pair.
  */
-function readDismissed() {
+function readState( key ) {
 	try {
-		return window.localStorage.getItem( STORAGE_KEY );
+		return window.localStorage.getItem( key );
 	} catch {
-		// Storage disabled or unavailable -- treat as never dismissed.
+		// Storage disabled or unavailable -- treat as never stored.
 		return null;
 	}
 }
 
 /**
- * Remember a dismissal. A failure to store is not worth surfacing: the
- * widget still closes for this page view, it just comes back on the next
- * one.
+ * Store an `event_id:fingerprint` pair under the given key. A failure to
+ * store is not worth surfacing: the widget still behaves correctly for
+ * this page view, it just cannot remember it for the next one.
  *
- * @param {string} state The dismissed `event_id:fingerprint` pair.
+ * @param {string} key   The localStorage key to write.
+ * @param {string} state The `event_id:fingerprint` pair to store.
  */
-function rememberDismissed( state ) {
+function writeState( key, state ) {
 	try {
-		window.localStorage.setItem( STORAGE_KEY, state );
+		window.localStorage.setItem( key, state );
 	} catch {
 		// Intentionally ignored -- see this function's own docblock.
 	}
@@ -112,12 +122,24 @@ if ( typeof document !== 'undefined' ) {
 	if ( widget ) {
 		const currentRaw = widget.getAttribute( 'data-bl-next-game' );
 		const current = parseNextGameState( currentRaw );
-		const stored = parseNextGameState( readDismissed() );
+		const dismissed = parseNextGameState( readState( DISMISSED_KEY ) );
 
-		if ( current && stored && stored.eventId === current.eventId ) {
-			if ( stored.fingerprint === current.fingerprint ) {
-				widget.hidden = true;
-			} else {
+		if (
+			current &&
+			dismissed &&
+			dismissed.eventId === current.eventId &&
+			dismissed.fingerprint === current.fingerprint
+		) {
+			widget.hidden = true;
+		} else {
+			const seen = parseNextGameState( readState( SEEN_KEY ) );
+
+			if (
+				current &&
+				seen &&
+				seen.eventId === current.eventId &&
+				seen.fingerprint !== current.fingerprint
+			) {
 				const updated = widget.querySelector(
 					'[data-bl-next-game-updated]'
 				);
@@ -135,7 +157,12 @@ if ( typeof document !== 'undefined' ) {
 				widget.hidden = true;
 
 				if ( currentRaw ) {
-					rememberDismissed( currentRaw );
+					// Dismissing also counts as having seen it -- otherwise
+					// the "Updated" badge would immediately reappear on the
+					// next page, right after the visitor just dismissed
+					// this exact state.
+					writeState( DISMISSED_KEY, currentRaw );
+					writeState( SEEN_KEY, currentRaw );
 				}
 			} );
 		}
