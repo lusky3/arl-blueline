@@ -34,7 +34,11 @@
 .bl-footer::before {
 	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
 	height: var(--bl-band-ice);
-	background: var(--bl-ice);
+
+	/* design spec §7.2's "signature band" -- see header.css's
+	 * .bl-btn--primary .bl-skew for why --bl-occasion-accent is a
+	 * no-op swap by default. */
+	background: var(--bl-occasion-accent);
 }
 
 .bl-footer::after {
@@ -129,6 +133,7 @@
 
 .bl-footer__bottom-inner {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bl-space-3);
 	padding-block: var(--bl-space-5) 0;
@@ -144,6 +149,28 @@
 .bl-footer__copyright {
 	margin: 0;
 	font-size: var(--bl-text-sm);
+}
+
+/*
+ * The active occasion's optional `line` (design spec §7.1) -- forced onto
+ * its own full-width row via flex-basis rather than squeezed in beside the
+ * leaf mark and copyright, since it is the one piece of this bar whose
+ * presence is conditional (inc/template-tags.php's blueline_site_footer()
+ * prints nothing at all when no occasion is active or its line is unset).
+ */
+.bl-footer__occasion-line {
+	flex-basis: 100%;
+	margin: 0;
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+
+	/* --bl-pale, not --bl-occasion-accent: the resolver's own AA gate only
+	 * validates the accent as a FILL under --bl-ink text (design spec
+	 * §4.5), never as foreground text on this footer's own dark
+	 * --bl-ink-deep ground -- a different pairing this file's own
+	 * docblock already restricts to --bl-pale/--bl-paper for exactly this
+	 * reason. */
+	color: var(--bl-pale);
 }
 
 /*

@@ -547,8 +547,35 @@
 }
 
 .bl-btn--primary .bl-skew {
-	background: var(--bl-ice);
+
+	/* design spec §7.2's "CTA ribbon fill" -- --bl-occasion-accent defaults
+	 * to var(--bl-ice) (style.css's :root), so this is a no-op change to
+	 * every-day appearance; inc/occasions.php's
+	 * blueline_occasion_front_end_styles() is what actually varies the
+	 * token's value while an occasion is active. */
+	background: var(--bl-occasion-accent);
 	color: var(--bl-ink);
+}
+
+.bl-header__occasion-motif {
+	display: inline-flex;
+	align-items: center;
+	margin-inline-start: var(--bl-space-2);
+	width: 1.1em;
+	height: 1.1em;
+
+	/* Sits beside the skewed ribbon, on the header's own dark ground, not
+	 * on the ribbon's ice/accent fill -- --bl-ink (correct for text ON the
+	 * fill) would be invisible here. The motif SVGs render with
+	 * fill/stroke="currentColor", so this ties the icon's colour to the
+	 * same accent the ribbon just got, keeping the two paired. */
+	color: var(--bl-occasion-accent);
+	flex-shrink: 0;
+}
+
+.bl-header__occasion-motif svg {
+	width: 100%;
+	height: 100%;
 }
 
 /*

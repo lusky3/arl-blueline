@@ -650,6 +650,7 @@ function blueline_test_reset_state(): void {
 		'active_sidebars' => array(),
 		'timezone'        => 'America/Toronto',
 		'now'             => null,
+		'inline_styles'   => array(),
 	);
 
 	if ( function_exists( 'blueline_linked_player_cache' ) ) {
@@ -2438,6 +2439,28 @@ if ( ! function_exists( 'wp_doing_ajax' ) ) {
 		}
 
 		return defined( 'DOING_AJAX' ) && DOING_AJAX;
+	}
+}
+
+if ( ! function_exists( 'wp_add_inline_style' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_add_inline_style(): records every
+	 * call in blueline_test_state()['inline_styles'] as [$handle, $css]
+	 * rather than actually queuing anything for output, so a test can
+	 * assert on exactly what a real call site tried to add without a real
+	 * style-dependency system behind it.
+	 *
+	 * @param string $handle Registered style handle.
+	 * @param string $data   CSS to add inline.
+	 * @return bool Always true, matching core's own "handle exists" return
+	 *              shape closely enough for every call site in this theme,
+	 *              none of which branch on the return value.
+	 */
+	function wp_add_inline_style( $handle, $data ) {
+		$state                    = &blueline_test_state();
+		$state['inline_styles'][] = array( $handle, $data );
+
+		return true;
 	}
 }
 

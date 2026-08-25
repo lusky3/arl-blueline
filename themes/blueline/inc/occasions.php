@@ -1039,6 +1039,90 @@ function blueline_occasion_suppress_urgent_announcement( string $severity ): str
 add_filter( 'blueline_announcement_severity', 'blueline_occasion_suppress_urgent_announcement' );
 
 /**
+ * Emit `--bl-occasion-accent`'s real, per-request resolved value as an
+ * inline override on the `blueline-tokens` handle (inc/enqueue.php) -- the
+ * same handle style.css's own static `--bl-occasion-accent: var(--bl-ice);`
+ * default lives on. This is the piece that was missing entirely: design
+ * spec §7.2 names this token's consumers ("the CTA ribbon fill, the
+ * signature band, the motif" -- header.css's `.bl-btn--primary .bl-skew`,
+ * woocommerce.css's `.single_add_to_cart_button::before`, base.css's
+ * `.bl-band`, footer.css's `.bl-footer::before`, homepage.css's
+ * `.bl-module + .bl-module::before`), but nothing ever varied the token's
+ * VALUE per request before this.
+ *
+ * Emits nothing when no occasion is active: the static default already
+ * covers that case, so there is nothing to override.
+ *
+ * Priority 20 on the same `wp_enqueue_scripts` hook
+ * blueline_enqueue_assets() (inc/enqueue.php, default priority 10) uses,
+ * so the `blueline-tokens` handle it enqueues already exists by the time
+ * this runs -- wp_add_inline_style() on an unregistered handle is silently
+ * a no-op.
+ *
+ * @return void
+ */
+function blueline_occasion_front_end_styles(): void {
+	$occasion = blueline_resolve_active_occasion();
+
+	if ( null === $occasion ) {
+		return;
+	}
+
+	$accent = $occasion['resolved_accent'] ?? '';
+
+	// Defensive, matching this file's own reasoning elsewhere (e.g. the
+	// serializer note in the original design decisions): resolved_accent
+	// is already blueline_sanitize_hex_color()'d by the resolver, but this
+	// value is about to reach raw, unescaped CSS text with no output
+	// escaping mechanism suited to that context -- assert its shape
+	// directly rather than trust it.
+	if ( ! preg_match( '/^#[0-9a-fA-F]{6}$/', $accent ) ) {
+		return;
+	}
+
+	wp_add_inline_style( 'blueline-tokens', ':root{--bl-occasion-accent:' . $accent . ';}' );
+}
+add_action( 'wp_enqueue_scripts', 'blueline_occasion_front_end_styles', 20 );
+
+/**
+ * Render the active occasion's motif, wrapped for placement next to the
+ * header's primary CTA (inc/template-tags.php's blueline_site_header()) --
+ * design spec §7.2's third named `--bl-occasion-accent` consumer. Renders
+ * nothing when no occasion is active or its motif is 'none': the wrapper
+ * itself is only ever printed when there is something to put in it, so an
+ * empty `.bl-header__occasion-motif` never sits in the markup unused.
+ *
+ * @return void
+ */
+function blueline_render_header_occasion_motif(): void {
+	$occasion = blueline_resolve_active_occasion();
+
+	if ( null === $occasion || 'none' === ( $occasion['motif'] ?? 'none' ) ) {
+		return;
+	}
+	?>
+	<span class="bl-header__occasion-motif">
+		<?php blueline_render_occasion_motif( $occasion['motif'] ); ?>
+	</span>
+	<?php
+}
+
+/**
+ * The active occasion's `line`, or '' if none is active or it has none set.
+ * Reads straight off blueline_resolve_active_occasion() -- no separate
+ * validation, since blueline_sanitize_occasions() already rejects a `line`
+ * containing a placeholder token on write (design spec §5/§7.1: "no
+ * placeholders permitted").
+ *
+ * @return string
+ */
+function blueline_active_occasion_line(): string {
+	$occasion = blueline_resolve_active_occasion();
+
+	return null === $occasion ? '' : (string) ( $occasion['line'] ?? '' );
+}
+
+/**
  * The WP-Cron hook name for the boundary purge. A single event is ever
  * scheduled against this hook at a time (design spec §5/§7.8: "a single
  * WP-Cron event").
