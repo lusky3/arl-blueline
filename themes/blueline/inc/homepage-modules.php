@@ -948,13 +948,25 @@ function blueline_homepage_active_event_season_term_id() {
 }
 
 /**
+ * The most division tabs blueline_homepage_module_standings_snippet() will
+ * ever render. Must match assets/src/css/homepage.css's own hand-enumerated
+ * :nth-of-type(1) through :nth-of-type(12) pairing exactly -- CSS has no
+ * way to express "match the Nth of each type, for any N" without knowing N
+ * in advance, so raising this constant means adding more pairs there too.
+ * Well above this site's own historical maximum (7 lettered groups, one
+ * winter season).
+ */
+const BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS = 12;
+
+/**
  * Every sp_table post id + short tab label for the active season's
  * division/group standings (sp_table titles on this site follow "Division
  * N | <Season>", e.g. "Division 1 | S2026", or "Division N | Playoffs
  * <Season>" -- older seasons in the archive instead use "Group A".."Group
- * G"). Returned in the order sp_table titles naturally sort, which already
- * puts both naming conventions in the right reading order for a single
- * season without any extra parsing.
+ * G"). Returned in natural-sort order by the extracted label ("1".."9",
+ * then "10".."12", "A".."Z"), not the query's own title-string order --
+ * plain string order breaks past 9 divisions ("Division 10" would sort
+ * before "Division 2").
  *
  * Playoffs-ness must be read off the resolved sp_season TERM's own name,
  * not $state alone: the term can already say "Playoffs" (e.g. "S2026
@@ -1025,6 +1037,33 @@ function blueline_homepage_current_standings_tables( string $state ): array {
 		);
 	}
 
+	return blueline_homepage_standings_tables_sort( $tables );
+}
+
+/**
+ * Sort a set of division tables by their own extracted label, not the
+ * query's title-string order: "Division 1".."Division 9" happen to sort
+ * correctly as plain strings, but "Division 10" would sort BEFORE
+ * "Division 2" that way. strnatcasecmp() compares embedded digit runs
+ * numerically ("2" < "10") while still handling non-numeric labels ("A" <
+ * "B", "4B" < "10") -- exactly what a mixed Division-N/Group-X/lettered-
+ * subdivision archive needs.
+ *
+ * Pure array-in, array-out function, split out purely so it's directly
+ * unit-testable -- matching blueline_homepage_standings_table_label()'s own
+ * trade-off just above.
+ *
+ * @param array<int, array{id:int, label:string}> $tables Unsorted tables.
+ * @return array<int, array{id:int, label:string}> The same entries, sorted.
+ */
+function blueline_homepage_standings_tables_sort( array $tables ): array {
+	usort(
+		$tables,
+		static function ( array $a, array $b ): int {
+			return strnatcasecmp( $a['label'], $b['label'] );
+		}
+	);
+
 	return $tables;
 }
 
@@ -1062,10 +1101,18 @@ function blueline_homepage_standings_table_label( string $title ): string {
  * strip (blueline_homepage_standings_tabs()) so a visitor whose team is in
  * Division 3 isn't left looking at Division 1's table with no way to reach
  * their own from the homepage.
+ *
+ * Capped at BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS: assets/src/css/
+ * homepage.css's tab/panel pairing is a hand-enumerated, finite set of
+ * :nth-of-type rules (there is no way to express "match the Nth of each
+ * type, for any N" in CSS without knowing N in advance), so a season with
+ * more divisions than that has nothing to render extra tabs against --
+ * sliced BEFORE do_shortcode() runs, so a division that will never get a
+ * tab never pays for one either.
  */
 function blueline_homepage_module_standings_snippet() {
 	$state  = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
-	$tables = blueline_homepage_current_standings_tables( $state );
+	$tables = array_slice( blueline_homepage_current_standings_tables( $state ), 0, BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS );
 	$panels = array();
 
 	foreach ( $tables as $table ) {
@@ -1140,13 +1187,22 @@ function blueline_homepage_module_standings_snippet() {
  * way to match "this panel" to "that radio" in pure CSS without knowing
  * sp_table post ids in advance) requires each pairing's radio and panel to
  * both be reachable via the `~` general sibling combinator, which only
- * matches elements sharing a parent.
+ * matches elements sharing a parent. That same constraint rules out
+ * wrapping just the radios in a <fieldset> (a panel outside it could no
+ * longer be reached via `~` from its own radio) or putting `role=
+ * "radiogroup"` on this function's own outermost element (every division's
+ * full standings table would then sit inside the announced group's
+ * boundary alongside the actual controls). Same-`name` native radios are
+ * already exposed as a group to assistive tech with no role needed; the
+ * screen-reader-text span below exists only to give that native group an
+ * accessible NAME, the one thing native grouping doesn't supply on its own.
  *
  * @param array<int, array{id:int, label:string, html:string}> $panels At least 2 entries.
  */
 function blueline_homepage_standings_tabs( array $panels ) {
 	?>
-	<div class="bl-standings-tabs" role="radiogroup" aria-label="<?php esc_attr_e( 'Division', 'blueline' ); ?>">
+	<div class="bl-standings-tabs">
+		<span class="screen-reader-text"><?php esc_html_e( 'Choose a division', 'blueline' ); ?></span>
 		<?php foreach ( $panels as $index => $panel ) : ?>
 			<input
 				type="radio"

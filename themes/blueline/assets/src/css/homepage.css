@@ -642,10 +642,12 @@ a.bl-next-games__venue:focus-visible {
  * are the only <input>s here and panels the only <div>s, so "1st input" and
  * "1st div" both correctly mean "this division's own pair" with no id
  * matching needed. 12 pairs is well above this site's own historical
- * maximum (7 lettered groups, one winter season); a season that somehow
- * exceeds it degrades to exactly today's behaviour for the extra
- * divisions -- reachable on /standings, just not toggleable from this
- * strip -- never to a blank or broken tab.
+ * maximum (7 lettered groups, one winter season). inc/homepage-modules.php's
+ * BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS caps how many tabs/panels are ever
+ * rendered at exactly this number -- there is no 13th pair below to match,
+ * so a season that somehow exceeds it simply never offers a tab for the
+ * extra divisions (still reachable on /standings) rather than rendering an
+ * unmatchable, permanently-blank tab strip.
  */
 .bl-standings-tabs__input:nth-of-type(1):checked ~ .bl-standings-tabs__panel:nth-of-type(1),
 .bl-standings-tabs__input:nth-of-type(2):checked ~ .bl-standings-tabs__panel:nth-of-type(2),
