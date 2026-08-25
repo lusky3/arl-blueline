@@ -951,8 +951,12 @@ function blueline_homepage_active_event_season_term_id() {
  * The sp_table post id for the division/season snippet to show on the
  * homepage. Prefers the lowest-numbered division for the active season
  * (sp_table titles on this site follow "Division N | <Season>", e.g.
- * "Division 1 | S2026", or "Division N | Playoffs <Season>"), matching the
- * Playoffs variant only while the playoffs state is active.
+ * "Division 1 | S2026", or "Division N | Playoffs <Season>").
+ *
+ * Playoffs-ness must be read off the resolved sp_season TERM's own name,
+ * not $state alone: the term can already say "Playoffs" (e.g. "S2026
+ * Playoffs") while $state has moved on to 'registration_open' for the next
+ * season, since the two track different things.
  *
  * @param string $state Season state.
  * @return int|null
@@ -974,8 +978,12 @@ function blueline_homepage_current_standings_table_id( string $state ) {
 		return null;
 	}
 
-	$is_playoffs = ( 'playoffs' === $state );
-	$needle      = $is_playoffs ? 'Playoffs ' . $season_term->name : $season_term->name;
+	// Rebuild the needle in title word order ("Playoffs S2026"), which is
+	// the reverse of how the term name stores it ("S2026 Playoffs").
+	$term_says_playoffs = (bool) preg_match( '/\bplayoffs\b/i', $season_term->name );
+	$is_playoffs        = $term_says_playoffs || ( 'playoffs' === $state );
+	$season_label       = trim( (string) preg_replace( '/\s*\bplayoffs\b\s*/i', ' ', $season_term->name ) );
+	$needle             = $is_playoffs ? 'Playoffs ' . $season_label : $season_label;
 
 	$candidates = get_posts(
 		array(
