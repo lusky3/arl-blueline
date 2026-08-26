@@ -61,7 +61,7 @@ function blueline_account_endpoints(): array {
 		),
 		'edit-account'    => array(
 			'label' => __( 'Account Details', 'blueline' ),
-			'group' => 'billing',
+			'group' => 'account',
 			'order' => 100,
 		),
 	);

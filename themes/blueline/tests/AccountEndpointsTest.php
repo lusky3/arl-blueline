@@ -130,8 +130,19 @@ final class AccountEndpointsTest extends TestCase {
 	public function test_every_endpoint_has_a_label(): void {
 		foreach ( blueline_account_endpoints() as $slug => $cfg ) {
 			$this->assertNotEmpty( $cfg['label'], "endpoint $slug has no label" );
-			$this->assertContains( $cfg['group'], array( 'league', 'billing' ) );
+			$this->assertContains( $cfg['group'], array( 'league', 'billing', 'account' ) );
 		}
+	}
+
+	/**
+	 * P1 sub-project (account shell rebuild): edit-account moved out of the
+	 * Billing group so it renders as a top-level nav pill, not inside the
+	 * Billing disclosure.
+	 */
+	public function test_edit_account_is_not_in_the_billing_group(): void {
+		$e = blueline_account_endpoints();
+
+		$this->assertSame( 'account', $e['edit-account']['group'] );
 	}
 
 	/**

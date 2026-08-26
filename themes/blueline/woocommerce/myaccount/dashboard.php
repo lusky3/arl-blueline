@@ -32,17 +32,26 @@ $blueline_dashboard_user_id   = get_current_user_id();
 $blueline_dashboard_player_id = function_exists( 'blueline_get_linked_player_id' )
 	? blueline_get_linked_player_id( $blueline_dashboard_user_id )
 	: null;
-
-if ( $blueline_dashboard_player_id ) {
-	blueline_account_render_next_game( $blueline_dashboard_player_id );
-	blueline_account_render_my_team( $blueline_dashboard_player_id );
-	blueline_account_render_season_stats( $blueline_dashboard_player_id );
-} else {
-	blueline_account_render_claim_card( $blueline_dashboard_user_id );
-}
-
-blueline_account_render_registration( $blueline_dashboard_user_id, $blueline_dashboard_player_id );
-blueline_account_render_billing_group();
+?>
+<div class="bl-account-dashboard__primary">
+	<?php
+	if ( $blueline_dashboard_player_id ) {
+		blueline_account_render_next_game( $blueline_dashboard_player_id );
+		blueline_account_render_my_team( $blueline_dashboard_player_id );
+	} else {
+		blueline_account_render_claim_card( $blueline_dashboard_user_id );
+	}
+	?>
+</div>
+<div class="bl-account-dashboard__secondary">
+	<?php
+	if ( $blueline_dashboard_player_id ) {
+		blueline_account_render_season_stats( $blueline_dashboard_player_id );
+	}
+	blueline_account_render_registration( $blueline_dashboard_user_id, $blueline_dashboard_player_id );
+	?>
+</div>
+<?php
 
 /**
  * My Account dashboard.

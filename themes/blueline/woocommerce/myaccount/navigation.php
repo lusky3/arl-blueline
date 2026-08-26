@@ -1,14 +1,27 @@
 <?php
 /**
- * The Blue Line My Account nav rail (Task 12): league group first, billing
- * group second, per blueline_account_endpoints() (Task 10). Overrides
+ * The Blue Line My Account nav: a horizontal row of pill tabs, with the
+ * billing group collapsed into a <details> dropdown that sits alongside
+ * (not inside) the scrolling pill row -- see this file's own inline note
+ * on why those two must be siblings, not parent/child. Overrides
  * WooCommerce's own generic, ungrouped `myaccount/navigation.php`.
  *
- * WooCommerce's wc_get_account_menu_items() already returns the list in
- * dashboard-then-league-then-billing-then-logout order (Task 10's
- * `woocommerce_account_menu_items` filter); this template only adds the
- * visual group headings between them via blueline_account_nav_items()
- * (inc/account/dashboard.php).
+ * WooCommerce's wc_get_account_menu_items() already aggregates every
+ * account tab -- core, this theme's own, and plugin-added ones (e.g. YITH
+ * Advanced Refund System's 'refund-requests') -- through the `woocommerce_account_menu_items`
+ * filter chain. blueline_account_nav_items() (inc/account/dashboard.php)
+ * tags each item with the 'group' blueline_account_endpoints()
+ * (inc/account/endpoints.php) assigns its slug: 'league', 'billing',
+ * 'account', or null for the two WooCommerce-owned items not in that map
+ * (dashboard, customer-logout). A future plugin adding a new tab needs no
+ * change here -- it appears automatically; only its group in
+ * blueline_account_endpoints() decides whether it renders as a top-level
+ * pill or inside the Billing dropdown.
+ *
+ * The pill row reuses .bl-table-scroll (assets/src/js/table-scroll.js,
+ * sportspress.css's [data-fade-start]/[data-fade-end] mask rules) for its
+ * mobile horizontal-scroll edge cue -- the same mechanism this theme
+ * already uses for wide tables, not a new scroll affordance.
  *
  * @package blueline
  */
@@ -21,50 +34,46 @@ $blueline_nav_items = function_exists( 'blueline_account_nav_items' )
 	? blueline_account_nav_items( wc_get_account_menu_items() )
 	: array();
 
-$blueline_nav_group_labels = array(
-	'league'  => __( 'My League', 'blueline' ),
-	'billing' => __( 'Account & Billing', 'blueline' ),
+$blueline_pill_items    = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' !== $item['group'] ) );
+$blueline_billing_items = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' === $item['group'] ) );
+
+/*
+ * Whether the CURRENT page is one of the billing-group endpoints -- the
+ * <details> starts collapsed, so nothing else marks it (or its <summary>)
+ * as the active nav item when viewing e.g. /account/edit-address/ or the
+ * refund-requests tab. Mirrors the same wc_get_account_menu_item_classes()
+ * check the <li> loop below already runs per item.
+ */
+$blueline_billing_active = (bool) array_filter(
+	$blueline_billing_items,
+	static fn( $item ) => str_contains( wc_get_account_menu_item_classes( $item['endpoint'] ), 'is-active' )
 );
-
-// Phase 1: split $blueline_nav_items into CONTIGUOUS runs of the same
-// 'group' value -- one segment per run, each becoming its own <ul> below.
-// This must stay runs, not a group-name => items map: 'dashboard' and
-// 'customer-logout' both carry no group (null) but sit at the opposite ends
-// of the list with 'league' and 'billing' items in between, and the
-// original markup renders each of those two null-group items as its own
-// separate <ul> rather than merging them into one.
-$blueline_nav_segments = array();
-foreach ( $blueline_nav_items as $blueline_nav_item ) {
-	$blueline_last_index = count( $blueline_nav_segments ) - 1;
-
-	if ( $blueline_last_index < 0 || $blueline_nav_segments[ $blueline_last_index ]['group'] !== $blueline_nav_item['group'] ) {
-		$blueline_nav_segments[] = array(
-			'group' => $blueline_nav_item['group'],
-			'items' => array(),
-		);
-		++$blueline_last_index;
-	}
-
-	$blueline_nav_segments[ $blueline_last_index ]['items'][] = $blueline_nav_item;
-}
 ?>
 <nav class="woocommerce-MyAccount-navigation bl-account-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
-	<?php foreach ( $blueline_nav_segments as $blueline_nav_segment ) : ?>
-		<?php if ( $blueline_nav_segment['group'] && isset( $blueline_nav_group_labels[ $blueline_nav_segment['group'] ] ) ) : ?>
-			<h2 class="bl-account-nav__group-title bl-account-nav__group-title--<?php echo esc_attr( $blueline_nav_segment['group'] ); ?>">
-				<?php echo esc_html( $blueline_nav_group_labels[ $blueline_nav_segment['group'] ] ); ?>
-			</h2>
-		<?php endif; ?>
-		<ul class="bl-account-nav__list<?php echo $blueline_nav_segment['group'] ? '' : ' bl-account-nav__list--plain'; ?>">
-			<?php foreach ( $blueline_nav_segment['items'] as $blueline_nav_item ) : ?>
-				<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
-					<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
-						<?php echo esc_html( $blueline_nav_item['label'] ); ?>
-					</a>
-				</li>
-			<?php endforeach; ?>
-		</ul>
-	<?php endforeach; ?>
+	<ul class="bl-account-nav__pills bl-table-scroll">
+		<?php foreach ( $blueline_pill_items as $blueline_nav_item ) : ?>
+			<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
+				<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+					<?php echo esc_html( $blueline_nav_item['label'] ); ?>
+				</a>
+			</li>
+		<?php endforeach; ?>
+	</ul>
+
+	<?php if ( $blueline_billing_items ) : ?>
+		<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>"<?php echo $blueline_billing_active ? ' open' : ''; ?>>
+			<summary><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
+			<ul class="bl-account-nav__billing-panel">
+				<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>
+					<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
+						<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+							<?php echo esc_html( $blueline_nav_item['label'] ); ?>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</details>
+	<?php endif; ?>
 </nav>
 <?php
 

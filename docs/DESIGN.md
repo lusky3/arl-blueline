@@ -90,6 +90,9 @@ No bounce, no elastic.
   the theme supplies the only styling that exists for SP surfaces.
 - The `simple-css` plugin injects sitewide CSS that survives theme changes. It was pruned during
   R1; anything re-added there can override tokens with `!important`.
+- `yith-woocommerce-customize-myaccount-page` must stay deactivated. While active it overrides
+  `woocommerce/myaccount/navigation.php` entirely with its own `yith-dashboard`/`myaccount-menu`
+  markup, and the theme's own account nav does not render at all. Deactivated on Staging-host 2026-08-26.
 
 ## Contributing
 

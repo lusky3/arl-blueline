@@ -21,69 +21,165 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	padding-block: var(--bl-space-6) var(--bl-space-8);
 }
 
-@media (min-width: 900px) {
-
-	body.woocommerce-account .bl-main--woocommerce .bl-container {
-		display: grid;
-		grid-template-columns: 240px minmax(0, 1fr);
-		align-items: start;
-		gap: var(--bl-space-8);
-	}
-}
-
 /* ---------------------------------------------------------------------
- * Nav rail
+ * Nav bar -- a horizontal row of pills, with the Billing group collapsed
+ * into a <details> dropdown that sits alongside (not inside) the scrolling
+ * pill row. See woocommerce/myaccount/navigation.php's own docblock for
+ * why those two must be siblings: overflow-x: auto on a shared container
+ * would force overflow-y to auto too, clipping the open Billing panel.
  * ------------------------------------------------------------------- */
 
-.woocommerce-MyAccount-navigation {
+.bl-account-nav {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-3);
 	margin-block-end: var(--bl-space-6);
 }
 
-@media (min-width: 900px) {
-
-	.woocommerce-MyAccount-navigation {
-		margin-block-end: 0;
-		position: sticky;
-		top: var(--bl-space-5);
-	}
+/*
+ * float: none and width: 100% explicitly cancel WooCommerce core's own
+ * `woocommerce-layout.css`: `.woocommerce-account .woocommerce-MyAccount-
+ * navigation { float: left; width: 30%; }` -- confirmed live: without this,
+ * the nav renders as a 30%-width floated column. That core rule is TWO
+ * class selectors (specificity 0,2,0), which beats a bare `.bl-account-nav`
+ * (0,1,0) regardless of stylesheet load order, so the override needs equal
+ * or greater specificity, not just a later cascade position -- the same
+ * `body.woocommerce-account` scoping this file's very first rule already
+ * uses, reused here for the same reason. The old sidebar-era layout never
+ * needed this: its `display: grid` on the parent `.bl-container` made a
+ * grid item ignore float/width entirely, but that parent grid rule no
+ * longer exists now that the nav is a full-width horizontal bar.
+ */
+body.woocommerce-account .bl-account-nav {
+	float: none;
+	width: 100%;
 }
 
-.bl-account-nav__group-title {
-	margin: var(--bl-space-5) 0 var(--bl-space-2);
-	font-family: var(--bl-font-display);
-	font-weight: 700;
-	font-style: italic;
-	text-transform: uppercase;
-	font-size: var(--bl-text-xs);
-	letter-spacing: 0.04em;
-	color: var(--bl-content-text-secondary);
-}
-
-.bl-account-nav__list {
-	margin: 0 0 var(--bl-space-3);
-	padding: 0;
-	list-style: none;
-}
-
-.bl-account-nav__list--plain {
+/*
+ * padding-block: --bl-space-2 (8px), not --bl-space-1 (4px) -- the focus
+ * ring needs ~6px of clearance (2px offset + 3px width + 1px, per style
+ * .css's own halo values), and overflow-x: auto here forces overflow-y to
+ * compute as auto too (this file's own docblock above explains why), so
+ * anything under that clearance clips the ring top/bottom on a focused pill.
+ *
+ * margin-inline-start only, not margin-inline on both edges -- the
+ * negative margin exists purely to cancel this element's own inline-start
+ * padding so the pill row stays flush with `.bl-account-nav`'s left edge.
+ * Applying it to BOTH edges also ate into `.bl-account-nav`'s `gap`
+ * between this list and the sibling `.bl-account-nav__billing` disclosure,
+ * narrowing it from the intended var(--bl-space-3) down to ~4px.
+ */
+.bl-account-nav__pills {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: var(--bl-space-2);
+	margin: 0;
+	margin-inline-start: calc(var(--bl-space-2) * -1);
 	padding-block: var(--bl-space-2);
-	border-block: 1px solid var(--bl-content-border);
+	padding-inline: var(--bl-space-2);
+	list-style: none;
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
-.bl-account-nav__list a {
+.bl-account-nav__pills li {
+	flex: 0 0 auto;
+}
+
+.bl-account-nav__pills a {
+	display: inline-block;
+	white-space: nowrap;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border-radius: 999px;
+	color: var(--bl-content-text);
+	text-decoration: none;
+}
+
+.bl-account-nav__pills a:hover,
+.bl-account-nav__pills a:focus-visible {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-account-nav__pills li.is-active a {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 600;
+}
+
+.bl-account-nav__billing {
+	position: relative;
+	flex: 0 0 auto;
+}
+
+.bl-account-nav__billing summary {
+	list-style: none;
+	cursor: pointer;
+	white-space: nowrap;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border-radius: 999px;
+	color: var(--bl-content-text);
+}
+
+.bl-account-nav__billing summary::-webkit-details-marker {
+	display: none;
+}
+
+.bl-account-nav__billing summary:hover,
+.bl-account-nav__billing summary:focus-visible {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-account-nav__billing[open] summary,
+.bl-account-nav__billing.is-active summary {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 600;
+}
+
+.bl-account-nav__billing-panel {
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-end: 0;
+	z-index: 1;
+	margin: var(--bl-space-2) 0 0;
+	padding: var(--bl-space-2);
+	min-width: 12rem;
+	list-style: none;
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+}
+
+.bl-account-nav__billing-panel li + li {
+	border-block-start: 1px solid var(--bl-content-border);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- unrelated to the
+   higher-specificity .bl-account-nav__pills a:hover rule above: a different
+   sibling component (the Billing dropdown panel), not the pill row. */
+.bl-account-nav__billing-panel a {
 	display: block;
 	padding: var(--bl-space-2) var(--bl-space-3);
 	color: var(--bl-content-text);
 	text-decoration: none;
 	border-radius: var(--bl-radius);
+	white-space: nowrap;
 }
 
-.bl-account-nav__list a:hover,
-.bl-account-nav__list a:focus-visible {
+/* stylelint-disable no-descending-specificity -- see note above; disabled
+   for both selectors in this list since stylelint-disable-next-line only
+   covers the line immediately below it. */
+.bl-account-nav__billing-panel a:hover,
+.bl-account-nav__billing-panel a:focus-visible {
 	background: var(--bl-surface-sunken);
 }
+/* stylelint-enable no-descending-specificity */
 
-.bl-account-nav__list li.is-active a {
+.bl-account-nav__billing-panel li.is-active a {
 	background: var(--bl-ice);
 	color: var(--bl-ink);
 	font-weight: 600;
@@ -183,6 +279,45 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 .bl-account-module__empty-text {
 	margin: 0;
 	color: var(--bl-content-text-secondary);
+}
+
+/* ---------------------------------------------------------------------
+ * Dashboard hierarchy -- primary row (claim card, or next-game + my-team
+ * side by side) leads; secondary row (season stats, registration) follows
+ * in smaller cards. Each .bl-account-module inside these wrappers keeps
+ * its own margin-block-end zeroed out below; a single-item row (e.g. the
+ * claim card alone) DOES need the :has(> :only-child) special-casing a
+ * few lines down, so it collapses to one column instead of leaving a dead
+ * empty one.
+ * ------------------------------------------------------------------- */
+
+@media (min-width: 700px) {
+
+	.bl-account-dashboard__primary,
+	.bl-account-dashboard__secondary {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--bl-space-5);
+		align-items: start;
+		margin-block-end: var(--bl-space-5);
+	}
+
+	/*
+	 * A single card in the row (e.g. the claim card alone for an unclaimed
+	 * user, or only one of Season Stats/Registration rendering via
+	 * blueline_section_enabled()) would otherwise occupy column 1 and leave
+	 * column 2 dead and empty. CSS :has() is safe for this theme's target
+	 * browser range.
+	 */
+	.bl-account-dashboard__primary:has(> :only-child),
+	.bl-account-dashboard__secondary:has(> :only-child) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.bl-account-dashboard__primary .bl-account-module,
+	.bl-account-dashboard__secondary .bl-account-module {
+		margin-block-end: 0;
+	}
 }
 
 /* ---------------------------------------------------------------------
@@ -448,40 +583,6 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 .bl-account-registration__status--unpaid {
 	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
 	color: var(--bl-warning);
-}
-
-/* ---------------------------------------------------------------------
- * Account & billing — deliberately the smallest, quietest card on the
- * page: smaller title (no display-face treatment), sunken background,
- * plain link list. Still one click away, never hidden.
- * ------------------------------------------------------------------- */
-
-.bl-account-module--billing {
-	background: var(--bl-surface-sunken);
-	box-shadow: none;
-}
-
-.bl-account-module--billing .bl-account-module__title {
-	font-family: var(--bl-font-body);
-	font-weight: 600;
-	font-style: normal;
-	text-transform: none;
-	font-size: var(--bl-text-base);
-	color: var(--bl-content-text-secondary);
-}
-
-.bl-account-billing__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bl-space-2) var(--bl-space-5);
-
-	/* font-size inherits down to the plain <a> children -- no need to
-	 * target them directly and re-litigate specificity order against the
-	 * unrelated nav-rail rules earlier in this file. */
-	font-size: var(--bl-text-sm);
 }
 
 @media (max-width: 480px) {
