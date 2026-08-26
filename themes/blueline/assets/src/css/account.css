@@ -42,7 +42,9 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	align-items: center;
 	gap: var(--bl-space-2);
 	margin: 0;
+	margin-inline: calc(var(--bl-space-2) * -1);
 	padding-block: var(--bl-space-1);
+	padding-inline: var(--bl-space-2);
 	list-style: none;
 	flex: 1 1 auto;
 	min-width: 0;
@@ -97,7 +99,8 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	background: var(--bl-surface-sunken);
 }
 
-.bl-account-nav__billing[open] summary {
+.bl-account-nav__billing[open] summary,
+.bl-account-nav__billing.is-active summary {
 	background: var(--bl-ice);
 	color: var(--bl-ink);
 	font-weight: 600;
@@ -259,9 +262,21 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	.bl-account-dashboard__secondary {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0 var(--bl-space-5);
+		gap: var(--bl-space-5);
 		align-items: start;
 		margin-block-end: var(--bl-space-5);
+	}
+
+	/*
+	 * A single card in the row (e.g. the claim card alone for an unclaimed
+	 * user, or only one of Season Stats/Registration rendering via
+	 * blueline_section_enabled()) would otherwise occupy column 1 and leave
+	 * column 2 dead and empty. CSS :has() is safe for this theme's target
+	 * browser range.
+	 */
+	.bl-account-dashboard__primary:has(> :only-child),
+	.bl-account-dashboard__secondary:has(> :only-child) {
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	.bl-account-dashboard__primary .bl-account-module,

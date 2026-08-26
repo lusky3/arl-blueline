@@ -36,6 +36,18 @@ $blueline_nav_items = function_exists( 'blueline_account_nav_items' )
 
 $blueline_pill_items    = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' !== $item['group'] ) );
 $blueline_billing_items = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' === $item['group'] ) );
+
+/*
+ * Whether the CURRENT page is one of the billing-group endpoints -- the
+ * <details> starts collapsed, so nothing else marks it (or its <summary>)
+ * as the active nav item when viewing e.g. /account/edit-address/ or the
+ * refund-requests tab. Mirrors the same wc_get_account_menu_item_classes()
+ * check the <li> loop below already runs per item.
+ */
+$blueline_billing_active = (bool) array_filter(
+	$blueline_billing_items,
+	static fn( $item ) => str_contains( wc_get_account_menu_item_classes( $item['endpoint'] ), 'is-active' )
+);
 ?>
 <nav class="woocommerce-MyAccount-navigation bl-account-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
 	<ul class="bl-account-nav__pills bl-table-scroll">
@@ -49,7 +61,7 @@ $blueline_billing_items = array_values( array_filter( $blueline_nav_items, stati
 	</ul>
 
 	<?php if ( $blueline_billing_items ) : ?>
-		<details class="bl-account-nav__billing">
+		<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>"<?php echo $blueline_billing_active ? ' open' : ''; ?>>
 			<summary><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
 			<ul class="bl-account-nav__billing-panel">
 				<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>

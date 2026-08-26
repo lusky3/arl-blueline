@@ -882,24 +882,6 @@ function blueline_account_render_registration( int $user_id, ?int $player_id = n
 }
 
 /**
- * The URL for one blueline_account_endpoints() slug, resolved through
- * WooCommerce's actual query-var key via blueline_account_slug_query_var()
- * (inc/account/endpoints.php) -- the same single translation
- * blueline_account_menu_items() uses, so the nav and this list can never
- * disagree about which key an endpoint lives under.
- *
- * @param string $slug A key from blueline_account_endpoints().
- * @return string Empty string if WooCommerce is inactive.
- */
-function blueline_account_endpoint_url( string $slug ): string {
-	if ( ! function_exists( 'wc_get_account_endpoint_url' ) || ! function_exists( 'blueline_account_slug_query_var' ) ) {
-		return '';
-	}
-
-	return wc_get_account_endpoint_url( blueline_account_slug_query_var( $slug ) );
-}
-
-/**
  * Group wc_get_account_menu_items()'s already league-then-billing-ordered
  * list (Task 10's blueline_account_menu_items() filter) into the shape the
  * Blue Line nav rail renders: each item tagged with its
