@@ -478,16 +478,17 @@ links live only in the nav now."
 ### Task 3: Reorganize the dashboard into primary/secondary card rows
 
 **Files:**
-- Modify: `themes/blueline/woocommerce/myaccount/dashboard.php:29-45`
+- Modify: `themes/blueline/woocommerce/myaccount/dashboard.php` (the render-call block, originally lines 29-45 — Task 2 Step 5 deletes one line from this file first, so match by content, not by line number)
 - Modify: `themes/blueline/assets/src/css/account.css` (add a new grid section)
 
 **Interfaces:**
 - Consumes: `blueline_account_render_next_game()`, `blueline_account_render_my_team()`, `blueline_account_render_season_stats()`, `blueline_account_render_registration()`, `blueline_account_render_claim_card()`, `blueline_account_render_claim_notice()` — all existing, unchanged signatures (`inc/account/dashboard.php`).
 - Produces: nothing consumed by later tasks.
+- **Depends on Task 2 having already run**: Task 2 Step 5 deletes the `blueline_account_render_billing_group();` call from this same file. By the time this task runs, that line is already gone — the block below to replace ends with the `blueline_account_render_registration(...)` call, one line shorter than the file was before Task 2.
 
 - [ ] **Step 1: Wrap the render calls in primary/secondary containers**
 
-Replace lines 29-45 of `themes/blueline/woocommerce/myaccount/dashboard.php`:
+Replace the render-call block in `themes/blueline/woocommerce/myaccount/dashboard.php` (everything from `blueline_account_render_claim_notice();` through the `blueline_account_render_registration(...)` call — this is the whole file's logic, above the `do_action( 'woocommerce_account_dashboard' )` block):
 
 ```php
 blueline_account_render_claim_notice();
@@ -506,7 +507,6 @@ if ( $blueline_dashboard_player_id ) {
 }
 
 blueline_account_render_registration( $blueline_dashboard_user_id, $blueline_dashboard_player_id );
-blueline_account_render_billing_group();
 ```
 
 with:
