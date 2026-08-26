@@ -246,6 +246,31 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 }
 
 /* ---------------------------------------------------------------------
+ * Dashboard hierarchy -- primary row (claim card, or next-game + my-team
+ * side by side) leads; secondary row (season stats, registration) follows
+ * in smaller cards. Each .bl-account-module inside these wrappers keeps
+ * its own margin-block-end, so a single-item row (e.g. the claim card
+ * alone) needs no special-casing here.
+ * ------------------------------------------------------------------- */
+
+@media (min-width: 700px) {
+
+	.bl-account-dashboard__primary,
+	.bl-account-dashboard__secondary {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0 var(--bl-space-5);
+		align-items: start;
+		margin-block-end: var(--bl-space-5);
+	}
+
+	.bl-account-dashboard__primary .bl-account-module,
+	.bl-account-dashboard__secondary .bl-account-module {
+		margin-block-end: 0;
+	}
+}
+
+/* ---------------------------------------------------------------------
  * Claim card ("Is this you?") — shown when the logged-in user has no
  * sp_user link. About 84% of players registered for the CURRENT season
  * are already linked (sportspress-player-registration links them at
