@@ -2758,6 +2758,110 @@ if ( ! function_exists( 'wp_die' ) ) {
 	}
 }
 
+if ( ! function_exists( 'check_ajax_referer' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' check_ajax_referer(): reads the token
+	 * out of $_REQUEST under $query_arg (falling back to core's own
+	 * '_ajax_nonce'/'_wpnonce' lookup order when no explicit arg is given)
+	 * and wp_die()s (raised here as Blueline_Test_WP_Die_Exception, same as
+	 * check_admin_referer() above) when it does not verify -- added for
+	 * ThemePreferenceTest's AJAX handler coverage
+	 * (blueline_ajax_save_theme_preference(), inc/account/theme-preference.php),
+	 * the first AJAX handler this theme has.
+	 *
+	 * @param string|int   $action    Action the nonce must have been minted for.
+	 * @param string|false $query_arg Request key carrying the token, or false for core's own default lookup.
+	 * @param bool         $stop      Whether to wp_die() on failure (core default true).
+	 * @return int|false 1 when the token verifies, false otherwise (only reachable when $stop is false).
+	 */
+	function check_ajax_referer( $action = -1, $query_arg = false, $stop = true ) {
+		$key   = $query_arg ? $query_arg : ( isset( $_REQUEST['_ajax_nonce'] ) ? '_ajax_nonce' : '_wpnonce' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- this IS the nonce check.
+		$nonce = isset( $_REQUEST[ $key ] ) ? sanitize_text_field( wp_unslash( $_REQUEST[ $key ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- this IS the nonce check.
+
+		$result = wp_verify_nonce( $nonce, $action );
+
+		if ( $stop && ! $result ) {
+			wp_die( -1 );
+		}
+
+		return $result;
+	}
+}
+
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_json_encode(): core adds UTF-8
+	 * sanitization this stub environment has no need to reproduce, since
+	 * nothing here ever encodes non-UTF-8 input.
+	 *
+	 * @param mixed $data    Data to encode.
+	 * @param int   $options json_encode() options.
+	 * @param int   $depth   Maximum depth.
+	 * @return string|false
+	 */
+	function wp_json_encode( $data, $options = 0, $depth = 512 ) {
+		return json_encode( $data, $options, $depth ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- this IS the stand-in for wp_json_encode().
+	}
+}
+
+if ( ! function_exists( 'wp_send_json' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_send_json(): echoes the JSON-
+	 * encoded response and wp_die()s (raised here as
+	 * Blueline_Test_WP_Die_Exception, same as every other wp_die() path in
+	 * this bootstrap) -- a test asserts on the echoed output by wrapping
+	 * the call in ob_start()/ob_get_clean() and catching that exception,
+	 * the same idiom SettingsDeleteDataTest already uses for a handler
+	 * that ends in wp_die().
+	 *
+	 * @param mixed    $response    Data to JSON-encode and echo.
+	 * @param int|null $status_code Unused; this stub models no real HTTP response layer.
+	 * @return void
+	 */
+	function wp_send_json( $response, $status_code = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $status_code is signature parity with WP core; this stub sends no real HTTP status.
+		echo wp_json_encode( $response ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for wp_send_json(); JSON-encoding a PHP value is itself the correct escaping for this content type.
+		wp_die();
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_success' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_send_json_success().
+	 *
+	 * @param mixed    $data        Optional data to include under the 'data' key.
+	 * @param int|null $status_code Unused; see wp_send_json() above.
+	 * @return void
+	 */
+	function wp_send_json_success( $data = null, $status_code = null ) {
+		$response = array( 'success' => true );
+
+		if ( isset( $data ) ) {
+			$response['data'] = $data;
+		}
+
+		wp_send_json( $response, $status_code );
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_error' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_send_json_error().
+	 *
+	 * @param mixed    $data        Optional data to include under the 'data' key.
+	 * @param int|null $status_code Unused; see wp_send_json() above.
+	 * @return void
+	 */
+	function wp_send_json_error( $data = null, $status_code = null ) {
+		$response = array( 'success' => false );
+
+		if ( isset( $data ) ) {
+			$response['data'] = $data;
+		}
+
+		wp_send_json( $response, $status_code );
+	}
+}
+
 if ( ! function_exists( 'add_theme_page' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' add_theme_page(): records the call so

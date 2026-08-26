@@ -279,3 +279,68 @@
 	display: inline-block;
 	color: var(--bl-pale);
 }
+
+/*
+ * Sitewide light/dark/system toggle (blueline_render_theme_toggle(),
+ * inc/account/theme-preference.php). Pushed to the row's own trailing
+ * edge with margin-inline-start: auto so it reads as a distinct control
+ * rather than one more line of copy next to the copyright -- the same
+ * bottom bar the occasion `line` above already grows into, without
+ * disturbing either it or the header's own fixed-height layout.
+ */
+.bl-theme-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-2);
+	margin-inline-start: auto;
+}
+
+.bl-theme-toggle__label {
+	font-size: var(--bl-text-sm);
+	color: var(--bl-pale);
+}
+
+.bl-theme-toggle__group {
+	display: inline-flex;
+	border: 1px solid var(--bl-ink-mid);
+}
+
+/*
+ * 44px min-height carries the WCAG 2.2 24x24 target minimum for each
+ * button -- the same convention .bl-footer__teams-link above and
+ * .bl-floating-next-game__dismiss (floating-next-game.css) already use for
+ * a small control's own hit area, kept compact here with tight horizontal
+ * padding instead of a taller label.
+ */
+.bl-theme-toggle__option {
+	appearance: none;
+	background: transparent;
+	border: 0;
+	min-height: 44px;
+	padding: var(--bl-space-1) var(--bl-space-3);
+	color: var(--bl-pale);
+	font: inherit;
+	font-size: var(--bl-text-xs);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bl-theme-toggle__option + .bl-theme-toggle__option {
+	border-inline-start: 1px solid var(--bl-ink-mid);
+}
+
+.bl-theme-toggle__option:hover {
+	background: var(--bl-ink-mid);
+}
+
+/*
+ * The pressed (currently active) option -- --bl-ink fill / --bl-paper text,
+ * the same "ink fill, paper text" primary-button language this theme's
+ * other controls already use (see the design spec's own §2 note on why
+ * that pairing keeps its fixed look in both light and dark content
+ * themes: it is chrome, not content).
+ */
+.bl-theme-toggle__option[aria-pressed="true"] {
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+}
