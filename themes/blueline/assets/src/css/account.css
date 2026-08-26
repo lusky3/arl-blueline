@@ -21,69 +21,129 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	padding-block: var(--bl-space-6) var(--bl-space-8);
 }
 
-@media (min-width: 900px) {
-
-	body.woocommerce-account .bl-main--woocommerce .bl-container {
-		display: grid;
-		grid-template-columns: 240px minmax(0, 1fr);
-		align-items: start;
-		gap: var(--bl-space-8);
-	}
-}
-
 /* ---------------------------------------------------------------------
- * Nav rail
+ * Nav bar -- a horizontal row of pills, with the Billing group collapsed
+ * into a <details> dropdown that sits alongside (not inside) the scrolling
+ * pill row. See woocommerce/myaccount/navigation.php's own docblock for
+ * why those two must be siblings: overflow-x: auto on a shared container
+ * would force overflow-y to auto too, clipping the open Billing panel.
  * ------------------------------------------------------------------- */
 
-.woocommerce-MyAccount-navigation {
+.bl-account-nav {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-3);
 	margin-block-end: var(--bl-space-6);
 }
 
-@media (min-width: 900px) {
-
-	.woocommerce-MyAccount-navigation {
-		margin-block-end: 0;
-		position: sticky;
-		top: var(--bl-space-5);
-	}
-}
-
-.bl-account-nav__group-title {
-	margin: var(--bl-space-5) 0 var(--bl-space-2);
-	font-family: var(--bl-font-display);
-	font-weight: 700;
-	font-style: italic;
-	text-transform: uppercase;
-	font-size: var(--bl-text-xs);
-	letter-spacing: 0.04em;
-	color: var(--bl-content-text-secondary);
-}
-
-.bl-account-nav__list {
-	margin: 0 0 var(--bl-space-3);
-	padding: 0;
+.bl-account-nav__pills {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: var(--bl-space-2);
+	margin: 0;
+	padding-block: var(--bl-space-1);
 	list-style: none;
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
-.bl-account-nav__list--plain {
-	padding-block: var(--bl-space-2);
-	border-block: 1px solid var(--bl-content-border);
+.bl-account-nav__pills li {
+	flex: 0 0 auto;
 }
 
-.bl-account-nav__list a {
+.bl-account-nav__pills a {
+	display: inline-block;
+	white-space: nowrap;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border-radius: 999px;
+	color: var(--bl-content-text);
+	text-decoration: none;
+}
+
+.bl-account-nav__pills a:hover,
+.bl-account-nav__pills a:focus-visible {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-account-nav__pills li.is-active a {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 600;
+}
+
+.bl-account-nav__billing {
+	position: relative;
+	flex: 0 0 auto;
+}
+
+.bl-account-nav__billing summary {
+	list-style: none;
+	cursor: pointer;
+	white-space: nowrap;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border-radius: 999px;
+	color: var(--bl-content-text);
+}
+
+.bl-account-nav__billing summary::-webkit-details-marker {
+	display: none;
+}
+
+.bl-account-nav__billing summary:hover,
+.bl-account-nav__billing summary:focus-visible {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-account-nav__billing[open] summary {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 600;
+}
+
+.bl-account-nav__billing-panel {
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-end: 0;
+	z-index: 1;
+	margin: var(--bl-space-2) 0 0;
+	padding: var(--bl-space-2);
+	min-width: 12rem;
+	list-style: none;
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+}
+
+.bl-account-nav__billing-panel li + li {
+	border-block-start: 1px solid var(--bl-content-border);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- unrelated to the
+   higher-specificity .bl-account-nav__pills a:hover rule above: a different
+   sibling component (the Billing dropdown panel), not the pill row. */
+.bl-account-nav__billing-panel a {
 	display: block;
 	padding: var(--bl-space-2) var(--bl-space-3);
 	color: var(--bl-content-text);
 	text-decoration: none;
 	border-radius: var(--bl-radius);
+	white-space: nowrap;
 }
 
-.bl-account-nav__list a:hover,
-.bl-account-nav__list a:focus-visible {
+/* stylelint-disable no-descending-specificity -- see note above; disabled
+   for both selectors in this list since stylelint-disable-next-line only
+   covers the line immediately below it. */
+.bl-account-nav__billing-panel a:hover,
+.bl-account-nav__billing-panel a:focus-visible {
 	background: var(--bl-surface-sunken);
 }
+/* stylelint-enable no-descending-specificity */
 
-.bl-account-nav__list li.is-active a {
+.bl-account-nav__billing-panel li.is-active a {
 	background: var(--bl-ice);
 	color: var(--bl-ink);
 	font-weight: 600;
@@ -448,40 +508,6 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 .bl-account-registration__status--unpaid {
 	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
 	color: var(--bl-warning);
-}
-
-/* ---------------------------------------------------------------------
- * Account & billing — deliberately the smallest, quietest card on the
- * page: smaller title (no display-face treatment), sunken background,
- * plain link list. Still one click away, never hidden.
- * ------------------------------------------------------------------- */
-
-.bl-account-module--billing {
-	background: var(--bl-surface-sunken);
-	box-shadow: none;
-}
-
-.bl-account-module--billing .bl-account-module__title {
-	font-family: var(--bl-font-body);
-	font-weight: 600;
-	font-style: normal;
-	text-transform: none;
-	font-size: var(--bl-text-base);
-	color: var(--bl-content-text-secondary);
-}
-
-.bl-account-billing__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bl-space-2) var(--bl-space-5);
-
-	/* font-size inherits down to the plain <a> children -- no need to
-	 * target them directly and re-litigate specificity order against the
-	 * unrelated nav-rail rules earlier in this file. */
-	font-size: var(--bl-text-sm);
 }
 
 @media (max-width: 480px) {

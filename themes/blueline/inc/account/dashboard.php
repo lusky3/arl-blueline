@@ -900,66 +900,6 @@ function blueline_account_endpoint_url( string $slug ): string {
 }
 
 /**
- * The demoted "Account & billing" group: a plain link list to every
- * billing-group endpoint from blueline_account_endpoints() (Task 10),
- * always last on the dashboard. account.css keeps this visually smaller
- * and quieter than the league modules above it -- billing is still
- * reachable in one click, never buried, just no longer the first thing a
- * player sees.
- *
- * Labels come from wc_get_account_menu_items() -- the fully filtered
- * `woocommerce_account_menu_items` chain, the same source the nav rail
- * renders from -- rather than blueline_account_endpoints()'s own raw
- * `label` field. P4 finding 7: this used to read the raw label directly,
- * bypassing that filter chain entirely, so a legacy Code Snippet hooking
- * `woocommerce_account_menu_items` at priority 999 (renaming edit-address/
- * edit-account/orders for a YITH setup this theme has already replaced)
- * changed the nav rail and the on-page <h1> but left these quick-links
- * showing the theme's original, un-renamed copy -- a third, disagreeing
- * label for the same two pages. Going through the same filtered list makes
- * this surface agree with the nav rail regardless of what else is hooked
- * onto that filter; blueline_account_endpoints()'s own label is kept only
- * as a defensive fallback if a third-party filter ever drops a key
- * entirely, which should not normally happen.
- */
-function blueline_account_render_billing_group() {
-	if ( ! function_exists( 'blueline_account_endpoints' ) || ! function_exists( 'wc_get_account_menu_items' ) ) {
-		return;
-	}
-
-	$billing = array_filter(
-		blueline_account_endpoints(),
-		static fn( $config ) => 'billing' === $config['group']
-	);
-
-	if ( empty( $billing ) ) {
-		return;
-	}
-
-	uasort( $billing, static fn( $a, $b ) => $a['order'] <=> $b['order'] );
-
-	$menu_items = wc_get_account_menu_items();
-
-	blueline_account_module_start( 'billing', __( 'Account & billing', 'blueline' ) );
-	?>
-	<ul class="bl-account-billing__list">
-		<?php foreach ( $billing as $slug => $config ) : ?>
-			<?php
-			$url       = blueline_account_endpoint_url( $slug );
-			$query_var = blueline_account_slug_query_var( $slug );
-			$label     = $menu_items[ $query_var ] ?? $config['label'];
-			?>
-			<?php if ( ! $url ) : ?>
-				<?php continue; ?>
-			<?php endif; ?>
-			<li><a href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $label ); ?></a></li>
-		<?php endforeach; ?>
-	</ul>
-	<?php
-	blueline_account_module_end();
-}
-
-/**
  * Group wc_get_account_menu_items()'s already league-then-billing-ordered
  * list (Task 10's blueline_account_menu_items() filter) into the shape the
  * Blue Line nav rail renders: each item tagged with its
