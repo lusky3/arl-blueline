@@ -33,33 +33,36 @@ Two separate YITH plugins were investigated during brainstorming:
 
 ## Architecture
 
-WooCommerce aggregates every account tab — core tabs, this theme's own (`my-team`, `my-schedule`), and plugin-added ones (YITH ARS's `refund-requests`) — through the `woocommerce_account_menu_items` filter, consumable via `wc_get_account_menu_items()`. This shell rebuild adds exactly one new template override, `woocommerce/myaccount/navigation.php`, that consumes that already-aggregated list and renders it differently. It does not need to know about YITH ARS specifically, and a future plugin adding a new tab will appear in the list automatically — the only manual work per new tab is deciding whether it renders top-level or inside the Billing group (see below), which the template documents inline as a maintenance note.
+**Correction from this spec's original draft**: a nav template override, a grouping mechanism, and a demoted on-dashboard billing list all already exist in this codebase. This section describes the actual starting point and the delta this sub-project makes, not a from-scratch build.
 
-### Nav rendering
+Today: `woocommerce/myaccount/navigation.php` already overrides WooCommerce's default nav. It calls `blueline_account_nav_items()` (`inc/account/dashboard.php`), which tags each item from `wc_get_account_menu_items()` with a `group` read from `blueline_account_endpoints()` (`inc/account/endpoints.php`) — `'league'` for `my-team`/`my-schedule`, `'billing'` for `registrations`/`store-credit`/`refund-requests`/`payment-methods`/`edit-address`/`edit-account`, and `null` for the two WooCommerce-owned items (`dashboard`, `customer-logout`) that aren't in that map at all. The template splits the ordered list into contiguous same-group runs and renders each as its own `<ul>`, with an `<h2>` heading for the two named groups (`'My League'`, `'Account & Billing'`) and no heading for `null`-group runs. `wc_get_account_menu_items()` is what aggregates plugin-added tabs (YITH ARS's `refund-requests`) into this list in the first place — that part of the original spec's reasoning holds, it just already exists rather than needing to be added.
 
-- Every item from `wc_get_account_menu_items()` renders as a top-level pill tab, **except** the exact set of slugs `blueline_render_billing_group()` (`inc/account/dashboard.php`) lists today — those render inside one grouped "Billing" disclosure instead. Since `blueline_render_billing_group()` is removed from the dashboard entirely in this same change (see "Dashboard" below), its slug list moves wholesale into the new nav template as that list's sole owner going forward — the function itself is deleted, not left behind as a second copy of the list.
-- `edit-account` (Account Details) and `customer-logout` (Log Out) are never grouped — always top-level pills, matching how they render today.
-- The Billing group is a native `<details>/<summary>` disclosure — no JS, keyboard-accessible and screen-reader-friendly by default, degrades gracefully with JS disabled.
+Separately, `inc/account/dashboard.php`'s `blueline_account_render_billing_group()` renders the SAME billing-group endpoints again, as a plain link list, inline on the dashboard page itself (below the personalization cards) — this is the "demoted quiet link list" referenced elsewhere in this spec.
+
+### The actual delta
+
+1. **Move `edit-account` out of the Billing group**, into its own explicit `'account'` group (not `null` — a distinct, self-documenting value, rather than relying on it happening to land adjacent to `customer-logout`'s `null` group in the final ordered list). `tests/AccountEndpointsTest.php`'s `test_every_endpoint_has_a_label()` currently asserts every endpoint's group is exactly `'league'` or `'billing'`; it needs to allow `'account'` too.
+2. **Nav moves from a 240px left sidebar to a horizontal top bar**, at every breakpoint — not pill-styled items still living in the existing sidebar column. This replaces `body.woocommerce-account .bl-main--woocommerce .bl-container`'s current `grid-template-columns: 240px minmax(0, 1fr)` (≥900px) with a single-column layout: nav row, then content below. This is what the approved Option B mockup showed and what "pill nav" means throughout this spec — every top-level item (`dashboard`, `'league'`, `'account'` groups) renders as a pill in that horizontal bar.
+3. **Convert the Billing run to a `<details>/<summary>` disclosure**, sitting inline in that same top bar rather than as a separate vertical list. Today it's an always-visible `<ul>` with an `<h2>` heading; this becomes a collapsed-by-default disclosure using the same heading text as its `<summary>`. The `'league'`-group items lose their own `<h2>` ("My League") entirely — they become plain pills like every other top-level item, since a heading has no clear home in a horizontal bar the way it did in a vertical sidebar list.
+4. **Mobile**: the pill bar scrolls horizontally rather than wrapping, reusing the existing `.bl-table-scroll` class and its edge-fade JS/CSS (`assets/src/js/table-scroll.js`'s `CONTAINERS` list, `sportspress.css`'s `[data-fade-start]`/`[data-fade-end]` mask rules) rather than building a new scroll affordance from scratch.
+5. **Delete `blueline_account_render_billing_group()`** (`inc/account/dashboard.php`) and its call site in `woocommerce/myaccount/dashboard.php`. The dashboard no longer renders a second copy of the billing links — they exist only in the nav's Billing disclosure now.
 
 ### Dashboard
 
-- Primary row: the claim nudge when unclaimed; otherwise Next game (with its existing schedule-change "Updated" indicator) and My Team, side by side.
-- Secondary row, smaller cards: Season stats and Registration status.
-- The Billing link list (`blueline_render_billing_group()`) is removed from the dashboard entirely — it now lives only in the nav's Billing group, so the dashboard shows purely personal content, not a mix of personalization cards and account-admin links.
+`woocommerce/myaccount/dashboard.php` currently calls the render functions in a flat sequence: claim notice, then either (next-game, my-team, season-stats) or the claim card, then registration, then the billing group. This becomes two wrapped groups:
 
-### Mobile
-
-- The pill nav becomes a horizontally-scrollable strip on narrow screens — same markup, `overflow-x` handling matching this codebase's existing horizontal-scroll precedent (`table-scroll.js`/`standings-tabs.js`), not a second, dropdown-based mobile nav.
-- Primary and secondary dashboard card rows both collapse to a single column below this theme's existing tablet breakpoint (match whatever `sportspress.css`/`account.css` already standardize on — don't introduce a new breakpoint value).
+- **Primary row**: the claim nudge when unclaimed; otherwise Next game (with its existing schedule-change "Updated" indicator) and My Team, side by side.
+- **Secondary row**, smaller cards: Season stats and Registration status. Registration renders here regardless of claim status (unchanged from today — it's not gated on having a linked player).
+- The billing render call is deleted outright (see delta item 5 above), not moved into either row.
 
 ### WooCommerce form chrome
 
-- Edit Account, Addresses, and Payment Methods (the pages WooCommerce still renders natively) get their inputs/selects/buttons restyled to the theme's existing card look, extending the current `woocommerce.css` overrides rather than rewriting them.
+Already substantially done sitewide: `assets/src/css/woocommerce.css` themes `.form-row`/`.input-text`/`select`/`textarea` and `.woocommerce a.button`/`button.button`/`input.button` with no page-specific scoping, so Edit Account, Addresses, and Payment Methods already inherit this theme's card-based input and button styling today. This sub-project's form-chrome work is a live-verification pass against those three pages on staging, not a blind restyle — fix only whatever a real gap turns up.
 
 ## Data flow
 
 No new data model. This is a presentation-layer change consuming:
-- `wc_get_account_menu_items()` for nav contents (existing WooCommerce API).
+- `wc_get_account_menu_items()` for nav contents (existing WooCommerce API), via the existing `blueline_account_nav_items()` helper.
 - The existing dashboard render functions already built this session (`blueline_account_render_next_game()`, `blueline_account_render_my_team()`, etc.) — reorganized, not rewritten.
 
 No new user meta, no new endpoints, no new storage.
@@ -67,13 +70,13 @@ No new user meta, no new endpoints, no new storage.
 ## Error handling / resilience
 
 - The Billing disclosure and horizontal scroll are both native browser behavior — no JS dependency for baseline function.
-- A new plugin-added tab appears in the nav automatically via the existing WooCommerce filter; the only manual step for a future maintainer is choosing top-level vs. Billing-group placement for that new slug, documented inline in the nav template.
+- A new plugin-added tab appears in the nav automatically via the existing WooCommerce filter; the only manual step for a future maintainer is choosing which group (`'league'`, `'billing'`, `'account'`, or none) a new slug belongs to in `blueline_account_endpoints()` — `blueline_account_nav_items()` and the nav template need no changes for a new tab to appear correctly.
 
 ## Testing
 
-- One PHPUnit test covering the pure "which slugs belong in the Billing group" decision (extracted as a testable function, not inlined in the template).
-- No new JS test coverage needed — `<details>` and horizontal scroll require no JS for their base behavior.
-- Manual/visual QA across mobile, tablet, and desktop breakpoints, since this is primarily presentational work.
+- `tests/AccountEndpointsTest.php`: update `test_every_endpoint_has_a_label()` to allow the new `'account'` group value, and add a test asserting `edit-account`'s group is `'account'`, not `'billing'`.
+- No new JS test coverage needed — `<details>` and horizontal scroll (via the existing `.bl-table-scroll` mechanism) require no JS for their base behavior.
+- Manual/visual QA across mobile, tablet, and desktop breakpoints, and of Edit Account/Addresses/Payment Methods chrome, since this is primarily presentational work.
 
 ## Rollout
 
