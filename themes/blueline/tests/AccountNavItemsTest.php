@@ -17,7 +17,7 @@ require_once __DIR__ . '/../inc/account/dashboard.php';
 final class AccountNavItemsTest extends TestCase {
 
 	/**
-	 * dashboard and customer-logout are WooCommerce-owned menu items with no
+	 * Dashboard and customer-logout are WooCommerce-owned menu items with no
 	 * entry in blueline_account_endpoints() -- they must tag as group null,
 	 * not throw or silently vanish.
 	 */
@@ -36,7 +36,7 @@ final class AccountNavItemsTest extends TestCase {
 	}
 
 	/**
-	 * edit-account must carry the 'account' group -- not 'billing' -- so the
+	 * Edit-account must carry the 'account' group -- not 'billing' -- so the
 	 * nav template can render it as a top-level pill, never inside the
 	 * Billing disclosure.
 	 */
