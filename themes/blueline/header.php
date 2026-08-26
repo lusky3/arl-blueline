@@ -29,6 +29,20 @@ defined( 'ABSPATH' ) || exit;
 ?>
 <meta name="theme-color" content="#0D1729">
 <link rel="profile" href="https://gmpg.org/xfn/11">
+<?php
+/*
+ * A guest's own light/dark/system choice lives only in their browser
+ * (localStorage) -- this site's anonymous-visitor page cache means the
+ * server can never know or render it (see inc/account/theme-preference.php's
+ * own docblock). This call MUST stay here, before wp_head(): it is a
+ * small, blocking inline script that must run before any enqueued
+ * stylesheet prints, or a dark-preferring guest sees a flash of the light
+ * theme on every page load. Prints nothing for a logged-in visitor, whose
+ * data-theme is already rendered server-side, above, via the
+ * language_attributes filter.
+ */
+blueline_render_guest_theme_bootstrap_script();
+?>
 <?php wp_head(); ?>
 </head>
 

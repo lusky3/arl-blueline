@@ -929,6 +929,18 @@ function blueline_site_footer() {
 				</p>
 				<?php
 				/*
+				 * Sitewide light/dark/system toggle, visible to every visitor
+				 * (design spec docs/superpowers/specs/2026-08-26-blueline-
+				 * footer-theme-toggle-design.md) -- the footer bottom bar for
+				 * the same "one universally-rendered chrome element" reason
+				 * the occasion `line` below already lives here. See
+				 * inc/account/theme-preference.php's blueline_render_theme_toggle()
+				 * for why its own markup never varies by anonymous visitor.
+				 */
+				blueline_render_theme_toggle();
+				?>
+				<?php
+				/*
 				 * The occasion `line`'s real, visible placement (design spec
 				 * §7.1's third field, alongside accent and motif) -- the
 				 * footer bottom bar rather than the header nav bar, because

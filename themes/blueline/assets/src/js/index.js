@@ -13,3 +13,4 @@ import './woocommerce.js';
 import './standings-tabs.js';
 import './floating-next-game.js';
 import './account-next-game.js';
+import './footer-theme-toggle.js';
