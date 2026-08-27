@@ -610,3 +610,59 @@ body.woocommerce-account .bl-account-nav {
 		grid-template-columns: repeat(2, 1fr);
 	}
 }
+
+/* ---------------------------------------------------------------------
+ * Player profile -- bio (photo, name, jersey number) and registration
+ * details (Task 3). The photo reuses the same circular-crop, cover-fit
+ * pattern .bl-sp-roster__photo (sportspress.css) already establishes for
+ * player headshots, sized larger here (96px, not that class's 32px) since
+ * this is a dedicated profile page, not a compact roster row -- a new
+ * class, not a literal reuse of that smaller one.
+ * ------------------------------------------------------------------- */
+
+.bl-player-profile__bio {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-4);
+}
+
+.bl-player-profile__photo {
+	display: block;
+	width: 96px;
+	height: 96px;
+	border-radius: 50%;
+	overflow: hidden;
+	flex: 0 0 auto;
+}
+
+.bl-player-profile__photo img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.bl-player-profile__photo--fallback {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--bl-surface-sunken);
+}
+
+.bl-player-profile__photo-mark {
+	width: 48px;
+	height: 48px;
+	color: var(--bl-steel);
+}
+
+.bl-player-profile__name {
+	margin: 0;
+	font-weight: 600;
+	font-size: var(--bl-text-lg);
+}
+
+.bl-player-profile__number {
+	margin: var(--bl-space-1) 0 0;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+}

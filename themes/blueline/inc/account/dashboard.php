@@ -275,6 +275,8 @@ function blueline_claim_card_context_hint( string $context ): string {
 			return __( 'Once you’re linked, your team will appear here.', 'blueline' );
 		case 'my-schedule':
 			return __( 'Once you’re linked, your schedule will appear here.', 'blueline' );
+		case 'player-profile':
+			return __( 'Once you’re linked, your player profile will appear here.', 'blueline' );
 		default:
 			return '';
 	}
