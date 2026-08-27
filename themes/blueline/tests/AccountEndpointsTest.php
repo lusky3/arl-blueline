@@ -130,7 +130,7 @@ final class AccountEndpointsTest extends TestCase {
 	public function test_every_endpoint_has_a_label(): void {
 		foreach ( blueline_account_endpoints() as $slug => $cfg ) {
 			$this->assertNotEmpty( $cfg['label'], "endpoint $slug has no label" );
-			$this->assertContains( $cfg['group'], array( 'league', 'billing', 'account' ) );
+			$this->assertContains( $cfg['group'], array( 'league', 'billing', 'account', 'preferences' ) );
 		}
 	}
 
@@ -143,6 +143,19 @@ final class AccountEndpointsTest extends TestCase {
 		$e = blueline_account_endpoints();
 
 		$this->assertSame( 'account', $e['edit-account']['group'] );
+	}
+
+	/**
+	 * Sub-project 2 (Preferences page): a new top-level endpoint, grouped
+	 * separately from league/billing/account since it's neither team content
+	 * nor account administration -- it's site-experience settings.
+	 */
+	public function test_preferences_endpoint_exists_with_its_own_group(): void {
+		$e = blueline_account_endpoints();
+
+		$this->assertArrayHasKey( 'preferences', $e );
+		$this->assertSame( 'preferences', $e['preferences']['group'] );
+		$this->assertSame( 'Preferences', $e['preferences']['label'] );
 	}
 
 	/**
