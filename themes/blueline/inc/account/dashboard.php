@@ -264,9 +264,9 @@ function blueline_render_claim_nudge(): void {
  * actually appear there once linked. This is a minimal copy parameter on
  * the existing shared renderer, not a restructuring: candidate matching,
  * the claim form, and every other behaviour stay identical across all
- * three contexts.
+ * four contexts.
  *
- * @param string $context One of 'dashboard' (default, no added hint), 'my-team', 'my-schedule'.
+ * @param string $context One of 'dashboard' (default, no added hint), 'my-team', 'my-schedule', 'player-profile'.
  * @return string Empty string for 'dashboard' (its own module modules already say what will appear).
  */
 function blueline_claim_card_context_hint( string $context ): string {
@@ -275,6 +275,8 @@ function blueline_claim_card_context_hint( string $context ): string {
 			return __( 'Once you’re linked, your team will appear here.', 'blueline' );
 		case 'my-schedule':
 			return __( 'Once you’re linked, your schedule will appear here.', 'blueline' );
+		case 'player-profile':
+			return __( 'Once you’re linked, your player profile will appear here.', 'blueline' );
 		default:
 			return '';
 	}

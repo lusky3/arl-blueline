@@ -81,4 +81,15 @@ final class AccountNavItemsTest extends TestCase {
 		$this->assertSame( array( 'dashboard', 'my-team' ), array_column( $items, 'endpoint' ) );
 		$this->assertSame( array( 'Dashboard', 'My Team' ), array_column( $items, 'label' ) );
 	}
+
+	/**
+	 * Sub-project 3 (Player Profile tab): 'player-profile' must carry the
+	 * 'league' group -- never 'billing' -- so the nav template renders it
+	 * as a top-level pill, never inside the Billing disclosure.
+	 */
+	public function test_player_profile_carries_the_league_group(): void {
+		$items = blueline_account_nav_items( array( 'player-profile' => 'Player Profile' ) );
+
+		$this->assertSame( 'league', $items[0]['group'] );
+	}
 }
