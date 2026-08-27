@@ -666,3 +666,27 @@ body.woocommerce-account .bl-account-nav {
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
+
+.bl-player-profile__fields {
+	margin: var(--bl-space-5) 0 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+	gap: var(--bl-space-4);
+}
+
+.bl-player-profile__field dt {
+	margin: 0;
+	font-size: var(--bl-text-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--bl-content-text-secondary);
+}
+
+.bl-player-profile__field dd {
+	margin: var(--bl-space-1) 0 0;
+	font-weight: 600;
+}
+
+.bl-player-profile__edit-link {
+	margin: var(--bl-space-4) 0 0;
+}

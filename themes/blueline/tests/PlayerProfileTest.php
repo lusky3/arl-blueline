@@ -28,4 +28,25 @@ final class PlayerProfileTest extends TestCase {
 	public function test_real_value_passes_through_unchanged(): void {
 		$this->assertSame( '4 - Beginner – Intermediate', blueline_player_profile_field_display( '4 - Beginner – Intermediate' ) );
 	}
+
+	/**
+	 * The exact six fields this tab reads, and their labels -- documented
+	 * here as a single source of truth so a future edit can't silently
+	 * drop or relabel one without a test noticing.
+	 */
+	public function test_registration_fields_are_the_expected_six(): void {
+		$fields = blueline_player_profile_registration_fields();
+
+		$this->assertSame(
+			array(
+				'arl_division'          => 'Skill level',
+				'arl_position'          => 'Position',
+				'arl_jerseysize'        => 'Jersey size',
+				'arl_gender'            => 'Gender',
+				'arl_emergency_contact' => 'Emergency contact',
+				'arl_emergency_number'  => 'Emergency contact number',
+			),
+			$fields
+		);
+	}
 }
