@@ -562,6 +562,15 @@ body.woocommerce-account .bl-account-nav {
 	font-weight: 600;
 }
 
+/* ---------------------------------------------------------------------
+ * Preferences
+ * ------------------------------------------------------------------- */
+
+.bl-preferences-team__summary {
+	margin: 0;
+	font-weight: 600;
+}
+
 .bl-account-registration__status {
 	display: inline-flex;
 	margin: var(--bl-space-2) 0;
