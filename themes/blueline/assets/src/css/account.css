@@ -562,15 +562,6 @@ body.woocommerce-account .bl-account-nav {
 	font-weight: 600;
 }
 
-/* ---------------------------------------------------------------------
- * Preferences
- * ------------------------------------------------------------------- */
-
-.bl-preferences-team__summary {
-	margin: 0;
-	font-weight: 600;
-}
-
 .bl-account-registration__status {
 	display: inline-flex;
 	margin: var(--bl-space-2) 0;
@@ -592,6 +583,15 @@ body.woocommerce-account .bl-account-nav {
 .bl-account-registration__status--unpaid {
 	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
 	color: var(--bl-warning);
+}
+
+/* ---------------------------------------------------------------------
+ * Preferences
+ * ------------------------------------------------------------------- */
+
+.bl-preferences-team__summary {
+	margin: 0;
+	font-weight: 600;
 }
 
 @media (max-width: 480px) {
