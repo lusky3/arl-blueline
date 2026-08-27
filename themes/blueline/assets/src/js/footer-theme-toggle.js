@@ -174,13 +174,16 @@ function saveViaAjax( container, value, onSuccess ) {
 		} );
 }
 
-function initFooterThemeToggle() {
-	const container = document.querySelector( '[data-bl-theme-toggle]' );
-
-	if ( ! container ) {
-		return;
-	}
-
+/**
+ * Wire up ONE `[data-bl-theme-toggle]` instance. Split out from
+ * initFooterThemeToggle() below so that function can initialize every
+ * matching instance on the page, not just the first -- this page's footer
+ * toggle and, on /account/preferences/, a second instance both carry the
+ * same data attribute, and both need independently working click handlers.
+ *
+ * @param {Element} container One `[data-bl-theme-toggle]` element.
+ */
+function initThemeToggleInstance( container ) {
 	const mode = container.getAttribute( 'data-bl-theme-toggle-mode' );
 	const buttons = Array.from(
 		container.querySelectorAll( '[data-bl-theme-toggle-option]' )
@@ -216,6 +219,12 @@ function initFooterThemeToggle() {
 			} );
 		} );
 	} );
+}
+
+function initFooterThemeToggle() {
+	document
+		.querySelectorAll( '[data-bl-theme-toggle]' )
+		.forEach( initThemeToggleInstance );
 }
 
 if ( typeof document !== 'undefined' ) {

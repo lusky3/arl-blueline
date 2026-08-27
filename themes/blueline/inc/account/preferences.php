@@ -90,4 +90,8 @@ add_action( 'woocommerce_account_preferences_endpoint', 'blueline_account_prefer
  */
 function blueline_account_preferences_endpoint(): void {
 	blueline_render_preferences_team_section();
+
+	blueline_account_module_start( 'preferences-appearance', __( 'Appearance', 'blueline' ) );
+	blueline_render_theme_toggle();
+	blueline_account_module_end();
 }
