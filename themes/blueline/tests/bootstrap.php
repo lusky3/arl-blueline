@@ -2637,6 +2637,23 @@ if ( ! function_exists( 'wp_verify_nonce' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_unique_id' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_unique_id(): appends a process-wide
+	 * incrementing counter to $prefix, so two calls within the same request
+	 * never collide -- e.g. blueline_render_theme_toggle() (inc/account/
+	 * theme-preference.php), which renders twice on one real page view.
+	 *
+	 * @param string $prefix Prefix for the returned ID.
+	 * @return string
+	 */
+	function wp_unique_id( $prefix = '' ) {
+		static $id_counter = 0;
+
+		return $prefix . (string) ++$id_counter;
+	}
+}
+
 if ( ! function_exists( 'wp_nonce_field' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' wp_nonce_field(): emits only the

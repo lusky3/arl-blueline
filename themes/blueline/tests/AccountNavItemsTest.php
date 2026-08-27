@@ -47,6 +47,17 @@ final class AccountNavItemsTest extends TestCase {
 	}
 
 	/**
+	 * Sub-project 2 (Preferences page): 'preferences' must carry its own
+	 * group -- never 'billing' -- so the nav template renders it as a
+	 * top-level pill, never inside the Billing disclosure.
+	 */
+	public function test_preferences_carries_its_own_group_not_billing(): void {
+		$items = blueline_account_nav_items( array( 'preferences' => 'Preferences' ) );
+
+		$this->assertSame( 'preferences', $items[0]['group'] );
+	}
+
+	/**
 	 * A real billing endpoint still carries the 'billing' group.
 	 */
 	public function test_a_billing_endpoint_carries_the_billing_group(): void {

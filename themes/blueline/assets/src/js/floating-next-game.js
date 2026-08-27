@@ -41,6 +41,11 @@
  * a game not suppress a later, changed version of the SAME game.
  */
 
+// DISMISSED_KEY is also read by assets/src/js/preferences-widget-reset.js
+// (the Preferences page's "Show next game widget again" button, which
+// clears this exact key) -- via this file's own `module.exports` below,
+// not by convention, and preferences-widget-reset.test.mjs asserts the two
+// stay equal.
 const DISMISSED_KEY = 'blueline:next-game-dismissed';
 const SEEN_KEY = 'blueline:next-game-seen';
 
@@ -170,5 +175,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { parseNextGameState };
+	module.exports = { parseNextGameState, DISMISSED_KEY };
 }

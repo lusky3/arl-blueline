@@ -70,127 +70,6 @@ final class ThemePreferenceTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// blueline_render_theme_preference_field()
-	// -----------------------------------------------------------------------
-
-	/**
-	 * Capture a renderer's echoed output.
-	 *
-	 * @param callable $renderer Zero-arg callable that echoes markup.
-	 * @return string
-	 */
-	private function render( callable $renderer ): string {
-		ob_start();
-		$renderer();
-		return (string) ob_get_clean();
-	}
-
-	/**
-	 * Test case.
-	 */
-	public function test_field_marks_the_stored_preference_as_selected(): void {
-		$state                    = &blueline_test_state();
-		$state['current_user_id'] = 9;
-		$state['user_meta'][9]['blueline_theme_preference'] = 'dark';
-
-		$html = $this->render( 'blueline_render_theme_preference_field' );
-
-		$this->assertMatchesRegularExpression(
-			'/<option value="dark"\s+selected="selected">/',
-			$html,
-			"the stored 'dark' preference must be the selected <option>"
-		);
-		$this->assertDoesNotMatchRegularExpression(
-			'/<option value="light" selected/',
-			$html
-		);
-		$this->assertDoesNotMatchRegularExpression(
-			'/<option value="system" selected/',
-			$html
-		);
-	}
-
-	/**
-	 * Test case.
-	 */
-	public function test_field_defaults_to_system_selected_when_nothing_is_stored(): void {
-		$state                    = &blueline_test_state();
-		$state['current_user_id'] = 9;
-
-		$html = $this->render( 'blueline_render_theme_preference_field' );
-
-		$this->assertMatchesRegularExpression( '/<option value="system"\s+selected="selected">/', $html );
-	}
-
-	/**
-	 * Test case.
-	 */
-	public function test_field_renders_exactly_the_three_known_preferences(): void {
-		$state                    = &blueline_test_state();
-		$state['current_user_id'] = 9;
-
-		$html = $this->render( 'blueline_render_theme_preference_field' );
-
-		$this->assertSame( 3, preg_match_all( '/<option value="[^"]+"/', $html ) );
-		$this->assertStringContainsString( '<option value="system"', $html );
-		$this->assertStringContainsString( '<option value="light"', $html );
-		$this->assertStringContainsString( '<option value="dark"', $html );
-	}
-
-	/**
-	 * Test case.
-	 */
-	public function test_field_labels_the_select_for_accessibility(): void {
-		$state                    = &blueline_test_state();
-		$state['current_user_id'] = 9;
-
-		$html = $this->render( 'blueline_render_theme_preference_field' );
-
-		$this->assertStringContainsString( '<label for="blueline_theme_preference">', $html );
-		$this->assertStringContainsString( 'id="blueline_theme_preference"', $html );
-	}
-
-	// -----------------------------------------------------------------------
-	// blueline_save_theme_preference()
-	// -----------------------------------------------------------------------
-
-	/**
-	 * Test case.
-	 */
-	public function test_save_persists_a_valid_submitted_value(): void {
-		$_POST['blueline_theme_preference'] = 'light';
-
-		blueline_save_theme_preference( 7 );
-
-		$this->assertSame( 'light', blueline_get_theme_preference( 7 ) );
-	}
-
-	/**
-	 * Test case.
-	 */
-	public function test_save_clamps_an_unrecognised_submitted_value_to_system(): void {
-		// Anything a browser could plausibly send that isn't one of the
-		// <select>'s own three <option> values -- e.g. a tampered request.
-		$_POST['blueline_theme_preference'] = 'not-a-real-theme';
-
-		blueline_save_theme_preference( 7 );
-
-		$this->assertSame( 'system', blueline_get_theme_preference( 7 ) );
-	}
-
-	/**
-	 * Test case.
-	 */
-	public function test_save_defaults_to_system_when_the_field_is_missing_entirely(): void {
-		// The field is always rendered by blueline_render_theme_preference_field(),
-		// but the save handler must not fatal or warn on a request that
-		// omits it (e.g. a modified form submission).
-		blueline_save_theme_preference( 7 );
-
-		$this->assertSame( 'system', blueline_get_theme_preference( 7 ) );
-	}
-
-	// -----------------------------------------------------------------------
 	// blueline_theme_preference_html_attribute()
 	// -----------------------------------------------------------------------
 
@@ -268,28 +147,21 @@ final class ThemePreferenceTest extends TestCase {
 		$this->assertSame( 'system', blueline_get_theme_preference( 11 ) );
 	}
 
-	/**
-	 * Test case.
-	 */
-	public function test_save_theme_preference_uses_the_shared_persist_function(): void {
-		// Mutation-verified: this proves blueline_save_theme_preference()
-		// actually calls blueline_persist_theme_preference() (and not some
-		// separately-drifted clamp of its own) by seeding a PRIOR stored
-		// value the clamp would need to overwrite, then submitting an
-		// invalid one -- a broken/removed call would leave the prior value
-		// in place instead of clamping it to 'system'.
-		$state = &blueline_test_state();
-		$state['user_meta'][7]['blueline_theme_preference'] = 'light';
-
-		$_POST['blueline_theme_preference'] = 'not-a-real-theme';
-		blueline_save_theme_preference( 7 );
-
-		$this->assertSame( 'system', blueline_get_theme_preference( 7 ) );
-	}
-
 	// -----------------------------------------------------------------------
 	// blueline_render_theme_toggle()
 	// -----------------------------------------------------------------------
+
+	/**
+	 * Capture a renderer's echoed output.
+	 *
+	 * @param callable $renderer Zero-arg callable that echoes markup.
+	 * @return string
+	 */
+	private function render( callable $renderer ): string {
+		ob_start();
+		$renderer();
+		return (string) ob_get_clean();
+	}
 
 	/**
 	 * Test case.

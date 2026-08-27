@@ -1,13 +1,16 @@
 <?php
 /**
- * Light/dark/system appearance preference: configurable from My Account for
- * a logged-in player, AND from a sitewide footer toggle for every visitor,
- * logged in or not.
+ * Light/dark/system appearance preference: configurable from the Preferences
+ * tab (/account/preferences/) for a logged-in player, AND from a sitewide
+ * footer toggle for every visitor, logged in or not. Both share the exact
+ * same toggle markup and click handling -- blueline_render_theme_toggle()
+ * below, and assets/src/js/footer-theme-toggle.js on the client.
  *
  * Design specs: docs/superpowers/specs/2026-08-22-blueline-theme-toggle-
- * design.md (the original Account Details field) and
- * docs/superpowers/specs/2026-08-26-blueline-footer-theme-toggle-design.md
- * (the footer toggle this file's second half adds).
+ * design.md (the original Account Details field, since removed in favour of
+ * the Preferences tab) and docs/superpowers/specs/2026-08-26-blueline-
+ * footer-theme-toggle-design.md (the footer toggle this file's second half
+ * adds).
  *
  * Storage is a single user meta value, one of BLUELINE_THEME_PREFERENCES,
  * defaulting to 'system' -- the absence of the meta key IS 'system', so
@@ -65,35 +68,6 @@ function blueline_get_theme_preference( int $user_id ): string {
 		: BLUELINE_THEME_PREFERENCES[0];
 }
 
-add_action( 'woocommerce_edit_account_form', 'blueline_render_theme_preference_field' );
-/**
- * Render the appearance-preference <select> on the Account Details page.
- *
- * Plain WooCommerce form-row markup -- no new component CSS, this picks up
- * the existing `.woocommerce .form-row`/`.woocommerce select` styling
- * every other field on this form already uses (woocommerce.css).
- */
-function blueline_render_theme_preference_field(): void {
-	$current = blueline_get_theme_preference( get_current_user_id() );
-	$options = array(
-		'system' => __( 'Match my device', 'blueline' ),
-		'light'  => __( 'Light', 'blueline' ),
-		'dark'   => __( 'Dark', 'blueline' ),
-	);
-	?>
-	<p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
-		<label for="blueline_theme_preference"><?php esc_html_e( 'Appearance', 'blueline' ); ?></label>
-		<select name="blueline_theme_preference" id="blueline_theme_preference" class="woocommerce-Input woocommerce-Input--select input-text">
-			<?php foreach ( $options as $value => $label ) : ?>
-				<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current, $value ); ?>>
-					<?php echo esc_html( $label ); ?>
-				</option>
-			<?php endforeach; ?>
-		</select>
-	</p>
-	<?php
-}
-
 /**
  * Clamp a submitted appearance-preference value to a known-good one and
  * persist it. Shared by both persistence paths this feature has: the
@@ -116,26 +90,6 @@ function blueline_persist_theme_preference( int $user_id, string $submitted ): s
 	update_user_meta( $user_id, BLUELINE_THEME_PREFERENCE_META_KEY, $preference );
 
 	return $preference;
-}
-
-add_action( 'woocommerce_save_account_details', 'blueline_save_theme_preference', 12, 1 );
-/**
- * Persist the submitted appearance preference.
- *
- * Runs after WooCommerce core's own `save_account_details_nonce` check
- * (WC_Form_Handler::save_account_details() verifies it before this action
- * ever fires), so no separate nonce check is needed here. The submitted
- * value is clamped and persisted by blueline_persist_theme_preference()
- * above -- the same "clamp to a known-good value" pattern as
- * blueline_announcement_severity().
- *
- * @param int $user_id The account being saved.
- */
-function blueline_save_theme_preference( int $user_id ): void {
-	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- see docblock.
-	$submitted = isset( $_POST['blueline_theme_preference'] ) ? sanitize_text_field( wp_unslash( $_POST['blueline_theme_preference'] ) ) : '';
-
-	blueline_persist_theme_preference( $user_id, $submitted );
 }
 
 add_filter( 'language_attributes', 'blueline_theme_preference_html_attribute' );
@@ -201,10 +155,12 @@ function blueline_ajax_save_theme_preference(): void {
 }
 
 /**
- * Render the sitewide footer light/dark/system toggle -- unlike the
- * Account Details <select> above, visible to every visitor, logged in or
- * not (design: docs/superpowers/specs/2026-08-26-blueline-footer-theme-
- * toggle-design.md). Three buttons rather than a <select>: clicking one
+ * Render the light/dark/system toggle -- visible to every visitor, logged
+ * in or not (design: docs/superpowers/specs/2026-08-26-blueline-footer-
+ * theme-toggle-design.md). Called twice per page view for a logged-in
+ * visitor on /account/preferences/ (inc/account/preferences.php) -- once
+ * there, once by the sitewide footer -- and exactly once everywhere else.
+ * Three buttons rather than a <select>: clicking one
  * applies the theme instantly (assets/src/js/footer-theme-toggle.js) and,
  * for a logged-in visitor, fires the AJAX save
  * (blueline_ajax_save_theme_preference()) with no page reload and no
@@ -228,6 +184,7 @@ function blueline_ajax_save_theme_preference(): void {
 function blueline_render_theme_toggle(): void {
 	$logged_in = is_user_logged_in();
 	$current   = $logged_in ? blueline_get_theme_preference( get_current_user_id() ) : BLUELINE_THEME_PREFERENCES[0];
+	$label_id  = wp_unique_id( 'bl-theme-toggle-label-' );
 
 	$options = array(
 		'system' => __( 'System', 'blueline' ),
@@ -244,8 +201,8 @@ function blueline_render_theme_toggle(): void {
 			data-bl-theme-toggle-ajax-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>"
 		<?php endif; ?>
 	>
-		<span class="bl-theme-toggle__label" id="bl-theme-toggle-label"><?php esc_html_e( 'Appearance', 'blueline' ); ?></span>
-		<div class="bl-theme-toggle__group" role="group" aria-labelledby="bl-theme-toggle-label">
+		<span class="bl-theme-toggle__label" id="<?php echo esc_attr( $label_id ); ?>"><?php esc_html_e( 'Appearance', 'blueline' ); ?></span>
+		<div class="bl-theme-toggle__group" role="group" aria-labelledby="<?php echo esc_attr( $label_id ); ?>">
 			<?php foreach ( $options as $value => $label ) : ?>
 				<button
 					type="button"

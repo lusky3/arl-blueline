@@ -585,6 +585,25 @@ body.woocommerce-account .bl-account-nav {
 	color: var(--bl-warning);
 }
 
+/* ---------------------------------------------------------------------
+ * Preferences
+ * ------------------------------------------------------------------- */
+
+.bl-preferences-team__summary {
+	margin: 0;
+	font-weight: 600;
+}
+
+.bl-preferences-widget__confirmation {
+	margin: var(--bl-space-3) 0 0;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-preferences-widget__confirmation[hidden] {
+	display: none;
+}
+
 @media (max-width: 480px) {
 
 	.bl-account-stats {
