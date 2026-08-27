@@ -91,7 +91,7 @@ function blueline_render_player_profile_registration_section( int $user_id ): vo
  * @param int $player_id sp_player post ID.
  */
 function blueline_render_player_profile_bio_section( int $player_id ): void {
-	blueline_account_module_start( 'player-profile-bio', __( 'Player profile', 'blueline' ) );
+	blueline_account_module_start( 'player-profile-bio', __( 'Bio', 'blueline' ) );
 	?>
 	<div class="bl-player-profile__bio">
 		<?php if ( has_post_thumbnail( $player_id ) ) : ?>
@@ -104,7 +104,7 @@ function blueline_render_player_profile_bio_section( int $player_id ): void {
 		<div class="bl-player-profile__identity">
 			<p class="bl-player-profile__name"><?php echo esc_html( get_the_title( $player_id ) ); ?></p>
 			<?php $number = blueline_player_jersey_number( $player_id ); ?>
-			<?php if ( $number ) : ?>
+			<?php if ( null !== $number ) : ?>
 				<p class="bl-player-profile__number">
 					<?php
 					echo esc_html(
