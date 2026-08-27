@@ -85,8 +85,8 @@ function blueline_render_preferences_team_section(): void {
 
 add_action( 'woocommerce_account_preferences_endpoint', 'blueline_account_preferences_endpoint' );
 /**
- * Content for /account/preferences/. Task 3 appends the appearance and
- * widget-visibility sections after the team section built here.
+ * Content for /account/preferences/: linked team, appearance, and
+ * next-game-widget visibility, in that order.
  */
 function blueline_account_preferences_endpoint(): void {
 	blueline_render_preferences_team_section();
