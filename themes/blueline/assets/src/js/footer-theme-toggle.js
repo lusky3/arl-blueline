@@ -116,9 +116,9 @@ function applyTheme( value ) {
 }
 
 /**
- * Mark exactly one of the toggle's own buttons as the pressed (active) one.
+ * Mark exactly one of the given buttons as the pressed (active) one.
  *
- * @param {Element[]} buttons The toggle's `[data-bl-theme-toggle-option]` buttons.
+ * @param {Element[]} buttons The `[data-bl-theme-toggle-option]` buttons to update.
  * @param {string}    value   The now-active value.
  */
 function setPressedState( buttons, value ) {
@@ -127,6 +127,31 @@ function setPressedState( buttons, value ) {
 			button.getAttribute( 'data-bl-theme-toggle-option' ) === value;
 		button.setAttribute( 'aria-pressed', isActive ? 'true' : 'false' );
 	} );
+}
+
+/**
+ * Mark the pressed value across EVERY `[data-bl-theme-toggle]` instance on
+ * the page, not just the one that was clicked. A logged-in visitor can see
+ * two instances on the same page at once (the footer's own, plus a second
+ * one on /account/preferences/) -- confirmed live: without this, changing
+ * the theme on one instance left the other showing its old pressed state
+ * until the next page load, even though `<html data-theme>` and the saved
+ * preference were both already correct. Only called from a click's own
+ * success path (localStorage write or AJAX success), never from init --
+ * each instance's OWN initial pressed state on page load already comes
+ * from the same source of truth (server-rendered user meta for 'account'
+ * mode, this browser's localStorage for 'guest' mode), so instances are
+ * already consistent with each other before any click ever happens.
+ *
+ * @param {string} value The now-active value.
+ */
+function setPressedStateEverywhere( value ) {
+	setPressedState(
+		Array.from(
+			document.querySelectorAll( '[data-bl-theme-toggle-option]' )
+		),
+		value
+	);
 }
 
 /**
@@ -209,13 +234,13 @@ function initThemeToggleInstance( container ) {
 			if ( 'localStorage' === persist ) {
 				writeGuestPreference( value );
 				applyTheme( value );
-				setPressedState( buttons, value );
+				setPressedStateEverywhere( value );
 				return;
 			}
 
 			saveViaAjax( container, value, () => {
 				applyTheme( value );
-				setPressedState( buttons, value );
+				setPressedStateEverywhere( value );
 			} );
 		} );
 	} );
