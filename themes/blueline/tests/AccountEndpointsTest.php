@@ -319,4 +319,17 @@ final class AccountEndpointsTest extends TestCase {
 		$this->assertSame( 'Addresses', $titles['edit-address'] );
 		$this->assertSame( 'Account Details', $titles['edit-account'] );
 	}
+
+	/**
+	 * Sub-project 3 (Player Profile tab): a new top-level endpoint in the
+	 * 'league' group, alongside my-team/my-schedule -- genuinely team/player
+	 * content, not account administration or site-experience settings.
+	 */
+	public function test_player_profile_endpoint_exists_in_the_league_group(): void {
+		$e = blueline_account_endpoints();
+
+		$this->assertArrayHasKey( 'player-profile', $e );
+		$this->assertSame( 'league', $e['player-profile']['group'] );
+		$this->assertSame( 'Player Profile', $e['player-profile']['label'] );
+	}
 }

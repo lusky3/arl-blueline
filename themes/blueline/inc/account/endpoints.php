@@ -34,6 +34,11 @@ function blueline_account_endpoints(): array {
 			'group' => 'league',
 			'order' => 20,
 		),
+		'player-profile'  => array(
+			'label' => __( 'Player Profile', 'blueline' ),
+			'group' => 'league',
+			'order' => 25,
+		),
 		'preferences'     => array(
 			'label' => __( 'Preferences', 'blueline' ),
 			'group' => 'preferences',
@@ -299,6 +304,7 @@ add_action( 'init', 'blueline_register_account_rewrite_endpoints' );
 function blueline_register_account_rewrite_endpoints() {
 	add_rewrite_endpoint( 'my-team', EP_ROOT | EP_PAGES );
 	add_rewrite_endpoint( 'my-schedule', EP_ROOT | EP_PAGES );
+	add_rewrite_endpoint( 'player-profile', EP_ROOT | EP_PAGES );
 	add_rewrite_endpoint( 'preferences', EP_ROOT | EP_PAGES );
 
 	foreach ( blueline_account_legacy_redirect_map() as $legacy_slug => $arl_slug ) {
