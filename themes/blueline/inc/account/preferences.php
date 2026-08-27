@@ -103,7 +103,7 @@ function blueline_account_preferences_endpoint(): void {
 	<button type="button" class="bl-btn bl-btn--secondary" data-bl-widget-reset>
 		<span class="bl-skew"><span><?php esc_html_e( 'Show next game widget again', 'blueline' ); ?></span></span>
 	</button>
-	<p class="bl-preferences-widget__confirmation" data-bl-widget-reset-confirmation hidden>
+	<p class="bl-preferences-widget__confirmation" data-bl-widget-reset-confirmation hidden role="status">
 		<?php esc_html_e( 'Done — it will show again on your next page view.', 'blueline' ); ?>
 	</p>
 	<?php

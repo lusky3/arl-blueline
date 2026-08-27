@@ -184,6 +184,7 @@ function blueline_ajax_save_theme_preference(): void {
 function blueline_render_theme_toggle(): void {
 	$logged_in = is_user_logged_in();
 	$current   = $logged_in ? blueline_get_theme_preference( get_current_user_id() ) : BLUELINE_THEME_PREFERENCES[0];
+	$label_id  = wp_unique_id( 'bl-theme-toggle-label-' );
 
 	$options = array(
 		'system' => __( 'System', 'blueline' ),
@@ -200,8 +201,8 @@ function blueline_render_theme_toggle(): void {
 			data-bl-theme-toggle-ajax-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>"
 		<?php endif; ?>
 	>
-		<span class="bl-theme-toggle__label" id="bl-theme-toggle-label"><?php esc_html_e( 'Appearance', 'blueline' ); ?></span>
-		<div class="bl-theme-toggle__group" role="group" aria-labelledby="bl-theme-toggle-label">
+		<span class="bl-theme-toggle__label" id="<?php echo esc_attr( $label_id ); ?>"><?php esc_html_e( 'Appearance', 'blueline' ); ?></span>
+		<div class="bl-theme-toggle__group" role="group" aria-labelledby="<?php echo esc_attr( $label_id ); ?>">
 			<?php foreach ( $options as $value => $label ) : ?>
 				<button
 					type="button"

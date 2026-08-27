@@ -54,4 +54,19 @@ esac
 ssh -p "$PORT" "$HOST" "mkdir -p '$DEST'"
 rsync -az --delete -e "ssh -p $PORT" "${EXCLUDES[@]}" "$SRC" "$HOST:$DEST"
 ssh -p "$PORT" "$HOST" "chown -R 33:33 '$DEST'"
+
+if [ "$TARGET" = "staging" ]; then
+  # This rsync-based sync never triggers WordPress's after_switch_theme
+  # hook (the theme is never actually "switched" -- see
+  # inc/account/endpoints.php's own `add_action( 'after_switch_theme',
+  # 'flush_rewrite_rules' )`), so a slug this deploy newly registered via
+  # add_rewrite_endpoint() (e.g. inc/account/endpoints.php's 'preferences')
+  # 404s on staging until the rewrite rules are flushed by hand. docker
+  # exec against the staging-wp container mirrors the pattern
+  # scripts/fetch-wp-core-oracle.sh already uses to reach staging's
+  # WordPress container over this same SSH connection; -u 33 matches the
+  # chown -R 33:33 above and the uid staging's own wp-cli runs as.
+  ssh -p "$PORT" "$HOST" "docker exec -u 33 staging-wp wp rewrite flush --path=/var/www/html"
+fi
+
 echo "deployed $TARGET"
