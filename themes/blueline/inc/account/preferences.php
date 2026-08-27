@@ -94,4 +94,18 @@ function blueline_account_preferences_endpoint(): void {
 	blueline_account_module_start( 'preferences-appearance', __( 'Appearance', 'blueline' ) );
 	blueline_render_theme_toggle();
 	blueline_account_module_end();
+
+	blueline_account_module_start( 'preferences-widget', __( 'Next game widget', 'blueline' ) );
+	?>
+	<p class="bl-preferences-widget__intro">
+		<?php esc_html_e( 'If you’ve dismissed the floating next-game widget, you can bring it back here.', 'blueline' ); ?>
+	</p>
+	<button type="button" class="bl-btn bl-btn--secondary" data-bl-widget-reset>
+		<span class="bl-skew"><span><?php esc_html_e( 'Show next game widget again', 'blueline' ); ?></span></span>
+	</button>
+	<p class="bl-preferences-widget__confirmation" data-bl-widget-reset-confirmation hidden>
+		<?php esc_html_e( 'Done — it will show again on your next page view.', 'blueline' ); ?>
+	</p>
+	<?php
+	blueline_account_module_end();
 }
