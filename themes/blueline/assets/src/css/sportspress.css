@@ -438,16 +438,21 @@ table.bl-table-self-scroll {
 	}
 }
 
-/* ---- Theme-owned roster list override: sportspress/team-lists.php ----
+/* ---- Theme-owned roster table override: sportspress/team-lists.php ----
  *
  * Finding 8: replaces the earlier 16-up identical-card grid (banned pattern:
- * big number, small name, "SKATER" repeated on almost every card) with a
- * compact list. A roster is scanned for NAMES, so the name is now the
- * largest, most prominent element in each row (~18px, the same link colour
- * team names get in the tables below; .sp-data-table's own default `a`
- * styling, not overridden to plain ink the way the old card grid did), the
- * number is a small fixed-width tabular column, and position shows only
- * when it isn't "Skater".
+ * big number, small name, "SKATER" repeated on almost every card). A roster
+ * is scanned for NAMES, so the name stays the largest, most prominent
+ * element in each row (~18px, the same link colour team names get in the
+ * tables below; .sp-data-table's own default `a` styling, not overridden to
+ * plain ink the way the old card grid did), the number is a small
+ * fixed-width tabular column, and position shows only when it isn't
+ * "Skater". A real <table> again (see the file's own top docblock for why:
+ * click-to-sort, via the same sp-data-table/sp-sortable-table DataTables
+ * wiring league-table.php's mini-standings table on this same page already
+ * uses) -- base padding/borders/zebra-stripe/header styling all come from
+ * .sp-data-table itself, declared above; only roster-specific layout lives
+ * here.
  */
 
 .bl-sp-team-list__group {
@@ -456,32 +461,6 @@ table.bl-table-self-scroll {
 
 .bl-sp-roster {
 	margin: 0 0 var(--bl-space-5);
-	padding: 0;
-	list-style: none;
-	border-top: 1px solid var(--bl-content-border);
-}
-
-.bl-sp-roster__row {
-	display: grid;
-
-	/* Fifth (auto) track for .bl-sp-roster__you -- a goalie's own row can
-	   legitimately carry BOTH .bl-sp-roster__position and the "You" badge at
-	   once, and a 4-column template would wrap the 5th item onto its own
-	   implicit row instead of sitting beside .bl-sp-roster__position. The
-	   stats block (blueline_render_roster_stats(), inc/sportspress.php) is
-	   its own single auto column here, not five separate ones: its OWN
-	   internal flex row lays out GP/G/A/PTS/PIM, which keeps this outer grid
-	   unchanged in column count regardless of how many stats it shows. */
-	grid-template-columns: 2.5rem 1fr auto auto auto;
-	align-items: center;
-	gap: var(--bl-space-3);
-	padding-block: var(--bl-space-2);
-	border-bottom: 1px solid var(--bl-content-border);
-}
-
-.bl-sp-roster__row:hover,
-.bl-sp-roster__row:focus-within {
-	background: var(--bl-surface-sunken);
 }
 
 .bl-sp-roster__number {
@@ -489,6 +468,23 @@ table.bl-table-self-scroll {
 	font-weight: 700;
 	color: var(--bl-content-text-secondary);
 	text-align: end;
+}
+
+/*
+ * Photo, name, and the position/"You" badges all sit in ONE cell, in flow
+ * order (name first, badges after) rather than trailing columns of their
+ * own -- live feedback found a separate trailing badge column made a
+ * goalie's row wider than every other row. flex-wrap so a badge drops to
+ * its own line rather than forcing the cell (and so the whole table) wider
+ * than the other columns need; .sp-data-table's own `white-space: nowrap`
+ * default is overridden back to normal here for exactly that reason.
+ */
+.bl-sp-roster__name-cell {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-2);
+	white-space: normal;
 }
 
 .bl-sp-roster__name {
@@ -518,7 +514,6 @@ table.bl-table-self-scroll {
 }
 
 .bl-sp-roster__position {
-	justify-self: end;
 	padding: 1px var(--bl-space-2);
 	border: 1px solid var(--bl-content-border-strong);
 	color: var(--bl-content-text-secondary);
@@ -526,50 +521,6 @@ table.bl-table-self-scroll {
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 	white-space: nowrap;
-}
-
-/*
- * Current-season GP/G/A/PTS/PIM (blueline_render_roster_stats(),
- * inc/sportspress.php) -- one flex row per player, not five more grid
- * columns on .bl-sp-roster__row itself, so the outer row grid stays a
- * fixed 5 tracks no matter how this inner block lays out or, below
- * 700px (this file's own responsive-table breakpoint), which of its five
- * stats it hides.
- */
-.bl-sp-roster__stats {
-	display: flex;
-	gap: var(--bl-space-3);
-}
-
-.bl-sp-roster__stat {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	min-width: 1.75rem;
-}
-
-.bl-sp-roster__stat-value {
-	font-variant-numeric: tabular-nums;
-	font-weight: 700;
-	color: var(--bl-content-text);
-}
-
-.bl-sp-roster__stat-label {
-	font-size: var(--bl-text-xs);
-	text-transform: uppercase;
-	letter-spacing: 0.02em;
-	color: var(--bl-content-text-secondary);
-}
-
-@media (max-width: 700px) {
-
-	/* GP and PIM are the two figures a reader scans for least -- goals,
-	   assists and points are what a roster gets read for -- so those two
-	   drop first to keep every row on one line down to a phone width. */
-	.bl-sp-roster__stat:first-child,
-	.bl-sp-roster__stat:last-child {
-		display: none;
-	}
 }
 
 /*
@@ -590,7 +541,6 @@ table.bl-table-self-scroll {
  * already-team-coloured page and distinguish nothing.
  */
 .bl-sp-roster__you {
-	justify-self: end;
 	padding: 1px var(--bl-space-3);
 	border-radius: 999px;
 	background: var(--bl-ice);
@@ -600,6 +550,36 @@ table.bl-table-self-scroll {
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 	white-space: nowrap;
+}
+
+/*
+ * Current-season GP/G/A/PTS/PIM (blueline_render_roster_stats(),
+ * inc/sportspress.php) -- shared between each <th> label
+ * (blueline_roster_stat_labels()) and every row's <td>, so header and data
+ * align under the same rule.
+ */
+.bl-sp-roster__stat {
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+td.bl-sp-roster__stat {
+	font-weight: 700;
+}
+
+@media (max-width: 700px) {
+
+	/* GP and PIM are the two figures a reader scans for least -- goals,
+	   assists and points are what a roster gets read for -- so those two
+	   drop first to keep the table from forcing horizontal scroll on a
+	   phone width. Columns are always # / Player / GP / G / A / PTS / PIM
+	   in that fixed order, so GP is always 3rd and PIM always last. */
+	.bl-sp-roster th:nth-child(3),
+	.bl-sp-roster td:nth-child(3),
+	.bl-sp-roster th:last-child,
+	.bl-sp-roster td:last-child {
+		display: none;
+	}
 }
 
 /* ---- Theme-owned stat chip (declared per the brief; no shipped SP

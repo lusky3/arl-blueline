@@ -169,9 +169,31 @@ function blueline_sp_caption_heading_level(): int {
 }
 
 /**
- * Print one player's current-season stat line (GP / G / A / PTS / PIM) for
- * a team roster row (sportspress/team-lists.php, both the curated-list and
- * the blueline_get_team_roster() fallback loop).
+ * The roster table's stat columns, in display order -- the single source
+ * both the <thead> column labels (sportspress/team-lists.php) and each
+ * row's cells (blueline_render_roster_stats(), just below) read from, so
+ * the two can never drift out of sync.
+ *
+ * @return array<string,string> Stat key => column label.
+ */
+function blueline_roster_stat_labels(): array {
+	return array(
+		'gp'  => __( 'GP', 'blueline' ),
+		'g'   => __( 'G', 'blueline' ),
+		'a'   => __( 'A', 'blueline' ),
+		'pts' => __( 'PTS', 'blueline' ),
+		'pim' => __( 'PIM', 'blueline' ),
+	);
+}
+
+/**
+ * Print one player's current-season stat cells (GP / G / A / PTS / PIM,
+ * blueline_roster_stat_labels()' order) for a team roster row
+ * (sportspress/team-lists.php, both the curated-list and the
+ * blueline_get_team_roster() fallback loop) -- a real <table> so
+ * SportsPress's own already-loaded sp-sortable-table/DataTables behaviour
+ * (see league-table.php, same classes, same page) makes every column
+ * click-to-sort with no new JS.
  *
  * Reads through blueline_get_player_season_stats() -- SP_Player::data(),
  * memoised, correctly season- and league-scoped (see that function's own
@@ -197,25 +219,12 @@ function blueline_render_roster_stats( int $player_id ) {
 		return;
 	}
 
-	$stats         = blueline_get_player_season_stats( $player_id );
-	$stats['pts']  = $stats['g'] + $stats['a'];
-	$bl_stat_order = array(
-		'gp'  => __( 'GP', 'blueline' ),
-		'g'   => __( 'G', 'blueline' ),
-		'a'   => __( 'A', 'blueline' ),
-		'pts' => __( 'PTS', 'blueline' ),
-		'pim' => __( 'PIM', 'blueline' ),
-	);
-	?>
-	<span class="bl-sp-roster__stats">
-		<?php foreach ( $bl_stat_order as $bl_key => $bl_label ) : ?>
-			<span class="bl-sp-roster__stat">
-				<span class="bl-sp-roster__stat-value"><?php echo esc_html( (string) $stats[ $bl_key ] ); ?></span>
-				<span class="bl-sp-roster__stat-label"><?php echo esc_html( $bl_label ); ?></span>
-			</span>
-		<?php endforeach; ?>
-	</span>
-	<?php
+	$stats        = blueline_get_player_season_stats( $player_id );
+	$stats['pts'] = $stats['g'] + $stats['a'];
+
+	foreach ( array_keys( blueline_roster_stat_labels() ) as $bl_key ) {
+		printf( '<td class="bl-sp-roster__stat">%s</td>', esc_html( (string) $stats[ $bl_key ] ) );
+	}
 }
 
 add_filter( 'body_class', 'blueline_sp_body_class' );
