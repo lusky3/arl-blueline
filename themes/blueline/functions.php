@@ -65,6 +65,7 @@ require_once BLUELINE_DIR . '/inc/account/player-profile.php';
 // blueline_current_user_player_id() and blueline_get_player_next_event(),
 // both declared there.
 require_once BLUELINE_DIR . '/inc/floating-next-game.php';
+require_once BLUELINE_DIR . '/inc/team-flyout.php';
 
 // WP-CLI only: `wp blueline settings export|import|validate|repair|reset|flush-cache`.
 // Guarded so inc/cli/settings-command.php -- which extends WP_CLI_Command and calls

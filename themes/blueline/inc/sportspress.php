@@ -424,6 +424,30 @@ function blueline_league_menu_team_ids(): array {
 	return $ids;
 }
 
+/**
+ * The team directory's resolved position, clamped to a real choice.
+ *
+ * `blueline_settings()` does no validation -- it merges defaults and
+ * returns whatever is stored, which could be a value written by a raw `wp
+ * db import`, a hand-edited row, or a plugin filtering
+ * `option_blueline_settings`, bypassing the admin panel's own save-time
+ * `choices` guard entirely. Without this clamp, an unrecognized value
+ * would make BOTH blueline_footer_team_directory() and
+ * blueline_render_team_flyout() return early (one checks `'footer' !==
+ * ...`, the other `'flyout' !== ...`) -- the team directory silently
+ * vanishing sitewide while the admin panel still shows the master toggle
+ * on. Same clamp-on-read idiom as blueline_announcement_severity()
+ * (inc/announcement.php) and blueline_season_state_override()
+ * (inc/season-state.php).
+ *
+ * @return string 'footer' or 'flyout'.
+ */
+function blueline_team_directory_position(): string {
+	$stored = (string) blueline_settings( 'chrome_team_directory_position' );
+
+	return in_array( $stored, array( 'footer', 'flyout' ), true ) ? $stored : 'footer';
+}
+
 add_filter( 'option_sportspress_header_sponsors_limit', 'blueline_sp_header_sponsors_limit' );
 /**
  * The real gate for `chrome_sponsors`: force the option SportsPress checks

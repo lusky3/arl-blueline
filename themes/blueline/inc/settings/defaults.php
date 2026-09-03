@@ -416,6 +416,27 @@ function blueline_settings_schema(): array {
 		if ( ! empty( $def['help'] ) ) {
 			$schema[ $key ]['help'] = $def['help'];
 		}
+
+		// Not part of the auto-generated boolean shape above: this one
+		// needs `choices`. Inserted here, immediately after
+		// chrome_footer_teams's own entry, so insertion order (which IS
+		// render order -- blueline_settings_fields_for_tab() has no
+		// group-based layout) actually puts it next to the toggle it
+		// depends on, not at the end of the whole Sections tab.
+		if ( 'chrome_footer_teams' === $key ) {
+			$schema['chrome_team_directory_position'] = array(
+				'type'         => 'text',
+				'tab'          => 'sections',
+				'group'        => 'Site chrome',
+				'label'        => 'Team directory position',
+				'help'         => 'Only matters while "Footer team directory" above is on.',
+				'placeholders' => array(),
+				'choices'      => array(
+					'footer' => 'Footer directory',
+					'flyout' => 'Flyout menu',
+				),
+			);
+		}
 	}
 
 	return $schema;
@@ -432,51 +453,51 @@ function blueline_settings_schema(): array {
  */
 function blueline_settings_defaults(): array {
 	$defaults = array(
-		'contact_email'                 => 'play@rookiehockey.ca',
-		'footer_heading'                => 'The League',
-		'footer_location'               => 'Burlington, Ontario',
-		'hero_offseason_cta'            => 'Join the mailing list',
-		'module_new_here_heading'       => 'Never played? Perfect.',
-		'module_new_here_cta'           => 'Read the FAQs',
-		'account_empty_next_game'       => 'No upcoming game on your schedule yet.',
-		'account_empty_stats'           => 'Stats update after each game is scored.',
-		'hero_registration_headline'    => 'Burlington’s %s league.',
-		'hero_registration_eyebrow'     => '%s · Registration open',
-		'hero_registration_cta'         => 'Register — %s',
-		'hero_preseason_headline'       => 'Puck drops %s.',
-		'hero_in_season_headline'       => '%1$s %2$s this week.',
-		'hero_playoffs_eyebrow'         => '%s · Playoffs',
-		'hero_offseason_headline'       => 'Back on the ice %s.',
+		'contact_email'                  => 'play@rookiehockey.ca',
+		'footer_heading'                 => 'The League',
+		'footer_location'                => 'Burlington, Ontario',
+		'hero_offseason_cta'             => 'Join the mailing list',
+		'module_new_here_heading'        => 'Never played? Perfect.',
+		'module_new_here_cta'            => 'Read the FAQs',
+		'account_empty_next_game'        => 'No upcoming game on your schedule yet.',
+		'account_empty_stats'            => 'Stats update after each game is scored.',
+		'hero_registration_headline'     => 'Burlington’s %s league.',
+		'hero_registration_eyebrow'      => '%s · Registration open',
+		'hero_registration_cta'          => 'Register — %s',
+		'hero_preseason_headline'        => 'Puck drops %s.',
+		'hero_in_season_headline'        => '%1$s %2$s this week.',
+		'hero_playoffs_eyebrow'          => '%s · Playoffs',
+		'hero_offseason_headline'        => 'Back on the ice %s.',
 		// The banner ships off: no text, no window, quiet tone. Installing
 		// this release must not put a strip of copy above every page.
-		'announcement_text'             => '',
-		'announcement_link'             => 0,
-		'announcement_from'             => '',
-		'announcement_to'               => '',
-		'announcement_severity'         => 'info',
+		'announcement_text'              => '',
+		'announcement_link'              => 0,
+		'announcement_from'              => '',
+		'announcement_to'                => '',
+		'announcement_severity'          => 'info',
 		// Nothing forced, and nothing to force it until: the break-glass
 		// ships un-pulled.
-		'season_state_override'         => '',
-		'season_state_override_until'   => '',
-		'page_schedule'                 => 0,
-		'page_standings'                => 0,
-		'page_register'                 => 0,
-		'page_faqs'                     => 0,
-		'page_news'                     => 0,
-		'page_legal'                    => 0,
-		'page_contact'                  => 0,
-		'page_equipment'                => 0,
-		'registration_term'             => 0,
-		'hero_photos'                   => array(),
-		'hero_photo_rotate'             => true,
+		'season_state_override'          => '',
+		'season_state_override_until'    => '',
+		'page_schedule'                  => 0,
+		'page_standings'                 => 0,
+		'page_register'                  => 0,
+		'page_faqs'                      => 0,
+		'page_news'                      => 0,
+		'page_legal'                     => 0,
+		'page_contact'                   => 0,
+		'page_equipment'                 => 0,
+		'registration_term'              => 0,
+		'hero_photos'                    => array(),
+		'hero_photo_rotate'              => true,
 		// Off: the extra stat columns start hidden today (the checkbox in
 		// sportspress/league-table.php carried no `checked` attribute at
 		// all before this field existed), and installing this release must
 		// not change how a standings table already renders.
-		'standings_extra_stats_default' => false,
+		'standings_extra_stats_default'  => false,
 		// Off: a disclosure affordance defaults to hiding what it discloses,
 		// or it discloses nothing.
-		'advanced_enabled'              => false,
+		'advanced_enabled'               => false,
 		// `aa_acknowledgements` (design spec §4.4/§4.5) is deliberately NOT
 		// listed here, for the same reason `_schema` never has been:
 		// membership in blueline_settings()'s returned array is decided by
@@ -506,7 +527,12 @@ function blueline_settings_defaults(): array {
 		// shipped presets (blueline_occasion_presets(), Task 2) are a
 		// READ-ONLY catalog for a future admin UI, never pre-populated live
 		// entries -- design spec §5's second ruling.
-		'occasions'                     => array(),
+		'occasions'                      => array(),
+
+		// Matches the position this theme has always rendered -- installing
+		// this field must not move anything for an install that has never
+		// opened the Sections tab.
+		'chrome_team_directory_position' => 'footer',
 	);
 
 	// Every section defaults to enabled: an install that has never opened

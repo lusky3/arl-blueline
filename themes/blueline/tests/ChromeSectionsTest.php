@@ -113,6 +113,29 @@ final class ChromeSectionsTest extends TestCase {
 	}
 
 	/**
+	 * With `chrome_footer_teams` ON but the position set to 'flyout', the
+	 * footer directory renders nothing -- the two positions are mutually
+	 * exclusive, not both-on-by-default.
+	 */
+	public function test_the_footer_team_directory_yields_to_the_flyout_position(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_team_directory_position' => 'flyout' ) );
+		$state                  = &blueline_test_state();
+		$state['posts'][115100] = array(
+			'status'    => 'publish',
+			'permalink' => 'https://example.test/team/115100',
+			'type'      => 'sp_team',
+			'title'     => 'Mammoth',
+		);
+		$GLOBALS['bl_test_options']['sportspress_league_menu_teams'] = array( '115100' );
+
+		ob_start();
+		blueline_footer_team_directory();
+		$html = (string) ob_get_clean();
+
+		$this->assertSame( '', trim( $html ) );
+	}
+
+	/**
 	 * The footer's "The League" trust column (contact, location, FAQs,
 	 * legal) disappears entirely when `chrome_footer_trust` is off, while
 	 * the rest of the footer (bottom bar, leaf mark, copyright) is

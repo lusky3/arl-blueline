@@ -986,6 +986,10 @@ function blueline_footer_team_directory() {
 		return;
 	}
 
+	if ( 'footer' !== blueline_team_directory_position() ) {
+		return;
+	}
+
 	if ( ! function_exists( 'blueline_league_menu_team_ids' ) ) {
 		return;
 	}

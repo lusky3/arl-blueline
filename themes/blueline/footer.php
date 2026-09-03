@@ -21,6 +21,15 @@ blueline_site_footer();
  * (blueline_render_floating_next_game()'s own guard).
  */
 blueline_render_floating_next_game();
+
+/*
+ * The flyout position of the team directory -- see inc/team-flyout.php's
+ * own docblock. Same "persistent overlay chrome, not in-flow content"
+ * placement as the floating next-game widget directly above; prints
+ * nothing unless the team directory is on AND its position is set to
+ * 'flyout' (blueline_render_team_flyout()'s own guard).
+ */
+blueline_render_team_flyout();
 wp_footer();
 ?>
 </body>

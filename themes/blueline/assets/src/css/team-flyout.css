@@ -1,0 +1,225 @@
+/*
+ * Blueline — sitewide team flyout (the "flyout" position of the team
+ * directory; the other position, blueline_footer_team_directory(), has no
+ * CSS of its own beyond .bl-footer__teams* in footer.css).
+ *
+ * <details>/<summary> needs no JavaScript for the click/tap toggle -- the
+ * same zero-JS pattern woocommerce/myaccount/navigation.php's own Billing
+ * dropdown already establishes in this theme (that precedent relies
+ * entirely on the browser's own native show/hide, though; the animated
+ * hover-reveal below is new here). The browser's own UA stylesheet hides
+ * every non-<summary> child while closed; .bl-team-flyout__panel below
+ * overrides that back to `display: block` permanently so opacity/transform
+ * can animate it instead, driven by :hover (desktop) and [open] (the
+ * native click/tap toggle, works everywhere including touch) rather than
+ * the browser's own abrupt show/hide.
+ *
+ * --bl-z-floating-widget (style.css's centralized scale), reused rather
+ * than a new z-index variable: the same "sitewide persistent overlay
+ * chrome" tier as the existing floating next-game widget.
+ */
+
+.bl-team-flyout {
+	position: fixed;
+	top: 50%;
+	left: 0;
+	transform: translateY(-50%);
+	z-index: var(--bl-z-floating-widget);
+}
+
+.bl-team-flyout summary {
+	list-style: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 96px;
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
+	border-inline-start: none;
+	border-radius: 0 var(--bl-radius-card) var(--bl-radius-card) 0;
+}
+
+.bl-team-flyout summary::-webkit-details-marker {
+	display: none;
+}
+
+.bl-team-flyout summary:hover,
+.bl-team-flyout summary:focus-visible,
+.bl-team-flyout[open] summary {
+	background: var(--bl-ice);
+}
+
+.bl-team-flyout__label {
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	font-size: var(--bl-text-sm);
+	letter-spacing: 0.06em;
+	color: var(--bl-content-text);
+}
+
+.bl-team-flyout summary:hover .bl-team-flyout__label,
+.bl-team-flyout summary:focus-visible .bl-team-flyout__label,
+.bl-team-flyout[open] summary .bl-team-flyout__label {
+	color: var(--bl-ink);
+}
+
+.bl-team-flyout__panel {
+	display: block;
+	position: absolute;
+	top: 50%;
+	left: 0;
+	transform: translateY(-50%) translateX(-12px);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	box-sizing: border-box;
+	max-height: min(70vh, 480px);
+	width: 108px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: var(--bl-space-4) var(--bl-space-2) var(--bl-space-4) calc(34px + var(--bl-space-2));
+	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+	scrollbar-width: none;
+}
+
+.bl-team-flyout__panel::-webkit-scrollbar {
+	display: none;
+}
+
+.bl-team-flyout__link {
+	visibility: hidden;
+	transition: visibility 0s linear 0.2s;
+}
+
+.bl-team-flyout[open] .bl-team-flyout__panel {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+	transform: translateY(-50%) translateX(0);
+	transition-delay: 0s;
+}
+
+.bl-team-flyout[open] .bl-team-flyout__link {
+	visibility: visible;
+	transition-delay: 0s;
+}
+
+@media (hover: hover) {
+
+	.bl-team-flyout:hover .bl-team-flyout__panel {
+		opacity: 1;
+		visibility: visible;
+		pointer-events: auto;
+		transform: translateY(-50%) translateX(0);
+		transition-delay: 0s;
+	}
+
+	.bl-team-flyout:hover .bl-team-flyout__link {
+		visibility: visible;
+		transition-delay: 0s;
+	}
+}
+
+.bl-team-flyout__list {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bl-space-4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-team-flyout__crest {
+	display: block;
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	overflow: hidden;
+	box-sizing: border-box;
+	background: var(--bl-content-bg);
+	border: 2px solid var(--bl-content-border);
+	padding: 4px;
+	animation-name: bl-team-flyout-bob;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.bl-team-flyout__crest img,
+.bl-team-flyout__crest svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+/*
+ * Three-way stagger via :nth-child, not per-element inline styles: this
+ * markup has no JavaScript to compute per-item random values (Global
+ * Constraints), and a fixed 3-phase cycle already reads as organic enough
+ * at this item count -- confirmed against the brainstorming mockup, which
+ * used JS-randomized values purely because that was easiest in a throwaway
+ * prototype, not because the production version needs it.
+ */
+.bl-team-flyout__item:nth-child(3n+1) .bl-team-flyout__crest {
+	animation-delay: 0s;
+	animation-duration: 3.6s;
+}
+
+.bl-team-flyout__item:nth-child(3n+2) .bl-team-flyout__crest {
+	animation-delay: 0.6s;
+	animation-duration: 4.2s;
+}
+
+.bl-team-flyout__item:nth-child(3n) .bl-team-flyout__crest {
+	animation-delay: 1.2s;
+	animation-duration: 3.9s;
+}
+
+.bl-team-flyout__link:hover .bl-team-flyout__crest,
+.bl-team-flyout__link:focus-visible .bl-team-flyout__crest {
+	border-color: var(--bl-ice);
+	animation-play-state: paused;
+}
+
+@keyframes bl-team-flyout-bob {
+
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	.bl-team-flyout__crest {
+		animation: none;
+	}
+
+	.bl-team-flyout__panel,
+	.bl-team-flyout__link {
+		transition: none;
+	}
+}
+
+@media (max-width: 480px) {
+
+	.bl-team-flyout__panel {
+		width: 96px;
+	}
+
+	.bl-team-flyout__crest {
+		width: 48px;
+		height: 48px;
+	}
+}
