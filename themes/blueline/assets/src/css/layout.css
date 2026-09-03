@@ -28,6 +28,25 @@
 		grid-template-columns: minmax(0, 1fr) 300px;
 		align-items: start;
 	}
+
+	/*
+	 * A wider container ON SIDEBAR PAGES ONLY, not a sitewide --bl-container
+	 * change: the 300px sidebar track (above) plus the row gap already ate
+	 * into the content column before this, leaving it noticeably narrower
+	 * than the same reader gets on a full-width template. Scoped to the
+	 * exact structure blueline_page_wrapper_start() and
+	 * blueline_render_sp_single() both print (.bl-container is the sidebar
+	 * grid's own direct parent), so this can't widen an unrelated
+	 * .bl-container elsewhere on the page (header/footer chrome, a
+	 * full-width template's own single column) -- :has() for scoped
+	 * selection is already this theme's own established pattern (see
+	 * .bl-account-dashboard__primary:has(> :only-child) in account.css).
+	 * The sidebar itself keeps its 300px track above; the whole gain goes
+	 * to the content column.
+	 */
+	.bl-container:has(> .bl-content-layout--has-sidebar) {
+		max-width: 1400px;
+	}
 }
 
 .bl-content-layout__primary {

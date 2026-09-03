@@ -168,6 +168,56 @@ function blueline_sp_caption_heading_level(): int {
 	return 3;
 }
 
+/**
+ * Print one player's current-season stat line (GP / G / A / PTS / PIM) for
+ * a team roster row (sportspress/team-lists.php, both the curated-list and
+ * the blueline_get_team_roster() fallback loop).
+ *
+ * Reads through blueline_get_player_season_stats() -- SP_Player::data(),
+ * memoised, correctly season- and league-scoped (see that function's own
+ * docblock, inc/account/player-data.php) -- rather than the columns already
+ * available on $row from SP_Player_List::data(). That data only carries
+ * whatever columns an admin configured on THIS PARTICULAR sp_list post
+ * (SP_Player_List's own constructor default is just number/team/position,
+ * no stats at all), curated inconsistently across a decade of team pages;
+ * reading through the account dashboard's own stats reader instead means
+ * every roster shows the same real numbers regardless of that per-list
+ * configuration, the same way the account dashboard's own "My season"
+ * module already does for a single signed-in player.
+ *
+ * PTS is goals + assists, computed here rather than stored: SportsPress
+ * data carries no separate points figure for a skater, and this is the
+ * standard hockey box-score derivation, not a guess.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return void
+ */
+function blueline_render_roster_stats( int $player_id ) {
+	if ( ! function_exists( 'blueline_get_player_season_stats' ) ) {
+		return;
+	}
+
+	$stats         = blueline_get_player_season_stats( $player_id );
+	$stats['pts']  = $stats['g'] + $stats['a'];
+	$bl_stat_order = array(
+		'gp'  => __( 'GP', 'blueline' ),
+		'g'   => __( 'G', 'blueline' ),
+		'a'   => __( 'A', 'blueline' ),
+		'pts' => __( 'PTS', 'blueline' ),
+		'pim' => __( 'PIM', 'blueline' ),
+	);
+	?>
+	<span class="bl-sp-roster__stats">
+		<?php foreach ( $bl_stat_order as $bl_key => $bl_label ) : ?>
+			<span class="bl-sp-roster__stat">
+				<span class="bl-sp-roster__stat-value"><?php echo esc_html( (string) $stats[ $bl_key ] ); ?></span>
+				<span class="bl-sp-roster__stat-label"><?php echo esc_html( $bl_label ); ?></span>
+			</span>
+		<?php endforeach; ?>
+	</span>
+	<?php
+}
+
 add_filter( 'body_class', 'blueline_sp_body_class' );
 /**
  * Add bl-sp / bl-sp-{post_type-or-taxonomy} body classes on SportsPress
@@ -1191,6 +1241,47 @@ function blueline_team_calendar_urls( $team_id ) {
 			'https://calendar.google.com/calendar/render'
 		),
 	);
+}
+
+/**
+ * Print a team's "subscribe to this season" calendar links -- Apple/Outlook
+ * (webcal) and Google -- or nothing at all when the team has no published
+ * calendar (blueline_team_calendar_urls() itself returns null).
+ *
+ * Every team's page carried this by hand until now: the same two links,
+ * the same "Take your schedule with you." lead-in, and (per a live content
+ * audit) the same 2016-era GCal.png/iCal.png image attachments and a
+ * hardcoded, environment-specific webcal:// URL -- one team at a time,
+ * copy-pasted, unable to follow a domain change or a URL scheme fix. This
+ * renders the identical two destinations from the one already-tested
+ * source (blueline_team_calendar_urls(), used unchanged by the account
+ * dashboard's "My next game" module) instead.
+ *
+ * data-calendar-links / data-calendar="apple|google" is the same contract
+ * assets/src/js/calendar-links.js already reads sitewide (it is imported
+ * once, globally, in assets/src/js/index.js) -- it reorders the two links
+ * so the reader's likely platform comes first, with no new JS needed here.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return void
+ */
+function blueline_render_team_calendar_links( $team_id ) {
+	$team_calendar = function_exists( 'blueline_team_calendar_urls' ) ? blueline_team_calendar_urls( $team_id ) : null;
+
+	if ( ! $team_calendar ) {
+		return;
+	}
+	?>
+	<div class="bl-sp-team-calendar" data-calendar-links>
+		<span class="bl-sp-team-calendar__label"><?php esc_html_e( 'Take your schedule with you:', 'blueline' ); ?></span>
+		<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
+			<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
+		</a>
+		<a class="bl-btn bl-btn--secondary" data-calendar="google" href="<?php echo esc_url( $team_calendar['google'] ); ?>">
+			<span class="bl-skew"><span><?php esc_html_e( 'Google', 'blueline' ); ?></span></span>
+		</a>
+	</div>
+	<?php
 }
 
 /**

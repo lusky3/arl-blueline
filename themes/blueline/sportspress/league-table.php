@@ -247,7 +247,17 @@ foreach ( $data as $team_id => $row ) :
 
 	$name_class = '';
 
-	if ( $show_team_logo && has_post_thumbnail( $team_id ) ) :
+	/*
+	 * On a team's own page, this table's highlighted row IS that team --
+	 * its crest is already the page's hero image (blueline_sp_team_hero(),
+	 * inc/sportspress.php), so showing it again here duplicated the logo.
+	 * Every other team's logo in this same mini-standings table (and every
+	 * logo on /standings, where is_singular('sp_team') is false) is
+	 * unaffected -- only the one row that mirrors the page it's on.
+	 */
+	$bl_is_own_team_page = is_singular( 'sp_team' ) && (int) get_queried_object_id() === (int) $team_id;
+
+	if ( $show_team_logo && ! $bl_is_own_team_page && has_post_thumbnail( $team_id ) ) :
 		$logo        = get_the_post_thumbnail( $team_id, 'sportspress-fit-icon' );
 		$name        = '<span class="team-logo">' . $logo . '</span>' . $name;
 		$name_class .= ' has-logo';

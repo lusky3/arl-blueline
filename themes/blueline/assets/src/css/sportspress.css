@@ -464,11 +464,15 @@ table.bl-table-self-scroll {
 .bl-sp-roster__row {
 	display: grid;
 
-	/* Fourth (auto) track for .bl-sp-roster__you -- a goalie's own row can
+	/* Fifth (auto) track for .bl-sp-roster__you -- a goalie's own row can
 	   legitimately carry BOTH .bl-sp-roster__position and the "You" badge at
-	   once, and a 3-column template would wrap the 4th item onto its own
-	   implicit row instead of sitting beside .bl-sp-roster__position. */
-	grid-template-columns: 2.5rem 1fr auto auto;
+	   once, and a 4-column template would wrap the 5th item onto its own
+	   implicit row instead of sitting beside .bl-sp-roster__position. The
+	   stats block (blueline_render_roster_stats(), inc/sportspress.php) is
+	   its own single auto column here, not five separate ones: its OWN
+	   internal flex row lays out GP/G/A/PTS/PIM, which keeps this outer grid
+	   unchanged in column count regardless of how many stats it shows. */
+	grid-template-columns: 2.5rem 1fr auto auto auto;
 	align-items: center;
 	gap: var(--bl-space-3);
 	padding-block: var(--bl-space-2);
@@ -522,6 +526,50 @@ table.bl-table-self-scroll {
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 	white-space: nowrap;
+}
+
+/*
+ * Current-season GP/G/A/PTS/PIM (blueline_render_roster_stats(),
+ * inc/sportspress.php) -- one flex row per player, not five more grid
+ * columns on .bl-sp-roster__row itself, so the outer row grid stays a
+ * fixed 5 tracks no matter how this inner block lays out or, below
+ * 700px (this file's own responsive-table breakpoint), which of its five
+ * stats it hides.
+ */
+.bl-sp-roster__stats {
+	display: flex;
+	gap: var(--bl-space-3);
+}
+
+.bl-sp-roster__stat {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 1.75rem;
+}
+
+.bl-sp-roster__stat-value {
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	color: var(--bl-content-text);
+}
+
+.bl-sp-roster__stat-label {
+	font-size: var(--bl-text-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	color: var(--bl-content-text-secondary);
+}
+
+@media (max-width: 700px) {
+
+	/* GP and PIM are the two figures a reader scans for least -- goals,
+	   assists and points are what a roster gets read for -- so those two
+	   drop first to keep every row on one line down to a phone width. */
+	.bl-sp-roster__stat:first-child,
+	.bl-sp-roster__stat:last-child {
+		display: none;
+	}
 }
 
 /*
@@ -893,6 +941,27 @@ table.bl-table-self-scroll {
 	margin: var(--bl-space-2) 0 0;
 	padding: 0;
 	list-style: none;
+}
+
+/*
+ * A team's own calendar-subscribe links
+ * (blueline_render_team_calendar_links(), inc/sportspress.php) -- same
+ * flex/order contract as .bl-account-next-game__calendar (account.css),
+ * which assets/src/js/calendar-links.js already reorders sitewide by
+ * platform; this is a second, differently-classed consumer of that same
+ * global script, not a second copy of it.
+ */
+.bl-sp-team-calendar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-2);
+	margin-block-end: var(--bl-space-6);
+}
+
+.bl-sp-team-calendar__label {
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
 }
 
 /* ---- Venue archive ---- */

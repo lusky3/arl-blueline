@@ -121,6 +121,9 @@ if ( empty( $lists ) ) {
 					<?php endif; ?>
 					<?php echo esc_html( $mate['name'] ); ?>
 				</a>
+				<?php if ( function_exists( 'blueline_render_roster_stats' ) ) : ?>
+					<?php blueline_render_roster_stats( $mate['player_id'] ); ?>
+				<?php endif; ?>
 				<?php if ( $bl_current_user_player_id && $mate['player_id'] === $bl_current_user_player_id ) : ?>
 					<span class="bl-sp-roster__you"><?php esc_html_e( 'You', 'blueline' ); ?></span>
 				<?php endif; ?>
@@ -257,6 +260,9 @@ foreach ( $lists as $list_post ) :
 						<?php endif; ?>
 						<?php echo esc_html( $name ); ?>
 					</a>
+					<?php if ( function_exists( 'blueline_render_roster_stats' ) ) : ?>
+						<?php blueline_render_roster_stats( $player_id ); ?>
+					<?php endif; ?>
 					<?php if ( $show_position ) : ?>
 						<span class="bl-sp-roster__position"><?php echo esc_html( $position_label ); ?></span>
 					<?php endif; ?>
