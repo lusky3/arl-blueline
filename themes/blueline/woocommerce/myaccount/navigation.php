@@ -1,9 +1,11 @@
 <?php
 /**
- * The Blue Line My Account nav: a horizontal row of pill tabs, with the
- * billing group collapsed into a <details> dropdown that sits alongside
- * (not inside) the scrolling pill row -- see this file's own inline note
- * on why those two must be siblings, not parent/child. Overrides
+ * The Blue Line My Account nav: a horizontal row of pill tabs, ending with
+ * the billing group collapsed into a <details> dropdown. The dropdown is
+ * its own <li> in the SAME <ul> as the pills, not a sibling of the list --
+ * that keeps it inside the one flex-wrap flow (account.css's
+ * `.bl-account-nav__pills`), so it wraps onto whichever line still has
+ * room instead of always dropping to a line of its own. Overrides
  * WooCommerce's own generic, ungrouped `myaccount/navigation.php`.
  *
  * WooCommerce's wc_get_account_menu_items() already aggregates every
@@ -18,10 +20,20 @@
  * blueline_account_endpoints() decides whether it renders as a top-level
  * pill or inside the Billing dropdown.
  *
- * The pill row reuses .bl-table-scroll (assets/src/js/table-scroll.js,
- * sportspress.css's [data-fade-start]/[data-fade-end] mask rules) for its
- * mobile horizontal-scroll edge cue -- the same mechanism this theme
- * already uses for wide tables, not a new scroll affordance.
+ * The list wraps onto extra lines once it runs out of width, rather than
+ * scrolling -- it does NOT carry .bl-table-scroll (assets/src/js/
+ * table-scroll.js's mobile scroll-edge-fade mechanism, used for wide
+ * SportsPress tables): a live check at ~970px found the earlier
+ * scrolling version showing a bare OS scrollbar under primary navigation,
+ * with no visible cue that the missing tabs were a scroll away rather
+ * than just gone. See account.css's own note on `.bl-account-nav__pills`.
+ *
+ * Opens with the theme's own `.bl-band`/`.bl-band--ink` pair (base.css) --
+ * the same paired ice+navy rule the homepage hero closes on
+ * (inc/homepage-modules.php) -- to mark the handoff from the site's global
+ * chrome into account content. Without it the account page carried none of
+ * the site's four signature devices (docs/DESIGN.md) at all, which read as
+ * a generic dashboard bolted onto the site rather than a page of it.
  *
  * @package blueline
  */
@@ -49,8 +61,12 @@ $blueline_billing_active = (bool) array_filter(
 	static fn( $item ) => str_contains( wc_get_account_menu_item_classes( $item['endpoint'] ), 'is-active' )
 );
 ?>
+<div class="bl-account-nav__band">
+	<div class="bl-band" aria-hidden="true"></div>
+	<div class="bl-band--ink" aria-hidden="true"></div>
+</div>
 <nav class="woocommerce-MyAccount-navigation bl-account-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
-	<ul class="bl-account-nav__pills bl-table-scroll">
+	<ul class="bl-account-nav__pills">
 		<?php foreach ( $blueline_pill_items as $blueline_nav_item ) : ?>
 			<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
 				<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
@@ -58,22 +74,24 @@ $blueline_billing_active = (bool) array_filter(
 				</a>
 			</li>
 		<?php endforeach; ?>
-	</ul>
 
-	<?php if ( $blueline_billing_items ) : ?>
-		<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>"<?php echo $blueline_billing_active ? ' open' : ''; ?>>
-			<summary><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
-			<ul class="bl-account-nav__billing-panel">
-				<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>
-					<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
-						<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
-							<?php echo esc_html( $blueline_nav_item['label'] ); ?>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-		</details>
-	<?php endif; ?>
+		<?php if ( $blueline_billing_items ) : ?>
+			<li class="bl-account-nav__billing-item">
+				<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>"<?php echo $blueline_billing_active ? ' open' : ''; ?>>
+					<summary><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
+					<ul class="bl-account-nav__billing-panel">
+						<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>
+							<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
+								<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+									<?php echo esc_html( $blueline_nav_item['label'] ); ?>
+								</a>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				</details>
+			</li>
+		<?php endif; ?>
+	</ul>
 </nav>
 <?php
 

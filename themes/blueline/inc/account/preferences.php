@@ -52,6 +52,27 @@ function blueline_preferences_team_summary( ?array $team ): ?string {
 }
 
 /**
+ * The "Show next game widget again" confirmation text -- pure decision, so
+ * it's testable without a real WordPress/player lookup. The button always
+ * clears the dismissed-widget flag either way (see
+ * blueline_account_preferences_endpoint()'s own docblock for why that's
+ * still useful with no upcoming game), but the two possible outcomes need
+ * different copy: promising "it will show again on your next page view"
+ * when there is no upcoming game at all is a lie -- nothing will actually
+ * appear, since blueline_render_floating_next_game() renders nothing
+ * without one, which live testing found reads as "the button doesn't
+ * work" with no explanation why.
+ *
+ * @param bool $has_upcoming_event Whether the linked player currently has an upcoming event.
+ * @return string The confirmation message to render.
+ */
+function blueline_preferences_widget_confirmation_text( bool $has_upcoming_event ): string {
+	return $has_upcoming_event
+		? __( 'Done — it will show again on your next page view.', 'blueline' )
+		: __( 'Done — you don’t have an upcoming game right now, so it’ll show as soon as one’s scheduled.', 'blueline' );
+}
+
+/**
  * The linked-team section: read-only summary, or an unclaimed/rosterless
  * message with a contact-the-league link.
  */
@@ -96,6 +117,16 @@ function blueline_account_preferences_endpoint(): void {
 	blueline_account_module_end();
 
 	blueline_account_module_start( 'preferences-widget', __( 'Next game widget', 'blueline' ) );
+
+	// The button always clears the dismissed-widget flag regardless of
+	// whether an upcoming game exists right now -- clearing it is still
+	// useful pre-emptively, for whenever one gets scheduled. Only the
+	// confirmation copy needs to know which case this is; see
+	// blueline_preferences_widget_confirmation_text()'s own docblock.
+	$preferences_widget_player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
+	$preferences_widget_has_event = $preferences_widget_player_id && function_exists( 'blueline_get_player_next_event' )
+		? (bool) blueline_get_player_next_event( $preferences_widget_player_id )
+		: false;
 	?>
 	<p class="bl-preferences-widget__intro">
 		<?php esc_html_e( 'If you’ve dismissed the floating next-game widget, you can bring it back here.', 'blueline' ); ?>
@@ -104,7 +135,7 @@ function blueline_account_preferences_endpoint(): void {
 		<span class="bl-skew"><span><?php esc_html_e( 'Show next game widget again', 'blueline' ); ?></span></span>
 	</button>
 	<p class="bl-preferences-widget__confirmation" data-bl-widget-reset-confirmation hidden role="status">
-		<?php esc_html_e( 'Done — it will show again on your next page view.', 'blueline' ); ?>
+		<?php echo esc_html( blueline_preferences_widget_confirmation_text( $preferences_widget_has_event ) ); ?>
 	</p>
 	<?php
 	blueline_account_module_end();

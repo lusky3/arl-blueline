@@ -21,18 +21,29 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
 	padding-block: var(--bl-space-6) var(--bl-space-8);
 }
 
+/*
+ * The signature blue-line band (base.css's `.bl-band`/`.bl-band--ink`,
+ * otherwise only used to close the homepage hero) marking the handoff from
+ * the page's own title into account content -- see woocommerce/myaccount/
+ * navigation.php's own docblock for why. Contained to the page's own
+ * column width, not full-bleed like the hero's: the rest of this page is
+ * entirely container-scoped, and breaking just this one element out to the
+ * viewport edge would read as more inconsistency, not less.
+ */
+.bl-account-nav__band {
+	margin-block: var(--bl-space-4) var(--bl-space-5);
+}
+
 /* ---------------------------------------------------------------------
- * Nav bar -- a horizontal row of pills, with the Billing group collapsed
- * into a <details> dropdown that sits alongside (not inside) the scrolling
- * pill row. See woocommerce/myaccount/navigation.php's own docblock for
- * why those two must be siblings: overflow-x: auto on a shared container
- * would force overflow-y to auto too, clipping the open Billing panel.
+ * Nav bar -- a single horizontal, wrapping row of pills. The Billing
+ * group collapses into a <details> dropdown that is its own <li> at the
+ * end of the SAME <ul> as every other pill (not a sibling element outside
+ * it) -- see woocommerce/myaccount/navigation.php's own docblock for why:
+ * it lets Billing wrap onto whichever line still has room, the same as
+ * any other pill, instead of always dropping to a line by itself.
  * ------------------------------------------------------------------- */
 
 .bl-account-nav {
-	display: flex;
-	align-items: center;
-	gap: var(--bl-space-3);
 	margin-block-end: var(--bl-space-6);
 }
 
@@ -56,22 +67,47 @@ body.woocommerce-account .bl-account-nav {
 }
 
 /*
+ * The same fix as above, for the OTHER half of WooCommerce core's old
+ * two-column float layout: `.woocommerce-account .woocommerce-MyAccount-
+ * content { float: right; width: 68%; }`. Overriding the nav's 30%-left
+ * float without also overriding this one left the content column still
+ * floated right at 68% width -- confirmed live: every dashboard card,
+ * Preferences section, and Player Profile field sat pushed against the
+ * right edge with a dead 32%-wide gap on the left, using none of the
+ * space the rebuilt full-width nav freed up. Same specificity reasoning
+ * as the nav override: WooCommerce's rule is two class selectors
+ * (0,2,0), so `body.woocommerce-account` is needed here too, not just a
+ * later cascade position.
+ */
+body.woocommerce-account .woocommerce-MyAccount-content {
+	float: none;
+	width: 100%;
+}
+
+/*
+ * Wraps onto a second (or third) line instead of scrolling once the pills
+ * outgrow the available width -- a narrow window used to leave the row
+ * horizontally scrollable, which meant a bare OS scrollbar sitting under
+ * primary navigation (confirmed live at ~970px: an unmistakably "broken
+ * chrome" scrollbar track, and no on-screen hint that scrolling, rather
+ * than a missing tab, was how to reach the links past the fold). Wrapping
+ * needs no discovery gesture and never hides a tab behind a scroll edge.
+ * Billing is just the last <li> in this same list (see this file's own
+ * docblock above), so it wraps as part of the same flow.
+ *
  * padding-block: --bl-space-2 (8px), not --bl-space-1 (4px) -- the focus
  * ring needs ~6px of clearance (2px offset + 3px width + 1px, per style
- * .css's own halo values), and overflow-x: auto here forces overflow-y to
- * compute as auto too (this file's own docblock above explains why), so
- * anything under that clearance clips the ring top/bottom on a focused pill.
+ * .css's own halo values); kept at 8px for the ring even though nothing
+ * forces overflow-y here any more.
  *
  * margin-inline-start only, not margin-inline on both edges -- the
  * negative margin exists purely to cancel this element's own inline-start
- * padding so the pill row stays flush with `.bl-account-nav`'s left edge.
- * Applying it to BOTH edges also ate into `.bl-account-nav`'s `gap`
- * between this list and the sibling `.bl-account-nav__billing` disclosure,
- * narrowing it from the intended var(--bl-space-3) down to ~4px.
+ * padding so the row stays flush with `.bl-account-nav`'s left edge, and
+ * doing it on both edges would eat into the `gap` before the last item.
  */
 .bl-account-nav__pills {
 	display: flex;
-	flex-wrap: nowrap;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bl-space-2);
 	margin: 0;
@@ -79,39 +115,49 @@ body.woocommerce-account .bl-account-nav {
 	padding-block: var(--bl-space-2);
 	padding-inline: var(--bl-space-2);
 	list-style: none;
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow-x: auto;
-	-webkit-overflow-scrolling: touch;
 }
 
 .bl-account-nav__pills li {
 	flex: 0 0 auto;
 }
 
+/*
+ * Flat underline tabs, not filled pills -- the pill/fill treatment read as
+ * generic-dashboard chrome next to the rest of the site, which marks its
+ * OWN active nav item with a skewed ice-fill chip (nav.css's `.bl-nav__link
+ * [aria-current="page"] .bl-skew`). Deliberately NOT copying that chip here:
+ * it's this page's own secondary/local nav, one level down from the site's
+ * primary nav, and an underline keeps that hierarchy readable at a glance
+ * instead of two skewed ice chips competing for attention in the same
+ * viewport. `border-bottom: 2px solid transparent` (not `border: none` on
+ * inactive items) reserves the same 2px of layout space every item will
+ * need once active, so gaining the underline never shifts row height --
+ * the same reserved-space trick `.bl-nav__link`'s own 3px transparent
+ * border already uses for the primary nav.
+ */
 .bl-account-nav__pills a {
 	display: inline-block;
 	white-space: nowrap;
 	padding: var(--bl-space-2) var(--bl-space-4);
-	border-radius: 999px;
-	color: var(--bl-content-text);
+	border-bottom: 2px solid transparent;
+	color: var(--bl-content-text-secondary);
 	text-decoration: none;
 }
 
 .bl-account-nav__pills a:hover,
 .bl-account-nav__pills a:focus-visible {
-	background: var(--bl-surface-sunken);
+	border-bottom-color: var(--bl-content-border-strong);
+	color: var(--bl-content-text);
 }
 
 .bl-account-nav__pills li.is-active a {
-	background: var(--bl-ice);
-	color: var(--bl-ink);
+	border-bottom-color: var(--bl-ice);
+	color: var(--bl-content-text);
 	font-weight: 600;
 }
 
 .bl-account-nav__billing {
 	position: relative;
-	flex: 0 0 auto;
 }
 
 .bl-account-nav__billing summary {
@@ -119,8 +165,8 @@ body.woocommerce-account .bl-account-nav {
 	cursor: pointer;
 	white-space: nowrap;
 	padding: var(--bl-space-2) var(--bl-space-4);
-	border-radius: 999px;
-	color: var(--bl-content-text);
+	border-bottom: 2px solid transparent;
+	color: var(--bl-content-text-secondary);
 }
 
 .bl-account-nav__billing summary::-webkit-details-marker {
@@ -129,13 +175,14 @@ body.woocommerce-account .bl-account-nav {
 
 .bl-account-nav__billing summary:hover,
 .bl-account-nav__billing summary:focus-visible {
-	background: var(--bl-surface-sunken);
+	border-bottom-color: var(--bl-content-border-strong);
+	color: var(--bl-content-text);
 }
 
 .bl-account-nav__billing[open] summary,
 .bl-account-nav__billing.is-active summary {
-	background: var(--bl-ice);
-	color: var(--bl-ink);
+	border-bottom-color: var(--bl-ice);
+	color: var(--bl-content-text);
 	font-weight: 600;
 }
 

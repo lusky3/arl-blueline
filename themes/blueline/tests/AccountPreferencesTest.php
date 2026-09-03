@@ -10,8 +10,8 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/account/preferences.php';
 
 /**
- * Covers the pure "what team summary to show" decision behind the
- * Preferences page's linked-team section.
+ * Covers the pure decisions behind the Preferences page: the linked-team
+ * summary, and the "Show next game widget again" confirmation copy.
  */
 final class AccountPreferencesTest extends TestCase {
 
@@ -56,5 +56,29 @@ final class AccountPreferencesTest extends TestCase {
 		);
 
 		$this->assertSame( 'Puck Dynasty', $summary );
+	}
+
+	/**
+	 * With an upcoming game, the confirmation can honestly promise the
+	 * widget will show again on the next page view.
+	 */
+	public function test_confirmation_promises_next_page_view_when_a_game_is_upcoming(): void {
+		$this->assertSame(
+			'Done — it will show again on your next page view.',
+			blueline_preferences_widget_confirmation_text( true )
+		);
+	}
+
+	/**
+	 * With no upcoming game, the confirmation must NOT promise the widget
+	 * will show on the next page view -- it won't, since
+	 * blueline_render_floating_next_game() renders nothing without one --
+	 * and instead explains why nothing will visibly change yet.
+	 */
+	public function test_confirmation_explains_no_upcoming_game_instead_of_lying(): void {
+		$text = blueline_preferences_widget_confirmation_text( false );
+
+		$this->assertStringNotContainsString( 'next page view', $text );
+		$this->assertStringContainsString( 'don’t have an upcoming game', $text );
 	}
 }
