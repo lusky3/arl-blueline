@@ -471,6 +471,20 @@ table.bl-table-self-scroll {
 }
 
 /*
+ * table-layout: auto (.sp-data-table's own default) sizes every OTHER
+ * column to its content's intrinsic width and then, live feedback found,
+ * leaves any width the table has beyond that sum as dead space past the
+ * last column rather than distributing it -- the table itself filled its
+ * container (width: 100%), but every row inside stopped well short of the
+ * table's own right edge. An explicit wide basis on the one column that
+ * should actually flex (name; every stat column stays content-sized)
+ * makes the browser give it the leftover space instead.
+ */
+.bl-sp-roster__col-name {
+	width: 100%;
+}
+
+/*
  * Photo, name, and the position/"You" badges all sit in ONE cell, in flow
  * order (name first, badges after) rather than trailing columns of their
  * own -- live feedback found a separate trailing badge column made a

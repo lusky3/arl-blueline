@@ -28,6 +28,17 @@
  * concept to scope (a calendar view legitimately spans seasons), so it is
  * untouched.
  *
+ * NOTE: this partial only ever renders inside the "Games" tab of the
+ * Division Table/Games sp-tab-group SP_Template_Loader builds around
+ * table_content + this file's own output (both registered as tab
+ * templates, not stacked sections) -- confirmed live: its output sits in
+ * <div class="sp-tab-content sp-tab-content-events" ...>, hidden until
+ * that tab is clicked. The team's calendar-subscribe links used to be
+ * printed here, but that made them invisible by default too -- see
+ * blueline_render_team_calendar_links()'s call site
+ * (sportspress_after_single_team, inc/sportspress.php) for where they
+ * actually live now, and why.
+ *
  * @package blueline
  */
 

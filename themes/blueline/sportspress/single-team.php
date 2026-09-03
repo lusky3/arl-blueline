@@ -29,24 +29,19 @@ $team_color_attr = function_exists( 'blueline_team_color_style_attr' )
 	? blueline_team_color_style_attr( get_queried_object_id() )
 	: '';
 
-// Two things belong between the hero and the_content()'s auto-injected
-// roster/schedule, both specific to a team's own page (so neither lives in
-// blueline_render_sp_single() itself, the shared skeleton for all four
-// SportsPress single templates): a logged-in, unclaimed visitor's nudge to
-// link their player (blueline_render_claim_nudge(), inc/account/
-// dashboard.php), and the team's own calendar-subscribe links
-// (blueline_render_team_calendar_links(), inc/sportspress.php) -- until now
-// hand-pasted into every team's Description; see that function's own
-// docblock.
-$bl_team_id        = get_queried_object_id();
-$bl_before_content = function () use ( $bl_team_id ) {
-	if ( function_exists( 'blueline_render_claim_nudge' ) ) {
-		blueline_render_claim_nudge();
-	}
-	if ( function_exists( 'blueline_render_team_calendar_links' ) ) {
-		blueline_render_team_calendar_links( $bl_team_id );
-	}
-};
+// A logged-in, unclaimed visitor's nudge to link their player, above the
+// roster -- see blueline_render_claim_nudge()'s own docblock
+// (inc/account/dashboard.php). Passed as a callback rather than called
+// unconditionally inside blueline_render_sp_single() itself: that function
+// is the shared skeleton behind all four SportsPress single templates, and
+// this nudge belongs on a team's own page only.
+//
+// The calendar-subscribe links (blueline_render_team_calendar_links(),
+// inc/sportspress.php) used to render here too, but live feedback called
+// them out as "a floating island" this far from the schedule they belong
+// to -- moved into sportspress/team-events.php instead, printed directly
+// above the Fixtures/Results content it now visually introduces.
+$bl_before_content = function_exists( 'blueline_render_claim_nudge' ) ? 'blueline_render_claim_nudge' : null;
 
 blueline_render_sp_single( 'blueline_sp_team_hero', $team_color_attr, $bl_before_content );
 

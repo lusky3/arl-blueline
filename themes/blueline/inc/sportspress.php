@@ -1271,6 +1271,20 @@ function blueline_team_calendar_urls( $team_id ) {
  * once, globally, in assets/src/js/index.js) -- it reorders the two links
  * so the reader's likely platform comes first, with no new JS needed here.
  *
+ * Hooked to sportspress_after_single_team (below), not called from inside
+ * sportspress/team-events.php: that partial only ever renders inside the
+ * "Games" tab of the Division Table/Games sp-tab-group SP_Template_Loader
+ * builds around the team's tables + events (SP_Template_Loader::add_content(),
+ * SportsPress core, registers both as TAB templates, not stacked
+ * sections) -- printing the calendar links there put them inside
+ * <div class="sp-tab-content-events" style="display:none">, invisible
+ * until that tab is clicked. Reported live as "I don't see the calendar."
+ * sportspress_after_single_team fires once, unconditionally, after every
+ * stacked section but BEFORE that tab group is appended to the page (see
+ * SP_Template_Loader::add_content() in sportspress-pro), which is exactly
+ * "introduces the Division Table/Games tabs" -- always visible, and
+ * directly attached to the schedule it was reported as floating away from.
+ *
  * @param int $team_id sp_team post ID.
  * @return void
  */
@@ -1291,6 +1305,18 @@ function blueline_render_team_calendar_links( $team_id ) {
 		</a>
 	</div>
 	<?php
+}
+
+add_action( 'sportspress_after_single_team', 'blueline_render_team_calendar_links_hook' );
+/**
+ * Callback for sportspress_after_single_team -- see
+ * blueline_render_team_calendar_links()'s own docblock for why this hook
+ * and not a direct call from a template partial.
+ *
+ * @return void
+ */
+function blueline_render_team_calendar_links_hook() {
+	blueline_render_team_calendar_links( get_the_ID() );
 }
 
 /**
