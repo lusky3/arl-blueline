@@ -3,16 +3,22 @@
  * directory; the other position, blueline_footer_team_directory(), has no
  * CSS of its own beyond .bl-footer__teams* in footer.css).
  *
- * <details>/<summary> needs no JavaScript for the click/tap toggle -- the
- * same zero-JS pattern woocommerce/myaccount/navigation.php's own Billing
- * dropdown already establishes in this theme (that precedent relies
- * entirely on the browser's own native show/hide, though; the animated
- * hover-reveal below is new here). The browser's own UA stylesheet hides
- * every non-<summary> child while closed; .bl-team-flyout__panel below
- * overrides that back to `display: block` permanently so opacity/transform
- * can animate it instead, driven by :hover (desktop) and [open] (the
- * native click/tap toggle, works everywhere including touch) rather than
- * the browser's own abrupt show/hide.
+ * <details>/<summary> still needs no JavaScript for the click/tap toggle
+ * itself -- the same zero-JS pattern woocommerce/myaccount/navigation.php's
+ * own Billing dropdown already establishes in this theme. The browser's own
+ * UA stylesheet hides every non-<summary> child while closed;
+ * .bl-team-flyout__panel below overrides that back to `display: block`
+ * permanently so opacity/transform can animate it instead of the browser's
+ * own abrupt show/hide -- driven ENTIRELY by the `[open]` attribute now,
+ * not by a parallel `:hover` rule (see assets/src/js/team-flyout.js's own
+ * docblock for why a plain CSS `:hover` reveal broke click-to-close: it and
+ * `[open]` used to be two independent triggers for the same visual state,
+ * so clicking the tab to close it while still hovering -- the only way to
+ * click it -- toggled `open` off correctly but the `:hover` rule kept the
+ * panel looking open anyway. JS now sets/clears the real `open` attribute
+ * on hover instead, so there is exactly one source of truth for whether
+ * this is visually open, and a click's native toggle is never fighting a
+ * competing always-on rule.)
  *
  * --bl-z-floating-widget (style.css's centralized scale), reused rather
  * than a new z-index variable: the same "sitewide persistent overlay
@@ -73,17 +79,28 @@
 	display: block;
 	position: absolute;
 	top: 50%;
-	left: 0;
+
+	/* Starts where the tab's own box ends (summary's 34px width), not at the
+	 * shared left:0 origin the tab sits at -- the panel used to overlap the
+	 * tab's clickable area (pushing its content clear via padding-left
+	 * instead), so once open (pointer-events: auto) it sat on top of the
+	 * tab and swallowed clicks meant to close it. Reported live as
+	 * "clicking the tab doesn't close it again." */
+	left: 34px;
 	transform: translateY(-50%) translateX(-12px);
 	opacity: 0;
 	visibility: hidden;
 	pointer-events: none;
 	box-sizing: border-box;
-	max-height: min(70vh, 480px);
-	width: 108px;
+
+	/* Full viewport height, less a small clearance top and bottom so it
+	 * never touches the edges -- was capped at min(70vh, 480px), too short
+	 * once the crest list runs to 22-34 teams in season. */
+	max-height: calc(100vh - (var(--bl-space-4) * 2));
+	width: 74px;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding: var(--bl-space-4) var(--bl-space-2) var(--bl-space-4) calc(34px + var(--bl-space-2));
+	padding: var(--bl-space-4) var(--bl-space-2);
 	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 	scrollbar-width: none;
 }
@@ -108,22 +125,6 @@
 .bl-team-flyout[open] .bl-team-flyout__link {
 	visibility: visible;
 	transition-delay: 0s;
-}
-
-@media (hover: hover) {
-
-	.bl-team-flyout:hover .bl-team-flyout__panel {
-		opacity: 1;
-		visibility: visible;
-		pointer-events: auto;
-		transform: translateY(-50%) translateX(0);
-		transition-delay: 0s;
-	}
-
-	.bl-team-flyout:hover .bl-team-flyout__link {
-		visibility: visible;
-		transition-delay: 0s;
-	}
 }
 
 .bl-team-flyout__list {
@@ -215,7 +216,7 @@
 @media (max-width: 480px) {
 
 	.bl-team-flyout__panel {
-		width: 96px;
+		width: 62px;
 	}
 
 	.bl-team-flyout__crest {

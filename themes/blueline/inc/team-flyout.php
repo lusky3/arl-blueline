@@ -87,7 +87,7 @@ function blueline_render_team_flyout(): void {
 			<ul class="bl-team-flyout__list">
 				<?php foreach ( $teams as $team ) : ?>
 					<li class="bl-team-flyout__item">
-						<a class="bl-team-flyout__link" href="<?php echo esc_url( $team['link'] ); ?>">
+						<a class="bl-team-flyout__link" href="<?php echo esc_url( $team['link'] ); ?>" title="<?php echo esc_attr( $team['name'] ); ?>">
 							<span class="bl-team-flyout__crest">
 								<?php if ( has_post_thumbnail( $team['id'] ) ) : ?>
 									<?php
