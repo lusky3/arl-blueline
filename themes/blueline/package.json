@@ -28,6 +28,8 @@
     "lighthouse": "13.4.1",
     "puppeteer-core": "25.8.0",
     "@puppeteer/browsers": "3.2.1",
-    "@sentry/node": "10.70.0"
+    "@sentry/node": "10.70.0",
+    "fast-uri": "3.1.6",
+    "qs": "6.16.0"
   }
 }
