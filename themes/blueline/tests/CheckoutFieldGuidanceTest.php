@@ -8,30 +8,20 @@
  * blueline_wc_checkout_field_guidance() for the live-audited field keys and
  * content this suite exercises against.
  *
- * A minimal WooCommerce stub class is defined below purely so
- * inc/woocommerce.php's own `if ( ! class_exists( 'WooCommerce' ) ) { return; }`
- * guard (necessary in production, since this file must no-op on a site
- * without WooCommerce active) does not also no-op the require in this
- * plain-PHPUnit environment, where no real WooCommerce is ever loaded. Both
- * file-organisation sniffs are disabled for the same reason
- * tests/bootstrap.php's own external-library stubs are: a one-off stub has
- * nowhere more useful to live than beside the one test file that needs it.
+ * The require below would otherwise no-op in this plain-PHPUnit
+ * environment: inc/woocommerce.php's own
+ * `if ( ! class_exists( 'WooCommerce' ) ) { return; }` guard (necessary in
+ * production, since this file must no-op on a site without WooCommerce
+ * active) needs SOME WooCommerce class to exist first, and no real
+ * WooCommerce is ever loaded here -- tests/bootstrap.php declares a shared
+ * minimal stub for exactly this, loaded before this file, so
+ * `class_exists( 'WooCommerce' )` is already true by the time the require
+ * below runs.
  *
  * @package blueline
  */
 
-// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound -- same trade-off as the FileName disable above.
-
 use PHPUnit\Framework\TestCase;
-
-if ( ! class_exists( 'WooCommerce' ) ) {
-	/**
-	 * Minimal stand-in for the real WooCommerce plugin class -- only its
-	 * existence matters here; inc/woocommerce.php's own guard only ever
-	 * calls class_exists( 'WooCommerce' ), never anything on the instance.
-	 */
-	class WooCommerce {}
-}
 
 require_once __DIR__ . '/../inc/woocommerce.php';
 

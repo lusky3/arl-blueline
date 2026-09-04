@@ -474,3 +474,94 @@ function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_i
 		$image
 	);
 }
+
+/**
+ * This site's own brand tokens (style.css) for every email color/type
+ * option WooCommerce's email_improvements-flag styling reads (confirmed
+ * enabled on this site: FeaturesUtil::feature_is_enabled(
+ * 'email_improvements')). Pinned from code rather than left as
+ * hand-edited wp-admin state -- the same reasoning as every other
+ * option_{name} filter in this codebase (e.g. inc/sportspress.php's
+ * option_sportspress_league_menu_teams).
+ *
+ * The base_color option drives BOTH the CTA button fill AND,
+ * unconditionally under email_improvements, the link text color --
+ * --bl-ice (#74C0E1) is
+ * documented fill-only in style.css (1.94:1 contrast) and would make
+ * every email link nearly unreadable if used here. --bl-accent-text
+ * (#3F6E9D, 5.13:1, style.css's own "links/accent text on light" token)
+ * is the correct value: real WCAG AA link contrast, and WooCommerce's
+ * own wc_hex_is_light() check on that value picks white button text
+ * automatically -- a solid navy button with white text, both accessible
+ * and a normal professional treatment (this theme's own skewed
+ * ice-fill/ink-text ribbon uses a CSS transform unsupported in email
+ * clients, so a literal port was never viable here).
+ *
+ * @return array<string,string> option name => value.
+ */
+function blueline_wc_email_option_overrides(): array {
+	return array(
+		'woocommerce_email_background_color'      => '#F7FBFC', // --bl-paper (outer canvas).
+		'woocommerce_email_body_background_color' => '#FFFFFF', // --bl-white (card surface).
+		'woocommerce_email_base_color'            => '#3F6E9D', // --bl-accent-text (links + buttons).
+		'woocommerce_email_text_color'            => '#132343', // --bl-ink (body copy, headings).
+		'woocommerce_email_footer_text_color'     => '#2E4A74', // --bl-ink-mid (footer credit line).
+		'woocommerce_email_header_alignment'      => 'left', // Matches this site's own left-aligned heading convention.
+		'woocommerce_email_font_family'           => 'Helvetica', // Closest of WooCommerce's fixed EmailFont::$font list to Inter/system-ui.
+		'woocommerce_email_header_image_width'    => '96', // Sized for the real uploaded logo's own aspect ratio.
+	);
+}
+
+add_action( 'init', 'blueline_register_wc_email_option_overrides' );
+/**
+ * Register one option_{name} filter per key in
+ * blueline_wc_email_option_overrides() -- WordPress applies
+ * `option_{$option}` on every get_option() call for that option, so this
+ * pins each value regardless of what's actually stored in wp_options
+ * (wp-admin's own Settings > Emails screen still shows and can edit the
+ * underlying value; only the runtime value emails actually render with
+ * is locked).
+ *
+ * Wrapped in its own function rather than a bare file-scope foreach --
+ * tests/IncTopLevelCallGuardTest.php bans a bare top-level call into a
+ * theme-defined function (see that test's own docblock for the live
+ * incident it guards against); calling
+ * blueline_wc_email_option_overrides() directly inside a top-level
+ * foreach is exactly that shape, even though this particular call is
+ * pure/side-effect-free.
+ */
+function blueline_register_wc_email_option_overrides(): void {
+	foreach ( blueline_wc_email_option_overrides() as $blueline_email_option => $blueline_email_value ) {
+		add_filter(
+			"option_{$blueline_email_option}",
+			static function () use ( $blueline_email_value ) {
+				return $blueline_email_value;
+			}
+		);
+	}
+}
+
+add_filter( 'option_wp_email_template_general', 'blueline_wp_email_template_disable_woo_wrapping' );
+/**
+ * The wp-email-template plugin (a3rev) ALSO wraps WooCommerce/Follow-Up
+ * Emails output with its own generic template on top of WooCommerce's own
+ * (confirmed live: wp_email_template_general's own apply_for_woo_emails
+ * was "yes") -- off-brand styling (Verdana/Century-Gothic-italic,
+ * #1155CC links) competing with the option overrides above. Turns off
+ * ONLY that one integration, not the whole plugin (it may still be the
+ * right tool for some other wp_mail() sender this site uses) and not
+ * the whole stored option (a targeted merge, so any other setting an
+ * admin configures there later survives).
+ *
+ * @param mixed $value The stored wp_email_template_general option value.
+ * @return mixed
+ */
+function blueline_wp_email_template_disable_woo_wrapping( $value ) {
+	if ( ! is_array( $value ) ) {
+		return $value;
+	}
+
+	$value['apply_for_woo_emails'] = 'no';
+
+	return $value;
+}

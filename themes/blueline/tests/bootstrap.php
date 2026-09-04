@@ -3222,3 +3222,17 @@ if ( ! function_exists( 'flush_rewrite_rules' ) ) {
 	function flush_rewrite_rules( $hard = true ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core; see docblock.
 	}
 }
+
+if ( ! class_exists( 'WooCommerce' ) ) {
+	/**
+	 * Minimal stand-in for the real WooCommerce plugin class -- only its
+	 * existence matters to the theme files that `require` it directly
+	 * (inc/woocommerce.php's own `if ( ! class_exists( 'WooCommerce' ) ) {
+	 * return; }` guard only ever calls class_exists(), never anything on
+	 * the instance). Declared once here, shared by every test file that
+	 * requires inc/woocommerce.php, rather than each declaring its own
+	 * copy -- phpcs flags a class name declared in more than one file as a
+	 * likely duplicate even when each declaration is individually guarded.
+	 */
+	class WooCommerce {}
+}
