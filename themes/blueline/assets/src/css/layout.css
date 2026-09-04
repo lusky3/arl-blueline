@@ -54,6 +54,27 @@
 }
 
 /*
+ * Reserve room for the fixed, vertically-centered team flyout tab
+ * (team-flyout.css) below the viewport width where .bl-container's own
+ * max-width (--bl-container) stops leaving it a real auto margin to
+ * absorb the tab into -- at that point .bl-container's left edge sits
+ * exactly where the flyout's opaque tab does, and any text flowing
+ * behind it (the tab is fixed, so this happens at whatever scroll
+ * position puts a line of text in its vertically-centered band) gets its
+ * leading character(s) clipped. Confirmed live, 2026-09-04 UX audit:
+ * "This page" rendered as "his page", "Final score coming soon" as
+ * "inal score coming soon". Scoped to the primary content column, not
+ * .bl-container itself, so header/footer chrome -- which never showed
+ * this symptom -- doesn't also shift.
+ */
+@media (max-width: 1264px) {
+
+	.bl-content-layout__primary {
+		padding-inline-start: var(--bl-team-flyout-width);
+	}
+}
+
+/*
  * Comments -- placed early in the cascade (before Sidebar/Pagination
  * below) so their lower-specificity `li`/`a` selectors aren't read as
  * unintentionally overriding those unrelated, higher-specificity ones.

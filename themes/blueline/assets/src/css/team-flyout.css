@@ -39,7 +39,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 34px;
+	width: var(--bl-team-flyout-width);
 	height: 96px;
 	background: var(--bl-content-surface);
 	border: 1px solid var(--bl-content-border);
@@ -86,7 +86,7 @@
 	 * instead), so once open (pointer-events: auto) it sat on top of the
 	 * tab and swallowed clicks meant to close it. Reported live as
 	 * "clicking the tab doesn't close it again." */
-	left: 34px;
+	left: var(--bl-team-flyout-width);
 	transform: translateY(-50%) translateX(-12px);
 	opacity: 0;
 	visibility: hidden;

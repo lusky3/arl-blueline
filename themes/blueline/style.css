@@ -106,6 +106,17 @@ Text Domain: blueline
 	--bl-container: 1200px;
 
 	/*
+	 * The team flyout's own <summary> tab width (team-flyout.css) -- shared
+	 * with .bl-container's own start padding below so the fixed, vertically-
+	 * centered tab never sits directly over page content. Was two
+	 * independent 34px literals; a scroll past the header on a narrow
+	 * viewport put the tab's opaque background over live body/table text,
+	 * clipping the first character or so of whatever line it landed on
+	 * (confirmed live, 2026-09-04 UX audit).
+	 */
+	--bl-team-flyout-width: 34px;
+
+	/*
 	 * Stacking order. Header/nav is the only part of the design system with
 	 * more than one layer of overlapping fixed/absolute elements, so this is
 	 * the whole scale -- low to high:
