@@ -1603,9 +1603,17 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	border-bottom: 2px solid var(--bl-content-border-strong);
 }
 
+/*
+ * Live feedback: "too busy". padding-block was --bl-space-1 (4px) --
+ * cramped even before blueline_render_team_schedule_table()
+ * (inc/sportspress.php) turned the per-row team crests off for this same
+ * complaint; two team-name links and a muted time/venue column sharing one
+ * row still need real breathing room. --bl-space-2 doubles it without
+ * meaningfully lengthening a 5-row table.
+ */
 .bl-sp-schedule td,
 .bl-sp-schedule th {
-	padding-block: var(--bl-space-1);
+	padding-block: var(--bl-space-2);
 }
 
 .bl-sp-schedule .bl-sp-schedule__time,

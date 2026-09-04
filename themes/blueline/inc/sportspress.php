@@ -1359,6 +1359,23 @@ function blueline_render_team_schedule_table( $team_id ) {
 			'order'                => 'default',
 			'columns'              => array( 'event', 'teams', 'time', 'venue' ),
 			'show_all_events_link' => true,
+
+			/*
+			 * Live feedback: "too busy". This site's own
+			 * sportspress_event_list_show_logos option is "yes" (its own
+			 * default is "no"), so every row on /schedule -- and, without
+			 * this override, every row here too -- already carries two
+			 * inline 32px crests alongside two full-accent-colour team-name
+			 * links. On THIS table specifically -- five rows deep on a
+			 * page that already shows this team's own crest large in the
+			 * hero above -- that repetition is the clutter; team names stay
+			 * the (already-decided, per event-list.php's own docblock)
+			 * clickable accent links either way. Scoped to this one
+			 * sp_get_template() call, not the site option itself: /schedule
+			 * and any other [event_list] shortcode keep whatever an admin
+			 * configured there.
+			 */
+			'show_team_logo'       => false,
 		)
 	);
 }
