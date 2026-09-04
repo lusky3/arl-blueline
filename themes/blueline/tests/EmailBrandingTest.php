@@ -150,4 +150,80 @@ final class EmailBrandingTest extends TestCase {
 			blueline_wp_email_template_disable_woo_wrapping( array() )
 		);
 	}
+
+	/**
+	 * Exercises blueline_paypal_email_templates_to_reclaim() -- both
+	 * filenames this theme actually has an override for should be named.
+	 * A fixed list, not a wildcard, so it can't drift ahead of what really
+	 * exists in woocommerce/emails/.
+	 */
+	public function test_reclaim_list_names_both_known_overrides(): void {
+		$list = blueline_paypal_email_templates_to_reclaim();
+
+		$this->assertContains( 'angelleye-customer-partial-paid-order.php', $list );
+		$this->assertContains( 'angelleye-admin-new-partial-paid-order.php', $list );
+	}
+
+	/**
+	 * A template name outside the reclaim list is passed through
+	 * completely unchanged -- this filter must not touch anything it
+	 * wasn't explicitly told to reclaim.
+	 */
+	public function test_reclaim_passes_through_unrelated_template_names(): void {
+		$this->assertSame(
+			'/some/plugin/path/emails/unrelated-template.php',
+			blueline_reclaim_paypal_email_template_override(
+				'/some/plugin/path/emails/unrelated-template.php',
+				'emails/unrelated-template.php'
+			)
+		);
+	}
+
+	/**
+	 * A reclaim-list template name whose theme override does NOT exist
+	 * (get_stylesheet_directory() in this test environment points at a
+	 * real but empty temp directory -- see tests/bootstrap.php's own
+	 * stub) falls back to whatever $template the plugin's own filter
+	 * already resolved, rather than pointing at a file that isn't there.
+	 */
+	public function test_reclaim_falls_back_when_theme_override_is_missing(): void {
+		$this->assertSame(
+			'/plugin/own/path/emails/angelleye-customer-partial-paid-order.php',
+			blueline_reclaim_paypal_email_template_override(
+				'/plugin/own/path/emails/angelleye-customer-partial-paid-order.php',
+				'emails/angelleye-customer-partial-paid-order.php'
+			)
+		);
+	}
+
+	/**
+	 * The real bug this function exists to fix: a reclaim-list template
+	 * name whose theme override DOES exist must resolve to that theme
+	 * file, not whatever the PayPal for WooCommerce plugin's own
+	 * woocommerce_locate_template filter forced $template to (confirmed
+	 * live, 2026-09-04: it forced its own plugin copy even with a real
+	 * theme override already in place -- see this function's own
+	 * docblock).
+	 */
+	public function test_reclaim_prefers_the_theme_override_when_it_exists(): void {
+		$override_dir  = get_stylesheet_directory() . '/woocommerce/emails';
+		$override_path = $override_dir . '/angelleye-admin-new-partial-paid-order.php';
+
+		if ( ! is_dir( $override_dir ) ) {
+			mkdir( $override_dir, 0777, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir -- local test fixture, no WordPress bootstrap (hence no WP_Filesystem) exists in this plain-PHPUnit environment.
+		}
+		file_put_contents( $override_path, '<?php // test fixture' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- local test fixture, see mkdir() above.
+
+		try {
+			$this->assertSame(
+				$override_path,
+				blueline_reclaim_paypal_email_template_override(
+					'/plugin/own/path/emails/angelleye-admin-new-partial-paid-order.php',
+					'emails/angelleye-admin-new-partial-paid-order.php'
+				)
+			);
+		} finally {
+			unlink( $override_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- local test fixture cleanup, see mkdir() above.
+		}
+	}
 }

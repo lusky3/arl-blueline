@@ -684,3 +684,62 @@ function blueline_wp_email_template_disable_woo_wrapping( $value ) {
 
 	return $value;
 }
+
+/**
+ * Email template filenames the PayPal for WooCommerce (AngellEYE) plugin
+ * forces to its OWN copy regardless of a theme override, and this theme
+ * has its own override for. See
+ * blueline_reclaim_paypal_email_template_override()'s own docblock for
+ * why this list -- rather than a wildcard match on every
+ * `emails/angelleye-*.php` name -- is deliberate.
+ *
+ * @return string[] Basenames, e.g. 'angelleye-customer-partial-paid-order.php'.
+ */
+function blueline_paypal_email_templates_to_reclaim(): array {
+	return array(
+		'angelleye-customer-partial-paid-order.php',
+		'angelleye-admin-new-partial-paid-order.php',
+	);
+}
+
+add_filter( 'woocommerce_locate_template', 'blueline_reclaim_paypal_email_template_override', PHP_INT_MAX, 2 );
+/**
+ * The PayPal for WooCommerce (AngellEYE) plugin registers its OWN
+ * `woocommerce_locate_template` filter
+ * (ppcp-gateway/class-angelleye-paypal-ppcp-smart-button.php,
+ * angelleye_ppcp_woocommerce_locate_template(), priority 11) that
+ * unconditionally forces ITS OWN plugin directory for any email template
+ * filename that exists there -- bypassing the standard theme-override
+ * lookup `wc_locate_template()` would otherwise have already resolved,
+ * confirmed live: `wc_locate_template( 'emails/angelleye-customer-
+ * partial-paid-order.php' )` returned the plugin's own file even with a
+ * real, correctly-placed override already sitting at
+ * woocommerce/emails/angelleye-customer-partial-paid-order.php in this
+ * theme. A second filter the SAME plugin registers
+ * (angelleye-includes/angelleye-functions.php,
+ * ae_override_paypal_email_template(), priority 99999) already does
+ * exactly this "check the theme first" reclaim, but only for ONE
+ * filename (angelleye-paypal-seller-onboard-invitation.php) -- not the
+ * two this theme also overrides.
+ *
+ * PHP_INT_MAX guarantees this runs after both of that plugin's own
+ * filters, so it gets the last word. Scoped to a fixed, explicit list of
+ * filenames (blueline_paypal_email_templates_to_reclaim()) this theme
+ * KNOWS it has a real override for, not a wildcard on every
+ * `angelleye-*.php` name -- a theme override existing is what makes
+ * reclaiming correct; guessing at every current and future filename this
+ * one plugin might ever add is not.
+ *
+ * @param string $template      The template path WooCommerce/other filters resolved.
+ * @param string $template_name The template name being located (e.g. 'emails/angelleye-customer-partial-paid-order.php').
+ * @return string
+ */
+function blueline_reclaim_paypal_email_template_override( string $template, string $template_name ): string {
+	if ( ! in_array( basename( $template_name ), blueline_paypal_email_templates_to_reclaim(), true ) ) {
+		return $template;
+	}
+
+	$theme_override = get_stylesheet_directory() . '/woocommerce/' . $template_name;
+
+	return file_exists( $theme_override ) ? $theme_override : $template;
+}
