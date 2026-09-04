@@ -944,12 +944,28 @@ td.bl-sp-roster__stat {
  * which assets/src/js/calendar-links.js already reorders sitewide by
  * platform; this is a second, differently-classed consumer of that same
  * global script, not a second copy of it.
+ *
+ * clear: both is load-bearing, not defensive styling: SportsPress's own
+ * .sp-fixtures-results wraps "Fixtures"/"Results" as two uncleared
+ * 50%-width floats (.sp-widget-align-left/-right, sportspress.css core --
+ * .sp-fixtures-results itself only clears floats BEFORE it, never
+ * establishes containment for the ones it holds), so a floated pair that
+ * together fills the full row leaves nothing after it for a plain block
+ * box to compute a width against. A flex container in particular shrinks
+ * to fit beside a float rather than spanning past it -- confirmed live:
+ * this element rendered at computed width 0 once the site's own
+ * sportspress_team_template_order option dropped the "tabs" divider
+ * (an admin-configurable setting, changed live -- not theme code -- to
+ * stop hiding "Games" behind a tab click) and put this element right
+ * after that uncleared fixtures/results float instead of inside its own
+ * isolated (and therefore float-containing) tab panel.
  */
 .bl-sp-team-calendar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bl-space-2);
+	clear: both;
 	margin-block-end: var(--bl-space-6);
 }
 
