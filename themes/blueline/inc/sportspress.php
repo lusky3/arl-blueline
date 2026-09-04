@@ -1307,16 +1307,75 @@ function blueline_render_team_calendar_links( $team_id ) {
 	<?php
 }
 
+/**
+ * Print a team's own "Upcoming Games" table -- the same [event_list]
+ * shortcode /schedule uses (id pointing at a saved event-list
+ * configuration), reading the team's own sp_calendar post as that
+ * configuration, via sportspress/event-list.php's own theme override
+ * (grouped date headings, muted venue text -- see that file's own
+ * docblock).
+ *
+ * Every team's page carried this by hand until now, as a literal
+ * `[event_list id="..." title="Upcoming Games" ...]` shortcode pasted into
+ * the team's Description -- one PER-TEAM sp_calendar post id, unique to
+ * that team, hand-copied from wherever the shortcode was first generated.
+ * A live content audit clearing that pasted boilerplate (see
+ * blueline_render_team_calendar_links()'s own docblock for the matching
+ * calendar-links half of the same cleanup) removed the shortcode text but
+ * left the underlying sp_calendar posts themselves untouched -- this
+ * renders the identical table from that same post, auto-resolved via
+ * blueline_team_calendar_urls()'s own calendar_id lookup, instead of
+ * requiring the shortcode to be pasted back in by hand.
+ *
+ * This is NOT the same thing as sportspress/team-events.php's own
+ * "Fixtures"/"Results" cards (the "Games" tab, sportspress_after_single_team
+ * teammate below) -- reported live as two visibly different features:
+ * this is a plain grouped table of the next 5 upcoming games (matching
+ * /schedule's own layout exactly), that is a card-based fixtures/results
+ * breakdown. Both have coexisted on a team's own page before this
+ * session's changes (confirmed against team-events.php's own docblock,
+ * which already described a "Results" card sitting directly beneath an
+ * "Upcoming Games" table from the pasted shortcode) -- restoring this
+ * table does not replace or duplicate that section's job, it restores
+ * the piece that went missing when the pasted shortcode was cleared.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return void
+ */
+function blueline_render_team_schedule_table( $team_id ) {
+	$team_calendar = function_exists( 'blueline_team_calendar_urls' ) ? blueline_team_calendar_urls( $team_id ) : null;
+
+	if ( ! $team_calendar || empty( $team_calendar['calendar_id'] ) || ! function_exists( 'sp_get_template' ) ) {
+		return;
+	}
+
+	sp_get_template(
+		'event-list.php',
+		array(
+			'id'                   => $team_calendar['calendar_id'],
+			'title'                => __( 'Upcoming Games', 'blueline' ),
+			'status'               => 'future',
+			'number'               => 5,
+			'order'                => 'default',
+			'columns'              => array( 'event', 'teams', 'time', 'venue' ),
+			'show_all_events_link' => true,
+		)
+	);
+}
+
 add_action( 'sportspress_after_single_team', 'blueline_render_team_calendar_links_hook' );
 /**
  * Callback for sportspress_after_single_team -- see
- * blueline_render_team_calendar_links()'s own docblock for why this hook
+ * blueline_render_team_calendar_links()'s and
+ * blueline_render_team_schedule_table()'s own docblocks for why this hook
  * and not a direct call from a template partial.
  *
  * @return void
  */
 function blueline_render_team_calendar_links_hook() {
-	blueline_render_team_calendar_links( get_the_ID() );
+	$team_id = get_the_ID();
+	blueline_render_team_calendar_links( $team_id );
+	blueline_render_team_schedule_table( $team_id );
 }
 
 /**
