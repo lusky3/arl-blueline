@@ -193,9 +193,33 @@ if ( ! $bl_post ) {
 
 $bl_is_future = $bl_decision['is_future'];
 
+// Same context-aware level as league-table.php/event-list.php/
+// team-lists.php/player-statistics-league.php (blueline_sp_caption_
+// heading_level()'s own docblock) -- this file was the one caption
+// template that still hardcoded its own level (h4) regardless of
+// context, confirmed live 2026-09-04: h1 -> h4 on a player page, with
+// nothing in between. Missed when the others were fixed because this
+// widget (SportsPress: Countdown) is rendered by dynamic_sidebar(),
+// never through the_content(), so it never surfaced in that pass.
+//
+// Computed here (not only inside the `if ( $title )` block below) because
+// the event-name/venue/date/league headings further down are nested
+// UNDER the caption's level whether or not a caption is actually printed
+// -- $title is often blank (this widget's own default), and the event
+// name is then the first heading in this whole block, so it still needs
+// to sit at the right depth for wherever this widget renders.
+$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+
 if ( $title ) {
-	echo '<h4 class="sp-table-caption">' . wp_kses_post( $title ) . '</h4>';
+	printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 }
+
+// One level below the caption when it actually printed (nested under
+// it); at the caption's own level when it didn't (this heading is then
+// the first one in the block, same as the caption would have been).
+// min( 6, ... ): headings stop at h6, never invalid h7+.
+$bl_event_name_level   = min( 6, $bl_caption_level + ( $title ? 1 : 0 ) );
+$bl_event_detail_level = min( 6, $bl_event_name_level + 1 );
 
 $bl_title = $bl_post->post_title;
 if ( $link_events ) {
@@ -235,7 +259,7 @@ if ( isset( $show_status ) && $show_status ) {
 		<?php echo get_the_post_thumbnail( $bl_post ); ?>
 	</div>
 	<?php } ?>
-		<h3 class="event-name sp-event-name">
+		<?php printf( '<h%d class="event-name sp-event-name">', $bl_event_name_level ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_event_name_level is always an int computed above, never user input. ?>
 			<?php
 			if ( $show_logos ) {
 				$bl_teams = array_unique( (array) get_post_meta( $bl_post->ID, 'sp_team', false ) );
@@ -254,13 +278,13 @@ if ( isset( $show_status ) && $show_status ) {
 			}
 			?>
 			<?php echo wp_kses_post( $bl_title ); ?>
-		</h3>
+		<?php printf( '</h%d>', $bl_event_name_level ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_event_name_level is always an int computed above, never user input. ?>
 		<?php
 		if ( isset( $show_date ) && $show_date ) :
 			?>
-			<h5 class="event-venue sp-event-venue event-date sp-event-date">
+			<?php printf( '<h%d class="event-venue sp-event-venue event-date sp-event-date">', $bl_event_detail_level ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_event_detail_level is always an int computed above, never user input. ?>
 				<?php echo wp_kses_post( get_the_time( get_option( 'date_format' ), $bl_post ) ); ?>
-			</h5>
+			<?php printf( '</h%d>', $bl_event_detail_level ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see above. ?>
 			<?php
 		endif;
 
@@ -268,7 +292,7 @@ if ( isset( $show_status ) && $show_status ) {
 			$bl_venues = get_the_terms( $bl_post->ID, 'sp_venue' );
 			if ( $bl_venues && ! is_wp_error( $bl_venues ) ) :
 				?>
-				<h5 class="event-venue sp-event-venue">
+				<?php printf( '<h%d class="event-venue sp-event-venue">', $bl_event_detail_level ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see above. ?>
 					<?php
 					if ( $link_venues ) {
 						the_terms( $bl_post->ID, 'sp_venue' );
@@ -276,7 +300,7 @@ if ( isset( $show_status ) && $show_status ) {
 						echo wp_kses_post( implode( '/', wp_list_pluck( $bl_venues, 'name' ) ) );
 					}
 					?>
-				</h5>
+				<?php printf( '</h%d>', $bl_event_detail_level ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see above. ?>
 				<?php
 			endif;
 		endif;
@@ -286,7 +310,7 @@ if ( isset( $show_status ) && $show_status ) {
 			if ( $bl_leagues && ! is_wp_error( $bl_leagues ) ) :
 				foreach ( $bl_leagues as $bl_league ) :
 					?>
-					<h5 class="event-league sp-event-league"><?php echo wp_kses_post( $bl_league->name ); ?></h5>
+					<?php printf( '<h%1$d class="event-league sp-event-league">%2$s</h%1$d>', $bl_event_detail_level, wp_kses_post( $bl_league->name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_event_detail_level is always an int computed above; $bl_league->name is already escaped via wp_kses_post(). ?>
 					<?php
 				endforeach;
 			endif;

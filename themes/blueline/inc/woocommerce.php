@@ -326,6 +326,12 @@ function blueline_wc_checkout_field_guidance( array $fields ): array {
  * @return array $args, unchanged unless this exact field matched.
  */
 function blueline_wc_checkout_field_guidance_for_key( string $key, array $args ): array {
+	$blueline_autocomplete = blueline_wc_checkout_field_autocomplete( $key );
+
+	if ( null !== $blueline_autocomplete ) {
+		$args['autocomplete'] = $blueline_autocomplete;
+	}
+
 	if ( 'arl_division' === $key ) {
 		$args['placeholder'] = __( 'Select skill level(s)', 'blueline' );
 		$args['description'] = __(
@@ -356,6 +362,119 @@ function blueline_wc_checkout_field_guidance_for_key( string $key, array $args )
 	}
 
 	return $args;
+}
+
+/**
+ * A standard WHATWG autofill token for one of WooCommerce's own default
+ * billing/shipping field keys, or null for anything else (this theme's own
+ * arl_* custom fields included -- none has an established token that fits,
+ * and this deliberately does not invent one).
+ *
+ * Why this exists: WooCommerce Checkout Field Editor Pro's own field
+ * renderer (class-thwcfe-public.php, woo_form_field()) sets
+ * `autocomplete="off"` on EVERY checkout field whose autocomplete is not
+ * explicitly configured in its own admin screen -- confirmed live,
+ * 2026-09-04 UX audit, and confirmed in that plugin's own source:
+ * `$autocomplete = $autocomplete ? $autocomplete : 'off';` unconditionally
+ * defaults an empty value to 'off' rather than leaving it unset. Checked
+ * this site's own thwcfe_sections config (wp option get thwcfe_sections):
+ * every field's stored autocomplete value is blank -- none of this was a
+ * deliberate admin choice, every checkout field site-wide silently blocks
+ * browser/mobile autofill, on a form a rushed parent is filling out on
+ * their phone.
+ *
+ * Populating $args['autocomplete'] here (both callers above run before
+ * WooCommerce hands $args to that plugin's renderer) gives it a real,
+ * non-empty value for that plugin's own `$autocomplete ? $autocomplete :
+ * 'off'` check to find, so it never falls through to 'off' at all -- no
+ * plugin file touched, since a hand-edit there would be silently discarded
+ * on the plugin's next update anyway.
+ *
+ * @param string $key The field's id/name (e.g. 'billing_email').
+ * @return string|null
+ */
+function blueline_wc_checkout_field_autocomplete( string $key ): ?string {
+	$map = array(
+		'billing_first_name'  => 'given-name',
+		'shipping_first_name' => 'given-name',
+		'billing_last_name'   => 'family-name',
+		'shipping_last_name'  => 'family-name',
+		'billing_company'     => 'organization',
+		'shipping_company'    => 'organization',
+		'billing_email'       => 'email',
+		'billing_phone'       => 'tel',
+		'billing_address_1'   => 'address-line1',
+		'shipping_address_1'  => 'address-line1',
+		'billing_address_2'   => 'address-line2',
+		'shipping_address_2'  => 'address-line2',
+		'billing_city'        => 'address-level2',
+		'shipping_city'       => 'address-level2',
+		'billing_state'       => 'address-level1',
+		'shipping_state'      => 'address-level1',
+		'billing_postcode'    => 'postal-code',
+		'shipping_postcode'   => 'postal-code',
+		'billing_country'     => 'country',
+		'shipping_country'    => 'country',
+	);
+
+	return $map[ $key ] ?? null;
+}
+
+add_filter( 'woocommerce_form_field_checkbox', 'blueline_wc_required_checkbox_attributes', 20, 3 );
+/**
+ * A checkout checkbox field WooCommerce Checkout Field Editor Pro's own
+ * admin config marks required (this site has several: agreeing to the
+ * COVID waiver terms, the trade-clause acknowledgement) renders with a
+ * visible `<abbr class="required" title="required">*</abbr>` marker but no
+ * `required` or `aria-required` on the `<input>` itself -- confirmed live,
+ * 2026-09-04 UX audit, and reproduced directly: `woocommerce_form_field(
+ * 'arl_tradeclause', ['type' => 'checkbox', 'required' => true], '' )`
+ * returns `<input type="checkbox" ...>` with neither attribute. That
+ * plugin's own checkbox renderer (class-thwcfe-public.php, hooked to this
+ * SAME filter at priority 10) is the one building that HTML string; this
+ * runs after it and patches the string rather than editing the plugin
+ * file, which a plugin update would silently discard.
+ *
+ * Screen-reader users get no indication the field is required until an
+ * error appears after a failed submit; sighted users relying on the
+ * visible asterisk still don't get the browser's own native "please fill
+ * out this field" validation before submitting, since HTML5's required
+ * validation reads the attribute, not a decorative abbr.
+ *
+ * @param string $field The rendered field HTML.
+ * @param string $key   The field's id/name.
+ * @param array  $args  WooCommerce form-field args for this field.
+ * @return string
+ */
+function blueline_wc_required_checkbox_attributes( string $field, string $key, array $args ): string {
+	if ( empty( $args['required'] ) ) {
+		return $field;
+	}
+
+	// Scoped to the <input> TAG specifically, not $field as a whole -- every
+	// required field's own wrapper/marker already contains the word
+	// "required" (`class="form-row validate-required ..."`, `<abbr
+	// class="required" ...>`), so a plain strpos() over the whole string
+	// would always find a match and this filter would never actually patch
+	// anything.
+	$pattern = '/<input\b[^>]*\bname="' . preg_quote( $key, '/' ) . '"[^>]*>/';
+
+	if ( ! preg_match( $pattern, $field, $match ) ) {
+		return $field;
+	}
+
+	if ( preg_match( '/\brequired\b/', $match[0] ) ) {
+		return $field; // Already has the real attribute; nothing to add.
+	}
+
+	$patched = preg_replace(
+		'/(\bname="' . preg_quote( $key, '/' ) . '")/',
+		'$1 required aria-required="true"',
+		$match[0],
+		1
+	);
+
+	return str_replace( $match[0], $patched, $field );
 }
 
 /*

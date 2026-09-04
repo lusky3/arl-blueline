@@ -68,8 +68,9 @@ $blueline_billing_active = (bool) array_filter(
 <nav class="woocommerce-MyAccount-navigation bl-account-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
 	<ul class="bl-account-nav__pills">
 		<?php foreach ( $blueline_pill_items as $blueline_nav_item ) : ?>
-			<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
-				<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+			<?php $blueline_item_classes = wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ); ?>
+			<li class="<?php echo esc_attr( $blueline_item_classes ); ?>">
+				<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>"<?php echo str_contains( $blueline_item_classes, 'is-active' ) ? ' aria-current="page"' : ''; ?>>
 					<?php echo esc_html( $blueline_nav_item['label'] ); ?>
 				</a>
 			</li>
@@ -78,11 +79,12 @@ $blueline_billing_active = (bool) array_filter(
 		<?php if ( $blueline_billing_items ) : ?>
 			<li class="bl-account-nav__billing-item">
 				<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>"<?php echo $blueline_billing_active ? ' open' : ''; ?>>
-					<summary><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
+					<summary<?php echo $blueline_billing_active ? ' aria-current="true"' : ''; ?>><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
 					<ul class="bl-account-nav__billing-panel">
 						<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>
-							<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?>">
-								<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+							<?php $blueline_item_classes = wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ); ?>
+							<li class="<?php echo esc_attr( $blueline_item_classes ); ?>">
+								<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>"<?php echo str_contains( $blueline_item_classes, 'is-active' ) ? ' aria-current="page"' : ''; ?>>
 									<?php echo esc_html( $blueline_nav_item['label'] ); ?>
 								</a>
 							</li>

@@ -172,7 +172,15 @@ final class CheckoutFieldGuidanceTest extends TestCase {
 			),
 		);
 
-		$this->assertSame( $fields, blueline_wc_checkout_field_guidance( $fields ) );
+		// billing_first_name matches none of the placeholder/description
+		// guidance below -- placeholder and description stay untouched --
+		// but IS one of WooCommerce's own default fields
+		// (blueline_wc_checkout_field_autocomplete()), so it does gain an
+		// autocomplete token.
+		$expected = $fields;
+		$expected['billing']['billing_first_name']['autocomplete'] = 'given-name';
+
+		$this->assertSame( $expected, blueline_wc_checkout_field_guidance( $fields ) );
 	}
 
 	/**
@@ -250,5 +258,55 @@ final class CheckoutFieldGuidanceTest extends TestCase {
 			)
 		);
 		$this->assertSame( 'Team Name', $untouched['placeholder'] );
+	}
+
+	/**
+	 * Exercises blueline_wc_checkout_field_autocomplete() -- the
+	 * standard-token map itself. See inc/woocommerce.php's own docblock
+	 * above it for why this exists: WooCommerce Checkout Field Editor Pro
+	 * forces every field with
+	 * no explicitly admin-configured autocomplete to "off", confirmed live
+	 * as every field on this site (thwcfe_sections' own stored autocomplete
+	 * values are all blank).
+	 */
+	public function test_autocomplete_map_covers_known_billing_and_shipping_keys(): void {
+		$this->assertSame( 'given-name', blueline_wc_checkout_field_autocomplete( 'billing_first_name' ) );
+		$this->assertSame( 'family-name', blueline_wc_checkout_field_autocomplete( 'shipping_last_name' ) );
+		$this->assertSame( 'email', blueline_wc_checkout_field_autocomplete( 'billing_email' ) );
+		$this->assertSame( 'tel', blueline_wc_checkout_field_autocomplete( 'billing_phone' ) );
+		$this->assertSame( 'address-line1', blueline_wc_checkout_field_autocomplete( 'billing_address_1' ) );
+		$this->assertSame( 'postal-code', blueline_wc_checkout_field_autocomplete( 'shipping_postcode' ) );
+	}
+
+	/**
+	 * A key with no established autofill token (every arl_* custom field,
+	 * and anything else unmapped) gets null, not an invented value -- and
+	 * the per-key helper leaves $args['autocomplete'] untouched for it
+	 * rather than setting it to null, so it never overwrites a real admin
+	 * choice with an empty one.
+	 */
+	public function test_autocomplete_map_returns_null_for_custom_fields(): void {
+		$this->assertNull( blueline_wc_checkout_field_autocomplete( 'arl_division' ) );
+		$this->assertNull( blueline_wc_checkout_field_autocomplete( 'arl_emergency_contact' ) );
+
+		$result = blueline_wc_checkout_field_guidance_for_key(
+			'arl_emergency_contact',
+			array( 'placeholder' => 'Jane Doe' )
+		);
+		$this->assertArrayNotHasKey( 'autocomplete', $result );
+	}
+
+	/**
+	 * The per-key helper actually wires the mapped token into $args for a
+	 * known key -- this is the value WooCommerce Checkout Field Editor
+	 * Pro's own renderer reads BEFORE falling back to "off" (see
+	 * blueline_wc_checkout_field_autocomplete()'s own docblock).
+	 */
+	public function test_per_key_helper_sets_autocomplete_for_known_billing_key(): void {
+		$result = blueline_wc_checkout_field_guidance_for_key(
+			'billing_email',
+			array( 'placeholder' => '' )
+		);
+		$this->assertSame( 'email', $result['autocomplete'] );
 	}
 }

@@ -24,6 +24,18 @@ blueline_page_wrapper_start( $has_sidebar );
 						</h1>
 					</header>
 
+					<?php
+					/*
+					 * The empty-results branch below (content-none.php, via
+					 * get_template_part( 'content', 'none' )) already prints a
+					 * search form -- this branch, when there ARE results, had
+					 * none at all: no way to refine or repeat a search without
+					 * navigating away first. Confirmed live, 2026-09-04 UX
+					 * audit.
+					 */
+					get_search_form();
+					?>
+
 					<div class="bl-post-list">
 						<?php
 						while ( have_posts() ) :

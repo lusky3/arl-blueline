@@ -578,8 +578,21 @@
  * decorative inner .bl-skew shape only — the <a> itself stays un-skewed
  * so its :focus-visible ring is a true, unrotated rectangle.
  */
+
+/*
+ * min-height + centering, not more padding on .bl-skew: the visible ribbon
+ * (font size, padding, skewed fill) stays exactly the size the design spec
+ * calls for; only the invisible tappable box around it grows to the 44px
+ * minimum this codebase already enforces elsewhere (e.g.
+ * .bl-theme-toggle__option, footer.css) -- confirmed live, 2026-09-04 UX
+ * audit: every .bl-btn measured 32-36px tall, sitewide (this is the shared
+ * base class every "Register to Play" CTA, calendar link, claim-card
+ * button, and account-page action button renders through).
+ */
 .bl-btn {
 	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
 	position: relative;
 }
 

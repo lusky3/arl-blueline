@@ -137,7 +137,19 @@ if ( count( $options ) > 1 ) :
 	?>
 	<div class="sp-template sp-template-player-selector sp-template-profile-selector bl-sp-player-selector">
 		<label class="bl-sp-player-selector__label" for="<?php echo esc_attr( $select_id ); ?>">
-			<?php esc_html_e( 'Jump to a teammate', 'blueline' ); ?>
+			<?php
+			// $team is only set once (line 60) and never reassigned, so this
+			// reflects exactly whether the query above actually scoped to a
+			// team roster or fell through to every player in the league --
+			// confirmed live, 2026-09-04 UX audit: a player with no
+			// sp_current_team meta (roughly 6% of this database's players,
+			// not a bug case -- see blueline_player_current_team_id()'s own
+			// docblock) got the whole-league list under a label that
+			// promised "teammate", not "player".
+			echo $team // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- both branches are static translated strings, no variable content.
+				? esc_html__( 'Jump to a teammate', 'blueline' )
+				: esc_html__( 'Jump to a player', 'blueline' );
+			?>
 		</label>
 		<div class="bl-sp-player-selector__row">
 			<select id="<?php echo esc_attr( $select_id ); ?>" class="sp-profile-selector sp-player-selector bl-sp-player-selector__select">

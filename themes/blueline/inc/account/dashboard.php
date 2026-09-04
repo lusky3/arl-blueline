@@ -36,10 +36,15 @@ defined( 'ABSPATH' ) || exit;
  * @param string $link_label "See more" link text.
  */
 function blueline_account_module_start( string $name, string $title, string $link_url = '', string $link_label = '' ) {
+	// $name is already a unique per-module slug (the bl-account-module--{name}
+	// modifier above); reused as the heading id so <section> can name itself
+	// via aria-labelledby instead of landing on the page's landmark list with
+	// no accessible name at all -- confirmed live, 2026-09-04 UX audit.
+	$blueline_title_id = 'bl-account-module-title--' . $name;
 	?>
-	<section class="bl-account-module bl-account-module--<?php echo esc_attr( $name ); ?>">
+	<section class="bl-account-module bl-account-module--<?php echo esc_attr( $name ); ?>" aria-labelledby="<?php echo esc_attr( $blueline_title_id ); ?>">
 		<header class="bl-account-module__header">
-			<h2 class="bl-account-module__title"><?php echo esc_html( $title ); ?></h2>
+			<h2 class="bl-account-module__title" id="<?php echo esc_attr( $blueline_title_id ); ?>"><?php echo esc_html( $title ); ?></h2>
 			<?php if ( $link_url ) : ?>
 				<a class="bl-account-module__link" href="<?php echo esc_url( $link_url ); ?>">
 					<?php echo esc_html( $link_label ); ?> <span aria-hidden="true">&rarr;</span>
