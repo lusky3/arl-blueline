@@ -673,6 +673,11 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	gap: var(--bl-space-4);
 }
 
+.bl-player-profile__photo-wrap {
+	position: relative;
+	flex: 0 0 auto;
+}
+
 .bl-player-profile__photo {
 	display: block;
 	width: 96px;
@@ -700,6 +705,73 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	width: 48px;
 	height: 48px;
 	color: var(--bl-steel);
+}
+
+/*
+ * The pencil-icon photo control (blueline_render_player_profile_bio_section(),
+ * inc/account/player-profile.php). The form sits absolutely over the photo
+ * circle's own bottom-right corner; the file input itself is visually
+ * hidden but real (a <label for> already opens the file picker with no JS,
+ * assets/src/js/player-photo-upload.js only adds auto-submit on selection),
+ * so a screen reader or keyboard user reaches an actual, focusable control,
+ * not a div masquerading as one.
+ */
+.bl-player-profile__photo-form {
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline-end: 0;
+}
+
+.bl-player-profile__photo-edit {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	border: 2px solid var(--bl-content-surface);
+	cursor: pointer;
+}
+
+.bl-player-profile__photo-edit:hover,
+.bl-player-profile__photo-edit:focus-within {
+	filter: brightness(0.92);
+}
+
+.bl-player-profile__photo-edit svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bl-player-profile__photo-input {
+
+	/* Visually hidden, not display:none -- stays a real, focusable,
+	   screen-reader-reachable control; the <label for> above is what a
+	   sighted mouse user actually clicks. */
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.bl-player-profile__photo-input:focus-visible + .bl-player-profile__photo-edit {
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
+	outline-offset: 2px;
+}
+
+.bl-player-profile__photo-submit {
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-start: 0;
+	margin-block-start: var(--bl-space-2);
+	white-space: nowrap;
 }
 
 .bl-player-profile__name {
