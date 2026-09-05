@@ -1,0 +1,298 @@
+<!--
+Blueline -- wp-email-template plugin (a3rev) theme override.
+
+Ported, not rewritten: this is the plugin's own stock emails/email_header.html
+(confirmed via `wp-content/plugins/wp-email-template/emails/email_header.html`
+on the real site), with ONLY the specific placeholders confirmed live to be
+ignored by the plugin's own rendering code replaced with literal brand values.
+Everything else -- structure, working placeholders, Outlook conditional
+comments -- is untouched.
+
+Why literals instead of filtering the stored options (the pattern this
+theme uses everywhere else, e.g. blueline_wc_email_option_overrides()):
+confirmed live by reading wp-email-template's classes/class-email-functions.php
+that `base_colour`, `header_font`, `h1_font`-`h6_font`, `content_background_colour`,
+`content_text_colour`, `content_link_colour`, `footer_background_colour`, and
+`footer_font` are ALL hardcoded literals inside that PHP file's own shortcode-
+replacement array, never read from the `wp_email_template_style_body`/
+`wp_email_template_style_header` options at all despite a real, working admin
+settings UI for them -- confirmed by sending a real test email through this
+exact theme's `blueline_wp_email_template_style_body_overrides()`/
+`blueline_wp_email_template_style_header_overrides()` filters (see inc/woocommerce.php
+git history) and finding NONE of their pinned values reached the sent email,
+while `background_colour` and `header_image_background_color` (the two
+placeholders below left untouched, still reading `<!--background_colour-->`/
+`<!--header_image_background_color-->`) DID -- those two really are read
+live from `wp_email_template_general`/`wp_email_template_style_header_image`
+in that same file. This template override is the correct mechanism instead:
+the plugin's own `email_header()`/`email_footer()` methods check
+`get_stylesheet_directory() . '/emails/email_header.html'` before falling
+back to their own copy.
+
+Brand values used below, matching the equivalent choices already made for
+WooCommerce's own email_improvements options (blueline_wc_email_option_overrides(),
+inc/woocommerce.php): Helvetica (this plugin's own font list has no live
+Google Fonts loading without an API key, confirmed disabled --
+wp_email_template_google_api_key_enable -- so a universal system font, not
+this theme's own Inter/Barlow Condensed web fonts, is the only realistic
+choice, same as WooCommerce's own font_family pin); --bl-ink (#132343) for
+body/heading text; --bl-ink-mid (#2E4A74) for the footer credit line,
+matching woocommerce_email_footer_text_color; --bl-accent-text (#3F6E9D) for
+links, never --bl-ice, for the identical WCAG reasoning documented on
+blueline_wc_email_option_overrides()'s own base_color line; --bl-paper
+(#F7FBFC) for the header band and --bl-white (#FFFFFF) for the content/footer
+bands, matching the outer-canvas/card-surface split already used elsewhere.
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="<!--text_dir-->">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+        <title><!--blog_name--></title>
+        <!--external_link-->
+		<style type="text/css">
+			/* Client-specific/Reset Styles */
+			#outlook a{padding:0;} /* Force Outlook to provide a "view in browser" button. */
+			* {-webkit-text-size-adjust: none}
+			body{
+				width:100%; /* Force Hotmail to display emails at full width */
+				-webkit-text-size-adjust:none; /* Prevent Webkit platforms from changing default text sizes. */
+				margin:0;
+				padding:0;
+			}
+			p { margin:0 0 10px;padding: 0 }
+			img{border:none; font-size:14px; font-weight:bold; height:auto; line-height:100%; outline:none; text-decoration:none; text-transform:capitalize;}
+			#backgroundTable{height:100% !important; margin:0; padding:0; width:100% !important;}
+			mark { background: transparent none; color: inherit; }
+			/* Template Styles */
+
+			body {
+				background: /*background_colour*/ /*background_pattern_image*/ repeat;
+			}
+
+			h1, .h1,
+			h2, .h2,
+			h3, .h3,
+			h4, .h4,
+			h5, .h5,
+			h6, .h6 {
+				margin-top:0;
+				margin-right:0;
+				margin-bottom:10px;
+				margin-left:0;
+				display:block;
+			}
+
+			h1, .h1 {
+				font:normal 26px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+			h2, .h2{
+				font:normal 20px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+			h3, .h3{
+				font:normal 18px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+			h4, .h4{
+				font:normal 16px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+			h5, .h5{
+				font:normal 14px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+			h6, .h6{
+				font:normal 12px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+
+			/* /\/\/\/\/\/\/\/\/\/\ STANDARD STYLING: HEADER /\/\/\/\/\/\/\/\/\/\ */
+			#divTemplateHeaderImage{
+				/*header_image_border*/
+			}
+			#divTemplateHeaderImage, #templateHeaderImage{
+				background-color: /*header_image_background_color*/;
+			}
+			#templateHeaderImage{
+				/*header_image_border_corner*/
+			}
+
+			#divTemplateHeader{
+				/*show_email_title*/
+				/*header_border*/
+			}
+			#divTemplateHeader, #templateHeader{
+				background-color: #F7FBFC;
+			}
+			#templateHeader{
+				/*header_border_corner*/
+			}
+
+			#divTemplateHeader .h1, #divTemplateHeader .h1 a:link, #divTemplateHeader .h1 a:visited {
+				font:bold 26px Helvetica, Arial, sans-serif !important; color: #132343 !important;
+			}
+			#divTemplateHeader .h1 a:link, #divTemplateHeader .h1 a:visited {
+				text-decoration:underline;
+				font-weight:normal;
+			}
+
+			/* /\/\/\/\/\/\/\/\/\/\ STANDARD STYLING: MAIN BODY /\/\/\/\/\/\/\/\/\/\ */
+
+			#divTemplateBody{
+				/*content_border*/
+			}
+			#divTemplateBody *, #divTemplateBody p, #divTemplateBody span, #divTemplateBody a, #divTemplateBody div {
+				font-family:Helvetica, Arial, sans-serif;
+				text-align:/*content_alignment*/;
+				/*content_text_style*/
+			}
+			#divTemplateBody b, #divTemplateBody strong {
+				font-weight: bold !important;
+			}
+			#divTemplateBody center {
+				text-align: center;
+			}
+			#divTemplateBody, #templateBody{
+				background-color: #FFFFFF;
+			}
+			#templateBody{
+				/*content_border_corner*/
+			}
+
+			#templateBody td, #templateBody th {
+				text-align:/*content_alignment*/;
+			}
+
+			.bodyContent div{
+				color: #132343;
+				font-family:Helvetica, Arial, sans-serif;
+				font-size:14px;
+				line-height:150%;
+			}
+
+			.bodyContent div a:link, .bodyContent div a:visited{
+				color: #3F6E9D;
+				font-weight:normal;
+				text-decoration:underline;
+			}
+
+			.bodyContent img{
+				display:inline;
+				height:auto;
+			}
+
+			.gravity-form-table,
+			.gravity-form-table * {
+				font-family: Helvetica, Arial, sans-serif !important;
+				/*content_text_size*/
+			}
+			.gravity-form-table table {
+				width: 99% !important;
+			}
+
+			/* /\/\/\/\/\/\/\/\/\/\ STANDARD STYLING: FOOTER /\/\/\/\/\/\/\/\/\/\ */
+
+			#divTemplateFooter{
+				/*footer_border*/
+			}
+			#divTemplateFooter, #templateFooter{
+				background-color: #FFFFFF;
+			}
+			#templateFooter{
+				/*footer_border_corner*/
+			}
+
+			#credit {
+				border: none;
+				text-align:center;
+				font:normal 11px Helvetica, Arial, sans-serif !important; color: #2E4A74 !important;
+			}
+
+			#credit div a:link, #credit div a:visited{
+				color: #3F6E9D;
+				font-weight:normal;
+				text-decoration:underline;
+			}
+
+			#credit img {
+				display:inline;
+			}
+		</style>
+		<!--[if gte mso 9]>
+		    <style type="text/css">
+		    	#templateContainer{
+					/*outlook_container_border*/
+				}
+				#cellContainer {
+					/*outlook_container_border*/
+				}
+		    	#divTemplateHeaderImage {
+					border: none !important;
+				}
+				#divTemplateHeader {
+					border: none !important;
+				}
+				#divTemplateBody {
+					border: none !important;
+				}
+				#divTemplateFooter {
+					border: none !important;
+				}
+		    </style>
+		<![endif]-->
+	</head>
+    <body leftmargin="0" marginwidth="0" topmargin="0" marginheight="0" offset="0">
+    <div style="background: /*background_colour*/ /*background_pattern_image*/ repeat;" dir="<!--text_dir-->">
+    	<!--EMAIL_TEMPLATE_NOTICE-->
+    	<center style="padding: 20px 0px 50px 0px;">
+        	<table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%" id="backgroundTable">
+            	<tr>
+                	<td align="center" valign="top">
+                    	<table border="0" cellpadding="0" cellspacing="0" width="<!--email_container_width-->" class="contenttable" id="templateContainer" style="width: <!--email_container_width-->px; max-width: 100%;">
+                        	<tr>
+                            	<td id="cellContainer" align="center" valign="top">
+
+									<!-- // Begin Template Header Image\\ -->
+									<div id="divTemplateHeaderImage" style="background:<!--header_image_background_color-->; margin: <!--header_image_margin_top-->px <!--header_image_margin_right-->px <!--header_image_margin_bottom-->px <!--header_image_margin_left-->px; <!--header_image_border-->">
+										<table border="0" cellpadding="0" cellspacing="0" width="100%" class="contenttable" id="templateHeaderImage">
+				                        	<tr>
+				                            	<td align="<!--header_image_alignment-->" valign="top">
+				                            	<div style="text-align: <!--header_image_alignment-->; margin: <!--header_image_padding_top-->px <!--header_image_padding_right-->px <!--header_image_padding_bottom-->px <!--header_image_padding_left-->px;">
+				                                	<!--header_image-->
+				                                </div>
+				                                </td>
+				                            </tr>
+				                        </table>
+			                        </div>
+			                        <!-- // End Template Header Image\\ -->
+
+                                    <!-- // Begin Template Header \\ -->
+                                    <!--show_email_title_start-->
+                                	<div id="divTemplateHeader" style="<!--show_email_title--> background:#F7FBFC; font-family:Helvetica, Arial, sans-serif; font-weight:bold; vertical-align:middle; margin: <!--header_margin_top-->px <!--header_margin_right-->px <!--header_margin_bottom-->px <!--header_margin_left-->px;<!--header_border-->">
+	                                	<table border="0" cellpadding="0" cellspacing="0" width="100%" class="contenttable" id="templateHeader">
+	                                        <tr>
+	                                            <td align="<!--header_alignment-->">
+	                                            <div style="text-align:<!--header_alignment-->; margin: <!--header_padding_top-->px <!--header_padding_right-->px <!--header_padding_bottom-->px <!--header_padding_left-->px;">
+
+	                                            	<!-- // Begin Module: Standard Header Image \\ -->
+	                                            	<h1 class="h1" style="font:bold 26px Helvetica, Arial, sans-serif !important; color: #132343 !important; margin:0; padding:0;  text-align:<!--header_alignment-->;"><!--email_heading--></h1>
+	                                            	<!-- // End Module: Standard Header Image \\ -->
+
+	                                            </div>
+	                                            </td>
+	                                        </tr>
+	                                    </table>
+                                    </div>
+                                    <!--show_email_title_end-->
+                                    <!-- // End Template Header \\ -->
+
+                                    <!-- // Begin Template Body \\ -->
+                                	<div id="divTemplateBody" style="background:#FFFFFF; margin: <!--content_margin_top-->px <!--content_margin_right-->px <!--content_margin_bottom-->px <!--content_margin_left-->px;<!--content_border-->">
+	                                	<table border="0" cellpadding="0" cellspacing="0" width="100%" class="contenttable" id="templateBody">
+	                                    	<tr>
+	                                            <td valign="top"  align="<!--content_alignment-->" class="bodyContent">
+	                                            <div style="color:#132343; margin: <!--content_padding_top-->px <!--content_padding_right-->px <!--content_padding_bottom-->px <!--content_padding_left-->px;">
+
+	                                                <!-- // Begin Module: Standard Content \\ -->
+                                                    <div style="color:#132343 !important; font-family:Helvetica, Arial, sans-serif !important; <!--content_text_size--> <!--content_text_style--> text-align:<!--content_alignment-->;">
+                                                    	<table border="0" cellpadding="0" cellspacing="0" width="<!--email_body_width-->" style="width: <!--email_body_width-->px; max-width: 100%;">
+	                                                    	<tr>
+	                                                        	<td valign="top">
+	                                                        		<div style="color:#132343 !important; font-family:Helvetica, Arial, sans-serif !important; <!--content_text_size--> <!--content_text_style-->">

@@ -1,0 +1,374 @@
+/*
+ * Blueline -- Contact Form 7 theming.
+ *
+ * Styles CF7's own generic/stock class names and elements, never a
+ * hard-coded field id or form id -- same porting principle as
+ * woocommerce.css's file-level comment: this covers every current and
+ * future CF7 form on the site without ever naming a field.
+ *
+ * Scoped under .wpcf7-form throughout so nothing here can leak onto an
+ * unrelated <label>/<input> elsewhere on the site.
+ *
+ * Verified against the real installed Contact Form 7 6.1.7 (including the
+ * Conditional Fields add-on's .wpcf7cf_group wrapper divs) and its own
+ * includes/css/styles.css, not assumed from memory of older CF7 versions.
+ */
+
+/* ---------------------------------------------------------------------
+ * Layout -- CF7's default form template renders one field per <p>, with
+ * the field's own <label> containing its text, a <br>, then one or more
+ * .wpcf7-form-control-wrap spans holding the actual control.
+ * ------------------------------------------------------------------- */
+
+.wpcf7-form p {
+	margin: 0 0 var(--bl-space-4);
+}
+
+.wpcf7-form h3 {
+	margin: 0 0 var(--bl-space-2);
+	color: var(--bl-content-text);
+	font-family: var(--bl-font-display);
+}
+
+.wpcf7-form h3 + p,
+.wpcf7-form > p:first-of-type {
+	color: var(--bl-content-text-secondary);
+}
+
+.wpcf7-form label {
+	display: block;
+	margin-block-end: var(--bl-space-2);
+	color: var(--bl-content-text);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+/*
+ * Default is width: 100% -- the common case of one field, one wrap. A
+ * field split across two or more consecutive wraps sharing one label
+ * (e.g. "Name" as First + Last) gets the row-sharing treatment below
+ * instead, so they sit side by side rather than each claiming the full
+ * width and stacking on top of each other.
+ */
+.wpcf7-form-control-wrap {
+	display: inline-block;
+	width: 100%;
+	vertical-align: top;
+}
+
+/*
+ * Two (or more) wraps in a row is CF7's own pattern for a compound field
+ * (first-name + last-name inside one "Name" label) -- give each a share
+ * of the row instead of the full width. Plain inline-block sizing, not
+ * flexbox: these are inline-level elements, so multiple sub-100%-width
+ * boxes already sit side by side via normal text flow and wrap to their
+ * own line on narrow viewports with no JS or extra markup needed.
+ * Only handles exactly two side-by-side wraps (the shape actually seen
+ * on this site's "Name" field) -- three or more in one label is not a
+ * pattern in use and is out of scope here.
+ *
+ * Live-verified gotcha: CF7's own markup separates the two wraps with a
+ * literal space character in the HTML source (`</span> <span>`), which
+ * -- unlike in a flex container, where such a whitespace-only text node
+ * is ignored -- still renders as real inline whitespace here and
+ * consumes actual width. A first attempt at `50% - (space-3 / 2)` each
+ * left only that half-space-3 as slack, which the whitespace character's
+ * own width ate entirely, silently wrapping the second box onto its own
+ * line (confirmed live: both boxes measured 343px wide in a ~700px
+ * container -- 343+343+12 leaves only 2px, not enough). Subtracting a
+ * full --bl-space-3 from each (instead of half each) leaves a full
+ * --bl-space-3 of slack to absorb it.
+ */
+.wpcf7-form-control-wrap:has(+ .wpcf7-form-control-wrap) {
+	width: calc(50% - var(--bl-space-3));
+	margin-inline-end: var(--bl-space-3);
+}
+
+.wpcf7-form-control-wrap + .wpcf7-form-control-wrap {
+	width: calc(50% - var(--bl-space-3));
+}
+
+/* ---------------------------------------------------------------------
+ * Text/email/url/tel/number/select/textarea controls.
+ *
+ * Tag-qualified (input./select./textarea.wpcf7-form-control), not the
+ * bare class -- confirmed live that CF7 also puts the SAME
+ * "wpcf7-form-control" class on non-field wrapper <span>s (e.g.
+ * <span class="wpcf7-form-control wpcf7-checkbox ...">, the checkbox
+ * group's own outer wrapper, which has no [type] attribute at all since
+ * that lives on its nested <input> instead). A bare-class rule with only
+ * :not([type=...]) guards still matches that wrapper span -- it has no
+ * [type] to exclude on -- and boxes it like a text field, rendering as
+ * an empty bordered rectangle around the real (still-unstyled) checkbox.
+ * Tag-qualifying rules this out structurally rather than chasing every
+ * wrapper class CF7 or an add-on might use.
+ * ------------------------------------------------------------------- */
+
+input.wpcf7-form-control:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="file"]),
+select.wpcf7-form-control,
+textarea.wpcf7-form-control {
+	box-sizing: border-box;
+	width: 100%;
+	padding: var(--bl-space-3);
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border-strong);
+	border-radius: var(--bl-radius);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-base);
+}
+
+.wpcf7-form textarea.wpcf7-form-control {
+	min-height: 8em;
+	resize: vertical;
+}
+
+.wpcf7-form-control::placeholder {
+	color: var(--bl-content-text-secondary);
+	opacity: 1;
+}
+
+/*
+ * Native <select> arrows vary wildly across browsers/platforms and none
+ * of them are theme-aware -- a plain, theme-coloured arrow drawn as a
+ * background image is simpler and more consistent than fighting each
+ * browser's own control chrome, following this codebase's existing use
+ * of `appearance: none` for exactly this kind of native-control override
+ * (see footer.css's .bl-theme-toggle__option).
+ */
+select.wpcf7-form-control {
+	appearance: none;
+	padding-inline-end: var(--bl-space-7);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%232E4A74' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right var(--bl-space-3) center;
+	background-size: 1em;
+}
+
+:root[data-theme="dark"] select.wpcf7-form-control {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%239FB7CE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) select.wpcf7-form-control {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%239FB7CE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+	}
+}
+
+/*
+ * A file input's native "Choose File" button is the one part of it that
+ * still renders as a real, stylable button in modern browsers (the rest
+ * of the control -- the filename text, the control's own border/background
+ * -- is not reliably stylable cross-browser, so left as the platform's
+ * own chrome rather than fought).
+ */
+.wpcf7-form input[type="file"].wpcf7-form-control::file-selector-button {
+	padding: var(--bl-space-2) var(--bl-space-4);
+	margin-inline-end: var(--bl-space-3);
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border-strong);
+	border-radius: var(--bl-radius);
+	font-family: var(--bl-font-body);
+	font-size: var(--bl-text-sm);
+	cursor: pointer;
+}
+
+.wpcf7-form input[type="file"].wpcf7-form-control::file-selector-button:hover {
+	background: var(--bl-content-bg);
+}
+
+/* ---------------------------------------------------------------------
+ * Checkboxes/radios -- CF7 wraps each option in .wpcf7-list-item, with
+ * the input and its .wpcf7-list-item-label inside one real <label>. The
+ * theme has no existing custom checkbox anywhere else, so this is a new,
+ * from-scratch design rather than a port of an existing pattern.
+ * ------------------------------------------------------------------- */
+
+.wpcf7-list-item {
+	display: block;
+	margin: 0 0 var(--bl-space-2);
+}
+
+.wpcf7-list-item label {
+	display: inline-flex;
+	align-items: center;
+
+	/*
+	 * 44px matches this codebase's own established minimum touch-target
+	 * convention for a small control (footer.css's .bl-theme-toggle__option,
+	 * floating-next-game.css's .bl-floating-next-game__dismiss) -- the
+	 * visible box below is much smaller, but the clickable label area
+	 * around it carries the real target size.
+	 */
+	min-height: 44px;
+	margin-block-end: 0;
+	font-size: var(--bl-text-base);
+	font-weight: 400;
+	cursor: pointer;
+}
+
+.wpcf7-list-item input[type="checkbox"],
+.wpcf7-list-item input[type="radio"] {
+	appearance: none;
+	flex-shrink: 0;
+	width: 1.25em;
+	height: 1.25em;
+	margin: 0 var(--bl-space-2) 0 0;
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border-strong);
+	cursor: pointer;
+}
+
+.wpcf7-list-item input[type="checkbox"] {
+	border-radius: 0.25em;
+}
+
+.wpcf7-list-item input[type="radio"] {
+	border-radius: 50%;
+}
+
+.wpcf7-list-item input[type="checkbox"]:checked,
+.wpcf7-list-item input[type="radio"]:checked {
+	background: var(--bl-ink);
+	border-color: var(--bl-ink);
+}
+
+/*
+ * The checkmark itself: a two-segment border clipped to a check shape via
+ * a rotated box, drawn in --bl-paper (the same fill/text pairing as this
+ * site's own primary buttons -- #place_order etc. in woocommerce.css --
+ * so a checked box reads as the same "on-brand solid fill" language as
+ * everywhere else). Radios get a plain centred dot instead of a check.
+ */
+.wpcf7-list-item input[type="checkbox"]:checked::after {
+	content: "";
+	display: block;
+	width: 0.65em;
+	height: 0.35em;
+	margin: 0.15em auto 0;
+	border: 2px solid var(--bl-paper);
+	border-top: 0;
+	border-right: 0;
+	transform: rotate(-45deg);
+}
+
+.wpcf7-list-item input[type="radio"]:checked::after {
+	content: "";
+	display: block;
+	width: 0.55em;
+	height: 0.55em;
+	margin: 0.3em auto 0;
+	background: var(--bl-paper);
+	border-radius: 50%;
+}
+
+.wpcf7-list-item-label::before,
+.wpcf7-list-item-label::after {
+	content: none;
+}
+
+/* ---------------------------------------------------------------------
+ * Validation states -- CF7's own JS adds .wpcf7-not-valid to a control
+ * and inserts a <span class="wpcf7-not-valid-tip"> inside its wrap.
+ * ------------------------------------------------------------------- */
+
+.wpcf7-form-control.wpcf7-not-valid {
+	border-color: var(--bl-danger);
+}
+
+.wpcf7-not-valid-tip {
+	display: block;
+	margin-block-start: var(--bl-space-2);
+	color: var(--bl-danger);
+	font-size: var(--bl-text-sm);
+	font-weight: 400;
+}
+
+/* ---------------------------------------------------------------------
+ * The whole-form response banner. CF7 itself controls when this is
+ * shown/hidden (display: none on init/resetting/submitting, in its own
+ * includes/css/styles.css) -- only the state colours are restyled here,
+ * following this theme's existing bordered-notice-with-tint component
+ * (woocommerce.css's .woocommerce-message/.woocommerce-error, account.css's
+ * .bl-account-notice) rather than a new visual language.
+ * ------------------------------------------------------------------- */
+
+.wpcf7-form .wpcf7-response-output {
+	margin: 0 0 var(--bl-space-4);
+	padding: var(--bl-space-3) var(--bl-space-4);
+	background: color-mix(in srgb, var(--bl-steel) 8%, var(--bl-content-surface));
+	border: 1px solid var(--bl-steel);
+	border-radius: var(--bl-radius-card);
+	color: var(--bl-content-text);
+	font-size: var(--bl-text-sm);
+}
+
+.wpcf7-form.sent .wpcf7-response-output {
+	background: color-mix(in srgb, var(--bl-success) 8%, var(--bl-content-surface));
+	border-color: var(--bl-success);
+}
+
+.wpcf7-form.failed .wpcf7-response-output,
+.wpcf7-form.aborted .wpcf7-response-output {
+	background: color-mix(in srgb, var(--bl-danger) 8%, var(--bl-content-surface));
+	border-color: var(--bl-danger);
+}
+
+.wpcf7-form.spam .wpcf7-response-output,
+.wpcf7-form.invalid .wpcf7-response-output,
+.wpcf7-form.unaccepted .wpcf7-response-output,
+.wpcf7-form.payment-required .wpcf7-response-output {
+	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
+	border-color: var(--bl-warning);
+}
+
+/* ---------------------------------------------------------------------
+ * Submit button -- same upright, unskewed button language as
+ * woocommerce.css's #place_order/.woocommerce button.button (see that
+ * file's own comment on why these plain <button>/<input> elements are
+ * never given the .bl-btn skew treatment).
+ * ------------------------------------------------------------------- */
+
+.wpcf7-form input.wpcf7-submit {
+	display: inline-block;
+	padding: var(--bl-space-3) var(--bl-space-5);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-size: var(--bl-text-base);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	border: 0;
+	border-radius: var(--bl-radius);
+	cursor: pointer;
+}
+
+.wpcf7-form input.wpcf7-submit:hover,
+.wpcf7-form input.wpcf7-submit:focus-visible {
+	background: var(--bl-ink-mid);
+}
+
+.wpcf7-form input.wpcf7-submit:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+/*
+ * The spinner CF7 inserts (span.wpcf7-spinner) is already a pure CSS
+ * animation, not an image -- confirmed against the real installed
+ * plugin's includes/css/styles.css, which also already handles
+ * prefers-reduced-motion (a slow blink instead of a spin) on its own.
+ * Only the two hard-coded plugin-default colours are restyled here to
+ * match the theme; the show/hide (form.submitting) and animation timing
+ * are left exactly as CF7 already implements them.
+ */
+.wpcf7-form .wpcf7-spinner {
+	background-color: var(--bl-ink);
+}
+
+.wpcf7-form .wpcf7-spinner::before {
+	background-color: var(--bl-paper);
+}

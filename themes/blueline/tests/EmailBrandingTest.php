@@ -2,11 +2,12 @@
 /**
  * Unit tests for the branded-email-templates work: pinning WooCommerce's
  * email_improvements-flag color/type options to this theme's own brand
- * tokens, and stopping wp-email-template's own wrapper from competing with
- * them. See inc/woocommerce.php's own docblocks above
- * blueline_wc_email_option_overrides() and
- * blueline_wp_email_template_disable_woo_wrapping() for the full reasoning,
- * and docs/superpowers/specs/2026-09-04-blueline-email-templates-design.md
+ * tokens, and configuring wp-email-template's own general-purpose wrapper
+ * (CF7, Gravity Forms, WP core mail) to use the same brand tokens instead
+ * of competing with them or its own generic defaults. See
+ * inc/woocommerce.php's own docblocks above blueline_wc_email_option_overrides()
+ * and blueline_wp_email_template_general_overrides() for the full
+ * reasoning, and docs/superpowers/specs/2026-09-04-blueline-email-templates-design.md
  * for the design this implements.
  *
  * The require below would otherwise no-op in this plain-PHPUnit
@@ -27,7 +28,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/woocommerce.php';
 
 /**
- * Exercises the two pure functions this feature adds to inc/woocommerce.php.
+ * Exercises the pure functions this feature adds to inc/woocommerce.php.
  */
 final class EmailBrandingTest extends TestCase {
 
@@ -101,12 +102,15 @@ final class EmailBrandingTest extends TestCase {
 	}
 
 	/**
-	 * The wp-email-template plugin's own WooCommerce-wrapping toggle is turned off --
-	 * every other stored setting in that same option survives untouched,
-	 * confirming this is a targeted merge, not a wholesale replacement of
-	 * an admin's other configuration there.
+	 * The master switch is forced on (so CF7/Gravity Forms/WP-core mail
+	 * actually gets wrapped in HTML at all -- confirmed live it defaults
+	 * to "no"), the WooCommerce-wrapping toggle stays forced off, and the
+	 * outer canvas colour is repointed to --bl-paper -- every other stored
+	 * setting in that same option survives untouched, confirming this is
+	 * a targeted merge, not a wholesale replacement of an admin's other
+	 * configuration there.
 	 */
-	public function test_wp_email_template_woocommerce_wrapping_is_disabled(): void {
+	public function test_wp_email_template_general_overrides_enables_wrapping_and_disables_woo(): void {
 		$original = array(
 			'apply_template_all_emails'     => 'no',
 			'email_content_type'            => 'multipart',
@@ -120,11 +124,12 @@ final class EmailBrandingTest extends TestCase {
 			'apply_for_woo_emails'          => 'yes',
 		);
 
-		$patched = blueline_wp_email_template_disable_woo_wrapping( $original );
+		$patched = blueline_wp_email_template_general_overrides( $original );
 
+		$this->assertSame( 'yes', $patched['apply_template_all_emails'] );
 		$this->assertSame( 'no', $patched['apply_for_woo_emails'] );
-		$this->assertSame( 'no', $patched['apply_template_all_emails'] );
-		$this->assertSame( '#f4f4f4', $patched['background_colour']['color'] );
+		$this->assertSame( '#F7FBFC', $patched['background_colour']['color'] );
+		$this->assertSame( '600', $patched['email_container_width'] );
 	}
 
 	/**
@@ -134,21 +139,52 @@ final class EmailBrandingTest extends TestCase {
 	 * returned completely unchanged, since there is no array to merge the
 	 * override into.
 	 */
-	public function test_wp_email_template_disable_tolerates_a_non_array_option(): void {
-		$this->assertFalse( blueline_wp_email_template_disable_woo_wrapping( false ) );
-		$this->assertNull( blueline_wp_email_template_disable_woo_wrapping( null ) );
+	public function test_wp_email_template_general_overrides_tolerates_a_non_array_option(): void {
+		$this->assertFalse( blueline_wp_email_template_general_overrides( false ) );
+		$this->assertNull( blueline_wp_email_template_general_overrides( null ) );
 	}
 
 	/**
 	 * An empty array IS still a real array to merge the override into --
 	 * distinct from the non-array case above, which has nothing to merge
-	 * into at all.
+	 * into at all. background_colour is absent here entirely (nothing to
+	 * merge a colour into), unlike the fixture above.
 	 */
-	public function test_wp_email_template_disable_sets_the_key_even_on_an_empty_array(): void {
+	public function test_wp_email_template_general_overrides_sets_keys_even_on_an_empty_array(): void {
 		$this->assertSame(
-			array( 'apply_for_woo_emails' => 'no' ),
-			blueline_wp_email_template_disable_woo_wrapping( array() )
+			array(
+				'apply_template_all_emails' => 'yes',
+				'apply_for_woo_emails'      => 'no',
+			),
+			blueline_wp_email_template_general_overrides( array() )
 		);
+	}
+
+	/**
+	 * The logo band's own background colour is pinned, and an unrelated
+	 * stored setting (header_image_alignment) survives untouched.
+	 */
+	public function test_wp_email_template_style_header_image_overrides_pins_background(): void {
+		$original = array(
+			'header_image_alignment'        => 'center',
+			'header_image_background_color' => array(
+				'enable' => '1',
+				'color'  => '#ffffff',
+			),
+		);
+
+		$patched = blueline_wp_email_template_style_header_image_overrides( $original );
+
+		$this->assertSame( '#F7FBFC', $patched['header_image_background_color']['color'] );
+		$this->assertSame( 'center', $patched['header_image_alignment'] );
+	}
+
+	/**
+	 * A malformed stored option is tolerated rather than fataling.
+	 */
+	public function test_wp_email_template_style_header_image_overrides_tolerates_a_non_array_option(): void {
+		$this->assertFalse( blueline_wp_email_template_style_header_image_overrides( false ) );
+		$this->assertNull( blueline_wp_email_template_style_header_image_overrides( null ) );
 	}
 
 	/**
@@ -225,5 +261,133 @@ final class EmailBrandingTest extends TestCase {
 		} finally {
 			unlink( $override_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- local test fixture cleanup, see mkdir() above.
 		}
+	}
+
+	/**
+	 * No real plugin is ever loaded in this plain-PHPUnit environment, so
+	 * WP_EMAIL_TEMPLATE_DIR is never defined -- a real, honest assertion
+	 * of this environment's actual state, not a faked one: the constant
+	 * cannot safely be defined and later undefined within a test run
+	 * without leaking into every other test that runs afterward.
+	 */
+	public function test_email_template_plugin_active_is_false_when_the_constant_is_undefined(): void {
+		$this->assertFalse( blueline_email_template_plugin_active() );
+	}
+
+	/**
+	 * An explicit text/html header, in either the array or single-string
+	 * header shape wp_mail() accepts, is recognised.
+	 */
+	public function test_email_is_already_html_detects_an_explicit_content_type_header(): void {
+		$this->assertTrue(
+			blueline_email_is_already_html(
+				array(
+					'headers' => array( 'Content-Type: text/html; charset=UTF-8' ),
+					'message' => 'plain text, no markup at all',
+				)
+			)
+		);
+		$this->assertTrue(
+			blueline_email_is_already_html(
+				array(
+					'headers' => 'Content-Type: text/html; charset=UTF-8',
+					'message' => 'plain text, no markup at all',
+				)
+			)
+		);
+	}
+
+	/**
+	 * A message that already looks like a real HTML document (WooCommerce/
+	 * FUE's own complete emails) is recognised even with no header at all.
+	 */
+	public function test_email_is_already_html_detects_html_markup_in_the_message(): void {
+		$this->assertTrue(
+			blueline_email_is_already_html(
+				array(
+					'headers' => array(),
+					'message' => '<html><body><table><tr><td>Order confirmation</td></tr></table></body></html>',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Genuinely plain text -- no HTML header, no HTML-looking content --
+	 * is correctly NOT treated as already HTML.
+	 */
+	public function test_email_is_already_html_is_false_for_genuine_plain_text(): void {
+		$this->assertFalse(
+			blueline_email_is_already_html(
+				array(
+					'headers' => array(),
+					'message' => "Name: Test\r\nEmail: test@example.com\r\nMessage: hello",
+				)
+			)
+		);
+	}
+
+	/**
+	 * An already-HTML wp_mail() call (WooCommerce/FUE's own complete
+	 * emails) is returned completely untouched -- never double-wrapped.
+	 */
+	public function test_maybe_wrap_plain_text_email_leaves_html_mail_untouched(): void {
+		$original = array(
+			'to'      => 'player@example.com',
+			'subject' => 'Your order',
+			'message' => '<html><body>Order confirmation</body></html>',
+			'headers' => array( 'Content-Type: text/html; charset=UTF-8' ),
+		);
+
+		$this->assertSame( $original, blueline_maybe_wrap_plain_text_email( $original ) );
+	}
+
+	/**
+	 * A genuinely plain-text wp_mail() call (CF7/Gravity Forms/WP core's
+	 * own default) is wrapped in the theme's own branded template: the
+	 * subject and message both appear (message HTML-escaped, since it may
+	 * originate from a public form submission), the brand ink/paper
+	 * colours are present, and a text/html Content-Type header is added
+	 * without discarding whatever header the caller already had.
+	 */
+	public function test_maybe_wrap_plain_text_email_wraps_genuine_plain_text(): void {
+		$original = array(
+			'to'      => 'admin@example.com',
+			'subject' => 'Contact Us: General Inquiry',
+			'message' => "Name: A <script>alert(1)</script> Tester\nMessage: hello there",
+			'headers' => array( 'Reply-To: someone@example.com' ),
+		);
+
+		$wrapped = blueline_maybe_wrap_plain_text_email( $original );
+
+		$this->assertStringContainsString( 'Contact Us: General Inquiry', $wrapped['message'] );
+		$this->assertStringContainsString( 'hello there', $wrapped['message'] );
+		$this->assertStringNotContainsString( '<script>', $wrapped['message'] );
+		$this->assertStringContainsString( '#132343', $wrapped['message'] );
+		$this->assertStringContainsString( '#F7FBFC', $wrapped['message'] );
+		$this->assertContains( 'Reply-To: someone@example.com', $wrapped['headers'] );
+		$this->assertContains( 'Content-Type: text/html; charset=UTF-8', $wrapped['headers'] );
+	}
+
+	/**
+	 * The wp_mail filter callback itself defers entirely to wp-email-template
+	 * when it's active -- in this test environment that's always false (see
+	 * test_email_template_plugin_active_is_false_when_the_constant_is_undefined()),
+	 * so this exercises the same wrapping behaviour as
+	 * blueline_maybe_wrap_plain_text_email() by construction, confirming the
+	 * two are actually wired together.
+	 */
+	public function test_wrap_plain_text_email_in_brand_template_wraps_when_plugin_inactive(): void {
+		$original = array(
+			'to'      => 'admin@example.com',
+			'subject' => 'Test',
+			'message' => 'plain body',
+			'headers' => array(),
+		);
+
+		$wrapped = blueline_wrap_plain_text_email_in_brand_template( $original );
+
+		$this->assertStringContainsString( 'plain body', $wrapped['message'] );
+		$this->assertContains( 'Content-Type: text/html; charset=UTF-8', $wrapped['headers'] );
 	}
 }
