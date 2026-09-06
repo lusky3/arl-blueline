@@ -817,7 +817,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$defaults = blueline_settings_defaults();
 
 		$this->assertNotEmpty( $schema );
-		$this->assertCount( 53, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
+		$this->assertCount( 65, $schema, 'this test pins the count so a future schema change is a deliberate edit here too' );
 
 		foreach ( $schema as $key => $field ) {
 			$result = blueline_sanitize_field( $defaults[ $key ], $field );

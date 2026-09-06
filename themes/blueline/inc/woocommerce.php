@@ -598,10 +598,11 @@ function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_i
  * This site's own brand tokens (style.css) for every email color/type
  * option WooCommerce's email_improvements-flag styling reads (confirmed
  * enabled on this site: FeaturesUtil::feature_is_enabled(
- * 'email_improvements')). Pinned from code rather than left as
- * hand-edited wp-admin state -- the same reasoning as every other
- * option_{name} filter in this codebase (e.g. inc/sportspress.php's
- * option_sportspress_league_menu_teams).
+ * 'email_improvements')). Color values resolve through the admin-tunable
+ * brand-color settings (inc/team-colors.php's blueline_resolved_brand_color()),
+ * falling back to the theme default when no override is set. The 3 non-color
+ * keys (woocommerce_email_header_alignment, woocommerce_email_font_family,
+ * woocommerce_email_header_image_width) are pinned literals.
  *
  * The base_color option drives BOTH the CTA button fill AND,
  * unconditionally under email_improvements, the link text color --
@@ -620,14 +621,14 @@ function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_i
  */
 function blueline_wc_email_option_overrides(): array {
 	return array(
-		'woocommerce_email_background_color'      => '#F7FBFC', // --bl-paper (outer canvas).
-		'woocommerce_email_body_background_color' => '#FFFFFF', // --bl-white (card surface).
-		'woocommerce_email_base_color'            => '#3F6E9D', // --bl-accent-text (links + buttons).
-		'woocommerce_email_text_color'            => '#132343', // --bl-ink (body copy, headings).
-		'woocommerce_email_footer_text_color'     => '#2E4A74', // --bl-ink-mid (footer credit line).
-		'woocommerce_email_header_alignment'      => 'left', // Matches this site's own left-aligned heading convention.
-		'woocommerce_email_font_family'           => 'Helvetica', // Closest of WooCommerce's fixed EmailFont::$font list to Inter/system-ui.
-		'woocommerce_email_header_image_width'    => '96', // Sized for the real uploaded logo's own aspect ratio.
+		'woocommerce_email_background_color'      => blueline_resolved_brand_color( 'paper' ),
+		'woocommerce_email_body_background_color' => blueline_resolved_brand_color( 'white' ),
+		'woocommerce_email_base_color'            => blueline_resolved_brand_color( 'accent_text' ),
+		'woocommerce_email_text_color'            => blueline_resolved_brand_color( 'ink' ),
+		'woocommerce_email_footer_text_color'     => blueline_resolved_brand_color( 'ink_mid' ),
+		'woocommerce_email_header_alignment'      => 'left',
+		'woocommerce_email_font_family'           => 'Helvetica',
+		'woocommerce_email_header_image_width'    => '96',
 	);
 }
 

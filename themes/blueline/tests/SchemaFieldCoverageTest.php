@@ -88,6 +88,20 @@ const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 	'module_standings_snippet',
 	'module_new_here',
 	'module_latest_news',
+	// Brand palette colour overrides declared in Task 1, consumed by Task 2
+	// and later tasks through blueline_resolved_brand_color().
+	'brand_color_ink',
+	'brand_color_ink_deep',
+	'brand_color_ink_mid',
+	'brand_color_accent_text',
+	'brand_color_steel',
+	'brand_color_ice',
+	'brand_color_pale',
+	'brand_color_paper',
+	'brand_color_white',
+	'brand_color_success',
+	'brand_color_warning',
+	'brand_color_danger',
 );
 
 /**

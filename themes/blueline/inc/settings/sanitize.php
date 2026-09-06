@@ -561,6 +561,29 @@ function blueline_sanitize_field( $value, array $field ) {
 		return $submitted;
 	}
 
+	if ( 'color' === $type ) {
+		$raw = trim( (string) $value );
+
+		if ( '' === $raw ) {
+			return ''; // Unset is valid: falls back to the theme default.
+		}
+
+		$sanitized = blueline_sanitize_hex_color( $raw );
+
+		if ( '' === $sanitized ) {
+			return new WP_Error(
+				'blueline_invalid_color',
+				sprintf(
+					/* translators: %s: the field's label. */
+					__( '"%s" must be a valid hex color (e.g. #3F6E9D).', 'blueline' ),
+					$label
+				)
+			);
+		}
+
+		return $sanitized;
+	}
+
 	return blueline_sanitize_placeholder_text( $value, $field );
 }
 

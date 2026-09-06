@@ -353,6 +353,90 @@ function blueline_settings_schema(): array {
 			'label' => 'Open standings tables on the full stats view',
 			'help'  => 'Off by default, so a standings table opens on Pos / Team / Record / Points. Either way a reader can switch between the two with the "Show full stats" control on the table itself -- this only chooses which one they land on.',
 		),
+		'brand_color_ink'               => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Ink (body text & headings)',
+			'token_key' => 'ink',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_ink_deep'          => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Ink, deep (darkest shade)',
+			'token_key' => 'ink_deep',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_ink_mid'           => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Ink, mid (secondary text)',
+			'token_key' => 'ink_mid',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_accent_text'       => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Accent (links & buttons)',
+			'token_key' => 'accent_text',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_steel'             => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Steel (borders, large text/strokes only)',
+			'token_key' => 'steel',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_ice'               => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Ice (fill only — never text on light)',
+			'token_key' => 'ice',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_pale'              => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Pale (text on dark surfaces only)',
+			'token_key' => 'pale',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_paper'             => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Paper (page background)',
+			'token_key' => 'paper',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_white'             => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'White (card surfaces)',
+			'token_key' => 'white',
+			'help'      => 'Leave blank to use the theme default.',
+		),
+		'brand_color_success'           => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Success',
+			'token_key' => 'success',
+			'help'      => 'Leave blank to use the theme default. This value applies identically in light and dark mode — style.css normally uses a different shade for each, so check your chosen color reads well in both before saving.',
+		),
+		'brand_color_warning'           => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Warning',
+			'token_key' => 'warning',
+			'help'      => 'Leave blank to use the theme default. This value applies identically in light and dark mode — style.css normally uses a different shade for each, so check your chosen color reads well in both before saving.',
+		),
+		'brand_color_danger'            => array(
+			'type'      => 'color',
+			'tab'       => 'appearance',
+			'label'     => 'Danger',
+			'token_key' => 'danger',
+			'help'      => 'Leave blank to use the theme default. This value applies identically in light and dark mode — style.css normally uses a different shade for each, so check your chosen color reads well in both before saving.',
+		),
 		// A DISCLOSURE affordance, not a privilege boundary -- the spec says so
 		// twice (section 3's audience row, and "The Advanced toggle must state
 		// in its own UI that it is a warning, not a lock"). Everyone who can
@@ -495,6 +579,25 @@ function blueline_settings_defaults(): array {
 		// all before this field existed), and installing this release must
 		// not change how a standings table already renders.
 		'standings_extra_stats_default'  => false,
+		// Brand palette colours default to empty strings: blueline_settings()
+		// merges each of these against ITS OWN '' default declared here, not
+		// against blueline_brand_color_tokens()'s palette -- the palette
+		// fallback happens later, inside blueline_resolved_brand_color()
+		// (inc/team-colors.php), which every real caller reads through
+		// instead of blueline_settings() directly, so a blank stored value
+		// still ends up falling back to the theme's hard-coded palette.
+		'brand_color_ink'                => '',
+		'brand_color_ink_deep'           => '',
+		'brand_color_ink_mid'            => '',
+		'brand_color_accent_text'        => '',
+		'brand_color_steel'              => '',
+		'brand_color_ice'                => '',
+		'brand_color_pale'               => '',
+		'brand_color_paper'              => '',
+		'brand_color_white'              => '',
+		'brand_color_success'            => '',
+		'brand_color_warning'            => '',
+		'brand_color_danger'             => '',
 		// Off: a disclosure affordance defaults to hiding what it discloses,
 		// or it discloses nothing.
 		'advanced_enabled'               => false,

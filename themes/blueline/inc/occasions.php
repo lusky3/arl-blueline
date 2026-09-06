@@ -118,7 +118,31 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
 		return '';
 	}
 
-	return strtolower( $hex_match[1] );
+	$default_hex = strtolower( $hex_match[1] );
+
+	// $referenced (e.g. '--bl-ice') is only style.css's OWN literal default
+	// for that token -- it has no idea the brand-colors settings feature
+	// (inc/team-colors.php) can admin-override it. Resolving through the
+	// live brand-color system keeps this default in sync with whatever is
+	// actually rendered, instead of silently reverting to the pre-override
+	// value the moment a blank-`accent` occasion activates. Skipped when
+	// $path_override is explicitly passed: that means a test is exercising
+	// this function's own parsing logic against a synthetic stylesheet
+	// fixture, and the live resolver must not interfere with that.
+	if ( null === $path_override && function_exists( 'blueline_hex_for_css_var' ) ) {
+		$resolved = blueline_hex_for_css_var( $referenced );
+		if ( '' !== $resolved ) {
+			// Lowercased for the same reason $default_hex above is: this
+			// function's own docblock promises a lowercase `#rrggbb`, and
+			// blueline_resolved_brand_color()'s un-overridden fallback
+			// returns a token's default_hex constant verbatim (whatever
+			// case style.css's own literal happens to use), not
+			// necessarily lowercase.
+			return strtolower( $resolved );
+		}
+	}
+
+	return $default_hex;
 }
 
 /**
@@ -538,7 +562,7 @@ function blueline_occasions_apply_aa_overrides(
 			continue;
 		}
 
-		$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $accent );
+		$ratio  = blueline_contrast_ratio( blueline_resolved_brand_color( 'ink' ), $accent );
 		$passes = $ratio >= blueline_contrast_threshold( 'body' );
 
 		if ( ! $passes && ! empty( $raw_overrides[ $id ] ) ) {
@@ -906,7 +930,7 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 			continue;
 		}
 
-		$ratio  = blueline_contrast_ratio( BLUELINE_TOKEN_INK, $accent );
+		$ratio  = blueline_contrast_ratio( blueline_resolved_brand_color( 'ink' ), $accent );
 		$passes = $ratio >= blueline_contrast_threshold( 'body' );
 
 		if ( ! $passes ) {

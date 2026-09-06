@@ -38,10 +38,26 @@ test( 'every manifest entry declares type, group, tier, bounds and tunable', () 
 	}
 } );
 
-test( 'exactly one token is tunable, and it is --bl-occasion-accent', () => {
+test( 'exactly 13 tunable tokens: 9 brand palette, 3 semantic, and occasion-accent', () => {
 	const tunable = Object.entries( manifest.tokens ).filter( ( [ , e ] ) => e.tunable );
-	assert.equal( tunable.length, 1 );
-	assert.equal( tunable[ 0 ][ 0 ], '--bl-occasion-accent' );
+	const tunableNames = tunable.map( ( [ name ] ) => name ).sort();
+	const expectedNames = [
+		'--bl-accent-text',
+		'--bl-danger',
+		'--bl-ice',
+		'--bl-ink',
+		'--bl-ink-deep',
+		'--bl-ink-mid',
+		'--bl-occasion-accent',
+		'--bl-pale',
+		'--bl-paper',
+		'--bl-steel',
+		'--bl-success',
+		'--bl-warning',
+		'--bl-white'
+	];
+	assert.equal( tunable.length, 13, 'exactly 13 tunable tokens' );
+	assert.deepEqual( tunableNames, expectedNames, 'tunable token names match the expected set' );
 } );
 
 test( '--bl-occasion-accent defaults to var(--bl-ice) in style.css', () => {

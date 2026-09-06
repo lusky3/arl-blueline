@@ -25,6 +25,7 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../inc/team-colors.php';
 require_once __DIR__ . '/../inc/woocommerce.php';
 
 /**
@@ -261,6 +262,36 @@ final class EmailBrandingTest extends TestCase {
 		} finally {
 			unlink( $override_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- local test fixture cleanup, see mkdir() above.
 		}
+	}
+
+	/**
+	 * Email option overrides read a live brand-color override when one is set --
+	 * the admin's chosen value appears immediately in the resolved email options,
+	 * not just in the theme CSS.
+	 */
+	public function test_email_option_overrides_reflect_a_live_brand_color_override(): void {
+		blueline_test_reset(); // Clears $GLOBALS['bl_test_options'] among other stubs -- see tests/FooterAndHeroSettingsRenderTest.php's identical setUp().
+		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array( 'brand_color_accent_text' => '#123456' );
+
+		$overrides = blueline_wc_email_option_overrides();
+
+		$this->assertSame( '#123456', $overrides['woocommerce_email_base_color'] );
+	}
+
+	/**
+	 * Email option overrides fall back to the theme's own style.css defaults
+	 * when no admin override is set for each individual token.
+	 */
+	public function test_email_option_overrides_fall_back_to_the_theme_default_when_unset(): void {
+		blueline_test_reset(); // Clears $GLOBALS['bl_test_options'] among other stubs -- see tests/FooterAndHeroSettingsRenderTest.php's identical setUp().
+
+		$overrides = blueline_wc_email_option_overrides();
+
+		$this->assertSame( '#3F6E9D', $overrides['woocommerce_email_base_color'] );
+		$this->assertSame( '#132343', $overrides['woocommerce_email_text_color'] );
+		$this->assertSame( '#2E4A74', $overrides['woocommerce_email_footer_text_color'] );
+		$this->assertSame( '#F7FBFC', $overrides['woocommerce_email_background_color'] );
+		$this->assertSame( '#FFFFFF', $overrides['woocommerce_email_body_background_color'] );
 	}
 
 	/**

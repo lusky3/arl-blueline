@@ -50,7 +50,7 @@ final class SettingsDefaultsTest extends TestCase {
 			$this->assertArrayHasKey( 'tab', $field, "$key has no tab" );
 			$this->assertContains(
 				$field['type'],
-				array( 'text', 'email', 'textarea', 'page_id', 'term_id', 'bool', 'band_photos', 'section', 'date' ),
+				array( 'text', 'email', 'textarea', 'page_id', 'term_id', 'bool', 'band_photos', 'section', 'date', 'color' ),
 				"$key has an unknown type"
 			);
 		}

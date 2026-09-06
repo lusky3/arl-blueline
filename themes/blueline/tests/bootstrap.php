@@ -2475,6 +2475,23 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 	}
 }
 
+if ( ! function_exists( 'number_format_i18n' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' number_format_i18n(): no locale is
+	 * loaded in this test environment, so this simply delegates to PHP's
+	 * own number_format() with a '.' decimal point and ',' thousands
+	 * separator -- the same defaults WordPress' real implementation falls
+	 * back to for the "en_US" / no-locale case.
+	 *
+	 * @param float $number   Number to format.
+	 * @param int   $decimals Decimal places.
+	 * @return string
+	 */
+	function number_format_i18n( $number, $decimals = 0 ) {
+		return number_format( (float) $number, (int) $decimals );
+	}
+}
+
 if ( ! function_exists( 'esc_html__' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' esc_html__().

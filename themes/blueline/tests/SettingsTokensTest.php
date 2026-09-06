@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/cli-stubs.php';
 require_once __DIR__ . '/../inc/settings/tokens.php';
+require_once __DIR__ . '/../inc/team-colors.php';
 
 /**
  * Covers blueline_token_manifest()'s defensive read of tools/tokens.json
@@ -107,20 +108,24 @@ final class SettingsTokensTest extends TestCase {
 	 */
 	public function test_is_tunable_reads_the_real_manifest(): void {
 		$this->assertTrue( blueline_token_is_tunable( '--bl-occasion-accent' ) );
-		$this->assertFalse( blueline_token_is_tunable( '--bl-ink' ) );
+		$this->assertTrue( blueline_token_is_tunable( '--bl-ink' ) );
 		$this->assertFalse( blueline_token_is_tunable( '--bl-does-not-exist' ) );
 	}
 
 	/**
-	 * Asserts the real, committed tools/tokens.json marks exactly one
-	 * token tunable.
+	 * Asserts the real, committed tools/tokens.json marks the brand palette
+	 * tokens and --bl-occasion-accent tunable.
 	 */
-	public function test_real_manifest_has_exactly_one_tunable_token(): void {
+	public function test_real_manifest_has_tunable_brand_and_occasion_tokens(): void {
 		$manifest = blueline_token_manifest();
 		$tunable  = array_filter( $manifest, static fn( $entry ) => $entry['tunable'] );
 
-		$this->assertCount( 1, $tunable );
+		// 12 brand palette tokens + 1 occasion-accent = 13 total.
+		$this->assertCount( 13, $tunable );
 		$this->assertArrayHasKey( '--bl-occasion-accent', $tunable );
+		foreach ( blueline_brand_color_tokens() as $token ) {
+			$this->assertArrayHasKey( $token['css_var'], $tunable );
+		}
 	}
 
 	/**

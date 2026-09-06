@@ -1501,7 +1501,8 @@ function blueline_settings_render_field_aria_attrs( bool $has_error, string $err
  * of every type branch except `band_photos` because it describes the
  * control rather than the storage shape;
  * an `<input type="date">` for a `date` field (Task 6);
- * without it a `date` would fall through to the plain text input, since an
+ * an `<input type="color">` (swatch + hex text) for a `color` field (Task 3);
+ * without it a `date` or `color` would fall through to the plain text input, since an
  * unrecognised type does not error here, it simply takes the last branch;
  * text/email otherwise), and, when this field failed the last
  * save, `aria-invalid`, `aria-describedby` and a visible error paragraph
@@ -1512,10 +1513,11 @@ function blueline_settings_render_field_aria_attrs( bool $has_error, string $err
  * `page_id`/`term_id` fields never fail validation: blueline_sanitize_field()
  * sanitizes both with absint(), which cannot return a WP_Error, so
  * neither branch below needs to handle an error state. A `date` field CAN
- * (a malformed date is a WP_Error, not a coercion), and so can a `choices`
+ * (a malformed date is a WP_Error, not a coercion), a `color` field CAN
+ * (invalid hex is a WP_Error), and so can a `choices`
  * field (a value off the list is refused rather than dropped, reachable
  * from a hand-built POST or WP-CLI even though the select cannot produce
- * one), so both branches carry the same aria wiring the text input does.
+ * one), so all three branches carry the same aria wiring the text input does.
  *
  * A field's `help` string is printed once, after whichever branch ran, for
  * every type. It used to be printed inside the `bool`/`section` branch
@@ -1632,6 +1634,8 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					value="<?php echo esc_attr( (string) $value ); ?>"
 					class="small-text"
 				>
+			<?php elseif ( 'color' === $type ) : ?>
+				<?php blueline_settings_render_color_field( $field_key, $field, $name, $input_id, (string) $value, $has_error, $error_id ); ?>
 			<?php else : ?>
 				<input
 					type="<?php echo esc_attr( 'email' === $type ? 'email' : 'text' ); ?>"
@@ -1777,6 +1781,66 @@ function blueline_settings_render_date_field( string $field_key, array $field, s
 		value="<?php echo esc_attr( (string) $value ); ?>"
 		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
 	>
+	<?php
+}
+
+/**
+ * Render one brand-color override field: a native colour-picker swatch
+ * paired with a hex text input (kept in sync by
+ * assets/src/js/settings-brand-colors.js), plus a live, advisory contrast
+ * readout against every tools/contrast-rules.json rule that names this
+ * token (blueline_brand_color_contrast_report()). Never blocks
+ * submission — see this feature's design spec §1.
+ *
+ * @param string $field_key Schema key, e.g. 'brand_color_ice'.
+ * @param array  $field     Schema entry; must carry 'token_key'.
+ * @param string $name      Input name attribute.
+ * @param string $input_id  Input id attribute.
+ * @param string $value     Current stored value ('' if unset).
+ * @param bool   $has_error True if this field failed the last save.
+ * @param string $error_id  The id attribute for the error message element.
+ * @return void
+ */
+function blueline_settings_render_color_field( string $field_key, array $field, string $name, string $input_id, $value, bool $has_error, string $error_id ): void {
+	$token_key = (string) ( $field['token_key'] ?? '' );
+	$tokens    = blueline_brand_color_tokens();
+	$default   = $tokens[ $token_key ]['default_hex'] ?? '';
+	$candidate = '' !== $value ? blueline_sanitize_hex_color( $value ) : '';
+	$candidate = '' !== $candidate ? $candidate : $default;
+	?>
+	<input
+		type="color"
+		value="<?php echo esc_attr( $candidate ); ?>"
+		data-bl-brand-color-picker
+		tabindex="-1"
+		aria-hidden="true"
+	>
+	<input
+		type="text"
+		id="<?php echo esc_attr( $input_id ); ?>"
+		name="<?php echo esc_attr( $name ); ?>"
+		value="<?php echo esc_attr( $value ); ?>"
+		class="regular-text"
+		placeholder="<?php echo esc_attr( $default ); ?>"
+		data-bl-brand-color-hex
+		data-bl-brand-color-token="<?php echo esc_attr( $token_key ); ?>"
+		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
+	>
+	<p class="description" data-bl-brand-color-contrast data-bl-brand-color-contrast-for="<?php echo esc_attr( $token_key ); ?>">
+		<?php foreach ( blueline_brand_color_contrast_report( $token_key, $candidate ) as $row ) : ?>
+			<span class="<?php echo esc_attr( $row['passes'] ? 'bl-contrast-pass' : 'bl-contrast-fail' ); ?>">
+				<?php
+				printf(
+					/* translators: 1: "Pass" or "Fail" status label (not color alone, per WCAG 1.4.1), 2: rule description, 3: computed contrast ratio. */
+					esc_html__( '%1$s — %2$s: %3$s:1', 'blueline' ),
+					esc_html( $row['passes'] ? __( 'Pass', 'blueline' ) : __( 'Fail', 'blueline' ) ),
+					esc_html( $row['description'] ),
+					esc_html( number_format_i18n( $row['ratio'], 2 ) )
+				);
+				?>
+			</span><br>
+		<?php endforeach; ?>
+	</p>
 	<?php
 }
 
@@ -1977,6 +2041,65 @@ function blueline_settings_maybe_enqueue_photo_picker( string $hook_suffix ): vo
 	);
 
 	wp_add_inline_style( 'wp-admin', blueline_settings_photo_picker_styles() );
+}
+
+add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_brand_colors' );
+/**
+ * Enqueue the brand-colors live-contrast script, only on the Appearance
+ * tab — same scoping reasoning as
+ * blueline_settings_maybe_enqueue_photo_picker() (this file), which
+ * enqueues wp_enqueue_media() only there for the same reason.
+ *
+ * @param string $hook_suffix The current admin screen's hook suffix.
+ * @return void
+ */
+function blueline_settings_maybe_enqueue_brand_colors( string $hook_suffix ): void {
+	if ( blueline_settings_page_hook() !== $hook_suffix ) {
+		return;
+	}
+
+	if ( 'appearance' !== blueline_settings_current_tab() ) {
+		return;
+	}
+
+	$relative = '/assets/src/js/settings-brand-colors.js';
+	$path     = BLUELINE_DIR . $relative;
+
+	wp_enqueue_script(
+		'blueline-settings-brand-colors',
+		BLUELINE_URI . $relative,
+		array(),
+		file_exists( $path ) ? (string) filemtime( $path ) : '1',
+		true
+	);
+
+	wp_add_inline_script(
+		'blueline-settings-brand-colors',
+		'window.blSettingsBrandColorRules = ' . wp_json_encode( blueline_brand_color_js_rules() ) . ';',
+		'before'
+	);
+
+	wp_add_inline_style( 'wp-admin', blueline_settings_brand_colors_contrast_styles() );
+}
+
+/**
+ * Real, visually-distinct styling for the `.bl-contrast-pass`/
+ * `.bl-contrast-fail` classes blueline_settings_render_color_field() (this
+ * file) and settings-brand-colors.js's `updateReadout()` both apply to
+ * each contrast rule's readout line. Before this, neither class had any
+ * CSS rule anywhere in the theme, so a passing and a failing rule rendered
+ * as identical plain grey text inside the surrounding `<p class="description">`
+ * -- defeating the entire point of the advisory contrast warning.
+ *
+ * Small enough to inline, same precedent as
+ * blueline_settings_photo_picker_styles() (this file): scoped tightly
+ * enough that it cannot reach anything else in wp-admin.
+ *
+ * @return string
+ */
+function blueline_settings_brand_colors_contrast_styles(): string {
+	return '.bl-contrast-pass{color:#1F7A4D;}'
+		. '.bl-contrast-fail{color:#A32C1B;font-weight:600;}';
 }
 
 /**
