@@ -78,7 +78,24 @@
 .bl-team-flyout__panel {
 	display: block;
 	position: absolute;
-	top: 50%;
+
+	/* Centered within the viewport space BELOW the fixed header, not the
+	 * full viewport -- the header (z-index: var(--bl-z-header), 60) sits
+	 * above this panel (var(--bl-z-floating-widget), 45), and centering
+	 * against the full 100vh (the previous `top: 50%`, which this element's
+	 * position:fixed ancestor with no explicit height resolves against the
+	 * viewport) put the panel's top edge only ~16px down at any viewport
+	 * height once the crest list is tall enough to hit max-height below --
+	 * directly under the header, so the first couple of team crests were
+	 * hit-tested against the header instead of this panel. Reported live as
+	 * "hovering over the team icons and scrolling scrolls the background
+	 * page" -- wheeling over that header-covered strip scrolled the page
+	 * (the header has no overflow of its own), not the team list.
+	 * --bl-header-rest-height is published by assets/src/js/sticky-header.js
+	 * (see header.css's own docblock); nav.css/base.css already read it with
+	 * this exact 5.25rem fallback for the same "stay clear of the header"
+	 * purpose. */
+	top: calc(var(--bl-header-rest-height, 5.25rem) + ((100vh - var(--bl-header-rest-height, 5.25rem)) / 2));
 
 	/* Starts where the tab's own box ends (summary's 34px width), not at the
 	 * shared left:0 origin the tab sits at -- the panel used to overlap the
@@ -93,13 +110,23 @@
 	pointer-events: none;
 	box-sizing: border-box;
 
-	/* Full viewport height, less a small clearance top and bottom so it
-	 * never touches the edges -- was capped at min(70vh, 480px), too short
-	 * once the crest list runs to 22-34 teams in season. */
-	max-height: calc(100vh - (var(--bl-space-4) * 2));
+	/* Full space below the header, less a small clearance top and bottom so
+	 * it never touches the header or the viewport's own bottom edge -- was
+	 * capped at min(70vh, 480px), too short once the crest list runs to
+	 * 22-34 teams in season, then at 100vh minus clearance only (the header-
+	 * overlap finding above), neither accounting for the header's own real,
+	 * dynamic height. */
+	max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - (var(--bl-space-4) * 2));
 	width: 74px;
 	overflow-y: auto;
 	overflow-x: hidden;
+
+	/* Without this, a wheel scroll that reaches the top or bottom of this
+	 * list -- which happens almost immediately, since the pointer enters
+	 * right at the list's own top edge -- chains to the page behind the
+	 * flyout instead of stopping here. Reported live as "scrolling over
+	 * the teams menu scrolls the background page instead." */
+	overscroll-behavior: contain;
 	padding: var(--bl-space-4) var(--bl-space-2);
 	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 	scrollbar-width: none;
