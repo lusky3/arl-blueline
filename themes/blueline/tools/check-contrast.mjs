@@ -242,6 +242,65 @@ function checkSportsPressFixture( styleTokens ) {
 }
 
 /**
+ * Finding 11's own neutralisation (checkSportsPressFixture(), above) is
+ * `!important`, and so beats .sp-highlight's `color: var(--bl-team-on-primary,
+ * var(--bl-ink))` on a team's own highlighted division row -- !important wins
+ * regardless of specificity, so the plain `.sp-data-table td.data-strk
+ * span[style]` rule silently overrides .sp-highlight's intended on-primary
+ * text with --bl-content-text-secondary. Confirmed live: #2E4A74 on Oilers'
+ * own #002D62 fill measured 1.51:1, while every other cell in that same row
+ * correctly showed --bl-team-on-primary.
+ *
+ * sportspress.css carries a second, more specific `!important` override
+ * (`.sp-data-table td.data-strk.sp-highlight span[style]`, adding the
+ * .sp-highlight class the plain rule lacks) that mirrors .sp-highlight's own
+ * `color` declaration exactly -- both are !important, so specificity breaks
+ * the tie, and the added class makes this one win. This guard asserts that
+ * rule still exists, still targets the right cell, still carries !important
+ * (without it the specificity fix does nothing), and that its static fallback
+ * path -- what applies wherever --bl-team-on-primary is undefined, i.e.
+ * everywhere .sp-highlight itself falls back to ink-on-ice -- still passes
+ * AA. The dynamic branch (a real team's own on-primary colour) is not
+ * checked here: it is already guaranteed AA by blueline_readable_foreground()
+ * in inc/team-colors.php (PHP-tested), which is what computes the value this
+ * rule's `var(--bl-team-on-primary, ...)` reads at runtime.
+ *
+ * @param {Map<string,string>} styleTokens style.css's `:root` tokens.
+ * @return {number} 0 or 1.
+ */
+function checkHighlightStreakFix( styleTokens ) {
+	const token = ( name ) => resolveColorToken( styleTokens, `--${ name }` );
+
+	const spCssPath = resolve( here, '../assets/src/css/sportspress.css' );
+	const spCss = readFileSync( spCssPath, 'utf8' );
+
+	const selectorHint = '.sp-data-table td.data-strk.sp-highlight span[style]';
+
+	let block;
+	try {
+		block = extractRuleBlock( spCss, selectorHint );
+	} catch {
+		report( false, `no rule found for "${ selectorHint }" -- the .sp-highlight/STRK-column collision is unguarded again` );
+		return 1;
+	}
+
+	const decl = block.match(
+		/color\s*:\s*var\(\s*--bl-team-on-primary\s*,\s*var\(\s*--([\w-]+)\s*\)\s*\)\s*!important/
+	);
+	if ( ! decl ) {
+		report( false, `"${ selectorHint }" no longer declares color: var(--bl-team-on-primary, var(--bl-ink)) !important -- the specificity fix for the .sp-highlight/STRK collision is gone or changed shape` );
+		return 1;
+	}
+
+	const fallbackRatio = contrastRatio( token( decl[ 1 ] ), token( 'bl-ice' ) );
+	if ( ! report( fallbackRatio >= 4.5, `"${ selectorHint }" fallback (--${ decl[ 1 ] } on --bl-ice, the no-team-colour .sp-highlight context) is ${ fallbackRatio.toFixed( 2 ) } (min 4.5)` ) ) {
+		return 1;
+	}
+
+	return 0;
+}
+
+/**
  * Recursively collect every `.css` file under `dir`.
  *
  * @param {string} dir Directory to walk.
@@ -354,6 +413,7 @@ function main() {
 	failed += checkEditorTokenParity( styleTokens );
 	failed += checkTeamColorsParity( styleTokens );
 	failed += checkSportsPressFixture( styleTokens );
+	failed += checkHighlightStreakFix( styleTokens );
 	failed += checkNoLiteralRgba( styleTokens );
 
 	process.exit( failed ? 1 : 0 );

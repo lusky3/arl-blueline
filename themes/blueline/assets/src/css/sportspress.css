@@ -1749,6 +1749,28 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 	color: var(--bl-content-text-secondary) !important;
 }
 
+/*
+ * The neutralisation above also wins over .sp-highlight's own on-primary
+ * text colour on a team's own highlighted division row, since !important
+ * beats specificity, not the other way around: --bl-content-text-secondary
+ * (#2E4A74) stuck on top of a team's own dark primary fill (e.g. Oilers'
+ * #002D62) measured 1.51:1 live -- every OTHER cell in that row correctly
+ * shows --bl-team-on-primary, only the STRK span's inline-style override
+ * did not. This rule needs to out-specify the plain one above (both are
+ * !important, so specificity is the tiebreaker), not just declare itself
+ * later -- adding .sp-highlight brings it to (0,4,2) against the plain
+ * rule's (0,3,2). Mirrors .sp-highlight's own `color` declaration exactly
+ * (var(--bl-team-on-primary, var(--bl-ink))), so the two contexts that rule
+ * itself already handles -- a team's own page (on-primary, computed to AA
+ * against that team's real primary) and every other .sp-highlight use
+ * elsewhere on the site (undefined --bl-team-on-primary, falls back to ink
+ * on the ice fill, the same vetted 7.69:1 pairing) -- resolve identically
+ * here.
+ */
+.sp-data-table td.data-strk.sp-highlight span[style] {
+	color: var(--bl-team-on-primary, var(--bl-ink)) !important;
+}
+
 /* ---- Standings "full stats" toggle: sportspress/league-table.php
    (finding 14) ----
  *
