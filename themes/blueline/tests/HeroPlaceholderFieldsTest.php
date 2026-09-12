@@ -281,6 +281,33 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 	}
 
 	/**
+	 * `hero_registration_highlight` (the word inside the highlight span,
+	 * "beginner" by default) is a real, independently-editable field, not a
+	 * literal baked into the `hero_registration_headline` sprintf() format
+	 * string above it -- changing it changes only the highlighted word, the
+	 * surrounding sentence stays exactly as configured.
+	 */
+	public function test_changing_hero_registration_highlight_changes_only_the_highlighted_word(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'hero_registration_highlight' => 'rookie' ) );
+
+		$offers = array(
+			array(
+				'product'     => new BluelineHeroFieldFakeProduct( 1 ),
+				'price_label' => '$550.00',
+				'price'       => 550.0,
+				'role_label'  => 'Player',
+			),
+		);
+
+		$content = blueline_homepage_hero_registration_content( $offers, array() );
+
+		$this->assertSame(
+			'Burlington’s <span class="bl-hero__highlight">rookie</span> league.',
+			$content['headline_html']
+		);
+	}
+
+	/**
 	 * Rendering regression check: the registration eyebrow's season-truthy
 	 * branch (the one that actually reaches hero_registration_eyebrow) is
 	 * byte-identical to what the hardcoded literal produced before this
@@ -372,6 +399,23 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 
 		$this->assertSame(
 			'Back on the ice <span class="bl-hero__highlight">soon</span>.',
+			$content['headline_html']
+		);
+	}
+
+	/**
+	 * The off-season equivalent of the registration-highlight test above:
+	 * `hero_offseason_highlight` ("soon" by default) is a real,
+	 * independently-editable field, not a literal baked into the
+	 * `hero_offseason_headline` format string.
+	 */
+	public function test_changing_hero_offseason_highlight_changes_only_the_highlighted_word(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'hero_offseason_highlight' => 'shortly' ) );
+
+		$content = blueline_homepage_hero_offseason_content();
+
+		$this->assertSame(
+			'Back on the ice <span class="bl-hero__highlight">shortly</span>.',
 			$content['headline_html']
 		);
 	}

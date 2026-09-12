@@ -154,6 +154,12 @@ function blueline_settings_schema(): array {
 			'label'        => 'Hero headline — registration open (%s becomes the highlighted word, e.g. "beginner")',
 			'placeholders' => array( '%s' ),
 		),
+		'hero_registration_highlight'   => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero highlighted word — registration open (fills the %s in the headline above)',
+			'placeholders' => array(),
+		),
 		'hero_registration_eyebrow'     => array(
 			'type'         => 'text',
 			'tab'          => 'content',
@@ -189,6 +195,12 @@ function blueline_settings_schema(): array {
 			'tab'          => 'content',
 			'label'        => 'Hero headline — off-season (%s becomes the highlighted word, e.g. "soon")',
 			'placeholders' => array( '%s' ),
+		),
+		'hero_offseason_highlight'      => array(
+			'type'         => 'text',
+			'tab'          => 'content',
+			'label'        => 'Hero highlighted word — off-season (fills the %s in the headline above)',
+			'placeholders' => array(),
 		),
 		// Announcement banner (Task 6). `announcement_text` is the on
 		// switch as well as the copy: empty means no banner, so there is
@@ -546,12 +558,14 @@ function blueline_settings_defaults(): array {
 		'account_empty_next_game'        => 'No upcoming game on your schedule yet.',
 		'account_empty_stats'            => 'Stats update after each game is scored.',
 		'hero_registration_headline'     => 'Burlington’s %s league.',
+		'hero_registration_highlight'    => 'beginner',
 		'hero_registration_eyebrow'      => '%s · Registration open',
 		'hero_registration_cta'          => 'Register — %s',
 		'hero_preseason_headline'        => 'Puck drops %s.',
 		'hero_in_season_headline'        => '%1$s %2$s this week.',
 		'hero_playoffs_eyebrow'          => '%s · Playoffs',
 		'hero_offseason_headline'        => 'Back on the ice %s.',
+		'hero_offseason_highlight'       => 'soon',
 		// The banner ships off: no text, no window, quiet tone. Installing
 		// this release must not put a strip of copy above every page.
 		'announcement_text'              => '',

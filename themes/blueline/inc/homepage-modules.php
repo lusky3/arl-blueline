@@ -371,7 +371,7 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 		'eyebrow'       => $eyebrow,
 		'headline_html' => blueline_hero_headline(
 			blueline_settings( 'hero_registration_headline' ),
-			__( 'beginner', 'blueline' )
+			blueline_settings( 'hero_registration_highlight' )
 		),
 		'subcopy_lines' => $subcopy_lines,
 		'cta_label'     => $cta_label,
@@ -482,7 +482,7 @@ function blueline_homepage_hero_offseason_content(): array {
 		'eyebrow'       => __( 'Off-season', 'blueline' ),
 		'headline_html' => blueline_hero_headline(
 			blueline_settings( 'hero_offseason_headline' ),
-			__( 'soon', 'blueline' )
+			blueline_settings( 'hero_offseason_highlight' )
 		),
 		'cta_label'     => blueline_settings( 'hero_offseason_cta' ),
 		'cta_url'       => blueline_contact_url(),
