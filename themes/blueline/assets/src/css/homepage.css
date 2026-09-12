@@ -402,7 +402,15 @@
 	max-width: 56ch;
 }
 
-.bl-new-here__qa-item dt {
+/*
+ * .bl-new-here__qa-item-title is a league volunteer's own widget title
+ * (blueline_homepage_new_here_widgets_init()'s `before_title`) for one of
+ * the three Q&A slots -- given the exact same weight/size as the theme's
+ * own <dt> so a slot the volunteer overrides reads identically to its two
+ * still-default siblings sitting next to it in the grid.
+ */
+.bl-new-here__qa-item dt,
+.bl-new-here__qa-item-title {
 	margin: 0 0 var(--bl-space-2);
 	font-weight: 700;
 	font-size: var(--bl-text-lg);
@@ -415,19 +423,6 @@
 
 .bl-new-here__qa-item a {
 	font-weight: 600;
-}
-
-/* A league volunteer's own widgets (see
-   blueline_homepage_new_here_widgets_init()) render in normal document
-   flow -- only light spacing, nothing that fights whatever content they
-   add. */
-.bl-new-here__widget + .bl-new-here__widget {
-	margin-block-start: var(--bl-space-5);
-}
-
-.bl-new-here__widget-title {
-	margin: 0 0 var(--bl-space-2);
-	font-size: var(--bl-text-lg);
 }
 
 @media (min-width: 900px) {

@@ -39,9 +39,16 @@ final class FooterAndHeroSettingsRenderTest extends TestCase {
 
 	/**
 	 * Reset every stateful stub this file's tests touch before each test.
+	 *
+	 * Also calls blueline_test_reset_state(), which clears the
+	 * 'active_sidebars' map the new per-slot new_here widget-area tests
+	 * below rely on -- blueline_test_reset() alone does not touch it, and
+	 * this file's setUp() had no reason to call it before those tests
+	 * existed.
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+		blueline_test_reset_state();
 	}
 
 	/**
@@ -157,6 +164,57 @@ final class FooterAndHeroSettingsRenderTest extends TestCase {
 		$changed_html = $this->render_new_here();
 		$this->assertStringContainsString( 'See the FAQs', $changed_html );
 		$this->assertStringNotContainsString( 'Read the FAQs', $changed_html );
+	}
+
+	/**
+	 * Out of the box (no widgets in any of the three new_here Q&A areas),
+	 * all three of the theme's own defaults render.
+	 */
+	public function test_new_here_renders_all_three_default_questions_when_no_widgets_are_configured(): void {
+		$html = $this->render_new_here();
+
+		$this->assertStringContainsString( 'Will I be the worst one out there?', $html );
+		$this->assertStringContainsString( 'What gear do I actually need?', $html );
+		$this->assertStringContainsString( 'What if I can&#039;t really skate yet?', $html );
+	}
+
+	/**
+	 * The regression this restructure exists to fix: a league volunteer
+	 * configuring ONE Q&A slot's widget area used to suppress the theme's
+	 * ENTIRE default Q&A block (reported live as "I lose all the content of
+	 * that section"), because all three questions shared one combined
+	 * widget area. Each slot is now its own area
+	 * ('bl-homepage-new-here-q1'/'q2'/'q3'), so populating just the first
+	 * one must suppress ONLY its own default text -- dynamic_sidebar() is a
+	 * no-op stub in this test environment (see tests/bootstrap.php), so a
+	 * populated slot renders as empty here, not as substitute content; what
+	 * this proves is that the OTHER two slots' defaults are untouched.
+	 */
+	public function test_populating_one_qa_slot_does_not_suppress_the_other_two_defaults(): void {
+		$state = &blueline_test_state();
+		$state['active_sidebars']['bl-homepage-new-here-q1'] = 1;
+
+		$html = $this->render_new_here();
+
+		$this->assertStringNotContainsString( 'Will I be the worst one out there?', $html, 'slot 1\'s own default should be suppressed once its widget area has a widget' );
+		$this->assertStringContainsString( 'What gear do I actually need?', $html, 'slot 2\'s default must survive slot 1 being overridden' );
+		$this->assertStringContainsString( 'What if I can&#039;t really skate yet?', $html, 'slot 3\'s default must survive slot 1 being overridden' );
+	}
+
+	/**
+	 * Each slot's gate is genuinely independent, not merely "any one active
+	 * sidebar suppresses everything": populating slot 2 leaves slots 1 and 3
+	 * on their own defaults.
+	 */
+	public function test_populating_a_different_qa_slot_only_suppresses_that_slots_default(): void {
+		$state = &blueline_test_state();
+		$state['active_sidebars']['bl-homepage-new-here-q2'] = 1;
+
+		$html = $this->render_new_here();
+
+		$this->assertStringContainsString( 'Will I be the worst one out there?', $html );
+		$this->assertStringNotContainsString( 'What gear do I actually need?', $html, 'slot 2\'s own default should be suppressed once its widget area has a widget' );
+		$this->assertStringContainsString( 'What if I can&#039;t really skate yet?', $html );
 	}
 
 	/**

@@ -1225,87 +1225,156 @@ function blueline_homepage_standings_tabs( array $panels ) {
 	<?php
 }
 
+/**
+ * The three "Never played? Perfect." Q&A slots, keyed by widget-area
+ * suffix (`bl-homepage-new-here-q{n}`) -- the single source of truth for
+ * blueline_homepage_new_here_widgets_init() (registration) and
+ * blueline_homepage_module_new_here() (render loop), so the two can never
+ * drift out of step on which slots exist.
+ *
+ * @return array<int,string> n => a short label naming the slot's current
+ *                           default question, for the widget-area admin
+ *                           screen only.
+ */
+function blueline_homepage_new_here_qa_slots(): array {
+	return array(
+		1 => __( 'Question 1 — currently "Will I be the worst one out there?"', 'blueline' ),
+		2 => __( 'Question 2 — currently "What gear do I actually need?"', 'blueline' ),
+		3 => __( 'Question 3 — currently "What if I can\'t really skate yet?"', 'blueline' ),
+	);
+}
+
 add_action( 'widgets_init', 'blueline_homepage_new_here_widgets_init' );
 /**
- * Register a widget area for the new_here module's body copy.
+ * Register one widget area per new_here Q&A slot (see
+ * blueline_homepage_new_here_qa_slots()), replacing the module's original
+ * single combined area.
  *
  * P1 finding 5: "Never played? Perfect." is PRODUCT.md's tonal north star,
  * because the site's whole reason to exist is convincing the nervous first-timer
  * persona to register, and this content was three short bullets, hardcoded
  * as English strings in PHP, with no way for a league volunteer (who runs
  * this site day to day, and is not a developer) to update it without a code
- * deploy. Appearance > Widgets is something a volunteer can already use
- * confidently for the footer sidebars this theme registers elsewhere; giving
- * this module the same mechanism means the site's single most important
- * sales copy can be rewritten, re-ordered, or have an image added without
- * touching code. Leaving the widget area empty (the default, out of the
- * box) falls back to blueline_homepage_new_here_default_content() below, so
- * the module is never blank.
+ * deploy. A single combined widget area first solved that, but reported
+ * live as an all-or-nothing trap: adding any widget to it suppressed the
+ * theme's ENTIRE default Q&A block, not just the one question the
+ * volunteer meant to change ("I lose all the content of that section").
+ * One widget area per question fixes that -- each falls back to its own
+ * specific default independently, so overriding one leaves the other two
+ * exactly as they were.
  */
 function blueline_homepage_new_here_widgets_init() {
-	register_sidebar(
-		array(
-			'name'          => __( 'Homepage — Never played? Perfect.', 'blueline' ),
-			'id'            => 'bl-homepage-new-here',
-			'description'   => __( 'Body content for the homepage "Never played? Perfect." module, the reassurance section aimed at first-time players. Leave this widget area empty to use the theme\'s own default copy.', 'blueline' ),
-			'before_widget' => '<div class="bl-new-here__widget">',
-			'after_widget'  => '</div>',
-			'before_title'  => '<h3 class="bl-new-here__widget-title">',
-			'after_title'   => '</h3>',
-		)
-	);
+	foreach ( blueline_homepage_new_here_qa_slots() as $n => $label ) {
+		register_sidebar(
+			array(
+				'name'          => sprintf(
+					/* translators: %s: e.g. 'Question 1 — currently "Will I be the worst one out there?"'. */
+					__( 'Homepage — Never played? Perfect. — %s', 'blueline' ),
+					$label
+				),
+				'id'            => "bl-homepage-new-here-q{$n}",
+				'description'   => __( 'Leave this widget area empty to use the theme\'s own default question and answer.', 'blueline' ),
+				'before_widget' => '<div class="bl-new-here__qa-item">',
+				'after_widget'  => '</div>',
+				'before_title'  => '<h3 class="bl-new-here__qa-item-title">',
+				'after_title'   => '</h3>',
+			)
+		);
+	}
 }
 
 /**
- * The new_here module's own default copy, used only when a league volunteer
- * has not configured the 'bl-homepage-new-here' widget area (see
- * blueline_homepage_new_here_widgets_init()). Answers the three questions
- * PRODUCT.md names as what the nervous-beginner persona actually asks:
- * "will I be the worst one there", "what gear do I need", "what if I can't
- * skate", in the league's own voice, rather than three interchangeable
- * reassurance bullets with no image and less weight than the standings
- * snippet below it.
+ * The intro line above the three Q&A slots. Always the theme's own copy --
+ * out of scope for the per-question widget areas above, which cover only
+ * the three questions themselves.
  */
-function blueline_homepage_new_here_default_content() {
+function blueline_homepage_new_here_intro() {
 	?>
 	<p class="bl-new-here__intro">
 		<?php esc_html_e( 'Every player on every team here started exactly where you are: never having played an organized game of hockey. That\'s not the exception in this league. It\'s most of the room.', 'blueline' ); ?>
 	</p>
-
-	<dl class="bl-new-here__qa">
-		<div class="bl-new-here__qa-item">
-			<dt><?php esc_html_e( 'Will I be the worst one out there?', 'blueline' ); ?></dt>
-			<dd><?php esc_html_e( 'Almost certainly not, and it wouldn\'t matter if you were. This is a co-ed beginner league by design — no tryouts, no cuts, and teams built to be even, not stacked.', 'blueline' ); ?></dd>
-		</div>
-		<div class="bl-new-here__qa-item">
-			<dt><?php esc_html_e( 'What gear do I actually need?', 'blueline' ); ?></dt>
-			<dd>
-				<?php
-				printf(
-					wp_kses(
-						/* translators: 1: opening <a> tag to the equipment guide, 2: closing </a> tag. */
-						__( 'Less than you\'d think, and you can rent most of it nearby before buying a single thing. %1$sSee the gear guide%2$s.', 'blueline' ),
-						array( 'a' => array( 'href' => array() ) )
-					),
-					'<a href="' . esc_url( blueline_resolve_link( 'page_equipment' ) ) . '">',
-					'</a>'
-				);
-				?>
-			</dd>
-		</div>
-		<div class="bl-new-here__qa-item">
-			<dt><?php esc_html_e( 'What if I can\'t really skate yet?', 'blueline' ); ?></dt>
-			<dd><?php esc_html_e( 'Then you\'ll fit right in with half the room. Games are paced for people still finding their edges, not for anyone trying out for the NHL.', 'blueline' ); ?></dd>
-		</div>
-	</dl>
 	<?php
 }
 
 /**
+ * Q&A slot 1's own default, used only when 'bl-homepage-new-here-q1' has no
+ * widgets. Answers the first of the three questions PRODUCT.md names as
+ * what the nervous-beginner persona actually asks: "will I be the worst
+ * one there".
+ */
+function blueline_homepage_new_here_q1_default() {
+	?>
+	<div class="bl-new-here__qa-item">
+		<dt><?php esc_html_e( 'Will I be the worst one out there?', 'blueline' ); ?></dt>
+		<dd><?php esc_html_e( 'Almost certainly not, and it wouldn\'t matter if you were. This is a co-ed beginner league by design — no tryouts, no cuts, and teams built to be even, not stacked.', 'blueline' ); ?></dd>
+	</div>
+	<?php
+}
+
+/**
+ * Q&A slot 2's own default, used only when 'bl-homepage-new-here-q2' has no
+ * widgets. Answers "what gear do I need".
+ */
+function blueline_homepage_new_here_q2_default() {
+	?>
+	<div class="bl-new-here__qa-item">
+		<dt><?php esc_html_e( 'What gear do I actually need?', 'blueline' ); ?></dt>
+		<dd>
+			<?php
+			printf(
+				wp_kses(
+					/* translators: 1: opening <a> tag to the equipment guide, 2: closing </a> tag. */
+					__( 'Less than you\'d think, and you can rent most of it nearby before buying a single thing. %1$sSee the gear guide%2$s.', 'blueline' ),
+					array( 'a' => array( 'href' => array() ) )
+				),
+				'<a href="' . esc_url( blueline_resolve_link( 'page_equipment' ) ) . '">',
+				'</a>'
+			);
+			?>
+		</dd>
+	</div>
+	<?php
+}
+
+/**
+ * Q&A slot 3's own default, used only when 'bl-homepage-new-here-q3' has no
+ * widgets. Answers "what if I can't skate".
+ */
+function blueline_homepage_new_here_q3_default() {
+	?>
+	<div class="bl-new-here__qa-item">
+		<dt><?php esc_html_e( 'What if I can\'t really skate yet?', 'blueline' ); ?></dt>
+		<dd><?php esc_html_e( 'Then you\'ll fit right in with half the room. Games are paced for people still finding their edges, not for anyone trying out for the NHL.', 'blueline' ); ?></dd>
+	</div>
+	<?php
+}
+
+/**
+ * Render one Q&A slot: a league volunteer's own widget content if
+ * $sidebar_id has any, else that slot's own default -- never the other
+ * two slots' content, and never nothing.
+ *
+ * @param string   $sidebar_id     A blueline_homepage_new_here_qa_slots()
+ *                                 sidebar id.
+ * @param callable $default_render Renders this slot's own default markup
+ *                                 (one of the blueline_homepage_new_here_q{n}_default()
+ *                                 functions above) when $sidebar_id is empty.
+ * @return void
+ */
+function blueline_homepage_new_here_qa_slot( string $sidebar_id, callable $default_render ): void {
+	if ( is_active_sidebar( $sidebar_id ) ) {
+		dynamic_sidebar( $sidebar_id );
+	} else {
+		$default_render();
+	}
+}
+
+/**
  * The new_here module: reassurance copy for a first-time player deciding
- * whether to register. Never empty; if the 'bl-homepage-new-here' widget
- * area has no widgets, blueline_homepage_new_here_default_content() renders
- * the theme's own default copy instead.
+ * whether to register. Never empty -- the intro line is always the
+ * theme's own copy, and each of the three Q&A slots independently falls
+ * back to its own default (blueline_homepage_new_here_qa_slot()) when a
+ * league volunteer hasn't configured that slot's widget area.
  */
 function blueline_homepage_module_new_here() {
 	blueline_homepage_module_start( 'new_here', blueline_settings( 'module_new_here_heading' ), blueline_resolve_link( 'page_faqs' ), blueline_settings( 'module_new_here_cta' ) );
@@ -1314,12 +1383,16 @@ function blueline_homepage_module_new_here() {
 		blueline_leaf_mark( 'bl-new-here__watermark' );
 	}
 
-	if ( is_active_sidebar( 'bl-homepage-new-here' ) ) {
-		dynamic_sidebar( 'bl-homepage-new-here' );
-	} else {
-		blueline_homepage_new_here_default_content();
-	}
-
+	blueline_homepage_new_here_intro();
+	?>
+	<dl class="bl-new-here__qa">
+		<?php
+		blueline_homepage_new_here_qa_slot( 'bl-homepage-new-here-q1', 'blueline_homepage_new_here_q1_default' );
+		blueline_homepage_new_here_qa_slot( 'bl-homepage-new-here-q2', 'blueline_homepage_new_here_q2_default' );
+		blueline_homepage_new_here_qa_slot( 'bl-homepage-new-here-q3', 'blueline_homepage_new_here_q3_default' );
+		?>
+	</dl>
+	<?php
 	blueline_homepage_module_end();
 }
 
