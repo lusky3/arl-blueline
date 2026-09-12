@@ -778,9 +778,26 @@ function blueline_site_header() {
 			 * (header.css); putting it beside the menu needs the header container
 			 * widened past the content width, which is a design decision, not a
 			 * styling one.
+			 *
+			 * Reported live: with nothing labelling it, the strip read as a
+			 * random ad floating on bare navy rather than an intentional
+			 * section -- there was plenty of unused row width to its left (this
+			 * row carries only this one flex item, unlike the bar row above)
+			 * and no visual tie to the bar it sits under. The static label span
+			 * below is real markup, not the SportsPress "Sponsors" title
+			 * (.sp-sponsors-title, hidden in this slot -- header.css), so its
+			 * copy and styling are this theme's own; it always prints
+			 * regardless of what SportsPress's own async prepend does or does
+			 * not fill in beside it, so it can never itself be the reason this
+			 * strip looks empty. header.css uses flex `order` (not DOM order)
+			 * to keep it visually first even though the plugin's own script
+			 * prepends the logo INTO this same container, ahead of this label
+			 * in the DOM.
 			 */
 			?>
-			<div class="bl-header__sponsors"></div>
+			<div class="bl-header__sponsors">
+				<span class="bl-header__sponsors-label"><?php esc_html_e( 'Thanks to our sponsors', 'blueline' ); ?></span>
+			</div>
 		<?php endif; ?>
 		<?php
 		/*

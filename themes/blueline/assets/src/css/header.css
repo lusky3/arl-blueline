@@ -437,11 +437,31 @@
  * right-aligned instead of a 176px box centred in a band of navy -- which is
  * what made it read as small and unrelated to anything above it. Aligning it
  * to the container's end ties it to the CTA cluster directly above.
+ *
+ * Reported live, separately: even right-aligned and sized to the container,
+ * the strip still read as a random ad floating on bare navy at first paint
+ * (before the reader has scrolled) -- there was nothing filling the unused
+ * row width to its left, and this box shared the bar's own exact background
+ * (--bl-ink-deep) with nothing marking it as its own section. Two additions
+ * below address that without touching the row's reserved height (still
+ * fixed at 64px -- see the layout-shift reasoning above `.bl-header__spacer`
+ * for why that height cannot move): a background one step lighter than the
+ * bar (--bl-ink) plus a hairline top border (the same --bl-ink-mid divider
+ * nav.css's own mobile drawer already uses on this same dark-navy surface)
+ * turn it into a visibly distinct shelf rather than an extension of the bar
+ * above; and .bl-header__sponsors-label (inc/template-tags.php) names what
+ * the box actually is. justify-content is space-between rather than
+ * flex-end now that there are two children to place -- label at the row's
+ * start, logo at its end -- with explicit `order` on both (see below) so
+ * that holds regardless of which the DOM has first: SportsPress's own
+ * script prepends the logo markup INTO this container on document ready,
+ * ahead of the label, which is static PHP output already present at first
+ * paint.
  */
 .bl-header__sponsors {
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: space-between;
 
 	/*
 	 * Aligned to the container's right edge -- under the CTA cluster it
@@ -459,9 +479,29 @@
 	padding-inline: var(--bl-space-4);
 	aspect-ratio: auto;
 	height: 64px;
+	background: var(--bl-ink);
+	border-block-start: 1px solid var(--bl-ink-mid);
 	transition:
 		height var(--bl-header-shrink-speed, 200ms) ease,
 		opacity var(--bl-header-shrink-speed, 200ms) ease;
+}
+
+/*
+ * Names the strip below -- see the longer rationale in the comment above
+ * `.bl-header__sponsors`. Always in the markup whenever the section is on
+ * (inc/template-tags.php), so it can never itself be the reason the strip
+ * looks empty; `.bl-header__sponsors.is-empty` (below) hides label and logo
+ * together in the one real "nothing to show" case.
+ */
+.bl-header__sponsors-label {
+	order: 0;
+	flex: 0 0 auto;
+	color: var(--bl-pale);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	white-space: nowrap;
 }
 
 /*
@@ -514,15 +554,21 @@
  * `width: 100%; max-width: 256px` among them, sportspress.css) a real,
  * definite width to resolve their own percentages against, so the whole
  * chain -- and the image inside it -- finally shrinks to fit this box.
+ *
+ * Excludes .bl-header__sponsors-label: that's this container's other real
+ * child now, and it needs none of width:100%/max-width/margin-start (its
+ * own rule above already sizes and positions it).
  */
-.bl-header__sponsors > * {
+.bl-header__sponsors > *:not(.bl-header__sponsors-label) {
+	order: 1;
 	width: 100%;
 
 	/*
 	 * Caps the logo's rendered size now that the slot spans the full row
-	 * width, and margin-start:auto is what actually pushes it to the row's
-	 * end -- justify-content on the flex parent cannot move a child that has
-	 * been given width:100%.
+	 * width. margin-start:auto is redundant with justify-content:space-between
+	 * on the parent for THIS child (already last in visual order), but stays
+	 * so this element still lands at the row's end unaided if space-between
+	 * above is ever removed.
 	 */
 	max-width: 248px;
 	margin-inline-start: auto;
