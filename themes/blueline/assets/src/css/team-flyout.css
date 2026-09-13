@@ -25,12 +25,40 @@
  * chrome" tier as the existing floating next-game widget.
  */
 
+/*
+ * Reported live: opening the flyout put its panel roughly 70% of the way
+ * down a normal viewport, running off the bottom of the screen. Root cause:
+ * this container used to be `top: 50%; transform: translateY(-50%)` with no
+ * explicit height -- a `position: fixed` element with no height set gets a
+ * browser quirk where a PERCENTAGE `top` resolves against the viewport
+ * regardless, so that combination correctly centred the <summary> tab. But
+ * .bl-team-flyout__panel (below) is `position: absolute` INSIDE this
+ * element, and its own `top` is a `calc()` yielding an absolute length, not
+ * a percentage -- and an absolute length does NOT get that same quirk. It
+ * resolves against this container's real, un-quirked origin instead, which
+ * (with the old top:50%/translateY(-50%) shape) sat at roughly
+ * viewport-centre minus half the tab's own height, not at the viewport's
+ * real y:0. The panel's own top formula (team-flyout.css, added when the
+ * header-overlap fix landed) assumes its containing block's origin genuinely
+ * IS the viewport's y:0 -- true once this container spans the full
+ * viewport height explicitly, false under the old top:50% shape, which is
+ * what let the two offsets stack instead of the panel's own formula alone
+ * correctly placing it.
+ *
+ * Fixed by giving this element an explicit, unambiguous 0-to-100vh box
+ * (inset-block: 0) and centring the tab with flexbox instead of a
+ * percentage top/transform pair -- align-items: center does not depend on
+ * any percentage-resolution quirk, and now that this container's own
+ * height is the real, full viewport, .bl-team-flyout__panel's existing top
+ * formula needs no change: its assumed origin is now the actual one.
+ */
 .bl-team-flyout {
 	position: fixed;
-	top: 50%;
+	inset-block: 0;
 	left: 0;
-	transform: translateY(-50%);
 	z-index: var(--bl-z-floating-widget);
+	display: flex;
+	align-items: center;
 }
 
 .bl-team-flyout summary {
