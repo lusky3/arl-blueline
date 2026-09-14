@@ -572,6 +572,22 @@
 	 */
 	max-width: 248px;
 	margin-inline-start: auto;
+
+	/*
+	 * This element (.sp-header-sponsors) carries its own margin-top from
+	 * elsewhere (confirmed live: 10px, source not this theme's CSS -- likely
+	 * the plugin's own bundled stylesheet). align-items: center on the
+	 * parent centres this child's MARGIN box, not its content box, so an
+	 * asymmetric margin (top-only) shifts the actual content off-centre by
+	 * that same amount -- confirmed live as the reported overlap's second
+	 * half, once the .sp-sponsors-loader height cap above stopped it
+	 * overflowing the TOP: capping the loader's height fixed the box's own
+	 * size, but this leftover margin still pushed the whole thing down,
+	 * overflowing the BOTTOM instead. Zeroing it here is scoped to the
+	 * header instance only, so the footer sponsor band (which has no
+	 * comparable fixed-height row to centre within) is unaffected.
+	 */
+	margin: 0;
 }
 
 /*
@@ -590,6 +606,51 @@
 .bl-header__sponsors img {
 	max-width: 100% !important;
 	height: auto !important;
+}
+
+/*
+ * Reported live: the ad "overlaps [the label] oddly" -- really, it poked up
+ * out of the strip's own now-visible top edge (added along with the label,
+ * above) into the nav row above it. Root cause: sportspress.css's
+ * `.sp-sponsors-loader` reserves a 256:128 (2:1) aspect-ratio box -- this
+ * site's configured sponsor-slot dimensions, sized to prevent layout shift
+ * before the real logo loads via AJAX -- which computes to 124px tall at
+ * this box's 248px width. But every real uploaded sponsor image on this
+ * site is actually far wider/shorter than 2:1 (confirmed live: 282x72,
+ * ~3.9:1, typical of the set), so once the real image loads it renders at
+ * only ~60px tall -- yet the LOADER's own reserved height stays at 124px
+ * regardless (aspect-ratio is never removed/overridden once populated),
+ * leaving a wrapper twice as tall as its own content, centred
+ * (align-items: center, above) in this row's fixed 64px height and
+ * overflowing ~30px past each edge. This was already true before the
+ * label/background/border landed (this section); it just had nowhere
+ * visible to overflow INTO before -- into the bar's own flat, undivided
+ * background, not past a distinct strip boundary.
+ *
+ * Capped to this row's own fixed height rather than changed at the
+ * general `.sp-sponsors-loader` rule (sportspress.css): that rule's 2:1
+ * reservation is still the right anti-layout-shift behaviour for the
+ * footer sponsor band, which has no comparable height constraint of its
+ * own. Only the header instance needs to give up shift-prevention
+ * accuracy for actually fitting its own fixed-height row.
+ */
+.bl-header__sponsors .sp-sponsors-loader {
+	max-height: 64px;
+
+	/*
+	 * `.sponsor` (sportspress.css) carries its own small margin around the
+	 * sponsor link -- fine ordinarily, but once this loader's own height is
+	 * capped above, that inner margin plus the image's rendered height can
+	 * add up to a couple of px more than the cap allows, escaping as a small
+	 * visible overflow past this box's own bottom edge instead of being
+	 * absorbed by it (confirmed live: ~2px, after the aspect-ratio fix above
+	 * closed the much larger ~30px gap). Clipped here rather than chasing
+	 * the exact margin/line-height contributors individually -- this box is
+	 * a precise 64px window onto this row now, not a natural-content-height
+	 * container, so overflow being invisible past its edges is the correct
+	 * contract regardless of which sub-pixel source produces it.
+	 */
+	overflow: hidden;
 }
 
 .bl-header__sponsors .sp-sponsors-title {
