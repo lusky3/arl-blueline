@@ -42,12 +42,29 @@ function blueline_setup() {
 	add_theme_support( 'responsive-embeds' );
 	add_theme_support( 'html5', array( 'search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script' ) );
 
-	// Required so the header can call has_custom_logo() / the_custom_logo() (Task 4).
+	/*
+	 * Required so the header can call has_custom_logo() / the_custom_logo()
+	 * (Task 4). `height`/`width` are only the recommended-size hint the
+	 * Customizer's media picker shows an admin, not an enforced crop --
+	 * flex-height/flex-width (both true) mean WordPress never forces the
+	 * uploaded image to this ratio, and header.css's own
+	 * `.custom-logo-link img { height: var(--bl-header-logo); width: auto; }`
+	 * (fixed height, auto width) already renders whatever aspect ratio the
+	 * real uploaded image has, unenforced by this hint either way.
+	 *
+	 * Reported live: "We use a 1:1 logo" -- the league's real logo asset is
+	 * square, not the 3:1 (240x80) this hint originally suggested. Matching
+	 * it to a real square size (80x80, the header's own resting
+	 * --bl-header-logo height, so the hint and the rendered size agree)
+	 * keeps the Customizer's own guidance honest for what admins actually
+	 * upload here, even though the rendered header was already correct for
+	 * a square image before this change.
+	 */
 	add_theme_support(
 		'custom-logo',
 		array(
 			'height'      => 80,
-			'width'       => 240,
+			'width'       => 80,
 			'flex-height' => true,
 			'flex-width'  => true,
 		)
