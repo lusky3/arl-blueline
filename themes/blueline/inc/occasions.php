@@ -146,6 +146,41 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
 }
 
 /**
+ * A themed fallback accent for occasions whose generic default (the
+ * ice-blue blueline_occasion_accent_default() above resolves) reads as
+ * visibly wrong for what the occasion actually is -- first-round
+ * feedback on this whole feature: Remembrance Day's poppies rendered
+ * blue, and Canada Day asked for "an a11y-friendly Canada Red as the
+ * default accent" by name. Only used when the candidate's OWN stored
+ * `accent` is empty (blueline_resolve_active_occasion() below still
+ * checks that first); an admin-picked accent always wins over this.
+ *
+ * Both hex values were chosen empirically, not eyeballed: each clears
+ * blueline_contrast_threshold( 'body' ) (4.5:1) against
+ * blueline_resolved_brand_color( 'ink' ) on this site's stock palette
+ * with real margin (canada-day: ratio 5.005; remembrance-day: ratio
+ * 5.142 -- verified via blueline_contrast_ratio() directly), so neither
+ * ever needs an `aa_acknowledgements` entry the way this site's own
+ * Christmas accent (#ef0b0b, ratio 3.5) does. That is the whole point of
+ * "a11y-friendly": it passes on its own, unlike a literal flag/poppy red
+ * (e.g. #ff0000 against this site's ink is only ~3.9:1).
+ *
+ * @param string $id An occasion id, e.g. from $candidate['id'].
+ * @return string Lowercase `#rrggbb`, or '' for any id with no themed
+ *                override (falls through to the generic default).
+ */
+function blueline_occasion_themed_accent_default( string $id ): string {
+	switch ( $id ) {
+		case 'canada-day':
+			return '#ff5757';
+		case 'remembrance-day':
+			return '#ff5c5c';
+		default:
+			return '';
+	}
+}
+
+/**
  * The two occasion types the model recognises (design spec §5/§7.1).
  * `commemorative` is validated separately by its own rules elsewhere
  * (Task 5's announcement-severity suppression, and the panel-side "only
@@ -901,13 +936,17 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 	$default_accent   = null;
 
 	foreach ( $candidates as $candidate ) {
+		$themed_default = blueline_occasion_themed_accent_default( (string) ( $candidate['id'] ?? '' ) );
+
 		$raw_accent = '' !== ( $candidate['accent'] ?? '' )
 			? $candidate['accent']
-			// Computed at most once per request, on first actual need: its
-			// own result (a style.css read) cannot change mid-request, and
-			// most requests never reach a candidate with an empty accent
-			// at all.
-			: ( $default_accent ??= blueline_occasion_accent_default() );
+			: ( '' !== $themed_default
+				? $themed_default
+				// Computed at most once per request, on first actual need:
+				// its own result (a style.css read) cannot change
+				// mid-request, and most requests never reach a candidate
+				// with an empty accent AND no themed default at all.
+				: ( $default_accent ??= blueline_occasion_accent_default() ) );
 
 		if ( '' === $raw_accent ) {
 			// The default itself could not be resolved (Phase 2.0's own
@@ -963,11 +1002,20 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
  * (specifically --bl-occasion-accent, once a template applies it as the
  * motif's colour) controls the rendered colour, not this markup.
  *
+ * Redesigned (first-round feedback, indirectly): the original path was a
+ * symmetric 9-point starburst with no stem -- fine as a tiny header icon
+ * or falling confetti speck, where nobody looks closely, but it reads as
+ * a firework, not a leaf, at the 64px size occasions.css's new
+ * .bl-occasion-effects__accent-leaf renders it at. This one has three
+ * asymmetric spike tiers per side (growing toward the base, the real
+ * maple leaf's own silhouette) plus a short stem, so it still reads as
+ * "leaf" blown up large, not just at icon size.
+ *
  * @return void
  */
 function blueline_render_occasion_motif_maple_leaf(): void {
 	?>
-	<svg class="bl-occasion-motif bl-occasion-motif--maple-leaf" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 3l4 9 9-4-3 9 8 5-9 3 2 9-9-4-2 9-2-9-9 4 2-9-9-3 8-5-3-9 9 4Z"/></svg>
+	<svg class="bl-occasion-motif bl-occasion-motif--maple-leaf" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 3 28 10 36 8 30 16 42 18 33 24 40 30 26 32 25 40 23 40 22 32 8 30 15 24 6 18 18 16 12 8 20 10Z"/><path fill="currentColor" d="M23 40 25 40 25.6 47 22.4 47Z"/></svg>
 	<?php
 }
 
@@ -978,11 +1026,16 @@ function blueline_render_occasion_motif_maple_leaf(): void {
  * accessible name for a `role="img"` SVG) instead of the `aria-hidden`
  * every other motif here uses.
  *
+ * Five identical petals, one `<path>` rotated 72° around the centre five
+ * times, is what actually reads as a poppy at a glance -- the original
+ * two-path version (first-round feedback: "the poppies do not look like
+ * poppies") had no petal shape at all, just two ambiguous blobs.
+ *
  * @return void
  */
 function blueline_render_occasion_motif_poppy(): void {
 	?>
-	<svg class="bl-occasion-motif bl-occasion-motif--poppy" viewBox="0 0 48 48" role="img" focusable="false"><title><?php esc_html_e( 'Remembrance poppy', 'blueline' ); ?></title><path fill="currentColor" d="M24 22c-4-6-12-8-14-2-2 6 6 10 14 6 8 4 16 0 14-6-2-6-10-4-14 2Z"/><path fill="currentColor" d="M24 26c-2 6-8 12-4 16 4 4 8-4 4-10-4-4-4-2 0-6Z"/><circle cx="24" cy="24" r="4" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/></svg>
+	<svg class="bl-occasion-motif bl-occasion-motif--poppy" viewBox="0 0 48 48" role="img" focusable="false"><title><?php esc_html_e( 'Remembrance poppy', 'blueline' ); ?></title><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(72 24 24)"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(144 24 24)"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(216 24 24)"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(288 24 24)"/><circle cx="24" cy="24" r="5" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/></svg>
 	<?php
 }
 
@@ -1144,6 +1197,273 @@ function blueline_active_occasion_line(): string {
 	$occasion = blueline_resolve_active_occasion();
 
 	return null === $occasion ? '' : (string) ( $occasion['line'] ?? '' );
+}
+
+/**
+ * Presents corner scene (Christmas). Three flat, geometric gift boxes at
+ * staggered heights, each a fixed brand colour (never `currentColor`,
+ * unlike the small motif icons above): the whole point is three visually
+ * DISTINCT boxes, which a single inherited colour would collapse into one.
+ * Matches blueline_render_occasion_motif_poppy()'s own precedent for a
+ * fixed secondary colour within an otherwise `currentColor` icon set
+ * (its ink seed dot) -- here every fill is fixed, since nothing in this
+ * scene should track the occasion accent or the surrounding text colour.
+ *
+ * Deliberately plain rectangles and triangles, not detailed line art: the
+ * existing motif icons (snowflake, sparkle) are themselves simple
+ * geometric shapes, and a corner illustration attempting more "cuteness"
+ * than that is far likelier to read as amateurish than charming.
+ *
+ * @return void
+ */
+function blueline_render_occasion_scene_presents(): void {
+	?>
+	<svg class="bl-occasion-scene bl-occasion-scene--presents" viewBox="0 0 140 100" aria-hidden="true" focusable="false">
+		<rect x="4" y="46" width="42" height="50" fill="<?php echo esc_attr( BLUELINE_TOKEN_ICE ); ?>"/>
+		<rect x="21" y="46" width="8" height="50" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<rect x="4" y="62" width="42" height="7" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<path d="M25 46 18 34h14z" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+
+		<rect x="52" y="66" width="34" height="30" fill="<?php echo esc_attr( BLUELINE_TOKEN_ACCENT_TEXT ); ?>"/>
+		<rect x="66" y="66" width="6" height="30" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>"/>
+		<rect x="52" y="78" width="34" height="6" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>"/>
+		<path d="M69 66 63 56h12z" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>"/>
+
+		<rect x="92" y="54" width="44" height="42" fill="<?php echo esc_attr( BLUELINE_TOKEN_DANGER ); ?>"/>
+		<rect x="110" y="54" width="8" height="42" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>"/>
+		<rect x="92" y="70" width="44" height="7" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>"/>
+		<path d="M114 54 106 42h16z" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>"/>
+	</svg>
+	<?php
+}
+
+/**
+ * Snowman corner scene (Christmas). Three stacked circles (the universal
+ * snowman silhouette), a flat top hat, dot eyes/buttons and a triangular
+ * carrot nose -- the same "plain geometric shapes over detailed line art"
+ * call as blueline_render_occasion_scene_presents() above, for the same
+ * reason.
+ *
+ * @return void
+ */
+function blueline_render_occasion_scene_snowman(): void {
+	?>
+	<svg class="bl-occasion-scene bl-occasion-scene--snowman" viewBox="0 0 100 150" aria-hidden="true" focusable="false">
+		<circle cx="50" cy="118" r="30" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>" stroke="<?php echo esc_attr( BLUELINE_TOKEN_INK_MID ); ?>" stroke-width="2"/>
+		<circle cx="50" cy="72" r="22" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>" stroke="<?php echo esc_attr( BLUELINE_TOKEN_INK_MID ); ?>" stroke-width="2"/>
+		<circle cx="50" cy="36" r="15" fill="<?php echo esc_attr( BLUELINE_TOKEN_PAPER ); ?>" stroke="<?php echo esc_attr( BLUELINE_TOKEN_INK_MID ); ?>" stroke-width="2"/>
+
+		<rect x="33" y="24" width="34" height="5" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<rect x="39" y="8" width="22" height="17" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+
+		<circle cx="44" cy="34" r="1.6" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<circle cx="56" cy="34" r="1.6" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<path d="M50 38 62 41 50 43z" fill="<?php echo esc_attr( BLUELINE_TOKEN_WARNING ); ?>"/>
+
+		<circle cx="50" cy="60" r="2" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<circle cx="50" cy="72" r="2" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+		<circle cx="50" cy="84" r="2" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/>
+
+		<path d="M28 74 8 64" stroke="<?php echo esc_attr( BLUELINE_TOKEN_INK_MID ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M72 74 92 64" stroke="<?php echo esc_attr( BLUELINE_TOKEN_INK_MID ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+	</svg>
+	<?php
+}
+
+/**
+ * Poppy-field corner scene (Remembrance Day) -- first-round feedback:
+ * this occasion "needs more decorations on the corners" too, matching
+ * Christmas' presents/snowman pair above. Three simplified 3-petal
+ * blooms on stems at staggered heights, the same scale of detail as the
+ * presents/snowman scenes (never the full 5-petal accessible poppy
+ * blueline_render_occasion_motif_poppy() renders elsewhere -- a corner
+ * silhouette does not need that level of fidelity).
+ *
+ * Every colour here is fixed (BLUELINE_TOKEN_DANGER for the blooms, a
+ * literal muted green for the stems -- this theme has no green brand
+ * token, so this follows blueline_render_occasion_scene_presents()'s own
+ * precedent of a fixed literal for a colour nothing else needs), never
+ * `currentColor` or the occasion accent: same reasoning as that
+ * function's own docblock -- a corner illustration should not shift
+ * colour just because an admin (or blueline_occasion_themed_accent_
+ * default() above) picked a particular red.
+ *
+ * Rendered into BOTH corners by blueline_render_occasion_effects() below
+ * (unlike Christmas' two different scenes) since one poppy-field
+ * silhouette reads correctly mirrored, and this occasion does not need a
+ * second, different illustration to feel complete.
+ *
+ * @return void
+ */
+function blueline_render_occasion_scene_poppy_field(): void {
+	$stem  = '#4a6741';
+	$bloom = esc_attr( BLUELINE_TOKEN_DANGER );
+	$ink   = esc_attr( BLUELINE_TOKEN_INK );
+	?>
+	<svg class="bl-occasion-scene bl-occasion-scene--poppy-field" viewBox="0 0 120 110" aria-hidden="true" focusable="false">
+		<path d="M20 110 18 64" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M52 110 48 40" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M84 110 88 56" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+
+		<g transform="translate(18 60)">
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>"/>
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(120)"/>
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(240)"/>
+			<circle r="2.5" fill="<?php echo esc_attr( $ink ); ?>"/>
+		</g>
+		<g transform="translate(48 38) scale(1.3)">
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>"/>
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(120)"/>
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(240)"/>
+			<circle r="2.5" fill="<?php echo esc_attr( $ink ); ?>"/>
+		</g>
+		<g transform="translate(88 54) scale(0.9)">
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>"/>
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(120)"/>
+			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(240)"/>
+			<circle r="2.5" fill="<?php echo esc_attr( $ink ); ?>"/>
+		</g>
+	</svg>
+	<?php
+}
+
+/**
+ * The year New Year's fireworks "write" across the sky
+ * (.bl-occasion-effects__year, occasions.css). During December this is
+ * next year (the one about to arrive); on/after January 1st (New Year's
+ * own window continues through 01-02) it is the current year, since it
+ * has already arrived. Always a 4-digit string.
+ *
+ * @param int|null $now_override Unix timestamp; defaults to the current
+ *                                time. Tests pass this for the same
+ *                                reason every other *_override param in
+ *                                this file does.
+ * @return string A 4-digit year, e.g. '2027'.
+ */
+function blueline_occasion_new_year_display_year( ?int $now_override = null ): string {
+	$now  = $now_override ?? time();
+	$date = ( new DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() );
+
+	return (string) ( '12' === $date->format( 'm' ) ? ( (int) $date->format( 'Y' ) + 1 ) : (int) $date->format( 'Y' ) );
+}
+
+/**
+ * How many particles/bursts each motif's ambient effect prints, keyed by
+ * motif (design spec-adjacent, but this whole feature postdates the
+ * original design spec -- these counts are this feature's own tuning,
+ * arrived at against the Task 8/fork brainstorm's own guardrail: 15-25
+ * animated elements total is the ceiling before density risks jank on
+ * low-end mobile, and Remembrance Day deliberately sits far under that
+ * ceiling regardless -- restraint reads as respect for a commemorative
+ * occasion, density does not.
+ *
+ * @param string $motif One of blueline_occasion_motifs().
+ * @return int
+ */
+function blueline_occasion_effect_particle_count( string $motif ): int {
+	switch ( $motif ) {
+		case 'snowflake':
+			return 18;
+		case 'poppy':
+			return 8;
+		case 'maple-leaf':
+			return 5;
+		default:
+			return 0;
+	}
+}
+
+/**
+ * Render the active occasion's ambient, sitewide visual effect -- falling
+ * snow plus a presents/snowman corner scene and a frost/snowdrift edge
+ * (pure CSS, occasions.css) for Christmas; falling poppies plus a
+ * mirrored poppy-field corner scene for Remembrance Day; a large "hero"
+ * firework plus a rolling show of smaller white/gold bursts and the
+ * coming year written across the sky for New Year; the same hero+small
+ * bursts (red/white/gold) plus falling maple-leaf confetti and two
+ * larger, mostly-still accent leaves for Canada Day. Printed from
+ * footer.php alongside this theme's other persistent overlay chrome (the
+ * team flyout, the floating next-game widget) -- same "prints nothing
+ * unless there is something real to show" contract every renderer in that
+ * group already follows.
+ *
+ * A SEPARATE layer from blueline_render_header_occasion_motif() above: that
+ * one places a single small icon next to the header CTA; this is ambient
+ * scene-setting across the whole viewport, in its own fixed, aria-hidden,
+ * pointer-events:none wrapper (occasions.css) so it can never sit above or
+ * block interaction with real content regardless of where on the page it
+ * is fixed.
+ *
+ * @return void
+ */
+function blueline_render_occasion_effects(): void {
+	$occasion = blueline_resolve_active_occasion();
+
+	if ( null === $occasion ) {
+		return;
+	}
+
+	$motif = $occasion['motif'] ?? 'none';
+
+	// 'none' and any motif this function does not yet have an effect for
+	// (there are none today -- every real motif in blueline_occasion_motifs()
+	// has a case below) both fall through to printing nothing, matching
+	// blueline_render_occasion_motif()'s own "no fatal, just no output" rule.
+	if ( ! in_array( $motif, array( 'snowflake', 'poppy', 'sparkle', 'maple-leaf' ), true ) ) {
+		return;
+	}
+
+	$particle_count = blueline_occasion_effect_particle_count( $motif );
+	// Six scattered ambient bursts (occasions.css's own nth-child(6n+N)
+	// lanes) for both firework occasions -- a "large one, then smaller
+	// ones" show needs more than the original four to read as a rolling
+	// display rather than four fixed points.
+	$burst_count = 6;
+	?>
+	<div class="bl-occasion-effects bl-occasion-effects--<?php echo esc_attr( $motif ); ?>" aria-hidden="true">
+		<?php if ( 'snowflake' === $motif ) : ?>
+			<?php for ( $i = 0; $i < $particle_count; $i++ ) : ?>
+				<span class="bl-occasion-effects__particle"></span>
+			<?php endfor; ?>
+			<div class="bl-occasion-effects__corner bl-occasion-effects__corner--left">
+				<?php blueline_render_occasion_scene_presents(); ?>
+			</div>
+			<div class="bl-occasion-effects__corner bl-occasion-effects__corner--right">
+				<?php blueline_render_occasion_scene_snowman(); ?>
+			</div>
+		<?php elseif ( 'poppy' === $motif ) : ?>
+			<?php for ( $i = 0; $i < $particle_count; $i++ ) : ?>
+				<span class="bl-occasion-effects__particle"><?php blueline_render_occasion_motif_poppy(); ?></span>
+			<?php endfor; ?>
+			<div class="bl-occasion-effects__corner bl-occasion-effects__corner--left">
+				<?php blueline_render_occasion_scene_poppy_field(); ?>
+			</div>
+			<div class="bl-occasion-effects__corner bl-occasion-effects__corner--right">
+				<?php blueline_render_occasion_scene_poppy_field(); ?>
+			</div>
+		<?php elseif ( 'sparkle' === $motif ) : ?>
+			<span class="bl-occasion-effects__hero-burst"></span>
+			<?php for ( $i = 0; $i < $burst_count; $i++ ) : ?>
+				<span class="bl-occasion-effects__burst"></span>
+			<?php endfor; ?>
+			<div class="bl-occasion-effects__year">
+				<?php foreach ( str_split( blueline_occasion_new_year_display_year() ) as $digit ) : ?>
+					<span class="bl-occasion-effects__year-digit"><?php echo esc_html( $digit ); ?></span>
+				<?php endforeach; ?>
+			</div>
+		<?php elseif ( 'maple-leaf' === $motif ) : ?>
+			<span class="bl-occasion-effects__hero-burst"></span>
+			<?php for ( $i = 0; $i < $burst_count; $i++ ) : ?>
+				<span class="bl-occasion-effects__burst"></span>
+			<?php endfor; ?>
+			<?php for ( $i = 0; $i < $particle_count; $i++ ) : ?>
+				<span class="bl-occasion-effects__particle"><?php blueline_render_occasion_motif_maple_leaf(); ?></span>
+			<?php endfor; ?>
+			<span class="bl-occasion-effects__accent-leaf bl-occasion-effects__accent-leaf--a"><?php blueline_render_occasion_motif_maple_leaf(); ?></span>
+			<span class="bl-occasion-effects__accent-leaf bl-occasion-effects__accent-leaf--b"><?php blueline_render_occasion_motif_maple_leaf(); ?></span>
+		<?php endif; ?>
+	</div>
+	<?php
 }
 
 /**

@@ -1,0 +1,741 @@
+/*
+ * Blueline — occasion ambient effects.
+ *
+ * Sitewide decorative chrome for whichever occasion blueline_resolve_
+ * active_occasion() (inc/occasions.php) currently resolves as active,
+ * rendered by blueline_render_occasion_effects() and printed from
+ * footer.php alongside this theme's other persistent overlay chrome
+ * (the team flyout, the floating next-game widget) -- same "fixed,
+ * out-of-flow, guarded by its own render function returning nothing
+ * when there is nothing to show" shape.
+ *
+ * This is deliberately a SEPARATE layer from the existing `motif` model
+ * (blueline_render_occasion_motif(), the small icon next to the header
+ * CTA): that one icon is a small brand accent; this is ambient scene-
+ * setting across the whole viewport. They share the same source SVGs
+ * where it makes sense (poppy, maple leaf) but are otherwise unrelated
+ * markup in unrelated places.
+ *
+ * The whole layer is `aria-hidden="true"` at its root (the PHP-rendered
+ * wrapper), not decorated element-by-element: every element inside is
+ * purely decorative regardless of what accessible markup an individual
+ * motif SVG might otherwise carry (blueline_render_occasion_motif_poppy()
+ * gives its single, CTA-adjacent instance a real <title> and role="img" --
+ * reused here for the falling-poppy particles too, since duplicating that
+ * function is worse than relying on the ancestor aria-hidden to correctly
+ * suppress it for this purely-ambient repetition).
+ *
+ * Round 2 (first-round feedback: "really, really tame"): fireworks now
+ * rise on a trailing spark before they bloom (one shared keyframe covers
+ * both phases -- see .bl-occasion-effects__burst below), each firework
+ * occasion also gets one larger .bl-occasion-effects__hero-burst that
+ * fires prominently near page load, New Year's sky additionally "writes"
+ * the coming year in light (.bl-occasion-effects__year), Christmas gained
+ * a snowdrift + frost vignette (pure CSS, no new markup -- see the
+ * `::before`/`::after` rules on `.bl-occasion-effects--snowflake`), and
+ * Canada Day gained two larger, mostly-still maple leaves alongside its
+ * falling confetti (.bl-occasion-effects__accent-leaf).
+ */
+
+.bl-occasion-effects {
+	position: fixed;
+	inset: 0;
+	z-index: var(--bl-z-occasion-effect);
+	overflow: hidden;
+	pointer-events: none;
+}
+
+/*
+ * ---- Falling particles (snow, poppies, maple-leaf confetti) ----
+ *
+ * One shared keyframe, varied per instance only via the --bl-occasion-fall-*
+ * custom properties below -- matches this codebase's own established
+ * technique for "many staggered instances of one animation" (compare
+ * team-flyout.css's .bl-team-flyout__item:nth-child(3n+N) bob stagger).
+ * Six `nth-child(6n+N)` lanes (left position, duration, delay, drift,
+ * size) repeat cyclically across however many particles a given occasion
+ * prints, so a handful of CSS rules produces visibly varied motion across
+ * many elements rather than one uniform curtain of identical falls.
+ */
+.bl-occasion-effects__particle {
+	position: absolute;
+	top: -10%;
+	left: var(--bl-occasion-fall-left, 50%);
+	width: var(--bl-occasion-fall-size, 8px);
+	height: var(--bl-occasion-fall-size, 8px);
+	animation-name: bl-occasion-fall;
+	animation-duration: var(--bl-occasion-fall-duration, 16s);
+	animation-delay: var(--bl-occasion-fall-delay, 0s);
+	animation-timing-function: linear;
+	animation-iteration-count: infinite;
+	will-change: transform, opacity;
+}
+
+@keyframes bl-occasion-fall {
+
+	0% {
+		transform: translate(0, 0) rotate(0deg);
+		opacity: 0;
+	}
+
+	6% {
+		opacity: var(--bl-occasion-fall-opacity, 0.85);
+	}
+
+	92% {
+		opacity: var(--bl-occasion-fall-opacity, 0.85);
+	}
+
+	100% {
+		transform: translate(var(--bl-occasion-fall-drift, 30px), 120vh) rotate(360deg);
+		opacity: 0;
+	}
+}
+
+.bl-occasion-effects__particle:nth-child(6n+1) {
+	--bl-occasion-fall-left: 5%;
+	--bl-occasion-fall-duration: 14s;
+	--bl-occasion-fall-delay: 0s;
+	--bl-occasion-fall-drift: 44px;
+}
+
+.bl-occasion-effects__particle:nth-child(6n+2) {
+	--bl-occasion-fall-left: 20%;
+	--bl-occasion-fall-duration: 19s;
+	--bl-occasion-fall-delay: 3s;
+	--bl-occasion-fall-drift: -34px;
+}
+
+.bl-occasion-effects__particle:nth-child(6n+3) {
+	--bl-occasion-fall-left: 36%;
+	--bl-occasion-fall-duration: 12s;
+	--bl-occasion-fall-delay: 6.5s;
+	--bl-occasion-fall-drift: 24px;
+}
+
+.bl-occasion-effects__particle:nth-child(6n+4) {
+	--bl-occasion-fall-left: 54%;
+	--bl-occasion-fall-duration: 21s;
+	--bl-occasion-fall-delay: 2s;
+	--bl-occasion-fall-drift: -46px;
+}
+
+.bl-occasion-effects__particle:nth-child(6n+5) {
+	--bl-occasion-fall-left: 71%;
+	--bl-occasion-fall-duration: 16s;
+	--bl-occasion-fall-delay: 8s;
+	--bl-occasion-fall-drift: 32px;
+}
+
+.bl-occasion-effects__particle:nth-child(6n) {
+	--bl-occasion-fall-left: 88%;
+	--bl-occasion-fall-duration: 18s;
+	--bl-occasion-fall-delay: 5s;
+	--bl-occasion-fall-drift: -22px;
+}
+
+/*
+ * ---- Firework bursts (New Year, Canada Day) ----
+ *
+ * Each firework is one element, one animation, two phases: it rises from
+ * off-screen on a trailing spark (a soft directional glow, via
+ * box-shadow), then at the keyframe boundary where the rise ends, its
+ * box-shadow swaps to eight more dots arranged in a ring -- the ring
+ * offsets never change, so animating the SAME element's `transform:
+ * scale()` afterward expands the whole ring into a starburst, all
+ * without a second element or a second animation to keep in sync. Box-
+ * shadow lists of different lengths cannot cross-fade, so the swap from
+ * "one trailing dot" to "nine ring dots" is a deliberate hard cut, not a
+ * bug: a firework's bloom IS a discrete event, not a gradual one.
+ * `--bl-occasion-burst-color` is the one thing instances vary (white/gold
+ * for New Year, red/white/gold for Canada Day -- see each occasion's own
+ * rules further down).
+ */
+.bl-occasion-effects__burst {
+	position: absolute;
+	top: var(--bl-occasion-burst-top, 20%);
+	left: var(--bl-occasion-burst-left, 50%);
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: var(--bl-occasion-burst-color, var(--bl-paper));
+	animation-name: bl-occasion-burst;
+	animation-duration: var(--bl-occasion-burst-duration, 6s);
+	animation-delay: var(--bl-occasion-burst-delay, 0s);
+	animation-timing-function: ease-out;
+	animation-iteration-count: infinite;
+	opacity: 0;
+	will-change: transform, opacity, box-shadow;
+}
+
+@keyframes bl-occasion-burst {
+
+	0% {
+		transform: translateY(46vh) scale(0.6);
+		opacity: 1;
+		box-shadow: 0 16px 8px -5px var(--bl-occasion-burst-color, var(--bl-paper));
+	}
+
+	26% {
+		transform: translateY(0) scale(0.6);
+		opacity: 1;
+		box-shadow: 0 16px 8px -5px var(--bl-occasion-burst-color, var(--bl-paper));
+	}
+
+	28% {
+		transform: scale(0.2);
+		opacity: 1;
+		box-shadow:
+			0 -42px 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			30px -30px 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			42px 0 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			30px 30px 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			0 42px 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			-30px 30px 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			-42px 0 0 -1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			-30px -30px 0 -1px var(--bl-occasion-burst-color, var(--bl-paper));
+	}
+
+	46% {
+		transform: scale(1.5);
+		opacity: 1;
+	}
+
+	70% {
+		transform: scale(1.8);
+		opacity: 0;
+	}
+
+	100% {
+		transform: scale(1.8);
+		opacity: 0;
+	}
+}
+
+/*
+ * Six scattered origin points across the upper two-thirds of the
+ * viewport, each on its own delay so bursts read as a rolling show
+ * rather than one synchronised flash -- shared by both firework
+ * occasions below, which vary only the colour on top of this.
+ */
+.bl-occasion-effects__burst:nth-child(6n+1) {
+	--bl-occasion-burst-top: 12%;
+	--bl-occasion-burst-left: 15%;
+	--bl-occasion-burst-delay: 0s;
+}
+
+.bl-occasion-effects__burst:nth-child(6n+2) {
+	--bl-occasion-burst-top: 22%;
+	--bl-occasion-burst-left: 75%;
+	--bl-occasion-burst-delay: 1s;
+}
+
+.bl-occasion-effects__burst:nth-child(6n+3) {
+	--bl-occasion-burst-top: 8%;
+	--bl-occasion-burst-left: 45%;
+	--bl-occasion-burst-delay: 2s;
+}
+
+.bl-occasion-effects__burst:nth-child(6n+4) {
+	--bl-occasion-burst-top: 30%;
+	--bl-occasion-burst-left: 85%;
+	--bl-occasion-burst-delay: 3s;
+}
+
+.bl-occasion-effects__burst:nth-child(6n+5) {
+	--bl-occasion-burst-top: 18%;
+	--bl-occasion-burst-left: 32%;
+	--bl-occasion-burst-delay: 4s;
+}
+
+.bl-occasion-effects__burst:nth-child(6n) {
+	--bl-occasion-burst-top: 26%;
+	--bl-occasion-burst-left: 60%;
+	--bl-occasion-burst-delay: 5s;
+}
+
+/*
+ * ---- Hero firework: the "big one" ----
+ *
+ * Exactly one per occasion, same rise-then-bloom mechanic as the small
+ * bursts above but scaled up throughout (a bigger ring, a longer/
+ * brighter trail, a higher peak scale) and with its own longer cycle
+ * (9s against the small bursts' 6s) so it reads as the occasional
+ * showpiece the small bursts build up to, not one more identical burst.
+ * `animation-delay: 0s` (its only instance) means it fires as soon as
+ * the page settles, then recurs every 9s.
+ */
+.bl-occasion-effects__hero-burst {
+	position: absolute;
+	top: 18%;
+	left: 50%;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--bl-occasion-burst-color, var(--bl-paper));
+	animation-name: bl-occasion-hero-burst;
+	animation-duration: 9s;
+	animation-delay: 0s;
+	animation-timing-function: ease-out;
+	animation-iteration-count: infinite;
+	opacity: 0;
+	will-change: transform, opacity, box-shadow;
+}
+
+@keyframes bl-occasion-hero-burst {
+
+	0% {
+		transform: translateY(70vh) scale(1);
+		opacity: 1;
+		box-shadow: 0 34px 20px -8px var(--bl-occasion-burst-color, var(--bl-paper));
+	}
+
+	28% {
+		transform: translateY(0) scale(1);
+		opacity: 1;
+		box-shadow: 0 34px 20px -8px var(--bl-occasion-burst-color, var(--bl-paper));
+	}
+
+	30% {
+		transform: scale(0.3);
+		opacity: 1;
+		box-shadow:
+			0 -68px 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			48px -48px 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			68px 0 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			48px 48px 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			0 68px 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			-48px 48px 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			-68px 0 0 1px var(--bl-occasion-burst-color, var(--bl-paper)),
+			-48px -48px 0 1px var(--bl-occasion-burst-color, var(--bl-paper));
+	}
+
+	48% {
+		transform: scale(2.4);
+		opacity: 1;
+	}
+
+	72% {
+		transform: scale(2.8);
+		opacity: 0;
+	}
+
+	100% {
+		transform: scale(2.8);
+		opacity: 0;
+	}
+}
+
+/*
+ * ---- New Year: the sky "writes" the coming year ----
+ *
+ * blueline_render_occasion_effects() prints one span per digit of
+ * blueline_occasion_new_year_display_year()'s result (always 4). Every
+ * digit shares one keyframe/duration; nth-child only staggers each
+ * digit's start a few hundred ms apart so they light up left-to-right
+ * like they are being drawn, then hold together, then fade together --
+ * a periodic showpiece (22s cycle) rather than a permanent fixture
+ * sitting over the page the whole time.
+ */
+.bl-occasion-effects__year {
+	position: absolute;
+	top: 20%;
+	left: 50%;
+	display: flex;
+	transform: translateX(-50%);
+	gap: 0.05em;
+	font-family: var(--bl-font-display);
+	font-size: clamp(2.5rem, 8vw, 6rem);
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	color: var(--bl-paper);
+}
+
+.bl-occasion-effects__year-digit {
+	display: inline-block;
+	animation-name: bl-occasion-year-digit;
+	animation-duration: 22s;
+	animation-delay: var(--bl-occasion-year-delay, 0s);
+	animation-timing-function: ease-out;
+	animation-iteration-count: infinite;
+	opacity: 0;
+}
+
+@keyframes bl-occasion-year-digit {
+
+	0% {
+		opacity: 0;
+		transform: scale(0.4);
+		text-shadow: none;
+	}
+
+	4% {
+		opacity: 1;
+		transform: scale(1.15);
+		text-shadow: 0 0 18px currentcolor, 0 0 34px currentcolor;
+	}
+
+	9% {
+		opacity: 1;
+		transform: scale(1);
+		text-shadow: 0 0 10px currentcolor;
+	}
+
+	70% {
+		opacity: 1;
+		transform: scale(1);
+		text-shadow: 0 0 10px currentcolor;
+	}
+
+	80% {
+		opacity: 0;
+		transform: scale(1);
+		text-shadow: none;
+	}
+
+	100% {
+		opacity: 0;
+	}
+}
+
+.bl-occasion-effects__year-digit:nth-child(1) {
+	--bl-occasion-year-delay: 0s;
+}
+
+.bl-occasion-effects__year-digit:nth-child(2) {
+	--bl-occasion-year-delay: 0.3s;
+}
+
+.bl-occasion-effects__year-digit:nth-child(3) {
+	--bl-occasion-year-delay: 0.6s;
+}
+
+.bl-occasion-effects__year-digit:nth-child(4) {
+	--bl-occasion-year-delay: 0.9s;
+}
+
+/*
+ * ---- Corner illustrations (Christmas: presents, snowman; Remembrance
+ * Day: a poppy-field scene, mirrored into both corners) ----
+ *
+ * Fixed to a bottom corner, partly cropped off-canvas so each reads as
+ * "peeking into frame" rather than a floating sticker. Hidden below the
+ * nav-drawer breakpoint (nav.css, 880px): at that width these are
+ * competing with mobile content for very little payoff -- decoration,
+ * never core UX, the same call this theme already makes for the header
+ * sponsor strip at the same breakpoint (header.css).
+ */
+.bl-occasion-effects__corner {
+	position: absolute;
+	bottom: 0;
+	width: clamp(72px, 11vw, 128px);
+	height: auto;
+}
+
+.bl-occasion-effects__corner--left {
+	left: 0;
+	transform: translateX(-18%);
+}
+
+.bl-occasion-effects__corner--right {
+	right: 0;
+	transform: translateX(18%);
+}
+
+@media (max-width: 879.98px) {
+
+	.bl-occasion-effects__corner {
+		display: none;
+	}
+}
+
+/*
+ * ---- Base per-occasion particle/burst/scene treatments ----
+ *
+ * Grouped here, ahead of any nth-child variant of the same selectors
+ * further below (stylelint's no-descending-specificity), rather than
+ * inline in each occasion's own prose section -- see each comment for
+ * which occasion it belongs to.
+ */
+
+/* Christmas: falling snow. */
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle {
+	border-radius: 50%;
+	background: var(--bl-paper);
+	box-shadow: 0 0 4px 0 color-mix(in srgb, var(--bl-white) 60%, transparent);
+}
+
+/*
+ * Every corner scene (Christmas' presents/snowman, Remembrance Day's
+ * poppy field) fills its .bl-occasion-effects__corner container the same
+ * way -- one rule for both corners, not one for --left only: the sizing
+ * itself carries no per-side meaning, only which SVG the PHP side prints
+ * into each corner does. Deliberately flat-colour silhouettes, not
+ * detailed line art: a simpler style than the theme could ever get
+ * wrong by trying to be cuter, and consistent with how restrained the
+ * existing motif icons (snowflake, sparkle) already are.
+ */
+.bl-occasion-effects__corner .bl-occasion-scene {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/*
+ * Canada Day: two larger, mostly-still maple leaves (as distinct from the
+ * falling confetti further below) -- a slow bob-and-turn in a fixed
+ * corner spot, the same "ambient, not falling" treatment team-flyout.css's
+ * own crest-bob animation uses for its own icons. Placed here, ahead of
+ * the falling-confetti colour rule below that targets the same
+ * `.bl-occasion-motif--maple-leaf` element via a MORE specific selector
+ * (stylelint's no-descending-specificity: the less-specific selector
+ * must come first).
+ */
+.bl-occasion-effects__accent-leaf {
+	position: absolute;
+	width: 64px;
+	height: 64px;
+	color: #a32c1b;
+	opacity: 0.8;
+	animation-name: bl-occasion-leaf-bob;
+	animation-duration: 7s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.bl-occasion-effects__accent-leaf .bl-occasion-motif--maple-leaf {
+	width: 100%;
+	height: 100%;
+}
+
+@keyframes bl-occasion-leaf-bob {
+
+	0%,
+	100% {
+		transform: translateY(0) rotate(-6deg);
+	}
+
+	50% {
+		transform: translateY(-14px) rotate(8deg);
+	}
+}
+
+.bl-occasion-effects__accent-leaf--a {
+	bottom: 8%;
+	left: 6%;
+	animation-delay: 0s;
+}
+
+.bl-occasion-effects__accent-leaf--b {
+	bottom: 14%;
+	right: 8%;
+	animation-delay: 3s;
+}
+
+@media (max-width: 879.98px) {
+
+	.bl-occasion-effects__accent-leaf {
+		display: none;
+	}
+}
+
+/*
+ * Remembrance Day: falling poppies. Deliberately sparser and slower than
+ * the snow above (blueline_render_occasion_effects() prints fewer of
+ * these -- 8 against Christmas' 18) and a plainer, single-size treatment
+ * with no depth-cue sizing: restraint matters more than density for a
+ * commemorative occasion. Reuses blueline_render_occasion_motif_poppy()'s
+ * own SVG (the same real, sized poppy already used next to the header
+ * CTA), not a separate simplified asset -- one accessible poppy icon for
+ * the whole theme. Colour comes from --bl-occasion-accent, which now
+ * defaults to an a11y-safe poppy red (blueline_occasion_themed_accent_
+ * default(), inc/occasions.php) rather than the generic occasion accent
+ * default -- an admin-picked accent still wins when one is set.
+ */
+.bl-occasion-effects--poppy .bl-occasion-effects__particle {
+	--bl-occasion-fall-opacity: 0.75;
+	--bl-occasion-fall-size: 30px;
+}
+
+.bl-occasion-effects--poppy .bl-occasion-effects__particle .bl-occasion-motif--poppy {
+	width: 100%;
+	height: 100%;
+	color: var(--bl-occasion-accent, #ff5c5c);
+}
+
+/*
+ * Canada Day: falling maple-leaf confetti, a calmer companion to the
+ * firework bursts below so the page is not "all bursts". Reuses
+ * blueline_render_occasion_motif_maple_leaf()'s own SVG, the same asset
+ * the header motif uses.
+ */
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__particle {
+	--bl-occasion-fall-opacity: 0.75;
+	--bl-occasion-fall-duration: 22s;
+	--bl-occasion-fall-size: 24px;
+}
+
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__particle .bl-occasion-motif--maple-leaf {
+	width: 100%;
+	height: 100%;
+	color: #a32c1b;
+}
+
+/*
+ * ---- Christmas: snow depth cue ----
+ *
+ * Larger, slower flakes read as "closer" to the viewer; smaller, faster
+ * ones read as "farther" -- a cheap depth cue from properties this layer
+ * already varies per lane, not a new mechanism.
+ */
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle:nth-child(6n+1),
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle:nth-child(6n+4) {
+	--bl-occasion-fall-size: 10px;
+}
+
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle:nth-child(6n+2),
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle:nth-child(6n+5) {
+	--bl-occasion-fall-size: 6px;
+}
+
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle:nth-child(6n+3),
+.bl-occasion-effects--snowflake .bl-occasion-effects__particle:nth-child(6n) {
+	--bl-occasion-fall-size: 4px;
+}
+
+/*
+ * ---- Christmas: snowdrift + frost vignette ----
+ *
+ * Both pure CSS on the wrapper's own `::before`/`::after` -- no new PHP
+ * markup needed, since neither varies per-instance the way particles and
+ * scenes do. `::before` is the frost: four corner radial-gradients using
+ * color-mix() rather than a literal rgba() (tools/check-contrast.mjs's
+ * own lint: a literal rgba() whose channels match a token's hex is
+ * flagged, since it can silently drift from the token it was copied
+ * from). `::after` is the drift: a repeating radial-gradient scallop
+ * (the same "box-shadow ring" spirit as the firework bursts above, just
+ * built from a background instead) sitting on a solid strip, both fixed
+ * to the bottom edge.
+ */
+.bl-occasion-effects--snowflake::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	background:
+		radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--bl-paper) 55%, transparent), transparent 24%),
+		radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--bl-paper) 55%, transparent), transparent 24%),
+		radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--bl-paper) 45%, transparent), transparent 22%),
+		radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--bl-paper) 45%, transparent), transparent 22%);
+}
+
+.bl-occasion-effects--snowflake::after {
+	content: "";
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 22px;
+	background:
+		radial-gradient(circle at 14px 22px, var(--bl-paper) 13px, transparent 14px) 0 0 / 28px 22px repeat-x,
+		linear-gradient(var(--bl-paper), var(--bl-paper)) 0 12px / 100% 10px no-repeat;
+	opacity: 0.9;
+
+	/*
+	 * Most of this site's own page backgrounds ARE --bl-paper
+	 * (--bl-content-bg's own value, style.css) -- the drift's white fill
+	 * is otherwise invisible sitting on a page section that pale. A soft
+	 * dark edge (the scallops' own alpha shape, not a flat rectangle)
+	 * gives it definition against ANY background, light or dark.
+	 */
+	filter: drop-shadow(0 -2px 3px color-mix(in srgb, var(--bl-ink) 18%, transparent));
+}
+
+/*
+ * ---- New Year: white/gold firework bursts ----
+ *
+ * White and warm gold only, never the site's occasion accent or any
+ * blue -- a "white or yellow" brief reads as literally that palette, not
+ * tinted to whatever accent an admin happens to have configured. Gold is
+ * a fixed literal (#ffd873, not a design-system token): this effect is
+ * the only place it is used, matching the maple-leaf motif's own
+ * precedent of a fixed literal red rather than adding a token for a
+ * single decorative use.
+ */
+.bl-occasion-effects--sparkle .bl-occasion-effects__burst:nth-child(6n+1),
+.bl-occasion-effects--sparkle .bl-occasion-effects__burst:nth-child(6n+3),
+.bl-occasion-effects--sparkle .bl-occasion-effects__burst:nth-child(6n+5) {
+	--bl-occasion-burst-color: var(--bl-paper);
+}
+
+.bl-occasion-effects--sparkle .bl-occasion-effects__burst:nth-child(6n+2),
+.bl-occasion-effects--sparkle .bl-occasion-effects__burst:nth-child(6n+4),
+.bl-occasion-effects--sparkle .bl-occasion-effects__burst:nth-child(6n) {
+	--bl-occasion-burst-color: #ffd873;
+}
+
+.bl-occasion-effects--sparkle .bl-occasion-effects__hero-burst {
+	--bl-occasion-burst-color: var(--bl-paper);
+}
+
+/*
+ * ---- Canada Day: colourful firework bursts ----
+ *
+ * Three colours in rotation (the flag's own red/white, plus gold for
+ * variety) -- a livelier show than a strict two-colour palette while
+ * still reading as "this occasion's" fireworks rather than a generic
+ * rainbow.
+ */
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__burst:nth-child(6n+1),
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__burst:nth-child(6n+4) {
+	--bl-occasion-burst-color: #a32c1b;
+}
+
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__burst:nth-child(6n+2),
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__burst:nth-child(6n+5) {
+	--bl-occasion-burst-color: var(--bl-paper);
+}
+
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__burst:nth-child(6n+3),
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__burst:nth-child(6n) {
+	--bl-occasion-burst-color: #ffd873;
+}
+
+.bl-occasion-effects--maple-leaf .bl-occasion-effects__hero-burst {
+	--bl-occasion-burst-color: #a32c1b;
+}
+
+/*
+ * Reduced motion: freeze every animated piece at a visible resting frame
+ * rather than removing it -- this theme's own convention (compare
+ * team-flyout.css's identical `animation: none` block), never a full
+ * `display: none` of the whole effects layer. A frozen mid-fall particle
+ * or a frozen firework mid-bloom still reads as festive decoration; it
+ * just no longer moves. The snowdrift/frost vignette are already static
+ * (no animation), so neither needs an entry here.
+ */
+@media (prefers-reduced-motion: reduce) {
+
+	.bl-occasion-effects__particle,
+	.bl-occasion-effects__burst,
+	.bl-occasion-effects__hero-burst {
+		animation: none;
+		opacity: var(--bl-occasion-fall-opacity, 0.85);
+	}
+
+	.bl-occasion-effects__burst,
+	.bl-occasion-effects__hero-burst {
+		transform: scale(1);
+		opacity: 0.6;
+	}
+
+	.bl-occasion-effects__accent-leaf {
+		animation: none;
+	}
+
+	.bl-occasion-effects__year-digit {
+		animation: none;
+		opacity: 1;
+		transform: scale(1);
+		text-shadow: 0 0 10px currentcolor;
+	}
+}

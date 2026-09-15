@@ -275,9 +275,12 @@ final class OccasionsResolverTest extends TestCase {
 			BLUELINE_SETTINGS_OPTION,
 			array(
 				'occasions' => array(
-					'canada-day' => $this->occasion(
+					// A neutral id (not 'canada-day'/'remembrance-day'): those two
+					// now have their own blueline_occasion_themed_accent_default()
+					// override, which this test is not exercising -- it wants the
+					// GENERIC blueline_occasion_accent_default() fallback below.
+					'test-occasion' => $this->occasion(
 						array(
-							'id'     => 'canada-day',
 							'window' => array(
 								'start_md' => '07-01',
 								'end_md'   => '07-01',
@@ -292,7 +295,7 @@ final class OccasionsResolverTest extends TestCase {
 		$resolved = blueline_resolve_active_occasion( $now );
 
 		$this->assertNotNull( $resolved );
-		$this->assertSame( 'canada-day', $resolved['id'] );
+		$this->assertSame( 'test-occasion', $resolved['id'] );
 		$this->assertSame( blueline_occasion_accent_default(), $resolved['resolved_accent'] );
 	}
 
@@ -710,10 +713,12 @@ final class OccasionsResolverTest extends TestCase {
 					// Empty accent resolves to blueline_occasion_accent_default()
 					// -- the real style.css default, which passes contrast --
 					// same fixture shape test_resolver_force_on_ignores_the_window()
-					// above already relies on.
-					'canada-day' => $this->occasion(
+					// above already relies on. A neutral id (not 'canada-day'/
+					// 'remembrance-day'): those two now have their own
+					// blueline_occasion_themed_accent_default() override, which
+					// this test is not exercising.
+					'test-occasion' => $this->occasion(
 						array(
-							'id'   => 'canada-day',
 							'mode' => 'force_on',
 						)
 					),

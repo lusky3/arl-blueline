@@ -121,6 +121,17 @@ Text Domain: blueline
 	 * more than one layer of overlapping fixed/absolute elements, so this is
 	 * the whole scale -- low to high:
 	 *
+	 *   --bl-z-occasion-effect ambient seasonal decoration (occasions.css) --
+	 *                          ONE level above ordinary in-flow content (so a
+	 *                          fixed snowflake/firework layer painted before
+	 *                          it in DOM order still shows above it, since
+	 *                          both are otherwise the same auto/0 stacking
+	 *                          level) but below every other named layer here,
+	 *                          so it can never sit on top of real UI. Also
+	 *                          carries `pointer-events: none` as
+	 *                          defence-in-depth (occasions.css), not relying
+	 *                          on z-index alone to stay out of the way of
+	 *                          clicks/taps.
 	 *   --bl-z-nav-submenu     desktop dropdown submenu (nav.css)
 	 *   --bl-z-floating-widget the sitewide floating next-game widget
 	 *                          (floating-next-game.css) -- above ordinary
@@ -138,6 +149,7 @@ Text Domain: blueline
 	 * Values are unchanged from the bare integers header.css/nav.css used
 	 * before this scale existed; this is a rename, not a re-order.
 	 */
+	--bl-z-occasion-effect: 1;
 	--bl-z-nav-submenu: 40;
 	--bl-z-floating-widget: 45;
 	--bl-z-drawer: 50;

@@ -30,6 +30,14 @@ blueline_render_floating_next_game();
  * 'flyout' (blueline_render_team_flyout()'s own guard).
  */
 blueline_render_team_flyout();
+
+/*
+ * Same "persistent overlay chrome, not in-flow content" placement as the
+ * two renderers above -- prints nothing unless blueline_resolve_active_
+ * occasion() (inc/occasions.php) currently resolves one AND its motif has
+ * an effect defined (blueline_render_occasion_effects()'s own guard).
+ */
+blueline_render_occasion_effects();
 wp_footer();
 ?>
 </body>
