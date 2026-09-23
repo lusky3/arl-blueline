@@ -602,10 +602,29 @@
  * not a global override of `.sp-sponsor-logo` itself, which stays
  * untouched (and correctly sized at its own default 256px) everywhere
  * else it's used (e.g. the footer sponsor band, sportspress.css).
+ *
+ * max-height added later, reported live: padding visible above the logo
+ * but none below, slightly overlapping the divider band under this strip.
+ * Root cause: SportsPress's own sportspress-sponsors.css sets
+ * `.sp-header-sponsors .sp-sponsors .sponsor { margin: 5px }` -- a
+ * three-class (0,3,0) selector that beats this theme's own single-class
+ * `.sponsor { margin: var(--bl-space-2) }` (sportspress.css) outright, the
+ * same kind of plugin-CSS-wins-the-tie case documented on
+ * `.sp-footer-sponsors .sp-sponsors .sp-sponsors-title` further down this
+ * file. The CURRENT real sponsor logo (confirmed live, this slot: 282x72,
+ * far shorter/wider than the 2:1 slot ratio) renders at ~61px tall inside
+ * this 248px-wide box -- add the plugin's own 5px top margin and that
+ * already exceeds the loader's 64px cap (below) before the matching 5px
+ * bottom margin ever gets drawn, so `overflow:hidden` clips the image
+ * itself flush against the loader's bottom edge, and the bottom margin
+ * never renders at all. Capping the image's own height here, instead of
+ * fighting the plugin's margin selector for specificity, guarantees slack
+ * on both sides regardless of exactly which margin value wins that fight.
  */
 .bl-header__sponsors img {
 	max-width: 100% !important;
 	height: auto !important;
+	max-height: calc(64px - (2 * var(--bl-space-2))) !important;
 }
 
 /*
