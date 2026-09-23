@@ -53,16 +53,26 @@
 	 * true viewport edge, per <feedback>: it previously stopped wherever
 	 * the centered 1400px container did, leaving a growing dead gap past
 	 * it on any screen wider than that (confirmed live: ~290px of empty
-	 * space at 1920px). A negative inline-end margin, sized to exactly the
-	 * container's own current outer margin plus its inline padding, pulls
-	 * the sidebar's box out to the literal edge without touching the
-	 * container itself (so the content column's width/centering, and every
-	 * other .bl-container on the page, are untouched) -- the sidebar's own
-	 * padding-inline-end below then restores a comfortable inner gutter so
-	 * its content doesn't touch the browser edge.
+	 * space at 1920px). Its own width stays pinned at the original 300px
+	 * (a second live regression: an earlier version of this rule used a
+	 * negative margin-inline-end to pull the box over, which on a grid
+	 * item with width:auto also INFLATES the box, since "auto" width is
+	 * computed as "track size minus margins" -- 300px track minus a
+	 * -284px margin rendered at 584px wide, confirmed live at 1920px.
+	 * Pinning width:300px fixed the ballooning, but a fixed-width grid
+	 * item aligns to the START of its track by default and margin on the
+	 * END side no longer has anywhere to push it -- so the shift now uses
+	 * `translate` instead of margin: a pure paint-time offset that never
+	 * participates in box-sizing or grid track alignment at all, sized to
+	 * exactly the container's own current outer margin plus its inline
+	 * padding, same as before). padding-inline-end below then restores a
+	 * comfortable inner gutter so its content doesn't touch the browser
+	 * edge -- box-sizing:border-box (base.css) keeps that padding inside
+	 * the pinned 300px rather than adding to it.
 	 */
 	.bl-sidebar {
-		margin-inline-end: calc(-1 * (max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)));
+		width: 300px;
+		translate: calc(max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)) 0;
 		padding-inline-end: var(--bl-space-5);
 	}
 }
