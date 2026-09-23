@@ -74,12 +74,21 @@ function blueline_homepage_registration_offers( array $state_data ): array {
 }
 
 /**
- * A short, human label for one registration product, such as "Player" or
- * "Goalie", whatever the site's own WooCommerce product_tag taxonomy says, so the
- * price-breakdown subcopy (see blueline_homepage_registration_cta_pricing())
- * never has to hardcode a role name. Falls back to the product's own title
- * with a trailing "(Season Label)" parenthetical stripped (e.g. "Player
- * Registration (W2026-27)" -> "Player Registration") when no tag is set.
+ * A short, human label for one registration product, such as "Player",
+ * "Goalie", or "Player Waitlist", whatever the site's own WooCommerce
+ * product_tag taxonomy says, so the price-breakdown subcopy (see
+ * blueline_homepage_registration_cta_pricing()) never has to hardcode a
+ * role name. Falls back to the product's own title with a trailing
+ * "(Season Label)" parenthetical stripped (e.g. "Player Registration
+ * (W2026-27)" -> "Player Registration") when no tag is set.
+ *
+ * Joins EVERY tag the product carries, not just the first: a waitlist
+ * product here is tagged both its role ("Player"/"Goalie") AND
+ * "Waitlist", and taking only tags[0] silently dropped the "Waitlist"
+ * qualifier the moment term order put the role tag first -- the $0.00
+ * waitlist offer then displayed with the exact same label as the paid
+ * registration offer, reading as duplicate/broken data instead of two
+ * distinct, real offers.
  *
  * @param object $product A WC_Product instance.
  * @return string
@@ -89,7 +98,7 @@ function blueline_homepage_registration_offer_role_label( $product ): string {
 		$tags = wp_get_post_terms( $product->get_id(), 'product_tag', array( 'fields' => 'names' ) );
 
 		if ( ! is_wp_error( $tags ) && ! empty( $tags ) ) {
-			return (string) $tags[0];
+			return implode( ' ', $tags );
 		}
 	}
 
@@ -837,7 +846,23 @@ function blueline_homepage_module_next_games() {
 	blueline_homepage_module_start( 'next_games', __( 'Next games', 'blueline' ), blueline_resolve_link( 'page_schedule' ), __( 'Full schedule', 'blueline' ) );
 
 	if ( empty( $events ) ) {
-		blueline_homepage_module_empty_state( __( 'No games on the schedule yet — check back soon.', 'blueline' ) );
+		// This empty state used to say the same "nothing scheduled" line
+		// regardless of context, including while the Standings module one
+		// scroll down was showing a fully populated, live table -- a plain
+		// contradiction with no explanation (2026 homepage critique). No
+		// upcoming sp_event post existing does not mean nothing is
+		// happening: it means no NEXT-game post has been created yet, which
+		// is a different, much less alarming fact when the season demonstrably
+		// has recent results to show.
+		$blueline_next_games_state = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
+		$blueline_has_standings    = function_exists( 'blueline_homepage_current_standings_tables' )
+			&& ! empty( blueline_homepage_current_standings_tables( $blueline_next_games_state ) );
+
+		blueline_homepage_module_empty_state(
+			$blueline_has_standings
+				? __( 'No new games posted yet — check Standings below for how the season’s going.', 'blueline' )
+				: __( 'No games on the schedule yet — check back soon.', 'blueline' )
+		);
 	} else {
 		?>
 		<ul class="bl-next-games">

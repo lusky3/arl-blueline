@@ -239,6 +239,25 @@ final class RegistrationPricingTest extends TestCase {
 	}
 
 	/**
+	 * A product carrying more than one product_tag term (real-world case:
+	 * a $0.00 waitlist product tagged both its role, "Player", AND
+	 * "Waitlist") gets a label built from EVERY tag, not just the first --
+	 * "Player Waitlist", not merely "Player". Taking only tags[0] made this
+	 * waitlist offer's role label identical to the paid "Player
+	 * Registration" offer's, so the price breakdown showed two "Player"
+	 * lines at different prices with no way to tell them apart.
+	 */
+	public function test_role_label_joins_every_tag_not_just_the_first(): void {
+		blueline_test_register_term( 300, 'product_tag', 'Player' );
+		blueline_test_register_term( 301, 'product_tag', 'Waitlist' );
+		blueline_test_set_post_terms( 117220, 'product_tag', array( 300, 301 ) );
+
+		$product = new BluelineFakeProduct( 117220, 'Player Waitlist (W2026-27)', '0' );
+
+		$this->assertSame( 'Player Waitlist', blueline_homepage_registration_offer_role_label( $product ) );
+	}
+
+	/**
 	 * End-to-end (still without a real WC_Product): the hero content builder
 	 * puts the single price on the CTA when every offer agrees, and no
 	 * price-breakdown subcopy line appears.

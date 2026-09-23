@@ -66,10 +66,25 @@
  * "inal score coming soon". Scoped to the primary content column, not
  * .bl-container itself, so header/footer chrome -- which never showed
  * this symptom -- doesn't also shift.
+ *
+ * .bl-hero__inner and .bl-module__inner (added later, 2026 homepage
+ * critique): the homepage template never used .bl-content-layout__primary
+ * at all -- <main class="bl-main bl-main--homepage"> wraps the hero and
+ * every module directly -- so this fix never reached it, and the exact
+ * same clipping reappeared there: "tryouts" as "ryouts" in the "Never
+ * played? Perfect." reassurance copy, "Player" as "layer" in the hero's
+ * own price line. Both wrappers already carry .bl-container alongside
+ * their own class (`<div class="bl-container bl-hero__inner">`, `<div
+ * class="bl-container bl-module__inner">`), the same two-class shape
+ * .bl-content-layout__primary itself is not -- listed here instead of
+ * widening the selector to bare .bl-container, for the identical
+ * header/footer-chrome reason above.
  */
 @media (max-width: 1264px) {
 
-	.bl-content-layout__primary {
+	.bl-content-layout__primary,
+	.bl-hero__inner,
+	.bl-module__inner {
 		padding-inline-start: var(--bl-team-flyout-width);
 	}
 }

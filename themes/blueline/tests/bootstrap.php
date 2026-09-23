@@ -1652,18 +1652,23 @@ if ( ! function_exists( 'get_terms' ) ) {
 if ( ! function_exists( 'wp_get_post_terms' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' wp_get_post_terms(): the term objects
-	 * a test associated with a fake post via blueline_test_set_post_terms(),
-	 * or an empty array for a post/taxonomy no test ever associated any
-	 * terms with (faithful to core's own contract: an empty array, never
-	 * `false` or `null`, is a normal "no terms" result -- only an actually
-	 * invalid taxonomy returns a WP_Error).
+	 * (or, with `'fields' => 'names'`, their plain name strings -- real core
+	 * honours that, and blueline_homepage_registration_offer_role_label()'s
+	 * own `(string) $tags[0]` return depends on it) a test associated with a
+	 * fake post via blueline_test_set_post_terms(), or an empty array for a
+	 * post/taxonomy no test ever associated any terms with (faithful to
+	 * core's own contract: an empty array, never `false` or `null`, is a
+	 * normal "no terms" result -- only an actually invalid taxonomy returns
+	 * a WP_Error).
 	 *
 	 * @param int    $post_id  Post ID.
 	 * @param string $taxonomy Taxonomy to fetch terms from.
-	 * @param array  $args     Unused; kept for signature parity with core.
-	 * @return object[]|WP_Error
+	 * @param array  $args     Only `fields` is honoured (`'names'` maps each
+	 *                         term to its `->name`; anything else, including
+	 *                         omitted, returns full term objects).
+	 * @return array<int, object|string>|WP_Error
 	 */
-	function wp_get_post_terms( $post_id, $taxonomy, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test needs args-based filtering (fields, orderby, ...).
+	function wp_get_post_terms( $post_id, $taxonomy, $args = array() ) {
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return new WP_Error( 'invalid_taxonomy', 'Invalid taxonomy.' );
 		}
@@ -1676,6 +1681,15 @@ if ( ! function_exists( 'wp_get_post_terms' ) ) {
 			if ( isset( $state['terms'][ $term_id ] ) ) {
 				$terms[] = $state['terms'][ $term_id ];
 			}
+		}
+
+		if ( 'names' === ( $args['fields'] ?? '' ) ) {
+			return array_map(
+				static function ( $term ) {
+					return $term->name;
+				},
+				$terms
+			);
 		}
 
 		return $terms;
