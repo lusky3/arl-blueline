@@ -1316,7 +1316,7 @@ function blueline_homepage_new_here_widgets_init() {
 function blueline_homepage_new_here_intro() {
 	?>
 	<p class="bl-new-here__intro">
-		<?php esc_html_e( 'Every player on every team here started exactly where you are: never having played an organized game of hockey. That\'s not the exception in this league. It\'s most of the room.', 'blueline' ); ?>
+		<?php esc_html_e( 'This league runs the full range, from players who\'ve never laced up before this season to players who\'ve been doing this for years. Wherever you fall, you\'re not the only one.', 'blueline' ); ?>
 	</p>
 	<?php
 }
@@ -1331,7 +1331,7 @@ function blueline_homepage_new_here_q1_default() {
 	?>
 	<div class="bl-new-here__qa-item">
 		<dt><?php esc_html_e( 'Will I be the worst one out there?', 'blueline' ); ?></dt>
-		<dd><?php esc_html_e( 'Almost certainly not, and it wouldn\'t matter if you were. This is a co-ed beginner league by design — no tryouts, no cuts, and teams built to be even, not stacked.', 'blueline' ); ?></dd>
+		<dd><?php esc_html_e( 'Almost certainly not, and it wouldn\'t matter if you were. Teams are built to be even across every skill level in the room, not stacked. No tryouts, no cuts.', 'blueline' ); ?></dd>
 	</div>
 	<?php
 }
@@ -1369,7 +1369,7 @@ function blueline_homepage_new_here_q3_default() {
 	?>
 	<div class="bl-new-here__qa-item">
 		<dt><?php esc_html_e( 'What if I can\'t really skate yet?', 'blueline' ); ?></dt>
-		<dd><?php esc_html_e( 'Then you\'ll fit right in with half the room. Games are paced for people still finding their edges, not for anyone trying out for the NHL.', 'blueline' ); ?></dd>
+		<dd><?php esc_html_e( 'You don\'t need to have played hockey before, but you\'ll want to be comfortable on skates first. From there, divisions are grouped by comfort level, from rooms still finding their stride to rooms that have been doing this for years, so you\'re never out of your depth.', 'blueline' ); ?></dd>
 	</div>
 	<?php
 }
