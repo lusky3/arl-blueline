@@ -233,9 +233,38 @@
 	margin-block-start: var(--bl-space-6);
 }
 
+/*
+ * Mini blue-line band (device #2, see footer.css's identical ::before/
+ * ::after technique) under every widget title -- a quiet echo of the same
+ * ice+ink divider used at chrome/content boundaries elsewhere, applied
+ * here without changing before_title/after_title's plain <h2> markup
+ * (inc/setup.php's blueline_widgets_init()).
+ */
 .bl-sidebar .widget-title {
-	margin-block: 0 var(--bl-space-3);
+	position: relative;
+	margin-block: 0 var(--bl-space-4);
+	padding-block-end: var(--bl-space-3);
 	font-size: var(--bl-text-lg);
+}
+
+.bl-sidebar .widget-title::before,
+.bl-sidebar .widget-title::after {
+	content: "";
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline-start: 0;
+	width: 2.5rem;
+}
+
+.bl-sidebar .widget-title::before {
+	inset-block-end: var(--bl-band-ink);
+	height: var(--bl-band-ice);
+	background: var(--bl-occasion-accent);
+}
+
+.bl-sidebar .widget-title::after {
+	height: var(--bl-band-ink);
+	background: var(--bl-ink);
 }
 
 .bl-sidebar ul {
@@ -246,6 +275,90 @@
 
 .bl-sidebar li + li {
 	margin-block-start: var(--bl-space-2);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
+.bl-sidebar a {
+	color: var(--bl-content-link);
+}
+
+.bl-sidebar .widget :where(td, th) {
+	font-variant-numeric: tabular-nums;
+}
+
+/*
+ * "On this page" jump-nav rail (page-sidebar-navigation.php) -- an
+ * alternate first block inside the same .bl-sidebar <aside>, for pages
+ * whose own content had 2+ real section headings. Sticky only at the
+ * same >=960px breakpoint .bl-content-layout--has-sidebar itself uses
+ * (above): below that width the sidebar sits in the single-column flow
+ * under the content, where sticking it would just pin it over whatever
+ * scrolls past next.
+ */
+.bl-jump-nav {
+	margin-block-end: var(--bl-space-6);
+}
+
+@media (min-width: 960px) {
+
+	.bl-sidebar--jump-nav .bl-jump-nav {
+		position: sticky;
+
+		/* Matches html's own scroll-padding-top recipe (base.css) so the
+		 * rail clears the fixed header by the same margin an anchor jump
+		 * already does. */
+		inset-block-start: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5));
+		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
+		overflow-y: auto;
+	}
+}
+
+.bl-jump-nav__label {
+	display: inline-block;
+	margin-block-end: var(--bl-space-4);
+	font-family: var(--bl-font-display);
+	font-size: var(--bl-text-sm);
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--bl-content-text-secondary);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
+.bl-jump-nav__list a {
+	display: block;
+	padding-block: var(--bl-space-1);
+	padding-inline-start: var(--bl-space-3);
+	border-inline-start: 2px solid var(--bl-content-border);
+	color: var(--bl-content-text-secondary);
+	text-decoration: none;
+	transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.bl-jump-nav__list a:hover,
+.bl-jump-nav__list a:focus-visible {
+	color: var(--bl-content-link);
+	border-inline-start-color: var(--bl-steel);
+}
+
+.bl-jump-nav__list a.is-active {
+	color: var(--bl-content-text);
+	font-weight: 600;
+	border-inline-start-color: var(--bl-occasion-accent);
+}
+
+/*
+ * A two-tier page (FAQs: <h2> topics grouping <h3> questions -- 36 anchors
+ * on one page, confirmed live) reads as 36 visually identical rows without
+ * this: the <h2> topic entries (plain .bl-jump-nav__list a above) stay
+ * full-strength as section headers, while each <h3> question underneath is
+ * indented and quieter, so the list itself communicates the same grouping
+ * the page content does.
+ */
+/* stylelint-disable-next-line no-descending-specificity -- see comments */
+.bl-jump-nav__item--sub > a {
+	padding-inline-start: var(--bl-space-5);
+	font-size: var(--bl-text-sm);
 }
 
 /* Entry chrome (single post/page/entity) */

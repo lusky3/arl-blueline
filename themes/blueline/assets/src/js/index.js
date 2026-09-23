@@ -17,3 +17,4 @@ import './footer-theme-toggle.js';
 import './preferences-widget-reset.js';
 import './team-flyout.js';
 import './player-photo-upload.js';
+import './sidebar-jump-nav.js';
