@@ -47,6 +47,24 @@
 	.bl-container:has(> .bl-content-layout--has-sidebar) {
 		max-width: 1400px;
 	}
+
+	/*
+	 * The sidebar bleeds past the container's own right edge out to the
+	 * true viewport edge, per <feedback>: it previously stopped wherever
+	 * the centered 1400px container did, leaving a growing dead gap past
+	 * it on any screen wider than that (confirmed live: ~290px of empty
+	 * space at 1920px). A negative inline-end margin, sized to exactly the
+	 * container's own current outer margin plus its inline padding, pulls
+	 * the sidebar's box out to the literal edge without touching the
+	 * container itself (so the content column's width/centering, and every
+	 * other .bl-container on the page, are untouched) -- the sidebar's own
+	 * padding-inline-end below then restores a comfortable inner gutter so
+	 * its content doesn't touch the browser edge.
+	 */
+	.bl-sidebar {
+		margin-inline-end: calc(-1 * (max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)));
+		padding-inline-end: var(--bl-space-5);
+	}
 }
 
 .bl-content-layout__primary {
@@ -301,7 +319,21 @@
 
 @media (min-width: 960px) {
 
-	.bl-sidebar--jump-nav .bl-jump-nav {
+	/*
+	 * The WHOLE sidebar sticks together as one unit here, not just
+	 * .bl-jump-nav -- confirmed live: with only the nav itself sticky, the
+	 * plain-flow widgets below it (Next Puck Drop, Recent Posts) scrolled
+	 * up underneath it and visually overlapped/showed through, because
+	 * position:sticky creates a stacking context that paints above
+	 * static-positioned siblings regardless of DOM order (the nav is
+	 * earlier in the markup but still painted on top). Sticking the aside
+	 * itself keeps the nav and the widgets moving together, so nothing
+	 * scrolls behind it -- and because the aside's containing block for
+	 * stickiness is the grid row (.bl-content-layout), not its own short
+	 * content, it stays pinned for as long as the much-taller main content
+	 * column keeps scrolling, not just its own natural height.
+	 */
+	.bl-sidebar--jump-nav {
 		position: sticky;
 
 		/* Matches html's own scroll-padding-top recipe (base.css) so the
