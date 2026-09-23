@@ -38,16 +38,37 @@ function initStickyHeader() {
 	let stuck = false;
 
 	/*
+	 * Counts the shrink/expand CSS transitions currently running on the
+	 * header's own descendants (.bl-header__inner's padding-block,
+	 * .bl-header__logo's height, .bl-header__sponsors' height+opacity --
+	 * all header.css, all keyed off the same --bl-header-shrink-speed).
+	 * Confirmed live: without this guard, the ResizeObserver below fires on
+	 * every intermediate animation frame while the header expands back out,
+	 * and since `stuck` has already flipped to false at that point,
+	 * publishRestHeight() measured the header MID-ANIMATION -- e.g. 100px,
+	 * then 137px, 160px, 173px, climbing toward the real 181px over the
+	 * transition's ~200ms -- and published each wrong intermediate value as
+	 * the "rest height". .bl-header__spacer reads that same property, so
+	 * its supposedly-constant reserved height shrank and grew right along
+	 * with the animation, moving real document content and the reader's
+	 * scroll position with it: exactly the jarring up-and-down jump the
+	 * fixed-plus-spacer arrangement was built to prevent, just reintroduced
+	 * through this side door instead of the shrink itself.
+	 */
+	let activeTransitions = 0;
+
+	/*
 	 * Publish the header's un-shrunk height so .bl-header__spacer can reserve
 	 * exactly that much. CSS cannot compute it: the sponsor slot is filled
 	 * asynchronously by SportsPress (and may stay empty), the menu's line count
 	 * depends on the viewport, and web fonts change the row height when they
-	 * load. Only ever measured while NOT stuck -- measuring the shrunk header
-	 * would shrink the reservation too and reintroduce the exact content jump
-	 * the fixed-plus-spacer arrangement exists to prevent.
+	 * load. Only ever measured while NOT stuck and NOT mid-transition (see
+	 * activeTransitions above) -- either one measures a smaller-than-resting
+	 * height and would shrink the reservation too, reintroducing the exact
+	 * content jump the fixed-plus-spacer arrangement exists to prevent.
 	 */
 	const publishRestHeight = () => {
-		if ( stuck ) {
+		if ( stuck || activeTransitions > 0 ) {
 			return;
 		}
 
@@ -60,6 +81,24 @@ function initStickyHeader() {
 			);
 		}
 	};
+
+	header.addEventListener( 'transitionrun', () => {
+		activeTransitions += 1;
+	} );
+
+	header.addEventListener( 'transitionend', () => {
+		activeTransitions = Math.max( 0, activeTransitions - 1 );
+
+		// Take the one measurement that matters -- after the header has
+		// actually finished moving, not a snapshot mid-flight.
+		if ( 0 === activeTransitions ) {
+			publishRestHeight();
+		}
+	} );
+
+	header.addEventListener( 'transitioncancel', () => {
+		activeTransitions = Math.max( 0, activeTransitions - 1 );
+	} );
 
 	const apply = () => {
 		const y = window.scrollY;
