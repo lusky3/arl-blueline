@@ -1393,6 +1393,42 @@ function blueline_render_team_calendar_links_hook() {
 }
 
 /**
+ * Shared start/end timestamps and venue label for a single sp_event's
+ * calendar links (Google and Apple/Outlook, blueline_sp_event_calendar_url()
+ * and blueline_sp_event_ics_url() below) -- kept in one place so the two
+ * links can never silently disagree on when the game starts/ends or where
+ * it is.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return array{start:int, end:int, location:string}|null Null when the
+ *         start time is unknown.
+ */
+function blueline_sp_event_calendar_bounds( $event_id ) {
+	$start_ts = blueline_sp_event_start_timestamp( $event_id );
+
+	if ( ! $start_ts ) {
+		return null;
+	}
+
+	$minutes = 90;
+	if ( class_exists( 'SP_Event' ) ) {
+		$event         = new SP_Event( $event_id );
+		$event_minutes = (int) $event->minutes();
+		if ( $event_minutes > 0 ) {
+			$minutes = $event_minutes;
+		}
+	}
+
+	$venue_names = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue', array( 'fields' => 'names' ) ) : array();
+
+	return array(
+		'start'    => $start_ts,
+		'end'      => $start_ts + ( $minutes * MINUTE_IN_SECONDS ),
+		'location' => ( ! is_wp_error( $venue_names ) && ! empty( $venue_names ) ) ? $venue_names[0] : '',
+	);
+}
+
+/**
  * A Google Calendar "add event" link for a single upcoming sp_event. No JS, no
  * external dependency beyond the calendar.google.com URL scheme: a plain
  * <a href> that works with or without a Google account.
@@ -1405,34 +1441,82 @@ function blueline_render_team_calendar_links_hook() {
  * @return string Escaped-ready URL, or '' if the start time is unknown.
  */
 function blueline_sp_event_calendar_url( $event_id ) {
-	$start_ts = blueline_sp_event_start_timestamp( $event_id );
+	$bounds = blueline_sp_event_calendar_bounds( $event_id );
 
-	if ( ! $start_ts ) {
+	if ( ! $bounds ) {
 		return '';
 	}
-
-	$minutes = 90;
-	if ( class_exists( 'SP_Event' ) ) {
-		$event         = new SP_Event( $event_id );
-		$event_minutes = (int) $event->minutes();
-		if ( $event_minutes > 0 ) {
-			$minutes = $event_minutes;
-		}
-	}
-
-	$end_ts = $start_ts + ( $minutes * MINUTE_IN_SECONDS );
-
-	$venue_names = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue', array( 'fields' => 'names' ) ) : array();
-	$location    = ( ! is_wp_error( $venue_names ) && ! empty( $venue_names ) ) ? $venue_names[0] : '';
 
 	$args = array(
 		'action'   => 'TEMPLATE',
 		'text'     => blueline_sp_title( $event_id ),
-		'dates'    => gmdate( 'Ymd\THis\Z', $start_ts ) . '/' . gmdate( 'Ymd\THis\Z', $end_ts ),
-		'location' => $location,
+		'dates'    => gmdate( 'Ymd\THis\Z', $bounds['start'] ) . '/' . gmdate( 'Ymd\THis\Z', $bounds['end'] ),
+		'location' => $bounds['location'],
 	);
 
 	return add_query_arg( $args, 'https://calendar.google.com/calendar/render' );
+}
+
+/**
+ * An Apple/Outlook "add event" link for a single upcoming sp_event.
+ *
+ * Reported live: the event page's "Add to calendar" only ever offered
+ * Google -- the one-off single-event equivalent of the gap
+ * blueline_render_team_calendar_links() already closed for a team's whole
+ * season (that function's own docblock covers why a subscription needs
+ * BOTH forms; the same "no single link works everywhere" reasoning applies
+ * here). A subscription feed is the wrong shape for a one-off add, though
+ * (RFC 5545 requires webcal:// to serve reachable HTTP with the calendar
+ * app then polling it forever), so this builds a self-contained VCALENDAR/
+ * VEVENT as a `data:text/calendar` URI instead of a URL -- no server
+ * endpoint needed, the same "no external dependency" property
+ * blueline_sp_event_calendar_url() already has for Google. Opening it
+ * downloads a one-shot .ics that iOS/macOS Calendar and Windows Outlook
+ * all already know how to import directly.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string Escaped-ready data: URI, or '' if the start time is unknown.
+ */
+function blueline_sp_event_ics_url( $event_id ) {
+	$bounds = blueline_sp_event_calendar_bounds( $event_id );
+
+	if ( ! $bounds ) {
+		return '';
+	}
+
+	// RFC 5545 TEXT escaping: backslash first, so the characters this adds
+	// are never themselves re-escaped by the following replacements.
+	$escape = static function ( $text ) {
+		$text = str_replace( '\\', '\\\\', (string) $text );
+		return str_replace( array( ',', ';', "\n" ), array( '\,', '\;', '\n' ), $text );
+	};
+
+	$host = wp_parse_url( home_url(), PHP_URL_HOST );
+
+	$lines = array(
+		'BEGIN:VCALENDAR',
+		'VERSION:2.0',
+		'PRODID:-//' . $host . '//Event//EN',
+		'BEGIN:VEVENT',
+		'UID:sp-event-' . $event_id . '@' . $host,
+		'DTSTAMP:' . gmdate( 'Ymd\THis\Z' ),
+		'DTSTART:' . gmdate( 'Ymd\THis\Z', $bounds['start'] ),
+		'DTEND:' . gmdate( 'Ymd\THis\Z', $bounds['end'] ),
+		'SUMMARY:' . $escape( blueline_sp_title( $event_id ) ),
+	);
+
+	if ( $bounds['location'] ) {
+		$lines[] = 'LOCATION:' . $escape( $bounds['location'] );
+	}
+
+	$lines[] = 'END:VEVENT';
+	$lines[] = 'END:VCALENDAR';
+
+	// CRLF line endings are RFC 5545, not a style choice -- some calendar
+	// clients reject a feed that uses bare \n instead.
+	$ics = implode( "\r\n", $lines ) . "\r\n";
+
+	return 'data:text/calendar;charset=utf8,' . rawurlencode( $ics );
 }
 
 /**
@@ -1577,6 +1661,7 @@ function blueline_sp_event_hero( $event_id ) {
 	$venue_name = blueline_sp_event_venue_label( $event_id );
 
 	$calendar_url = ( 'preview' === $state ) ? blueline_sp_event_calendar_url( $event_id ) : '';
+	$ics_url      = ( 'preview' === $state ) ? blueline_sp_event_ics_url( $event_id ) : '';
 	?>
 	<header class="sp-scoreboard">
 		<?php
@@ -1630,10 +1715,37 @@ function blueline_sp_event_hero( $event_id ) {
 				<?php endif; ?>
 			</p>
 
-			<?php if ( $calendar_url ) : ?>
-				<a class="bl-btn bl-btn--secondary sp-scoreboard__calendar" href="<?php echo esc_url( $calendar_url ); ?>">
-					<span class="bl-skew"><span><?php esc_html_e( 'Add to calendar', 'blueline' ); ?></span></span>
-				</a>
+			<?php if ( $calendar_url || $ics_url ) : ?>
+				<div class="sp-scoreboard__calendar" data-calendar-links>
+					<?php if ( $ics_url ) : ?>
+						<?php
+						/*
+						 * esc_attr(), not esc_url(): confirmed live, esc_url()
+						 * strips every %0d/%0a it finds (wp-includes/
+						 * formatting.php's own anti-header-injection pass) --
+						 * exactly the CRLF sequences RFC 5545 requires between
+						 * every line of the encoded .ics payload below, so the
+						 * calendar app received one unbroken, unparseable blob
+						 * instead of a valid VEVENT. This data: URI is built
+						 * entirely from this function's own escaped/encoded
+						 * output (blueline_sp_event_ics_url(), never raw user
+						 * input), so esc_attr()'s attribute-context escaping --
+						 * which does not touch %0d/%0a -- is what this needed,
+						 * the same way a plain <a href> to a same-origin,
+						 * already-safe URL only ever needs esc_attr() rather
+						 * than the fuller esc_url() sanitizer.
+						 */
+						?>
+						<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_attr( $ics_url ); ?>" download="<?php echo esc_attr( sanitize_file_name( blueline_sp_title( $event_id ) ) . '.ics' ); ?>">
+							<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
+						</a>
+					<?php endif; ?>
+					<?php if ( $calendar_url ) : ?>
+						<a class="bl-btn bl-btn--secondary" data-calendar="google" href="<?php echo esc_url( $calendar_url ); ?>">
+							<span class="bl-skew"><span><?php esc_html_e( 'Google', 'blueline' ); ?></span></span>
+						</a>
+					<?php endif; ?>
+				</div>
 			<?php endif; ?>
 		</div>
 

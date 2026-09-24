@@ -715,9 +715,18 @@ td.bl-sp-roster__stat {
 	font-size: var(--bl-text-sm);
 }
 
+/*
+ * Now two links (Apple/Outlook + Google, see blueline_sp_event_hero()'s own
+ * docblock for why the event page needed the same both-forms treatment
+ * blueline_render_team_calendar_links() already gives a team's season
+ * subscription) instead of one -- flex-wrap and a gap keep them from
+ * touching at narrow widths instead of assuming they always fit one line.
+ */
 .sp-scoreboard__calendar {
 	display: flex;
+	flex-wrap: wrap;
 	justify-content: center;
+	gap: var(--bl-space-2);
 }
 
 .sp-scoreboard .bl-btn--secondary .bl-skew {
@@ -1891,11 +1900,26 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
  * columns regardless of the source order, which is what removes the mirroring
  * without touching the template.
  */
+
+/*
+ * Reported live: these crests (128px, far bigger than any other logo on
+ * the page) sat flush against the hero's own blue-line divider bands
+ * (.bl-band/.bl-band--ink, blueline_sp_event_hero()) with zero gap --
+ * confirmed live, 0px between the ink band's bottom edge and this block's
+ * top. .bl-main--sp-hero deliberately zeroes .bl-main's own top padding so
+ * the DARK hero itself sits flush under the header (sportspress.css's own
+ * comment on that rule), but that zeroing has no opinion on the WHITE
+ * content that follows the hero -- this is the first thing in that content,
+ * and nothing gave it the clearance every other page's first section gets
+ * from .bl-main's un-zeroed padding-block-start elsewhere. Matches that
+ * same var(--bl-space-7) other pages get, rather than inventing a new value.
+ */
 .sp-event-logos {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	gap: var(--bl-space-4);
+	padding-block-start: var(--bl-space-7);
 }
 
 .sp-event-logos .sp-team-logo {

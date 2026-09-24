@@ -303,6 +303,35 @@
 
 /* Sidebar widgets */
 
+/*
+ * Reported live: unreadable on an event page at wide screens -- above the
+ * 1800px breakpoint .bl-sidebar becomes position:fixed (this file's own
+ * rule near the top) and can sit directly over .sp-scoreboard's dark hero,
+ * where a widget's plain text (sized/coloured for the paper background
+ * every other page gives it) rendered dark-on-dark. Rather than one opaque
+ * backing on the whole rail -- which would still clash with the hero's own
+ * navy ground, or with whatever else a future page puts behind it -- each
+ * widget gets its own semi-translucent, blurred card: legible against
+ * anything behind it, hero or plain content alike, and consistent at every
+ * width rather than only appearing once the fixed-overlay breakpoint hits.
+ * color-mix(), not a literal rgba(): tools/check-contrast.mjs flags a
+ * literal whose channels match a token's hex (established elsewhere, e.g.
+ * team-flyout.css's own pulse ring). The floating next-game widget
+ * (floating-next-game.css) is this site's only other "arbitrary content
+ * behind it" overlay and sets the border/radius/shadow precedent this
+ * follows; that one stays fully opaque since it is a single small chip,
+ * not a rail of several stacked pieces that each need their own contrast.
+ */
+.bl-sidebar .widget {
+	padding: var(--bl-space-4);
+	background: color-mix(in srgb, var(--bl-content-surface) 92%, transparent);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-raised);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+}
+
 .bl-sidebar .widget + .widget {
 	margin-block-start: var(--bl-space-6);
 }
