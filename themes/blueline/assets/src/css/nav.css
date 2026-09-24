@@ -118,10 +118,21 @@
  * wrapped only the text, so a column of items read as ragged rather than as
  * a list, and the highlight stopped mid-row. Stretching them makes the
  * hit target the whole row too, which is the behaviour a dropdown implies.
+ *
+ * `flex: 1 1 auto`, not `width: 100%` -- a depth-2 item (e.g. one of the
+ * ~20 entries inside "Past Standings") that itself has children carries a
+ * .bl-nav__toggle-sub button as a sibling of this link (see the desktop
+ * `.bl-nav__submenu .bl-nav__item` flex-row rule below). `width: 100%`
+ * claims the row's entire inline size regardless of that sibling, pushing
+ * the button onto its own line underneath -- reported live as the arrow
+ * moving from beside the label to below it. `flex: 1 1 auto` instead lets
+ * the link grow to fill whatever the row's other flex item (the button, on
+ * items that have one) doesn't need, and behaves identically to the old
+ * width:100% on a leaf item with no button sibling.
  */
 .bl-nav__submenu .bl-nav__link {
 	display: flex;
-	width: 100%;
+	flex: 1 1 auto;
 }
 
 .bl-nav__submenu .bl-nav__link:hover,
@@ -483,14 +494,53 @@
 	 * sideways. That keeps them scrolling with their parent's single
 	 * overflow-y region instead of risking an off-screen flyout or a
 	 * second independent scrollbar.
+	 *
+	 * flex-basis: 100% -- reported live: once the parent <li> became a flex
+	 * row (.bl-nav__submenu .bl-nav__item below, added in the same change
+	 * that made this rule's own li a flex container), this panel is a THIRD
+	 * flex item in that row, alongside the link and its toggle-sub button --
+	 * with no basis of its own it just sized to its content and sat beside
+	 * them instead of stacking underneath, i.e. the "Past Standings" list
+	 * opened out to the right of its own label instead of below it. A full
+	 * flex-basis forces it onto its own wrapped line (the li row now also
+	 * carries flex-wrap: wrap for exactly this), the same way the mobile
+	 * drawer's own `.bl-nav__submenu { flex-basis: 100% }` (in the
+	 * max-width:879.98px block below) already keeps its accordion panels
+	 * under their label rather than beside it.
 	 */
 	.bl-nav__submenu .bl-nav__submenu {
 		position: static;
+		flex-basis: 100%;
 		max-height: none;
 		overflow: visible;
 		background: transparent;
 		box-shadow: none;
 		margin-inline-start: var(--bl-space-4);
+	}
+
+	/*
+	 * A top-level .bl-nav__item has no layout rule of its own at this width,
+	 * so its two inline-flex children (.bl-nav__link, .bl-nav__toggle-sub)
+	 * sit beside each other as plain inline boxes -- fine, since neither is
+	 * forced to any particular width. A submenu item's link, though, is
+	 * `flex: 1 1 auto` (see its own rule above) to fill the dropdown row,
+	 * which makes it a block-level flex box with nothing constraining its
+	 * width against a sibling -- without this, that box alone claims the
+	 * whole row and the toggle-sub button wraps onto the line below it.
+	 * Same fix the mobile drawer already applies to every .bl-nav__item
+	 * (down in the max-width:879.98px block): make the <li> the flex row,
+	 * so link and button share one line instead of stacking.
+	 *
+	 * flex-wrap: wrap, also matching the mobile block's own .bl-nav__item --
+	 * an open nested submenu is this same li's THIRD child (see the
+	 * flex-basis: 100% comment above), and without wrap it would just
+	 * squeeze onto the same row as the link and button rather than falling
+	 * to a new line underneath them.
+	 */
+	.bl-nav__submenu .bl-nav__item {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 	}
 
 	/*

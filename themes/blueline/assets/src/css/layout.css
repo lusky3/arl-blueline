@@ -82,6 +82,26 @@
 		translate: calc(max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)) 0;
 		padding-inline-end: var(--bl-space-5);
 	}
+
+	/*
+	 * Reported live: the jump-nav "On this page" heading sat slightly under
+	 * the header until it shrank on scroll. `position: sticky`'s own offset
+	 * is measured from the real viewport top, but `.bl-header` itself moves
+	 * to `top: 32px` for a logged-in admin (header.css's own `.admin-bar
+	 * .bl-header` rule) to clear WordPress core's admin bar -- a shift this
+	 * calc() never knew about. --bl-space-5's own cushion (24px) absorbed
+	 * most of that unaccounted 32px, leaving only a few pixels of real
+	 * overlap while the header was at its full, un-shrunk height; once it
+	 * shrank (`.is-stuck`) its real bottom edge moved well clear of this
+	 * offset regardless, which is why scrolling "fixed" it. header.css has
+	 * no narrower admin-bar top value below 960px (46px/0px both apply only
+	 * under 782.98px, outside this sidebar's own 960px floor), so the flat
+	 * 32px here needs no matching responsive split.
+	 */
+	.admin-bar .bl-sidebar {
+		inset-block-start: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5) + 32px);
+		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8) - 32px);
+	}
 }
 
 @media (min-width: 1800px) {
@@ -94,6 +114,12 @@
 		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
 		overflow-y: auto;
 		padding-inline-end: var(--bl-space-5);
+	}
+
+	/* Same admin-bar gap as the narrower breakpoint above. */
+	.admin-bar .bl-sidebar {
+		top: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5) + 32px);
+		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8) - 32px);
 	}
 }
 
