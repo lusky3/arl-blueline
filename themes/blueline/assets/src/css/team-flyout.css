@@ -70,7 +70,22 @@
 	width: var(--bl-team-flyout-width);
 	height: 96px;
 	background: var(--bl-content-surface);
-	border: 1px solid var(--bl-content-border);
+
+	/*
+	 * --bl-content-border-strong, not the plain --bl-content-border this
+	 * used before: reported live, even with the pulse below, the tab was
+	 * "really hard to see" on the light theme -- confirmed, --bl-content-
+	 * surface (white) sits on --bl-content-bg (#F7FBFC, near-white paper),
+	 * and the plain border token (#DBE7F0) is barely darker than either,
+	 * so the tab's only edge was close to invisible outside the ~1s the
+	 * pulse ring is actually expanding. tools/contrast-rules.json already
+	 * verifies content-border-strong at 3:1+ against BOTH content-bg and
+	 * content-surface (content-border-strong-on-content-bg/-on-content-
+	 * surface, theme-aware) -- an existing, pre-checked token for exactly
+	 * this "needs to read against either of this pair" case, not a new
+	 * choice made here.
+	 */
+	border: 1px solid var(--bl-content-border-strong);
 	border-inline-start: none;
 	border-radius: 0 var(--bl-radius-card) var(--bl-radius-card) 0;
 
@@ -92,8 +107,19 @@
 	 * Global reduced-motion handling already lives in base.css
 	 * (animation-iteration-count: 1 under that media query), so this
 	 * needs no separate override to behave for that preference.
+	 *
+	 * A second, constant shadow -- --bl-shadow-raised, the same elevation
+	 * token floating-next-game.css already uses for its own "floats over
+	 * arbitrary page content" card -- is appended after the pulse's own
+	 * shadow so the tab visibly lifts off the page at rest too, between
+	 * pulses, on light or dark. The keyframe below repeats this same
+	 * second value unchanged so only the first (the ring) animates; a
+	 * multi-shadow property interpolates each comma-separated shadow by
+	 * position, so the two lists have to stay the same length and order.
 	 */
-	box-shadow: 0 0 0 0 color-mix(in srgb, var(--bl-ice) 55%, transparent);
+	box-shadow:
+		0 0 0 0 color-mix(in srgb, var(--bl-ice) 55%, transparent),
+		var(--bl-shadow-raised);
 	animation: bl-team-flyout-pulse 4s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
@@ -115,7 +141,9 @@
 
 	75%,
 	100% {
-		box-shadow: 0 0 0 14px transparent;
+		box-shadow:
+			0 0 0 14px transparent,
+			var(--bl-shadow-raised);
 	}
 }
 
