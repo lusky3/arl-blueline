@@ -73,6 +73,28 @@
 	border: 1px solid var(--bl-content-border);
 	border-inline-start: none;
 	border-radius: 0 var(--bl-radius-card) var(--bl-radius-card) 0;
+
+	/*
+	 * Reported live: hard to notice, especially on a desktop pointer where
+	 * there's no incidental thumb-brush the way a phone's edge sometimes
+	 * gets. A periodic ring pulsing out from the tab's own shape (same
+	 * technique as Tailwind's own `animate-ping`: a static resting
+	 * box-shadow at spread:0, animated to a wide transparent spread and
+	 * held there) rather than moving the tab itself -- the tab is a real
+	 * click target at a precise, fixed screen position, and bouncing it
+	 * would make that position harder to predict on repeat visits, not
+	 * easier to hit. box-shadow follows this element's own border-radius,
+	 * so the ring traces the tab's actual rounded-right shape instead of
+	 * a generic circle. color-mix(), not a literal rgba(): tools/
+	 * check-contrast.mjs flags a literal whose channels match a token's
+	 * hex, since it can silently drift from the token it was copied from
+	 * (established elsewhere, e.g. occasions.css's own frost vignette).
+	 * Global reduced-motion handling already lives in base.css
+	 * (animation-iteration-count: 1 under that media query), so this
+	 * needs no separate override to behave for that preference.
+	 */
+	box-shadow: 0 0 0 0 color-mix(in srgb, var(--bl-ice) 55%, transparent);
+	animation: bl-team-flyout-pulse 4s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 .bl-team-flyout summary::-webkit-details-marker {
@@ -83,6 +105,18 @@
 .bl-team-flyout summary:focus-visible,
 .bl-team-flyout[open] summary {
 	background: var(--bl-ice);
+
+	/* Stops nagging once it's done its job -- interacting with the tab is
+	 * unambiguous proof the reader has already noticed it. */
+	animation: none;
+}
+
+@keyframes bl-team-flyout-pulse {
+
+	75%,
+	100% {
+		box-shadow: 0 0 0 14px transparent;
+	}
 }
 
 .bl-team-flyout__label {
