@@ -18,3 +18,4 @@ import './preferences-widget-reset.js';
 import './team-flyout.js';
 import './player-photo-upload.js';
 import './sidebar-jump-nav.js';
+import './sidebar-scroll-cues.js';

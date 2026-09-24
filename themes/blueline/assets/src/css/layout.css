@@ -485,6 +485,112 @@
 }
 
 /*
+ * "More content this way" scroll cues -- requested live: on a short page,
+ * the sidebar's own widget stack can run taller than its scrollable box
+ * (this file's own .bl-sidebar rules, overflow-y: auto) with nothing
+ * indicating it scrolls at all. assets/src/js/sidebar-scroll-cues.js
+ * toggles data-can-scroll-up/-down on .bl-sidebar itself, mirroring
+ * table-scroll.js's own "only cue the side that actually has more, as a
+ * data attribute the stylesheet reads" contract for a horizontal table --
+ * see that file's own docblock for why an unconditional cue is a bug, not
+ * a simplification: it keeps suggesting "more below" even once scrolled
+ * all the way to the bottom.
+ *
+ * Two layers per edge: a fade (this rule, a plain gradient) and a chevron
+ * (.bl-sidebar__scroll-cue, real markup the JS injects once -- a pure
+ * pseudo-element can't host its own bounce animation independently of the
+ * fade's, or use currentColor the way an inline SVG can).
+ *
+ * position: absolute, not sticky, for both: .bl-sidebar is ITSELF the
+ * scrolling element and already establishes the positioning context these
+ * need (it's already position: sticky/fixed for its own placement,
+ * this file's own rules near the top) -- an absolutely positioned child is
+ * taken out of flow and positioned against that container's own edges, so
+ * it stays visually pinned at the top/bottom of whatever is currently
+ * scrolled into view without tracking scroll position itself, and adds
+ * nothing to the scrollable content's own height the way a real, in-flow
+ * child would.
+ */
+.bl-sidebar[data-can-scroll-up]::before,
+.bl-sidebar[data-can-scroll-down]::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+	height: 32px;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.bl-sidebar[data-can-scroll-up]::before {
+	top: 0;
+	background: linear-gradient(to bottom, color-mix(in srgb, var(--bl-ink) 20%, transparent), transparent);
+}
+
+.bl-sidebar[data-can-scroll-down]::after {
+	bottom: 0;
+	background: linear-gradient(to top, color-mix(in srgb, var(--bl-ink) 20%, transparent), transparent);
+}
+
+.bl-sidebar__scroll-cue {
+	position: absolute;
+	inset-inline-start: 50%;
+	width: 12px;
+	height: 8px;
+	margin-inline-start: -6px;
+	color: var(--bl-content-text-secondary);
+	opacity: 0;
+	pointer-events: none;
+	z-index: 3;
+	transition: opacity 0.2s ease;
+}
+
+.bl-sidebar__scroll-cue--up {
+	top: 6px;
+	transform: rotate(180deg);
+}
+
+.bl-sidebar__scroll-cue--down {
+	bottom: 6px;
+}
+
+.bl-sidebar[data-can-scroll-up] .bl-sidebar__scroll-cue--up,
+.bl-sidebar[data-can-scroll-down] .bl-sidebar__scroll-cue--down {
+	opacity: 0.8;
+}
+
+.bl-motion-ok .bl-sidebar[data-can-scroll-up] .bl-sidebar__scroll-cue--up {
+	animation: bl-sidebar-scroll-cue-bounce-up 1.6s ease-in-out infinite;
+}
+
+.bl-motion-ok .bl-sidebar[data-can-scroll-down] .bl-sidebar__scroll-cue--down {
+	animation: bl-sidebar-scroll-cue-bounce-down 1.6s ease-in-out infinite;
+}
+
+@keyframes bl-sidebar-scroll-cue-bounce-down {
+
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(4px);
+	}
+}
+
+@keyframes bl-sidebar-scroll-cue-bounce-up {
+
+	0%,
+	100% {
+		transform: rotate(180deg) translateY(0);
+	}
+
+	50% {
+		transform: rotate(180deg) translateY(4px);
+	}
+}
+
+/*
  * Mini blue-line band (device #2, see footer.css's identical ::before/
  * ::after technique) under every widget title -- a quiet echo of the same
  * ice+ink divider used at chrome/content boundaries elsewhere, applied
