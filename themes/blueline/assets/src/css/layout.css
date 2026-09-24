@@ -22,57 +22,77 @@
 	gap: var(--bl-space-8);
 }
 
-@media (min-width: 960px) {
+/*
+ * Two different sidebar strategies, split at a 1800px breakpoint,
+ * confirmed live on both sides of that line. (A custom property can't
+ * hold this value -- @media feature queries are evaluated before the
+ * cascade runs, so var() isn't usable inside one -- the 1800px/1799.98px
+ * pair below has to stay two literal, matching numbers instead.)
+ *
+ * NARROWER than 1800px -- side-by-side (original approach): the sidebar
+ * reserves a real 300px grid track, and .bl-container widens to 1400px
+ * to give the content column back what that track took from it. There
+ * simply is not enough spare width below the breakpoint for a floating
+ * panel to sit clear of the content, so this is the same grid-plus-
+ * sticky layout the theme always used here.
+ *
+ * AT OR ABOVE 1800px -- edge-to-edge (per explicit request): the content
+ * column stops reserving anything for the sidebar at all --
+ * .bl-content-layout stays the single-column `minmax(0, 1fr)` from the
+ * base rule above, exactly as on a page with no sidebar, and
+ * .bl-container stays at the standard --bl-container (1200px) rather
+ * than widening, so content is centred/balanced exactly like a
+ * no-sidebar page. The sidebar becomes a `position: fixed` floating
+ * panel instead of a grid participant, anchored straight to the true
+ * viewport edge (right: 0 -- no longer needs the narrower rule's
+ * max(0px, (100vw-1400px)/2) bleed math, since that was specifically
+ * computing "how far past the centred container's own edge to bleed";
+ * a fixed-position element measures from the viewport itself already).
+ *
+ * The breakpoint itself: confirmed live that overlap and clean
+ * separation are both real outcomes, not a matter of degree -- 1280px
+ * and 1440px (ordinary laptop widths) put the floating panel directly
+ * over the roster table's stat columns and the widget rail's own text;
+ * 1920px sits it cleanly in what was previously dead margin with zero
+ * overlap. The exact zero-overlap point is where .bl-container's own
+ * right-hand margin, (100vw - 1200px) / 2, plus its 24px inline padding,
+ * first reaches the panel's ~300px footprint -- solving that equation
+ * puts it at 1752px; 1800px adds a roughly 48px safety margin on top of
+ * the exact math rather than sitting a rendering rounding difference
+ * away from the edge case it exists to avoid.
+ */
+
+@media (min-width: 960px) and (max-width: 1799.98px) {
 
 	.bl-content-layout--has-sidebar {
 		grid-template-columns: minmax(0, 1fr) 300px;
 		align-items: start;
 	}
 
-	/*
-	 * A wider container ON SIDEBAR PAGES ONLY, not a sitewide --bl-container
-	 * change: the 300px sidebar track (above) plus the row gap already ate
-	 * into the content column before this, leaving it noticeably narrower
-	 * than the same reader gets on a full-width template. Scoped to the
-	 * exact structure blueline_page_wrapper_start() and
-	 * blueline_render_sp_single() both print (.bl-container is the sidebar
-	 * grid's own direct parent), so this can't widen an unrelated
-	 * .bl-container elsewhere on the page (header/footer chrome, a
-	 * full-width template's own single column) -- :has() for scoped
-	 * selection is already this theme's own established pattern (see
-	 * .bl-account-dashboard__primary:has(> :only-child) in account.css).
-	 * The sidebar itself keeps its 300px track above; the whole gain goes
-	 * to the content column.
-	 */
 	.bl-container:has(> .bl-content-layout--has-sidebar) {
 		max-width: 1400px;
 	}
 
-	/*
-	 * The sidebar bleeds past the container's own right edge out to the
-	 * true viewport edge, per <feedback>: it previously stopped wherever
-	 * the centered 1400px container did, leaving a growing dead gap past
-	 * it on any screen wider than that (confirmed live: ~290px of empty
-	 * space at 1920px). Its own width stays pinned at the original 300px
-	 * (a second live regression: an earlier version of this rule used a
-	 * negative margin-inline-end to pull the box over, which on a grid
-	 * item with width:auto also INFLATES the box, since "auto" width is
-	 * computed as "track size minus margins" -- 300px track minus a
-	 * -284px margin rendered at 584px wide, confirmed live at 1920px.
-	 * Pinning width:300px fixed the ballooning, but a fixed-width grid
-	 * item aligns to the START of its track by default and margin on the
-	 * END side no longer has anywhere to push it -- so the shift now uses
-	 * `translate` instead of margin: a pure paint-time offset that never
-	 * participates in box-sizing or grid track alignment at all, sized to
-	 * exactly the container's own current outer margin plus its inline
-	 * padding, same as before). padding-inline-end below then restores a
-	 * comfortable inner gutter so its content doesn't touch the browser
-	 * edge -- box-sizing:border-box (base.css) keeps that padding inside
-	 * the pinned 300px rather than adding to it.
-	 */
 	.bl-sidebar {
+		position: sticky;
+		inset-block-start: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5));
+		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
+		overflow-y: auto;
 		width: 300px;
 		translate: calc(max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)) 0;
+		padding-inline-end: var(--bl-space-5);
+	}
+}
+
+@media (min-width: 1800px) {
+
+	.bl-sidebar {
+		position: fixed;
+		top: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5));
+		right: 0;
+		width: 300px;
+		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
+		overflow-y: auto;
 		padding-inline-end: var(--bl-space-5);
 	}
 }
@@ -323,44 +343,13 @@
 	margin-block-end: var(--bl-space-6);
 }
 
-@media (min-width: 960px) {
-
-	/*
-	 * ALL sidebars stick, not just jump-nav ones -- reported live: on a
-	 * page whose restyled-only widget rail (Next Puck Drop, Recent Posts)
-	 * is shorter than the main content column (every SportsPress team
-	 * page: roster + schedule run on well past a couple of short
-	 * widgets), the rail scrolled away in normal flow while the content
-	 * kept going, leaving the row visually lopsided for the rest of the
-	 * page -- read as "everything looks shifted left", not "the sidebar
-	 * ended". Originally scoped to .bl-sidebar--jump-nav only, on the
-	 * reasoning that only the jump-nav variant needed to stay reachable
-	 * while scrolling; this makes the plain widget rail behave the same
-	 * way for the identical reason a jump-nav rail needed it.
-	 *
-	 * The whole sidebar sticks together as one unit, not just its first
-	 * child -- confirmed live on the jump-nav variant: with only an inner
-	 * element sticky, plain-flow siblings after it scrolled up and
-	 * visually overlapped/showed through, because position:sticky creates
-	 * a stacking context that paints above static-positioned siblings
-	 * regardless of DOM order. Sticking the aside itself keeps everything
-	 * inside it moving together, so nothing scrolls behind it -- and
-	 * because the aside's containing block for stickiness is the grid row
-	 * (.bl-content-layout), not its own short content, it stays pinned for
-	 * as long as the much-taller main content column keeps scrolling, not
-	 * just its own natural height.
-	 */
-	.bl-sidebar {
-		position: sticky;
-
-		/* Matches html's own scroll-padding-top recipe (base.css) so the
-		 * rail clears the fixed header by the same margin an anchor jump
-		 * already does. */
-		inset-block-start: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5));
-		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
-		overflow-y: auto;
-	}
-}
+/*
+ * Positioning for .bl-sidebar itself (position, top/right, width,
+ * max-height) now lives on the single rule near the top of this file,
+ * alongside .bl-content-layout's own experiment comment -- kept as one
+ * rule rather than split across two, now that fixed positioning replaces
+ * the grid-plus-sticky approach this comment used to describe.
+ */
 
 .bl-jump-nav__label {
 	display: inline-block;
