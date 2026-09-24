@@ -317,11 +317,7 @@
 /*
  * "On this page" jump-nav rail (page-sidebar-navigation.php) -- an
  * alternate first block inside the same .bl-sidebar <aside>, for pages
- * whose own content had 2+ real section headings. Sticky only at the
- * same >=960px breakpoint .bl-content-layout--has-sidebar itself uses
- * (above): below that width the sidebar sits in the single-column flow
- * under the content, where sticking it would just pin it over whatever
- * scrolls past next.
+ * whose own content had 2+ real section headings.
  */
 .bl-jump-nav {
 	margin-block-end: var(--bl-space-6);
@@ -330,20 +326,31 @@
 @media (min-width: 960px) {
 
 	/*
-	 * The WHOLE sidebar sticks together as one unit here, not just
-	 * .bl-jump-nav -- confirmed live: with only the nav itself sticky, the
-	 * plain-flow widgets below it (Next Puck Drop, Recent Posts) scrolled
-	 * up underneath it and visually overlapped/showed through, because
-	 * position:sticky creates a stacking context that paints above
-	 * static-positioned siblings regardless of DOM order (the nav is
-	 * earlier in the markup but still painted on top). Sticking the aside
-	 * itself keeps the nav and the widgets moving together, so nothing
-	 * scrolls behind it -- and because the aside's containing block for
-	 * stickiness is the grid row (.bl-content-layout), not its own short
-	 * content, it stays pinned for as long as the much-taller main content
-	 * column keeps scrolling, not just its own natural height.
+	 * ALL sidebars stick, not just jump-nav ones -- reported live: on a
+	 * page whose restyled-only widget rail (Next Puck Drop, Recent Posts)
+	 * is shorter than the main content column (every SportsPress team
+	 * page: roster + schedule run on well past a couple of short
+	 * widgets), the rail scrolled away in normal flow while the content
+	 * kept going, leaving the row visually lopsided for the rest of the
+	 * page -- read as "everything looks shifted left", not "the sidebar
+	 * ended". Originally scoped to .bl-sidebar--jump-nav only, on the
+	 * reasoning that only the jump-nav variant needed to stay reachable
+	 * while scrolling; this makes the plain widget rail behave the same
+	 * way for the identical reason a jump-nav rail needed it.
+	 *
+	 * The whole sidebar sticks together as one unit, not just its first
+	 * child -- confirmed live on the jump-nav variant: with only an inner
+	 * element sticky, plain-flow siblings after it scrolled up and
+	 * visually overlapped/showed through, because position:sticky creates
+	 * a stacking context that paints above static-positioned siblings
+	 * regardless of DOM order. Sticking the aside itself keeps everything
+	 * inside it moving together, so nothing scrolls behind it -- and
+	 * because the aside's containing block for stickiness is the grid row
+	 * (.bl-content-layout), not its own short content, it stays pinned for
+	 * as long as the much-taller main content column keeps scrolling, not
+	 * just its own natural height.
 	 */
-	.bl-sidebar--jump-nav {
+	.bl-sidebar {
 		position: sticky;
 
 		/* Matches html's own scroll-padding-top recipe (base.css) so the

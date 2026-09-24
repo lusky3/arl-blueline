@@ -1952,3 +1952,58 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 }
 
 /* stylelint-enable no-descending-specificity */
+
+/*
+ * Reported live: "a lot of whitespace beside the arena; it's not expanding
+ * to use the space evenly". table-layout: auto (.sp-data-table's own
+ * default, see .bl-sp-roster__col-name's own comment above for the same
+ * mechanism elsewhere) sizes every column to its OWN longest line across
+ * every row -- and on this table specifically, Arena's longest realistic
+ * value ("Mr. Lube and Tires Arena — Black", ~33 characters) is simply a
+ * longer string than any team name, so auto-layout hands it the biggest
+ * share of the row even though every arena string on this site shares the
+ * same short set of real venues. Confirmed live: at a 988px table width,
+ * Arena claimed 336px (34%) while Home/Away -- now carrying a 32px crest
+ * plus the name, not just the name -- were squeezed to 242px/207px.
+ *
+ * table-layout: fixed with explicit percentages replaces that content-
+ * driven guess with a deliberate one: Home/Away (now the two columns
+ * actually carrying a logo) get the most generous, roughly-equal share,
+ * Arena keeps enough room to fit a real venue name on one line without
+ * dominating the row, and Time/Result -- always short -- stay compact.
+ * Only this one table, not .sp-data-table generally: the roster and
+ * league tables already have their own established width strategies
+ * (.bl-sp-roster__col-name's width:100% comment above is the roster's).
+ */
+.sp-event-list.bl-sp-schedule {
+	table-layout: fixed;
+}
+
+.sp-event-list.bl-sp-schedule .data-date {
+	width: 13%;
+}
+
+.sp-event-list.bl-sp-schedule .data-home {
+	width: 27%;
+}
+
+.sp-event-list.bl-sp-schedule .data-time {
+	width: 8%;
+}
+
+.sp-event-list.bl-sp-schedule .data-away {
+	width: 27%;
+}
+
+/*
+ * A real venue name ("Mr. Lube and Tires Arena — Black", ~33 characters)
+ * does not fit 25% of this table on one line at every viewport width this
+ * table renders at -- .sp-data-table's own white-space: nowrap default
+ * (see .bl-sp-roster__name-cell's own comment above for the same override
+ * elsewhere) turned that into horizontal overflow and a scrollbar instead
+ * of the wrap this fixed-width column actually needs, confirmed live.
+ */
+.sp-event-list.bl-sp-schedule .data-venue {
+	width: 25%;
+	white-space: normal;
+}
