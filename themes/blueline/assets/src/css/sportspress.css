@@ -1466,9 +1466,28 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 /* ---- Player details / selector (finding 7) ---- */
 
-.sp-template-details .sp-list-wrapper {
-	max-width: 32rem;
-}
+/*
+ * Reported live: content "smushed" -- Past Teams/Divisions/Seasons not
+ * using the full available width the tables further down the same page
+ * do. Root cause: this 32rem (512px) cap, applied with no season-count
+ * consideration when this block was first styled. .sp-player-details'
+ * own grid-template-columns: auto 1fr (below) already sizes the label
+ * column to its own content and lets the value column take the rest --
+ * but "the rest" was this 512px wrapper's leftover after that label
+ * column, not the page's real ~850px+ content-column width. Fine for a
+ * newer player with one or two short values; actively cramped for a
+ * multi-season veteran, where Divisions/Past Teams/Seasons are long
+ * comma-separated lists that wrap onto a new line per item instead of
+ * flowing across the space the page already has -- confirmed live,
+ * .sp-list-wrapper's parent column measured ~853px available at 1280px
+ * wide, all but 512px of it unused by this block specifically.
+ * Removed rather than widened: short single-value fields (Name,
+ * Position) are entirely unaffected either way -- a 1fr grid track's
+ * own content still just left-aligns within whatever width the track
+ * ends up, it does not stretch or centre to fill it -- so there is no
+ * width past which a short value starts looking wrong, only a width
+ * before which a long one starts wrapping unnecessarily.
+ */
 
 .sp-player-details {
 	display: grid;
