@@ -99,9 +99,23 @@ Text Domain: blueline
 	 * ink-like navy for a heavier shadow -- deliberately close to --bl-ink
 	 * but not equal to it or to any other token, so it is not a case of the
 	 * same bug this task fixes elsewhere.
+	 *
+	 * --bl-shadow-raised-sm shares --bl-shadow-raised's own colour/opacity
+	 * (the same "good effect" reported live on the sidebar widget cards)
+	 * but at --bl-shadow-card's own offset/blur (6px/20px, not 10px/34px):
+	 * a container that clips overflow (.bl-sidebar's own overflow-y: auto,
+	 * needed for a long widget list to scroll internally) can only give a
+	 * shadow room to fade out by growing its own padding, and 34px of
+	 * clearance requires growing that container wider than its own grid
+	 * track allows -- confirmed live, doing so pushed the whole sidebar
+	 * column off past the viewport edge. 20px fits safely inside the
+	 * layout's existing slack (layout.css's own .bl-sidebar rules); this
+	 * token exists so that number and this darker colour don't have to be
+	 * hand-copied as a raw literal anywhere a shadow needs both.
 	 */
 	--bl-shadow-card: 0 6px 20px rgba(19, 35, 67, 0.06);
 	--bl-shadow-raised: 0 10px 34px rgba(10, 20, 40, 0.18);
+	--bl-shadow-raised-sm: 0 6px 20px rgba(10, 20, 40, 0.18);
 
 	--bl-container: 1200px;
 

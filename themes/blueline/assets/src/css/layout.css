@@ -80,7 +80,44 @@
 		overflow-y: auto;
 		width: 300px;
 		translate: calc(max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)) 0;
-		padding-inline-end: var(--bl-space-5);
+
+		/*
+		 * Reported live: each widget card's own box-shadow (added for the
+		 * light-theme-legibility fix above) looked like "a gray background"
+		 * abruptly cut off instead of fading out -- confirmed: this
+		 * container's own overflow-y:auto clips anything that renders past
+		 * ITS box, and with too little padding of its own here, that box
+		 * edge sliced straight through the shadow's blur gradient instead
+		 * of letting it fade to nothing first.
+		 *
+		 * This is a fixed-width (300px) grid item at this breakpoint
+		 * (.bl-content-layout--has-sidebar's own grid-template-columns,
+		 * above) -- confirmed live, growing this element's own width to
+		 * give a wider shadow room pushed the whole column past the
+		 * viewport's right edge instead, since a grid item's width growth
+		 * extends its box past its own track rather than being absorbed by
+		 * it. --bl-shadow-raised-sm (style.css) exists for exactly this:
+		 * the same colour/opacity as the shadow originally used here, at a
+		 * smaller 6px/20px offset/blur that fits inside padding this
+		 * element can safely add without changing its own width -- 20px
+		 * reaches 20-6=14px above a card and 20+6=26px below/beside it, so
+		 * that is how much clearance each direction below needs.
+		 *
+		 * Padding, not a margin trick, for the block (vertical) axis:
+		 * margin here would shift this element's own computed sticky
+		 * position away from inset-block-start above (the exact offset the
+		 * admin-bar/header-clearance fix elsewhere in this file depends
+		 * on), where padding only adds empty space INSIDE this box's own
+		 * edges -- at the cost of that much of this box's max-height
+		 * budget, immaterial against the generous headroom max-height
+		 * already leaves for a couple of small widgets. padding-inline-
+		 * start is new (this element had none); padding-inline-end already
+		 * comfortably exceeds the 20px now needed, so it's left as-is
+		 * rather than risking the translate bleed math above, which was
+		 * tuned against its current value.
+		 */
+		padding-block: 14px 26px;
+		padding-inline: 20px var(--bl-space-5);
 	}
 
 	/*
@@ -113,7 +150,14 @@
 		width: 300px;
 		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
 		overflow-y: auto;
-		padding-inline-end: var(--bl-space-5);
+
+		/* Same shadow-clearance padding as the narrower breakpoint above --
+		   see that rule's own comment for the reasoning and numbers. This
+		   element is position:fixed here rather than a grid item, but
+		   still keeps its own width fixed at 300px rather than growing it,
+		   for the same "don't disturb an already-tuned box" reasoning. */
+		padding-block: 14px 26px;
+		padding-inline: 20px var(--bl-space-5);
 	}
 
 	/* Same admin-bar gap as the narrower breakpoint above. */
@@ -327,9 +371,73 @@
 	background: color-mix(in srgb, var(--bl-content-surface) 92%, transparent);
 	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
-	box-shadow: var(--bl-shadow-raised);
+
+	/*
+	 * --bl-shadow-raised-sm, not --bl-shadow-raised: reported live, the
+	 * larger shadow's blur got clipped by .bl-sidebar's own overflow-y:auto
+	 * (that rule's own comment, above in this file, has the full story and
+	 * the numbers). Same colour/opacity, smaller reach.
+	 */
+	box-shadow: var(--bl-shadow-raised-sm);
 	backdrop-filter: blur(8px);
 	-webkit-backdrop-filter: blur(8px);
+}
+
+/*
+ * Reported live: "The Next Puck Drop" (the countdown widget) rendered
+ * much larger than its content needed, with excess padding top and
+ * bottom. Root cause: .sp-countdown-wrapper (sportspress.css) already
+ * carries its OWN complete card -- padding, border, border-radius --
+ * from an earlier fix (finding 4), predating this rule, and it wraps only
+ * the countdown clock itself: the widget's title
+ * (<h2 class="sp-table-caption">, SportsPress' own markup, printed as a
+ * SIBLING before .sp-countdown-wrapper, not inside it) relied entirely on
+ * THIS card's own padding for its top clearance. A first attempt zeroed
+ * the outer .widget's own padding/border wholesale to fix the doubling --
+ * confirmed live, that also stripped the title's only clearance, leaving
+ * it flush against the card's top edge.
+ *
+ * Zeroing .sp-countdown-wrapper's OWN padding/border instead (scoped to
+ * this sidebar context only, via the extra .bl-sidebar ancestor -- the
+ * plain sportspress.css rule stays untouched for any other context this
+ * widget might ever be placed in, e.g. a footer widget area with no outer
+ * card of its own) fixes the doubling without touching the outer card's
+ * padding at all, so the title keeps the same clearance every other
+ * widget's own title gets from it. Every OTHER widget (Recent Posts, a
+ * plain core widget with no inner wrapper of its own) only ever had the
+ * one card from the rule above, unaffected either way. Border-radius is
+ * left alone deliberately: both this and the outer card already share the
+ * same --bl-radius-card, so leaving the inner one in place still lines up
+ * with the outer, now flush against it rather than doubled.
+ */
+.bl-sidebar .sp-countdown-wrapper {
+	padding: 0;
+	border: none;
+}
+
+/*
+ * Reported live, again, after the fix above: still oversized, this time
+ * specifically extra space below the countdown digits. Root cause is
+ * SportsPress Pro's own bundled core stylesheet (not this theme's,
+ * confirmed live via document.styleSheets -- includes/sportspress/assets/
+ * css/sportspress.css, the "always loaded regardless of the frontend-css
+ * toggle" stylesheet this file's own top comment already warns about):
+ * a blanket `.sp-template { margin-bottom: 1.5em }` meant to space out
+ * stacked SportsPress sections on an ordinary page. That rule was ALWAYS
+ * on .sp-template-countdown (the div .sp-countdown-wrapper sits inside),
+ * unrelated to and untouched by either padding fix above -- it just read
+ * as unremarkable while the doubled padding was the dominant excess, and
+ * became the next obviously-oversized thing once that was fixed. This
+ * widget is the last (only) thing in its own card, whose spacing from
+ * whatever follows is already fully owned by the outer card's own bottom
+ * padding and the widget-to-widget gap below, so the extra 1.5em here is
+ * pure redundant space, not a second real gap. Scoped to .bl-sidebar, not
+ * a blanket .sp-template override: elsewhere (e.g. stacked SportsPress
+ * sections on an event/team page body) that default spacing is doing its
+ * intended job between sections with no card system of their own.
+ */
+.bl-sidebar .sp-template-countdown {
+	margin-bottom: 0;
 }
 
 .bl-sidebar .widget + .widget {
