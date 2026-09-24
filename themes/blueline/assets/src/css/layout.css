@@ -115,8 +115,14 @@
 		 * comfortably exceeds the 20px now needed, so it's left as-is
 		 * rather than risking the translate bleed math above, which was
 		 * tuned against its current value.
+		 *
+		 * 30px, not 14px/26px: the scroll-cue badges below (.bl-sidebar__
+		 * scroll-cue) need more room than the shadow alone did -- each is a
+		 * 26px circle sitting 4px in from this box's own edge, so 30px is
+		 * this box's real minimum on both ends now, superseding rather than
+		 * adding to the shadow's own smaller requirement.
 		 */
-		padding-block: 14px 26px;
+		padding-block: 30px;
 		padding-inline: 20px var(--bl-space-5);
 	}
 
@@ -151,12 +157,12 @@
 		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
 		overflow-y: auto;
 
-		/* Same shadow-clearance padding as the narrower breakpoint above --
-		   see that rule's own comment for the reasoning and numbers. This
-		   element is position:fixed here rather than a grid item, but
-		   still keeps its own width fixed at 300px rather than growing it,
-		   for the same "don't disturb an already-tuned box" reasoning. */
-		padding-block: 14px 26px;
+		/* Same padding as the narrower breakpoint above -- see that rule's
+		   own comment for the reasoning and numbers. This element is
+		   position:fixed here rather than a grid item, but still keeps its
+		   own width fixed at 300px rather than growing it, for the same
+		   "don't disturb an already-tuned box" reasoning. */
+		padding-block: 30px;
 		padding-inline: 20px var(--bl-space-5);
 	}
 
@@ -501,42 +507,96 @@
  * pseudo-element can't host its own bounce animation independently of the
  * fade's, or use currentColor the way an inline SVG can).
  *
- * position: absolute, not sticky, for both: .bl-sidebar is ITSELF the
- * scrolling element and already establishes the positioning context these
- * need (it's already position: sticky/fixed for its own placement,
- * this file's own rules near the top) -- an absolutely positioned child is
- * taken out of flow and positioned against that container's own edges, so
- * it stays visually pinned at the top/bottom of whatever is currently
- * scrolled into view without tracking scroll position itself, and adds
- * nothing to the scrollable content's own height the way a real, in-flow
- * child would.
+ * position: sticky, not absolute, for both -- confirmed live, and the
+ * OPPOSITE of what this comment used to say here: .bl-sidebar is
+ * simultaneously the scrolling element (overflow-y: auto) AND the
+ * containing block these layers position against, which means an
+ * absolutely positioned descendant is scrollABLE CONTENT of its own
+ * container, not exempt from its scroll -- it moves with the rest of the
+ * widget stack exactly like a plain in-flow child would. Measured live
+ * with getBoundingClientRect() at two different .bl-sidebar.scrollTop
+ * values: an absolute layer's position relative to .bl-sidebar's own edge
+ * shifted by exactly the scroll delta, i.e. it drifted straight out of
+ * view after a small scroll rather than staying put -- it only ever
+ * looked "pinned" at scrollTop 0, where absolute and sticky positioning
+ * happen to coincide, which is why this went unnoticed through this
+ * feature's own original live verification. position: sticky is the one
+ * that actually keeps a descendant pinned to a scrolling ancestor's own
+ * visible edge as that ancestor scrolls internally. The OUTER position:
+ * sticky/fixed already on .bl-sidebar itself (page-level placement, this
+ * file's own rules near the top) is a completely separate scrolling
+ * context -- the page, not .bl-sidebar's own internal overflow -- so
+ * there's no conflict having both on the same element.
+ *
+ * Sticky elements stay in normal flow, though, unlike absolute ones --
+ * left alone they'd each add their own height (30px fade, 26px chevron)
+ * on top of the padding already carved out for them below (.bl-sidebar's
+ * own padding-block: 30px, both breakpoints), doubling up the clearance.
+ * A margin of the same negative size on each one's trailing edge cancels
+ * its own flow contribution right back out, so that padding stays the
+ * sole source of real clearance and the visual layout is unchanged from
+ * the (buggy) absolute version -- only the pinning behaviour differs.
+ *
+ * The top/bottom offset itself also needed correcting, confirmed live the
+ * same way: a sticky element's threshold measures from its containing
+ * block's PADDING edge for position: absolute, but empirically (tested
+ * both here) actually resolves against .bl-sidebar's CONTENT edge once
+ * sticky -- i.e. it already sits past the 30px padding before the
+ * declared offset is even applied. `top: 0` / `bottom: 0` here (meant to
+ * sit flush with .bl-sidebar's own outer edge) actually landed 30px
+ * further in than that, so each is offset by -30px (this layer's own
+ * height) to compensate; the chevron rule below does the same at -26px
+ * (its own height) for the same reason.
  */
 .bl-sidebar[data-can-scroll-up]::before,
 .bl-sidebar[data-can-scroll-down]::after {
 	content: "";
-	position: absolute;
+	position: sticky;
 	inset-inline: 0;
-	height: 32px;
+	height: 30px;
 	pointer-events: none;
 	z-index: 2;
 }
 
 .bl-sidebar[data-can-scroll-up]::before {
-	top: 0;
+	top: -30px;
+	margin-block-end: -30px;
 	background: linear-gradient(to bottom, color-mix(in srgb, var(--bl-ink) 20%, transparent), transparent);
 }
 
 .bl-sidebar[data-can-scroll-down]::after {
-	bottom: 0;
+	bottom: -30px;
+	margin-block-start: -30px;
 	background: linear-gradient(to top, color-mix(in srgb, var(--bl-ink) 20%, transparent), transparent);
 }
 
+/*
+ * Reported live: not actually visible -- confirmed, the chevron had no
+ * backing of its own, so on a page where the widget behind it happens to
+ * be a photo (the quotes widget's own image, directly below "Recent
+ * Posts") it rendered a thin currentColor stroke straight on top of
+ * arbitrary photo content with nothing to read against. A small circular
+ * badge -- the same translucent-card legibility treatment
+ * (color-mix()+backdrop-filter) the sidebar's own widget cards already use
+ * for the identical "needs to read against whatever is behind it" reason
+ * -- gives the chevron a background that holds up regardless of what that
+ * happens to be.
+ */
 .bl-sidebar__scroll-cue {
-	position: absolute;
+	position: sticky;
 	inset-inline-start: 50%;
-	width: 12px;
-	height: 8px;
-	margin-inline-start: -6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	margin-inline-start: -13px;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--bl-content-surface) 90%, transparent);
+	border: 1px solid var(--bl-content-border);
+	box-shadow: var(--bl-shadow-card);
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
 	color: var(--bl-content-text-secondary);
 	opacity: 0;
 	pointer-events: none;
@@ -544,25 +604,42 @@
 	transition: opacity 0.2s ease;
 }
 
+.bl-sidebar__scroll-cue-chevron {
+	width: 12px;
+	height: 8px;
+}
+
 .bl-sidebar__scroll-cue--up {
-	top: 6px;
-	transform: rotate(180deg);
+	top: -26px;
+	margin-block-end: -26px;
 }
 
 .bl-sidebar__scroll-cue--down {
-	bottom: 6px;
+	bottom: -26px;
+	margin-block-start: -26px;
+}
+
+/*
+ * Rotation/bounce live on the icon, not this badge: the badge's own
+ * circular background looks identical either way, but keeping it
+ * stationary while only the chevron moves inside it is the more legible
+ * version of "bouncing arrow" -- a whole badge translating up and down
+ * would read as the badge itself drifting, not as a directional cue.
+ */
+.bl-sidebar__scroll-cue--up .bl-sidebar__scroll-cue-chevron {
+	transform: rotate(180deg);
 }
 
 .bl-sidebar[data-can-scroll-up] .bl-sidebar__scroll-cue--up,
 .bl-sidebar[data-can-scroll-down] .bl-sidebar__scroll-cue--down {
-	opacity: 0.8;
+	opacity: 1;
 }
 
-.bl-motion-ok .bl-sidebar[data-can-scroll-up] .bl-sidebar__scroll-cue--up {
+.bl-motion-ok .bl-sidebar[data-can-scroll-up] .bl-sidebar__scroll-cue--up .bl-sidebar__scroll-cue-chevron {
 	animation: bl-sidebar-scroll-cue-bounce-up 1.6s ease-in-out infinite;
 }
 
-.bl-motion-ok .bl-sidebar[data-can-scroll-down] .bl-sidebar__scroll-cue--down {
+.bl-motion-ok .bl-sidebar[data-can-scroll-down] .bl-sidebar__scroll-cue--down .bl-sidebar__scroll-cue-chevron {
 	animation: bl-sidebar-scroll-cue-bounce-down 1.6s ease-in-out infinite;
 }
 
