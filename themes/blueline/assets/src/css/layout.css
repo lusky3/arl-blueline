@@ -461,7 +461,26 @@
 	margin-block-start: 0;
 }
 
-.bl-sidebar .widget + .widget {
+/*
+ * Reported live: no gap between "The Next Puck Drop" and "Recent Posts",
+ * while every OTHER pair of widgets (Recent Posts to the quotes widget
+ * below it) had the expected one. Not a WordPress widget-admin setting --
+ * confirmed live via the actual DOM: SportsPress wraps the countdown
+ * widget's own <section class="widget"> in an EXTRA
+ * <div class="sp-widget-align-none"> (its own alignment wrapper, the
+ * same sp-widget-align-left/-right/-none family already documented on
+ * .sp-fixtures-results elsewhere in this codebase) -- so from
+ * .bl-sidebar's own perspective, that div, not a .widget, is the
+ * countdown's direct sibling to "Recent Posts", and `.widget + .widget`
+ * alone never matches across it. Any SportsPress-rendered widget can get
+ * this same wrapper, not just the countdown one, so the fix covers every
+ * combination of a bare .widget and an align-wrapped one landing next to
+ * each other, not just this specific pair.
+ */
+.bl-sidebar .widget + .widget,
+.bl-sidebar .widget + [class*="sp-widget-align-"],
+.bl-sidebar [class*="sp-widget-align-"] + .widget,
+.bl-sidebar [class*="sp-widget-align-"] + [class*="sp-widget-align-"] {
 	margin-block-start: var(--bl-space-6);
 }
 
