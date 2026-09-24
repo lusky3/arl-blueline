@@ -440,6 +440,27 @@
 	margin-bottom: 0;
 }
 
+/*
+ * Reported live, a third time: bottom is now right, but the TOP still has
+ * too much space. Same mechanism as the fix above, a different source --
+ * this one is this theme's own rule, not a plugin default:
+ * `.sp-table-caption { margin-block: var(--bl-space-6) var(--bl-space-3) }`
+ * (sportspress.css) puts a deliberate 32px above the countdown widget's own
+ * title (<h2 class="sp-table-caption">, printed as a sibling before
+ * .sp-countdown-wrapper) -- sized for a caption stacked directly into an
+ * ordinary page's own flow (e.g. "Division Table" following whatever
+ * content came before it), which needs real separation from unrelated
+ * content above it. Inside this card, that job is already done by the
+ * card's own top padding, so the 32px on top of it read as excess, the
+ * same way .sp-template's own margin-bottom did below. Zeroed here, scoped
+ * to .bl-sidebar: .sp-table-caption is shared by several OTHER SportsPress
+ * tables sitewide (league-table.php, event-list.php, etc.), where the
+ * unscoped rule keeps doing its real job.
+ */
+.bl-sidebar .sp-table-caption {
+	margin-block-start: 0;
+}
+
 .bl-sidebar .widget + .widget {
 	margin-block-start: var(--bl-space-6);
 }
