@@ -1,11 +1,18 @@
 /*
  * Blueline — sitewide floating "next game" widget.
  *
- * position: fixed, bottom-right -- this theme's first floating/overlay
- * element (the announcement banner is in-flow), so there is no existing
- * corner convention to follow; bottom-right is common, unobtrusive ground
- * for persistent utility chrome and stays clear of the header/nav's own
- * fixed elements at the top of the viewport.
+ * position: fixed, bottom-LEFT -- reported live: bottom-right put this
+ * directly under the OneSignal push-notification plugin's own bell widget
+ * (a separate plugin, not this theme's code -- it injects its own
+ * `#onesignal-bell-container`, fixed at that same corner, at a z-index far
+ * above anything this theme sets), and on the 960-1799.98px sidebar
+ * breakpoint that same corner also runs under .bl-sidebar's own
+ * position:sticky/fixed column. Bottom-left has neither: the team flyout
+ * tab also lives on the left edge (team-flyout.css), but vertically
+ * centered with a fixed 96px height, not anchored to the bottom, so the
+ * two only get close on a viewport short enough to put the flyout's
+ * centered band near the very bottom -- a materially narrower edge case
+ * than the corner this used to permanently collide with.
  *
  * --bl-z-floating-widget (style.css's centralized scale) sits between
  * --bl-z-nav-submenu and --bl-z-drawer on purpose: above ordinary page
@@ -22,9 +29,9 @@
 .bl-floating-next-game {
 	position: fixed;
 	z-index: var(--bl-z-floating-widget);
-	right: var(--bl-space-4);
+	left: var(--bl-space-4);
 	bottom: var(--bl-space-4);
-	left: auto;
+	right: auto;
 	box-sizing: border-box;
 	width: 280px;
 	max-width: calc(100vw - (2 * var(--bl-space-4)));

@@ -214,6 +214,29 @@
 }
 
 /*
+ * Reported live: the same clipping ("Oilvers v Lumberjacks" starting
+ * mid-word) on a page WITH a sidebar, well above the 1264px threshold
+ * above. Root cause: a has-sidebar page widens .bl-container to 1400px,
+ * not the plain --bl-container (1200px) the math above was solved
+ * against (this file's own sidebar-breakpoint comment, further up, has
+ * the "give the content column back what the sidebar's grid track took
+ * from it" reasoning) -- so its auto-margin runs out at a noticeably
+ * wider viewport than a no-sidebar page's does. Confirmed live: clipping
+ * recurs up to ~1435px on a has-sidebar page; 1480px matches this file's
+ * own convention of a modest safety margin over the exact math rather
+ * than sitting at the edge case itself. Scoped to has-sidebar pages and
+ * to the same 960px floor as the widened container itself -- below that,
+ * .bl-container reverts to its plain max-width and the rule above already
+ * covers it unaided.
+ */
+@media (min-width: 960px) and (max-width: 1480px) {
+
+	.bl-content-layout--has-sidebar .bl-content-layout__primary {
+		padding-inline-start: var(--bl-team-flyout-width);
+	}
+}
+
+/*
  * Comments -- placed early in the cascade (before Sidebar/Pagination
  * below) so their lower-specificity `li`/`a` selectors aren't read as
  * unintentionally overriding those unrelated, higher-specificity ones.
