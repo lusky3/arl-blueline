@@ -491,6 +491,89 @@
 }
 
 /*
+ * Reported live: "looks off" -- confirmed via computed styles, the Quotes
+ * Llama plugin's own default markup carries styling this theme's card
+ * layout never asked for. The headshot's hardcoded `margin: 0 10px 10px 0`
+ * (an old float-the-image-left-and-wrap-text convention this centred card
+ * has no use for) left it sitting 11px from the card's left edge and 48px
+ * from its right -- visibly off-centre, not merely "a bit tight." The
+ * quote/attribution text is likewise plain default widget text, unrelated
+ * to how a quote reads anywhere else on this site
+ * (.entry-content .wp-block-quote, blocks.css) -- rebuilt here to match:
+ * italic quote body, plain smaller cite line, same as that rule's own
+ * "quoted prose, not a heading" reasoning.
+ *
+ * object-fit: cover replaces the plugin's own object-fit: fill --
+ * confirmed this specific photo is a 150x150 square so fill never visibly
+ * distorted it, but the plugin cycles through more than one quote/photo
+ * pair and nothing guarantees every source image is pre-cropped square;
+ * cover crops any aspect ratio cleanly into this fixed circle instead of
+ * stretching whatever isn't.
+ */
+.bl-sidebar .widget_widgetquotesllama img {
+	display: block;
+	width: 72px;
+	height: 72px;
+	margin: 0 auto var(--bl-space-4);
+	border: 2px solid var(--bl-content-border);
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-next-more {
+	display: block;
+	margin-block-end: var(--bl-space-2);
+	color: var(--bl-content-text-secondary);
+	font-style: italic;
+	text-align: center;
+}
+
+/*
+ * Curly quote marks, not the plugin's plain text -- a decorative touch
+ * this specific widget earns by being the one place on the site whose
+ * whole content IS a quotation. --bl-accent-text, not --bl-ice: this file
+ * needs readable accent-coloured TEXT, and --bl-ice's own tokens.json
+ * bounds document it as fill-only (unusable as text against a light
+ * background) for exactly this reason.
+ */
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-next-more::before,
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-next-more::after {
+	color: var(--bl-accent-text);
+	font-style: normal;
+	font-weight: 700;
+}
+
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-next-more::before {
+	content: "\201c";
+}
+
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-next-more::after {
+	content: "\201d";
+}
+
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-author {
+	display: block;
+	color: var(--bl-content-text);
+	font-size: var(--bl-text-sm);
+	font-style: normal;
+	text-align: center;
+}
+
+/*
+ * The plugin's own hardcoded dashicon before the author's name reads as a
+ * stray "edit" affordance to a visitor (it's literally dashicons-edit),
+ * not an attribution mark -- hidden in favour of a plain em dash, the
+ * ordinary way to introduce a quote's author.
+ */
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-author .dashicons {
+	display: none;
+}
+
+.bl-sidebar .widget_widgetquotesllama .quotes-llama-widget-author::before {
+	content: "\2014 ";
+}
+
+/*
  * Reported live: no gap between "The Next Puck Drop" and "Recent Posts",
  * while every OTHER pair of widgets (Recent Posts to the quotes widget
  * below it) had the expected one. Not a WordPress widget-admin setting --
