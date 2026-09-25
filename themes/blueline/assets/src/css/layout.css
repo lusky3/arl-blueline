@@ -509,9 +509,17 @@
  * pair and nothing guarantees every source image is pre-cropped square;
  * cover crops any aspect ratio cleanly into this fixed circle instead of
  * stretching whatever isn't.
+ *
+ * float: none is load-bearing, not tidiness: the plugin's own default
+ * also floats the image left, and a floated box's horizontal margins
+ * never resolve to auto's centering behaviour -- confirmed live, `margin:
+ * 0 auto` alone left it sitting 5px from the card's left edge, the float
+ * silently overriding the centering rather than visibly fighting it.
+ * Un-floating first is what lets auto centre it at all.
  */
 .bl-sidebar .widget_widgetquotesllama img {
 	display: block;
+	float: none;
 	width: 72px;
 	height: 72px;
 	margin: 0 auto var(--bl-space-4);
