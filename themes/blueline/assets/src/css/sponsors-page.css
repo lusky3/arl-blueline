@@ -26,6 +26,30 @@
 }
 
 /*
+ * Reported live: the "Why sponsor..." text block below the card grid
+ * wasn't using the available space either -- this page's own
+ * page-template-fullwidth has no sidebar, so .entry-content fills the
+ * whole 1152px content column at this viewport, while blocks.css's own
+ * sitewide 70ch prose-measure cap (added deliberately, to stop full-width
+ * lines running to ~135 characters -- see that file's own comment) still
+ * correctly narrows these paragraphs to 706px. That cap is doing its real
+ * job here and shouldn't be removed the way the sidebar-page version of
+ * this same complaint was (a different bug, layout.css) -- what's
+ * missing is that the now-narrower box was never re-centred in the
+ * leftover width, so it just sits flush against the left edge instead,
+ * with the same look as unused space. margin-inline: auto centres the
+ * box itself (this page's own paragraphs/headings are already short
+ * enough, or already text-align: center, that this has no visible effect
+ * anywhere it doesn't actually engage the cap -- e.g. the sponsor cards'
+ * own name/detail text, both well under 706px regardless).
+ */
+.page-id-154 .entry-content p,
+.page-id-154 .entry-content li,
+.page-id-154 .entry-content :where(h1, h2, h3, h4, h5, h6) {
+	margin-inline: auto;
+}
+
+/*
  * Confirmed live: without this, every card stacked in one column despite
  * the grid above computing 4 real 264px tracks -- and independently,
  * .bl-sponsor-card__detail's own flex: 1 (below) did nothing either. Both
