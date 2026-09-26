@@ -1,0 +1,138 @@
+/*
+ * Blueline — /sponsors page.
+ *
+ * Reported live: "make the sponsor page look nicer... more modern than it
+ * is now." This page's own content (post ID 154) is a hand-authored
+ * legacy grid built with an old third-party columns plugin (Shortcodes
+ * Ultimate's [su_row]/[su_column] shortcodes) -- rebuilt as plain Group
+ * blocks with the two class names below, styled here as a proper card
+ * grid instead. Each sponsor's own logo/banner image is still whatever
+ * that business supplied over the years (wildly inconsistent sizes and
+ * aspect ratios, some literally screenshotted business cards) -- nothing
+ * here can fix that content, only give it a consistent frame to sit in.
+ *
+ * Scoped to body.page-id-154 (this exact page), not a bare .bl-sponsor-*
+ * selector: these two class names are new, page-specific content classes
+ * that don't exist anywhere else, but the page-id scope is cheap
+ * insurance against a future page reusing the same class names by
+ * coincidence and inheriting styling meant only for this one.
+ */
+
+.page-id-154 .bl-sponsor-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: var(--bl-space-6);
+	margin-block-start: var(--bl-space-8);
+}
+
+/*
+ * Confirmed live: without this, every card stacked in one column despite
+ * the grid above computing 4 real 264px tracks -- and independently,
+ * .bl-sponsor-card__detail's own flex: 1 (below) did nothing either. Both
+ * are the same root cause: the Group block wraps its own children in a
+ * `.wp-block-group__inner-container` div, so a Group's real children are
+ * always one level deeper than they look. CSS Grid only lays out direct
+ * children, and flex properties like flex: 1 only take effect on a direct
+ * flex child, so in both cases the wrapper -- not the content inside it --
+ * was the one actual child participating, still laid out by its own
+ * is-layout-flow (plain block stacking) underneath. display: contents
+ * removes the wrapper from the box tree entirely, so its own children
+ * become real grid/flex items of whichever Group this rule is applied to.
+ */
+.page-id-154 .bl-sponsor-grid > .wp-block-group__inner-container,
+.page-id-154 .bl-sponsor-card > .wp-block-group__inner-container {
+	display: contents;
+}
+
+.page-id-154 .bl-sponsor-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--bl-space-5);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+	text-align: center;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* .bl-motion-ok gates this the same way nav.css's own chevron transition
+   and the sidebar scroll-cue bounce do -- respects prefers-reduced-motion
+   without a second, separate media query here. */
+.bl-motion-ok .page-id-154 .bl-sponsor-card:hover {
+	transform: translateY(-3px);
+	box-shadow: var(--bl-shadow-raised-sm);
+}
+
+/*
+ * Fixed-height frame, not a fixed aspect-ratio on the image itself: these
+ * source images range from a wide banner ad to a near-square logo to a
+ * screenshotted business card, and object-fit: contain inside a shared
+ * height (rather than forcing every image to the same box shape) is what
+ * lets all three sit at a consistent visual weight in the grid without
+ * cropping any of them.
+ */
+.page-id-154 .bl-sponsor-card__logo {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 140px;
+	margin: 0 0 var(--bl-space-4);
+}
+
+.page-id-154 .bl-sponsor-card__logo img {
+	max-width: 100%;
+	max-height: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	border-radius: var(--bl-radius);
+}
+
+.page-id-154 .bl-sponsor-card__name {
+	margin: 0 0 var(--bl-space-2);
+	font-size: var(--bl-text-lg);
+}
+
+.page-id-154 .bl-sponsor-card__detail {
+	flex: 1;
+	margin: 0 0 var(--bl-space-4);
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+	line-height: 1.6;
+}
+
+.page-id-154 .bl-sponsor-card__detail a {
+	color: inherit;
+}
+
+.page-id-154 .bl-sponsor-card__links {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bl-space-3);
+	margin: 0;
+}
+
+/*
+ * Plain pill links, not the old 20x20 icon_mail.jpg/icon_web.jpg raster
+ * images (2016-era uploads, blurry at any modern pixel density) -- text
+ * reads clearly at any size and needs no separate accessible-name
+ * workaround the way a bare icon glyph would.
+ */
+.page-id-154 .bl-sponsor-card__links a {
+	padding: var(--bl-space-2) var(--bl-space-4);
+	border: 1px solid var(--bl-content-border);
+	border-radius: 999px;
+	color: var(--bl-content-link);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	text-decoration: none;
+	transition: background-color 0.15s ease;
+}
+
+.page-id-154 .bl-sponsor-card__links a:hover {
+	background: color-mix(in srgb, var(--bl-content-link) 10%, transparent);
+}
