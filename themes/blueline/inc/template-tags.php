@@ -892,6 +892,23 @@ function blueline_site_footer() {
 						<li><a href="<?php echo esc_url( 'mailto:' . blueline_settings( 'contact_email' ) ); ?>"><?php echo esc_html( blueline_settings( 'contact_email' ) ); ?></a></li>
 						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
 						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
+						<?php
+						/*
+						 * Rollout-period escape hatch: rookie-child (the theme
+						 * blueline replaced) has its own matching banner, offering
+						 * the reverse switch back to blueline -- see that theme's
+						 * own functions.php (not in this repo; it predates version
+						 * control on this site). Gated on the Theme Switcha plugin
+						 * itself being enabled, not a settings toggle of this
+						 * theme's own: once that plugin is deactivated at the end
+						 * of the rollout, this link self-removes rather than
+						 * lingering as a dead ?theme-switch= link with nothing left
+						 * to handle it.
+						 */
+						if ( function_exists( 'theme_switcha_check_enabled' ) && theme_switcha_check_enabled() ) :
+							?>
+							<li><a href="<?php echo esc_url( add_query_arg( 'theme-switch', 'rookie-child' ) ); ?>"><?php esc_html_e( 'Switch to Classic Site', 'blueline' ); ?></a></li>
+						<?php endif; ?>
 					</ul>
 				</div>
 			<?php endif; ?>
