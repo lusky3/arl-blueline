@@ -33,11 +33,41 @@
  * accident -- this holds the same measure everywhere, sidebar or not.
  * Scoped to text-bearing elements only (not the whole .entry-content
  * container) so images, tables and full-width blocks are unaffected.
+ *
+ * margin-inline: auto is load-bearing, not decorative -- reported live,
+ * repeatedly (arl-league-info, /sponsors, /register), as "text not using
+ * the available space": on any no-sidebar page this cap leaves real
+ * leftover width once a paragraph is actually narrowed to 70ch, and
+ * without this it all sits on ONE side (flush left) instead of split
+ * evenly, reading as an accident rather than a deliberately narrow reading
+ * column. This used to be fixed page-by-page (a scoped override on
+ * .page-id-154 alone for the first page it was reported on) -- exactly
+ * the kind of fix that needed re-discovering and re-shipping on every
+ * later page it was ALSO true for, since the cap above already applies
+ * everywhere. Centring it here, at the one shared rule, is what makes
+ * this the last time. Harmless where the cap never engages (a sidebar
+ * page inside the 960-1799.98px range this file's own rule below already
+ * exempts, or a paragraph already narrower than 70ch): auto margins on an
+ * already-full-width or already-narrow box resolve to 0/whatever the
+ * content's own width leaves, nothing visibly shifts.
+ *
+ * Deliberately NOT applied to li: a list marker sits at a fixed offset
+ * from ITS OWN item's box edge, so centring each <li> individually would
+ * centre every bullet at a slightly different horizontal position instead
+ * of one shared column the moment items wrap to different heights --
+ * confirmed live this would look actively broken on a single-column list
+ * spanning a wide, no-sidebar page, unlike a paragraph or heading, which
+ * has no marker of its own to misalign.
  */
 .entry-content p,
 .entry-content li,
 .entry-content :where(h1, h2, h3, h4, h5, h6) {
 	max-width: 70ch;
+}
+
+.entry-content p,
+.entry-content :where(h1, h2, h3, h4, h5, h6) {
+	margin-inline: auto;
 }
 
 /*
@@ -89,9 +119,17 @@
 	max-width: none;
 }
 
-/* Paragraph -- core/paragraph has no wrapper class, the block IS the <p>. */
+/*
+ * Paragraph -- core/paragraph has no wrapper class, the block IS the <p>.
+ * margin-block, not the margin shorthand: this rule only ever meant to
+ * zero the browser's own default paragraph spacing (top/bottom), but the
+ * shorthand also resets margin-inline -- confirmed live, silently undoing
+ * the prose-measure rule's own margin-inline: auto above (same
+ * specificity, this rule written later, so it won regardless of which
+ * one a reader would expect to apply).
+ */
 .entry-content p {
-	margin: 0;
+	margin-block: 0;
 }
 
 /* Heading -- core adds .wp-block-heading to core/heading since WP 6.3. */
@@ -133,12 +171,70 @@
 	padding-inline-start: var(--bl-space-6);
 }
 
+/*
+ * font-weight: 400 baseline is load-bearing, not tidiness: the "label
+ * item" bold treatment below makes font-weight matter here for the first
+ * time, and font-weight inherits -- without an explicit reset on every
+ * li, bolding a label also bolds every value nested inside it (confirmed
+ * live: "Oct 11, 2026" under "Blackout Dates:" read just as bold as its
+ * own label). An explicit 400 here beats the inherited 600 for any leaf
+ * (an explicit value on the element itself always wins over an inherited
+ * one, regardless of the ancestor rule's own specificity), while the
+ * more specific :has() rule below still wins 600 for a label li's own
+ * text. Placed ahead of li + li below for stylelint's own
+ * no-descending-specificity rule -- this selector's specificity is lower,
+ * and nothing here depends on cascade order against that rule (different
+ * properties).
+ */
+.entry-content .wp-block-list li {
+	font-weight: 400;
+}
+
 .entry-content .wp-block-list li + li {
 	margin-block-start: var(--bl-space-2);
 }
 
 .entry-content .wp-block-list :where(ul, ol) {
 	margin-block-start: var(--bl-space-2);
+}
+
+/*
+ * Reported live: "the lists could look better" (/register's deeply
+ * nested "Important Dates and Times" / "Format" lists -- a label item
+ * like "Season Begins:" or "Blackout Dates:" immediately followed by a
+ * nested sub-list of its actual values, several levels deep). Plain
+ * bullets at every level read as one flat, undifferentiated list --
+ * :has() picks out exactly the label items without touching this list's
+ * own authored content at all: a label item is defined here purely by
+ * having a nested sub-list directly inside it, the same shape every
+ * label in this content already has and every leaf value never does, so
+ * this holds for any future list built the same way, not just this one
+ * page's current wording.
+ */
+.entry-content .wp-block-list > li:has(> .wp-block-list) {
+	margin-block-start: var(--bl-space-4);
+	font-weight: 600;
+}
+
+.entry-content .wp-block-list > li:has(> .wp-block-list):first-child {
+	margin-block-start: 0;
+}
+
+/*
+ * Two-tone markers, not a heavier structural change: a label item's own
+ * bullet uses the same readable accent already established for text
+ * elsewhere (--bl-accent-text, not --bl-ice -- see sponsors-page.css's
+ * own comment on why: tokens.json documents --bl-ice as fill-only), while
+ * an ordinary leaf value's bullet stays quiet. Reads as "this bullet
+ * introduces a group" vs. "this bullet is one of its values" without
+ * relying on indentation alone.
+ */
+.entry-content .wp-block-list li::marker {
+	color: var(--bl-content-text-secondary);
+}
+
+.entry-content .wp-block-list > li:has(> .wp-block-list)::marker {
+	color: var(--bl-accent-text);
 }
 
 /* Table -- core/table wraps the <table> in <figure class="wp-block-table">. */
