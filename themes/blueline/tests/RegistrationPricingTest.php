@@ -258,6 +258,58 @@ final class RegistrationPricingTest extends TestCase {
 	}
 
 	/**
+	 * The exact bug this filtering exists to prevent: a Featured product is
+	 * also tagged its own role ("Player"), and the join must produce
+	 * "Player", never "Featured Player" -- "Featured" is an internal
+	 * filtering marker for blueline_homepage_registration_offers(), not a
+	 * display-facing role word.
+	 */
+	public function test_role_label_omits_the_featured_filtering_tag(): void {
+		blueline_test_register_term( 300, 'product_tag', 'Player' );
+		blueline_test_register_term( 302, 'product_tag', 'Featured' );
+		blueline_test_set_post_terms( 116522, 'product_tag', array( 300, 302 ) );
+
+		$product = new BluelineFakeProduct( 116522, 'Player Registration (W2026-27)', '575' );
+
+		$this->assertSame( 'Player', blueline_homepage_registration_offer_role_label( $product ) );
+	}
+
+	/**
+	 * A product carrying the exact tag name is recognised regardless of
+	 * what else it's also tagged (real-world case: a Featured product also
+	 * carries its own role tag, "Player" or "Goalie").
+	 */
+	public function test_product_has_tag_matches_among_several(): void {
+		blueline_test_register_term( 300, 'product_tag', 'Player' );
+		blueline_test_register_term( 302, 'product_tag', 'Featured' );
+		blueline_test_set_post_terms( 116522, 'product_tag', array( 300, 302 ) );
+
+		$this->assertTrue( blueline_product_has_tag( 116522, 'Featured' ) );
+	}
+
+	/**
+	 * A product tagged with something else entirely (real-world case: a
+	 * Waitlist product, tagged its role plus "Waitlist" but never
+	 * "Featured") does not match.
+	 */
+	public function test_product_has_tag_does_not_match_when_absent(): void {
+		blueline_test_register_term( 300, 'product_tag', 'Player' );
+		blueline_test_register_term( 301, 'product_tag', 'Waitlist' );
+		blueline_test_set_post_terms( 117220, 'product_tag', array( 300, 301 ) );
+
+		$this->assertFalse( blueline_product_has_tag( 117220, 'Featured' ) );
+	}
+
+	/**
+	 * A product with no product_tag terms at all (real-world case: the
+	 * $999.99 late-registration surcharge product, SKU 117085-LR-1, tagged
+	 * only "Player") does not spuriously match.
+	 */
+	public function test_product_has_tag_returns_false_with_no_terms(): void {
+		$this->assertFalse( blueline_product_has_tag( 117085, 'Featured' ) );
+	}
+
+	/**
 	 * End-to-end (still without a real WC_Product): the hero content builder
 	 * puts the single price on the CTA when every offer agrees, and no
 	 * price-breakdown subcopy line appears.

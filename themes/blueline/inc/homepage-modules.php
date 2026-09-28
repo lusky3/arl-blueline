@@ -12,11 +12,48 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Every purchasable, in-stock product in the current season's Registration
- * category, re-verified live, because Season State's own transient can be up to
- * 15 minutes stale, so this never trusts a cached product list alone; a
- * Register CTA must never quote a price for a product that has since sold
- * out or been unpublished. Sorted highest price first.
+ * The one product_tag name that marks a registration product fit for the
+ * homepage hero's own price line, as opposed to every OTHER real,
+ * purchasable product the season's Registration category can also hold
+ * (waitlist entries, a late-registration surcharge product, ...) --
+ * see blueline_homepage_registration_offers()'s own docblock for why this
+ * narrowing exists.
+ */
+const BLUELINE_HOMEPAGE_FEATURED_PRODUCT_TAG = 'Featured';
+
+/**
+ * Whether $product_id carries the given product_tag term, by exact name.
+ * Pulled out of blueline_homepage_registration_offer_role_label() as its
+ * own function specifically so it's unit-testable with this suite's
+ * existing blueline_test_register_term()/blueline_test_set_post_terms()
+ * mocks, the same way that function already is, without needing a real
+ * WC_Product to reach it.
+ *
+ * @param int    $product_id Product post ID.
+ * @param string $tag_name   Tag name to look for.
+ * @return bool
+ */
+function blueline_product_has_tag( int $product_id, string $tag_name ): bool {
+	if ( ! taxonomy_exists( 'product_tag' ) ) {
+		return false;
+	}
+
+	$tags = wp_get_post_terms( $product_id, 'product_tag', array( 'fields' => 'names' ) );
+
+	if ( is_wp_error( $tags ) ) {
+		return false;
+	}
+
+	return in_array( $tag_name, $tags, true );
+}
+
+/**
+ * Every purchasable, in-stock, "Featured"-tagged product in the current
+ * season's Registration category, re-verified live, because Season State's
+ * own transient can be up to 15 minutes stale, so this never trusts a
+ * cached product list alone; a Register CTA must never quote a price for a
+ * product that has since sold out or been unpublished. Sorted highest
+ * price first.
  *
  * P0 finding 1: the hero used to read a SINGLE product id
  * ($state_data['product_id'], "the first purchasable product Season State
@@ -31,6 +68,24 @@ defined( 'ABSPATH' ) || exit;
  * returns every live offer and lets blueline_homepage_registration_cta_pricing()
  * decide, from the actual set, whether one price or a breakdown belongs on
  * the page.
+ *
+ * Reported live: the W2026-27 category holds five real, live products --
+ * Player and Goalie Registration, but also a $999.99 Player late-
+ * registration surcharge (SKU 117085-LR-1) and two $0.00 Waitlist products
+ * -- and the hero's price line read all five: "Player $999.99 · Player
+ * $575.00 · Goalie $170.00 · Player Waitlist $0.00 · Goalie Waitlist
+ * $0.00". Every one of those five is a genuinely correct, purchasable
+ * product (the late-registration and waitlist products need to stay live
+ * and on sale precisely when regular registration is full or its window
+ * has passed) -- the bug was never in what's purchasable, only in what the
+ * homepage hero's own summary line should quote. Narrowing this specific
+ * caller to the "Featured" product_tag (not a blanket rule on the season
+ * category itself, which blueline_registration_season_product_ids() still
+ * returns unfiltered for whoever else needs the full set) is what keeps
+ * that distinction: tag exactly the products meant to answer "what does it
+ * cost to register" on the homepage, and every other live offer keeps
+ * selling normally everywhere else (/register, WooCommerce's own product
+ * pages) without this hero ever mentioning it.
  *
  * @param array $state_data Result of blueline_season_state_data().
  * @return array<int, array{product: object, price_label: string, price: float, role_label: string}>
@@ -47,6 +102,10 @@ function blueline_homepage_registration_offers( array $state_data ): array {
 	$offers = array();
 
 	foreach ( $product_ids as $product_id ) {
+		if ( ! blueline_product_has_tag( $product_id, BLUELINE_HOMEPAGE_FEATURED_PRODUCT_TAG ) ) {
+			continue;
+		}
+
 		$product = wc_get_product( $product_id );
 
 		if ( ! $product || ! $product->is_purchasable() || ! $product->is_in_stock() ) {
@@ -90,12 +149,23 @@ function blueline_homepage_registration_offers( array $state_data ): array {
  * registration offer, reading as duplicate/broken data instead of two
  * distinct, real offers.
  *
+ * BLUELINE_HOMEPAGE_FEATURED_PRODUCT_TAG is filtered out of that join --
+ * confirmed live, without this a Featured product's own label read
+ * "Featured Player" instead of "Player". That tag exists purely to pick
+ * which products blueline_homepage_registration_offers() returns at all
+ * (see its own docblock); it was never meant to be a display-facing role
+ * word the way "Player"/"Goalie"/"Waitlist" are.
+ *
  * @param object $product A WC_Product instance.
  * @return string
  */
 function blueline_homepage_registration_offer_role_label( $product ): string {
 	if ( taxonomy_exists( 'product_tag' ) ) {
 		$tags = wp_get_post_terms( $product->get_id(), 'product_tag', array( 'fields' => 'names' ) );
+
+		if ( ! is_wp_error( $tags ) ) {
+			$tags = array_diff( $tags, array( BLUELINE_HOMEPAGE_FEATURED_PRODUCT_TAG ) );
+		}
 
 		if ( ! is_wp_error( $tags ) && ! empty( $tags ) ) {
 			return implode( ' ', $tags );
