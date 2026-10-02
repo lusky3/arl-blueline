@@ -1,0 +1,119 @@
+name: Release
+
+# Push a tag vX.Y.Z (final) or vX.Y.Z-rc.N (pre-release) to publish a Blueline
+# release: guard -> build -> publish. The release carries blueline-X.Y.Z.zip
+# (a clean blueline/ theme folder) and manifest.json (sha256 + requirements),
+# which the theme's own updater (inc/updater.php) reads. Procedure and owner
+# steps: docs/RELEASING.md.
+#
+# Packaging happens in the read-only `build` job; only `publish` holds
+# contents: write, and it runs nothing but `gh release create`.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      # Tag must equal style.css Version and BLUELINE_VERSION, and CHANGELOG.md
+      # must carry a section for it. Publishes nothing, so a mislabelled tag
+      # never produces a zip.
+      - name: Check the tag against the theme
+        run: php scripts/release/guard.php "$GITHUB_REF_NAME"
+
+  build:
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.3"
+          tools: composer
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+
+      - name: Install PHP dependencies
+        working-directory: themes/blueline
+        run: composer install --no-interaction --no-progress
+
+      - name: Install Node dependencies
+        working-directory: themes/blueline
+        run: npm ci
+
+      - name: Build assets
+        working-directory: themes/blueline
+        run: npm run build
+
+      - name: Run the gate
+        working-directory: themes/blueline
+        run: npm run check
+
+      - name: Package the theme
+        run: |
+          mkdir dist
+          scripts/release/package.sh "$GITHUB_REF_NAME" dist
+          php scripts/release/build-manifest.php "$GITHUB_REF_NAME" "dist/blueline-${GITHUB_REF_NAME#v}.zip" dist
+          cat dist/manifest.json
+
+      - name: Upload release files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-dist
+          path: dist
+
+      # A tag with a "-" suffix (v1.2.0-rc.1) is a pre-release: the beta
+      # channel sees it, the stable channel does not. The release body is the
+      # tag's CHANGELOG section, which is what the wp-admin update links to.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flags=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            "${flags[@]}" \
+            --verify-tag \
+            --title "Blueline ${GITHUB_REF_NAME#v}" \
+            --notes-file dist/notes.md \
+            "dist/blueline-${GITHUB_REF_NAME#v}.zip" \
+            dist/manifest.json

@@ -12,34 +12,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-}"
 SRC="$(cd "$SCRIPT_DIR/.." && pwd)/themes/blueline/"
 
-# NOTE: tools/ is intentionally NOT excluded below (all targets). It looks
-# like a build-only directory, but inc/team-colors.php reads
-# tools/contrast-rules.json at RUNTIME on every front-end team page
-# (blueline_contrast_threshold()) to derive each team's readable foreground
-# colour. Excluding tools/ here would not fail loudly -- the PHP falls back
-# to hard-coded 4.5/3.0 AA thresholds and logs the fact (see
-# blueline_contrast_rules_read_failure() in inc/team-colors.php) -- so a
-# future tidy-up of this list that adds tools/ (or contrast-rules.json
-# specifically) would silently degrade every team page's colour derivation
-# on the deployed site with nothing in this script or its output telling
-# you why.
-#
-# assets/src/js/ must ship too: inc/settings/page.php enqueues
-# settings-{photos,brand-colors,occasions}.js straight from source. Only
-# assets/src/css/ (compiled into assets/dist/) is build-only.
-#
-# Leading-slash patterns are anchored to the theme root. --delete-excluded
-# removes anything excluded here that an earlier deploy already shipped.
-EXCLUDES=(
-  --exclude node_modules --exclude vendor --exclude tests --exclude .git --exclude '*.map'
-  --exclude /tests-e2e --exclude /tests-browser --exclude /artifacts --exclude /.wp-core-oracle
-  --exclude /.phpunit.result.cache --exclude /phpunit.xml --exclude /.gitignore
-  --exclude /composer.json --exclude /composer.lock
-  --exclude /package.json --exclude /package-lock.json
-  --exclude /playwright.config.js --exclude /webpack.config.js
-  --exclude /assets/src/css --exclude '*.test.mjs'
-  --delete-excluded
-)
+# What ships is defined once, in themes/blueline/.distignore (rsync syntax),
+# which the release zip (scripts/release/package.sh) reads too -- see its
+# header for why tools/ and assets/src/js/ must NOT be excluded.
+# --delete-excluded removes anything excluded there that an earlier deploy
+# already shipped.
+[ -f "$SRC/.distignore" ] || { echo "missing $SRC.distignore" >&2; exit 1; }
+EXCLUDES=( --exclude-from "$SRC/.distignore" --delete-excluded )
 
 case "$TARGET" in
   local)

@@ -51,6 +51,7 @@ date_default_timezone_set( 'UTC' ); // phpcs:ignore WordPress.DateTime.Restricte
  * been exercised, and neither was defined.
  */
 define( 'MINUTE_IN_SECONDS', 60 );
+define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 
 /*
@@ -756,14 +757,32 @@ if ( ! class_exists( 'WP_Error' ) ) {
 		private $message;
 
 		/**
+		 * Error data (core's third constructor argument).
+		 *
+		 * @var mixed
+		 */
+		private $data;
+
+		/**
 		 * Constructor.
 		 *
 		 * @param string $code    Error code.
 		 * @param string $message Human-readable message.
+		 * @param mixed  $data    Optional error data.
 		 */
-		public function __construct( $code = '', $message = '' ) {
+		public function __construct( $code = '', $message = '', $data = '' ) {
 			$this->code    = (string) $code;
 			$this->message = (string) $message;
+			$this->data    = $data;
+		}
+
+		/**
+		 * The error data.
+		 *
+		 * @return mixed
+		 */
+		public function get_error_data() {
+			return $this->data;
 		}
 
 		/**
@@ -1889,7 +1908,12 @@ function blueline_test_option_autoload_args( string $option ): array {
  * the combined blueline_test_reset()) in any test that touches transients.
  */
 function blueline_test_reset_transients(): void {
-	$GLOBALS['bl_test_transients'] = array();
+	$GLOBALS['bl_test_transients']         = array();
+	$GLOBALS['bl_test_site_transients']    = array();
+	$GLOBALS['bl_test_site_transient_ttl'] = array();
+	$GLOBALS['bl_test_http']               = array();
+	$GLOBALS['bl_test_http_log']           = array();
+	$GLOBALS['bl_test_deleted_files']      = array();
 }
 
 /**
@@ -3385,3 +3409,154 @@ if ( ! class_exists( 'WooCommerce' ) ) {
 	 */
 	class WooCommerce {}
 }
+
+/*
+ * HTTP and site-transient stand-ins for the GitHub updater (inc/updater-client.php).
+ *
+ * Responses are queued per exact URL with blueline_test_http_expect(); every
+ * request is appended to $GLOBALS['bl_test_http_log'] as array( url, args ), so
+ * a test can assert on the headers actually sent. A URL with no queued
+ * response yields a WP_Error, never a real network call. Site transients keep
+ * the TTL they were given in $GLOBALS['bl_test_site_transient_ttl'].
+ */
+
+/**
+ * Queue the response wp_remote_get() returns for a URL.
+ *
+ * @param string         $url      Exact request URL.
+ * @param array|WP_Error $response Response array (`response.code`, `headers`, `body`) or an error.
+ */
+function blueline_test_http_expect( string $url, $response ): void {
+	$GLOBALS['bl_test_http'][ $url ] = $response;
+}
+
+if ( ! function_exists( 'wp_remote_request' ) ) {
+	/**
+	 * Stand-in for wp_remote_request(): serves the queued response and, when
+	 * `filename` is set, writes the body there like a streamed download.
+	 *
+	 * @param string              $url  URL.
+	 * @param array<string,mixed> $args Request args.
+	 * @return array|WP_Error
+	 */
+	function wp_remote_request( $url, $args = array() ) {
+		$GLOBALS['bl_test_http_log'][] = array(
+			'url'  => $url,
+			'args' => $args,
+		);
+
+		$queued = $GLOBALS['bl_test_http'][ $url ] ?? null;
+		if ( null === $queued ) {
+			return new WP_Error( 'bl_test_http_unexpected', 'No stubbed response for this request.' );
+		}
+		if ( $queued instanceof WP_Error ) {
+			return $queued;
+		}
+		if ( ! empty( $args['filename'] ) ) {
+			file_put_contents( $args['filename'], (string) ( $queued['body'] ?? '' ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- test stand-in for a streamed HTTP download.
+		}
+
+		return $queued;
+	}
+}
+if ( ! function_exists( 'wp_remote_get' ) ) {
+	/**
+	 * Stand-in for wp_remote_get().
+	 *
+	 * @param string              $url  URL.
+	 * @param array<string,mixed> $args Request args.
+	 * @return array|WP_Error
+	 */
+	function wp_remote_get( $url, $args = array() ) {
+		return wp_remote_request( $url, $args );
+	}
+}
+if ( ! function_exists( 'wp_remote_retrieve_response_code' ) ) {
+	/**
+	 * Stand-in for wp_remote_retrieve_response_code().
+	 *
+	 * @param array|WP_Error $response Response.
+	 * @return int|string
+	 */
+	function wp_remote_retrieve_response_code( $response ) {
+		return is_array( $response ) ? ( $response['response']['code'] ?? '' ) : '';
+	}
+}
+if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
+	/**
+	 * Stand-in for wp_remote_retrieve_body().
+	 *
+	 * @param array|WP_Error $response Response.
+	 * @return string
+	 */
+	function wp_remote_retrieve_body( $response ) {
+		return is_array( $response ) ? (string) ( $response['body'] ?? '' ) : '';
+	}
+}
+if ( ! function_exists( 'wp_remote_retrieve_header' ) ) {
+	/**
+	 * Stand-in for wp_remote_retrieve_header(): header names are lower-case keys.
+	 *
+	 * @param array|WP_Error $response Response.
+	 * @param string         $header   Header name.
+	 * @return string
+	 */
+	function wp_remote_retrieve_header( $response, $header ) {
+		return is_array( $response ) ? (string) ( $response['headers'][ strtolower( $header ) ] ?? '' ) : '';
+	}
+}
+if ( ! function_exists( 'wp_tempnam' ) ) {
+	/**
+	 * Stand-in for wp_tempnam(): a real, empty temp file.
+	 *
+	 * @param string $filename Unused.
+	 * @return string
+	 */
+	function wp_tempnam( $filename = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core.
+		return (string) tempnam( sys_get_temp_dir(), 'bl-test-' );
+	}
+}
+if ( ! function_exists( 'get_site_transient' ) ) {
+	/**
+	 * Stand-in for get_site_transient().
+	 *
+	 * @param string $transient Name.
+	 * @return mixed
+	 */
+	function get_site_transient( $transient ) {
+		return array_key_exists( $transient, $GLOBALS['bl_test_site_transients'] ) ? $GLOBALS['bl_test_site_transients'][ $transient ] : false;
+	}
+}
+if ( ! function_exists( 'set_site_transient' ) ) {
+	/**
+	 * Stand-in for set_site_transient(): stores the value and records the TTL.
+	 *
+	 * @param string $transient  Name.
+	 * @param mixed  $value      Value.
+	 * @param int    $expiration TTL in seconds.
+	 * @return true
+	 */
+	function set_site_transient( $transient, $value, $expiration = 0 ) {
+		$GLOBALS['bl_test_site_transients'][ $transient ]    = $value;
+		$GLOBALS['bl_test_site_transient_ttl'][ $transient ] = $expiration;
+
+		return true;
+	}
+}
+if ( ! function_exists( 'delete_site_transient' ) ) {
+	/**
+	 * Stand-in for delete_site_transient().
+	 *
+	 * @param string $transient Name.
+	 * @return bool
+	 */
+	function delete_site_transient( $transient ) {
+		$existed = array_key_exists( $transient, $GLOBALS['bl_test_site_transients'] );
+		unset( $GLOBALS['bl_test_site_transients'][ $transient ], $GLOBALS['bl_test_site_transient_ttl'][ $transient ] );
+
+		return $existed;
+	}
+}
+
+// Initialise the stores above so a test that skips blueline_test_reset() still works.
+blueline_test_reset_transients();
