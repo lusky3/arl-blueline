@@ -173,6 +173,57 @@
 	color: var(--bl-content-text);
 }
 
+/*
+ * Callout -- reusable "notice" card. Replaces two dated, one-off boxes found
+ * live: /register's Shortcodes Ultimate [su_note] (a flat #fffdcd
+ * highlighter box, its "dotjots" plain hyphen-prefixed text rather than real
+ * list markup) and /equipment's hand-rolled inline-styled heading +
+ * #fffcb3-highlighted paragraph. Both are rebuilt as plain HTML using this
+ * one class, so any future page content reaches for .bl-callout instead of
+ * inventing another one-off. Card shell matches sponsors-page.css's own
+ * .bl-sponsor-card (surface/border/radius/shadow); the warning tint follows
+ * the same color-mix(--bl-warning, 8%) pattern already used by
+ * announcement.css's .bl-announce--urgent, account.css and forms.css.
+ *
+ * The .bl-callout li rules (spacing, marker colour) are declared further
+ * below, after the List section's own base li rules -- stylelint's
+ * no-descending-specificity rule orders purely by selector specificity,
+ * with no regard for which list a selector actually targets.
+ */
+.entry-content .bl-callout {
+	margin-block: var(--bl-space-6);
+	padding: var(--bl-space-5) var(--bl-space-6);
+	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
+	border: 1px solid var(--bl-content-border);
+	border-inline-start: 4px solid var(--bl-warning);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-card);
+	color: var(--bl-content-text);
+}
+
+.entry-content .bl-callout__title {
+	margin: 0 0 var(--bl-space-3);
+	font-size: var(--bl-text-lg);
+	font-weight: 700;
+}
+
+/*
+ * The general prose rules below center any p/heading whose 70ch cap makes
+ * it narrower than its container (this file's own margin-inline: auto
+ * rule). Right for free-flowing article text; wrong here -- a callout is a
+ * self-contained card, so its own copy stays pinned to the card's left edge
+ * regardless of how wide the card ends up.
+ */
+.entry-content .bl-callout p,
+.entry-content .bl-callout :where(h1, h2, h3, h4, h5, h6) {
+	margin-inline: 0;
+}
+
+.entry-content .bl-callout ul {
+	margin: 0;
+	padding-inline-start: var(--bl-space-5);
+}
+
 /* List */
 .entry-content .wp-block-list {
 	padding-inline-start: var(--bl-space-6);
@@ -203,6 +254,14 @@
 
 .entry-content .wp-block-list :where(ul, ol) {
 	margin-block-start: var(--bl-space-2);
+}
+
+.entry-content .bl-callout li + li {
+	margin-block-start: var(--bl-space-2);
+}
+
+.entry-content .bl-callout li::marker {
+	color: var(--bl-warning);
 }
 
 /*
