@@ -71,33 +71,40 @@
 }
 
 /*
- * ...but not on a page with an active sidebar, in the one width range
- * where that sidebar actually narrows this column: 960-1799.98px
- * (layout.css's own sidebar breakpoint), where the sidebar's 300px grid
- * track already brings the primary column down to a naturally
- * comfortable measure on its own -- confirmed live, 939px and 973px on
- * two different pages at 1400px viewport (/arl-league-info and its
- * /equipment child), no cap needed at all. The flat cap above was
- * needlessly double-narrowing it anyway, down to the same 706px as a
- * full-width no-sidebar page, leaving up to a quarter of the column's
- * own width sitting empty next to the text -- reported live as "not
- * using the space available." Below 960px the sidebar stacks
- * (.bl-content-layout's own base single-column grid) and at 1800px+ it
- * becomes a floating panel outside the grid entirely (layout.css's own
- * sidebar-breakpoint comment) -- both put this column back to full
- * width, where the cap above is doing its real job again, so this stays
- * scoped to the exact range the sidebar's own grid track is active.
+ * ...but a wider ceiling, not no ceiling, on a page with an active
+ * sidebar, in the one width range where that sidebar actually narrows
+ * this column: 960-1799.98px (layout.css's own sidebar breakpoint),
+ * where the sidebar's 300px grid track already brings the primary
+ * column down to ~939-973px on its own (confirmed live on /arl-league-
+ * info and its /equipment child at 1400px viewport) -- most of the way
+ * to a comfortable measure already, so the flat 70ch/706px cap above,
+ * which was tuned for a full-width no-sidebar column, needlessly
+ * double-narrowed it, leaving up to a quarter of the column's own width
+ * sitting empty next to the text (reported live as "not using the space
+ * available"). A first attempt removed the cap here entirely -- correct
+ * for short intro copy, but reported live as a fresh problem of its own
+ * on long-form prose (/arl-league-info's testimonials, /faqs's longer
+ * answers): an uncapped ~939px column runs ~90 characters per line, past
+ * comfortable even though it isn't "empty space" anymore. 90ch (~910px
+ * in this theme's body face) is the compromise: keeps nearly all the
+ * width the first attempt reclaimed, while still being a real ceiling
+ * for a long paragraph. Below 960px the sidebar stacks (.bl-content-
+ * layout's own base single-column grid) and at 1800px+ it becomes a
+ * floating panel outside the grid entirely (layout.css's own sidebar-
+ * breakpoint comment) -- both put this column back to full width, where
+ * the 70ch cap above is doing its real job again, so this stays scoped
+ * to the exact range the sidebar's own grid track is active.
  * .bl-container:has(> .bl-content-layout--has-sidebar) also holds this
  * column's own container to a fixed 1400px through the whole range
- * (layout.css), so removing the cap here can't let a line run away
- * unbounded even at the top of it.
+ * (layout.css), so this cap can't let a line run away unbounded even at
+ * the top of it.
  */
 @media (min-width: 960px) and (max-width: 1799.98px) {
 
 	.bl-content-layout--has-sidebar .entry-content p,
 	.bl-content-layout--has-sidebar .entry-content li,
 	.bl-content-layout--has-sidebar .entry-content :where(h1, h2, h3, h4, h5, h6) {
-		max-width: none;
+		max-width: 90ch;
 	}
 }
 

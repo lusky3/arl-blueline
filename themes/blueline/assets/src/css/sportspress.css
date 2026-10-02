@@ -2013,7 +2013,10 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
  * driven guess with a deliberate one: Home/Away (now the two columns
  * actually carrying a logo) get the most generous, roughly-equal share,
  * Arena keeps enough room to fit a real venue name on one line without
- * dominating the row, and Time/Result -- always short -- stay compact.
+ * dominating the row, Date stays compact (a literal time-of-day string
+ * like "6:45 pm" never needs much), and Result gets enough room for its
+ * own longest real content -- not always short, see .data-time's own
+ * comment below for the pending-state string that first exposed this.
  * Only this one table, not .sp-data-table generally: the roster and
  * league tables already have their own established width strategies
  * (.bl-sp-roster__col-name's width:100% comment above is the roster's).
@@ -2023,30 +2026,46 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 }
 
 .sp-event-list.bl-sp-schedule .data-date {
-	width: 13%;
+	width: 10%;
 }
 
 .sp-event-list.bl-sp-schedule .data-home {
-	width: 27%;
+	width: 26%;
 }
 
+/*
+ * "Time/Result -- always short" (above) held for a real score ("3 - 2")
+ * but not for the pending state's own copy -- event-list.php prints
+ * "Final score coming soon" (.bl-sp-schedule__pending) for a played-but-
+ * unentered game, 24 characters where every other value in this column is
+ * five or six. At the original 8% (~75px) that overflowed .data-time's own
+ * nowrap right through the Away column's crest and name, reported live as
+ * text overlapping the away team -- confirmed live via getBoundingClientRect,
+ * .data-time rendering at 75px while its "Final score coming soon" content
+ * needed roughly double that. Widened here (the 3% comes off .data-date,
+ * which had more room than a literal time-of-day string like "6:45 pm"
+ * ever needed, see below) and given the same white-space: normal wrap
+ * fallback as .data-venue below, so if a still-longer string ever lands
+ * here it wraps inside its own cell instead of overflowing into the next.
+ */
 .sp-event-list.bl-sp-schedule .data-time {
-	width: 8%;
+	width: 16%;
+	white-space: normal;
 }
 
 .sp-event-list.bl-sp-schedule .data-away {
-	width: 27%;
+	width: 26%;
 }
 
 /*
  * A real venue name ("Mr. Lube and Tires Arena — Black", ~33 characters)
- * does not fit 25% of this table on one line at every viewport width this
+ * does not fit 22% of this table on one line at every viewport width this
  * table renders at -- .sp-data-table's own white-space: nowrap default
  * (see .bl-sp-roster__name-cell's own comment above for the same override
  * elsewhere) turned that into horizontal overflow and a scrollbar instead
  * of the wrap this fixed-width column actually needs, confirmed live.
  */
 .sp-event-list.bl-sp-schedule .data-venue {
-	width: 25%;
+	width: 22%;
 	white-space: normal;
 }
