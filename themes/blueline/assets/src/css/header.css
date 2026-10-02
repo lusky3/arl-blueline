@@ -108,14 +108,15 @@
 :root {
 	--bl-header-logo: 80px;
 	--bl-header-pad: var(--bl-space-3);
+	--bl-header-sponsors-height: 64px;
 }
 
 /*
  * The mark steps down before it starts costing the menu a line. Measured: at
  * 1024px the 80px mark wraps the primary menu onto two rows where a 48px one
  * fits on one, and the crossover sits between 1024 and 1100. Below ~960 the
- * menu takes two rows at any logo size (it is already close to the 880px point
- * where nav.css turns it into a drawer), so this is not trying to fix that --
+ * menu takes two rows at any logo size (nav.css now turns it into a drawer
+ * there), so this is not trying to fix that --
  * only to avoid being the cause of it.
  */
 @media (max-width: 1099.98px) {
@@ -159,11 +160,23 @@
  * CSS: it depends on whether SportsPress injected a sponsor (async, and it may
  * inject nothing at all), on how many lines the menu takes, and on the fonts
  * having loaded. The calc() below is the no-JS fallback and the value used for
- * the very first paint -- logo plus the row's padding, which is the correct
- * answer whenever the sponsor slot is absent or empty.
+ * the very first paint -- logo plus the row's padding plus the two bands, plus
+ * the sponsor strip wherever it shows, so on a one-row menu JS has nothing to
+ * correct (PERF-04: the old logo-plus-padding fallback was 77px short on
+ * desktop and the page jumped when JS ran).
  */
 .bl-header__spacer {
-	height: var(--bl-header-rest-height, calc(var(--bl-header-logo) + (2 * var(--bl-space-3))));
+	--bl-header-spacer-sponsors: 0px;
+
+	height: var(--bl-header-rest-height, calc(var(--bl-header-logo) + (2 * var(--bl-header-pad)) + var(--bl-band-ice) + var(--bl-band-ink) + var(--bl-header-spacer-sponsors)));
+}
+
+/* Mirrors the sponsor strip's display breakpoint, not the drawer one. */
+@media (min-width: 880px) {
+
+	.bl-header:has(.bl-header__sponsors:not(.is-empty)) + .bl-header__spacer {
+		--bl-header-spacer-sponsors: var(--bl-header-sponsors-height);
+	}
 }
 
 /*
@@ -242,8 +255,8 @@
  * truncated site title ("ARL – ADU…") at EVERY viewport, including ones
  * with 200px of empty navy to spare. The brand no longer shrinks itself
  * to make room — .bl-nav is the flex sibling that gives way (min-width: 0
- * there, see nav.css's `@media (min-width: 880px) .bl-nav` rule; this box
- * stays flex: 0 0 auto, its natural size). Below 880px .bl-nav is a
+ * there, see nav.css's `@media (min-width: 960px) .bl-nav` rule; this box
+ * stays flex: 0 0 auto, its natural size). Below 960px .bl-nav is a
  * hidden drawer instead, so .bl-header__inner's own flex-wrap (see above)
  * is what protects the row at narrow widths, backed by the ellipsis
  * fallback confined to .bl-header__site-title below for the rare viewport
@@ -289,7 +302,7 @@
 }
 
 /*
- * Narrow-viewport-only fallback: below 880px .bl-nav is a hidden drawer
+ * Narrow-viewport-only fallback: below 960px .bl-nav is a hidden drawer
  * (see nav.css), so the header row is just brand + CTA + hamburger with no
  * shrinking sibling to yield room. .bl-header__inner's flex-wrap already
  * protects against overflow by dropping the row onto two lines, but on the
@@ -478,7 +491,7 @@
 	margin-inline: auto;
 	padding-inline: var(--bl-space-4);
 	aspect-ratio: auto;
-	height: 64px;
+	height: var(--bl-header-sponsors-height);
 	background: var(--bl-ink);
 	border-block-start: 1px solid var(--bl-ink-mid);
 	transition:
@@ -515,6 +528,10 @@
 	.bl-header__sponsors {
 		display: none;
 	}
+}
+
+/* The drawer breakpoint (nav.css), not the sponsor one above. */
+@media (max-width: 959.98px) {
 
 	/*
 	 * Keep the bar's own controls above the open drawer.
@@ -783,7 +800,7 @@
 	color: var(--bl-ink);
 }
 
-@media (min-width: 880px) {
+@media (min-width: 960px) {
 
 	.bl-header__inner {
 		flex-wrap: nowrap;

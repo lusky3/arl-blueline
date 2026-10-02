@@ -10,7 +10,7 @@
  *                        devices with no hover state and for the explicit
  *                        chevron toggle button.
  *
- * Below 880px the menu becomes a full-screen drawer opened by the
+ * Below 960px the menu becomes a full-screen drawer opened by the
  * hamburger toggle; submenus render in-flow (accordion) instead of as
  * dropdowns. A ~20-item submenu never breaks the viewport because the
  * drawer itself scrolls (overflow-y: auto) and nested submenus never
@@ -282,9 +282,12 @@
 	top: 7px;
 }
 
-/* Mobile drawer (below 880px) */
+/*
+ * Mobile drawer (below 960px). Was 880px: at 880-959px the eight-item bar
+ * wrapped onto two rows at any size that still fit the active chip (FE-04).
+ */
 
-@media (max-width: 879.98px) {
+@media (max-width: 959.98px) {
 
 	.bl-nav__menu {
 		display: none;
@@ -388,7 +391,7 @@
 	}
 }
 
-@media (min-width: 880px) {
+@media (min-width: 960px) {
 
 	.bl-nav__toggle {
 		display: none;
@@ -434,6 +437,7 @@
 	.bl-nav__link {
 		padding-inline: var(--bl-space-1);
 	}
+
 
 	.bl-nav__toggle-sub {
 		width: 24px;
@@ -505,7 +509,7 @@
 	 * flex-basis forces it onto its own wrapped line (the li row now also
 	 * carries flex-wrap: wrap for exactly this), the same way the mobile
 	 * drawer's own `.bl-nav__submenu { flex-basis: 100% }` (in the
-	 * max-width:879.98px block below) already keeps its accordion panels
+	 * max-width:959.98px block below) already keeps its accordion panels
 	 * under their label rather than beside it.
 	 */
 	.bl-nav__submenu .bl-nav__submenu {
@@ -528,7 +532,7 @@
 	 * width against a sibling -- without this, that box alone claims the
 	 * whole row and the toggle-sub button wraps onto the line below it.
 	 * Same fix the mobile drawer already applies to every .bl-nav__item
-	 * (down in the max-width:879.98px block): make the <li> the flex row,
+	 * (down in the max-width:959.98px block): make the <li> the flex row,
 	 * so link and button share one line instead of stacking.
 	 *
 	 * flex-wrap: wrap, also matching the mobile block's own .bl-nav__item --
@@ -541,6 +545,12 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
+	}
+
+	/* The active chip bleeds past its link; on the last item it
+	   would run into the Register CTA. */
+	.bl-nav__menu > .bl-nav__item:last-child:has(> .bl-nav__link[aria-current="page"]) {
+		margin-inline-end: calc(var(--bl-space-3) + 0.18em);
 	}
 
 	/*
@@ -557,5 +567,26 @@
 	.bl-nav__item:hover > .bl-nav__submenu,
 	.bl-nav__item:focus-within > .bl-nav__submenu {
 		display: block;
+	}
+
+	/* A11Y-06: Escape dismissal (navigation.js) until focus/pointer returns. */
+	.bl-nav__item[data-dismissed] > .bl-nav__submenu {
+		display: none;
+	}
+}
+
+/*
+ * FE-04: 960-1099px (tablet landscape, small laptops) wrapped the bar onto a
+ * second row. A step down in label size and item gap keeps it on one; 12px
+ * still clears the active chip's ~10px bleed past its link box.
+ */
+@media (min-width: 960px) and (max-width: 1099.98px) {
+
+	.bl-nav__menu {
+		gap: var(--bl-space-3);
+	}
+
+	.bl-nav__menu > .bl-nav__item > .bl-nav__link {
+		font-size: var(--bl-text-sm);
 	}
 }

@@ -15,6 +15,9 @@
  * countdown.php (blueline_sp_caption_heading_level()'s own docblock) --
  * everything else in this file is an unmodified copy of stock.
  *
+ * Overrides SportsPress Sponsors templates/sponsors.php, core template version 2.6.5 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 
@@ -35,13 +38,13 @@ $defaults = array(
 
 extract( $defaults, EXTR_SKIP ); // phpcs:ignore WordPress.PHP.DontExtract.extract_extract -- mirrors stock sponsors.php's own extract() convention for the args this template receives; EXTR_SKIP never overwrites an already-set variable.
 
-$blueline_title_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+$blueline_title_level = function_exists( 'blueline_sp_sponsors_title_level' ) ? blueline_sp_sponsors_title_level( doing_action( 'get_footer' ) ) : 3;
 
 if ( 'rand' === $orderby ) :
 	?>
 	<div class="sp-sponsors">
 		<?php if ( ! empty( $title ) ) : ?>
-			<?php printf( '<h%1$d class="sp-sponsors-title">%2$s</h%1$d>', $blueline_title_level, esc_html( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $blueline_title_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is escaped via esc_html() above. ?>
+			<?php printf( '<h%1$d class="sp-sponsors-title">%2$s</h%1$d>', $blueline_title_level, esc_html( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $blueline_title_level is always the int 2 or 3 blueline_sp_sponsors_title_level() returns, never user input; $title is escaped via esc_html() above. ?>
 		<?php endif; ?>
 		<div class="sp-sponsors-loader"
 			data-nonce="<?php echo esc_attr( wp_create_nonce( 'sp_sponsors' ) ); ?>"

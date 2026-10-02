@@ -765,7 +765,7 @@ function blueline_render_hero( string $state ): string {
  * 'new_here' unconditionally, because the enum cannot tell "nobody has
  * played yet" apart from "the season is already running and we're also
  * selling next season," but those are very different visitors. When
- * $state_data reports blueline_is_playing() true (the second case, and on
+ * $state_data reports is_playing true (the second case, and on
  * this site a months-long overlap, not an edge case), an existing player
  * checking the registration-heavy hero should meet their own next game and
  * the standings first, not three bullets of first-timer reassurance ahead
@@ -1289,21 +1289,23 @@ function blueline_homepage_module_standings_snippet() {
  * full standings table would then sit inside the announced group's
  * boundary alongside the actual controls). Same-`name` native radios are
  * already exposed as a group to assistive tech with no role needed; the
- * screen-reader-text span below exists only to give that native group an
- * accessible NAME, the one thing native grouping doesn't supply on its own.
+ * screen-reader-text span below gives each radio context via
+ * aria-describedby (A11Y-10: as a bare sibling it named nothing, and each
+ * radio's own label is just the division number).
  *
  * @param array<int, array{id:int, label:string, html:string}> $panels At least 2 entries.
  */
 function blueline_homepage_standings_tabs( array $panels ) {
 	?>
 	<div class="bl-standings-tabs">
-		<span class="screen-reader-text"><?php esc_html_e( 'Choose a division', 'blueline' ); ?></span>
+		<span class="screen-reader-text" id="bl-standings-tabs-desc"><?php esc_html_e( 'Choose a division', 'blueline' ); ?></span>
 		<?php foreach ( $panels as $index => $panel ) : ?>
 			<input
 				type="radio"
 				name="bl-standings-tab"
 				id="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>"
 				class="bl-standings-tabs__input"
+				aria-describedby="bl-standings-tabs-desc"
 				value="<?php echo esc_attr( $panel['id'] ); ?>"
 				<?php checked( 0 === $index ); ?>
 			>

@@ -13,10 +13,7 @@ defined( 'ABSPATH' ) || exit;
 // and style.css (hand-edited outside the build) uses its own filemtime().
 // This constant is used only if one of those mechanisms is unavailable
 // (e.g. a missing/broken assets/dist/*.asset.php) — it does not need to
-// be bumped by hand when assets change, and staging/production both
-// serve assets with long, immutable cache lifetimes (see inc/enqueue.php)
-// specifically because that per-asset versioning makes a manual bump
-// unnecessary.
+// be bumped by hand when assets change.
 define( 'BLUELINE_VERSION', '1.0.1' );
 define( 'BLUELINE_DIR', get_template_directory() );
 define( 'BLUELINE_URI', get_template_directory_uri() );
@@ -43,6 +40,7 @@ require_once BLUELINE_DIR . '/inc/settings/site-health.php';
 require_once BLUELINE_DIR . '/inc/settings/tokens.php';
 require_once BLUELINE_DIR . '/inc/settings/validation.php';
 require_once BLUELINE_DIR . '/inc/setup.php';
+require_once BLUELINE_DIR . '/inc/privacy.php';
 require_once BLUELINE_DIR . '/inc/enqueue.php';
 require_once BLUELINE_DIR . '/inc/template-tags.php';
 require_once BLUELINE_DIR . '/inc/search.php';
@@ -53,6 +51,7 @@ require_once BLUELINE_DIR . '/inc/team-colors.php';
 require_once BLUELINE_DIR . '/inc/occasions.php';
 require_once BLUELINE_DIR . '/inc/sportspress.php';
 require_once BLUELINE_DIR . '/inc/social-meta.php';
+require_once BLUELINE_DIR . '/inc/email.php';
 require_once BLUELINE_DIR . '/inc/woocommerce.php';
 require_once BLUELINE_DIR . '/inc/account/endpoints.php';
 require_once BLUELINE_DIR . '/inc/account/player-link.php';

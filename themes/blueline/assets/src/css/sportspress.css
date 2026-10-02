@@ -133,7 +133,7 @@ table.bl-table-self-scroll {
  */
 .bl-sp-table-empty-note {
 	margin-block: 0 var(--bl-space-3);
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	font-style: italic;
 }
@@ -204,6 +204,11 @@ table.bl-table-self-scroll {
 	background: var(--bl-team-primary, var(--bl-ice));
 	color: var(--bl-team-on-primary, var(--bl-ink));
 	font-weight: 700;
+}
+
+/* A11Y-03: a highlighted cell's link takes the cell's vetted on-fill colour. */
+.sp-highlight a {
+	color: inherit;
 }
 
 /*
@@ -949,7 +954,7 @@ td.bl-sp-roster__stat {
 /*
  * A team's own calendar-subscribe links
  * (blueline_render_team_calendar_links(), inc/sportspress.php) -- same
- * flex/order contract as .bl-account-next-game__calendar (account.css),
+ * flex contract as .bl-account-next-game__calendar (account.css),
  * which assets/src/js/calendar-links.js already reorders sitewide by
  * platform; this is a second, differently-classed consumer of that same
  * global script, not a second copy of it.
@@ -1411,7 +1416,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * down to.
  */
 .bl-sp-countdown--past {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-style: italic;
 }
 
@@ -1672,7 +1677,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  * a real future game, which still gets the plain dash).
  */
 .bl-sp-schedule__pending {
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-style: italic;
 }
 
@@ -2027,6 +2032,7 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 
 .sp-event-list.bl-sp-schedule .data-date {
 	width: 10%;
+	white-space: normal; /* FE-03: "10:00 pm" wraps at phone width. */
 }
 
 .sp-event-list.bl-sp-schedule .data-home {
@@ -2068,4 +2074,27 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 .sp-event-list.bl-sp-schedule .data-venue {
 	width: 22%;
 	white-space: normal;
+}
+
+/*
+ * FE-03: at phone width a long team name overflowed its fixed column into
+ * the next. Wrap instead: the crest drops above the name first, the name
+ * breaks at spaces, and only a single over-long word breaks mid-word.
+ */
+.sp-event-list.bl-sp-schedule .data-home,
+.sp-event-list.bl-sp-schedule .data-away {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.sp-event-list.bl-sp-schedule td.data-home a,
+.sp-event-list.bl-sp-schedule td.data-away a {
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
+/* Time and Result wrap at spaces only ("6:45 / pm"), never mid-word. */
+.sp-event-list.bl-sp-schedule .data-date,
+.sp-event-list.bl-sp-schedule .data-time {
+	overflow-wrap: normal;
 }

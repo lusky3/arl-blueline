@@ -59,11 +59,15 @@
 	z-index: var(--bl-z-floating-widget);
 	display: flex;
 	align-items: center;
+
+	/* FE-02: this full-height box is layout only; tab + open panel take taps. */
+	pointer-events: none;
 }
 
 .bl-team-flyout summary {
 	list-style: none;
 	cursor: pointer;
+	pointer-events: auto;
 	display: flex;
 	align-items: center;
 	justify-content: center;

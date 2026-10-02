@@ -14,6 +14,8 @@
  *
  * Vanilla ES2017+, no dependencies.
  */
+import { rafThrottle } from './raf-throttle.js';
+
 ( function () {
 	'use strict';
 
@@ -50,6 +52,9 @@
 
 	let isDrawerOpen = false;
 
+	const trapRoot =
+		( toggle && toggle.closest( '.bl-header__inner' ) ) || menu;
+
 	function onDrawerKeydown( event ) {
 		if ( ! isDrawerOpen ) {
 			return;
@@ -65,7 +70,9 @@
 			return;
 		}
 
-		const focusable = getFocusable( menu );
+		// The bar's brand, CTA and X toggle are painted over the drawer, so
+		// they belong in the cycle too (A11Y-11).
+		const focusable = getFocusable( trapRoot );
 		if ( ! focusable.length ) {
 			return;
 		}
@@ -140,7 +147,7 @@
 		window.addEventListener( 'resize', function () {
 			if (
 				isDrawerOpen &&
-				window.matchMedia( '(min-width: 880px)' ).matches
+				window.matchMedia( '(min-width: 960px)' ).matches
 			) {
 				closeDrawer( false );
 			}
@@ -163,10 +170,50 @@
 		const subButton = item.querySelector( ':scope > .bl-nav__toggle-sub' );
 
 		item.setAttribute( 'data-open', open ? 'true' : 'false' );
+		if ( open ) {
+			item.removeAttribute( 'data-dismissed' );
+		}
 		if ( subButton ) {
 			subButton.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
 		}
+		syncExpanded();
 	}
+
+	const desktopQuery = window.matchMedia( '(min-width: 960px)' );
+
+	function isSubmenuShown( item ) {
+		const submenu = item.querySelector( ':scope > .bl-nav__submenu' );
+		return (
+			!! submenu && 'none' !== window.getComputedStyle( submenu ).display
+		);
+	}
+
+	/*
+	 * Desktop dropdowns also open on :hover/:focus-within (nav.css), which
+	 * data-open never sees; mirror what is actually shown (A11Y-06).
+	 */
+	const syncExpanded = rafThrottle( function () {
+		Array.prototype.forEach.call(
+			nav.querySelectorAll( '.bl-nav__item--parent' ),
+			function ( item ) {
+				const subButton = item.querySelector(
+					':scope > .bl-nav__toggle-sub'
+				);
+				if ( subButton ) {
+					subButton.setAttribute(
+						'aria-expanded',
+						isSubmenuShown( item ) ? 'true' : 'false'
+					);
+				}
+			}
+		);
+	} );
+
+	[ 'focusin', 'focusout', 'mouseover', 'mouseout' ].forEach(
+		function ( type ) {
+			nav.addEventListener( type, syncExpanded );
+		}
+	);
 
 	/**
 	 * Close every currently open top-level submenu.
@@ -196,6 +243,16 @@
 	Array.prototype.forEach.call( parentItems, function ( item ) {
 		const subButton = item.querySelector( ':scope > .bl-nav__toggle-sub' );
 		const link = item.querySelector( ':scope > .bl-nav__link' );
+
+		// An Escape dismissal lasts until the pointer or focus comes back.
+		item.addEventListener( 'mouseenter', function () {
+			item.removeAttribute( 'data-dismissed' );
+		} );
+		item.addEventListener( 'focusout', function ( event ) {
+			if ( ! item.contains( event.relatedTarget ) ) {
+				item.removeAttribute( 'data-dismissed' );
+			}
+		} );
 
 		if ( subButton ) {
 			subButton.addEventListener( 'click', function () {
@@ -250,8 +307,8 @@
 		 * correctly announced aria-expanded="false" while the panel
 		 * stayed visibly open and un-Tab-able-out-of. Moving focus back
 		 * to the trigger both matches the WAI-ARIA disclosure pattern
-		 * and is the only thing that also satisfies :focus-within's own
-		 * close condition.
+		 * (focus on the trigger alone does not end :focus-within, though;
+		 * see the dismissal below).
 		 */
 		if ( focusedItem ) {
 			const subButton = focusedItem.querySelector(
@@ -261,6 +318,41 @@
 			if ( subButton ) {
 				subButton.focus();
 			}
+		}
+
+		/*
+		 * ...but focus on the trigger still satisfies :focus-within, so a
+		 * focus- or hover-opened desktop dropdown needs an explicit dismissal
+		 * (A11Y-06). Skipped when Escape just closed a nested submenu, so the
+		 * parent dropdown stays open for one more Escape.
+		 */
+		if ( ! desktopQuery.matches ) {
+			return;
+		}
+
+		const active = nav.ownerDocument.activeElement;
+		const topItem =
+			active && active.closest
+				? active.closest( '.bl-nav__menu > .bl-nav__item--parent' )
+				: null;
+
+		if (
+			! topItem ||
+			( focusedItem && focusedItem !== topItem ) ||
+			! isSubmenuShown( topItem )
+		) {
+			return;
+		}
+
+		topItem.setAttribute( 'data-dismissed', '' );
+		syncExpanded();
+
+		const topButton = topItem.querySelector(
+			':scope > .bl-nav__toggle-sub'
+		);
+
+		if ( topButton ) {
+			topButton.focus();
 		}
 	} );
 } )();

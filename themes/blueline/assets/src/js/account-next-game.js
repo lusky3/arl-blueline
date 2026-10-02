@@ -139,5 +139,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { parseNextGameState };
+	module.exports = { parseNextGameState, SEEN_KEY };
 }

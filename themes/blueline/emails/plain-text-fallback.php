@@ -3,7 +3,7 @@
  * Blueline -- self-contained branded email wrapper for plain-text mail.
  *
  * Used ONLY when the wp-email-template plugin is not active
- * (blueline_email_template_plugin_active(), inc/woocommerce.php) -- when
+ * (blueline_email_template_plugin_active(), inc/email.php) -- when
  * it is, that plugin's own template (and this theme's overrides of it,
  * blueline_wp_email_template_general_overrides() and friends) handles
  * branding instead, and this file is never reached.

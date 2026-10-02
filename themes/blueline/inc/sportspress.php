@@ -148,11 +148,8 @@ function blueline_render_sp_single( callable $hero_callback, string $extra_main_
  *     standings_snippet module, via [league_table] --
  *     blueline_homepage_module_standings_snippet()), an h2 section title
  *     ("Standings") already precedes them, so the correct next level is
- *     h3. A page whose own content places one of these shortcodes at some
- *     other depth (e.g. /standings' own [team_standings], sitting directly
- *     in page-editor content the theme does not control) is a content
- *     concern, not this function's -- h3 is the right default because it
- *     is correct for every case this theme itself renders.
+ *     h3. Exceptions (A11Y-09): a widget area, and a non-front page with
+ *     no h2 of its own (e.g. /standings' bare [team_standings]), get h2.
  *
  * Hardcoding h4 regardless of context (the bug this fixes) skipped a level
  * in BOTH cases: h2 -> h4 on the homepage, and h1 -> h4 -- skipping two
@@ -165,7 +162,91 @@ function blueline_sp_caption_heading_level(): int {
 		return 2;
 	}
 
+	// A11Y-09: in a widget area, a sibling of the h2 widget titles.
+	if ( blueline_sp_in_sidebar() ) {
+		return 2;
+	}
+
+	// A11Y-09: straight under the h1 of a page with no h2 of its own (/standings).
+	if ( is_page() && ! is_front_page() && ! blueline_content_has_h2( (string) get_post_field( 'post_content', get_queried_object_id() ) ) ) {
+		return 2;
+	}
+
 	return 3;
+}
+
+/**
+ * Whether a block of post content contains its own h2 (A11Y-09).
+ *
+ * @param string $content Raw post content.
+ * @return bool
+ */
+function blueline_content_has_h2( string $content ): bool {
+	return 1 === preg_match( '/<h2[\s>]/i', $content );
+}
+
+add_action( 'dynamic_sidebar_before', 'blueline_sp_enter_sidebar' );
+add_action( 'dynamic_sidebar_after', 'blueline_sp_leave_sidebar' );
+
+/**
+ * Whether a widget area is rendering right now (dynamic_sidebar_before/_after).
+ *
+ * @param bool|null $set Pass a bool to change the state.
+ * @return bool
+ */
+function blueline_sp_in_sidebar( ?bool $set = null ): bool {
+	static $in_sidebar = false;
+
+	if ( null !== $set ) {
+		$in_sidebar = $set;
+	}
+
+	return $in_sidebar;
+}
+
+/**
+ * Mark a widget area as rendering (dynamic_sidebar_before).
+ */
+function blueline_sp_enter_sidebar(): void {
+	blueline_sp_in_sidebar( true );
+}
+
+/**
+ * Mark a widget area as finished (dynamic_sidebar_after).
+ */
+function blueline_sp_leave_sidebar(): void {
+	blueline_sp_in_sidebar( false );
+}
+
+/**
+ * The [sponsors] title level: h2 for the footer band after <main> (A11Y-09).
+ *
+ * @param bool $in_footer Whether this is the footer band (doing_action( 'get_footer' )).
+ * @return int
+ */
+function blueline_sp_sponsors_title_level( bool $in_footer ): int {
+	return $in_footer ? 2 : blueline_sp_caption_heading_level();
+}
+
+add_filter( 'wp_get_attachment_image_attributes', 'blueline_sp_sponsor_logo_alt' );
+/**
+ * Name a sponsor logo link: an alt-less logo gets the sponsor's title (A11Y-04).
+ *
+ * @param array $attr Image attributes.
+ * @return array
+ */
+function blueline_sp_sponsor_logo_alt( $attr ) {
+	if (
+		is_array( $attr )
+		&& isset( $attr['class'] )
+		&& false !== strpos( (string) $attr['class'], 'sp-sponsor-logo' )
+		&& '' === trim( (string) ( $attr['alt'] ?? '' ) )
+		&& ! empty( $attr['title'] )
+	) {
+		$attr['alt'] = $attr['title'];
+	}
+
+	return $attr;
 }
 
 /**
@@ -211,20 +292,205 @@ function blueline_roster_stat_labels(): array {
  * data carries no separate points figure for a skater, and this is the
  * standard hockey box-score derivation, not a guess.
  *
- * @param int $player_id sp_player post ID.
+ * @param int        $player_id sp_player post ID.
+ * @param array|null $stats     Precomputed stat line from blueline_roster_season_stats(); read live when null.
  * @return void
  */
-function blueline_render_roster_stats( int $player_id ) {
-	if ( ! function_exists( 'blueline_get_player_season_stats' ) ) {
-		return;
+function blueline_render_roster_stats( int $player_id, ?array $stats = null ) {
+	if ( null === $stats ) {
+		if ( ! function_exists( 'blueline_get_player_season_stats' ) ) {
+			return;
+		}
+
+		$stats = blueline_get_player_season_stats( $player_id );
 	}
 
-	$stats        = blueline_get_player_season_stats( $player_id );
+	$stats       += array(
+		'gp'  => 0,
+		'g'   => 0,
+		'a'   => 0,
+		'pim' => 0,
+	);
 	$stats['pts'] = $stats['g'] + $stats['a'];
 
 	foreach ( array_keys( blueline_roster_stat_labels() ) as $bl_key ) {
 		printf( '<td class="bl-sp-roster__stat">%s</td>', esc_html( (string) $stats[ $bl_key ] ) );
 	}
+}
+
+/**
+ * Option holding the generation number every theme-side SportsPress data
+ * cache key embeds (rosters, league tables). Bumping it retires them all.
+ */
+const BLUELINE_SP_CACHE_GEN_OPTION = 'blueline_sp_cache_gen';
+
+/**
+ * Backstop TTL for those caches, in seconds; invalidation is event-driven.
+ */
+const BLUELINE_SP_CACHE_TTL = 900;
+
+/**
+ * Transient key for a theme-side SportsPress data cache.
+ *
+ * @param string                     $name  Cache family, e.g. 'roster_stats'.
+ * @param array<int,int|string|null> $parts Everything the cached value varies by.
+ * @return string
+ */
+function blueline_sp_cache_key( string $name, array $parts ): string {
+	$generation = (int) get_option( BLUELINE_SP_CACHE_GEN_OPTION, 0 );
+
+	return 'bl_' . $name . '_' . $generation . '_' . implode( '_', array_map( 'strval', $parts ) );
+}
+
+/**
+ * Queue one generation bump for the end of this request -- after every
+ * SportsPress save handler has written its meta, so nothing re-caches
+ * half-saved data under the new generation. Re-adding the same callback
+ * is a no-op, so many saves in one request still bump once.
+ *
+ * @return void
+ */
+function blueline_sp_cache_mark_dirty(): void {
+	add_action( 'shutdown', 'blueline_sp_cache_bump' );
+}
+
+/**
+ * Advance the cache generation.
+ *
+ * @return void
+ */
+function blueline_sp_cache_bump(): void {
+	update_option( BLUELINE_SP_CACHE_GEN_OPTION, (int) get_option( BLUELINE_SP_CACHE_GEN_OPTION, 0 ) + 1, true );
+}
+
+// Same events the sportspress-cache-purge mu-plugin purges the page cache on, plus terms/settings.
+add_action( 'save_post', 'blueline_sp_cache_on_post_change' );
+add_action( 'delete_post', 'blueline_sp_cache_on_post_change' );
+add_action( 'trashed_post', 'blueline_sp_cache_on_post_change' );
+add_action( 'untrashed_post', 'blueline_sp_cache_on_post_change' );
+add_action( 'sportspress_event_results_saved', 'blueline_sp_cache_mark_dirty' );
+add_action( 'sportspress_event_leagues_saved', 'blueline_sp_cache_mark_dirty' );
+add_action( 'sportspress_event_performances_saved', 'blueline_sp_cache_mark_dirty' );
+add_action( 'created_term', 'blueline_sp_cache_on_term_change', 10, 3 );
+add_action( 'edited_term', 'blueline_sp_cache_on_term_change', 10, 3 );
+add_action( 'delete_term', 'blueline_sp_cache_on_term_change', 10, 3 );
+add_action( 'set_object_terms', 'blueline_sp_cache_on_object_terms', 10, 4 );
+add_action( 'added_option', 'blueline_sp_cache_on_option_change' );
+add_action( 'updated_option', 'blueline_sp_cache_on_option_change' );
+
+/**
+ * Invalidate on any change to a SportsPress post type (sp_event, sp_team, sp_player, sp_table, ...).
+ *
+ * @param int $post_id Post ID.
+ * @return void
+ */
+function blueline_sp_cache_on_post_change( $post_id ): void {
+	$type = get_post_type( $post_id );
+
+	if ( is_string( $type ) && 0 === strpos( $type, 'sp_' ) ) {
+		blueline_sp_cache_mark_dirty();
+	}
+}
+
+/**
+ * Invalidate on a SportsPress taxonomy term change (sp_season, sp_league, ...).
+ *
+ * @param int    $term_id  Term ID.
+ * @param int    $tt_id    Term taxonomy ID.
+ * @param string $taxonomy Taxonomy slug.
+ * @return void
+ */
+function blueline_sp_cache_on_term_change( $term_id, $tt_id, $taxonomy ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- hook signature.
+	if ( is_string( $taxonomy ) && 0 === strpos( $taxonomy, 'sp_' ) ) {
+		blueline_sp_cache_mark_dirty();
+	}
+}
+
+/**
+ * Invalidate when a post's SportsPress terms change outside save_post (e.g. bulk edit).
+ *
+ * @param int    $object_id Object ID.
+ * @param array  $terms     Terms.
+ * @param array  $tt_ids    Term taxonomy IDs.
+ * @param string $taxonomy  Taxonomy slug.
+ * @return void
+ */
+function blueline_sp_cache_on_object_terms( $object_id, $terms, $tt_ids, $taxonomy ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- hook signature.
+	blueline_sp_cache_on_term_change( 0, 0, $taxonomy );
+}
+
+/**
+ * Invalidate when a SportsPress setting changes (table/stat configuration, league menu teams).
+ *
+ * @param string $option Option name.
+ * @return void
+ */
+function blueline_sp_cache_on_option_change( $option ): void {
+	if ( is_string( $option ) && 0 === strpos( $option, 'sportspress_' ) ) {
+		blueline_sp_cache_mark_dirty();
+	}
+}
+
+/**
+ * Current-season stat lines for a roster, cached per team + season (PERF-01).
+ *
+ * Each line comes from blueline_get_player_season_stats() unchanged, so the
+ * numbers are identical to an uncached read; this only stops a cold team page
+ * paying one SP_Player::data() (~40 queries) per row on every view.
+ *
+ * @param int   $team_id    sp_team post ID the roster is rendered for.
+ * @param int[] $player_ids sp_player post IDs.
+ * @return array<int, array{gp:int, g:int, a:int, pim:int}> Keyed by player ID.
+ */
+function blueline_roster_season_stats( int $team_id, array $player_ids ): array {
+	$player_ids = array_values( array_unique( array_filter( array_map( 'absint', $player_ids ) ) ) );
+
+	if ( ! $player_ids || ! function_exists( 'blueline_get_player_season_stats' ) ) {
+		return array();
+	}
+
+	$season = function_exists( 'blueline_current_sp_season_term_id' ) ? (int) blueline_current_sp_season_term_id() : 0;
+	$key    = blueline_sp_cache_key( 'roster_stats', array( $team_id, $season ) );
+	$cached = get_transient( $key );
+	$cached = is_array( $cached ) ? $cached : array();
+	$dirty  = false;
+
+	foreach ( $player_ids as $player_id ) {
+		if ( ! isset( $cached[ $player_id ] ) || ! is_array( $cached[ $player_id ] ) ) {
+			$cached[ $player_id ] = blueline_get_player_season_stats( $player_id );
+			$dirty                = true;
+		}
+	}
+
+	if ( $dirty ) {
+		set_transient( $key, $cached, BLUELINE_SP_CACHE_TTL );
+	}
+
+	return array_intersect_key( $cached, array_flip( $player_ids ) );
+}
+
+/**
+ * The wp_kses_post() allowlist plus the img attributes core's own
+ * get_the_post_thumbnail() emits (srcset/sizes/decoding), which the stock
+ * list drops -- used by sportspress/league-table.php so its team logos keep
+ * their responsive sources (PERF-06).
+ *
+ * @return array
+ */
+function blueline_sp_kses_allowed_html(): array {
+	static $allowed = null;
+
+	if ( null === $allowed ) {
+		$allowed = wp_kses_allowed_html( 'post' );
+
+		$allowed['img'] = ( isset( $allowed['img'] ) && is_array( $allowed['img'] ) ? $allowed['img'] : array() ) + array(
+			'srcset'   => true,
+			'sizes'    => true,
+			'decoding' => true,
+		);
+	}
+
+	return $allowed;
 }
 
 add_filter( 'body_class', 'blueline_sp_body_class' );
@@ -464,6 +730,8 @@ function blueline_league_menu_team_ids(): array {
 		return array();
 	}
 
+	blueline_prime_team_caches( $stored );
+
 	$ids = array();
 
 	foreach ( $stored as $value ) {
@@ -481,6 +749,35 @@ function blueline_league_menu_team_ids(): array {
 	}
 
 	return $ids;
+}
+
+/**
+ * Load the posts, meta and crest attachments for a list of team IDs in a few
+ * batched queries, so the per-team get_post_status()/get_permalink()/
+ * get_the_post_thumbnail() calls in the flyout and footer directory read
+ * from cache instead of querying once per team (PERF-09).
+ *
+ * @param array $team_ids Team IDs (scalars; anything else is ignored).
+ * @return void
+ */
+function blueline_prime_team_caches( array $team_ids ): void {
+	if ( ! function_exists( '_prime_post_caches' ) ) {
+		return;
+	}
+
+	$ids = array_values( array_unique( array_filter( array_map( 'absint', array_filter( $team_ids, 'is_scalar' ) ) ) ) );
+
+	if ( ! $ids ) {
+		return;
+	}
+
+	_prime_post_caches( $ids, false, true );
+
+	$thumbnail_ids = array_values( array_filter( array_map( 'absint', array_map( 'get_post_thumbnail_id', $ids ) ) ) );
+
+	if ( $thumbnail_ids ) {
+		_prime_post_caches( $thumbnail_ids, false, true );
+	}
 }
 
 /**

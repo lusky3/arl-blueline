@@ -12,7 +12,9 @@
  *
  * @see     https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates
- * @version 2.3.6 (ARL override: adds arl_cart_totals_after_subtotal)
+ * @version 2.3.6
+ *
+ * ARL override: adds arl_cart_totals_after_subtotal.
  */
 
 defined( 'ABSPATH' ) || exit;

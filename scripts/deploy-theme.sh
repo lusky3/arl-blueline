@@ -23,7 +23,23 @@ SRC="$(cd "$SCRIPT_DIR/.." && pwd)/themes/blueline/"
 # specifically) would silently degrade every team page's colour derivation
 # on the deployed site with nothing in this script or its output telling
 # you why.
-EXCLUDES=(--exclude node_modules --exclude vendor --exclude tests --exclude .git --exclude '*.map')
+#
+# assets/src/js/ must ship too: inc/settings/page.php enqueues
+# settings-{photos,brand-colors,occasions}.js straight from source. Only
+# assets/src/css/ (compiled into assets/dist/) is build-only.
+#
+# Leading-slash patterns are anchored to the theme root. --delete-excluded
+# removes anything excluded here that an earlier deploy already shipped.
+EXCLUDES=(
+  --exclude node_modules --exclude vendor --exclude tests --exclude .git --exclude '*.map'
+  --exclude /tests-e2e --exclude /tests-browser --exclude /artifacts --exclude /.wp-core-oracle
+  --exclude /.phpunit.result.cache --exclude /phpunit.xml --exclude /.gitignore
+  --exclude /composer.json --exclude /composer.lock
+  --exclude /package.json --exclude /package-lock.json
+  --exclude /playwright.config.js --exclude /webpack.config.js
+  --exclude /assets/src/css --exclude '*.test.mjs'
+  --delete-excluded
+)
 
 case "$TARGET" in
   local)
@@ -66,7 +82,8 @@ if [ "$TARGET" = "staging" ]; then
   # scripts/fetch-wp-core-oracle.sh already uses to reach staging's
   # WordPress container over this same SSH connection; -u 33 matches the
   # chown -R 33:33 above and the uid staging's own wp-cli runs as.
-  ssh -p "$PORT" "$HOST" "docker exec -u 33 staging-wp wp rewrite flush --path=/var/www/html"
+  # staging-wp has no wp-cli binary; /usr/local/bin/swp runs it in a sidecar.
+  ssh -p "$PORT" "$HOST" "swp rewrite flush"
 fi
 
 echo "deployed $TARGET"

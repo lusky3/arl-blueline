@@ -4,6 +4,8 @@
  * Changed references of Orders to Registrations, "Order" to "Reg #".
  */
 
+defined( 'ABSPATH' ) || exit;
+
 $columns = apply_filters( 'ywcars_my_refund_requests_columns', array(
 	__( 'ID', 'yith-advanced-refund-system-for-woocommerce' ),
 	__( 'Reg #', 'yith-advanced-refund-system-for-woocommerce' ),
@@ -36,7 +38,10 @@ $columns = apply_filters( 'ywcars_my_refund_requests_columns', array(
 			$request_link = '<a href="' . esc_url( $request->get_view_request_url() ) . '">'
 			                . '#' . $request_id . '</a>';
 			$order = wc_get_order( $request->order_id );
-			$order_link = '<a href="' . esc_url( $order->get_view_order_url() ) . '">#' . $request->order_id . '</a>';
+			// A deleted order leaves its refund request behind; show the bare number instead of fataling.
+			$order_link = $order
+				? '<a href="' . esc_url( $order->get_view_order_url() ) . '">#' . absint( $request->order_id ) . '</a>'
+				: '#' . absint( $request->order_id );
 			if ( $request->whole_order ) {
 				$product_link = '<b>' . esc_html__( 'Whole Amount', 'yith-advanced-refund-system-for-woocommerce' ) . '</b>';
 			} else {

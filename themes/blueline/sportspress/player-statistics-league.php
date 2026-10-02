@@ -23,6 +23,9 @@
  * the exact same markup SportsPress's own template would produce -- this is
  * additive, not a redesign.
  *
+ * Overrides SportsPress templates/player-statistics-league.php, core template version 2.5 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 

@@ -420,7 +420,7 @@
  *
  * Fixed to a bottom corner, partly cropped off-canvas so each reads as
  * "peeking into frame" rather than a floating sticker. Hidden below the
- * nav-drawer breakpoint (nav.css, 880px): at that width these are
+ * 880px (the old nav-drawer breakpoint): at that width these are
  * competing with mobile content for very little payoff -- decoration,
  * never core UX, the same call this theme already makes for the header
  * sponsor strip at the same breakpoint (header.css).

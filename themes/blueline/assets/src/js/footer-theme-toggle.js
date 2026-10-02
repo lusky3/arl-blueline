@@ -23,10 +23,8 @@
  * blueline_render_guest_theme_bootstrap_script() prints into header.php's
  * own blocking inline script -- that script re-reads this same key, before
  * first paint, on every page load so a guest's stored theme applies with no
- * flash of the wrong one. Kept in sync by convention (cross-referenced in
- * both files' docblocks), the same trade-off assets/src/js/announcement.js
- * and assets/src/js/floating-next-game.js already make for their own
- * dismissal keys, not by a shared build-time constant.
+ * flash of the wrong one. storage-keys.test.mjs asserts the PHP literal
+ * still matches.
  */
 
 const KNOWN_PREFERENCES = [ 'system', 'light', 'dark' ];
@@ -261,5 +259,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { clampPreference, resolveToggleAction };
+	module.exports = { clampPreference, resolveToggleAction, STORAGE_KEY };
 }

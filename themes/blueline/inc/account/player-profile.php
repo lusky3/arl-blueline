@@ -98,9 +98,12 @@ function blueline_render_player_profile_registration_section( int $user_id ): vo
  * user. This control reads the SAME already-correct $player_id this page
  * already resolves, so it has no way to inherit that bug.
  *
- * @param int $player_id sp_player post ID.
+ * @param int  $player_id      sp_player post ID.
+ * @param bool $can_edit_photo Whether to render the photo-change control
+ *                             (verified owners only, see
+ *                             blueline_user_is_verified_player_owner()).
  */
-function blueline_render_player_profile_bio_section( int $player_id ): void {
+function blueline_render_player_profile_bio_section( int $player_id, bool $can_edit_photo = false ): void {
 	blueline_account_module_start( 'player-profile-bio', __( 'Bio', 'blueline' ) );
 	?>
 	<div class="bl-player-profile__bio">
@@ -112,6 +115,7 @@ function blueline_render_player_profile_bio_section( int $player_id ): void {
 					<?php blueline_leaf_mark( 'bl-player-profile__photo-mark' ); ?>
 				</span>
 			<?php endif; ?>
+			<?php if ( $can_edit_photo ) : ?>
 			<form class="bl-player-profile__photo-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
 				<?php wp_nonce_field( 'blueline_upload_player_photo' ); ?>
 				<input type="hidden" name="action" value="blueline_upload_player_photo">
@@ -124,6 +128,7 @@ function blueline_render_player_profile_bio_section( int $player_id ): void {
 					<button type="submit" class="bl-btn bl-btn--secondary bl-player-profile__photo-submit"><?php esc_html_e( 'Upload', 'blueline' ); ?></button>
 				</noscript>
 			</form>
+			<?php endif; ?>
 		</span>
 		<div class="bl-player-profile__identity">
 			<p class="bl-player-profile__name"><?php echo esc_html( get_the_title( $player_id ) ); ?></p>
@@ -164,8 +169,41 @@ function blueline_account_player_profile_endpoint(): void {
 		return;
 	}
 
-	blueline_render_player_profile_bio_section( $player_id );
-	blueline_render_player_profile_registration_section( $user_id );
+	$verified = function_exists( 'blueline_user_is_verified_player_owner' ) && blueline_user_is_verified_player_owner( $user_id, $player_id );
+
+	blueline_render_player_profile_bio_section( $player_id, $verified );
+
+	if ( $verified ) {
+		blueline_render_player_profile_registration_section( $user_id );
+		return;
+	}
+
+	blueline_render_player_profile_unverified_section();
+}
+
+/**
+ * Shown in place of the registration details for a name-claimed link: the
+ * account can view the player's public profile but not edit it or see
+ * personal details until the league confirms the record is theirs.
+ */
+function blueline_render_player_profile_unverified_section(): void {
+	blueline_account_module_start( 'player-profile-unverified', __( 'Profile access', 'blueline' ) );
+
+	$contact = function_exists( 'blueline_contact_url' ) ? blueline_contact_url() : home_url( '/' );
+
+	blueline_account_module_empty_state_html(
+		sprintf(
+			wp_kses(
+				/* translators: 1: opening <a> tag to the Contact Us page, 2: closing </a> tag. */
+				__( 'This player profile is view-only for your account. Photo changes and your registration details unlock once the league confirms this player record is yours. %1$sContact the league%2$s to confirm it.', 'blueline' ),
+				array( 'a' => array( 'href' => array() ) )
+			),
+			'<a href="' . esc_url( $contact ) . '">',
+			'</a>'
+		)
+	);
+
+	blueline_account_module_end();
 }
 
 /**
@@ -228,6 +266,10 @@ function blueline_handle_player_photo_upload(): void {
 		blueline_redirect_after_photo_upload( $redirect, 'unlinked' );
 	}
 
+	if ( ! blueline_user_is_verified_player_owner( get_current_user_id(), $player_id ) ) {
+		blueline_redirect_after_photo_upload( $redirect, 'not_owner' );
+	}
+
 	if ( empty( $_FILES['player_photo']['tmp_name'] ) ) {
 		wp_safe_redirect( $redirect );
 		exit;
@@ -259,7 +301,9 @@ function blueline_handle_player_photo_upload(): void {
 	require_once ABSPATH . 'wp-admin/includes/file.php';
 	require_once ABSPATH . 'wp-admin/includes/media.php';
 
+	add_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' );
 	$attachment_id = media_handle_upload( 'player_photo', $player_id );
+	remove_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' );
 
 	if ( is_wp_error( $attachment_id ) ) {
 		blueline_redirect_after_photo_upload( $redirect, 'error' );
@@ -267,6 +311,90 @@ function blueline_handle_player_photo_upload(): void {
 
 	set_post_thumbnail( $player_id, $attachment_id );
 	blueline_redirect_after_photo_upload( $redirect, 'updated' );
+}
+
+/**
+ * `wp_handle_upload` filter, added only around the player-photo upload:
+ * strip EXIF/GPS from the stored original before WordPress builds its
+ * sub-sizes from it. Fails closed -- an unstrippable file is deleted and
+ * the upload reported as an error.
+ *
+ * @param array $upload {file, url, type} from _wp_handle_upload().
+ * @return array
+ */
+function blueline_strip_uploaded_photo_metadata( $upload ) {
+	if ( ! is_array( $upload ) || isset( $upload['error'] ) || empty( $upload['file'] ) ) {
+		return $upload;
+	}
+
+	if ( blueline_strip_image_metadata( (string) $upload['file'], (string) ( $upload['type'] ?? '' ) ) ) {
+		return $upload;
+	}
+
+	wp_delete_file( $upload['file'] );
+
+	return array( 'error' => __( 'The photo could not be processed.', 'blueline' ) );
+}
+
+/**
+ * Re-encode an image in place without its metadata, baking any EXIF
+ * orientation into the pixels first.
+ *
+ * GD never writes metadata on save. WordPress's Imagick editor keeps the
+ * EXIF/IPTC/XMP profiles (even its own image_strip_meta preserves them),
+ * so those are removed explicitly. GIFs are left alone: they carry no
+ * EXIF, and a re-save would flatten an animation.
+ *
+ * @param string $path Absolute path to the image.
+ * @param string $mime Its MIME type.
+ * @return bool Whether the file is now metadata-free (or needed nothing).
+ */
+function blueline_strip_image_metadata( string $path, string $mime ): bool {
+	if ( ! in_array( $mime, array( 'image/jpeg', 'image/png', 'image/webp' ), true ) ) {
+		return 'image/gif' === $mime;
+	}
+
+	$editor = wp_get_image_editor( $path );
+	if ( is_wp_error( $editor ) ) {
+		return false;
+	}
+
+	$editor->maybe_exif_rotate();
+
+	$saved = $editor->save( $path, $mime );
+	if ( is_wp_error( $saved ) || empty( $saved['path'] ) || $saved['path'] !== $path ) {
+		return false;
+	}
+
+	if ( $editor instanceof WP_Image_Editor_Imagick ) {
+		return blueline_strip_imagick_profiles( $path );
+	}
+
+	return true;
+}
+
+/**
+ * Remove every Imagick profile except the colour profile (icc/icm).
+ *
+ * @param string $path Absolute path to the image.
+ * @return bool
+ */
+function blueline_strip_imagick_profiles( string $path ): bool {
+	try {
+		$image = new Imagick( $path );
+		foreach ( array_keys( $image->getImageProfiles( '*', true ) ) as $profile ) {
+			if ( ! in_array( $profile, array( 'icc', 'icm' ), true ) ) {
+				$image->removeImageProfile( $profile );
+			}
+		}
+		$image->setImageOrientation( Imagick::ORIENTATION_TOPLEFT );
+		$written = $image->writeImage( $path );
+		$image->clear();
+
+		return (bool) $written;
+	} catch ( Exception $e ) {
+		return false;
+	}
 }
 
 /**
@@ -296,6 +424,7 @@ function blueline_account_render_photo_notice(): void {
 		'too_large' => array( 'error', __( 'That photo is too large. The limit is 2MB.', 'blueline' ) ),
 		'invalid'   => array( 'error', __( 'Use a JPG, PNG, GIF, or WebP image.', 'blueline' ) ),
 		'unlinked'  => array( 'error', __( 'Link your player before changing your photo.', 'blueline' ) ),
+		'not_owner' => array( 'error', __( 'Only the confirmed owner of this player profile can change its photo.', 'blueline' ) ),
 		'error'     => array( 'error', __( 'The photo could not be saved. Please try again.', 'blueline' ) ),
 	);
 

@@ -481,10 +481,9 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 }
 
 /*
- * The two season-subscribe links. flex so assets/src/js/calendar-links.js can
- * lift the platform-appropriate one to the front with `order` -- which needs a
- * flex (or grid) container to mean anything, and which is why the JS sets order
- * rather than moving the node: the source order stays the no-JS order.
+ * The two season-subscribe links. assets/src/js/calendar-links.js moves the
+ * platform-appropriate one ahead of the other (the DOM node itself, so tab
+ * order matches).
  */
 .bl-account-next-game__calendar {
 	display: flex;
@@ -495,10 +494,7 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 
 .bl-account-next-game__calendar-label {
 
-	/*
-	 * Never reordered: order defaults to 0 and the JS only ever sets -1 on a
-	 * button, so the label stays ahead of both.
-	 */
+	/* Never reordered: the JS only moves the buttons, after this label. */
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }

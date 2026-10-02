@@ -35,6 +35,8 @@
  * @package blueline
  */
 
+defined( 'ABSPATH' ) || exit;
+
 if ( ! taxonomy_exists( 'sp_season' ) ) {
 	register_taxonomy(
 		'sp_season',

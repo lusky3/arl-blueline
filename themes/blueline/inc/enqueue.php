@@ -48,7 +48,7 @@ function blueline_dist_version( $handle ) {
  * @return string
  */
 function blueline_stylesheet_version() {
-	$path  = get_stylesheet_directory() . '/style.css';
+	$path  = BLUELINE_DIR . '/style.css';
 	$mtime = file_exists( $path ) ? filemtime( $path ) : false;
 
 	return $mtime ? (string) $mtime : BLUELINE_VERSION;
@@ -66,7 +66,7 @@ function blueline_enqueue_assets() {
 	// resolves to nothing.
 	wp_enqueue_style(
 		'blueline-tokens',
-		get_stylesheet_uri(),
+		BLUELINE_URI . '/style.css', // The parent's tokens, even under a child theme.
 		array(),
 		blueline_stylesheet_version()
 	);
@@ -107,17 +107,132 @@ function blueline_enqueue_assets() {
 	}
 }
 
+/**
+ * Whether the queried post's content, or any active text/block/HTML widget,
+ * mentions one of $needles (shortcode openers or block names). Used to keep a
+ * plugin's assets only where its shortcode or block can actually render.
+ *
+ * @param string[] $needles Literal substrings, e.g. '[contact-form-7'.
+ * @return bool
+ */
+function blueline_request_content_contains( array $needles ): bool {
+	$haystacks = array();
+	$queried   = get_queried_object();
+
+	if ( $queried instanceof WP_Post ) {
+		$haystacks[] = (string) $queried->post_content;
+	}
+
+	foreach ( blueline_active_widget_contents() as $content ) {
+		$haystacks[] = $content;
+	}
+
+	foreach ( $haystacks as $haystack ) {
+		foreach ( $needles as $needle ) {
+			if ( '' !== $haystack && false !== stripos( $haystack, $needle ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
+ * The stored content of every active block, text and custom HTML widget.
+ *
+ * @return string[]
+ */
+function blueline_active_widget_contents(): array {
+	static $contents = null;
+
+	if ( null !== $contents ) {
+		return $contents;
+	}
+
+	$contents = array();
+	$types    = array(
+		'block'       => 'content',
+		'text'        => 'text',
+		'custom_html' => 'content',
+	);
+
+	foreach ( wp_get_sidebars_widgets() as $sidebar => $widget_ids ) {
+		if ( 'wp_inactive_widgets' === $sidebar || ! is_array( $widget_ids ) ) {
+			continue;
+		}
+
+		foreach ( $widget_ids as $widget_id ) {
+			if ( ! preg_match( '/^(block|text|custom_html)-(\d+)$/', (string) $widget_id, $m ) ) {
+				continue;
+			}
+
+			$instances = get_option( 'widget_' . $m[1] );
+			$field     = $types[ $m[1] ];
+
+			if ( isset( $instances[ (int) $m[2] ][ $field ] ) && is_string( $instances[ (int) $m[2] ][ $field ] ) ) {
+				$contents[] = $instances[ (int) $m[2] ][ $field ];
+			}
+		}
+	}
+
+	return $contents;
+}
+
+add_action( 'wp_enqueue_scripts', 'blueline_dequeue_unused_plugin_assets', 1000 );
+add_action( 'wp_print_footer_scripts', 'blueline_dequeue_unused_plugin_assets', 1 );
+/**
+ * PERF-05: drop plugin assets on requests where their feature cannot render.
+ *
+ * - Contact Form 7 (+ Conditional Fields): only pages/widgets carrying a form
+ *   shortcode or block keep it; account pages keep it too, since plugins
+ *   render forms there outside post content.
+ * - SportsPress Facebook SDK (pulls connect.facebook.net): only needed by the
+ *   SportsPress Facebook widget, so it stays only while one is active.
+ *
+ * Deliberately left alone: dashicons (sportspress/event-list.php's video/
+ * camera icons and the Quotes Llama widget use it logged-out), SportsPress's
+ * own stylesheets (assets/src/css/sportspress.css builds on them), and
+ * WooCommerce order attribution (must run on landing pages to attribute orders).
+ *
+ * @return void
+ */
+function blueline_dequeue_unused_plugin_assets(): void {
+	if ( is_admin() ) {
+		return;
+	}
+
+	$account_page = function_exists( 'is_account_page' ) && is_account_page();
+
+	if ( ! $account_page && ! blueline_request_content_contains( array( '[contact-form-7', '[contact-form ', 'wp:contact-form-7/' ) ) ) {
+		foreach ( array( 'contact-form-7', 'swv', 'wpcf7cf-scripts' ) as $handle ) {
+			wp_dequeue_script( $handle );
+		}
+
+		foreach ( array( 'contact-form-7', 'cf7cf-style' ) as $handle ) {
+			wp_dequeue_style( $handle );
+		}
+	}
+
+	if ( ! is_active_widget( false, false, 'sportspress-facebook', true ) ) {
+		wp_dequeue_script( 'sportspress-facebook-sdk' );
+	}
+}
+
 add_action( 'wp_head', 'blueline_preload_fonts', 1 );
 /**
- * Preload the two self-hosted webfonts used on every page: the Inter
- * variable font (body copy, all weights) and the Barlow Condensed 800
- * italic static instance (h1-h4, the design's signature heavy-italic caps).
- * Preloading more than this defeats the purpose of preloading.
+ * Preload the self-hosted webfonts used above the fold on every page: the
+ * Inter variable font (body copy, all weights), the Barlow Condensed 800
+ * italic static instance (h1-h4, the design's signature heavy-italic caps)
+ * and 700 italic (the primary nav -- PERF-08: arriving late, it re-wrapped
+ * the nav and shifted the page). Preloading more than this defeats the
+ * purpose of preloading.
  */
 function blueline_preload_fonts() {
 	$fonts = array(
 		'inter-variable.woff2',
 		'barlow-condensed-800italic.woff2',
+		'barlow-condensed-700italic.woff2',
 	);
 
 	foreach ( $fonts as $font ) {

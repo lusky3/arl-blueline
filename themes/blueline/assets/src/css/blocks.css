@@ -17,6 +17,9 @@
 .entry-content {
 	font-size: var(--bl-text-base);
 	line-height: 1.7;
+
+	/* FE-06: break an overflowing bare URL; min-content is unaffected. */
+	overflow-wrap: break-word;
 }
 
 .entry-content > * + * {
@@ -137,6 +140,18 @@
  */
 .entry-content p {
 	margin-block: 0;
+}
+
+/*
+ * FE-01: the zeroing rule above out-specifies `.entry-content > * + *`, so
+ * re-assert the flow gap for top-level paragraphs (tucked under headings).
+ */
+.entry-content > * + p {
+	margin-block-start: var(--bl-space-5);
+}
+
+.entry-content > :where(h1, h2, h3, h4, h5, h6) + p {
+	margin-block-start: 0;
 }
 
 /* Heading -- core adds .wp-block-heading to core/heading since WP 6.3. */
@@ -441,4 +456,13 @@
 	color: var(--bl-content-text);
 	font-style: normal;
 	font-size: var(--bl-text-sm);
+}
+
+/*
+ * A11Y-01: Shortcodes Ultimate's [su_box] (/register's product box) paints a
+ * fixed white body; use the theme-aware surface so dark-mode text reads.
+ */
+.entry-content .su-box-content {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
 }

@@ -980,6 +980,28 @@ if ( ! function_exists( 'update_user_meta' ) ) {
 		return true;
 	}
 }
+if ( ! function_exists( 'get_post_field' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_post_field(), backed by the
+	 * registered-posts store; 'post_author' reads that store's 'author'.
+	 *
+	 * @param string $field   Field name.
+	 * @param int    $post_id Post ID.
+	 * @return string
+	 */
+	function get_post_field( $field, $post_id ) {
+		$state      = &blueline_test_state();
+		$registered = $state['posts'][ (int) $post_id ] ?? array();
+		$map        = array(
+			'post_author' => 'author',
+			'post_title'  => 'title',
+			'post_type'   => 'type',
+			'post_status' => 'status',
+		);
+		$key        = $map[ $field ] ?? $field;
+		return (string) ( $registered[ $key ] ?? '' );
+	}
+}
 if ( ! function_exists( 'get_userdata' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_userdata(): an object carrying
@@ -1015,6 +1037,24 @@ if ( ! function_exists( 'get_posts' ) ) {
 		if ( '' === $key && isset( $args['meta_query'][0]['key'] ) ) {
 			$key   = (string) $args['meta_query'][0]['key'];
 			$value = (string) ( $args['meta_query'][0]['value'] ?? '' );
+		}
+
+		// Author-only lookups (blueline_user_owns_any_player()), resolved
+		// against the registered-posts store's 'author' field.
+		if ( '' === $key && isset( $args['author'] ) ) {
+			$found = array();
+			foreach ( $state['posts'] as $post_id => $registered ) {
+				if ( (int) ( $registered['author'] ?? 0 ) !== (int) $args['author'] ) {
+					continue;
+				}
+				if ( ! empty( $args['post_type'] ) && ( $registered['type'] ?? '' ) !== $args['post_type'] ) {
+					continue;
+				}
+				$found[] = (int) $post_id;
+			}
+			sort( $found );
+			$limit = (int) ( $args['posts_per_page'] ?? -1 );
+			return ( $limit > 0 ) ? array_slice( $found, 0, $limit ) : $found;
 		}
 
 		if ( '' === $key ) {
@@ -1406,6 +1446,84 @@ if ( ! function_exists( 'is_singular' ) ) {
 		}
 
 		return in_array( $current, (array) $post_types, true );
+	}
+}
+if ( ! function_exists( 'is_author' ) ) {
+	/**
+	 * Stand-in for WordPress' is_author(), driven by $GLOBALS['bl_test_is_author'] (tests/PrivacyTest.php).
+	 *
+	 * @return bool
+	 */
+	function is_author() {
+		return ! empty( $GLOBALS['bl_test_is_author'] );
+	}
+}
+if ( ! function_exists( 'status_header' ) ) {
+	/**
+	 * Stand-in for WordPress' status_header(); records the code.
+	 *
+	 * @param int $code HTTP status code.
+	 */
+	function status_header( $code ) {
+		$GLOBALS['bl_test_status_header'] = $code;
+	}
+}
+if ( ! function_exists( 'nocache_headers' ) ) {
+	/**
+	 * Stand-in for WordPress' nocache_headers().
+	 */
+	function nocache_headers() {}
+}
+if ( ! function_exists( 'wp_get_image_editor' ) ) {
+	/**
+	 * Stand-in for WordPress' wp_get_image_editor(): returns
+	 * $GLOBALS['bl_test_image_editor'] (tests/PlayerPhotoMetadataTest.php).
+	 *
+	 * @param string $path Image path (unused).
+	 * @return object
+	 */
+	function wp_get_image_editor( $path ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP core.
+		return $GLOBALS['bl_test_image_editor'] ?? new WP_Error( 'image_no_editor', 'No editor' );
+	}
+}
+if ( ! function_exists( 'wp_delete_file' ) ) {
+	/**
+	 * Stand-in for WordPress' wp_delete_file(): records the path instead.
+	 *
+	 * @param string $file Path.
+	 */
+	function wp_delete_file( $file ) {
+		$GLOBALS['bl_test_deleted_files'][] = $file;
+	}
+}
+if ( ! function_exists( 'is_page' ) ) {
+	/**
+	 * Minimal stand-in for is_page(): a singular view of a 'page' (see is_singular() above).
+	 *
+	 * @return bool
+	 */
+	function is_page() {
+		return 'page' === blueline_test_state()['queried_post_type'];
+	}
+}
+if ( ! function_exists( 'is_front_page' ) ) {
+	/**
+	 * Minimal stand-in for is_front_page(): blueline_test_state()'s 'is_front_page' flag.
+	 *
+	 * @return bool
+	 */
+	function is_front_page() {
+		return ! empty( blueline_test_state()['is_front_page'] );
+	}
+}
+if ( ! function_exists( 'get_queried_object_id' ) ) {
+	/**
+	 * Minimal stand-in for get_queried_object_id(): blueline_test_state()'s 'queried_object_id'.
+	 *
+	 * @return int
+	 */
+	function get_queried_object_id() {
+		return (int) ( blueline_test_state()['queried_object_id'] ?? 0 );
 	}
 }
 if ( ! function_exists( 'sp_post_types' ) ) {

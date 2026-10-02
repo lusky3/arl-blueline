@@ -88,6 +88,27 @@ function blueline_setup() {
 	);
 }
 
+add_filter( 'get_custom_logo_image_attributes', 'blueline_custom_logo_sizes', 10, 2 );
+/**
+ * PERF-07: give the header logo a `sizes` matching its rendered box
+ * (header.css: height var(--bl-header-logo), 80px, 60px below 1100px; width
+ * auto) instead of core's "(max-width: 512px) 100vw, 512px", which made
+ * browsers fetch the full 512px source for an 80px mark.
+ *
+ * @param array $attr          Image attributes.
+ * @param int   $attachment_id Logo attachment ID.
+ * @return array
+ */
+function blueline_custom_logo_sizes( $attr, $attachment_id ) {
+	$attr  = is_array( $attr ) ? $attr : array();
+	$src   = wp_get_attachment_image_src( (int) $attachment_id, 'full' );
+	$ratio = ( is_array( $src ) && ! empty( $src[1] ) && ! empty( $src[2] ) ) ? $src[1] / $src[2] : 1;
+
+	$attr['sizes'] = sprintf( '(max-width: 1099.98px) %dpx, %dpx', (int) ceil( 60 * $ratio ), (int) ceil( 80 * $ratio ) );
+
+	return $attr;
+}
+
 add_action( 'widgets_init', 'blueline_widgets_init' );
 /**
  * Register widget areas. IDs must match the existing rookie-child
@@ -141,12 +162,10 @@ add_filter( 'show_admin_bar', 'blueline_hide_admin_bar_for_players' );
  * a still-guarded page is simply tidier, not less safe than a visible one.
  *
  * Registered directly at file scope, the same way this file's other
- * WordPress-core hooks are (e.g. the widgets_init registration below):
- * `show_admin_bar()` core itself exposes is just a thin wrapper around
- * `add_filter( 'show_admin_bar', ... )`, and the actual current_user_can()
- * check inside this callback only runs later, when core applies the filter
- * to decide whether to render the bar (well after the current user is
- * resolved) -- registering it early costs nothing.
+ * WordPress-core hooks are (e.g. the widgets_init registration above):
+ * core applies the `show_admin_bar` filter in is_admin_bar_showing(), after
+ * the current user is resolved, so the current_user_can() check inside
+ * this callback runs late enough and registering it early costs nothing.
  *
  * @param bool $show Core's own default answer.
  * @return bool

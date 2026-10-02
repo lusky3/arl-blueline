@@ -162,4 +162,38 @@ final class SocialMetaTest extends TestCase {
 		$this->assertSame( 'website', $data['type'] );
 		$this->assertSame( 'https://example.test/event/100', $data['url'] );
 	}
+
+	// -----------------------------------------------------------------------
+	// SEO plugin deference (WP-12)
+	// -----------------------------------------------------------------------
+
+	/**
+	 * No SEO plugin is defined in this suite, so the theme prints its own JSON-LD.
+	 */
+	public function test_structured_data_prints_without_an_seo_plugin(): void {
+		blueline_test_reset_hooks();
+
+		$this->assertFalse( blueline_seo_plugin_active() );
+
+		ob_start();
+		blueline_render_structured_data();
+		$this->assertStringContainsString( 'application/ld+json', (string) ob_get_clean() );
+	}
+
+	/**
+	 * With an SEO plugin active, neither the meta tags nor the JSON-LD print.
+	 */
+	public function test_social_output_steps_aside_for_an_seo_plugin(): void {
+		blueline_test_reset_hooks();
+		add_filter( 'blueline_seo_plugin_active', static fn() => true );
+
+		ob_start();
+		blueline_render_social_meta();
+		blueline_render_structured_data();
+		$output = (string) ob_get_clean();
+
+		blueline_test_reset_hooks();
+
+		$this->assertSame( '', $output );
+	}
 }

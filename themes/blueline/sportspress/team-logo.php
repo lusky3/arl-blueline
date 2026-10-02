@@ -16,6 +16,9 @@
  * fix in version control instead of a one-off database edit nothing else in
  * this repo would know about.
  *
+ * Overrides SportsPress templates/team-logo.php, core template version 1.4 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 

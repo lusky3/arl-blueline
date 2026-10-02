@@ -169,6 +169,7 @@ function blueline_account_render_claim_notice() {
 		'already_linked'      => array( 'error', __( 'That player is already linked to a different account. Contact the league if this is a mistake.', 'blueline' ) ),
 		'user_already_linked' => array( 'error', __( 'Your account is already linked to a player.', 'blueline' ) ),
 		'forbidden'           => array( 'error', __( 'You’re not allowed to do that.', 'blueline' ) ),
+		'not_eligible'        => array( 'error', __( 'Registered players are linked by the league. Contact the league to connect your player profile.', 'blueline' ) ),
 	);
 
 	if ( ! isset( $messages[ $status ] ) ) {

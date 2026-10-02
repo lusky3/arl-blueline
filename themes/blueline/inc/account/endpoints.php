@@ -529,4 +529,5 @@ function blueline_redirect_legacy_account_endpoints() {
 	exit;
 }
 
-add_action( 'after_switch_theme', 'flush_rewrite_rules' );
+// 0 args: the hook passes the old theme's name, which would land in $hard.
+add_action( 'after_switch_theme', 'flush_rewrite_rules', 10, 0 );

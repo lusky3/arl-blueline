@@ -134,6 +134,7 @@
 	text-decoration: none;
 	border: 0;
 	border-radius: var(--bl-radius);
+	box-shadow: 0 0 0 1px var(--bl-content-button-ring);
 	cursor: pointer;
 }
 
@@ -374,7 +375,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	margin: var(--bl-space-2) 0 0;
 	padding: 0;
 	background: none;
-	color: var(--bl-ink-mid);
+	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 	border-radius: 0;
 }
@@ -520,9 +521,22 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 @media (min-width: 780px) {
 
-	.woocommerce div.product.has-woocommerce-product-gallery {
+	/* WooCommerce never puts a gallery class on div.product itself, so the
+	   two columns key off the gallery child. body.: [product_page] embeds
+	   (/register) wrap themselves in a .single-product div too. */
+	body.single-product div.product:has(> .woocommerce-product-gallery) {
 		grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
 		align-items: start;
+	}
+
+	body.single-product div.product:has(> .woocommerce-product-gallery) > .woocommerce-product-gallery,
+	body.single-product div.product:has(> .woocommerce-product-gallery) > .summary {
+		float: none;
+		width: auto;
+	}
+
+	body.single-product div.product:has(> .woocommerce-product-gallery) > :not(.woocommerce-product-gallery, .summary) {
+		grid-column: 1 / -1;
 	}
 }
 
@@ -553,6 +567,12 @@ html body .woocommerce .woocommerce-invalid textarea {
 .blueline-wc-product-page-title-link:hover,
 .blueline-wc-product-page-title-link:focus-visible {
 	text-decoration: underline;
+}
+
+/* A11Y-09: the /register embed's title is now an h2; keep its h1 size. */
+.woocommerce div.product .blueline-wc-product-page-title-link .product_title {
+	font-size: 2em;
+	margin-block-end: 0.67em;
 }
 
 .woocommerce div.product p.price,
@@ -1013,4 +1033,32 @@ html body .woocommerce .woocommerce-invalid textarea {
 	margin-block-start: var(--bl-space-1);
 	color: var(--bl-content-text);
 	font-size: var(--bl-text-base);
+}
+
+/* A11Y-12: WC's 22px show-password toggle, up to the 24px minimum target. */
+.woocommerce form .show-password-input {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+}
+
+/* WooCommerce's eye icon is a hard-coded black SVG; flip it on dark. */
+.woocommerce form .show-password-input::before {
+	filter: invert(var(--bl-content-icon-invert));
+}
+
+/*
+ * A11Y-12: Social Login's white labels on its own brand fills: Twitter's
+ * #55acee fails at 2.46:1 (ink text there is 6.4:1), Google's #4285f4 at
+ * 3.56:1 (Google's own darker #3367d6 is 5.2:1 with white).
+ */
+.wc-social-login a.button-social-login.button-social-login-twitter {
+	color: var(--bl-ink);
+}
+
+.wc-social-login a.button-social-login.button-social-login-google {
+	background: #3367d6;
+	border-color: #3367d6;
 }

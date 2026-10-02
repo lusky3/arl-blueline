@@ -18,6 +18,9 @@
  * JavaScript required) reveals the rest and hides the now-redundant Record
  * column in its place.
  *
+ * Overrides SportsPress templates/league-table.php, core template version 2.7.23 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 
@@ -69,7 +72,19 @@ if ( isset( $show_future_events ) ) {
 
 $identifier = uniqid( 'table_' );
 
-$data = $table->data();
+// PERF-03: the computed table (no per-viewer markup) is cached; highlighting below stays per request.
+$bl_table_cache_key = ( $id && function_exists( 'blueline_sp_cache_key' ) && ! is_preview() )
+	? blueline_sp_cache_key( 'table', array( (int) $id, $table->show_published_events ?? '', $table->show_future_events ?? '' ) )
+	: '';
+$data               = $bl_table_cache_key ? get_transient( $bl_table_cache_key ) : false;
+
+if ( ! is_array( $data ) ) {
+	$data = $table->data();
+
+	if ( $bl_table_cache_key && is_array( $data ) && isset( $data[0] ) ) {
+		set_transient( $bl_table_cache_key, $data, BLUELINE_SP_CACHE_TTL );
+	}
+}
 
 $labels = $data[0];
 unset( $data[0] );
@@ -152,6 +167,9 @@ $bl_zero_games_note = function_exists( 'blueline_sp_zero_games_note' )
 // row loop, not once per row: it is the same answer for every row this
 // template renders.
 $bl_my_team_ids = function_exists( 'blueline_current_user_team_ids' ) ? blueline_current_user_team_ids() : array();
+
+// wp_kses_post()'s rules plus img srcset/sizes/decoding, so the logo's responsive sources survive.
+$bl_kses_allowed = function_exists( 'blueline_sp_kses_allowed_html' ) ? blueline_sp_kses_allowed_html() : wp_kses_allowed_html( 'post' );
 
 $output  = '<th class="data-rank">' . esc_attr__( 'Pos', 'sportspress' ) . '</th>';
 $output .= '<th class="data-name">' . esc_html( $labels['name'] ) . '</th>';
@@ -258,7 +276,16 @@ foreach ( $data as $team_id => $row ) :
 	$bl_is_own_team_page = is_singular( 'sp_team' ) && (int) get_queried_object_id() === (int) $team_id;
 
 	if ( $show_team_logo && ! $bl_is_own_team_page && has_post_thumbnail( $team_id ) ) :
-		$logo        = get_the_post_thumbnail( $team_id, 'sportspress-fit-icon' );
+		// PERF-06: drawn at 24px (sportspress.css), so sizes lets the browser take the 32w source at 1x.
+		$logo        = get_the_post_thumbnail(
+			$team_id,
+			'sportspress-fit-icon',
+			array(
+				'sizes'    => '24px',
+				'loading'  => 'lazy',
+				'decoding' => 'async',
+			)
+		);
 		$name        = '<span class="team-logo">' . $logo . '</span>' . $name;
 		$name_class .= ' has-logo';
 	endif;
@@ -267,7 +294,7 @@ foreach ( $data as $team_id => $row ) :
 		$name = '<a href="' . esc_url( get_post_permalink( $team_id ) ) . '">' . $name . '</a>';
 	endif;
 
-	$output .= '<td class="data-name' . $name_class . $td_class . '" data-label="' . esc_attr( $labels['name'] ) . '">' . wp_kses_post( $name ) . '</td>';
+	$output .= '<td class="data-name' . $name_class . $td_class . '" data-label="' . esc_attr( $labels['name'] ) . '">' . wp_kses( $name, $bl_kses_allowed ) . '</td>';
 
 	if ( $bl_has_record ) :
 		$bl_record_parts = array();
@@ -331,7 +358,7 @@ $output .= '</tbody>';
 	<?php endif; ?>
 	<div class="sp-table-wrapper">
 		<table class="sp-league-table sp-league-table-<?php echo esc_attr( $id ); ?> sp-data-table<?php echo $sortable ? ' sp-sortable-table' : ''; ?><?php echo $responsive ? ' sp-responsive-table ' . esc_attr( $identifier ) : ''; ?><?php echo $scrollable ? ' sp-scrollable-table' : ''; ?><?php echo $paginated ? ' sp-paginated-table' : ''; ?>" data-sp-rows="<?php echo esc_attr( $rows ); ?>">
-			<?php echo wp_kses_post( $output ); ?>
+			<?php echo wp_kses( $output, $bl_kses_allowed ); ?>
 		</table>
 	</div>
 	<?php if ( $show_full_table_link ) : ?>

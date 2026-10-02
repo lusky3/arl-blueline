@@ -3,10 +3,12 @@ Theme Name: Blueline
 Theme URI: https://www.rookiehockey.ca
 Author: Adult Recreational League
 Description: Standalone theme for the ARL — SportsPress Pro and WooCommerce, built on the 2026 ARL brand.
-Version: 1.0.0
+Version: 1.0.1
 Requires at least: 6.9
+Tested up to: 7.1
 Requires PHP: 8.3
 License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: blueline
 */
 
@@ -226,6 +228,10 @@ Text Domain: blueline
 	--bl-content-border-strong: var(--bl-border-strong);
 	--bl-content-link:          var(--bl-accent-text);
 
+	/* Outline for navy-filled buttons (invisible on light, needed on the dark page) and a flag to invert black third-party icons. */
+	--bl-content-button-ring:   transparent;
+	--bl-content-icon-invert:   0;
+
 	/*
 	 * Without this, a browser's own forced/auto-dark-mode heuristic (common
 	 * on mobile Chrome, and confirmed live in this session's own staging
@@ -270,6 +276,8 @@ Text Domain: blueline
 		--bl-content-border:         #28374E;
 		--bl-content-border-strong:  #5C7690;
 		--bl-content-link:           #8FBFE8;
+		--bl-content-button-ring:    #5C7690;
+		--bl-content-icon-invert:    1;
 		--bl-success:                #3DDC84;
 		--bl-warning:                #E8B33D;
 		--bl-danger:                 #FF6B5B;
@@ -286,6 +294,8 @@ Text Domain: blueline
 	--bl-content-border:         #28374E;
 	--bl-content-border-strong:  #5C7690;
 	--bl-content-link:           #8FBFE8;
+	--bl-content-button-ring:    #5C7690;
+	--bl-content-icon-invert:    1;
 	--bl-success:                #3DDC84;
 	--bl-warning:                #E8B33D;
 	--bl-danger:                 #FF6B5B;
@@ -333,6 +343,8 @@ Text Domain: blueline
 		--bl-content-border:         var(--bl-border) !important;
 		--bl-content-border-strong:  var(--bl-border-strong) !important;
 		--bl-content-link:           var(--bl-accent-text) !important;
+		--bl-content-button-ring:    transparent !important;
+		--bl-content-icon-invert:    0 !important;
 		--bl-success:                #1F7A4D !important;
 		--bl-warning:                #8A5A00 !important;
 		--bl-danger:                 #A32C1B !important;

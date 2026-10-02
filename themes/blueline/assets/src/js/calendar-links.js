@@ -70,10 +70,13 @@ function initCalendarLinks() {
 			return;
 		}
 
-		// order:-1 rather than moving the node: the DOM order is the no-JS
-		// order and stays authoritative for anyone reading the source or
-		// tabbing with CSS disabled.
-		match.style.order = '-1';
+		// Move the node itself so tab order matches what is shown (FE-08);
+		// any label before the links stays first.
+		const first = wrapper.querySelector( '[data-calendar]' );
+
+		if ( first && first !== match ) {
+			wrapper.insertBefore( match, first );
+		}
 		wrapper.setAttribute( 'data-calendar-preferred', preferred );
 	} );
 }

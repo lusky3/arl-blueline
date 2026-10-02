@@ -24,6 +24,7 @@ require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/settings/import.php';
 require_once __DIR__ . '/../inc/settings/cache.php';
 require_once __DIR__ . '/../inc/settings/delete-data.php';
+require_once __DIR__ . '/../inc/season-state.php';
 require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
 

@@ -32,6 +32,9 @@
  * and falling back to "already played" copy (no live countdown, no claim
  * of being "on time") only when nothing future exists anywhere in scope.
  *
+ * Overrides SportsPress templates/countdown.php, core template version 2.7.23 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 

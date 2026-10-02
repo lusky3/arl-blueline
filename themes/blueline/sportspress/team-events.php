@@ -39,6 +39,9 @@
  * (sportspress_after_single_team, inc/sportspress.php) for where they
  * actually live now, and why.
  *
+ * Overrides SportsPress templates/team-events.php, core template version 2.6.9 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 

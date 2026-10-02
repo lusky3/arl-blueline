@@ -27,6 +27,23 @@
 if ( typeof document !== 'undefined' ) {
 	const flyout = document.querySelector( '.bl-team-flyout' );
 
+	// Escape closes it from the tab or the panel, on any input (A11Y-07).
+	if ( flyout ) {
+		flyout.addEventListener( 'keydown', ( event ) => {
+			if ( 'Escape' !== event.key || ! flyout.open ) {
+				return;
+			}
+
+			flyout.open = false;
+
+			const tab = flyout.querySelector( 'summary' );
+
+			if ( tab ) {
+				tab.focus();
+			}
+		} );
+	}
+
 	if ( flyout && window.matchMedia( '(hover: hover)' ).matches ) {
 		const summary = flyout.querySelector( 'summary' );
 

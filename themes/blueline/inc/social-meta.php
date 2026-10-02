@@ -10,18 +10,40 @@
  * when it unfurls in Slack/iMessage/a group chat, and what a search engine
  * can extract about a game (SportsEvent rich results). Neither existed
  * before this file; no plugin on this install (Yoast/RankMath/AIOSEO) was
- * already filling either gap.
+ * already filling either gap. Both step aside if one is activated
+ * (blueline_seo_plugin_active()).
  *
  * @package blueline
  */
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Whether an SEO plugin (Yoast, Rank Math, SEOPress, AIOSEO) is active and
+ * already prints its own Open Graph and JSON-LD, so the theme's step aside.
+ *
+ * @return bool
+ */
+function blueline_seo_plugin_active(): bool {
+	$active = defined( 'WPSEO_VERSION' ) || defined( 'RANK_MATH_VERSION' ) || defined( 'SEOPRESS_VERSION' ) || defined( 'AIOSEO_VERSION' );
+
+	/**
+	 * Filters whether the theme defers its social meta and JSON-LD to an SEO plugin.
+	 *
+	 * @param bool $active Whether a known SEO plugin is active.
+	 */
+	return (bool) apply_filters( 'blueline_seo_plugin_active', $active );
+}
+
 add_action( 'wp_head', 'blueline_render_social_meta', 2 );
 /**
  * Print Open Graph and Twitter Card meta tags for the current request.
  */
 function blueline_render_social_meta() {
+	if ( blueline_seo_plugin_active() ) {
+		return;
+	}
+
 	$data = blueline_social_meta_data();
 
 	printf( '<meta property="og:type" content="%s">' . "\n", esc_attr( $data['type'] ) );
@@ -182,6 +204,10 @@ add_action( 'wp_head', 'blueline_render_structured_data', 3 );
  * computes for the on-page scoreboard.
  */
 function blueline_render_structured_data() {
+	if ( blueline_seo_plugin_active() ) {
+		return;
+	}
+
 	$graph = array( blueline_organization_schema() );
 
 	if ( is_singular( 'sp_event' ) && function_exists( 'sp_get_status' ) ) {

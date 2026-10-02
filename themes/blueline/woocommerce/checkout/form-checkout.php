@@ -1,12 +1,21 @@
 <?php
 /**
- * Checkout form.
+ * Checkout Form
  *
- * @see https://docs.woocommerce.com/document/template-structure/
- * @package WooCommerce/Templates
- * @version 3.5.0
+ * This template can be overridden by copying it to yourtheme/woocommerce/checkout/form-checkout.php.
  *
- * Cody Edits: Changed "Your Order" to "Registration Details", line 46
+ * HOWEVER, on occasion WooCommerce will need to update template files and you
+ * (the theme developer) will need to copy the new files to your theme to
+ * maintain compatibility. We try to do this as little as possible, but it does
+ * happen. When this occurs the version of the template file will be bumped and
+ * the readme will list any important changes.
+ *
+ * @see https://woocommerce.com/document/template-structure/
+ * @package WooCommerce\Templates
+ * @version 9.4.0
+ *
+ * Cody Edits: Changed "Your order" to "Registration Details" (the
+ * order review heading).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -23,7 +32,7 @@ if ( ! $checkout->is_registration_enabled() && $checkout->is_registration_requir
 
 ?>
 
-<form name="checkout" method="post" class="checkout woocommerce-checkout" action="<?php echo esc_url( wc_get_checkout_url() ); ?>" enctype="multipart/form-data">
+<form name="checkout" method="post" class="checkout woocommerce-checkout" action="<?php echo esc_url( wc_get_checkout_url() ); ?>" enctype="multipart/form-data" aria-label="<?php echo esc_attr__( 'Checkout', 'woocommerce' ); ?>">
 
 	<?php if ( $checkout->get_checkout_fields() ) : ?>
 
@@ -45,7 +54,7 @@ if ( ! $checkout->is_registration_enabled() && $checkout->is_registration_requir
 	
 	<?php do_action( 'woocommerce_checkout_before_order_review_heading' ); ?>
 	
-	<h3 id="order_review_heading"><?php esc_html_e( 'Registration Details', 'woocommerce' ); ?></h3>
+	<h3 id="order_review_heading"><?php esc_html_e( 'Registration Details', 'blueline' ); ?></h3>
 	
 	<?php do_action( 'woocommerce_checkout_before_order_review' ); ?>
 

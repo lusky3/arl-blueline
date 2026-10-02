@@ -73,13 +73,18 @@
 		max-width: 1400px;
 	}
 
-	.bl-sidebar {
+	/* The two-column layout's rail only; WooCommerce prints its
+	   sidebar after the content, outside that grid. */
+	.bl-content-layout--has-sidebar .bl-sidebar {
 		position: sticky;
 		inset-block-start: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5));
 		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
 		overflow-y: auto;
 		width: 300px;
-		translate: calc(max(0px, (100vw - 1400px) / 2) + var(--bl-space-5)) 0;
+
+		/* 100vw includes a classic scrollbar; the 1.25rem
+		   allowance keeps the rail inside the viewport. */
+		translate: calc(max(0px, (100vw - 1400px - 1.25rem) / 2) + var(--bl-space-5)) 0;
 
 		/*
 		 * Reported live: each widget card's own box-shadow (added for the
@@ -141,7 +146,7 @@
 	 * under 782.98px, outside this sidebar's own 960px floor), so the flat
 	 * 32px here needs no matching responsive split.
 	 */
-	.admin-bar .bl-sidebar {
+	.admin-bar .bl-content-layout--has-sidebar .bl-sidebar {
 		inset-block-start: calc(var(--bl-header-rest-height, 5.25rem) + var(--bl-space-5) + 32px);
 		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8) - 32px);
 	}
@@ -177,6 +182,11 @@
 	min-width: 0;
 }
 
+/* FE-09: a quieter scrollbar for the scrolling rail beside the page's own. */
+.bl-sidebar {
+	scrollbar-width: thin;
+}
+
 /*
  * Reserve room for the fixed, vertically-centered team flyout tab
  * (team-flyout.css) below the viewport width where .bl-container's own
@@ -206,7 +216,9 @@
  */
 @media (max-width: 1264px) {
 
+	/* FE-02: also no-primary-column templates (WC product, 404, full-width). */
 	.bl-content-layout__primary,
+	.bl-main > .bl-container:not(:has(> .bl-content-layout)),
 	.bl-hero__inner,
 	.bl-module__inner {
 		padding-inline-start: var(--bl-team-flyout-width);
@@ -749,12 +761,13 @@
 	opacity: 1;
 }
 
+/* FE-09: a few ease-out nudges when the cue appears, not a perpetual bounce. */
 .bl-motion-ok .bl-sidebar[data-can-scroll-up] .bl-sidebar__scroll-cue--up .bl-sidebar__scroll-cue-chevron {
-	animation: bl-sidebar-scroll-cue-bounce-up 1.6s ease-in-out infinite;
+	animation: bl-sidebar-scroll-cue-bounce-up 1.6s cubic-bezier(0.25, 1, 0.5, 1) 3;
 }
 
 .bl-motion-ok .bl-sidebar[data-can-scroll-down] .bl-sidebar__scroll-cue--down .bl-sidebar__scroll-cue-chevron {
-	animation: bl-sidebar-scroll-cue-bounce-down 1.6s ease-in-out infinite;
+	animation: bl-sidebar-scroll-cue-bounce-down 1.6s cubic-bezier(0.25, 1, 0.5, 1) 3;
 }
 
 @keyframes bl-sidebar-scroll-cue-bounce-down {
@@ -1118,8 +1131,9 @@
 	padding: 0;
 }
 
-.bl-pagination .page-numbers a,
-.bl-pagination .page-numbers span {
+/* The items themselves, not the arrow <span> inside "Older →" (FE-07). */
+.bl-pagination a.page-numbers,
+.bl-pagination span.page-numbers {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1132,8 +1146,8 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.bl-pagination .page-numbers a:hover,
-.bl-pagination .page-numbers a:focus-visible {
+.bl-pagination a.page-numbers:hover,
+.bl-pagination a.page-numbers:focus-visible {
 	border-color: var(--bl-content-link);
 	color: var(--bl-content-link);
 }

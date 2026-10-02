@@ -582,4 +582,113 @@ final class PlayerLinkTest extends TestCase {
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
 		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
 	}
+
+	// -----------------------------------------------------------------------
+	// Name-claim eligibility and verified ownership (SEC-01).
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_a_plain_account_with_no_owned_player_may_claim_by_name(): void {
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_player' );
+		$state['users'][5]   = (object) array( 'roles' => array( 'customer' ) );
+
+		$this->assertTrue( blueline_user_can_claim_by_name( 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_a_player_role_account_may_not_claim_by_name(): void {
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_player' );
+		$state['users'][5]   = (object) array( 'roles' => array( 'customer', 'sp_player' ) );
+
+		$this->assertFalse( blueline_user_can_claim_by_name( 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_an_owner_of_any_player_record_may_not_claim_by_name(): void {
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_player' );
+		$state['users'][5]   = (object) array( 'roles' => array( 'customer' ) );
+		$state['posts'][300] = array(
+			'type'   => 'sp_player',
+			'author' => 5,
+		);
+
+		$this->assertFalse( blueline_user_can_claim_by_name( 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_ineligible_account_gets_no_candidates_and_cannot_link(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+		$state['users'][5]        = (object) array(
+			'roles'        => array( 'sp_player' ),
+			'display_name' => 'Matthew Smith',
+		);
+
+		$this->assertSame( array(), blueline_find_player_candidates( 5 ) );
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'not_eligible', $result->get_error_code() );
+		$this->assertSame( '', get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_admin_may_still_link_a_player_role_account(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 9;
+		$state['caps']            = array( 'edit_users' => true );
+		$state['users'][5]        = (object) array( 'roles' => array( 'sp_player' ) );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_verified_owner_needs_both_player_role_and_post_author(): void {
+		$state                   = &blueline_test_state();
+		$state['post_types']     = array( 'sp_player' );
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => 5 );
+		$state['posts'][100]     = array(
+			'type'   => 'sp_player',
+			'author' => 5,
+		);
+
+		$state['users'][5] = (object) array( 'roles' => array( 'sp_player' ) );
+		$this->assertTrue( blueline_user_is_verified_player_owner( 5 ) );
+
+		$state['users'][5] = (object) array( 'roles' => array( 'customer' ) );
+		$this->assertFalse( blueline_user_is_verified_player_owner( 5 ), 'Owner without the Player role is not verified.' );
+
+		$state['users'][5]             = (object) array( 'roles' => array( 'sp_player' ) );
+		$state['posts'][100]['author'] = 17;
+		$this->assertFalse( blueline_user_is_verified_player_owner( 5 ), 'A name-claimed link (sp_user only) is not verified.' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_unlinked_account_is_never_a_verified_owner(): void {
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_player' );
+		$state['users'][5]   = (object) array( 'roles' => array( 'sp_player' ) );
+
+		$this->assertFalse( blueline_user_is_verified_player_owner( 5 ) );
+	}
 }

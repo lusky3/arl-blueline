@@ -47,6 +47,9 @@
  * sp_current_team-based roster reader -- rather than declaring the roster
  * unposted while the SAME data shows a real one elsewhere on this site.
  *
+ * Overrides SportsPress templates/team-lists.php, core template version 2.7.13 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 
@@ -122,6 +125,7 @@ if ( empty( $lists ) ) {
 		<?php
 		return;
 	}
+	$bl_roster_stats = function_exists( 'blueline_roster_season_stats' ) ? blueline_roster_season_stats( (int) $id, wp_list_pluck( $fallback_roster, 'player_id' ) ) : array();
 	?>
 	<table class="bl-sp-roster sp-data-table sp-sortable-table">
 		<thead>
@@ -150,7 +154,7 @@ if ( empty( $lists ) ) {
 						<?php endif; ?>
 					</td>
 					<?php if ( function_exists( 'blueline_render_roster_stats' ) ) : ?>
-						<?php blueline_render_roster_stats( $mate['player_id'] ); ?>
+						<?php blueline_render_roster_stats( $mate['player_id'], $bl_roster_stats[ $mate['player_id'] ] ?? null ); ?>
 					<?php endif; ?>
 				</tr>
 			<?php endforeach; ?>
@@ -171,8 +175,9 @@ $multiple_lists = count( $lists ) > 1;
 // actually printed below (it is conditional on $multiple_lists, the group
 // heading is not) -- so the group heading is never left one level too deep
 // for a caption that never rendered.
-$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
-$bl_group_level   = $bl_caption_level + 1;
+$bl_caption_level  = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+$bl_group_level    = $bl_caption_level + 1;
+$bl_position_terms = null; // Fetched once, on the first position-grouped list.
 
 foreach ( $lists as $list_post ) :
 	$list_id  = $list_post->ID;
@@ -212,16 +217,20 @@ foreach ( $lists as $list_post ) :
 		}
 	}
 
+	$bl_roster_stats = function_exists( 'blueline_roster_season_stats' ) ? blueline_roster_season_stats( (int) $id, $player_ids ) : array();
+
 	$groups = array( null );
 	if ( 'position' === $grouping && taxonomy_exists( 'sp_position' ) ) {
-		$position_terms = get_terms(
-			array(
-				'taxonomy'   => 'sp_position',
-				'hide_empty' => false,
-			)
-		);
-		if ( ! is_wp_error( $position_terms ) && ! empty( $position_terms ) ) {
-			$groups = $position_terms;
+		if ( null === $bl_position_terms ) {
+			$bl_position_terms = get_terms(
+				array(
+					'taxonomy'   => 'sp_position',
+					'hide_empty' => false,
+				)
+			);
+		}
+		if ( ! is_wp_error( $bl_position_terms ) && ! empty( $bl_position_terms ) ) {
+			$groups = $bl_position_terms;
 		}
 	}
 
@@ -305,7 +314,7 @@ foreach ( $lists as $list_post ) :
 							<?php endif; ?>
 						</td>
 						<?php if ( function_exists( 'blueline_render_roster_stats' ) ) : ?>
-							<?php blueline_render_roster_stats( $player_id ); ?>
+							<?php blueline_render_roster_stats( (int) $player_id, $bl_roster_stats[ (int) $player_id ] ?? null ); ?>
 						<?php endif; ?>
 					</tr>
 					<?php

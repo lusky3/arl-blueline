@@ -77,8 +77,8 @@ function blueline_decide_is_playing( array $signals ): bool {
  * blueline_decide_registration_open()/blueline_decide_is_playing()) that
  * this enum necessarily collapses into one mutually-exclusive value, which
  * is exactly why callers that need both facts at once (the homepage layout,
- * P1 finding 4) should read blueline_is_registration_open()/
- * blueline_is_playing() instead of branching on this string.
+ * P1 finding 4) should read blueline_season_state_data()'s
+ * `is_registration_open`/`is_playing` keys instead of branching on this string.
  *
  * @param array $signals Keys: has_purchasable_product (bool), upcoming_events (int),
  *                       days_to_next_event (int|null), has_playoff_events (bool),
@@ -125,6 +125,14 @@ function blueline_decide_season_state( array $signals ): string {
  * inc/account/player-data.php).
  */
 const BLUELINE_REGISTRATION_TERM_ID = 91;
+
+/**
+ * The transient that caches blueline_season_state_data()'s signals; also
+ * cleared by "delete all Blueline data" (inc/settings/delete-data.php).
+ *
+ * @var string
+ */
+const BLUELINE_SEASON_STATE_TRANSIENT = 'blueline_season_state';
 
 /**
  * The post_status a published, already-visible product or event carries.
@@ -316,7 +324,7 @@ function blueline_season_state_data( ?int $now = null ): array {
 	$use_cache = null === $now;
 
 	if ( $use_cache ) {
-		$cached = get_transient( 'blueline_season_state' );
+		$cached = get_transient( BLUELINE_SEASON_STATE_TRANSIENT );
 		if ( is_array( $cached ) && isset( $cached['state'], $cached['is_playing'], $cached['is_registration_open'] ) ) {
 			return $cached;
 		}
@@ -445,35 +453,10 @@ function blueline_season_state_data( ?int $now = null ): array {
 	);
 
 	if ( $use_cache ) {
-		set_transient( 'blueline_season_state', $data, 15 * MINUTE_IN_SECONDS );
+		set_transient( BLUELINE_SEASON_STATE_TRANSIENT, $data, 15 * MINUTE_IN_SECONDS );
 	}
 
 	return $data;
-}
-
-/**
- * Public accessor: is registration open right now, independent of whether
- * games are also being played (P1 finding 4). Unlike blueline_season_state(),
- * this and blueline_is_playing() can BOTH be true at once -- which is the
- * normal, months-long state of this site whenever next season's
- * registration opens before this season's games finish.
- *
- * @return bool
- */
-function blueline_is_registration_open(): bool {
-	$data = blueline_season_state_data();
-	return ! empty( $data['is_registration_open'] );
-}
-
-/**
- * Public accessor: are games currently being played, independent of whether
- * registration is also open. See blueline_is_registration_open()'s docblock.
- *
- * @return bool
- */
-function blueline_is_playing(): bool {
-	$data = blueline_season_state_data();
-	return ! empty( $data['is_playing'] );
 }
 
 /**
@@ -571,8 +554,8 @@ function blueline_season_state_override( ?int $now = null ): string {
  * last word everywhere else in this theme and this is not the place to make
  * an exception.
  *
- * The override deliberately does NOT touch blueline_is_registration_open()
- * or blueline_is_playing(). Those two report live facts about the catalogue
+ * The override deliberately does NOT touch blueline_season_state_data()'s
+ * `is_registration_open`/`is_playing`. Those two report live facts about the catalogue
  * and the schedule (P1 finding 4) rather than the emphasis this enum
  * collapses them into; forcing them as well would mean the panel could make
  * the site claim registration is open when nothing is actually purchasable.
@@ -650,7 +633,7 @@ function blueline_render_season_state_override_notice(): void {
  * Bust the cached season-state signals so the next read recomputes them.
  */
 function blueline_bust_season_state_cache() {
-	delete_transient( 'blueline_season_state' );
+	delete_transient( BLUELINE_SEASON_STATE_TRANSIENT );
 }
 
 // Guarded so this file stays safe to require_once directly, the way

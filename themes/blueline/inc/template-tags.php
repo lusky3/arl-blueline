@@ -369,8 +369,8 @@ function blueline_page_wrapper_end( ?bool $has_sidebar = null ): void {
 /**
  * Splits a paginated post's content across page numbers with this theme's
  * `<nav class="bl-page-links">` wrapper -- the identical wp_link_pages()
- * call content-single.php, content-page.php, content-notitle.php, and
- * content-nothumb.php each used to repeat verbatim.
+ * call content-single.php, content-page.php and content-nothumb.php each
+ * used to repeat verbatim.
  *
  * @return void
  */
@@ -845,8 +845,6 @@ function blueline_site_header() {
  * the live site. That CTA was a 404 waiting to ship.
  *
  * Both callers now read this one function, so they cannot drift apart again.
- * When the control panel's Links tab lands, this is the single place that
- * needs to consult the configured page ID; until then it stays a literal.
  *
  * @return string Absolute URL to the Contact Us page.
  */

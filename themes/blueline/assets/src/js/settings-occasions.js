@@ -28,8 +28,8 @@
 const ROOT = '[data-bl-occasions]';
 
 /**
- * Fallback for `window.blOccasionsData` when the localized settings data
- * (inc/settings/page.php's `wp_localize_script()` call) is unavailable --
+ * Fallback for `window.blOccasionsData` when the settings data
+ * (inc/settings/page.php's inline JSON) is unavailable --
  * e.g. this script loaded outside the admin settings page it is written
  * for. Matches style.css's --bl-ink and the Occasions tab's default AA
  * threshold, so the live readout still shows a sane number rather than

@@ -47,6 +47,7 @@
 // not by convention, and preferences-widget-reset.test.mjs asserts the two
 // stay equal.
 const DISMISSED_KEY = 'blueline:next-game-dismissed';
+// Shared with account-next-game.js; storage-keys.test.mjs asserts they match.
 const SEEN_KEY = 'blueline:next-game-seen';
 
 /**
@@ -175,5 +176,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { parseNextGameState, DISMISSED_KEY };
+	module.exports = { parseNextGameState, DISMISSED_KEY, SEEN_KEY };
 }

@@ -42,19 +42,6 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The transient this teardown clears alongside the options.
- *
- * Named here rather than reached for inline so the list below and
- * inc/season-state.php's own set_transient() call cannot drift apart silently:
- * a rename in one place with no rename here would leave a stale cache behind
- * after a "delete everything", which is exactly the kind of quiet
- * incompleteness this function exists to avoid.
- *
- * @var string
- */
-const BLUELINE_SEASON_STATE_TRANSIENT = 'blueline_season_state';
-
-/**
  * Every option name "delete all Blueline data" removes.
  *
  * One list, one place, so the admin action, the WP-CLI subcommand and the tests
@@ -211,7 +198,7 @@ function blueline_settings_handle_delete_all_data(): void {
 		add_settings_error(
 			BLUELINE_SETTINGS_OPTION,
 			'blueline_settings_delete_unconfirmed',
-			__( 'Nothing was deleted: the confirmation box was not ticked.', 'blueline' ),
+			esc_html__( 'Nothing was deleted: the confirmation box was not ticked.', 'blueline' ),
 			'warning'
 		);
 		set_transient( 'settings_errors', get_settings_errors(), 30 );
@@ -225,7 +212,7 @@ function blueline_settings_handle_delete_all_data(): void {
 		add_settings_error(
 			BLUELINE_SETTINGS_OPTION,
 			'blueline_settings_delete_nothing_stored',
-			__( 'There was nothing to delete: no Blueline settings were stored.', 'blueline' ),
+			esc_html__( 'There was nothing to delete: no Blueline settings were stored.', 'blueline' ),
 			'warning'
 		);
 	} else {
@@ -233,8 +220,8 @@ function blueline_settings_handle_delete_all_data(): void {
 			BLUELINE_SETTINGS_OPTION,
 			'blueline_settings_deleted',
 			$result['purge_ran']
-				? __( 'All Blueline data deleted. The site is now using the built-in defaults.', 'blueline' )
-				: __( 'All Blueline data deleted. The site is now using the built-in defaults. The page cache was not purged, so visitors may keep seeing the old settings until it is purged by hand.', 'blueline' ),
+				? esc_html__( 'All Blueline data deleted. The site is now using the built-in defaults.', 'blueline' )
+				: esc_html__( 'All Blueline data deleted. The site is now using the built-in defaults. The page cache was not purged, so visitors may keep seeing the old settings until it is purged by hand.', 'blueline' ),
 			'success'
 		);
 	}

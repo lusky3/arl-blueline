@@ -35,6 +35,9 @@
  * never analysed (a future editor explicitly overriding title_format or
  * time_format in a shortcode attribute) cannot regress.
  *
+ * Overrides SportsPress templates/event-list.php, core template version 2.7.23 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 
@@ -43,9 +46,13 @@ defined( 'ABSPATH' ) || exit;
 $bl_title_format = isset( $title_format ) ? $title_format : get_option( 'sportspress_event_list_title_format', 'title' );
 $bl_time_format  = isset( $time_format ) ? $time_format : get_option( 'sportspress_event_list_time_format', 'combined' );
 
-if ( 'homeaway' !== $bl_title_format || 'combined' !== $bl_time_format || ! function_exists( 'SP' ) || ! class_exists( 'SP_Calendar' ) ) {
+if ( ! function_exists( 'SP' ) ) {
+	return;
+}
+
+if ( 'homeaway' !== $bl_title_format || 'combined' !== $bl_time_format || ! class_exists( 'SP_Calendar' ) ) {
 	$bl_stock_template = trailingslashit( SP()->plugin_path() ) . 'templates/event-list.php';
-	if ( function_exists( 'SP' ) && file_exists( $bl_stock_template ) ) {
+	if ( file_exists( $bl_stock_template ) ) {
 		include $bl_stock_template;
 	}
 	return;

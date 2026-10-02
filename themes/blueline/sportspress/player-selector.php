@@ -33,6 +33,9 @@
  * here any more; assets/src/js/player-selector.js instead navigates
  * only on an explicit "Go" button activation.
  *
+ * Overrides SportsPress templates/player-selector.php, core template version 2.7.11 as of
+ * SportsPress Pro 2.7.29; re-check this override when that version changes.
+ *
  * @package blueline
  */
 

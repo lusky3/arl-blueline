@@ -54,8 +54,65 @@ final class SportspressCaptionHeadingLevelTest extends TestCase {
 	 */
 	public function test_ordinary_page_singular_context_returns_h3(): void {
 		blueline_test_set_queried_post_type( 'page' );
+		$this->set_page_content( '<!-- wp:heading --><h2 class="wp-block-heading">Intro</h2><!-- /wp:heading -->[league_table id="1"]' );
 
 		$this->assertSame( 3, blueline_sp_caption_heading_level() );
+	}
+
+	/**
+	 * Test case: A11Y-09 -- a page with no h2 of its own (/standings) puts captions straight under its h1.
+	 */
+	public function test_page_without_its_own_h2_returns_h2(): void {
+		blueline_test_set_queried_post_type( 'page' );
+		$this->set_page_content( '[team_standings]' );
+
+		$this->assertSame( 2, blueline_sp_caption_heading_level() );
+	}
+
+	/**
+	 * Test case: A11Y-09 -- the front page keeps h3 (its modules print their own h2 first).
+	 */
+	public function test_front_page_returns_h3(): void {
+		blueline_test_set_queried_post_type( 'page' );
+		$this->set_page_content( '' );
+		$state                  = &blueline_test_state();
+		$state['is_front_page'] = true;
+
+		$this->assertSame( 3, blueline_sp_caption_heading_level() );
+	}
+
+	/**
+	 * Test case: A11Y-09 -- inside a widget area, captions are siblings of the h2 widget titles.
+	 */
+	public function test_widget_area_returns_h2(): void {
+		blueline_sp_enter_sidebar();
+
+		try {
+			$this->assertSame( 2, blueline_sp_caption_heading_level() );
+		} finally {
+			blueline_sp_leave_sidebar();
+		}
+
+		$this->assertSame( 3, blueline_sp_caption_heading_level() );
+	}
+
+	/**
+	 * Test case: A11Y-09 -- the footer sponsor band's title is h2; elsewhere it follows the caption rule.
+	 */
+	public function test_sponsors_title_level(): void {
+		$this->assertSame( 2, blueline_sp_sponsors_title_level( true ) );
+		$this->assertSame( 3, blueline_sp_sponsors_title_level( false ) );
+	}
+
+	/**
+	 * Point the fake queried page at post 7 with the given content.
+	 *
+	 * @param string $content Post content.
+	 */
+	private function set_page_content( string $content ): void {
+		$state                      = &blueline_test_state();
+		$state['queried_object_id'] = 7;
+		$state['posts'][7]          = array( 'post_content' => $content );
 	}
 
 	/**

@@ -12,7 +12,9 @@
  *
  * @see     https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates
- * @version 7.0.1 (ARL override: themed empty state -- see Cody Edits below)
+ * @version 7.0.1
+ *
+ * ARL override: themed empty state -- see Cody Edits below.
  *
  * Cody Edits: full replacement of the stock "Your cart is currently empty"
  * notice (core's wc_empty_cart_message(), unhooked from

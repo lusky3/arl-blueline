@@ -27,6 +27,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/team-colors.php';
 require_once __DIR__ . '/../inc/woocommerce.php';
+require_once __DIR__ . '/../inc/email.php';
 
 /**
  * Exercises the pure functions this feature adds to inc/woocommerce.php.

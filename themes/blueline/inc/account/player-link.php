@@ -31,6 +31,7 @@ defined( 'ABSPATH' ) || exit;
 
 const BLUELINE_PLAYER_USER_META = 'sp_user';
 const BLUELINE_MATCH_THRESHOLD  = 0.85;
+const BLUELINE_PLAYER_ROLE      = 'sp_player';
 
 /**
  * How much smaller than the previous (already-final) season's roster the
@@ -217,6 +218,85 @@ function blueline_get_linked_player_id( int $user_id ): ?int {
 function blueline_forget_linked_player_cache( int $user_id ): void {
 	$cache = &blueline_linked_player_cache();
 	unset( $cache[ $user_id ] );
+}
+
+/**
+ * Whether $user_id holds SportsPress' Player role -- the "player group" that
+ * sportspress-player-registration assigns at checkout.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return bool
+ */
+function blueline_user_has_player_role( int $user_id ): bool {
+	$user = get_userdata( $user_id );
+
+	return $user && in_array( BLUELINE_PLAYER_ROLE, (array) ( $user->roles ?? array() ), true );
+}
+
+/**
+ * Whether $user_id owns $player_id: is its post_author, the ownership
+ * sportspress-player-registration writes alongside sp_user. A name claim
+ * writes only sp_user, so it never confers ownership.
+ *
+ * @param int $user_id   WordPress user ID.
+ * @param int $player_id sp_player post ID.
+ * @return bool
+ */
+function blueline_user_owns_player( int $user_id, int $player_id ): bool {
+	return $user_id > 0 && $player_id > 0 && (int) get_post_field( 'post_author', $player_id ) === $user_id;
+}
+
+/**
+ * Whether $user_id owns any sp_player record at all.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return bool
+ */
+function blueline_user_owns_any_player( int $user_id ): bool {
+	if ( $user_id <= 0 || ! post_type_exists( 'sp_player' ) ) {
+		return false;
+	}
+
+	return (bool) get_posts(
+		array(
+			'post_type'      => 'sp_player',
+			'author'         => $user_id,
+			'post_status'    => 'any',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+		)
+	);
+}
+
+/**
+ * Whether $user_id may self-link a player by name match. Registered players
+ * (Player role) and owners of a player record are linked by registration or
+ * by the league, never by typing a name, which the account holder controls.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return bool
+ */
+function blueline_user_can_claim_by_name( int $user_id ): bool {
+	return ! blueline_user_has_player_role( $user_id ) && ! blueline_user_owns_any_player( $user_id );
+}
+
+/**
+ * Whether $user_id is the verified owner of their linked player: holds the
+ * Player role AND owns the record. Only a verified owner may change the
+ * player's photo or see personal registration details; a name-claimed link
+ * is read-only, non-personal.
+ *
+ * @param int      $user_id   WordPress user ID.
+ * @param int|null $player_id Linked player, or null to resolve it.
+ * @return bool
+ */
+function blueline_user_is_verified_player_owner( int $user_id, ?int $player_id = null ): bool {
+	$player_id = $player_id ?? blueline_get_linked_player_id( $user_id );
+
+	return $player_id
+		&& blueline_user_has_player_role( $user_id )
+		&& blueline_user_owns_player( $user_id, $player_id );
 }
 
 /**
@@ -663,7 +743,7 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
  * @return array<int, array{player_id:int, score:float, name:string, team:string, season:string, number:string}> Sorted descending by score.
  */
 function blueline_find_player_candidates( int $user_id ): array {
-	if ( ! post_type_exists( 'sp_player' ) ) {
+	if ( ! post_type_exists( 'sp_player' ) || ! blueline_user_can_claim_by_name( $user_id ) ) {
 		return array();
 	}
 
@@ -885,6 +965,13 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 		return new WP_Error(
 			'user_already_linked',
 			__( 'This account is already linked to a different player.', 'blueline' )
+		);
+	}
+
+	if ( ! current_user_can( 'edit_users' ) && ! blueline_user_can_claim_by_name( $user_id ) ) {
+		return new WP_Error(
+			'not_eligible',
+			__( 'Registered players are linked by the league, not by name.', 'blueline' )
 		);
 	}
 

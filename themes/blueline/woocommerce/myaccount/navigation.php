@@ -35,7 +35,10 @@
  * the site's four signature devices (docs/DESIGN.md) at all, which read as
  * a generic dashboard bolted onto the site rather than a page of it.
  *
+ * Rewrite of WooCommerce's myaccount/navigation.php, checked against core 9.3.0 (WC 11.0.1).
+ *
  * @package blueline
+ * @version 9.3.0
  */
 
 defined( 'ABSPATH' ) || exit;

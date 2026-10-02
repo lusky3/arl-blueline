@@ -1994,6 +1994,28 @@ function blueline_settings_alignment_label( string $key ): string {
 	return $labels[ $key ] ?? $key;
 }
 
+/**
+ * Enqueue one of the admin panel's plain source scripts from assets/src/js/,
+ * versioned by its filemtime().
+ *
+ * @param string   $handle Script handle.
+ * @param string   $file   File name under assets/src/js/.
+ * @param string[] $deps   Script dependencies.
+ * @return void
+ */
+function blueline_settings_enqueue_source_script( string $handle, string $file, array $deps = array() ): void {
+	$relative = '/assets/src/js/' . $file;
+	$path     = BLUELINE_DIR . $relative;
+
+	wp_enqueue_script(
+		$handle,
+		BLUELINE_URI . $relative,
+		$deps,
+		file_exists( $path ) ? (string) filemtime( $path ) : '1',
+		true
+	);
+}
+
 add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_photo_picker' );
 /**
  * Enqueue the media library and the hero-photograph picker, on this page only.
@@ -2009,9 +2031,9 @@ add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_photo_pick
  * picker button renders and does nothing, which is the same graceful state as
  * having no JavaScript at all.
  *
- * Version is blueline_dist_version() on the source file so a changed picker
- * busts its own cache, matching how every other asset in this theme is
- * versioned.
+ * Versioned by the source file's filemtime() (see
+ * blueline_settings_enqueue_source_script()), so a changed picker busts its
+ * own cache.
  *
  * @param string $hook_suffix The current admin screen's hook suffix.
  * @return void
@@ -2029,16 +2051,7 @@ function blueline_settings_maybe_enqueue_photo_picker( string $hook_suffix ): vo
 
 	wp_enqueue_media();
 
-	$relative = '/assets/src/js/settings-photos.js';
-	$path     = BLUELINE_DIR . $relative;
-
-	wp_enqueue_script(
-		'blueline-settings-photos',
-		BLUELINE_URI . $relative,
-		array(),
-		file_exists( $path ) ? (string) filemtime( $path ) : '1',
-		true
-	);
+	blueline_settings_enqueue_source_script( 'blueline-settings-photos', 'settings-photos.js', array( 'media-editor' ) );
 
 	wp_add_inline_style( 'wp-admin', blueline_settings_photo_picker_styles() );
 }
@@ -2062,16 +2075,7 @@ function blueline_settings_maybe_enqueue_brand_colors( string $hook_suffix ): vo
 		return;
 	}
 
-	$relative = '/assets/src/js/settings-brand-colors.js';
-	$path     = BLUELINE_DIR . $relative;
-
-	wp_enqueue_script(
-		'blueline-settings-brand-colors',
-		BLUELINE_URI . $relative,
-		array(),
-		file_exists( $path ) ? (string) filemtime( $path ) : '1',
-		true
-	);
+	blueline_settings_enqueue_source_script( 'blueline-settings-brand-colors', 'settings-brand-colors.js' );
 
 	wp_add_inline_script(
 		'blueline-settings-brand-colors',
@@ -2130,7 +2134,7 @@ add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_occasions_
  *
  * blueline_settings_inputs_hash()-adjacent values (BLUELINE_TOKEN_INK
  * and blueline_contrast_threshold( 'body' )) are read here,
- * server-side, and handed to the script via wp_localize_script():
+ * server-side, and handed to the script as inline JSON:
  * real settings data the JS math needs but must never hardcode
  * independently, which would be a third place these values could
  * drift out of sync from inc/team-colors.php.
@@ -2147,23 +2151,17 @@ function blueline_settings_maybe_enqueue_occasions_script( string $hook_suffix )
 		return;
 	}
 
-	$relative = '/assets/src/js/settings-occasions.js';
-	$path     = BLUELINE_DIR . $relative;
+	blueline_settings_enqueue_source_script( 'blueline-settings-occasions', 'settings-occasions.js' );
 
-	wp_enqueue_script(
+	// Inline JSON, not wp_localize_script(), so the threshold stays a number.
+	wp_add_inline_script(
 		'blueline-settings-occasions',
-		BLUELINE_URI . $relative,
-		array(),
-		file_exists( $path ) ? (string) filemtime( $path ) : '1',
-		true
-	);
-
-	wp_localize_script(
-		'blueline-settings-occasions',
-		'blOccasionsData',
-		array(
-			'inkHex'    => BLUELINE_TOKEN_INK,
-			'threshold' => blueline_contrast_threshold( 'body' ),
-		)
+		'window.blOccasionsData = ' . wp_json_encode(
+			array(
+				'inkHex'    => BLUELINE_TOKEN_INK,
+				'threshold' => blueline_contrast_threshold( 'body' ),
+			)
+		) . ';',
+		'before'
 	);
 }

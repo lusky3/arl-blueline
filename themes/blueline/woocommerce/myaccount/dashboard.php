@@ -21,7 +21,10 @@
  * position (last in the template), so any extension that rendered on
  * production's dashboard still renders here.
  *
+ * Rewrite of WooCommerce's myaccount/dashboard.php, checked against core 4.4.0 (WC 11.0.1).
+ *
  * @package blueline
+ * @version 4.4.0
  */
 
 defined( 'ABSPATH' ) || exit;

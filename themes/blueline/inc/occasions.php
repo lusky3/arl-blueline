@@ -919,6 +919,8 @@ function blueline_occasion_eligible_candidates( array $occasions, string $today_
  * @return array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string, resolved_accent:string}|null
  */
 function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
+	static $memo = array();
+
 	$now      = $now_override ?? time();
 	$today_md = blueline_occasion_today_md( $now );
 
@@ -930,6 +932,27 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 	if ( array() === $candidates ) {
 		return null;
 	}
+
+	// PERF-11: memoised per request on every input the walk below reads, so the 5+ callers share one resolve.
+	$memo_key = md5( (string) wp_json_encode( array( $today_md, $candidates, blueline_settings(), blueline_stored_acknowledgements() ) ) );
+
+	if ( array_key_exists( $memo_key, $memo ) ) {
+		return $memo[ $memo_key ];
+	}
+
+	$memo[ $memo_key ] = blueline_resolve_active_occasion_uncached( $candidates );
+
+	return $memo[ $memo_key ];
+}
+
+/**
+ * The AA-gated walk over blueline_resolve_active_occasion()'s eligible
+ * candidates (that function's docblock describes it).
+ *
+ * @param array $candidates Eligible candidates, in precedence order.
+ * @return array|null
+ */
+function blueline_resolve_active_occasion_uncached( array $candidates ): ?array {
 
 	$inputs_hash      = blueline_settings_inputs_hash();
 	$acknowledgements = blueline_stored_acknowledgements();
