@@ -1171,16 +1171,17 @@
 
 /* Buttons -- secondary (outline) variant, used outside the header (e.g. 404) */
 
+/* Content tokens (ink/paper in light): the outline reads on dark too. */
 .bl-btn--secondary .bl-skew {
 	background: transparent;
-	color: var(--bl-ink);
-	border: 2px solid var(--bl-ink);
+	color: var(--bl-content-text);
+	border: 2px solid var(--bl-content-text);
 }
 
 .bl-btn--secondary:hover .bl-skew,
 .bl-btn--secondary:focus-visible .bl-skew {
-	background: var(--bl-ink);
-	color: var(--bl-paper);
+	background: var(--bl-content-text);
+	color: var(--bl-content-bg);
 }
 
 /* Empty states (no posts, no search results, 404) */

@@ -980,7 +980,7 @@ td.bl-sp-roster__stat {
 	align-items: center;
 	gap: var(--bl-space-2);
 	clear: both;
-	margin-block-end: var(--bl-space-6);
+	margin-block: var(--bl-space-6);
 }
 
 .bl-sp-team-calendar__label {

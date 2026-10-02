@@ -1568,19 +1568,10 @@ function blueline_team_calendar_urls( $team_id ) {
  * once, globally, in assets/src/js/index.js) -- it reorders the two links
  * so the reader's likely platform comes first, with no new JS needed here.
  *
- * Hooked to sportspress_after_single_team (below), not called from inside
- * sportspress/team-events.php: that partial only ever renders inside the
- * "Games" tab of the Division Table/Games sp-tab-group SP_Template_Loader
- * builds around the team's tables + events (SP_Template_Loader::add_content(),
- * SportsPress core, registers both as TAB templates, not stacked
- * sections) -- printing the calendar links there put them inside
- * <div class="sp-tab-content-events" style="display:none">, invisible
- * until that tab is clicked. Reported live as "I don't see the calendar."
- * sportspress_after_single_team fires once, unconditionally, after every
- * stacked section but BEFORE that tab group is appended to the page (see
- * SP_Template_Loader::add_content() in sportspress-pro), which is exactly
- * "introduces the Division Table/Games tabs" -- always visible, and
- * directly attached to the schedule it was reported as floating away from.
+ * Rendered as its own SportsPress team section ("calendar", see
+ * blueline_register_team_page_sections() below), not from inside
+ * sportspress/team-events.php: that partial can land inside a hidden tab
+ * when the team layout uses SportsPress's "tabs" divider.
  *
  * @param int $team_id sp_team post ID.
  * @return void
@@ -1674,19 +1665,52 @@ function blueline_render_team_schedule_table( $team_id ) {
 	);
 }
 
-add_action( 'sportspress_after_single_team', 'blueline_render_team_calendar_links_hook' );
+add_filter( 'sportspress_after_team_template', 'blueline_register_team_page_sections', 20 );
 /**
- * Callback for sportspress_after_single_team -- see
- * blueline_render_team_calendar_links()'s and
- * blueline_render_team_schedule_table()'s own docblocks for why this hook
- * and not a direct call from a template partial.
+ * Register the calendar links and the Upcoming Games table as SportsPress
+ * team-page sections, so SportsPress > Settings > Teams > Layout can reorder
+ * or hide them like its own sections. Keys missing from a saved order are
+ * appended after it, i.e. where these rendered before.
+ *
+ * @param array $templates Team templates keyed by section slug.
+ * @return array
+ */
+function blueline_register_team_page_sections( $templates ) {
+	$templates = (array) $templates;
+
+	$templates['calendar'] = array(
+		'title'   => __( 'Add to Calendar', 'blueline' ),
+		'option'  => 'sportspress_team_show_calendar',
+		'action'  => 'blueline_output_team_calendar_section',
+		'default' => 'yes',
+	);
+
+	$templates['schedule'] = array(
+		'title'   => __( 'Upcoming Games', 'blueline' ),
+		'option'  => 'sportspress_team_show_schedule',
+		'action'  => 'blueline_output_team_schedule_section',
+		'default' => 'yes',
+	);
+
+	return $templates;
+}
+
+/**
+ * SportsPress section callback: the current team's calendar links.
  *
  * @return void
  */
-function blueline_render_team_calendar_links_hook() {
-	$team_id = get_the_ID();
-	blueline_render_team_calendar_links( $team_id );
-	blueline_render_team_schedule_table( $team_id );
+function blueline_output_team_calendar_section() {
+	blueline_render_team_calendar_links( get_the_ID() );
+}
+
+/**
+ * SportsPress section callback: the current team's Upcoming Games table.
+ *
+ * @return void
+ */
+function blueline_output_team_schedule_section() {
+	blueline_render_team_schedule_table( get_the_ID() );
 }
 
 /**

@@ -35,9 +35,8 @@
  * <div class="sp-tab-content sp-tab-content-events" ...>, hidden until
  * that tab is clicked. The team's calendar-subscribe links used to be
  * printed here, but that made them invisible by default too -- see
- * blueline_render_team_calendar_links()'s call site
- * (sportspress_after_single_team, inc/sportspress.php) for where they
- * actually live now, and why.
+ * blueline_register_team_page_sections() (inc/sportspress.php), which
+ * makes them their own reorderable SportsPress team section.
  *
  * Overrides SportsPress templates/team-events.php, core template version 2.6.9 as of
  * SportsPress Pro 2.7.29; re-check this override when that version changes.
