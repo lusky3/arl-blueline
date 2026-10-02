@@ -149,7 +149,7 @@ function initTableScroll() {
 		'undefined' !== typeof window.ResizeObserver
 			? new window.ResizeObserver( ( entries ) => {
 					entries.forEach( ( entry ) => update( entry.target ) );
-			  } )
+				} )
 			: null;
 
 	attachWithin( document.body, resizeObserver, seen );

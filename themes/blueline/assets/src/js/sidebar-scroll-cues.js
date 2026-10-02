@@ -116,7 +116,7 @@ function initSidebarScrollCues() {
 		'undefined' !== typeof window.ResizeObserver
 			? new window.ResizeObserver( ( entries ) => {
 					entries.forEach( ( entry ) => update( entry.target ) );
-			  } )
+				} )
 			: null;
 
 	sidebars.forEach( ( el ) => attach( el, resizeObserver ) );
