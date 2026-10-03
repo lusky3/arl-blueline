@@ -1229,6 +1229,11 @@
 	flex-wrap: wrap;
 }
 
+/* FE-05: search.php's results-page form sat flush against the first result. */
+.bl-archive-header + .search-form {
+	margin-block-end: var(--bl-space-5);
+}
+
 .search-form .search-field {
 	padding: var(--bl-space-2) var(--bl-space-3);
 	border: 1px solid var(--bl-content-border-strong);

@@ -248,6 +248,17 @@
 	margin-inline: 0;
 }
 
+/*
+ * FE-05: same exemption for the logged-out My Account login/lost-password
+ * forms -- form chrome, not prose, so the "Login" heading, "Lost your
+ * password?" and the social-login copy stay on the form card's left edge.
+ * :where() keeps this at the prose rule's own specificity so WooCommerce's
+ * and account.css's explicit margins still win.
+ */
+.entry-content :where(.woocommerce-account:not(.logged-in) .woocommerce) :is(p, h2) {
+	margin-inline: 0;
+}
+
 .entry-content .bl-callout ul {
 	margin: 0;
 	padding-inline-start: var(--bl-space-5);

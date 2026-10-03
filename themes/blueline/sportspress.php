@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 
-$has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
+$has_sidebar = blueline_sp_has_sidebar();
 
 blueline_page_wrapper_start( $has_sidebar, 'bl-main--sp' );
 ?>

@@ -13,9 +13,10 @@
  * Advanced Refund System's 'refund-requests') -- through the `woocommerce_account_menu_items`
  * filter chain. blueline_account_nav_items() (inc/account/dashboard.php)
  * tags each item with the 'group' blueline_account_endpoints()
- * (inc/account/endpoints.php) assigns its slug: 'league', 'billing',
- * 'account', or null for the two WooCommerce-owned items not in that map
- * (dashboard, customer-logout). A future plugin adding a new tab needs no
+ * (Blueline Core plugin, account-endpoints module) assigns its slug: 'league',
+ * 'billing', 'account', or null for the two WooCommerce-owned items not in that
+ * map (dashboard, customer-logout) -- and for every item when the plugin is
+ * inactive, so the menu then renders WooCommerce's default tabs as plain pills. A future plugin adding a new tab needs no
  * change here -- it appears automatically; only its group in
  * blueline_account_endpoints() decides whether it renders as a top-level
  * pill or inside the Billing dropdown.
@@ -45,9 +46,7 @@ defined( 'ABSPATH' ) || exit;
 
 do_action( 'woocommerce_before_account_navigation' );
 
-$blueline_nav_items = function_exists( 'blueline_account_nav_items' )
-	? blueline_account_nav_items( wc_get_account_menu_items() )
-	: array();
+$blueline_nav_items = blueline_account_nav_items( wc_get_account_menu_items() );
 
 $blueline_pill_items    = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' !== $item['group'] ) );
 $blueline_billing_items = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' === $item['group'] ) );

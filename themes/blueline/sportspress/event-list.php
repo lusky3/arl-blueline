@@ -209,7 +209,7 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 		// own docblock (inc/sportspress.php) for the accessibility finding
 		// this fixes (this caption used to be a hardcoded, level-skipping
 		// h4 everywhere).
-		$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+		$bl_caption_level = blueline_sp_caption_heading_level();
 		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
 	<?php endif; ?>
@@ -310,9 +310,7 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 					 * already uses for the single-event page, so this table
 					 * and that page can never disagree about the same event.
 					 */
-					$bl_event_state = ( function_exists( 'blueline_sp_event_state' ) && function_exists( 'blueline_sp_event_start_timestamp' ) )
-						? blueline_sp_event_state( ! empty( $main_results ), blueline_sp_event_start_timestamp( $event->ID ) )
-						: ( ! empty( $main_results ) ? 'final' : 'preview' );
+					$bl_event_state = blueline_sp_event_state( ! empty( $main_results ), blueline_sp_event_start_timestamp( $event->ID ) );
 
 					if ( $bl_reverse_teams ) {
 						$main_results = array_reverse( $main_results, true );
@@ -411,9 +409,7 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 						$bl_venue_names = array();
 						if ( $bl_venues && ! is_wp_error( $bl_venues ) ) {
 							foreach ( $bl_venues as $bl_venue_term ) {
-								$bl_venue_names[] = function_exists( 'blueline_venue_label' )
-									? blueline_venue_label( $bl_venue_term->term_id )
-									: $bl_venue_term->name;
+								$bl_venue_names[] = blueline_venue_label( $bl_venue_term->term_id );
 							}
 						}
 						?>

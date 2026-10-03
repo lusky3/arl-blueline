@@ -129,7 +129,7 @@ function blueline_occasion_accent_default( ?string $path_override = null ): stri
 	// $path_override is explicitly passed: that means a test is exercising
 	// this function's own parsing logic against a synthetic stylesheet
 	// fixture, and the live resolver must not interfere with that.
-	if ( null === $path_override && function_exists( 'blueline_hex_for_css_var' ) ) {
+	if ( null === $path_override ) {
 		$resolved = blueline_hex_for_css_var( $referenced );
 		if ( '' !== $resolved ) {
 			// Lowercased for the same reason $default_hex above is: this

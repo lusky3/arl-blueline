@@ -1,0 +1,11 @@
+# Files that must NOT ship with the plugin (rsync syntax, read by scripts/deploy-plugin.sh).
+# Whole-line comments only. A leading slash anchors to the plugin root.
+vendor
+tests
+.git
+/.phpunit.result.cache
+/phpunit.xml
+/.gitignore
+/.distignore
+/composer.json
+/composer.lock

@@ -276,3 +276,52 @@ function blueline_site_health_format_acknowledgements( array $acknowledgements, 
 
 	return implode( "\n", $lines );
 }
+
+add_filter( 'site_status_tests', 'blueline_site_health_register_core_plugin_test' );
+/**
+ * Register the "Blueline Core plugin is active" direct test.
+ *
+ * @param array<string, array<string, mixed>> $tests Site Health tests.
+ * @return array<string, array<string, mixed>>
+ */
+function blueline_site_health_register_core_plugin_test( $tests ) {
+	$tests['direct']['blueline_core_plugin'] = array(
+		'label' => __( 'Blueline Core plugin', 'blueline' ),
+		'test'  => 'blueline_site_health_run_core_plugin_test',
+	);
+
+	return $tests;
+}
+
+/**
+ * Run the test: the plugin defines BLUELINE_CORE_VERSION when it is loaded.
+ *
+ * @return array<string, mixed>
+ */
+function blueline_site_health_run_core_plugin_test(): array {
+	return blueline_site_health_core_plugin_result( defined( 'BLUELINE_CORE_VERSION' ) );
+}
+
+/**
+ * The Site Health result for an active or missing Blueline Core plugin. Pure.
+ *
+ * @param bool $active Whether Blueline Core is loaded.
+ * @return array<string, mixed>
+ */
+function blueline_site_health_core_plugin_result( bool $active ): array {
+	$message = $active
+		? __( 'Account features, the mail wrapper, SEO tags and privacy hardening are provided by Blueline Core.', 'blueline' )
+		: __( 'Account features (player linking, photos, avatars, My Account links), the mail wrapper, SEO tags and privacy hardening live in the Blueline Core plugin. Activate it from Plugins; until then those features are missing.', 'blueline' );
+
+	return array(
+		'label'       => $active ? __( 'Blueline Core plugin is active', 'blueline' ) : __( 'Blueline Core plugin is not active', 'blueline' ),
+		'status'      => $active ? 'good' : 'recommended',
+		'badge'       => array(
+			'label' => __( 'Blueline', 'blueline' ),
+			'color' => $active ? 'blue' : 'orange',
+		),
+		'description' => '<p>' . esc_html( $message ) . '</p>',
+		'actions'     => '',
+		'test'        => 'blueline_core_plugin',
+	);
+}

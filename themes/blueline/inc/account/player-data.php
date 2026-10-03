@@ -306,7 +306,7 @@ function blueline_get_player_team( int $player_id ): ?array {
 
 	return array(
 		'team_id'  => $team_id,
-		'name'     => function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $team_id ) : get_the_title( $team_id ),
+		'name'     => blueline_sp_title( $team_id ),
 		'logo_id'  => has_post_thumbnail( $team_id ) ? (int) get_post_thumbnail_id( $team_id ) : null,
 		'division' => blueline_player_division_name( $team_id ),
 		'number'   => blueline_player_jersey_number( $player_id ),
@@ -334,7 +334,7 @@ function blueline_current_sp_season_term_id(): ?int {
 		return null;
 	}
 
-	$state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+	$state_data = blueline_season_state_data();
 	$event_id   = ! empty( $state_data['next_event_id'] ) ? (int) $state_data['next_event_id'] : 0;
 
 	if ( ! $event_id ) {
@@ -466,7 +466,7 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 	$venue_terms = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue' ) : array();
 	$venue_term  = ( ! is_wp_error( $venue_terms ) && ! empty( $venue_terms ) ) ? $venue_terms[0] : null;
 
-	$timestamp = function_exists( 'blueline_sp_event_start_timestamp' ) ? blueline_sp_event_start_timestamp( $event_id ) : false;
+	$timestamp = blueline_sp_event_start_timestamp( $event_id );
 
 	$timestamp_value = $timestamp ? $timestamp : null;
 	$venue_term_id   = $venue_term ? (int) $venue_term->term_id : null;
@@ -579,45 +579,6 @@ function blueline_player_stats_league_id( int $player_id, int $season_id ): int 
 	}
 
 	return 0;
-}
-
-/**
- * The sp_player linked to the CURRENT request's logged-in user, or null.
- *
- * Thin composition of get_current_user_id() + blueline_get_linked_player_id()
- * (inc/account/player-link.php) -- exists so template code that needs "does
- * the current viewer have a claimed player" (league-table.php's "mine" row,
- * team-lists.php's "You" badge, the standings/team-page claim nudge) never
- * has to remember get_current_user_id()'s own 0-means-logged-out contract
- * itself: blueline_get_linked_player_id( 0 ) would otherwise run a real
- * get_posts() query for a player linked to user id 0, which can never
- * legitimately match (no real WordPress user is ever id 0) but is a query
- * this helper avoids issuing at all.
- *
- * @return int|null Player post ID, or null when logged out or unclaimed.
- */
-function blueline_current_user_player_id(): ?int {
-	$user_id = get_current_user_id();
-
-	return $user_id ? blueline_get_linked_player_id( $user_id ) : null;
-}
-
-/**
- * Every current team id for the CURRENT request's logged-in, claimed
- * player -- plural because a player can carry more than one current team
- * (see blueline_player_current_team_ids()'s own docblock). Template code
- * that needs to know "is this row/page the viewer's own team" (any of
- * them, not just the first) should read through here rather than
- * blueline_player_current_team_id() (singular), which silently drops every
- * team but the first published one.
- *
- * @return int[] Positive team ids, empty when logged out, unclaimed, or
- *               the claimed player has no current team.
- */
-function blueline_current_user_team_ids(): array {
-	$player_id = blueline_current_user_player_id();
-
-	return $player_id ? blueline_player_current_team_ids( $player_id ) : array();
 }
 
 /**

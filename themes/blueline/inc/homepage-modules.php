@@ -87,17 +87,14 @@ function blueline_product_has_tag( int $product_id, string $tag_name ): bool {
  * selling normally everywhere else (/register, WooCommerce's own product
  * pages) without this hero ever mentioning it.
  *
- * @param array $state_data Result of blueline_season_state_data().
  * @return array<int, array{product: object, price_label: string, price: float, role_label: string}>
  */
-function blueline_homepage_registration_offers( array $state_data ): array {
+function blueline_homepage_registration_offers(): array {
 	if ( ! function_exists( 'wc_get_product' ) ) {
 		return array();
 	}
 
-	$product_ids = function_exists( 'blueline_registration_season_product_ids' )
-		? blueline_registration_season_product_ids()
-		: array_filter( array( (int) ( $state_data['product_id'] ?? 0 ) ) );
+	$product_ids = blueline_registration_season_product_ids();
 
 	$offers = array();
 
@@ -398,7 +395,7 @@ function blueline_homepage_next_event_line( int $event_id ): string {
 
 	$date = get_the_date( 'D, M j \a\t g:ia', $event_id );
 
-	$venue_label = function_exists( 'blueline_sp_event_venue_label' ) ? blueline_sp_event_venue_label( $event_id ) : '';
+	$venue_label = blueline_sp_event_venue_label( $event_id );
 
 	return $venue_label
 		/* translators: 1: next game's date/time, 2: venue label. */
@@ -588,7 +585,7 @@ function blueline_homepage_hero_offseason_content(): array {
  */
 function blueline_homepage_hero_content( string $state, array $state_data ): array {
 	if ( 'registration_open' === $state ) {
-		$offers = blueline_homepage_registration_offers( $state_data );
+		$offers = blueline_homepage_registration_offers();
 
 		if ( ! empty( $offers ) ) {
 			$content          = blueline_homepage_hero_registration_content( $offers, $state_data );
@@ -696,7 +693,7 @@ function blueline_render_hero( string $state ): string {
 		$state = 'offseason';
 	}
 
-	$state_data      = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+	$state_data      = blueline_season_state_data();
 	$content         = blueline_homepage_hero_content( $state, $state_data );
 	$effective_state = $content['state'];
 	$cta_class       = 'primary' === $content['cta_variant'] ? 'bl-btn--primary' : 'bl-btn--secondary';
@@ -924,9 +921,8 @@ function blueline_homepage_module_next_games() {
 		// happening: it means no NEXT-game post has been created yet, which
 		// is a different, much less alarming fact when the season demonstrably
 		// has recent results to show.
-		$blueline_next_games_state = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
-		$blueline_has_standings    = function_exists( 'blueline_homepage_current_standings_tables' )
-			&& ! empty( blueline_homepage_current_standings_tables( $blueline_next_games_state ) );
+		$blueline_next_games_state = blueline_season_state();
+		$blueline_has_standings    = ! empty( blueline_homepage_current_standings_tables( $blueline_next_games_state ) );
 
 		blueline_homepage_module_empty_state(
 			$blueline_has_standings
@@ -954,9 +950,7 @@ function blueline_homepage_module_next_games() {
 				$venue_url   = '';
 
 				if ( $venue_term instanceof WP_Term ) {
-					$venue_label = function_exists( 'blueline_venue_label' )
-						? blueline_venue_label( $venue_term->term_id )
-						: $venue_term->name;
+					$venue_label = blueline_venue_label( $venue_term->term_id );
 
 					$term_link = get_term_link( $venue_term );
 					$venue_url = ( ! is_wp_error( $term_link ) ) ? $term_link : '';
@@ -1010,7 +1004,7 @@ function blueline_homepage_active_event_season_term_id() {
 		return null;
 	}
 
-	$state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+	$state_data = blueline_season_state_data();
 	$event_id   = ! empty( $state_data['next_event_id'] ) ? (int) $state_data['next_event_id'] : 0;
 
 	if ( ! $event_id ) {
@@ -1206,7 +1200,7 @@ function blueline_homepage_standings_table_label( string $title ): string {
  * tab never pays for one either.
  */
 function blueline_homepage_module_standings_snippet() {
-	$state  = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
+	$state  = blueline_season_state();
 	$tables = array_slice( blueline_homepage_current_standings_tables( $state ), 0, BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS );
 	$panels = array();
 
@@ -1229,9 +1223,7 @@ function blueline_homepage_module_standings_snippet() {
 		// function /standings gets via the_content (owned by package 1;
 		// called here, not duplicated) keeps every one of these tables
 		// scrollable exactly like every other SportsPress table on the site.
-		if ( function_exists( 'blueline_sp_wrap_tables_for_scroll' ) ) {
-			$table_html = blueline_sp_wrap_tables_for_scroll( $table_html );
-		}
+		$table_html = blueline_sp_wrap_tables_for_scroll( $table_html );
 
 		$panels[] = array(
 			'id'    => $table['id'],
@@ -1476,9 +1468,7 @@ function blueline_homepage_new_here_qa_slot( string $sidebar_id, callable $defau
 function blueline_homepage_module_new_here() {
 	blueline_homepage_module_start( 'new_here', blueline_settings( 'module_new_here_heading' ), blueline_resolve_link( 'page_faqs' ), blueline_settings( 'module_new_here_cta' ) );
 
-	if ( function_exists( 'blueline_leaf_mark' ) ) {
-		blueline_leaf_mark( 'bl-new-here__watermark' );
-	}
+	blueline_leaf_mark( 'bl-new-here__watermark' );
 
 	blueline_homepage_new_here_intro();
 	?>
@@ -1572,11 +1562,9 @@ function blueline_render_module( string $name ) {
  * @return array<int,array{url:string,position:string}> Possibly empty.
  */
 function blueline_band_photo_sources(): array {
-	$alignments = function_exists( 'blueline_band_photo_alignments' )
-		? blueline_band_photo_alignments()
-		: array();
+	$alignments = blueline_band_photo_alignments();
 
-	$configured = function_exists( 'blueline_settings' ) ? blueline_settings( 'hero_photos' ) : array();
+	$configured = blueline_settings( 'hero_photos' );
 	$sources    = array();
 
 	if ( is_array( $configured ) && $configured ) {
@@ -1645,7 +1633,7 @@ function blueline_render_band_photo_head(): void {
 		return;
 	}
 
-	$rotate = function_exists( 'blueline_settings' ) ? (bool) blueline_settings( 'hero_photo_rotate' ) : true;
+	$rotate = (bool) blueline_settings( 'hero_photo_rotate' );
 
 	// The resting choice is deterministic rather than the first in the list, so
 	// a no-JS visitor and a cache fill do not both always land on the same one.

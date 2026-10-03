@@ -124,7 +124,7 @@ final class IncTopLevelCallGuardTest extends TestCase {
 		$this->assertSame(
 			array(),
 			$violations,
-			"these inc/ files call into real work at file scope -- executed the instant functions.php's require_once chain reaches them, before WordPress has fired any lifecycle action at all. Either wrap the registration in add_action()/add_filter() (see inc/account/endpoints.php's own fix for this exact bug), or add the call to this test's allow-list if it is genuinely a safe, non-working registration:\n" . implode( "\n", $violations )
+			"these inc/ files call into real work at file scope -- executed the instant functions.php's require_once chain reaches them, before WordPress has fired any lifecycle action at all. Either wrap the registration in add_action()/add_filter() (see blueline_register_account_endpoint_title_filters(), now in plugins/blueline-core, for this exact bug's fix), or add the call to this test's allow-list if it is genuinely a safe, non-working registration:\n" . implode( "\n", $violations )
 		);
 	}
 

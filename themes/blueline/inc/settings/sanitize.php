@@ -502,7 +502,7 @@ function blueline_sanitize_field( $value, array $field ) {
 		// accepts) can never be assembled into that attribute in the first
 		// place, rather than trusting esc_url() alone to neutralise
 		// whatever a volunteer typed. is_email() is core's own validator,
-		// already used elsewhere in this theme (inc/account/avatars.php).
+		// also used by blueline-core's avatars module.
 		$sanitized = sanitize_text_field( (string) $value );
 
 		if ( '' === $sanitized || ! is_email( $sanitized ) ) {

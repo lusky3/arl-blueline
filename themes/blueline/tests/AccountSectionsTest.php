@@ -24,7 +24,7 @@ require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/account/player-data.php';
 require_once __DIR__ . '/../inc/account/dashboard.php';
-require_once __DIR__ . '/../inc/account/endpoints.php';
+require_once __DIR__ . '/../inc/account/endpoint-toggles.php';
 
 /**
  * Covers the section-toggle guard on each of the four account dashboard
@@ -144,72 +144,50 @@ final class AccountSectionsTest extends TestCase {
 	 * blueline_account_render_my_team(), which Task 3's guard now empties)
 	 * while the nav still listed a "My Team" link to it -- a linked player
 	 * following that link would land on an empty page. The menu item itself
-	 * must disappear along with the card.
+	 * must disappear along with the card: the theme says so through the
+	 * Blueline Core plugin's `blueline_core_account_endpoint_enabled` filter.
 	 */
-	public function test_the_my_team_menu_item_disappears_when_its_card_is_off(): void {
+	public function test_the_my_team_endpoint_is_disabled_when_its_card_is_off(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_my_team' => false ) );
 
-		$items = blueline_account_menu_items(
-			array(
-				'dashboard'       => 'Dashboard',
-				'customer-logout' => 'Log out',
-			)
-		);
-
-		$this->assertArrayNotHasKey(
-			blueline_account_slug_query_var( 'my-team' ),
-			$items,
+		$this->assertFalse(
+			apply_filters( 'blueline_core_account_endpoint_enabled', true, 'my-team' ),
 			'the my-team endpoint must not appear in the nav once its card is switched off'
 		);
+		$this->assertTrue( apply_filters( 'blueline_core_account_endpoint_enabled', true, 'my-schedule' ) );
 	}
 
 	/**
 	 * The equivalent guarantee for `/account/my-schedule/` and
 	 * `account_next_game`.
 	 */
-	public function test_the_my_schedule_menu_item_disappears_when_its_card_is_off(): void {
+	public function test_the_my_schedule_endpoint_is_disabled_when_its_card_is_off(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_next_game' => false ) );
 
-		$items = blueline_account_menu_items(
-			array(
-				'dashboard'       => 'Dashboard',
-				'customer-logout' => 'Log out',
-			)
-		);
-
-		$this->assertArrayNotHasKey(
-			blueline_account_slug_query_var( 'my-schedule' ),
-			$items,
+		$this->assertFalse(
+			apply_filters( 'blueline_core_account_endpoint_enabled', true, 'my-schedule' ),
 			'the my-schedule endpoint must not appear in the nav once its card is switched off'
 		);
+		$this->assertTrue( apply_filters( 'blueline_core_account_endpoint_enabled', true, 'my-team' ) );
 	}
 
 	/**
 	 * Companion accept path: with both toggles left on (the default), both
-	 * endpoints still appear in the nav -- proves the new exclusion didn't
-	 * also silently drop them for every untouched install.
+	 * endpoints stay enabled -- proves the exclusion didn't also silently
+	 * drop them for every untouched install.
 	 */
-	public function test_the_my_team_and_my_schedule_menu_items_still_render_when_enabled(): void {
-		$items = blueline_account_menu_items(
-			array(
-				'dashboard'       => 'Dashboard',
-				'customer-logout' => 'Log out',
-			)
-		);
-
-		$this->assertArrayHasKey( blueline_account_slug_query_var( 'my-team' ), $items );
-		$this->assertArrayHasKey( blueline_account_slug_query_var( 'my-schedule' ), $items );
+	public function test_the_my_team_and_my_schedule_endpoints_stay_enabled_by_default(): void {
+		$this->assertTrue( apply_filters( 'blueline_core_account_endpoint_enabled', true, 'my-team' ) );
+		$this->assertTrue( apply_filters( 'blueline_core_account_endpoint_enabled', true, 'my-schedule' ) );
 	}
 
 	/**
-	 * Billing-group endpoints have no toggle at all (per
-	 * blueline_section_definitions()'s own "deliberately NOT here" note) and
-	 * so must never be affected by either account_* toggle -- proves
-	 * blueline_account_endpoint_section_keys()'s mapping is scoped to
-	 * exactly the two league endpoints that have a matching card, not
-	 * applied blanket to every endpoint.
+	 * Endpoints with no matching card (per blueline_section_definitions()'s
+	 * own "deliberately NOT here" note) are never affected by either
+	 * account_* toggle -- proves blueline_account_endpoint_section_keys()'s
+	 * mapping is scoped to exactly the two league endpoints that have one.
 	 */
-	public function test_billing_group_menu_items_are_unaffected_by_either_toggle(): void {
+	public function test_other_endpoints_are_unaffected_by_either_toggle(): void {
 		update_option(
 			BLUELINE_SETTINGS_OPTION,
 			array(
@@ -218,15 +196,37 @@ final class AccountSectionsTest extends TestCase {
 			)
 		);
 
-		$items = blueline_account_menu_items(
+		foreach ( array( 'player-profile', 'preferences', 'registrations', 'edit-account' ) as $slug ) {
+			$this->assertTrue( apply_filters( 'blueline_core_account_endpoint_enabled', true, $slug ), $slug );
+		}
+	}
+
+	/**
+	 * An earlier filter's veto stands even when the card is on: the theme
+	 * only ever narrows what the plugin offers.
+	 */
+	public function test_an_earlier_veto_is_kept_when_the_card_is_on(): void {
+		$this->assertFalse( blueline_account_endpoint_enabled_by_section( false, 'my-team' ) );
+		$this->assertFalse( blueline_account_endpoint_enabled_by_section( false, 'registrations' ) );
+	}
+
+	/**
+	 * Without the Blueline Core plugin the nav helper still works: every item
+	 * passes through with a null group (WooCommerce's default tabs as pills).
+	 */
+	public function test_nav_items_fall_back_to_null_groups_without_the_plugin(): void {
+		$this->assertFalse( function_exists( 'blueline_account_endpoints' ), 'theme tests must not load the plugin module' );
+
+		$items = blueline_account_nav_items(
 			array(
-				'dashboard'       => 'Dashboard',
-				'customer-logout' => 'Log out',
+				'dashboard'    => 'Dashboard',
+				'orders'       => 'Orders',
+				'edit-address' => 'Addresses',
 			)
 		);
 
-		$this->assertArrayHasKey( blueline_account_slug_query_var( 'registrations' ), $items );
-		$this->assertArrayHasKey( blueline_account_slug_query_var( 'edit-account' ), $items );
+		$this->assertSame( array( 'dashboard', 'orders', 'edit-address' ), array_column( $items, 'endpoint' ) );
+		$this->assertSame( array( null, null, null ), array_column( $items, 'group' ) );
 	}
 
 	/**

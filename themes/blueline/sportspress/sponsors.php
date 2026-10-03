@@ -38,7 +38,7 @@ $defaults = array(
 
 extract( $defaults, EXTR_SKIP ); // phpcs:ignore WordPress.PHP.DontExtract.extract_extract -- mirrors stock sponsors.php's own extract() convention for the args this template receives; EXTR_SKIP never overwrites an already-set variable.
 
-$blueline_title_level = function_exists( 'blueline_sp_sponsors_title_level' ) ? blueline_sp_sponsors_title_level( doing_action( 'get_footer' ) ) : 3;
+$blueline_title_level = blueline_sp_sponsors_title_level( doing_action( 'get_footer' ) );
 
 if ( 'rand' === $orderby ) :
 	?>

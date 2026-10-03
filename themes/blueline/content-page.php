@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || exit;
 	// gate lives here, at the one call site, rather than inside
 	// blueline_render_claim_nudge() itself (which has no page context of
 	// its own to check).
-	if ( function_exists( 'blueline_is_standings_page' ) && blueline_is_standings_page() && function_exists( 'blueline_render_claim_nudge' ) ) {
+	if ( blueline_is_standings_page() ) {
 		blueline_render_claim_nudge();
 	}
 	?>

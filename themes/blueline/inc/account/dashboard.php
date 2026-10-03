@@ -96,11 +96,7 @@ function blueline_account_module_empty_state( string $message ) {
 function blueline_account_module_empty_state_html( string $html_message ) {
 	?>
 	<div class="bl-account-module__empty">
-		<?php
-		if ( function_exists( 'blueline_leaf_mark' ) ) {
-			blueline_leaf_mark( 'bl-account-module__empty-mark' );
-		}
-		?>
+		<?php blueline_leaf_mark( 'bl-account-module__empty-mark' ); ?>
 		<p class="bl-account-module__empty-text"><?php echo wp_kses_post( $html_message ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses_post() IS the escaping boundary; see this function's own docblock. ?></p>
 	</div>
 	<?php
@@ -197,7 +193,7 @@ function blueline_account_render_claim_notice() {
  * @return bool
  */
 function blueline_is_standings_page(): bool {
-	if ( ! function_exists( 'blueline_resolve_link' ) || ! is_page() ) {
+	if ( ! is_page() ) {
 		return false;
 	}
 
@@ -298,7 +294,7 @@ function blueline_claim_card_context_hint( string $context ): string {
  *
  * Candidates come from blueline_find_player_candidates(), which refuses to
  * offer anything for a single-token account name -- see
- * blueline_name_pair_is_specific_enough() in inc/account/player-link.php.
+ * blueline_name_pair_is_specific_enough() in blueline-core's player-link module.
  * "No candidates" is therefore a legitimate, expected outcome here, not a
  * bug to loosen the matcher for.
  *
@@ -321,7 +317,7 @@ function blueline_account_render_claim_card( int $user_id, string $context = 'da
 
 	if ( empty( $candidates ) ) {
 		$hint    = blueline_claim_card_context_hint( $context );
-		$contact = function_exists( 'blueline_contact_url' ) ? blueline_contact_url() : home_url( '/' );
+		$contact = blueline_contact_url();
 
 		$message = sprintf(
 			wp_kses(
@@ -432,7 +428,7 @@ function blueline_candidate_aria_label( array $candidate, string $detail ): stri
 /**
  * Team roster for $team_id, excluding $exclude_player_id, sorted by name.
  * A lean ids-only query plus one batched title fetch (reusing
- * blueline_get_post_titles() from Task 11's inc/account/player-link.php)
+ * blueline_get_post_titles() from blueline-core's player-link module)
  * rather than get_the_title()/get_post() per teammate.
  *
  * @param int $team_id           sp_team post ID.
@@ -567,7 +563,7 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
 			<div class="bl-account-team__identity">
 				<?php if ( $team['logo_id'] ) : ?>
 					<span class="bl-account-team__crest"><?php echo wp_get_attachment_image( $team['logo_id'], 'thumbnail' ); ?></span>
-				<?php elseif ( function_exists( 'blueline_leaf_mark' ) ) : ?>
+				<?php else : ?>
 					<span class="bl-account-team__crest bl-account-team__crest--fallback">
 						<?php blueline_leaf_mark( 'bl-account-team__crest-mark' ); ?>
 					</span>
@@ -679,7 +675,7 @@ function blueline_account_render_next_game( int $player_id ) {
 		blueline_account_module_empty_state( blueline_settings( 'account_empty_next_game' ) );
 	} else {
 		$opponent_name = $event['opponent_team_id']
-			? ( function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $event['opponent_team_id'] ) : get_the_title( $event['opponent_team_id'] ) )
+			? blueline_sp_title( $event['opponent_team_id'] )
 			: __( 'TBD', 'blueline' );
 
 		/*
@@ -690,10 +686,8 @@ function blueline_account_render_next_game( int $player_id ) {
 		 * worse failure. Falls back to nothing (the button simply does not
 		 * render) when a team has no published calendar.
 		 */
-		$bl_team_id    = function_exists( 'blueline_player_current_team_id' ) ? blueline_player_current_team_id( $player_id ) : 0;
-		$team_calendar = ( $bl_team_id && function_exists( 'blueline_team_calendar_urls' ) )
-			? blueline_team_calendar_urls( $bl_team_id )
-			: null;
+		$bl_team_id    = blueline_player_current_team_id( $player_id );
+		$team_calendar = $bl_team_id ? blueline_team_calendar_urls( $bl_team_id ) : null;
 		$venue_url     = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
 		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>">
@@ -864,9 +858,7 @@ function blueline_account_render_registration( int $user_id, ?int $player_id = n
 	blueline_account_module_start( 'registration', __( 'My registration', 'blueline' ) );
 
 	if ( ! $status ) {
-		$has_current_team = ( $player_id && function_exists( 'blueline_player_current_team_id' ) )
-			? ( blueline_player_current_team_id( $player_id ) > 0 )
-			: false;
+		$has_current_team = $player_id && blueline_player_current_team_id( $player_id ) > 0;
 
 		blueline_account_module_empty_state( blueline_registration_empty_message( $has_current_team ) );
 	} else {
@@ -891,10 +883,11 @@ function blueline_account_render_registration( int $user_id, ?int $player_id = n
 
 /**
  * Group wc_get_account_menu_items()'s already league-then-billing-ordered
- * list (Task 10's blueline_account_menu_items() filter) into the shape the
+ * list (the plugin's blueline_account_menu_items() filter) into the shape the
  * Blue Line nav rail renders: each item tagged with its
  * blueline_account_endpoints() group, or null for the two WooCommerce-owned
- * items that map to no ARL slug (dashboard, customer-logout).
+ * items that map to no ARL slug (dashboard, customer-logout). Both helpers
+ * live in the Blueline Core plugin; without it every group is null.
  *
  * @param array<string,string> $menu_items wc_get_account_menu_items()'s ordered endpoint => label list.
  * @return array<int, array{endpoint:string, label:string, group:?string}>

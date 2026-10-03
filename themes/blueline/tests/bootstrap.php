@@ -62,7 +62,10 @@ define( 'DAY_IN_SECONDS', 86400 );
 define( 'BLUELINE_VERSION', '1.0.1' );
 define( 'BLUELINE_DIR', dirname( __DIR__ ) );
 
-require_once __DIR__ . '/../vendor/autoload.php';
+// The blueline-core plugin suite reuses this file with its own autoloader already loaded.
+if ( ! defined( 'BLUELINE_CORE_TESTS' ) ) {
+	require_once __DIR__ . '/../vendor/autoload.php';
+}
 
 if ( ! class_exists( 'Walker_Nav_Menu' ) ) {
 	/**

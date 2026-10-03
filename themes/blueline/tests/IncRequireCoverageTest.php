@@ -58,26 +58,32 @@ final class IncRequireCoverageTest extends TestCase {
 	 * file present on disk but absent from functions.php's live code.
 	 */
 	public function test_every_inc_file_is_required_from_functions_php(): void {
-		$root          = dirname( __DIR__ );
-		$functions_src = (string) file_get_contents( $root . '/functions.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test; wp_remote_get() is for HTTP.
-
-		$live_src = '';
-		foreach ( token_get_all( $functions_src ) as $token ) {
-			if ( is_array( $token ) ) {
-				if ( T_COMMENT === $token[0] || T_DOC_COMMENT === $token[0] ) {
-					continue; // Drop comments -- a commented-out require must not count as "referenced".
-				}
-				$live_src .= $token[1];
-			} else {
-				$live_src .= $token;
-			}
-		}
+		$root     = dirname( __DIR__ );
+		$live_src = $this->live_source( $root . '/functions.php' );
 
 		// Every '/inc/...php' quoted string literal in functions.php's live
 		// (non-comment) code, whatever require_once expression it's embedded
 		// in and whatever conditional (if any) wraps that expression.
 		preg_match_all( "#['\"](/inc/[^'\"]+\.php)['\"]#", $live_src, $matches );
 		$referenced = array_flip( $matches[1] );
+
+		// A referenced inc/ file may itself be a loader (inc/sportspress.php):
+		// its live `__DIR__ . '/part.php'` requires count too, transitively.
+		$queue = array_keys( $referenced );
+		while ( $queue ) {
+			$loader = array_shift( $queue );
+			if ( ! is_file( $root . $loader ) ) {
+				continue;
+			}
+			preg_match_all( "#__DIR__\s*\.\s*['\"](/[^'\"]+\.php)['\"]#", $this->live_source( $root . $loader ), $parts );
+			foreach ( $parts[1] as $part ) {
+				$resolved = dirname( $loader ) . $part;
+				if ( ! isset( $referenced[ $resolved ] ) ) {
+					$referenced[ $resolved ] = true;
+					$queue[]                 = $resolved;
+				}
+			}
+		}
 
 		$inc_dir = $root . '/inc';
 		$this->assertDirectoryExists( $inc_dir, 'expected theme to have an inc/ directory to scan' );
@@ -103,5 +109,28 @@ final class IncRequireCoverageTest extends TestCase {
 			$missing,
 			'these inc/ files exist on disk but functions.php never requires them -- a real page load would fatal ("call to undefined function") the moment anything calls into them, even though the test suite (which requires files directly, not through functions.php) stays green'
 		);
+	}
+
+	/**
+	 * A PHP file's source with every comment token dropped, so a
+	 * commented-out require never counts as "referenced".
+	 *
+	 * @param string $path Absolute file path.
+	 * @return string
+	 */
+	private function live_source( string $path ): string {
+		$src  = (string) file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test; wp_remote_get() is for HTTP.
+		$live = '';
+		foreach ( token_get_all( $src ) as $token ) {
+			if ( is_array( $token ) ) {
+				if ( T_COMMENT === $token[0] || T_DOC_COMMENT === $token[0] ) {
+					continue;
+				}
+				$live .= $token[1];
+			} else {
+				$live .= $token;
+			}
+		}
+		return $live;
 	}
 }

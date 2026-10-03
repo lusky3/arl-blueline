@@ -14,8 +14,8 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 
-$blueline_state      = function_exists( 'blueline_season_state' ) ? blueline_season_state() : 'offseason';
-$blueline_state_data = function_exists( 'blueline_season_state_data' ) ? blueline_season_state_data() : array();
+$blueline_state      = blueline_season_state();
+$blueline_state_data = blueline_season_state_data();
 ?>
 <main id="main" class="bl-main bl-main--homepage" tabindex="-1">
 	<?php

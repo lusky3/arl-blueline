@@ -51,11 +51,7 @@ $stat_keys = array_diff( array_keys( $labels ), array( 'name', 'team' ) );
 if ( empty( $stat_keys ) ) {
 	?>
 	<div class="bl-sp-empty">
-		<?php
-		if ( function_exists( 'blueline_leaf_mark' ) ) {
-			blueline_leaf_mark( 'bl-sp-empty__mark' );
-		}
-		?>
+		<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>
 		<p class="bl-sp-empty__text">
 			<?php
 			echo esc_html(
@@ -77,7 +73,7 @@ if ( empty( $stat_keys ) ) {
 // for the accessibility finding this fixes (this caption used to be a
 // hardcoded, level-skipping h4 everywhere -- on a single-player page it
 // followed the hero's own h1 with nothing else in between).
-$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+$bl_caption_level = blueline_sp_caption_heading_level();
 
 $output = '<h' . $bl_caption_level . ' class="sp-table-caption">' . $caption . '</h' . $bl_caption_level . '>' .
 	'<div class="sp-table-wrapper">' .

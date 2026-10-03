@@ -27,7 +27,8 @@
  *            i.e. [0.85, 0.95). NEVER written automatically.
  *   NONE   - no candidate scored >= BLUELINE_MATCH_THRESHOLD (0.85) at all.
  *
- * Matching itself is 100% delegated to Task 11's inc/account/player-link.php
+ * Matching itself is 100% delegated to Task 11's player-link code (now the
+ * blueline-core plugin's includes/player-link/player-link.php, loaded below)
  * (blueline_find_player_candidates() / blueline_name_match_score()) -- this
  * script does not reimplement scoring. A second, subtly different matcher
  * would be exactly the kind of hazard this task exists to avoid. That
@@ -185,23 +186,36 @@ $blueline_backfill_apply = in_array( 'apply', $blueline_backfill_args, true )
 	|| ( false !== $blueline_backfill_apply_env && '' !== $blueline_backfill_apply_env && '0' !== $blueline_backfill_apply_env );
 
 /**
+ * The matcher moved from the theme's inc/account/player-link.php into the
+ * blueline-core plugin (includes/player-link/player-link.php). It is normally
+ * already loaded (plugin active); if not, load that file directly so this
+ * script keeps delegating to the one vetted matcher instead of failing.
+ */
+if ( ! function_exists( 'blueline_find_player_candidates' ) && defined( 'WP_PLUGIN_DIR' ) ) {
+	$blueline_backfill_matcher_file = WP_PLUGIN_DIR . '/blueline-core/includes/player-link/player-link.php';
+	if ( is_readable( $blueline_backfill_matcher_file ) ) {
+		require_once $blueline_backfill_matcher_file;
+	}
+}
+
+/**
  * Required dependencies -- fail loudly and early rather than half-run.
  */
 $blueline_backfill_missing = array();
 if ( ! function_exists( 'blueline_find_player_candidates' ) ) {
-	$blueline_backfill_missing[] = 'blueline_find_player_candidates() (inc/account/player-link.php)';
+	$blueline_backfill_missing[] = 'blueline_find_player_candidates() (blueline-core: includes/player-link/player-link.php)';
 }
 if ( ! function_exists( 'blueline_get_linked_player_id' ) ) {
-	$blueline_backfill_missing[] = 'blueline_get_linked_player_id() (inc/account/player-link.php)';
+	$blueline_backfill_missing[] = 'blueline_get_linked_player_id() (blueline-core: includes/player-link/player-link.php)';
 }
 if ( ! function_exists( 'blueline_link_player_to_user' ) ) {
-	$blueline_backfill_missing[] = 'blueline_link_player_to_user() (inc/account/player-link.php)';
+	$blueline_backfill_missing[] = 'blueline_link_player_to_user() (blueline-core: includes/player-link/player-link.php)';
 }
 if ( ! function_exists( 'blueline_user_match_name' ) ) {
-	$blueline_backfill_missing[] = 'blueline_user_match_name() (inc/account/player-link.php)';
+	$blueline_backfill_missing[] = 'blueline_user_match_name() (blueline-core: includes/player-link/player-link.php)';
 }
 if ( ! defined( 'BLUELINE_PLAYER_USER_META' ) ) {
-	$blueline_backfill_missing[] = 'BLUELINE_PLAYER_USER_META (inc/account/player-link.php)';
+	$blueline_backfill_missing[] = 'BLUELINE_PLAYER_USER_META (blueline-core: includes/player-link/player-link.php)';
 }
 if ( ! defined( 'BLUELINE_REGISTRATION_TERM_ID' ) ) {
 	$blueline_backfill_missing[] = 'BLUELINE_REGISTRATION_TERM_ID (inc/season-state.php)';

@@ -89,11 +89,12 @@ function blueline_render_player_profile_registration_section( int $user_id ): vo
  * pencil-icon control to change it, name, and jersey number.
  *
  * The pencil replaces sportspress-player-tools' own /account/profile-picture
- * page (see blueline_redirect_profile_picture_endpoint()'s own docblock for
+ * page (see blueline_redirect_profile_picture_endpoint(), blueline-core's
+ * player-photo module, for
  * why that page had to go, not just gain a link here): that plugin looks a
  * player up by WordPress post_author, but this site links a player to a
  * user via the sp_user meta key instead (blueline_get_linked_player_id(),
- * inc/account/player-link.php) -- the two never agree for a real player, so
+ * blueline-core's player-link module) -- the two never agree for a real player, so
  * the plugin's own upload form silently rendered nothing for every real
  * user. This control reads the SAME already-correct $player_id this page
  * already resolves, so it has no way to inherit that bug.
@@ -110,7 +111,7 @@ function blueline_render_player_profile_bio_section( int $player_id, bool $can_e
 		<span class="bl-player-profile__photo-wrap">
 			<?php if ( has_post_thumbnail( $player_id ) ) : ?>
 				<span class="bl-player-profile__photo"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail' ); ?></span>
-			<?php elseif ( function_exists( 'blueline_leaf_mark' ) ) : ?>
+			<?php else : ?>
 				<span class="bl-player-profile__photo bl-player-profile__photo--fallback">
 					<?php blueline_leaf_mark( 'bl-player-profile__photo-mark' ); ?>
 				</span>
@@ -189,7 +190,7 @@ function blueline_account_player_profile_endpoint(): void {
 function blueline_render_player_profile_unverified_section(): void {
 	blueline_account_module_start( 'player-profile-unverified', __( 'Profile access', 'blueline' ) );
 
-	$contact = function_exists( 'blueline_contact_url' ) ? blueline_contact_url() : home_url( '/' );
+	$contact = blueline_contact_url();
 
 	blueline_account_module_empty_state_html(
 		sprintf(
@@ -207,199 +208,9 @@ function blueline_render_player_profile_unverified_section(): void {
 }
 
 /**
- * Redirect to Player Profile carrying an outcome status
- * (blueline_account_render_photo_notice() reads it back), and exit.
- *
- * NOT wc_add_notice(): confirmed live (staging, 2026-09-04) that
- * WC()->session/WC()->cart -- what wc_add_notice() actually writes into --
- * are never initialised on an admin_post_* request, because admin-post.php
- * lives under /wp-admin/ and WooCommerce's own frontend bootstrap skips
- * everywhere is_admin() is true, admin-post.php included even though it is
- * how a front-end form is meant to reach PHP. Calling wc_add_notice() here
- * threw "Call to undefined function" and fataled the whole request
- * (500, every upload). blueline_handle_claim_player_submission() (this
- * theme's OTHER admin_post_* form handler, inc/account/player-link.php)
- * already solved this the same way: a status in the redirect's query
- * string, read back by a small dedicated notice renderer instead of
- * WooCommerce's session-backed one.
- *
- * @param string $redirect_to Where to send the user back to.
- * @param string $status      A key blueline_account_render_photo_notice() recognises.
- * @return void
- */
-function blueline_redirect_after_photo_upload( string $redirect_to, string $status ): void {
-	wp_safe_redirect( esc_url_raw( add_query_arg( 'blueline_photo', $status, $redirect_to ) ) );
-	exit;
-}
-
-add_action( 'admin_post_blueline_upload_player_photo', 'blueline_handle_player_photo_upload' );
-/**
- * Handle the Player Profile pencil-icon's photo upload.
- *
- * $player_id is resolved server-side from the logged-in session
- * (blueline_current_user_player_id(), never trusted from the request), so a
- * tampered submission can only ever change the SUBMITTER's own player photo
- * -- there is no player_id field in the form for a forged request to alter.
- *
- * File validation mirrors sportspress-player-tools' own upload handler
- * (2MB cap, real image bytes checked via getimagesize() rather than the
- * browser-supplied MIME type, wp_check_filetype_and_ext() against the
- * filename): same threat model, same answer, just reachable for a real
- * player this time.
- *
- * @return void
- */
-function blueline_handle_player_photo_upload(): void {
-	if ( ! is_user_logged_in() ) {
-		wp_die( esc_html__( 'You must be logged in to do this.', 'blueline' ), 403 );
-	}
-
-	check_admin_referer( 'blueline_upload_player_photo' );
-
-	$redirect = function_exists( 'wc_get_account_endpoint_url' )
-		? wc_get_account_endpoint_url( 'player-profile' )
-		: home_url( '/' );
-
-	$player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
-
-	if ( ! $player_id ) {
-		blueline_redirect_after_photo_upload( $redirect, 'unlinked' );
-	}
-
-	if ( ! blueline_user_is_verified_player_owner( get_current_user_id(), $player_id ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'not_owner' );
-	}
-
-	if ( empty( $_FILES['player_photo']['tmp_name'] ) ) {
-		wp_safe_redirect( $redirect );
-		exit;
-	}
-
-	$max_size = 2 * 1024 * 1024;
-	if ( isset( $_FILES['player_photo']['size'] ) && $_FILES['player_photo']['size'] > $max_size ) {
-		blueline_redirect_after_photo_upload( $redirect, 'too_large' );
-	}
-
-	$allowed_mime_types = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
-
-	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- tmp_name is a server-generated temp file path from PHP's own upload handling, never attacker-supplied content; getimagesize() below reads and validates the file's real bytes, which is the actual security check here.
-	$image_info = getimagesize( $_FILES['player_photo']['tmp_name'] );
-	if ( false === $image_info || ! in_array( $image_info['mime'], $allowed_mime_types, true ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
-	}
-
-	$filename = isset( $_FILES['player_photo']['name'] ) ? sanitize_file_name( wp_unslash( $_FILES['player_photo']['name'] ) ) : '';
-	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- same tmp_name as above; wp_check_filetype_and_ext() itself re-reads the file's real bytes against $filename, it does not trust either as a bare string.
-	$checked       = wp_check_filetype_and_ext( $_FILES['player_photo']['tmp_name'], $filename );
-	$resolved_mime = ! empty( $checked['type'] ) ? $checked['type'] : '';
-
-	if ( ! $resolved_mime || ! in_array( $resolved_mime, $allowed_mime_types, true ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
-	}
-
-	require_once ABSPATH . 'wp-admin/includes/image.php';
-	require_once ABSPATH . 'wp-admin/includes/file.php';
-	require_once ABSPATH . 'wp-admin/includes/media.php';
-
-	add_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' );
-	$attachment_id = media_handle_upload( 'player_photo', $player_id );
-	remove_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' );
-
-	if ( is_wp_error( $attachment_id ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'error' );
-	}
-
-	set_post_thumbnail( $player_id, $attachment_id );
-	blueline_redirect_after_photo_upload( $redirect, 'updated' );
-}
-
-/**
- * `wp_handle_upload` filter, added only around the player-photo upload:
- * strip EXIF/GPS from the stored original before WordPress builds its
- * sub-sizes from it. Fails closed -- an unstrippable file is deleted and
- * the upload reported as an error.
- *
- * @param array $upload {file, url, type} from _wp_handle_upload().
- * @return array
- */
-function blueline_strip_uploaded_photo_metadata( $upload ) {
-	if ( ! is_array( $upload ) || isset( $upload['error'] ) || empty( $upload['file'] ) ) {
-		return $upload;
-	}
-
-	if ( blueline_strip_image_metadata( (string) $upload['file'], (string) ( $upload['type'] ?? '' ) ) ) {
-		return $upload;
-	}
-
-	wp_delete_file( $upload['file'] );
-
-	return array( 'error' => __( 'The photo could not be processed.', 'blueline' ) );
-}
-
-/**
- * Re-encode an image in place without its metadata, baking any EXIF
- * orientation into the pixels first.
- *
- * GD never writes metadata on save. WordPress's Imagick editor keeps the
- * EXIF/IPTC/XMP profiles (even its own image_strip_meta preserves them),
- * so those are removed explicitly. GIFs are left alone: they carry no
- * EXIF, and a re-save would flatten an animation.
- *
- * @param string $path Absolute path to the image.
- * @param string $mime Its MIME type.
- * @return bool Whether the file is now metadata-free (or needed nothing).
- */
-function blueline_strip_image_metadata( string $path, string $mime ): bool {
-	if ( ! in_array( $mime, array( 'image/jpeg', 'image/png', 'image/webp' ), true ) ) {
-		return 'image/gif' === $mime;
-	}
-
-	$editor = wp_get_image_editor( $path );
-	if ( is_wp_error( $editor ) ) {
-		return false;
-	}
-
-	$editor->maybe_exif_rotate();
-
-	$saved = $editor->save( $path, $mime );
-	if ( is_wp_error( $saved ) || empty( $saved['path'] ) || $saved['path'] !== $path ) {
-		return false;
-	}
-
-	if ( $editor instanceof WP_Image_Editor_Imagick ) {
-		return blueline_strip_imagick_profiles( $path );
-	}
-
-	return true;
-}
-
-/**
- * Remove every Imagick profile except the colour profile (icc/icm).
- *
- * @param string $path Absolute path to the image.
- * @return bool
- */
-function blueline_strip_imagick_profiles( string $path ): bool {
-	try {
-		$image = new Imagick( $path );
-		foreach ( array_keys( $image->getImageProfiles( '*', true ) ) as $profile ) {
-			if ( ! in_array( $profile, array( 'icc', 'icm' ), true ) ) {
-				$image->removeImageProfile( $profile );
-			}
-		}
-		$image->setImageOrientation( Imagick::ORIENTATION_TOPLEFT );
-		$written = $image->writeImage( $path );
-		$image->clear();
-
-		return (bool) $written;
-	} catch ( Exception $e ) {
-		return false;
-	}
-}
-
-/**
  * The photo-upload outcome notice, read back from
- * blueline_redirect_after_photo_upload()'s own query var. Same rendering
+ * blueline_redirect_after_photo_upload()'s own query var (the upload
+ * handler lives in blueline-core's player-photo module). Same rendering
  * contract as blueline_account_render_claim_notice() (inc/account/
  * dashboard.php) -- same markup, same reason it is a query-string status
  * rather than wc_add_notice() (see that redirect function's own docblock)
@@ -438,41 +249,4 @@ function blueline_account_render_photo_notice(): void {
 		<?php echo esc_html( $text ); ?>
 	</section>
 	<?php
-}
-
-add_action( 'template_redirect', 'blueline_redirect_profile_picture_endpoint' );
-/**
- * 301 sportspress-player-tools' own /account/profile-picture/ endpoint to
- * /account/player-profile/, which now carries the same capability (see
- * blueline_render_player_profile_bio_section()'s own docblock for why that
- * plugin's page never actually worked for a real player) plus everything
- * else Player Profile already shows.
- *
- * This is a THIRD-PARTY plugin's rewrite endpoint, not a WooCommerce
- * built-in -- deliberately its own small check, not folded into
- * blueline_account_endpoints()/blueline_account_legacy_redirect_map()
- * (inc/account/endpoints.php), which exist specifically to rename
- * WooCommerce's OWN default slugs without breaking WC_Query's internal
- * query-var resolution. 'profile-picture' has no such internal meaning to
- * preserve; it only needs to stop resolving to the plugin's broken page.
- *
- * @return void
- */
-function blueline_redirect_profile_picture_endpoint(): void {
-	if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
-		return;
-	}
-
-	global $wp;
-
-	if ( ! isset( $wp->query_vars['profile-picture'] ) ) {
-		return;
-	}
-
-	if ( ! function_exists( 'wc_get_account_endpoint_url' ) ) {
-		return;
-	}
-
-	wp_safe_redirect( wc_get_account_endpoint_url( 'player-profile' ), 301 );
-	exit;
 }

@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$blueline_has_jump_nav = function_exists( 'blueline_page_needs_jump_nav' ) && blueline_page_needs_jump_nav();
+$blueline_has_jump_nav = blueline_page_needs_jump_nav();
 $blueline_has_widgets  = is_active_sidebar( 'sidebar-1' );
 
 if ( ! $blueline_has_jump_nav && ! $blueline_has_widgets ) {

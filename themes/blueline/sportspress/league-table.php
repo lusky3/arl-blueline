@@ -73,7 +73,7 @@ if ( isset( $show_future_events ) ) {
 $identifier = uniqid( 'table_' );
 
 // PERF-03: the computed table (no per-viewer markup) is cached; highlighting below stays per request.
-$bl_table_cache_key = ( $id && function_exists( 'blueline_sp_cache_key' ) && ! is_preview() )
+$bl_table_cache_key = ( $id && ! is_preview() )
 	? blueline_sp_cache_key( 'table', array( (int) $id, $table->show_published_events ?? '', $table->show_future_events ?? '' ) )
 	: '';
 $data               = $bl_table_cache_key ? get_transient( $bl_table_cache_key ) : false;
@@ -152,14 +152,12 @@ foreach ( $data as $bl_probe_row ) {
 	}
 }
 
-$bl_zero_games_note = function_exists( 'blueline_sp_zero_games_note' )
-	? blueline_sp_zero_games_note(
-		$bl_has_progress_signal,
-		$bl_progress_figures,
-		! empty( $data ),
-		(bool) $title && false !== stripos( (string) $title, 'playoff' )
-	)
-	: '';
+$bl_zero_games_note = blueline_sp_zero_games_note(
+	$bl_has_progress_signal,
+	$bl_progress_figures,
+	! empty( $data ),
+	(bool) $title && false !== stripos( (string) $title, 'playoff' )
+);
 
 // The viewer's own current team(s) -- possibly more than one, since a
 // player can be rostered onto several current teams across divisions
@@ -169,7 +167,7 @@ $bl_zero_games_note = function_exists( 'blueline_sp_zero_games_note' )
 $bl_my_team_ids = function_exists( 'blueline_current_user_team_ids' ) ? blueline_current_user_team_ids() : array();
 
 // wp_kses_post()'s rules plus img srcset/sizes/decoding, so the logo's responsive sources survive.
-$bl_kses_allowed = function_exists( 'blueline_sp_kses_allowed_html' ) ? blueline_sp_kses_allowed_html() : wp_kses_allowed_html( 'post' );
+$bl_kses_allowed = blueline_sp_kses_allowed_html();
 
 $output  = '<th class="data-rank">' . esc_attr__( 'Pos', 'sportspress' ) . '</th>';
 $output .= '<th class="data-name">' . esc_html( $labels['name'] ) . '</th>';
@@ -256,7 +254,7 @@ foreach ( $data as $team_id => $row ) :
 	$bl_mine_attr = '';
 	if ( in_array( $team_id, $bl_my_team_ids, true ) ) :
 		$tr_class    .= ' bl-sp-row--mine';
-		$bl_mine_attr = function_exists( 'blueline_team_color_style_attr' ) ? blueline_team_color_style_attr( $team_id ) : '';
+		$bl_mine_attr = blueline_team_color_style_attr( $team_id );
 	endif;
 
 	$output .= '<tr class="' . ( 0 === $i % 2 ? 'odd' : 'even' ) . $tr_class . ' sp-row-no-' . (int) $i . '"' . $bl_mine_attr . '>';
@@ -332,7 +330,7 @@ $output .= '</tbody>';
 		// own docblock (inc/sportspress.php) for the accessibility finding
 		// this fixes (this caption used to be a hardcoded, level-skipping
 		// h4 everywhere).
-		$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+		$bl_caption_level = blueline_sp_caption_heading_level();
 		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
 	<?php endif; ?>

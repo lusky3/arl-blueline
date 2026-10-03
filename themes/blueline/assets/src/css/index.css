@@ -6,12 +6,13 @@
 @import "./announcement.css";
 @import "./floating-next-game.css";
 @import "./team-flyout.css";
-@import "./occasions.css";
 @import "./nav.css";
 @import "./footer.css";
-@import "./homepage.css";
 @import "./sponsors-page.css";
 @import "./sportspress.css";
-@import "./woocommerce.css";
-@import "./forms.css";
-@import "./account.css";
+
+/*
+ * Built as their own entries (webpack.config.js) and enqueued only where they
+ * can match (inc/enqueue.php), in this order after the core bundle:
+ * occasions, homepage, woocommerce, forms, account.
+ */

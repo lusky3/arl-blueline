@@ -44,3 +44,18 @@ jobs:
 
       - name: Run the gate
         run: npm run check
+
+      # blueline-core's suite requires themes/blueline/tests/bootstrap.php for
+      # its WordPress stubs (but not the theme's vendor/), so it runs from the
+      # same checkout.
+      - name: Install plugin PHP dependencies
+        working-directory: plugins/blueline-core
+        run: composer install --no-interaction --no-progress
+
+      - name: Plugin tests
+        working-directory: plugins/blueline-core
+        run: composer test
+
+      - name: Plugin lint
+        working-directory: plugins/blueline-core
+        run: composer lint

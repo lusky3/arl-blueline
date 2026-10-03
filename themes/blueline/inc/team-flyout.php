@@ -43,10 +43,6 @@ function blueline_render_team_flyout(): void {
 		return;
 	}
 
-	if ( ! function_exists( 'blueline_league_menu_team_ids' ) ) {
-		return;
-	}
-
 	$team_ids = blueline_league_menu_team_ids();
 
 	if ( ! $team_ids ) {
@@ -70,7 +66,7 @@ function blueline_render_team_flyout(): void {
 
 		$teams[] = array(
 			'id'   => $team_id,
-			'name' => function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $team_id ) : get_the_title( $team_id ),
+			'name' => blueline_sp_title( $team_id ),
 			'link' => $link,
 		);
 	}

@@ -30,7 +30,7 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 
-$has_sidebar = function_exists( 'blueline_sp_has_sidebar' ) && blueline_sp_has_sidebar();
+$has_sidebar = blueline_sp_has_sidebar();
 
 $queried_term = get_queried_object();
 $term_id      = ( $queried_term instanceof WP_Term ) ? $queried_term->term_id : 0;
@@ -204,11 +204,9 @@ if ( $term_id && $address && taxonomy_exists( 'sp_venue' ) ) {
 						<?php
 						while ( $upcoming_query->have_posts() ) :
 							$upcoming_query->the_post();
-							if ( function_exists( 'blueline_sp_event_teaser' ) ) {
-								?>
-								<li><?php blueline_sp_event_teaser( get_the_ID() ); ?></li>
-								<?php
-							}
+							?>
+							<li><?php blueline_sp_event_teaser( get_the_ID() ); ?></li>
+							<?php
 						endwhile;
 						wp_reset_postdata();
 						?>
@@ -221,11 +219,9 @@ if ( $term_id && $address && taxonomy_exists( 'sp_venue' ) ) {
 						<?php
 						while ( $past_query->have_posts() ) :
 							$past_query->the_post();
-							if ( function_exists( 'blueline_sp_event_teaser' ) ) {
-								?>
-								<li><?php blueline_sp_event_teaser( get_the_ID() ); ?></li>
-								<?php
-							}
+							?>
+							<li><?php blueline_sp_event_teaser( get_the_ID() ); ?></li>
+							<?php
 						endwhile;
 						wp_reset_postdata();
 						?>

@@ -8,6 +8,33 @@ as the release notes.
 
 ## [Unreleased]
 
+### Added
+- **blueline-core companion plugin** (`plugins/blueline-core/`): player claim flow and
+  the `sp_user` link, player photo upload, avatars, My Account endpoints and menu,
+  plain-text mail wrapper, checkout field fixes, admin-bar rule, SEO/social meta,
+  search ordering and member-privacy hardening now live in the plugin, so a theme
+  switch no longer removes them. The theme works without it (Site Health reports its
+  state) and the plugin refuses to load against a theme older than 1.1.0.
+- WP-CLI: `wp blueline-core ownership report|apply`, `wp blueline-core migrate-yith-avatars`.
+- `docs/OPERATIONS.md`: deploy order, rollback to the classic theme, cutover checklist.
+- WooCommerce `checkout/terms.php` override: the terms checkbox is `required` and `aria-required`.
+- Team-logo links (`.team-logo a`) get an accessible name, or are hidden when empty.
+
+### Changed
+- Homepage, WooCommerce, account, forms and occasions CSS load only on pages that use
+  them (about 24 KB to 17 KB gzip on most pages).
+- The nav walker applies core's `nav_menu_css_class`, `nav_menu_link_attributes` and
+  `walker_nav_menu_start_el` filters.
+- The table-scroll pass uses WordPress's HTML5 parser (the old libxml pass lowercased SVG
+  `viewBox` attributes).
+- A replaced player photo that was uploaded through the site is deleted; earlier uploads are never touched.
+- `inc/sportspress.php` is split into `inc/sportspress/*`; redundant `function_exists`
+  guards on the theme's own helpers are removed.
+
+### Fixed
+- Search form spacing and the logged-out /account heading alignment; Quotes Llama author
+  images get `alt=""`.
+
 ## [1.1.0-rc.1]
 
 ### Added

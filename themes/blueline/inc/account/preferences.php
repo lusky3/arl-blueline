@@ -8,7 +8,7 @@
  * preferences-design.md.
  *
  * No self-service unlink/re-claim exists in this codebase --
- * blueline_link_player_to_user() (inc/account/player-link.php) explicitly
+ * blueline_link_player_to_user() (blueline-core's player-link module) explicitly
  * rejects re-linking an already-linked account -- so the linked-team
  * section here is read-only, with a contact-the-league link for anyone who
  * needs to change it, the same pattern the claim card already uses for its
@@ -84,7 +84,7 @@ function blueline_render_preferences_team_section(): void {
 	$summary   = blueline_preferences_team_summary( $team );
 
 	if ( null === $summary ) {
-		$contact = function_exists( 'blueline_contact_url' ) ? blueline_contact_url() : home_url( '/' );
+		$contact = blueline_contact_url();
 		$message = sprintf(
 			wp_kses(
 				/* translators: 1: opening <a> tag to the Contact Us page, 2: closing </a> tag. */
@@ -124,9 +124,7 @@ function blueline_account_preferences_endpoint(): void {
 	// confirmation copy needs to know which case this is; see
 	// blueline_preferences_widget_confirmation_text()'s own docblock.
 	$preferences_widget_player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
-	$preferences_widget_has_event = $preferences_widget_player_id && function_exists( 'blueline_get_player_next_event' )
-		? (bool) blueline_get_player_next_event( $preferences_widget_player_id )
-		: false;
+	$preferences_widget_has_event = $preferences_widget_player_id && blueline_get_player_next_event( $preferences_widget_player_id );
 	?>
 	<p class="bl-preferences-widget__intro">
 		<?php esc_html_e( 'If you’ve dismissed the floating next-game widget, you can bring it back here.', 'blueline' ); ?>

@@ -1,5 +1,9 @@
 <?php
 /**
+ * SUPERSEDED: use `wp blueline-core migrate-yith-avatars [--apply]` (the
+ * blueline-core plugin's avatars module ports this script's logic and safety
+ * checks). Kept for reference.
+ *
  * One-off: migrate yith-woocommerce-customize-myaccount-page's custom
  * per-user avatars to theme-owned user meta (`blueline_avatar_id`), so the
  * plugin can be deactivated without silently losing anyone's avatar.

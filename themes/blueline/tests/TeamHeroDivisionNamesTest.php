@@ -8,6 +8,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/sportspress.php';
+require_once __DIR__ . '/../inc/account/player-data.php';
 
 /**
  * Covers a live-review finding with zero prior test coverage: team pages
@@ -52,23 +53,11 @@ final class TeamHeroDivisionNamesTest extends TestCase {
 	}
 
 	/**
-	 * Defensive-only fallback: when blueline_player_division_name() itself
-	 * is not defined at all (inc/account/player-data.php not loaded -- never
-	 * true on a real request, see this function's own docblock), the raw
-	 * sp_league terms are used rather than showing nothing.
+	 * The team's own raw sp_league terms are never shown: with no
+	 * current-season table, blueline_player_division_name() resolves to ''
+	 * and the hero gets no division at all.
 	 */
-	public function test_falls_back_to_raw_terms_when_the_season_scoped_resolver_is_unavailable(): void {
-		if ( function_exists( 'blueline_player_division_name' ) ) {
-			// PHP function definitions cannot be unloaded, and PHPUnit runs
-			// every test file in one process: whichever OTHER test file
-			// happens to require inc/account/player-data.php first (order
-			// is not guaranteed) makes this function permanently defined
-			// for the rest of the run, which makes the branch this test
-			// targets unreachable from here on. Skip rather than fail --
-			// this is a property of test run order, not a real regression.
-			$this->markTestSkipped( 'blueline_player_division_name() was already loaded by another test file in this same process; the fallback branch this test targets is unreachable once that happens.' );
-		}
-
+	public function test_raw_league_terms_are_ignored_without_a_current_season_table(): void {
 		$state                                 = &blueline_test_state();
 		$state['taxonomies']                   = array( 'sp_league' );
 		$state['post_terms'][501]['sp_league'] = array( 1, 2 );
@@ -81,9 +70,6 @@ final class TeamHeroDivisionNamesTest extends TestCase {
 			'name'    => 'Division 5',
 		);
 
-		$this->assertSame(
-			array( 'Division 4', 'Division 5' ),
-			blueline_sp_team_hero_division_names( 501 )
-		);
+		$this->assertSame( array(), blueline_sp_team_hero_division_names( 501 ) );
 	}
 }

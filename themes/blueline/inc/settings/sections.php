@@ -146,7 +146,7 @@ function blueline_section_enabled( string $key ): bool {
 		return false;
 	}
 
-	$value = function_exists( 'blueline_settings' ) ? blueline_settings( $key ) : null;
+	$value = blueline_settings( $key );
 
 	// Unset means enabled: every section shipped visible, and an install
 	// that has never opened this tab must look exactly as it did before.

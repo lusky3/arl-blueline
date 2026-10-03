@@ -330,122 +330,23 @@ function blueline_season_state_data( ?int $now = null ): array {
 		}
 	}
 
-	$signals = array(
-		'has_purchasable_product' => false,
-		'upcoming_events'         => 0,
-		'days_to_next_event'      => null,
-		'has_playoff_events'      => false,
-		'recent_events'           => 0,
-	);
+	list( $has_purchasable_product, $product_id ) = blueline_season_state_product_signal();
 
-	$product_id    = null;
-	$next_event_id = null;
+	$events = blueline_season_state_no_event_signals();
 
-	// --- WooCommerce: purchasable product in the current season's product_cat. ---
-	if ( function_exists( 'wc_get_product' ) ) {
-		foreach ( blueline_registration_season_product_ids() as $candidate_id ) {
-			$product = wc_get_product( $candidate_id );
-
-			if ( $product && $product->is_purchasable() && $product->is_in_stock() ) {
-				$signals['has_purchasable_product'] = true;
-				$product_id                         = (int) $candidate_id;
-				break;
-			}
-		}
-	}
-
-	// --- SportsPress: upcoming/recent events, playoff detection. ---
 	if ( post_type_exists( 'sp_event' ) ) {
 		list( $now_mysql, $now_ts ) = blueline_season_state_moment( $now );
 
-		$upcoming_query = new WP_Query(
-			array(
-				'post_type'      => 'sp_event',
-				// Upcoming games are 'future', not 'publish' -- WordPress
-				// core auto-assigns 'future' to any post whose post_date is
-				// later than now. See BLUELINE_PUBLISHED_STATUS's docblock.
-				'post_status'    => array( BLUELINE_PUBLISHED_STATUS, 'future' ),
-				'posts_per_page' => -1,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-				'orderby'        => 'date',
-				'order'          => 'ASC',
-				'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
-					array(
-						'column' => 'post_date',
-						'after'  => $now_mysql,
-					),
-				),
-			)
-		);
-
-		$upcoming_ids = $upcoming_query->posts;
-
-		$signals['upcoming_events'] = count( $upcoming_ids );
-
-		if ( ! empty( $upcoming_ids ) ) {
-			$next_event_id = (int) $upcoming_ids[0];
-			$next_post     = get_post( $next_event_id );
-
-			if ( $next_post ) {
-				$diff_seconds                  = strtotime( $next_post->post_date ) - $now_ts;
-				$signals['days_to_next_event'] = (int) ceil( $diff_seconds / DAY_IN_SECONDS );
-			}
-
-			// Playoffs: an upcoming event carries a term, in a league or
-			// division taxonomy, whose slug contains "playoff". SportsPress
-			// registers this as the `sp_league` taxonomy -- relabeled
-			// "Divisions" in this site's admin UI -- but the taxonomies are
-			// discovered dynamically so a site-added `sp_division` taxonomy
-			// would also be picked up.
-			$playoff_taxonomies = array_filter(
-				get_object_taxonomies( 'sp_event' ),
-				static function ( $taxonomy ) {
-					return false !== strpos( $taxonomy, 'league' ) || false !== strpos( $taxonomy, 'division' );
-				}
-			);
-
-			foreach ( $playoff_taxonomies as $taxonomy ) {
-				$slugs = wp_get_object_terms( $upcoming_ids, $taxonomy, array( 'fields' => 'slugs' ) );
-
-				if ( is_wp_error( $slugs ) ) {
-					continue;
-				}
-
-				foreach ( $slugs as $slug ) {
-					if ( false !== strpos( $slug, 'playoff' ) ) {
-						$signals['has_playoff_events'] = true;
-						break 2;
-					}
-				}
-			}
-		}
-
-		$recent_query = new WP_Query(
-			array(
-				'post_type'      => 'sp_event',
-				'post_status'    => BLUELINE_PUBLISHED_STATUS,
-				'posts_per_page' => -1,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-				'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
-					array(
-						'column'    => 'post_date',
-						'after'     => gmdate( 'Y-m-d H:i:s', $now_ts - 30 * DAY_IN_SECONDS ),
-						'before'    => $now_mysql,
-						'inclusive' => true,
-					),
-				),
-			)
-		);
-
-		$signals['recent_events'] = count( $recent_query->posts );
+		$events = blueline_season_state_event_signals( $now_mysql, $now_ts );
 	}
 
-	$state = blueline_decide_season_state( $signals );
+	$next_event_id = $events['next_event_id'];
+	unset( $events['next_event_id'] );
+
+	$signals = array( 'has_purchasable_product' => $has_purchasable_product ) + $events;
 
 	$data = array(
-		'state'                => $state,
+		'state'                => blueline_decide_season_state( $signals ),
 		'product_id'           => $product_id,
 		'next_event_id'        => $next_event_id,
 		'is_registration_open' => blueline_decide_registration_open( $signals ),
@@ -457,6 +358,154 @@ function blueline_season_state_data( ?int $now = null ): array {
 	}
 
 	return $data;
+}
+
+/**
+ * The WooCommerce signal: the first purchasable, in-stock product in the
+ * current season's product_cat.
+ *
+ * Read through wc_get_product() only, never the meta lookup table -- see
+ * blueline_season_state_data()'s docblock for why.
+ *
+ * @return array{0: bool, 1: int|null} Whether one exists, and its ID.
+ */
+function blueline_season_state_product_signal(): array {
+	if ( ! function_exists( 'wc_get_product' ) ) {
+		return array( false, null );
+	}
+
+	foreach ( blueline_registration_season_product_ids() as $candidate_id ) {
+		$product = wc_get_product( $candidate_id );
+
+		if ( $product && $product->is_purchasable() && $product->is_in_stock() ) {
+			return array( true, (int) $candidate_id );
+		}
+	}
+
+	return array( false, null );
+}
+
+/**
+ * The SportsPress signals with no events at all: what a site without the
+ * sp_event post type reports.
+ *
+ * @return array{upcoming_events: int, days_to_next_event: null, has_playoff_events: bool, recent_events: int, next_event_id: null}
+ */
+function blueline_season_state_no_event_signals(): array {
+	return array(
+		'upcoming_events'    => 0,
+		'days_to_next_event' => null,
+		'has_playoff_events' => false,
+		'recent_events'      => 0,
+		'next_event_id'      => null,
+	);
+}
+
+/**
+ * The SportsPress signals: upcoming and recent events, playoff detection,
+ * and the soonest upcoming event. Callers check post_type_exists( 'sp_event' )
+ * first; both moment forms come from blueline_season_state_moment().
+ *
+ * @param string $now_mysql Site-local `Y-m-d H:i:s` the date bounds use.
+ * @param int    $now_ts    The same moment as a timestamp, for arithmetic.
+ * @return array{upcoming_events: int, days_to_next_event: int|null, has_playoff_events: bool, recent_events: int, next_event_id: int|null}
+ */
+function blueline_season_state_event_signals( string $now_mysql, int $now_ts ): array {
+	$signals = blueline_season_state_no_event_signals();
+
+	$upcoming_query = new WP_Query(
+		array(
+			'post_type'      => 'sp_event',
+			// Upcoming games are 'future', not 'publish' -- WordPress
+			// core auto-assigns 'future' to any post whose post_date is
+			// later than now. See BLUELINE_PUBLISHED_STATUS's docblock.
+			'post_status'    => array( BLUELINE_PUBLISHED_STATUS, 'future' ),
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'orderby'        => 'date',
+			'order'          => 'ASC',
+			'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
+				array(
+					'column' => 'post_date',
+					'after'  => $now_mysql,
+				),
+			),
+		)
+	);
+
+	$upcoming_ids = $upcoming_query->posts;
+
+	$signals['upcoming_events'] = count( $upcoming_ids );
+
+	if ( ! empty( $upcoming_ids ) ) {
+		$signals['next_event_id'] = (int) $upcoming_ids[0];
+		$next_post                = get_post( $signals['next_event_id'] );
+
+		if ( $next_post ) {
+			$diff_seconds                  = strtotime( $next_post->post_date ) - $now_ts;
+			$signals['days_to_next_event'] = (int) ceil( $diff_seconds / DAY_IN_SECONDS );
+		}
+
+		$signals['has_playoff_events'] = blueline_season_state_has_playoff_events( $upcoming_ids );
+	}
+
+	$recent_query = new WP_Query(
+		array(
+			'post_type'      => 'sp_event',
+			'post_status'    => BLUELINE_PUBLISHED_STATUS,
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
+				array(
+					'column'    => 'post_date',
+					'after'     => gmdate( 'Y-m-d H:i:s', $now_ts - 30 * DAY_IN_SECONDS ),
+					'before'    => $now_mysql,
+					'inclusive' => true,
+				),
+			),
+		)
+	);
+
+	$signals['recent_events'] = count( $recent_query->posts );
+
+	return $signals;
+}
+
+/**
+ * Playoffs: an upcoming event carries a term, in a league or division
+ * taxonomy, whose slug contains "playoff". SportsPress registers this as the
+ * `sp_league` taxonomy -- relabeled "Divisions" in this site's admin UI --
+ * but the taxonomies are discovered dynamically so a site-added
+ * `sp_division` taxonomy would also be picked up.
+ *
+ * @param int[] $event_ids Upcoming sp_event IDs.
+ * @return bool
+ */
+function blueline_season_state_has_playoff_events( array $event_ids ): bool {
+	$playoff_taxonomies = array_filter(
+		get_object_taxonomies( 'sp_event' ),
+		static function ( $taxonomy ) {
+			return false !== strpos( $taxonomy, 'league' ) || false !== strpos( $taxonomy, 'division' );
+		}
+	);
+
+	foreach ( $playoff_taxonomies as $taxonomy ) {
+		$slugs = wp_get_object_terms( $event_ids, $taxonomy, array( 'fields' => 'slugs' ) );
+
+		if ( is_wp_error( $slugs ) ) {
+			continue;
+		}
+
+		foreach ( $slugs as $slug ) {
+			if ( false !== strpos( $slug, 'playoff' ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 /**

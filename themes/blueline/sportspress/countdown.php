@@ -171,9 +171,7 @@ $bl_picked = ( $bl_post instanceof WP_Post )
 // way to get "now" as a timestamp directly comparable to post_date -- see
 // that function's own docblock on why both branches must derive from the
 // exact same site-local wall-clock string).
-list( , $bl_now_ts ) = function_exists( 'blueline_season_state_moment' )
-	? blueline_season_state_moment()
-	: array( null, time() );
+list( , $bl_now_ts ) = blueline_season_state_moment();
 
 $bl_next_future = ( null !== $bl_picked && blueline_sp_event_date_is_past( $bl_picked['post_date'], $bl_now_ts ) )
 	? blueline_sp_next_dated_event( $bl_scope_args )
@@ -211,7 +209,7 @@ $bl_is_future = $bl_decision['is_future'];
 // -- $title is often blank (this widget's own default), and the event
 // name is then the first heading in this whole block, so it still needs
 // to sit at the right depth for wherever this widget renders.
-$bl_caption_level = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+$bl_caption_level = blueline_sp_caption_heading_level();
 
 if ( $title ) {
 	printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().

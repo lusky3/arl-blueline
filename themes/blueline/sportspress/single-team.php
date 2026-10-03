@@ -25,9 +25,7 @@ defined( 'ABSPATH' ) || exit;
 
 get_header();
 
-$team_color_attr = function_exists( 'blueline_team_color_style_attr' )
-	? blueline_team_color_style_attr( get_queried_object_id() )
-	: '';
+$team_color_attr = blueline_team_color_style_attr( get_queried_object_id() );
 
 // A logged-in, unclaimed visitor's nudge to link their player, above the
 // roster -- see blueline_render_claim_nudge()'s own docblock
@@ -41,8 +39,6 @@ $team_color_attr = function_exists( 'blueline_team_color_style_attr' )
 // them out as "a floating island" this far from the schedule they belong
 // to -- moved into sportspress/team-events.php instead, printed directly
 // above the Fixtures/Results content it now visually introduces.
-$bl_before_content = function_exists( 'blueline_render_claim_nudge' ) ? 'blueline_render_claim_nudge' : null;
-
-blueline_render_sp_single( 'blueline_sp_team_hero', $team_color_attr, $bl_before_content );
+blueline_render_sp_single( 'blueline_sp_team_hero', $team_color_attr, 'blueline_render_claim_nudge' );
 
 get_footer();

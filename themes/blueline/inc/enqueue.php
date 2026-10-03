@@ -85,6 +85,16 @@ function blueline_enqueue_assets() {
 	// swap -- see wp_style_add_data()'s 'rtl' key in wp-includes/functions.wp-styles.php.
 	wp_style_add_data( 'blueline', 'rtl', 'replace' );
 
+	foreach ( blueline_template_style_bundles() as $bundle ) {
+		wp_enqueue_style(
+			'blueline-' . $bundle,
+			BLUELINE_URI . '/assets/dist/' . $bundle . '.css',
+			array( 'blueline' ),
+			blueline_dist_version( $bundle )
+		);
+		wp_style_add_data( 'blueline-' . $bundle, 'rtl', 'replace' );
+	}
+
 	wp_enqueue_script(
 		'blueline',
 		BLUELINE_URI . '/assets/dist/index.js',
@@ -105,6 +115,49 @@ function blueline_enqueue_assets() {
 	if ( is_singular() && comments_open() && get_option( 'thread_comments' ) ) {
 		wp_enqueue_script( 'comment-reply' );
 	}
+}
+
+/**
+ * PERF-10: the per-template stylesheets (webpack entries split out of
+ * index.css) this request needs, in their former import order so the cascade
+ * between them is unchanged. Each gate mirrors the only code that can emit
+ * that partial's selectors:
+ *
+ * - occasions: blueline_render_occasion_effects() prints nothing without an
+ *   active occasion.
+ * - homepage: template-homepage.php's hero/modules.
+ * - woocommerce: WooCommerce templates/shortcodes/blocks, the same gate that
+ *   already drops WooCommerce's own CSS (blueline_is_commerce_request()).
+ * - forms: Contact Form 7 markup, the same gate as CF7's own assets.
+ * - account: My Account endpoints (body.woocommerce-account).
+ *
+ * @return string[] Bundle basenames under assets/dist/.
+ */
+function blueline_template_style_bundles(): array {
+	$gates = array(
+		'occasions'   => null !== blueline_resolve_active_occasion(),
+		'homepage'    => is_front_page() || is_page_template( 'template-homepage.php' ),
+		'woocommerce' => function_exists( 'blueline_is_commerce_request' ) && blueline_is_commerce_request(),
+		'forms'       => blueline_request_needs_cf7(),
+		'account'     => function_exists( 'is_account_page' ) && is_account_page(),
+	);
+
+	return array_keys( array_filter( $gates ) );
+}
+
+/**
+ * Whether this request can render a Contact Form 7 form: a form shortcode or
+ * block in the queried post or an active widget, or an account page (plugins
+ * render forms there outside post content).
+ *
+ * @return bool
+ */
+function blueline_request_needs_cf7(): bool {
+	if ( function_exists( 'is_account_page' ) && is_account_page() ) {
+		return true;
+	}
+
+	return blueline_request_content_contains( array( '[contact-form-7', '[contact-form ', 'wp:contact-form-7/' ) );
 }
 
 /**
@@ -202,9 +255,7 @@ function blueline_dequeue_unused_plugin_assets(): void {
 		return;
 	}
 
-	$account_page = function_exists( 'is_account_page' ) && is_account_page();
-
-	if ( ! $account_page && ! blueline_request_content_contains( array( '[contact-form-7', '[contact-form ', 'wp:contact-form-7/' ) ) ) {
+	if ( ! blueline_request_needs_cf7() ) {
 		foreach ( array( 'contact-form-7', 'swv', 'wpcf7cf-scripts' ) as $handle ) {
 			wp_dequeue_script( $handle );
 		}

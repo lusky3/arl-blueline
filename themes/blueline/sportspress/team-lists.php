@@ -110,22 +110,18 @@ $bl_current_user_player_id = function_exists( 'blueline_current_user_player_id' 
  * fallback, not a replacement.
  */
 if ( empty( $lists ) ) {
-	$fallback_roster = function_exists( 'blueline_get_team_roster' ) ? blueline_get_team_roster( $id ) : array();
+	$fallback_roster = blueline_get_team_roster( $id );
 
 	if ( empty( $fallback_roster ) ) {
 		?>
 		<div class="bl-sp-empty">
-			<?php
-			if ( function_exists( 'blueline_leaf_mark' ) ) {
-				blueline_leaf_mark( 'bl-sp-empty__mark' );
-			}
-			?>
+			<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>
 			<p class="bl-sp-empty__text"><?php esc_html_e( 'Roster not posted yet.', 'blueline' ); ?></p>
 		</div>
 		<?php
 		return;
 	}
-	$bl_roster_stats = function_exists( 'blueline_roster_season_stats' ) ? blueline_roster_season_stats( (int) $id, wp_list_pluck( $fallback_roster, 'player_id' ) ) : array();
+	$bl_roster_stats = blueline_roster_season_stats( (int) $id, wp_list_pluck( $fallback_roster, 'player_id' ) );
 	?>
 	<table class="bl-sp-roster sp-data-table sp-sortable-table">
 		<thead>
@@ -153,9 +149,7 @@ if ( empty( $lists ) ) {
 							<span class="bl-sp-roster__you"><?php esc_html_e( 'You', 'blueline' ); ?></span>
 						<?php endif; ?>
 					</td>
-					<?php if ( function_exists( 'blueline_render_roster_stats' ) ) : ?>
-						<?php blueline_render_roster_stats( $mate['player_id'], $bl_roster_stats[ $mate['player_id'] ] ?? null ); ?>
-					<?php endif; ?>
+					<?php blueline_render_roster_stats( $mate['player_id'], $bl_roster_stats[ $mate['player_id'] ] ?? null ); ?>
 				</tr>
 			<?php endforeach; ?>
 		</tbody>
@@ -175,7 +169,7 @@ $multiple_lists = count( $lists ) > 1;
 // actually printed below (it is conditional on $multiple_lists, the group
 // heading is not) -- so the group heading is never left one level too deep
 // for a caption that never rendered.
-$bl_caption_level  = function_exists( 'blueline_sp_caption_heading_level' ) ? blueline_sp_caption_heading_level() : 3;
+$bl_caption_level  = blueline_sp_caption_heading_level();
 $bl_group_level    = $bl_caption_level + 1;
 $bl_position_terms = null; // Fetched once, on the first position-grouped list.
 
@@ -217,7 +211,7 @@ foreach ( $lists as $list_post ) :
 		}
 	}
 
-	$bl_roster_stats = function_exists( 'blueline_roster_season_stats' ) ? blueline_roster_season_stats( (int) $id, $player_ids ) : array();
+	$bl_roster_stats = blueline_roster_season_stats( (int) $id, $player_ids );
 
 	$groups = array( null );
 	if ( 'position' === $grouping && taxonomy_exists( 'sp_position' ) ) {
@@ -313,9 +307,7 @@ foreach ( $lists as $list_post ) :
 								<span class="bl-sp-roster__you"><?php esc_html_e( 'You', 'blueline' ); ?></span>
 							<?php endif; ?>
 						</td>
-						<?php if ( function_exists( 'blueline_render_roster_stats' ) ) : ?>
-							<?php blueline_render_roster_stats( (int) $player_id, $bl_roster_stats[ (int) $player_id ] ?? null ); ?>
-						<?php endif; ?>
+						<?php blueline_render_roster_stats( (int) $player_id, $bl_roster_stats[ (int) $player_id ] ?? null ); ?>
 					</tr>
 					<?php
 				endforeach;

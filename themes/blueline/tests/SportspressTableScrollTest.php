@@ -7,6 +7,7 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/fixtures/wp-html-api.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**

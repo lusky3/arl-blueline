@@ -52,11 +52,11 @@ ssh -p "$PORT" "$HOST" "chown -R 33:33 '$DEST'"
 
 if [ "$TARGET" = "staging" ]; then
   # This rsync-based sync never triggers WordPress's after_switch_theme
-  # hook (the theme is never actually "switched" -- see
-  # inc/account/endpoints.php's own `add_action( 'after_switch_theme',
-  # 'flush_rewrite_rules' )`), so a slug this deploy newly registered via
-  # add_rewrite_endpoint() (e.g. inc/account/endpoints.php's 'preferences')
-  # 404s on staging until the rewrite rules are flushed by hand. docker
+  # hook (the theme is never actually "switched"), and the blueline-core
+  # plugin's account-endpoints module only flushes after its own activation
+  # or version bump, so a slug newly registered via add_rewrite_endpoint()
+  # (e.g. that module's 'preferences') can 404 on staging until the rewrite
+  # rules are flushed by hand. docker
   # exec against the staging-wp container mirrors the pattern
   # scripts/fetch-wp-core-oracle.sh already uses to reach staging's
   # WordPress container over this same SSH connection; -u 33 matches the

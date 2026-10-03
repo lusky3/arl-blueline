@@ -7,7 +7,6 @@
 
 use PHPUnit\Framework\TestCase;
 
-require_once __DIR__ . '/../inc/account/player-link.php';
 require_once __DIR__ . '/../inc/account/player-data.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 

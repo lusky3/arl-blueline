@@ -6,6 +6,12 @@ module.exports = {
 	entry: {
 		index: path.resolve( __dirname, 'assets/src/js/index.js' ),
 		editor: path.resolve( __dirname, 'assets/src/js/editor.js' ),
+		// PERF-10: per-template stylesheets, enqueued only where their selectors can match (inc/enqueue.php).
+		occasions: path.resolve( __dirname, 'assets/src/css/occasions.css' ),
+		homepage: path.resolve( __dirname, 'assets/src/css/homepage.css' ),
+		woocommerce: path.resolve( __dirname, 'assets/src/css/woocommerce.css' ),
+		forms: path.resolve( __dirname, 'assets/src/css/forms.css' ),
+		account: path.resolve( __dirname, 'assets/src/css/account.css' ),
 	},
 	output: {
 		...defaults.output,

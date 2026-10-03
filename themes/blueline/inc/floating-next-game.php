@@ -6,8 +6,8 @@
  *
  * Design spec: docs/superpowers/specs/2026-08-25-blueline-floating-next-
  * game-design.md. Second of three planned account-linked personalization
- * features built on blueline_current_user_player_id() (inc/account/
- * player-data.php, from the first, already-merged "highlight mine" work).
+ * features built on blueline_current_user_player_id() (now in the
+ * blueline-core plugin; without it the widget never renders).
  *
  * Deliberately its own file rather than folded into inc/account/dashboard.php:
  * this is sitewide chrome consumed from footer.php on every template, not a
@@ -63,7 +63,7 @@ function blueline_render_floating_next_game(): void {
 		return;
 	}
 
-	$player_id = blueline_current_user_player_id();
+	$player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
 
 	if ( ! $player_id ) {
 		return;
@@ -76,7 +76,7 @@ function blueline_render_floating_next_game(): void {
 	}
 
 	$opponent_name = $event['opponent_team_id']
-		? ( function_exists( 'blueline_sp_title' ) ? blueline_sp_title( $event['opponent_team_id'] ) : get_the_title( $event['opponent_team_id'] ) )
+		? blueline_sp_title( $event['opponent_team_id'] )
 		: __( 'TBD', 'blueline' );
 
 	$venue_url = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
