@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 // This constant is used only if one of those mechanisms is unavailable
 // (e.g. a missing/broken assets/dist/*.asset.php) — it does not need to
 // be bumped by hand when assets change.
-define( 'BLUELINE_VERSION', '1.0.1' );
+define( 'BLUELINE_VERSION', '1.1.0-rc.1' );
 define( 'BLUELINE_DIR', get_template_directory() );
 define( 'BLUELINE_URI', get_template_directory_uri() );
 
