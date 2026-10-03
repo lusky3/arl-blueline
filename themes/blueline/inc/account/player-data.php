@@ -304,10 +304,13 @@ function blueline_get_player_team( int $player_id ): ?array {
 		return null;
 	}
 
+	// Raw meta, not get_post_thumbnail_id(): the dashboard crest needs a real attachment id (it has its own leaf fallback).
+	$logo_id = (int) get_post_meta( $team_id, '_thumbnail_id', true );
+
 	return array(
 		'team_id'  => $team_id,
 		'name'     => blueline_sp_title( $team_id ),
-		'logo_id'  => has_post_thumbnail( $team_id ) ? (int) get_post_thumbnail_id( $team_id ) : null,
+		'logo_id'  => $logo_id > 0 ? $logo_id : null,
 		'division' => blueline_player_division_name( $team_id ),
 		'number'   => blueline_player_jersey_number( $player_id ),
 	);

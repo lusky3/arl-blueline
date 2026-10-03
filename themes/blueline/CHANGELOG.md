@@ -19,6 +19,9 @@ as the release notes.
 - `docs/OPERATIONS.md`: deploy order, rollback to the classic theme, cutover checklist.
 - WooCommerce `checkout/terms.php` override: the terms checkbox is `required` and `aria-required`.
 - Team-logo links (`.team-logo a`) get an accessible name, or are hidden when empty.
+- Default team logo: a team with no logo (or whose logo image file is missing) shows a
+  brand badge everywhere a team logo is drawn, instead of an empty box. The SEO tags
+  never use it (social networks can't display an SVG).
 
 ### Changed
 - Homepage, WooCommerce, account, forms and occasions CSS load only on pages that use

@@ -24,3 +24,4 @@ require_once __DIR__ . '/sportspress/table-scroll.php';
 require_once __DIR__ . '/sportspress/calendar.php';
 require_once __DIR__ . '/sportspress/heroes.php';
 require_once __DIR__ . '/sportspress/venues.php';
+require_once __DIR__ . '/sportspress/default-team-logo.php';

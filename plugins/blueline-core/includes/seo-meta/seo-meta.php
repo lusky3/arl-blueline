@@ -127,7 +127,10 @@ function blueline_social_meta_data() {
 	if ( is_singular() ) {
 		$id          = get_the_ID();
 		$description = get_the_excerpt( $id );
-		$image       = has_post_thumbnail( $id ) ? get_the_post_thumbnail_url( $id, 'large' ) : $logo;
+		$image       = blueline_core_real_thumbnail_url( $id );
+		if ( '' === $image ) {
+			$image = $logo;
+		}
 
 		return array(
 			'title'       => get_the_title( $id ),
@@ -182,11 +185,12 @@ function blueline_social_meta_data_for_event( $event_id, $logo ) {
 		? sprintf( '%1$s · %2$s', $when, $venue_name )
 		: $when;
 
-	$image = $logo;
-	if ( $team_a && has_post_thumbnail( $team_a ) ) {
-		$image = get_the_post_thumbnail_url( $team_a, 'large' );
-	} elseif ( $team_b && has_post_thumbnail( $team_b ) ) {
-		$image = get_the_post_thumbnail_url( $team_b, 'large' );
+	$image = $team_a ? blueline_core_real_thumbnail_url( $team_a ) : '';
+	if ( '' === $image && $team_b ) {
+		$image = blueline_core_real_thumbnail_url( $team_b );
+	}
+	if ( '' === $image ) {
+		$image = $logo;
 	}
 
 	return array(
@@ -307,8 +311,9 @@ function blueline_sports_event_schema( $event_id ) {
 			'@type' => 'SportsTeam',
 			'name'  => blueline_core_seo_title( $team_id ),
 		);
-		if ( has_post_thumbnail( $team_id ) ) {
-			$team_schema['logo'] = get_the_post_thumbnail_url( $team_id, 'large' );
+		$team_logo   = blueline_core_real_thumbnail_url( $team_id );
+		if ( $team_logo ) {
+			$team_schema['logo'] = $team_logo;
 		}
 		$competitors[] = $team_schema;
 	}
@@ -341,6 +346,26 @@ function blueline_core_seo_event_team_ids( int $event_id ): array {
  */
 function blueline_core_seo_event_team_ids_fallback( int $event_id ): array {
 	return array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
+}
+
+/**
+ * URL of a post's REAL uploaded featured image, or '' when it has none.
+ *
+ * Not has_post_thumbnail(): the theme reports a placeholder (negative) thumbnail id for a logo-less
+ * team so templates can draw a default badge, but that SVG is useless as an og:image / schema logo.
+ *
+ * @param int    $post_id Post ID.
+ * @param string $size    Image size.
+ * @return string
+ */
+function blueline_core_real_thumbnail_url( int $post_id, string $size = 'large' ): string {
+	$thumbnail_id = (int) get_post_thumbnail_id( $post_id );
+	if ( $thumbnail_id <= 0 ) {
+		return '';
+	}
+
+	// The attachment itself, not get_the_post_thumbnail_url(): the theme's default-logo filter answers that one.
+	return (string) wp_get_attachment_image_url( $thumbnail_id, $size );
 }
 
 /**

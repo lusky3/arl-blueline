@@ -33,6 +33,11 @@ final class SocialMetaTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
+
+		// Attachments that exist as real images; thumbnail ids elsewhere in this file point at these.
+		$state              = &blueline_test_state();
+		$state['posts'][55] = array( 'is_image' => true );
+		$state['posts'][66] = array( 'is_image' => true );
 	}
 
 	// -----------------------------------------------------------------------
@@ -117,7 +122,7 @@ final class SocialMetaTest extends TestCase {
 
 		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
 
-		$this->assertStringContainsString( 'thumb-55', $data['image'] );
+		$this->assertStringContainsString( 'photo-55-large', $data['image'] );
 	}
 
 	/**
@@ -134,7 +139,7 @@ final class SocialMetaTest extends TestCase {
 
 		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
 
-		$this->assertStringContainsString( 'thumb-66', $data['image'] );
+		$this->assertStringContainsString( 'photo-66-large', $data['image'] );
 	}
 
 	/**
@@ -149,6 +154,46 @@ final class SocialMetaTest extends TestCase {
 		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
 
 		$this->assertSame( 'https://example.test/logo.png', $data['image'] );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_event_meta_never_uses_the_themes_placeholder_team_logo(): void {
+		// The theme reports a negative placeholder thumbnail id for a logo-less team (default SVG badge).
+		$state                              = &blueline_test_state();
+		$state['posts'][10]                 = array(
+			'title'        => 'Puck Dynasty',
+			'thumbnail_id' => -1,
+		);
+		$state['posts'][11]                 = array(
+			'title'        => 'Hammers',
+			'thumbnail_id' => 66,
+		);
+		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
+
+		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+
+		$this->assertStringContainsString( 'photo-66-large', $data['image'], 'The placeholder team is skipped for the next real logo.' );
+
+		$state['posts'][11]['thumbnail_id'] = -1;
+		$data                               = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+
+		$this->assertSame( 'https://example.test/logo.png', $data['image'], 'Two placeholders fall back to the site logo.' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_real_thumbnail_url_rejects_the_placeholder_and_missing_logos(): void {
+		$state              = &blueline_test_state();
+		$state['posts'][10] = array( 'thumbnail_id' => -1 );
+		$state['posts'][11] = array( 'thumbnail_id' => 66 );
+		$state['posts'][12] = array();
+
+		$this->assertSame( '', blueline_core_real_thumbnail_url( 10 ) );
+		$this->assertSame( '', blueline_core_real_thumbnail_url( 12 ) );
+		$this->assertStringContainsString( 'photo-66-large', blueline_core_real_thumbnail_url( 11 ) );
 	}
 
 	/**
