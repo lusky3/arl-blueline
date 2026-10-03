@@ -74,6 +74,19 @@
 }
 
 /*
+ * A top-level list gets the same measure and centring as the paragraphs
+ * around it, applied to the list box itself rather than each li (see the
+ * li note above): its bullets keep one shared column, and the whole list
+ * lines up with the text column instead of hanging out to the left of it
+ * on a wide page (reported live on /2026/08/winter-season-registration-
+ * update at 1920px: paragraphs centred, bullets ~220px further left).
+ */
+.entry-content > :is(ul, ol) {
+	max-width: 70ch;
+	margin-inline: auto;
+}
+
+/*
  * ...but a wider ceiling, not no ceiling, on a page with an active
  * sidebar, in the one width range where that sidebar actually narrows
  * this column: 960-1799.98px (layout.css's own sidebar breakpoint),
@@ -106,6 +119,7 @@
 
 	.bl-content-layout--has-sidebar .entry-content p,
 	.bl-content-layout--has-sidebar .entry-content li,
+	.bl-content-layout--has-sidebar .entry-content > :is(ul, ol),
 	.bl-content-layout--has-sidebar .entry-content :where(h1, h2, h3, h4, h5, h6) {
 		max-width: 90ch;
 	}
