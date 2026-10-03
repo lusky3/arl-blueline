@@ -197,7 +197,10 @@
  */
 .woocommerce a.button.disabled,
 .woocommerce button.button:disabled[disabled],
-.woocommerce input.button:disabled[disabled] {
+.woocommerce button.button.alt:disabled[disabled],
+.woocommerce input.button:disabled[disabled],
+.woocommerce input.button.alt:disabled[disabled] {
+	background: var(--bl-ink);
 	color: var(--bl-paper);
 }
 
@@ -596,6 +599,19 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 .woocommerce div.product form.cart .quantity {
 	margin: 0;
+}
+
+/* WooCommerce's clearfix pseudo-elements become empty flex items here and each
+   adds a gap; a flex container needs no clearfix. */
+.woocommerce div.product form.cart::before,
+.woocommerce div.product form.cart::after {
+	display: none;
+}
+
+/* Sold-individually products print only a hidden quantity input;
+   its empty box still took a flex gap. */
+.woocommerce div.product form.cart .quantity:has(> input[type="hidden"]) {
+	display: none;
 }
 
 .woocommerce div.product .quantity .qty {

@@ -491,3 +491,13 @@
 	background: var(--bl-content-surface);
 	color: var(--bl-content-text);
 }
+
+/*
+ * The /register box title's colours are inline styles from the shortcode in
+ * page content (#0066cc text on #ffcc00, 3.68:1). Only that exact pair is
+ * overridden, so any other box colour a page author picks is left alone;
+ * !important is the only way past an inline style.
+ */
+.entry-content .su-box-title[style*="color:#0066cc"][style*="background-color:#ffcc00"] {
+	color: var(--bl-ink) !important;
+}
