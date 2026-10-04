@@ -26,6 +26,13 @@ defined( 'ABSPATH' ) || exit;
  * Whether an SEO plugin (Yoast, Rank Math, SEOPress, AIOSEO) is active and
  * already prints its own Open Graph and JSON-LD, so this module steps aside.
  *
+ * Two filters can override the answer, applied in this order:
+ *
+ * 1. `blueline_core_seo_plugin_active` -- the plugin-prefixed name; use this one.
+ * 2. `blueline_seo_plugin_active` -- DEPRECATED legacy name from when this code lived in the
+ *    theme. Still applied (after the new one, so it wins when both are used) so existing
+ *    theme or site code keeps working; new code should not use it.
+ *
  * @return bool
  */
 function blueline_seo_plugin_active(): bool {
@@ -34,9 +41,39 @@ function blueline_seo_plugin_active(): bool {
 	/**
 	 * Filters whether this module defers its social meta and JSON-LD to an SEO plugin.
 	 *
+	 * Return true to print nothing (another plugin owns Open Graph/Twitter/JSON-LD), false to
+	 * force this module's output on.
+	 *
+	 * @param bool $active Whether a known SEO plugin is active.
+	 */
+	$active = (bool) apply_filters( 'blueline_core_seo_plugin_active', $active );
+
+	/**
+	 * Deprecated: legacy name of `blueline_core_seo_plugin_active`, kept for backward
+	 * compatibility with code written against the theme's version of this module.
+	 *
 	 * @param bool $active Whether a known SEO plugin is active.
 	 */
 	return (bool) apply_filters( 'blueline_seo_plugin_active', $active );
+}
+
+/**
+ * Reduce a title/description fragment to plain text: tags stripped, HTML entities decoded,
+ * whitespace collapsed.
+ *
+ * WordPress hands back titles in "display" form: wptexturize()/convert_chars() leave entities
+ * (`&#8217;`, `&amp;`) in them and SportsPress prepends badge markup such as
+ * `<strong class="sp-player-number">27</strong>`. Neither belongs in a share-preview tag or in
+ * JSON, where nothing decodes them; esc_attr() and wp_json_encode() do the only escaping.
+ *
+ * @param mixed $text Text that may contain markup or entities.
+ * @return string
+ */
+function blueline_core_seo_plain_text( $text ): string {
+	$text = wp_strip_all_tags( (string) $text );
+	$text = html_entity_decode( $text, ENT_QUOTES, 'UTF-8' );
+
+	return trim( (string) preg_replace( '/[\s\x{00A0}]+/u', ' ', $text ) );
 }
 
 add_action( 'wp_head', 'blueline_render_social_meta', 2 );
@@ -53,7 +90,7 @@ function blueline_render_social_meta() {
 	printf( '<meta property="og:type" content="%s">' . "\n", esc_attr( $data['type'] ) );
 	printf( '<meta property="og:title" content="%s">' . "\n", esc_attr( $data['title'] ) );
 	printf( '<meta property="og:url" content="%s">' . "\n", esc_url( $data['url'] ) );
-	printf( '<meta property="og:site_name" content="%s">' . "\n", esc_attr( get_bloginfo( 'name' ) ) );
+	printf( '<meta property="og:site_name" content="%s">' . "\n", esc_attr( blueline_core_seo_plain_text( get_bloginfo( 'name' ) ) ) );
 
 	if ( $data['description'] ) {
 		printf( '<meta property="og:description" content="%s">' . "\n", esc_attr( $data['description'] ) );
@@ -112,8 +149,8 @@ function blueline_social_meta_data() {
 	// live on staging before this ordering was corrected.
 	if ( is_front_page() ) {
 		return array(
-			'title'       => get_bloginfo( 'name' ),
-			'description' => wp_strip_all_tags( get_bloginfo( 'description' ) ),
+			'title'       => blueline_core_seo_plain_text( get_bloginfo( 'name' ) ),
+			'description' => blueline_core_seo_plain_text( get_bloginfo( 'description' ) ),
 			'image'       => $logo,
 			'url'         => home_url( '/' ),
 			'type'        => 'website',
@@ -125,16 +162,16 @@ function blueline_social_meta_data() {
 	}
 
 	if ( is_singular() ) {
-		$id          = get_the_ID();
-		$description = get_the_excerpt( $id );
-		$image       = blueline_core_real_thumbnail_url( $id );
+		$id    = (int) get_the_ID();
+		$image = blueline_core_real_thumbnail_url( $id );
 		if ( '' === $image ) {
 			$image = $logo;
 		}
 
 		return array(
-			'title'       => get_the_title( $id ),
-			'description' => $description ? wp_strip_all_tags( $description ) : '',
+			// Through the shared helper: player/staff titles carry SportsPress badge markup in get_the_title().
+			'title'       => blueline_core_seo_title( $id ),
+			'description' => blueline_core_seo_post_description( $id ),
 			'image'       => $image ? $image : '',
 			'url'         => get_permalink( $id ),
 			'type'        => 'article',
@@ -146,8 +183,8 @@ function blueline_social_meta_data() {
 	// own base URL (query vars included) without a page-2+ suffix -- the
 	// same function theme pagination already relies on for this.
 	return array(
-		'title'       => get_bloginfo( 'name' ),
-		'description' => wp_strip_all_tags( get_bloginfo( 'description' ) ),
+		'title'       => blueline_core_seo_plain_text( get_bloginfo( 'name' ) ),
+		'description' => blueline_core_seo_plain_text( get_bloginfo( 'description' ) ),
 		'image'       => $logo,
 		'url'         => get_pagenum_link( 1 ),
 		'type'        => 'website',
@@ -225,15 +262,21 @@ function blueline_render_structured_data() {
 		}
 	}
 
-	printf(
-		'<script type="application/ld+json">%s</script>' . "\n",
-		wp_json_encode(
-			array(
-				'@context' => 'https://schema.org',
-				'@graph'   => $graph,
-			)
-		)
+	// HEX_TAG/HEX_AMP: a `<`, `>` or `&` in a title (e.g. `<!--<script>` once entities are decoded)
+	// is emitted as a \u escape, so no value can open a comment or close the script block early.
+	$json = wp_json_encode(
+		array(
+			'@context' => 'https://schema.org',
+			'@graph'   => $graph,
+		),
+		JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
 	);
+
+	if ( ! is_string( $json ) || '' === $json ) {
+		return;
+	}
+
+	printf( '<script type="application/ld+json">%s</script>' . "\n", $json ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON built by wp_json_encode() with HEX_TAG/HEX_AMP.
 }
 
 /**
@@ -246,7 +289,7 @@ function blueline_organization_schema() {
 	$schema = array(
 		'@type' => 'SportsOrganization',
 		'@id'   => home_url( '/#organization' ),
-		'name'  => get_bloginfo( 'name' ),
+		'name'  => blueline_core_seo_plain_text( get_bloginfo( 'name' ) ),
 		'url'   => home_url( '/' ),
 	);
 
@@ -287,11 +330,7 @@ function blueline_sports_event_schema( $event_id ) {
 		'startDate'   => gmdate( DATE_ATOM, $start_ts ),
 		'url'         => get_permalink( $event_id ),
 		'sport'       => 'Ice Hockey',
-		// schema.org's EventScheduled means "taking place, or took place,
-		// as scheduled" -- correct for both an upcoming preview and an
-		// already-played final; this theme has no cancelled/postponed
-		// state to report, so there is no other value it could be.
-		'eventStatus' => 'https://schema.org/EventScheduled',
+		'eventStatus' => blueline_core_seo_event_status_url( $event_id ),
 	);
 
 	$venue_name = blueline_core_seo_event_venue_label( $event_id );
@@ -322,6 +361,61 @@ function blueline_sports_event_schema( $event_id ) {
 	}
 
 	return $schema;
+}
+
+/**
+ * The schema.org eventStatus URL for an sp_event, from SportsPress's `sp_status` post meta
+ * ('ok', 'tbd', 'postponed', 'cancelled').
+ *
+ * EventScheduled means "taking place, or took place, as scheduled", so it is right for an
+ * upcoming preview, a played final and a not-yet-timed ('tbd') game alike; only a postponed or
+ * cancelled game needs its own value. Read straight from the meta (no theme function) so the
+ * plugin stays independent of the theme.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string
+ */
+function blueline_core_seo_event_status_url( int $event_id ): string {
+	$status = strtolower( trim( (string) get_post_meta( $event_id, 'sp_status', true ) ) );
+
+	if ( 'postponed' === $status ) {
+		return 'https://schema.org/EventPostponed';
+	}
+
+	if ( 'cancelled' === $status ) {
+		return 'https://schema.org/EventCancelled';
+	}
+
+	return 'https://schema.org/EventScheduled';
+}
+
+/**
+ * Meta description for a singular post, without running the `the_content` filter chain.
+ *
+ * Core's get_the_excerpt() renders the whole body through `the_content` (blocks, every plugin's
+ * callbacks) just to trim it, and this runs in wp_head before the page body renders it again.
+ * So: the manual excerpt when there is one, else the first words of the raw content with
+ * shortcodes and tags stripped. A password-protected post yields no description (the excerpt
+ * would leak its body).
+ *
+ * @param int $post_id Post ID.
+ * @return string Plain text, '' when there is nothing to use.
+ */
+function blueline_core_seo_post_description( int $post_id ): string {
+	$post = get_post( $post_id );
+
+	if ( ! $post || post_password_required( $post ) ) {
+		return '';
+	}
+
+	$excerpt = blueline_core_seo_plain_text( $post->post_excerpt );
+	if ( '' !== $excerpt ) {
+		return $excerpt;
+	}
+
+	$content = blueline_core_seo_plain_text( strip_shortcodes( (string) $post->post_content ) );
+
+	return wp_trim_words( $content, 30, '…' );
 }
 
 /**
@@ -369,21 +463,24 @@ function blueline_core_real_thumbnail_url( int $post_id, string $size = 'large' 
 }
 
 /**
- * Plain title for a post: the theme's helper when present, else the fallback.
+ * Plain-text title for a post: the theme's helper when present, else the fallback, then
+ * reduced to plain text (no markup, entities decoded) -- the single place every Open Graph,
+ * Twitter and JSON-LD title goes through.
  *
  * @param int $post_id Post ID.
  * @return string
  */
 function blueline_core_seo_title( $post_id ): string {
-	if ( function_exists( 'blueline_sp_title' ) ) {
-		return (string) blueline_sp_title( $post_id );
-	}
+	$title = function_exists( 'blueline_sp_title' )
+		? (string) blueline_sp_title( $post_id )
+		: blueline_core_seo_title_fallback( $post_id );
 
-	return blueline_core_seo_title_fallback( $post_id );
+	return blueline_core_seo_plain_text( $title );
 }
 
 /**
  * Post title without SportsPress's player/staff badge markup (raw title for those two types).
+ * Still display-form text; blueline_core_seo_title() makes it plain.
  *
  * @param int $post_id Post ID.
  * @return string
@@ -397,17 +494,18 @@ function blueline_core_seo_title_fallback( $post_id ): string {
 }
 
 /**
- * Venue label for an sp_event: the theme's helper when present, else the fallback.
+ * Plain-text venue label for an sp_event: the theme's helper when present, else the fallback.
  *
  * @param int $event_id sp_event post ID.
  * @return string
  */
 function blueline_core_seo_event_venue_label( int $event_id ): string {
-	if ( function_exists( 'blueline_sp_event_venue_label' ) ) {
-		return blueline_sp_event_venue_label( $event_id );
-	}
+	$label = function_exists( 'blueline_sp_event_venue_label' )
+		? blueline_sp_event_venue_label( $event_id )
+		: blueline_core_seo_event_venue_label_fallback( $event_id );
 
-	return blueline_core_seo_event_venue_label_fallback( $event_id );
+	// Term names are stored entity-encoded (`Arena &amp; Pad`); the output wants plain text.
+	return blueline_core_seo_plain_text( $label );
 }
 
 /**

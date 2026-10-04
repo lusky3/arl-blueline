@@ -76,6 +76,23 @@ function blueline_handle_player_photo_upload(): void {
 		blueline_redirect_after_photo_upload( $redirect, 'not_owner' );
 	}
 
+	// PHP reports an upload it refused (over upload_max_filesize, partial, no temp dir...)
+	// through ['error'], with tmp_name empty -- read it so the user gets feedback.
+	$upload_error = isset( $_FILES['player_photo']['error'] ) ? (int) $_FILES['player_photo']['error'] : UPLOAD_ERR_OK;
+
+	if ( UPLOAD_ERR_NO_FILE === $upload_error ) {
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	if ( UPLOAD_ERR_INI_SIZE === $upload_error || UPLOAD_ERR_FORM_SIZE === $upload_error ) {
+		blueline_redirect_after_photo_upload( $redirect, 'too_large' );
+	}
+
+	if ( UPLOAD_ERR_OK !== $upload_error ) {
+		blueline_redirect_after_photo_upload( $redirect, 'error' );
+	}
+
 	if ( empty( $_FILES['player_photo']['tmp_name'] ) ) {
 		wp_safe_redirect( $redirect );
 		exit;
@@ -94,6 +111,16 @@ function blueline_handle_player_photo_upload(): void {
 		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
 	}
 
+	// A small file can still declare a huge bitmap (a decompression bomb): decoding allocates
+	// width x height x 4 bytes, so refuse oversized dimensions before anything decodes the image.
+	if ( (int) $image_info[0] <= 0 || (int) $image_info[1] <= 0 ) {
+		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
+	}
+
+	if ( (int) $image_info[0] * (int) $image_info[1] > blueline_player_photo_max_pixels( $image_info ) ) {
+		blueline_redirect_after_photo_upload( $redirect, 'too_large' );
+	}
+
 	$filename = isset( $_FILES['player_photo']['name'] ) ? sanitize_file_name( wp_unslash( $_FILES['player_photo']['name'] ) ) : '';
 	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- same tmp_name as above; wp_check_filetype_and_ext() itself re-reads the file's real bytes against $filename, it does not trust either as a bare string.
 	$checked       = wp_check_filetype_and_ext( $_FILES['player_photo']['tmp_name'], $filename );
@@ -103,9 +130,13 @@ function blueline_handle_player_photo_upload(): void {
 		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
 	}
 
-	require_once ABSPATH . 'wp-admin/includes/image.php';
-	require_once ABSPATH . 'wp-admin/includes/file.php';
-	require_once ABSPATH . 'wp-admin/includes/media.php';
+	// admin-post.php already loads these through wp-admin/includes/admin.php; the guard
+	// only matters for a caller that reaches this handler some other way.
+	if ( ! function_exists( 'media_handle_upload' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+	}
 
 	add_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' );
 	$attachment_id = media_handle_upload( 'player_photo', $player_id );
@@ -115,27 +146,65 @@ function blueline_handle_player_photo_upload(): void {
 		blueline_redirect_after_photo_upload( $redirect, 'error' );
 	}
 
-	blueline_set_player_photo( $player_id, $attachment_id );
+	if ( ! blueline_set_player_photo( $player_id, $attachment_id ) ) {
+		blueline_redirect_after_photo_upload( $redirect, 'error' );
+	}
+
 	blueline_redirect_after_photo_upload( $redirect, 'updated' );
+}
+
+/**
+ * The largest bitmap (width x height, in pixels) a player photo may declare.
+ *
+ * Decoding allocates about width x height x 4 bytes, and the 2MB byte cap
+ * alone does not bound that: a tiny, highly compressed PNG can declare tens
+ * of thousands of pixels per side. The default of 40,000,000 px (about
+ * 6300 x 6300, 160MB decoded) is far above any real phone or camera photo
+ * that fits in 2MB, yet low enough to keep the decode inside a PHP worker.
+ *
+ * @param array $image_info The getimagesize() result for the upload.
+ * @return int Pixel cap, at least 1.
+ */
+function blueline_player_photo_max_pixels( array $image_info = array() ): int {
+	/**
+	 * Filters the maximum pixel count (width x height) accepted for a player photo upload.
+	 *
+	 * @param int   $max_pixels Default 40000000.
+	 * @param array $image_info The getimagesize() result for the upload.
+	 */
+	$max_pixels = (int) apply_filters( 'blueline_core_player_photo_max_pixels', 40000000, $image_info );
+
+	return max( 1, $max_pixels );
 }
 
 /**
  * Make a freshly uploaded attachment the player's photo, flag it as ours,
  * then delete the photo it replaced when that one is safe to delete.
  *
+ * If the thumbnail cannot be set (or does not read back as the new
+ * attachment) the new attachment is deleted and the previous photo is left
+ * untouched, so the profile never ends up with no photo.
+ *
  * @param int $player_id     sp_player post ID.
  * @param int $attachment_id The new attachment, already parented to $player_id.
- * @return void
+ * @return bool Whether the new photo is now the player's thumbnail.
  */
-function blueline_set_player_photo( int $player_id, int $attachment_id ): void {
+function blueline_set_player_photo( int $player_id, int $attachment_id ): bool {
 	$previous_id = (int) get_post_thumbnail_id( $player_id );
 
-	set_post_thumbnail( $player_id, $attachment_id );
+	if ( ! set_post_thumbnail( $player_id, $attachment_id ) || (int) get_post_thumbnail_id( $player_id ) !== $attachment_id ) {
+		wp_delete_attachment( $attachment_id, true );
+
+		return false;
+	}
+
 	update_post_meta( $attachment_id, BLUELINE_PLAYER_PHOTO_FLAG_META, 1 );
 
 	if ( blueline_replaced_player_photo_is_deletable( $previous_id, $attachment_id, $player_id ) ) {
 		wp_delete_attachment( $previous_id, true );
 	}
+
+	return true;
 }
 
 /**
@@ -178,7 +247,7 @@ function blueline_replaced_player_photo_is_deletable( int $previous_id, int $new
 function blueline_attachment_is_thumbnail_elsewhere( int $attachment_id, int $player_id ): bool {
 	global $wpdb;
 
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one indexed postmeta lookup across every post type and status (get_posts() cannot cover both); must not be cached because it gates a delete.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one postmeta lookup across every post type and status (get_posts() cannot cover both); wp_postmeta indexes meta_key and post_id but not meta_value, so this scans the _thumbnail_id rows -- acceptable because it only runs on a photo replacement, never on a page view; must not be cached because it gates a delete.
 	$other_post = $wpdb->get_var(
 		$wpdb->prepare(
 			"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value = %s AND post_id != %d LIMIT 1",
@@ -232,19 +301,39 @@ function blueline_strip_image_metadata( string $path, string $mime ): bool {
 		return 'image/gif' === $mime;
 	}
 
+	// Prefer GD for this one re-encode (see blueline_prefer_gd_image_editor()); WordPress still falls
+	// back to Imagick, and the Imagick handling below, when GD cannot do the job.
+	add_filter( 'wp_image_editors', 'blueline_prefer_gd_image_editor', PHP_INT_MAX );
 	$editor = wp_get_image_editor( $path );
+	remove_filter( 'wp_image_editors', 'blueline_prefer_gd_image_editor', PHP_INT_MAX );
 	if ( is_wp_error( $editor ) ) {
 		return false;
 	}
 
 	$editor->maybe_exif_rotate();
 
+	// Imagick keeps the EXIF/IPTC/XMP profiles on save, so remove them from the editor's
+	// own handle first: one decode and one lossy encode instead of a second pass over the file.
+	$stripped_in_editor = false;
+	if ( $editor instanceof WP_Image_Editor_Imagick ) {
+		$image = blueline_imagick_editor_handle( $editor );
+		if ( null !== $image ) {
+			try {
+				blueline_remove_imagick_profiles( $image );
+				$stripped_in_editor = true;
+			} catch ( Exception $e ) {
+				return false;
+			}
+		}
+	}
+
 	$saved = $editor->save( $path, $mime );
 	if ( is_wp_error( $saved ) || empty( $saved['path'] ) || $saved['path'] !== $path ) {
 		return false;
 	}
 
-	if ( $editor instanceof WP_Image_Editor_Imagick ) {
+	// The editor's handle was not reachable: strip by re-reading the saved file (a second pass, but still fail-closed).
+	if ( $editor instanceof WP_Image_Editor_Imagick && ! $stripped_in_editor ) {
 		return blueline_strip_imagick_profiles( $path );
 	}
 
@@ -252,7 +341,64 @@ function blueline_strip_image_metadata( string $path, string $mime ): bool {
 }
 
 /**
- * Remove every Imagick profile except the colour profile (icc/icm).
+ * Put GD first in WordPress's image-editor list, whatever else is installed.
+ *
+ * GD never writes EXIF/IPTC/XMP on save, so a plain GD re-encode is already a
+ * metadata strip, and its memory use is bounded by PHP's memory_limit (the
+ * upload's pixel cap relies on that). Imagick allocates outside it and keeps
+ * profiles unless removed by hand. Only editors WordPress reports usable are
+ * in the list, so a host without GD simply keeps Imagick first.
+ *
+ * @param string[] $editors Editor class names, in preference order.
+ * @return string[]
+ */
+function blueline_prefer_gd_image_editor( $editors ) {
+	if ( ! is_array( $editors ) || ! in_array( 'WP_Image_Editor_GD', $editors, true ) ) {
+		return $editors;
+	}
+
+	return array_values( array_unique( array_merge( array( 'WP_Image_Editor_GD' ), $editors ) ) );
+}
+
+/**
+ * The Imagick object a WP_Image_Editor_Imagick has loaded, or null.
+ *
+ * WordPress exposes no getter for it (the property is protected), so it is
+ * read by reflection; null makes the caller fall back to re-reading the file.
+ *
+ * @param WP_Image_Editor_Imagick $editor The editor.
+ * @return Imagick|null
+ */
+function blueline_imagick_editor_handle( $editor ) {
+	try {
+		$property = new ReflectionProperty( $editor, 'image' );
+		$property->setAccessible( true );
+		$image = $property->getValue( $editor );
+	} catch ( ReflectionException $e ) {
+		return null;
+	}
+
+	return $image instanceof Imagick ? $image : null;
+}
+
+/**
+ * Remove every profile except the colour profile (icc/icm) from an Imagick
+ * image and reset its orientation (any EXIF rotation is already baked in).
+ *
+ * @param Imagick $image The image, modified in place.
+ * @return void
+ */
+function blueline_remove_imagick_profiles( $image ): void {
+	foreach ( array_keys( $image->getImageProfiles( '*', true ) ) as $profile ) {
+		if ( ! in_array( $profile, array( 'icc', 'icm' ), true ) ) {
+			$image->removeImageProfile( $profile );
+		}
+	}
+	$image->setImageOrientation( Imagick::ORIENTATION_TOPLEFT );
+}
+
+/**
+ * Fallback: re-read a saved file with Imagick and rewrite it without profiles.
  *
  * @param string $path Absolute path to the image.
  * @return bool
@@ -260,12 +406,7 @@ function blueline_strip_image_metadata( string $path, string $mime ): bool {
 function blueline_strip_imagick_profiles( string $path ): bool {
 	try {
 		$image = new Imagick( $path );
-		foreach ( array_keys( $image->getImageProfiles( '*', true ) ) as $profile ) {
-			if ( ! in_array( $profile, array( 'icc', 'icm' ), true ) ) {
-				$image->removeImageProfile( $profile );
-			}
-		}
-		$image->setImageOrientation( Imagick::ORIENTATION_TOPLEFT );
+		blueline_remove_imagick_profiles( $image );
 		$written = $image->writeImage( $path );
 		$image->clear();
 

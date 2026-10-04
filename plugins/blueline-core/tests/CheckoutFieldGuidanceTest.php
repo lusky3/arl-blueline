@@ -301,4 +301,229 @@ final class CheckoutFieldGuidanceTest extends TestCase {
 		);
 		$this->assertSame( 'email', $result['autocomplete'] );
 	}
+
+	/**
+	 * Capture the clean hook baseline (the first reset call records it) before any test adds
+	 * a filter of its own.
+	 */
+	protected function setUp(): void {
+		blueline_test_reset_hooks();
+	}
+
+	/**
+	 * Reset hooks so a filter added by one test cannot leak into the next.
+	 */
+	protected function tearDown(): void {
+		blueline_test_reset_hooks();
+	}
+
+	/**
+	 * An admin-edited arl_division placeholder and description (Checkout Field Editor Pro) are
+	 * not overwritten, matching the sibling branches' content guard.
+	 */
+	public function test_division_field_keeps_admin_edited_placeholder_and_description(): void {
+		$result = blueline_wc_checkout_field_guidance_for_key(
+			'arl_division',
+			array(
+				'placeholder' => 'Pick your level',
+				'description' => 'Custom admin help text.',
+			)
+		);
+
+		$this->assertSame( 'Pick your level', $result['placeholder'] );
+		$this->assertSame( 'Custom admin help text.', $result['description'] );
+	}
+
+	/**
+	 * The placeholder and description are guarded independently: an edited description survives
+	 * while an empty placeholder is still filled in.
+	 */
+	public function test_division_field_guards_placeholder_and_description_independently(): void {
+		$result = blueline_wc_checkout_field_guidance_for_key(
+			'arl_division',
+			array(
+				'placeholder' => '',
+				'description' => 'Custom admin help text.',
+			)
+		);
+
+		$this->assertSame( 'Select skill level(s)', $result['placeholder'] );
+		$this->assertSame( 'Custom admin help text.', $result['description'] );
+	}
+
+	/**
+	 * Running the guidance twice (both filters run on a real checkout) is idempotent: the
+	 * second pass sees the default copy and rewrites it to itself.
+	 */
+	public function test_division_guidance_is_idempotent(): void {
+		$once  = blueline_wc_checkout_field_guidance_for_key(
+			'arl_division',
+			array(
+				'placeholder' => '',
+				'description' => '',
+			)
+		);
+		$twice = blueline_wc_checkout_field_guidance_for_key( 'arl_division', $once );
+
+		$this->assertSame( $once, $twice );
+	}
+
+	/**
+	 * The `blueline_core_checkout_field_guidance` filter can add a field and change copy.
+	 */
+	public function test_guidance_map_is_filterable(): void {
+		add_filter(
+			'blueline_core_checkout_field_guidance',
+			static function ( array $map ): array {
+				$map['my_field']                    = array(
+					'mode'        => 'set',
+					'placeholder' => 'Custom placeholder',
+					'description' => 'Custom description',
+				);
+				$map['arl_division']['placeholder'] = 'Level(s)';
+				return $map;
+			}
+		);
+
+		$custom = blueline_wc_checkout_field_guidance_for_key( 'my_field', array() );
+		$this->assertSame( 'Custom placeholder', $custom['placeholder'] );
+		$this->assertSame( 'Custom description', $custom['description'] );
+
+		$division = blueline_wc_checkout_field_guidance_for_key( 'arl_division', array( 'placeholder' => '' ) );
+		$this->assertSame( 'Level(s)', $division['placeholder'] );
+	}
+
+	/**
+	 * A filter can remove a field from the map, and malformed results or entries are ignored
+	 * rather than fataling.
+	 */
+	public function test_guidance_map_filter_tolerates_removed_and_malformed_entries(): void {
+		add_filter(
+			'blueline_core_checkout_field_guidance',
+			static function ( array $map ): array {
+				unset( $map['arl_division'] );
+				$map['arl_team'] = 'not an array';
+				$map['broken']   = array( 'mode' => 'set' );
+				return $map;
+			}
+		);
+
+		$args = array(
+			'placeholder' => '',
+			'description' => '',
+		);
+
+		$this->assertSame( $args, blueline_wc_checkout_field_guidance_for_key( 'arl_division', $args ) );
+		$this->assertSame( $args, blueline_wc_checkout_field_guidance_for_key( 'arl_team', $args ) );
+		$this->assertSame( $args, blueline_wc_checkout_field_guidance_for_key( 'broken', $args ) );
+
+		blueline_test_reset_hooks();
+		add_filter( 'blueline_core_checkout_field_guidance', static fn() => 'nope' );
+
+		$division = blueline_wc_checkout_field_guidance_for_key( 'arl_division', $args );
+		$this->assertSame( 'Select skill level(s)', $division['placeholder'] );
+	}
+
+	/**
+	 * A realistic WooCommerce checkbox field, as woocommerce_form_field() renders it.
+	 *
+	 * @param string $input_attrs Attributes of the checkbox <input> (after type="checkbox").
+	 * @return string
+	 */
+	private function checkbox_html( string $input_attrs ): string {
+		return '<p class="form-row validate-required" id="arl_waiver_field" data-priority="">'
+			. '<span class="woocommerce-input-wrapper"><label class="checkbox ">'
+			. '<input type="checkbox" ' . $input_attrs . ' value="1" /> I agree&nbsp;'
+			. '<abbr class="required" title="required">*</abbr></label></span></p>';
+	}
+
+	/**
+	 * A required checkbox's <input> gains `required aria-required="true"` right after its name.
+	 */
+	public function test_required_checkbox_gains_required_and_aria_required(): void {
+		$field  = $this->checkbox_html( 'class="input-checkbox " name="arl_waiver" id="arl_waiver"' );
+		$result = blueline_wc_required_checkbox_attributes( $field, 'arl_waiver', array( 'required' => true ) );
+
+		$this->assertStringContainsString( 'name="arl_waiver" required aria-required="true" id="arl_waiver"', $result );
+		$this->assertSame( 1, substr_count( $result, 'aria-required="true"' ) );
+	}
+
+	/**
+	 * A field that is not required is returned untouched.
+	 */
+	public function test_non_required_checkbox_is_untouched(): void {
+		$field = $this->checkbox_html( 'class="input-checkbox " name="arl_waiver" id="arl_waiver"' );
+
+		$this->assertSame( $field, blueline_wc_required_checkbox_attributes( $field, 'arl_waiver', array() ) );
+		$this->assertSame( $field, blueline_wc_required_checkbox_attributes( $field, 'arl_waiver', array( 'required' => false ) ) );
+	}
+
+	/**
+	 * An <input> that already carries the real attribute (bare or valued) is not patched again.
+	 */
+	public function test_checkbox_with_required_attribute_is_untouched(): void {
+		$cases = array(
+			'name="arl_waiver" required',
+			'required="required" name="arl_waiver"',
+			'name="arl_waiver" required aria-required="true"',
+		);
+
+		foreach ( $cases as $attrs ) {
+			$field = $this->checkbox_html( $attrs );
+
+			$this->assertSame( $field, blueline_wc_required_checkbox_attributes( $field, 'arl_waiver', array( 'required' => true ) ), $attrs );
+		}
+	}
+
+	/**
+	 * An input with a similar name (a longer key, or a data-name attribute) is not patched, and
+	 * a key not present at all is a no-op.
+	 */
+	public function test_other_inputs_with_similar_names_are_untouched(): void {
+		$field = $this->checkbox_html( 'name="arl_waiver_2" id="arl_waiver_2"' );
+		$this->assertSame( $field, blueline_wc_required_checkbox_attributes( $field, 'arl_waiver', array( 'required' => true ) ) );
+
+		$field = $this->checkbox_html( 'data-name="arl_waiver" name="other"' );
+		$this->assertSame( $field, blueline_wc_required_checkbox_attributes( $field, 'arl_waiver', array( 'required' => true ) ) );
+
+		$field = $this->checkbox_html( 'name="arl_waiver" id="arl_waiver"' );
+		$this->assertSame( $field, blueline_wc_required_checkbox_attributes( $field, 'missing_key', array( 'required' => true ) ) );
+	}
+
+	/**
+	 * `validate-required` on the input's class, a `data-required` attribute and a value merely
+	 * containing the word do NOT count as the real attribute: the input still gets patched.
+	 */
+	public function test_validate_required_like_tokens_do_not_block_the_patch(): void {
+		$cases = array(
+			'class="input-checkbox validate-required" name="arl_waiver"',
+			'data-required="1" name="arl_waiver"',
+			'name="arl_waiver" data-validate-required="yes"',
+			'name="arl_waiver" title="this is required"',
+		);
+
+		foreach ( $cases as $attrs ) {
+			$result = blueline_wc_required_checkbox_attributes( $this->checkbox_html( $attrs ), 'arl_waiver', array( 'required' => true ) );
+
+			$this->assertStringContainsString( 'name="arl_waiver" required aria-required="true"', $result, $attrs );
+		}
+	}
+
+	/**
+	 * Only the first matching <input> is patched when the same tag appears twice.
+	 */
+	public function test_only_the_first_matching_input_is_patched(): void {
+		$input  = '<input type="checkbox" name="arl_waiver" value="1" />';
+		$result = blueline_wc_required_checkbox_attributes( $input . $input, 'arl_waiver', array( 'required' => true ) );
+
+		$this->assertSame( 1, substr_count( $result, 'aria-required="true"' ) );
+		$this->assertStringEndsWith( $input, $result );
+	}
+
+	/**
+	 * The patch is registered on the checkbox field filter.
+	 */
+	public function test_required_checkbox_patch_is_registered_on_the_checkbox_field_filter(): void {
+		$this->assertNotFalse( has_filter( 'woocommerce_form_field_checkbox', 'blueline_wc_required_checkbox_attributes' ) );
+	}
 }

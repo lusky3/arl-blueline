@@ -15,8 +15,7 @@ require_once __DIR__ . '/../includes/admin-bar/admin-bar.php';
  * "ARL Settings" link (/wp-admin/admin.php?page=sportspress) and "Admin
  * Notices" -- covers blueline_hide_admin_bar_for_players(), the
  * `show_admin_bar` filter callback that hides it for anyone without
- * `manage_options`, the same capability inc/settings/page.php gates every
- * admin surface behind.
+ * `manage_options` (every such role, not only players).
  */
 final class AdminBarPlayerVisibilityTest extends TestCase {
 
@@ -47,6 +46,19 @@ final class AdminBarPlayerVisibilityTest extends TestCase {
 
 		$this->assertTrue( blueline_hide_admin_bar_for_players( true ) );
 		$this->assertFalse( blueline_hide_admin_bar_for_players( false ) );
+	}
+
+	/**
+	 * The filter keys on `manage_options` alone, so a non-administrator who holds other
+	 * capabilities (an editor or shop manager) loses the toolbar too, by design.
+	 */
+	public function test_a_non_admin_with_other_capabilities_also_loses_the_bar(): void {
+		$state                               = &blueline_test_state();
+		$state['caps']['edit_posts']         = true;
+		$state['caps']['edit_others_posts']  = true;
+		$state['caps']['manage_woocommerce'] = true;
+
+		$this->assertFalse( blueline_hide_admin_bar_for_players( true ) );
 	}
 
 	/**

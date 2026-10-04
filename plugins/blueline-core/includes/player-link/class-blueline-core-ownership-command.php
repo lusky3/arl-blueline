@@ -1,8 +1,10 @@
 <?php
 /**
- * `wp blueline-core ownership report|apply`: the safe path for the SEC-01
+ * `wp blueline-core ownership report|apply|unlink`: the safe path for the SEC-01
  * ownership decision. `report` lists Player-role members who are linked by
- * sp_user but are not the player's post_author; `apply` fixes explicit ids.
+ * sp_user but are not the player's post_author; `apply` fixes explicit ids;
+ * `unlink` removes a wrong name claim. Shell-only (WP-CLI), so no capability
+ * check is needed, matching the other operator commands.
  *
  * @package blueline-core
  */
@@ -17,13 +19,19 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	/**
 	 * Columns `report` prints.
 	 */
-	const FIELDS = array( 'player_id', 'player', 'sp_user', 'user_login', 'post_author' );
+	const FIELDS = array( 'player_id', 'player', 'sp_user', 'user_login', 'post_author', 'post_date', 'name_score', 'flags' );
 
 	/**
 	 * List linked players whose Player-role user is not the post_author. Read-only.
 	 *
 	 * Also prints a count per ownership category (verified, role_not_author,
 	 * author_not_role, name_claim, missing_user).
+	 *
+	 * Each row carries the evidence for the call: post_date, name_score (the
+	 * linked user's billing/display name against the player title, 0-1) and
+	 * flags (owns_other_player: the user already owns a different player;
+	 * author_is_player: the current author is a Player-role user). `apply`
+	 * refuses flagged rows. A low name_score is a sign of someone else's name claim.
 	 *
 	 * ## OPTIONS
 	 *
@@ -74,8 +82,11 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	 * Set post_author to the linked sp_user for the given players only.
 	 *
 	 * Dry run unless --yes. A player is changed only when its linked user
-	 * exists, holds the Player role and is not already the author. sp_user is
-	 * never touched. There is no bulk mode: --ids is required.
+	 * exists, holds the Player role, is not already the author and owns no
+	 * other player, and the current author is not a Player-role user. sp_user
+	 * is never touched. The replaced author is saved in the
+	 * _blueline_prev_author post meta, so a change can be undone. There is no
+	 * bulk mode: --ids is required.
 	 *
 	 * ## OPTIONS
 	 *
@@ -118,7 +129,7 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 			}
 
 			if ( ! $write ) {
-				WP_CLI::log( sprintf( 'Would set player %d post_author %d -> %d.', $player_id, $plan['from'], $plan['to'] ) );
+				WP_CLI::log( sprintf( 'Would set player %1$d post_author %2$d -> %3$d (previous author would be saved in %4$s).', $player_id, $plan['from'], $plan['to'], BLUELINE_CORE_OWNERSHIP_PREV_AUTHOR_META ) );
 				++$changed;
 				continue;
 			}
@@ -135,9 +146,74 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	}
 
 	/**
+	 * Remove the sp_user link from wrongly name-claimed players. Dry run unless --yes.
+	 *
+	 * The league's undo for a squatted name claim. Only a plain name claim (the
+	 * linked user is neither the post_author nor a Player-role member) or a link
+	 * to a user that no longer exists is removed; a verified owner or any
+	 * Player-role link is refused. post_author is never touched. The removed
+	 * user is logged so the link can be restored by hand. There is no bulk mode:
+	 * --ids is required.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --ids=<ids>
+	 * : Comma-separated sp_player IDs.
+	 *
+	 * [--yes]
+	 * : Write. Without it, only prints what would change.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp blueline-core ownership unlink --ids=101
+	 *     wp blueline-core ownership unlink --ids=101 --yes
+	 *
+	 * @param array $args       Positional arguments (none).
+	 * @param array $assoc_args Associative arguments.
+	 * @return void
+	 */
+	public function unlink( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP-CLI dispatch signature; no positional arguments.
+		$ids = blueline_core_ownership_parse_ids( (string) ( $assoc_args['ids'] ?? '' ) );
+		if ( is_wp_error( $ids ) ) {
+			WP_CLI::error( $ids->get_error_message() );
+			return;
+		}
+
+		$write   = ! empty( $assoc_args['yes'] );
+		$changed = 0;
+
+		foreach ( $ids as $player_id ) {
+			$plan = blueline_core_ownership_unlink_plan( $player_id );
+
+			if ( ! $plan['ok'] ) {
+				WP_CLI::warning( sprintf( 'Player %d skipped: %s.', $player_id, $plan['reason'] ) );
+				continue;
+			}
+
+			if ( ! $write ) {
+				WP_CLI::log( sprintf( 'Would unlink player %1$d from user %2$d (%3$s).', $player_id, $plan['user'], $plan['category'] ) );
+				++$changed;
+				continue;
+			}
+
+			delete_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $plan['user'] );
+			blueline_forget_linked_player_cache( $plan['user'] );
+			WP_CLI::log( sprintf( 'Unlinked player %1$d from user %2$d. To restore: wp post meta add %1$d %3$s %2$d', $player_id, $plan['user'], BLUELINE_PLAYER_USER_META ) );
+			++$changed;
+		}
+
+		if ( ! $write ) {
+			WP_CLI::success( sprintf( 'Dry run: %d player(s) would be unlinked. Nothing was written; re-run with --yes to apply.', $changed ) );
+			return;
+		}
+
+		WP_CLI::success( sprintf( '%d player(s) unlinked.', $changed ) );
+	}
+
+	/**
 	 * Every sp_player row carrying an sp_user meta value.
 	 *
-	 * @return object[] Rows with ID, post_title, post_author, sp_user.
+	 * @return object[] Rows with ID, post_title, post_author, post_date, sp_user.
 	 */
 	protected function linked_players(): array {
 		global $wpdb;
@@ -145,7 +221,7 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one read-only CLI report join; no core API returns post_author with a meta value.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT p.ID, p.post_title, p.post_author, m.meta_value AS sp_user FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID WHERE p.post_type = %s AND m.meta_key = %s ORDER BY p.ID",
+				"SELECT p.ID, p.post_title, p.post_author, p.post_date, m.meta_value AS sp_user FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID WHERE p.post_type = %s AND m.meta_key = %s ORDER BY p.ID",
 				'sp_player',
 				BLUELINE_PLAYER_USER_META
 			)
@@ -176,7 +252,9 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 			return false;
 		}
 
-		WP_CLI::log( sprintf( 'Set player %d post_author %d -> %d.', $player_id, $from, $to ) );
+		update_post_meta( $player_id, BLUELINE_CORE_OWNERSHIP_PREV_AUTHOR_META, $from );
+
+		WP_CLI::log( sprintf( 'Set player %1$d post_author %2$d -> %3$d. Previous author saved in %4$s (undo: set post_author back to %2$d).', $player_id, $from, $to, BLUELINE_CORE_OWNERSHIP_PREV_AUTHOR_META ) );
 		return true;
 	}
 

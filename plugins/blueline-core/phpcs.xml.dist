@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<ruleset name="blueline-core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+	<description>WordPress Coding Standards for the Blueline Core plugin (run via `composer lint`).</description>
+
+	<file>.</file>
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/.phpunit.result.cache</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<rule ref="WordPress"/>
+
+	<!-- Minimum WordPress the plugin supports: keep equal to the "Requires at least" header
+	     in blueline-core.php. Drives WordPress.WP.DeprecatedFunctions and friends. -->
+	<config name="minimum_wp_version" value="6.9"/>
+
+	<!-- Text domain: every i18n call must use it. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="blueline-core"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Global namespace prefixes. `blueline` also covers `blueline_core` and BLUELINE_CORE_*:
+	     several moved helpers keep the theme's blueline_* names on purpose (see README, step 3). -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="blueline"/>
+			</property>
+		</properties>
+		<!-- Test classes and stubs deliberately live in the global namespace and mimic WordPress. -->
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<!-- The mail module deliberately *invokes* core's `wp_mail_content_type` filter to probe whether
+	     another plugin forces text/plain (it does not register a hook of its own with that name). -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound">
+		<exclude-pattern>/includes/mail/mail\.php</exclude-pattern>
+	</rule>
+</ruleset>

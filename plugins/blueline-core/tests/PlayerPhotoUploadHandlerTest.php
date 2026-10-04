@@ -1,0 +1,368 @@
+<?php
+/**
+ * Unit tests for blueline_handle_player_photo_upload()'s validation branches.
+ *
+ * @package blueline-core
+ */
+
+use PHPUnit\Framework\TestCase;
+
+require_once __DIR__ . '/../includes/player-link/player-link.php';
+require_once __DIR__ . '/../includes/player-photo/player-photo.php';
+
+/**
+ * Walks the upload handler end to end against real temp files: nonce, upload
+ * errors, size, dimensions (image bomb), content sniffing, extension/content
+ * mismatch, media_handle_upload failure, the success path and ownership.
+ */
+final class PlayerPhotoUploadHandlerTest extends TestCase {
+
+	private const PLAYER = 100;
+	private const USER   = 5;
+	private const NEW    = 51;
+
+	/**
+	 * Temp files created by a test, removed in tearDown().
+	 *
+	 * @var string[]
+	 */
+	private array $temp_files = array();
+
+	/**
+	 * Reset stores and make user 5 the verified owner of player 100.
+	 */
+	protected function setUp(): void {
+		blueline_test_reset();
+		blueline_test_reset_state();
+		$_REQUEST = array();
+		$_FILES   = array();
+
+		$GLOBALS['bl_core_test_deleted_attachments'] = array();
+		$GLOBALS['bl_core_test_media_calls']         = array();
+
+		$state                              = &blueline_test_state();
+		$state['current_user_id']           = self::USER;
+		$state['post_types']                = array( 'sp_player' );
+		$state['users'][ self::USER ]       = (object) array( 'roles' => array( 'sp_player' ) );
+		$state['posts'][ self::PLAYER ]     = array(
+			'type'   => 'sp_player',
+			'author' => self::USER,
+		);
+		$state['post_meta'][ self::PLAYER ] = array( 'sp_user' => (string) self::USER );
+	}
+
+	/**
+	 * Remove temp files and globals.
+	 */
+	protected function tearDown(): void {
+		$_REQUEST = array();
+		$_FILES   = array();
+
+		foreach ( $this->temp_files as $temp_file ) {
+			if ( file_exists( $temp_file ) ) {
+				unlink( $temp_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test temp file outside WordPress.
+			}
+		}
+		$this->temp_files = array();
+
+		unset(
+			$GLOBALS['bl_core_test_deleted_attachments'],
+			$GLOBALS['bl_core_test_media_calls'],
+			$GLOBALS['bl_core_test_media_result'],
+			$GLOBALS['bl_core_test_set_thumbnail']
+		);
+	}
+
+	/**
+	 * Write a temp file.
+	 *
+	 * @param string $bytes File contents.
+	 * @return string Path.
+	 */
+	private function temp_file( string $bytes ): string {
+		$path = tempnam( sys_get_temp_dir(), 'blphoto' );
+		file_put_contents( $path, $bytes ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- test fixture outside WordPress.
+
+		$this->temp_files[] = $path;
+
+		return $path;
+	}
+
+	/**
+	 * A PNG whose IHDR declares $width x $height. getimagesize() reads only the
+	 * header, so no pixel data is needed -- exactly what a decompression bomb relies on.
+	 *
+	 * @param int $width  Declared width.
+	 * @param int $height Declared height.
+	 * @return string
+	 */
+	private function png_header( int $width, int $height ): string {
+		$ihdr = pack( 'NNCCCCC', $width, $height, 8, 2, 0, 0, 0 );
+
+		return "\x89PNG\r\n\x1a\n" . pack( 'N', 13 ) . 'IHDR' . $ihdr . pack( 'N', crc32( 'IHDR' . $ihdr ) );
+	}
+
+	/**
+	 * Point $_FILES['player_photo'] at a fixture.
+	 *
+	 * @param string   $bytes File contents.
+	 * @param string   $name  Client file name.
+	 * @param int|null $size  Reported size (defaults to the real one).
+	 * @param int      $error PHP upload error code.
+	 */
+	private function upload( string $bytes, string $name, ?int $size = null, int $error = UPLOAD_ERR_OK ): void {
+		$path = $this->temp_file( $bytes );
+
+		$_FILES['player_photo'] = array(
+			'name'     => $name,
+			'type'     => 'image/png',
+			'tmp_name' => $path,
+			'error'    => $error,
+			'size'     => $size ?? strlen( $bytes ),
+		);
+	}
+
+	/**
+	 * Run the handler with a valid nonce and return where it redirected.
+	 *
+	 * @return string
+	 */
+	private function redirect(): string {
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'blueline_upload_player_photo' );
+
+		try {
+			blueline_handle_player_photo_upload();
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			return $e->location;
+		}
+
+		$this->fail( 'The handler must redirect.' );
+	}
+
+	/**
+	 * A missing nonce is refused before anything else.
+	 */
+	public function test_missing_nonce_is_refused(): void {
+		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
+
+		$this->expectException( Blueline_Test_WP_Die_Exception::class );
+
+		blueline_handle_player_photo_upload();
+	}
+
+	/**
+	 * A forged nonce is refused and the file is never handed to WordPress.
+	 */
+	public function test_bad_nonce_is_refused(): void {
+		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
+		$_REQUEST['_wpnonce'] = 'forged';
+
+		try {
+			blueline_handle_player_photo_upload();
+			$this->fail( 'A bad nonce must die.' );
+		} catch ( Blueline_Test_WP_Die_Exception $e ) {
+			$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+		}
+	}
+
+	/**
+	 * SEC-01: a Player-role user who is NOT the post_author of the linked player is refused.
+	 */
+	public function test_player_role_user_who_is_not_the_post_author_is_refused(): void {
+		blueline_test_state()['posts'][ self::PLAYER ]['author'] = 99;
+		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=not_owner', $this->redirect() );
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A file over the 2MB byte cap is too_large, without being inspected.
+	 */
+	public function test_file_over_two_megabytes_is_too_large(): void {
+		$this->upload( $this->png_header( 10, 10 ), 'a.png', 2 * 1024 * 1024 + 1 );
+
+		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect() );
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A-09: PHP's own size errors (upload_max_filesize / MAX_FILE_SIZE) report too_large.
+	 */
+	public function test_php_size_errors_report_too_large(): void {
+		foreach ( array( UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE ) as $error ) {
+			$_FILES['player_photo'] = array(
+				'name'     => 'a.png',
+				'type'     => '',
+				'tmp_name' => '',
+				'error'    => $error,
+				'size'     => 0,
+			);
+
+			$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect(), "error {$error}" );
+		}
+	}
+
+	/**
+	 * A-09: UPLOAD_ERR_NO_FILE is the silent "nothing submitted" redirect.
+	 */
+	public function test_no_file_error_redirects_silently(): void {
+		$_FILES['player_photo'] = array(
+			'name'     => '',
+			'type'     => '',
+			'tmp_name' => '',
+			'error'    => UPLOAD_ERR_NO_FILE,
+			'size'     => 0,
+		);
+
+		$this->assertSame( 'https://example.test/account/player-profile/', $this->redirect() );
+	}
+
+	/**
+	 * A-09: any other upload error (partial upload, no temp dir, ...) reports a generic error.
+	 */
+	public function test_other_upload_errors_report_error(): void {
+		foreach ( array( UPLOAD_ERR_PARTIAL, UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION ) as $error ) {
+			$_FILES['player_photo'] = array(
+				'name'     => 'a.png',
+				'type'     => '',
+				'tmp_name' => '',
+				'error'    => $error,
+				'size'     => 0,
+			);
+
+			$this->assertStringContainsString( 'blueline_photo=error', $this->redirect(), "error {$error}" );
+		}
+
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A-03: a tiny file that declares an enormous bitmap is refused before any decode.
+	 */
+	public function test_oversize_pixel_dimensions_are_refused(): void {
+		$this->upload( $this->png_header( 50000, 50000 ), 'bomb.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect() );
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A-03: a photo exactly at the default cap passes; one pixel row more does not.
+	 */
+	public function test_pixel_cap_boundary(): void {
+		$this->upload( $this->png_header( 8000, 5000 ), 'edge.png' );
+		$this->assertStringContainsString( 'blueline_photo=updated', $this->redirect(), '40,000,000 px is allowed' );
+
+		$this->upload( $this->png_header( 8000, 5001 ), 'over.png' );
+		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect(), '40,008,000 px is refused' );
+	}
+
+	/**
+	 * A-03: the cap is filterable through blueline_core_player_photo_max_pixels.
+	 */
+	public function test_pixel_cap_is_filterable(): void {
+		add_filter(
+			'blueline_core_player_photo_max_pixels',
+			static function () {
+				return 50;
+			}
+		);
+
+		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
+		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect(), '100 px > 50' );
+
+		$this->upload( $this->png_header( 5, 10 ), 'a.png' );
+		$this->assertStringContainsString( 'blueline_photo=updated', $this->redirect(), '50 px <= 50' );
+	}
+
+	/**
+	 * A zero-dimension header is invalid, not an accidental pass of the pixel cap.
+	 */
+	public function test_zero_dimension_image_is_invalid(): void {
+		$this->upload( $this->png_header( 0, 10 ), 'a.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
+	}
+
+	/**
+	 * Not an image at all (text named x.jpg): getimagesize() rejects it.
+	 */
+	public function test_text_file_named_jpg_is_invalid(): void {
+		$this->upload( 'just some text, not an image', 'x.jpg' );
+
+		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A real PNG under a .jpg name: the extension/content mismatch is rejected by wp_check_filetype_and_ext().
+	 */
+	public function test_extension_content_mismatch_is_invalid(): void {
+		$this->upload( $this->png_header( 10, 10 ), 'x.jpg' );
+
+		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A real image under a non-image extension is rejected too.
+	 */
+	public function test_image_with_a_non_image_extension_is_invalid(): void {
+		$this->upload( $this->png_header( 10, 10 ), 'x.txt' );
+
+		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
+	}
+
+	/**
+	 * A failed media_handle_upload() reports "error" and changes nothing.
+	 */
+	public function test_media_handle_upload_error_reports_error(): void {
+		$GLOBALS['bl_core_test_media_result'] = new WP_Error( 'upload_error', 'disk full' );
+		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=error', $this->redirect() );
+		$this->assertSame( 0, get_post_thumbnail_id( self::PLAYER ) );
+		$this->assertFalse( has_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' ), 'The strip filter is always removed again.' );
+	}
+
+	/**
+	 * A thumbnail that cannot be set reports "error" and removes the new attachment.
+	 */
+	public function test_failed_thumbnail_set_reports_error(): void {
+		$GLOBALS['bl_core_test_set_thumbnail'] = 'fail';
+		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=error', $this->redirect() );
+		$this->assertSame( array( array( self::NEW, true ) ), $GLOBALS['bl_core_test_deleted_attachments'] );
+	}
+
+	/**
+	 * Success: the upload is parented to the player, becomes its thumbnail and reports "updated".
+	 */
+	public function test_valid_upload_succeeds(): void {
+		$this->upload( $this->png_header( 600, 800 ), 'player.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=updated', $this->redirect() );
+		$this->assertSame( array( array( 'player_photo', self::PLAYER ) ), $GLOBALS['bl_core_test_media_calls'] );
+		$this->assertSame( self::NEW, get_post_thumbnail_id( self::PLAYER ) );
+		$this->assertSame( 1, get_post_meta( self::NEW, '_blueline_player_photo', true ) );
+		$this->assertFalse( has_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' ), 'The strip filter is always removed again.' );
+	}
+
+	/**
+	 * The default pixel cap is the documented 40,000,000 and never drops below 1.
+	 */
+	public function test_max_pixels_default_and_floor(): void {
+		$this->assertSame( 40000000, blueline_player_photo_max_pixels() );
+
+		add_filter(
+			'blueline_core_player_photo_max_pixels',
+			static function () {
+				return -5;
+			}
+		);
+
+		$this->assertSame( 1, blueline_player_photo_max_pixels() );
+	}
+}

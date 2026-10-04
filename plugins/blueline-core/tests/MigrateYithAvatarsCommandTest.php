@@ -29,6 +29,10 @@ final class MigrateYithAvatarsCommandTest extends TestCase {
 			$state['users'][ $user_id ] = (object) array( 'user_login' => 'user' . $user_id );
 		}
 		$state['users'][7] = (object) array( 'user_login' => 'no-avatar' );
+		$state['users'][8] = (object) array( 'user_login' => 'empty-avatar' );
+
+		// A present-but-empty YITH row must not count: exercises the production meta_query's value/compare.
+		$state['user_meta'][8]['yith-wcmap-avatar'] = '';
 
 		$state['user_meta'][3]['yith-wcmap-avatar']  = '500';
 		$state['user_meta'][4]['yith-wcmap-avatar']  = 'abc';
@@ -78,6 +82,7 @@ final class MigrateYithAvatarsCommandTest extends TestCase {
 		$this->assertStringContainsString( 'SKIPPED -- attachment 600 no longer exists', $this->lines_with( 'user5' )[0] );
 		$this->assertStringContainsString( 'already migrated (no-op)', $this->lines_with( 'user6' )[0] );
 		$this->assertSame( array(), $this->lines_with( 'no-avatar' ) );
+		$this->assertSame( array(), $this->lines_with( 'empty-avatar' ) );
 		$this->assertContains( 'Rows found (real user -> attachment links): 4', $this->log_lines() );
 		$this->assertCount( 1, $this->lines_with( 'with no owning user (not migrated -- nothing to attribute them to): 800' ) );
 		$this->assertSame( 'yith_wcmap_users_avatar_ids = {"2":500,"4":700,"5":800}', $this->log_lines()[1] );
@@ -117,6 +122,222 @@ final class MigrateYithAvatarsCommandTest extends TestCase {
 		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array( 'apply' => true ) );
 
 		$this->assertStringContainsString( 'already migrated (no-op)', $this->lines_with( 'user3' )[0] );
+	}
+
+	/**
+	 * Log entries of one type (log, warning, error, success).
+	 *
+	 * @param string $type Entry type.
+	 * @return string[] Messages.
+	 */
+	private function entries_of_type( string $type ): array {
+		$messages = array();
+		foreach ( $GLOBALS['bl_test_cli_log'] as $entry ) {
+			if ( $type === $entry['type'] ) {
+				$messages[] = $entry['message'];
+			}
+		}
+
+		return $messages;
+	}
+
+	/**
+	 * Give user 9 a different avatar (attachment 800) than YITH holds (attachment 900).
+	 */
+	private function seed_conflict(): void {
+		$state                                       = &blueline_test_state();
+		$state['users'][9]                           = (object) array( 'user_login' => 'conflicted' );
+		$state['user_meta'][9]['yith-wcmap-avatar']  = '900';
+		$state['user_meta'][9]['blueline_avatar_id'] = '800';
+		$state['posts'][800]                         = array( 'type' => 'attachment' );
+		$state['posts'][900]                         = array( 'type' => 'attachment' );
+		$state['caps']['edit_users']                 = true;
+	}
+
+	/**
+	 * A different avatar already set is a CONFLICT: reported, kept, and warned about, never overwritten.
+	 */
+	public function test_existing_different_avatar_is_a_conflict_and_is_not_overwritten(): void {
+		$this->seed_conflict();
+
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array( 'apply' => true ) );
+
+		$this->assertSame( '800', get_user_meta( 9, 'blueline_avatar_id', true ) );
+		$row = $this->lines_with( 'conflicted' )[0];
+		$this->assertStringContainsString( 'CONFLICT -- has 800, YITH has 900; kept (use --force)', $row );
+		$this->assertStringNotContainsString( 'migrated', $row );
+
+		$warnings = $this->entries_of_type( 'warning' );
+		$this->assertCount( 2, $warnings );
+		$this->assertStringContainsString( '1 user(s) already have a different blueline_avatar_id', implode( "\n", $warnings ) );
+		$this->assertStringContainsString( 'user IDs: 9', implode( "\n", $warnings ) );
+		$this->assertSame( array(), $this->entries_of_type( 'error' ) );
+	}
+
+	/**
+	 * Report mode also flags the conflict (it does not claim it "would migrate").
+	 */
+	public function test_report_mode_flags_the_conflict(): void {
+		$this->seed_conflict();
+
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array() );
+
+		$this->assertStringContainsString( 'CONFLICT', $this->lines_with( 'conflicted' )[0] );
+		$this->assertStringNotContainsString( 'would migrate', $this->lines_with( 'conflicted' )[0] );
+		$this->assertSame( '800', get_user_meta( 9, 'blueline_avatar_id', true ) );
+	}
+
+	/**
+	 * --apply --force overwrites the different avatar, and says so.
+	 */
+	public function test_force_overwrites_a_conflicting_avatar(): void {
+		$this->seed_conflict();
+
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )(
+			array(),
+			array(
+				'apply' => true,
+				'force' => true,
+			)
+		);
+
+		$this->assertSame( 900, get_user_meta( 9, 'blueline_avatar_id', true ) );
+		$this->assertStringContainsString( 'migrated (overwrote 800)', $this->lines_with( 'conflicted' )[0] );
+		$this->assertStringNotContainsString( 'already have a different', implode( "\n", $this->entries_of_type( 'warning' ) ) );
+	}
+
+	/**
+	 * --force without --apply only reports what would be overwritten.
+	 */
+	public function test_force_without_apply_writes_nothing(): void {
+		$this->seed_conflict();
+
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array( 'force' => true ) );
+
+		$this->assertSame( '800', get_user_meta( 9, 'blueline_avatar_id', true ) );
+		$this->assertStringContainsString( 'would overwrite 800', $this->lines_with( 'conflicted' )[0] );
+		$this->assertStringContainsString( '900 (report only)', $this->lines_with( 'conflicted' )[0] );
+	}
+
+	/**
+	 * Skipped rows (non-numeric value, missing attachment) end in one warning naming the users, exit 0.
+	 */
+	public function test_skipped_rows_produce_a_warning(): void {
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array() );
+
+		$warnings = $this->entries_of_type( 'warning' );
+		$this->assertCount( 1, $warnings );
+		$this->assertStringContainsString( '2 row(s) were SKIPPED', $warnings[0] );
+		$this->assertStringContainsString( 'user IDs: 4, 5', $warnings[0] );
+		$this->assertSame( array(), $this->entries_of_type( 'error' ) );
+	}
+
+	/**
+	 * A run summary counts every outcome.
+	 */
+	public function test_summary_counts_every_outcome(): void {
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array() );
+
+		$this->assertContains( 'Summary: 1 migrated/would migrate, 1 already migrated, 2 skipped, 0 conflict(s), 0 failed.', $this->log_lines() );
+	}
+
+	/**
+	 * A clean run (nothing skipped, nothing to migrate) warns about nothing.
+	 */
+	public function test_clean_run_has_no_warnings(): void {
+		$state = &blueline_test_state();
+		unset( $state['user_meta'][4], $state['user_meta'][5] );
+
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array() );
+
+		$this->assertSame( array(), $this->entries_of_type( 'warning' ) );
+		$this->assertSame( array(), $this->entries_of_type( 'error' ) );
+	}
+
+	/**
+	 * A write that does not stick is FAILED (never "migrated"), the report is still
+	 * printed in full, and the run ends in WP_CLI::error() so the exit status is non-zero.
+	 */
+	public function test_rejected_write_is_reported_as_failed_and_errors(): void {
+		blueline_test_state()['caps']['edit_users'] = true;
+
+		$command = new class() extends Blueline_Core_Migrate_Yith_Avatars_Command {
+			/**
+			 * Simulate a plugin vetoing the meta write.
+			 *
+			 * @param int $user_id       User ID.
+			 * @param int $attachment_id Attachment ID.
+			 * @return bool
+			 */
+			protected function write_avatar( int $user_id, int $attachment_id ): bool { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- override signature.
+				return false;
+			}
+		};
+
+		try {
+			$command( array(), array( 'apply' => true ) );
+			$this->fail( 'Expected the run to end in an error.' );
+		} catch ( Blueline_Test_Cli_Exit_Exception $e ) {
+			$this->assertStringContainsString( '1 row(s) FAILED', $e->getMessage() );
+			$this->assertStringContainsString( 'user IDs: 3', $e->getMessage() );
+		}
+
+		$this->assertSame( '', get_user_meta( 3, 'blueline_avatar_id', true ) );
+
+		$row = $this->lines_with( 'user3' )[0];
+		$this->assertStringContainsString( 'FAILED -- meta write rejected, nothing changed', $row );
+		$this->assertStringNotContainsString( 'migrated', str_replace( 'already migrated', '', $row ) );
+		// The report ran to the end before erroring, and the error is the last entry.
+		$this->assertContains( 'Rows found (real user -> attachment links): 4', $this->log_lines() );
+		$this->assertContains( 'Summary: 0 migrated/would migrate, 1 already migrated, 2 skipped, 0 conflict(s), 1 failed.', $this->log_lines() );
+		$this->assertSame( 'error', end( $GLOBALS['bl_test_cli_log'] )['type'] );
+	}
+
+	/**
+	 * Report mode never fails: nothing is written, so there is nothing to reject.
+	 */
+	public function test_report_mode_never_reports_a_failure(): void {
+		$command = new class() extends Blueline_Core_Migrate_Yith_Avatars_Command {
+			/**
+			 * Would fail every write, but report mode must never call it.
+			 *
+			 * @param int $user_id       User ID.
+			 * @param int $attachment_id Attachment ID.
+			 * @return bool
+			 */
+			protected function write_avatar( int $user_id, int $attachment_id ): bool { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- override signature.
+				$GLOBALS['bl_test_write_called'] = true;
+				return false;
+			}
+		};
+
+		$command( array(), array() );
+
+		$this->assertArrayNotHasKey( 'bl_test_write_called', $GLOBALS );
+		$this->assertSame( array(), $this->entries_of_type( 'error' ) );
+	}
+
+	/**
+	 * The real write path confirms by reading the stored value back, and treats writing an unchanged value as success.
+	 */
+	public function test_write_avatar_confirms_by_reading_back(): void {
+		$command = new class() extends Blueline_Core_Migrate_Yith_Avatars_Command {
+			/**
+			 * Expose the protected write.
+			 *
+			 * @param int $user_id       User ID.
+			 * @param int $attachment_id Attachment ID.
+			 * @return bool
+			 */
+			public function write( int $user_id, int $attachment_id ): bool {
+				return $this->write_avatar( $user_id, $attachment_id );
+			}
+		};
+
+		$this->assertTrue( $command->write( 3, 500 ) );
+		$this->assertSame( 500, get_user_meta( 3, 'blueline_avatar_id', true ) );
+		// Writing the value that is already stored is still a success (update_user_meta() itself returns false then).
+		$this->assertTrue( $command->write( 3, 500 ) );
 	}
 
 	/**

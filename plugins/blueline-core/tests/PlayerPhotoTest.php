@@ -28,6 +28,13 @@ final class PlayerPhotoTest extends TestCase {
 	private Blueline_Core_Test_Wpdb $wpdb;
 
 	/**
+	 * Temp files created by upload_fixture(), removed in tearDown().
+	 *
+	 * @var string[]
+	 */
+	private array $temp_files = array();
+
+	/**
 	 * Reset stores; install a fake $wpdb that reads _thumbnail_id from post meta.
 	 */
 	protected function setUp(): void {
@@ -57,7 +64,23 @@ final class PlayerPhotoTest extends TestCase {
 	protected function tearDown(): void {
 		$_REQUEST = array();
 		$_FILES   = array();
-		unset( $GLOBALS['wpdb'], $GLOBALS['bl_core_test_deleted_attachments'], $GLOBALS['bl_core_test_is_account_page'], $GLOBALS['wp'] );
+
+		foreach ( $this->temp_files as $temp_file ) {
+			if ( file_exists( $temp_file ) ) {
+				unlink( $temp_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test temp file outside WordPress.
+			}
+		}
+		$this->temp_files = array();
+
+		unset(
+			$GLOBALS['wpdb'],
+			$GLOBALS['bl_core_test_deleted_attachments'],
+			$GLOBALS['bl_core_test_is_account_page'],
+			$GLOBALS['bl_core_test_set_thumbnail'],
+			$GLOBALS['bl_core_test_media_result'],
+			$GLOBALS['bl_core_test_media_calls'],
+			$GLOBALS['wp']
+		);
 	}
 
 	/**
@@ -214,6 +237,47 @@ final class PlayerPhotoTest extends TestCase {
 	}
 
 	/**
+	 * A successful swap reports true.
+	 */
+	public function test_set_player_photo_reports_success(): void {
+		$this->player_with_previous_photo();
+
+		$this->assertTrue( blueline_set_player_photo( self::PLAYER, self::NEW ) );
+	}
+
+	/**
+	 * A-08: when set_post_thumbnail() fails the new attachment is deleted, the
+	 * previous (flagged, deletable) photo is kept and failure is reported.
+	 */
+	public function test_set_player_photo_failure_deletes_the_new_attachment_and_keeps_the_old_photo(): void {
+		$this->player_with_previous_photo();
+		$this->attachment( self::PREVIOUS, self::PLAYER, true );
+		$this->attachment( self::NEW, self::PLAYER, false );
+		$GLOBALS['bl_core_test_set_thumbnail'] = 'fail';
+
+		$this->assertFalse( blueline_set_player_photo( self::PLAYER, self::NEW ) );
+
+		$this->assertSame( array( array( self::NEW, true ) ), $GLOBALS['bl_core_test_deleted_attachments'] );
+		$this->assertSame( self::PREVIOUS, get_post_thumbnail_id( self::PLAYER ), 'The profile still shows the old photo.' );
+		$this->assertEmpty( get_post_meta( self::NEW, '_blueline_player_photo', true ), 'The orphan is not flagged as ours.' );
+	}
+
+	/**
+	 * A-08: a set that claims success but does not read back as the new
+	 * attachment must not delete the previous photo either.
+	 */
+	public function test_set_player_photo_unconfirmed_thumbnail_keeps_the_old_photo(): void {
+		$this->player_with_previous_photo();
+		$this->attachment( self::PREVIOUS, self::PLAYER, true );
+		$GLOBALS['bl_core_test_set_thumbnail'] = 'silent';
+
+		$this->assertFalse( blueline_set_player_photo( self::PLAYER, self::NEW ) );
+
+		$this->assertSame( array( array( self::NEW, true ) ), $GLOBALS['bl_core_test_deleted_attachments'] );
+		$this->assertSame( self::PREVIOUS, get_post_thumbnail_id( self::PLAYER ) );
+	}
+
+	/**
 	 * Logged-out uploads die.
 	 */
 	public function test_upload_dies_when_logged_out(): void {
@@ -283,14 +347,36 @@ final class PlayerPhotoTest extends TestCase {
 	}
 
 	/**
-	 * Other account pages are left alone.
+	 * Other account pages are left alone: no redirect is issued for an unrelated endpoint.
 	 */
 	public function test_other_account_pages_are_not_redirected(): void {
 		$GLOBALS['bl_core_test_is_account_page'] = true;
 		$GLOBALS['wp']                           = (object) array( 'query_vars' => array( 'orders' => '' ) );
 
-		blueline_redirect_profile_picture_endpoint();
+		$location = null;
+		try {
+			blueline_redirect_profile_picture_endpoint();
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			$location = $e->location;
+		}
 
-		$this->addToAssertionCount( 1 );
+		$this->assertNull( $location, 'No redirect expected.' );
+	}
+
+	/**
+	 * Outside the account page the endpoint check does not even look at the query vars.
+	 */
+	public function test_profile_picture_query_var_is_ignored_off_the_account_page(): void {
+		$GLOBALS['bl_core_test_is_account_page'] = false;
+		$GLOBALS['wp']                           = (object) array( 'query_vars' => array( 'profile-picture' => '' ) );
+
+		$location = null;
+		try {
+			blueline_redirect_profile_picture_endpoint();
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			$location = $e->location;
+		}
+
+		$this->assertNull( $location, 'No redirect expected.' );
 	}
 }

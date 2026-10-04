@@ -4,6 +4,10 @@ Blueline ships as a GitHub release. Tag a version, CI builds a clean `blueline/`
 theme zip, and wp-admin (Dashboard > Updates) offers it with a link to the
 changelog. `scripts/deploy-theme.sh` (rsync) stays as the break-glass path.
 
+The same release also carries the **blueline-core plugin** zip
+(`blueline-core-<plugin version>.zip`), which has no updater and is installed by
+hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
+
 ## How it fits together
 
 - `.github/workflows/release.yml` runs on a `v*` tag: **guard** (tag = `style.css`
@@ -38,6 +42,96 @@ Dry run without publishing (from the repo root, after `npm run build` in `themes
     php scripts/release/guard.php v1.0.1
     scripts/release/package.sh v1.0.1 /tmp/rel
     php scripts/release/build-manifest.php v1.0.1 /tmp/rel/blueline-1.0.1.zip /tmp/rel
+
+## Plugin (blueline-core)
+
+`plugins/blueline-core/` is the companion plugin (player claim flow, photos, My Account
+routing, mail wrapper, SEO tags, privacy hardening). It is built and released by the
+same workflow as the theme, but it has **its own version line** and **no updater**
+(`Update URI: false`): nothing on a site ever offers a plugin update, so every plugin
+change reaches production as a zip someone uploads.
+
+### Versioning
+
+- The plugin's version is the `Version:` header in `plugins/blueline-core/blueline-core.php`
+  and the `BLUELINE_CORE_VERSION` constant right below it. They must be equal. The
+  constant is not cosmetic: a changed value makes the plugin flush rewrite rules once
+  on the next request (`blueline_core_maybe_flush_rewrite_rules()`), which is how a new
+  My Account endpoint starts resolving after an upgrade. **Bump it whenever a change
+  adds or renames a rewrite endpoint**, and for every release that ships plugin code.
+- Plain semver, independent of the theme: `0.y.z` until the first production rollout is
+  confirmed, then `1.0.0`. Patch = fix, minor = new behaviour or module, major = something
+  a site owner has to react to (a removed hook, option or URL).
+- `composer.json` carries no `version` (Composer reads it from the tag). If one is ever
+  added, the guard requires it to equal the header, and likewise a `Stable tag` in a
+  readme. `composer.json`'s `require.php` floor must equal the header's `Requires PHP`.
+- Compatibility: the plugin loads only against theme **1.1.0 or newer** (an older theme
+  still defines the code the plugin took over, so the plugin stays idle and shows an
+  admin notice). The theme works without the plugin but lacks those features.
+
+### How a plugin release is cut
+
+The plugin zip rides on every theme release; the tag is the **theme's** (`vX.Y.Z`).
+
+1. In the PR, bump `Version:` and `BLUELINE_CORE_VERSION` together when the plugin
+   changed. Leave them alone when it did not; the release then simply re-attaches
+   the same plugin version.
+2. Merge, tag the theme release as in "Release procedure". `release.yml` then:
+   - **guard**: `php scripts/release/plugin-guard.php` (header = constant = composer =
+     readme; `Requires PHP` = composer floor). A disagreement stops the release before anything is built.
+   - **build**: plugin PHPUnit, then `scripts/release/package-plugin.sh dist`. It
+     applies `plugins/blueline-core/.distignore` with rsync (the file `deploy-plugin.sh`
+     uses too), runs `composer install --no-dev` only if the plugin ever declares runtime
+     dependencies (it has none today, so no `vendor/` ships), syntax-checks every file,
+     and zips with sorted entries and fixed mtimes (reproducible: same tree, same bytes).
+     It then asserts the zip has `blueline-core.php`, `uninstall.php`, `includes/boot.php`
+     and every module `includes/modules.php` lists, has no `tests/`, `vendor/`,
+     `composer.*`, `phpunit.xml`, `phpcs.xml.dist` or dotfiles, contains only allow-listed
+     file types, and that the header inside the zip is the version in the file name.
+   - **publish**: attaches `blueline-core-<version>.zip` and `.zip.sha256` to the same
+     release (read-only build, write-scoped publish, exactly as for the theme).
+3. A plugin-only fix still needs a theme tag to publish (the pipeline is one tag). Cut a
+   theme patch release, or build the zip yourself with the dry run below and install that.
+
+`check.yml` exercises the same machinery on every PR (job `plugin-release`): the guard,
+shellcheck, and `scripts/release/test-plugin-release.sh`, which builds the zip, compares
+its file list with the runtime files in the tree, builds twice and compares the bytes,
+and proves the guard and packager refuse a drifted version, a syntax error, a missing
+module and an unexpected file. The job also runs `composer validate --strict` and
+`composer audit --locked` for the plugin.
+
+Dry run without publishing (repo root; needs `php`, `rsync`, `zip`):
+
+    php scripts/release/plugin-guard.php
+    scripts/release/package-plugin.sh /tmp/rel-plugin
+    unzip -Z1 /tmp/rel-plugin/blueline-core-*.zip
+    scripts/release/test-plugin-release.sh
+
+### First production rollout (owner steps)
+
+Order matters. Theme 1.1.0 moved features into the plugin, so a site running theme
+1.1.0 **without** the plugin has lost them; a site running the plugin beside an older
+theme is untouched (the plugin stays idle). Therefore the plugin goes in first and the
+theme second. The plugin only starts working once a theme >= 1.1.0 is active.
+
+1. Download `blueline-core-<version>.zip` and its `.sha256` from the GitHub release.
+   Verify: `sha256sum -c blueline-core-<version>.zip.sha256`.
+2. Confirm the `rh-royal-mcp-register-fix.php` must-use plugin is present on production
+   (the plugin refuses to flush rewrite rules without it, to avoid the `/register` 405).
+3. wp-admin > Plugins > Add New > Upload Plugin, choose the zip, install, **activate**.
+   With the old theme still active it loads nothing and shows "Update the Blueline theme"
+   to admins; no behaviour changes yet. (Or unzip into `wp-content/plugins/`.)
+4. Update the theme to 1.1.0 or newer (Dashboard > Updates). On the next request the plugin
+   boots and its modules take over; it flushes rewrite rules once by itself.
+5. Check the list in `docs/OPERATIONS.md` ("Production cutover checklist"), in particular
+   that all ten modules report `LOADED`.
+
+Later plugin releases: upload the new zip over the old one (Plugins > Add New > Upload,
+"Replace current with uploaded"), or replace the folder. Do not delete the plugin first:
+uninstalling removes its options. Staging takes a plugin build with
+`scripts/deploy-plugin.sh staging` (local PHPUnit preflight, rsync, activate, then it
+verifies the plugin is active, at the header's version, with every module loaded;
+`--verify` re-runs only that check, `--skip-tests` skips the local test run).
 
 ## Owner steps (never automated)
 

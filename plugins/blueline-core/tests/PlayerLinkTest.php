@@ -14,6 +14,8 @@ require_once __DIR__ . '/../includes/player-link/player-link.php';
  */
 final class PlayerLinkTest extends TestCase {
 
+	use Blueline_Assert_WP_Error;
+
 	/**
 	 * Reset the fake-WordPress state (and player-link.php's request-scoped
 	 * linked-player cache) before every test, so the stateful cases below
@@ -23,6 +25,73 @@ final class PlayerLinkTest extends TestCase {
 		parent::setUp();
 		blueline_test_reset();
 		blueline_test_reset_state();
+		blueline_forget_claim_pool_memo();
+		unset( $GLOBALS['bl_core_test_before_add_post_meta'], $GLOBALS['bl_core_test_after_add_post_meta'] );
+	}
+
+	/**
+	 * Drop the fake $wpdb and any simulated concurrent writer.
+	 */
+	protected function tearDown(): void {
+		unset( $GLOBALS['wpdb'], $GLOBALS['bl_core_test_before_add_post_meta'], $GLOBALS['bl_core_test_after_add_post_meta'] );
+		parent::tearDown();
+	}
+
+	/**
+	 * Register an sp_player post in the fake store.
+	 *
+	 * @param int    $player_id Post ID.
+	 * @param string $status    Post status.
+	 * @param int    $author    post_author (0 for none).
+	 */
+	private function seed_player_post( int $player_id, string $status = 'publish', int $author = 0 ): void {
+		$state                        = &blueline_test_state();
+		$state['post_types']          = array( 'sp_player' );
+		$state['posts'][ $player_id ] = array(
+			'type'   => 'sp_player',
+			'status' => $status,
+			'author' => $author,
+		);
+	}
+
+	/**
+	 * Make $user_id a plain account named $name, and offer exactly the
+	 * $pool players (id => title) as the claim pool, via the fake $wpdb title
+	 * fetch and the pool short-circuit filter.
+	 *
+	 * @param int                $user_id Account ID (also the current user).
+	 * @param string             $name    The account's billing name.
+	 * @param array<int, string> $pool    player_id => post_title.
+	 */
+	private function seed_claim_pool( int $user_id, string $name, array $pool ): void {
+		$state                          = &blueline_test_state();
+		$state['current_user_id']       = $user_id;
+		$state['users'][ $user_id ]     = (object) array(
+			'roles'        => array( 'customer' ),
+			'display_name' => $name,
+		);
+		$state['user_meta'][ $user_id ] = array(
+			'billing_first_name' => (string) strtok( $name, ' ' ),
+			'billing_last_name'  => trim( (string) strstr( $name, ' ' ) ),
+		);
+
+		$rows = array();
+		foreach ( $pool as $player_id => $title ) {
+			$this->seed_player_post( $player_id );
+			$rows[] = (object) array(
+				'ID'         => (string) $player_id,
+				'post_title' => $title,
+			);
+		}
+
+		$wpdb            = new Blueline_Core_Test_Wpdb();
+		$wpdb->results   = $rows;
+		$GLOBALS['wpdb'] = $wpdb;
+
+		add_filter(
+			'blueline_pre_claim_pool_player_ids',
+			static fn() => array_keys( $pool )
+		);
 	}
 
 	/**
@@ -511,6 +580,7 @@ final class PlayerLinkTest extends TestCase {
 		$state['post_types']      = array( 'sp_player' );
 		$state['current_user_id'] = 5;
 		$state['post_meta'][100]  = array( BLUELINE_PLAYER_USER_META => 7 );
+		$this->seed_player_post( 100 );
 
 		$result = blueline_link_player_to_user( 100, 5 );
 
@@ -527,6 +597,8 @@ final class PlayerLinkTest extends TestCase {
 		$state['post_types']      = array( 'sp_player' );
 		$state['current_user_id'] = 5;
 		$state['post_meta'][200]  = array( BLUELINE_PLAYER_USER_META => 5 ); // User 5's existing player.
+		$this->seed_player_post( 100 );
+		$this->seed_player_post( 200 );
 
 		$result = blueline_link_player_to_user( 100, 5 );
 
@@ -539,9 +611,7 @@ final class PlayerLinkTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_link_writes_the_meta_and_busts_the_cache_for_the_user_themselves(): void {
-		$state                    = &blueline_test_state();
-		$state['post_types']      = array( 'sp_player' );
-		$state['current_user_id'] = 5;
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
 
 		// Warm the request-scoped cache with the pre-link answer, so the
 		// assertion below proves blueline_forget_linked_player_cache() ran --
@@ -564,6 +634,7 @@ final class PlayerLinkTest extends TestCase {
 		$state['post_types']      = array( 'sp_player' );
 		$state['current_user_id'] = 9;
 		$state['caps']            = array( 'edit_users' => true );
+		$this->seed_player_post( 100 );
 
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
 		$this->assertSame( 5, get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ) );
@@ -579,6 +650,7 @@ final class PlayerLinkTest extends TestCase {
 		$state['post_types']      = array( 'sp_player' );
 		$state['current_user_id'] = 5;
 		$state['post_meta'][100]  = array( BLUELINE_PLAYER_USER_META => 5 );
+		$this->seed_player_post( 100 );
 
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
 		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
@@ -636,6 +708,7 @@ final class PlayerLinkTest extends TestCase {
 			'roles'        => array( 'sp_player' ),
 			'display_name' => 'Matthew Smith',
 		);
+		$this->seed_player_post( 100 );
 
 		$this->assertSame( array(), blueline_find_player_candidates( 5 ) );
 
@@ -655,6 +728,7 @@ final class PlayerLinkTest extends TestCase {
 		$state['current_user_id'] = 9;
 		$state['caps']            = array( 'edit_users' => true );
 		$state['users'][5]        = (object) array( 'roles' => array( 'sp_player' ) );
+		$this->seed_player_post( 100 );
 
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
 	}
@@ -691,5 +765,324 @@ final class PlayerLinkTest extends TestCase {
 		$state['users'][5]   = (object) array( 'roles' => array( 'sp_player' ) );
 
 		$this->assertFalse( blueline_user_is_verified_player_owner( 5 ) );
+	}
+
+	// -----------------------------------------------------------------------
+	// A-02: the name gate bounds BOTH sides, so a padded account name cannot
+	// borrow every two-token player whose tokens it happens to contain.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_padded_account_name_does_not_match_players_it_merely_contains(): void {
+		$padded = 'John Mike Dave Smith Brown Jones';
+
+		// The matcher alone still scores each of these a perfect 1.0 (pinned above) ...
+		$this->assertSame( 1.0, blueline_name_match_score( $padded, 'John Smith' ) );
+
+		// ... so the gate is what stops them.
+		$this->assertSame(
+			array(),
+			blueline_score_player_candidates(
+				$padded,
+				array(
+					101 => 'John Smith',
+					102 => 'Mike Brown',
+					103 => 'Dave Jones',
+					104 => 'John Brown',
+					105 => 'Jane Doe',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_gate_bounds_the_player_side_too(): void {
+		// A short account name against a player title padded with extra tokens.
+		$this->assertFalse( blueline_name_pair_is_specific_enough( 'John Smith', 'John Mike Dave Smith Brown Jones' ) );
+		$this->assertFalse( blueline_name_pair_is_specific_enough( 'John Smith', 'John Michael Robert Smith' ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_gate_still_allows_reordering_and_one_middle_name(): void {
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'Cody Lusk', 'Lusk Cody' ) );
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'John Michael Smith', 'John Smith' ) );
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'John Smith', 'John Michael Smith' ) );
+
+		$candidates = blueline_score_player_candidates(
+			'Lusk Cody',
+			array( 101 => 'Cody Lusk' )
+		);
+		$this->assertCount( 1, $candidates );
+
+		$candidates = blueline_score_player_candidates(
+			'John Michael Smith',
+			array( 101 => 'John Smith' )
+		);
+		$this->assertCount( 1, $candidates );
+	}
+
+	// -----------------------------------------------------------------------
+	// A-07: the linked-player lookup is deterministic and status-agnostic.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_a_user_linked_to_an_unpublished_player_still_resolves_to_it(): void {
+		$this->seed_player_post( 100, 'draft' );
+		$this->seed_player_post( 101, 'private' );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '5' );
+		$state['post_meta'][101] = array( BLUELINE_PLAYER_USER_META => '6' );
+
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+		$this->assertSame( 101, blueline_get_linked_player_id( 6 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_with_several_linked_players_the_one_the_user_owns_wins(): void {
+		$this->seed_player_post( 100, 'publish', 1 ); // Legacy name claim, newest-looking ID is irrelevant.
+		$this->seed_player_post( 200, 'publish', 5 ); // The registration-created record the user owns.
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '5' );
+		$state['post_meta'][200] = array( BLUELINE_PLAYER_USER_META => '5' );
+
+		$this->assertSame( 200, blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_with_several_linked_players_and_none_owned_the_lowest_id_wins(): void {
+		$this->seed_player_post( 300 );
+		$this->seed_player_post( 100 );
+		$this->seed_player_post( 200 );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][300] = array( BLUELINE_PLAYER_USER_META => '5' );
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '5' );
+		$state['post_meta'][200] = array( BLUELINE_PLAYER_USER_META => '5' );
+
+		$this->assertSame( array( 100, 200, 300 ), blueline_query_linked_player_ids( 5 ) );
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * A user linked to a draft player cannot slip a second link past the guard.
+	 */
+	public function test_a_draft_link_still_blocks_a_second_link(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 101 => 'Cody Lusk' ) );
+		$this->seed_player_post( 100, 'draft' );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '5' );
+
+		$result = blueline_link_player_to_user( 101, 5 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'user_already_linked', $result->get_error_code() );
+	}
+
+	// -----------------------------------------------------------------------
+	// A-04: blueline_link_player_to_user() enforces the claim rules itself.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_a_post_that_is_not_a_player(): void {
+		$state                    = &blueline_test_state();
+		$state['post_types']      = array( 'sp_player' );
+		$state['current_user_id'] = 5;
+		$state['posts'][100]      = array(
+			'type'   => 'post',
+			'status' => 'publish',
+		);
+
+		$result = blueline_link_player_to_user( 100, 5 );
+		$this->assertWPError( $result );
+		$this->assertSame( 'invalid', $result->get_error_code() );
+		$this->assertArrayNotHasKey( BLUELINE_PLAYER_USER_META, blueline_test_state()['post_meta'][100] ?? array() );
+
+		$unknown = blueline_link_player_to_user( 999, 5 );
+		$this->assertWPError( $unknown );
+		$this->assertSame( 'invalid', $unknown->get_error_code(), 'a post that does not exist is not a player' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_an_unpublished_player_for_a_non_admin_but_not_for_an_admin(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$this->seed_player_post( 100, 'draft' );
+
+		$result = blueline_link_player_to_user( 100, 5 );
+		$this->assertWPError( $result );
+		$this->assertSame( 'invalid', $result->get_error_code() );
+
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+		$state['caps']            = array( 'edit_users' => true );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ), 'the league may link a draft record' );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_a_player_outside_the_users_candidate_list(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$this->seed_player_post( 101 ); // A real, published, unlinked player, but not a name match.
+
+		$result = blueline_link_player_to_user( 101, 5 );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'invalid', $result->get_error_code() );
+		$this->assertSame( '', get_post_meta( 101, BLUELINE_PLAYER_USER_META, true ) );
+	}
+
+	/**
+	 * Test case.
+	 */
+	public function test_link_refuses_a_candidate_whose_name_does_not_clear_the_gate(): void {
+		// Even if the pool offers the player, a padded account name has no candidates.
+		$this->seed_claim_pool( 5, 'John Mike Dave Smith Brown Jones', array( 100 => 'John Smith' ) );
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'invalid', $result->get_error_code() );
+		$this->assertSame( '', get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ) );
+	}
+
+	// -----------------------------------------------------------------------
+	// A-01: the write is conditional and the invariant is re-checked after it.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Another account links the same player between this call's read and its write.
+	 */
+	public function test_a_concurrent_claim_of_the_same_player_cannot_produce_two_owners(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+
+		$GLOBALS['bl_core_test_before_add_post_meta'] = static function ( $post_id, $key ) {
+			add_post_meta( $post_id, $key, 7, true ); // The other request wins the race.
+		};
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'already_linked', $result->get_error_code() );
+		$this->assertSame( array( 7 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ), 'exactly one row, the winner\'s' );
+		$this->assertNull( blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * Another writer replaces the row between this call's write and its re-check.
+	 */
+	public function test_a_foreign_owner_after_the_write_is_reported_and_never_deleted(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+
+		$GLOBALS['bl_core_test_after_add_post_meta'] = static function ( $post_id, $key ) {
+			$state                                  = &blueline_test_state();
+			$state['post_meta'][ $post_id ][ $key ] = 7;
+		};
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'already_linked', $result->get_error_code() );
+		$this->assertSame( array( 7 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ), 'the other writer\'s row survives' );
+		$this->assertNull( blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * Several sp_user rows on one player (the shape a lost race leaves) are all seen,
+	 * so a claim against them is refused rather than silently adding a third owner.
+	 */
+	public function test_duplicate_owner_rows_are_all_seen_and_block_a_claim(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => new Blueline_Test_Meta_Rows( array( '7', '8', '7', '0' ) ) );
+
+		$this->assertSame( array( 7, 8 ), blueline_player_linked_user_ids( 100 ) );
+
+		$result = blueline_link_player_to_user( 100, 5 );
+		$this->assertWPError( $result );
+		$this->assertSame( 'already_linked', $result->get_error_code() );
+	}
+
+	/**
+	 * The user links a second player between this call's read and its write.
+	 */
+	public function test_a_concurrent_second_player_for_the_same_user_is_rolled_back(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$this->seed_player_post( 200 );
+
+		$GLOBALS['bl_core_test_after_add_post_meta'] = static function () {
+			$state                   = &blueline_test_state();
+			$state['post_meta'][200] = array( BLUELINE_PLAYER_USER_META => '5' );
+		};
+
+		$result = blueline_link_player_to_user( 100, 5 );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'user_already_linked', $result->get_error_code() );
+		$this->assertSame( '', get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ), 'the row this call wrote is removed' );
+		$this->assertSame( 200, blueline_get_linked_player_id( 5 ), 'the earlier link is untouched' );
+	}
+
+	/**
+	 * A '' / '0' sp_user row is the "unclaimed" shape; it is taken over, not treated as an owner.
+	 */
+	public function test_a_placeholder_sp_user_row_is_taken_over(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '0' );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
+	}
+
+	/**
+	 * A normal claim writes exactly one row, through the unique add.
+	 */
+	public function test_a_normal_claim_writes_exactly_one_row(): void {
+		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
+		$this->assertFalse( add_post_meta( 100, BLUELINE_PLAYER_USER_META, 6, true ), 'a unique add cannot create a second row' );
+	}
+
+	// -----------------------------------------------------------------------
+	// A-11: the claim pool's season terms are resolved once per request.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Test case.
+	 */
+	public function test_claim_pool_season_terms_are_memoised_until_forgotten(): void {
+		$this->assertNull( blueline_claim_pool_memo() );
+
+		$this->assertSame( array(), blueline_claim_pool_season_term_ids() ); // sp_season is not registered here.
+		$this->assertSame( array(), blueline_claim_pool_memo(), 'the empty answer is memoised too' );
+
+		$memo = &blueline_claim_pool_memo();
+		$memo = array( 7, 8 ); // Prove the second call does not re-resolve.
+		unset( $memo );
+
+		$this->assertSame( array( 7, 8 ), blueline_claim_pool_season_term_ids() );
+
+		blueline_forget_claim_pool_memo();
+
+		$this->assertNull( blueline_claim_pool_memo() );
+		$this->assertSame( array(), blueline_claim_pool_season_term_ids() );
 	}
 }

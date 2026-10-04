@@ -128,6 +128,31 @@ jobs:
           docker cp /tmp/blueline-clean sp-test:/var/www/html/wp-content/themes/blueline
           docker exec sp-test wp theme activate blueline --allow-root
 
+      - name: Install and activate blueline-core
+        # Production runs the theme WITH its companion plugin (docs/OPERATIONS.md):
+        # the player claim flow, photo upload, My Account routing, mail wrapper,
+        # checkout fixes, SEO/social tags and member-privacy hardening all live in
+        # the plugin now, so a theme-only environment tests a configuration that
+        # never ships. Same file set the release zip and the staging deploy use
+        # (plugins/blueline-core/.distignore), copied the same way as the theme.
+        run: |
+          rsync -a --exclude-from=../../plugins/blueline-core/.distignore \
+            ../../plugins/blueline-core/ /tmp/blueline-core-clean/
+          docker cp /tmp/blueline-core-clean sp-test:/var/www/html/wp-content/plugins/blueline-core
+          docker exec sp-test wp plugin activate blueline-core --allow-root
+          # The plugin defers its own rewrite flush unless production's register-fix
+          # mu-plugin exists (it does not in this sandbox), so flush by hand: the
+          # My Account endpoints it registers must resolve for the suite.
+          docker exec sp-test wp rewrite flush --allow-root
+
+      - name: Verify blueline-core booted
+        # Active is not enough: a module that fails to load is skipped silently.
+        # Fail the job here, with a clear message, instead of letting the suite
+        # run against a half-loaded plugin. (The E2E step below is
+        # continue-on-error; this one deliberately is not.)
+        run: |
+          docker exec sp-test wp eval 'if ( blueline_core_legacy_theme_active() ) { echo "blueline-core is idle: legacy theme detected\n"; exit( 1 ); } $wanted = array_keys( blueline_core_modules() ); $absent = array_diff( $wanted, array_keys( blueline_core_loaded_modules() ) ); echo count( $wanted ) - count( $absent ) . "/" . count( $wanted ) . " modules loaded\n"; if ( $absent ) { echo "NOT LOADED: " . implode( ", ", $absent ) . "\n"; exit( 1 ); }' --allow-root
+
       - name: Configure the static front page
         # template-homepage.php's own docblock: "Assign this template to the
         # static front page under Settings > Reading" -- a one-time site

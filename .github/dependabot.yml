@@ -1,0 +1,65 @@
+# Weekly dependency updates, grouped so a week's worth lands as one PR per ecosystem
+# (plus a separate PR for majors, which need a human look). Every PR still goes
+# through the same gate as any other change (check.yml).
+#
+# Concurrent PRs that each run `npm run build` conflict on themes/blueline/assets/dist/*;
+# the low open-PR limits keep that rare. Merge, then rebuild, instead of hand-resolving.
+version: 2
+
+updates:
+  # Theme build and test tooling (webpack, eslint, stylelint, playwright ...).
+  - package-ecosystem: npm
+    directory: /themes/blueline
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Theme PHP dev tooling (PHPUnit, PHPCS/WPCS).
+  - package-ecosystem: composer
+    directory: /themes/blueline
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      composer-theme-minor-and-patch:
+        update-types: [minor, patch]
+
+  # blueline-core PHP dev tooling (no runtime dependencies today).
+  - package-ecosystem: composer
+    directory: /plugins/blueline-core
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      composer-plugin-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Workflow actions are pinned to commit SHAs (with a `# vN` comment); Dependabot
+  # bumps the SHA and the comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions:
+        patterns: ["*"]

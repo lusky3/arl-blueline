@@ -1,11 +1,18 @@
-# Files that must NOT ship with the plugin (rsync syntax, read by scripts/deploy-plugin.sh).
-# Whole-line comments only. A leading slash anchors to the plugin root.
-vendor
-tests
-.git
+# Files that must NOT ship with the plugin (rsync syntax). Read by scripts/deploy-plugin.sh
+# (staging rsync) and scripts/release/package-plugin.sh (the release zip), so both agree exactly.
+# Whole-line comments only. A leading slash anchors to the plugin root: keep it, so a future
+# includes/<module>/tests or vendor directory is never silently dropped from the shipped plugin.
+# The plugin has no runtime composer dependencies; /vendor holds dev tools only. If a runtime
+# dependency is ever added, package-plugin.sh installs it with --no-dev into its own staging copy.
+/vendor
+/tests
+/.git
+/.github
 /.phpunit.result.cache
 /phpunit.xml
+/phpcs.xml.dist
 /.gitignore
 /.distignore
 /composer.json
 /composer.lock
+.DS_Store

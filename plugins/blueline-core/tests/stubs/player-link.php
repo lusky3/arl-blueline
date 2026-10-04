@@ -78,3 +78,97 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 		return $id;
 	}
 }
+
+if ( ! function_exists( 'add_post_meta' ) ) {
+	/**
+	 * Stand-in for add_post_meta() over the shared post_meta store, with core's
+	 * unique semantics: a unique add fails (false) when the key already has any
+	 * row, a non-unique add appends a row (stored as a Blueline_Test_Meta_Rows).
+	 *
+	 * A test can simulate a concurrent writer by setting
+	 * $GLOBALS['bl_core_test_before_add_post_meta'] (runs just before the write)
+	 * or $GLOBALS['bl_core_test_after_add_post_meta'] (runs just after it); each
+	 * receives ( $post_id, $key, $value ) and is cleared once it has run.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Meta key.
+	 * @param mixed  $value   Meta value.
+	 * @param bool   $unique  Whether the key must have no other row.
+	 * @return int|false A truthy id on success, false on a refused unique add.
+	 */
+	function add_post_meta( $post_id, $key, $value, $unique = false ) {
+		if ( ! empty( $GLOBALS['bl_core_test_before_add_post_meta'] ) ) {
+			$callback = $GLOBALS['bl_core_test_before_add_post_meta'];
+			unset( $GLOBALS['bl_core_test_before_add_post_meta'] );
+			$callback( $post_id, $key, $value );
+		}
+
+		$state    = &blueline_test_state();
+		$existing = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? null;
+
+		if ( null !== $existing && $unique ) {
+			return false;
+		}
+
+		if ( null === $existing ) {
+			$state['post_meta'][ (int) $post_id ][ (string) $key ] = $value;
+		} else {
+			$rows   = $existing instanceof Blueline_Test_Meta_Rows ? $existing->rows : array( $existing );
+			$rows[] = $value;
+
+			$state['post_meta'][ (int) $post_id ][ (string) $key ] = new Blueline_Test_Meta_Rows( $rows );
+		}
+
+		if ( ! empty( $GLOBALS['bl_core_test_after_add_post_meta'] ) ) {
+			$callback = $GLOBALS['bl_core_test_after_add_post_meta'];
+			unset( $GLOBALS['bl_core_test_after_add_post_meta'] );
+			$callback( $post_id, $key, $value );
+		}
+
+		return 1;
+	}
+}
+
+if ( ! function_exists( 'delete_post_meta' ) ) {
+	/**
+	 * Stand-in for delete_post_meta() over the shared post_meta store: with a
+	 * $value only the rows holding that value (string compare) are removed, with
+	 * '' every row for the key. Fallback only: tests/stubs/avatars.php sorts
+	 * first and defines its own (scalar-only) version, which then wins.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Meta key.
+	 * @param mixed  $value   Row value to remove, or '' for all rows.
+	 * @return bool Whether anything was removed.
+	 */
+	function delete_post_meta( $post_id, $key, $value = '' ) {
+		$state    = &blueline_test_state();
+		$existing = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? null;
+
+		if ( null === $existing ) {
+			return false;
+		}
+
+		$rows = $existing instanceof Blueline_Test_Meta_Rows ? $existing->rows : array( $existing );
+		$kept = array();
+		foreach ( $rows as $row ) {
+			if ( '' !== (string) $value && (string) $row !== (string) $value ) {
+				$kept[] = $row;
+			}
+		}
+
+		if ( count( $kept ) === count( $rows ) ) {
+			return false;
+		}
+
+		if ( array() === $kept ) {
+			unset( $state['post_meta'][ (int) $post_id ][ (string) $key ] );
+		} elseif ( 1 === count( $kept ) ) {
+			$state['post_meta'][ (int) $post_id ][ (string) $key ] = $kept[0];
+		} else {
+			$state['post_meta'][ (int) $post_id ][ (string) $key ] = new Blueline_Test_Meta_Rows( $kept );
+		}
+
+		return true;
+	}
+}

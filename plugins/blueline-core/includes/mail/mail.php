@@ -28,6 +28,9 @@ function blueline_core_email_brand(): array {
 		'ink_mid'     => '#2E4A74',
 		'accent_text' => '#3F6E9D',
 		'border'      => '#DBE7F0',
+		// Soft dependency on the seo-meta module's blueline_social_logo_url(): when that module is
+		// not loaded the logo is simply empty and the template renders without one. The
+		// function_exists() guard is therefore load-bearing; do not replace it with a direct call.
 		'logo'        => function_exists( 'blueline_social_logo_url' ) ? (string) blueline_social_logo_url() : '',
 	);
 
@@ -58,8 +61,7 @@ add_filter( 'option_wp_email_template_general', 'blueline_wp_email_template_gene
 /**
  * The wp-email-template plugin (a3rev) is this site's one general-purpose
  * HTML-mail wrapper for every wp_mail() sender that isn't WooCommerce/FUE
- * (those already have their own branded system, the theme's option overrides in
- * inc/woocommerce.php) -- Contact Form 7, Gravity Forms' remaining notifications, and
+ * (those already have their own branded system, in the theme) -- Contact Form 7, Gravity Forms' remaining notifications, and
  * WordPress core's own mail all go out through it. Two distinct things
  * this pins in the same option:
  *
@@ -79,7 +81,7 @@ add_filter( 'option_wp_email_template_general', 'blueline_wp_email_template_gene
  *
  * `background_colour` (the outermost canvas, outside the 600px card) is
  * also repointed to --bl-paper here, matching the same token the
- * WooCommerce email overrides (inc/woocommerce.php) use for the identical role, so every
+ * WooCommerce email overrides in the theme use for the identical role, so every
  * branded email on the site -- Woo, FUE, or this plugin's -- shares one
  * outer-canvas colour.
  *
@@ -183,6 +185,27 @@ function blueline_email_is_already_html( array $args ): bool {
 }
 
 /**
+ * Whether a `wp_mail_content_type` filter would override the `text/html` Content-Type this
+ * module adds, i.e. some other code forces the mail to another type (typically `text/plain`).
+ *
+ * Why this is needed: core's wp_mail() applies `wp_mail_content_type` AFTER it has parsed the
+ * headers, so the filter's return value beats any Content-Type header, including ours. This
+ * module runs earlier (on the `wp_mail` filter), so it cannot see the final type directly.
+ * It probes the filter instead, offering the type it would set (`text/html`): a callback that
+ * forces `text/plain` (for example WooCommerce's "Plain text" email type, via
+ * WC_Email::get_content_type()) returns `text/plain` whatever it is given, while a
+ * pass-through or no filter at all hands `text/html` straight back. Probing with `text/plain`
+ * would not work, since a forced `text/plain` and "no filter" are then indistinguishable.
+ * When the probe does not come back as `text/html` the HTML wrapper would be sent as plain
+ * text (raw `<table>` markup in the recipient's inbox), so the caller leaves such mail alone.
+ *
+ * @return bool True when the wrapper's HTML content type would not survive.
+ */
+function blueline_email_content_type_is_overridden(): bool {
+	return 'text/html' !== apply_filters( 'wp_mail_content_type', 'text/html' );
+}
+
+/**
  * Renders templates/plain-text-fallback.php with $subject/ $message and $blueline_core_brand
  * in scope, the same "plain PHP template, variables via the calling scope"
  * convention the theme's own woocommerce/emails/*.php templates use -- not a shortcode-replacement string, since this
@@ -212,11 +235,14 @@ function blueline_render_plain_text_email_wrapper( string $subject, string $mess
  * needing to fake WP_EMAIL_TEMPLATE_DIR (a real constant a test cannot
  * safely define and later undefine).
  *
+ * Mail is left untouched when it is already HTML, or when another plugin forces a content type
+ * through `wp_mail_content_type` (see blueline_email_content_type_is_overridden()).
+ *
  * @param array $args wp_mail()'s own filterable args.
  * @return array
  */
 function blueline_maybe_wrap_plain_text_email( array $args ): array {
-	if ( blueline_email_is_already_html( $args ) ) {
+	if ( blueline_email_is_already_html( $args ) || blueline_email_content_type_is_overridden() ) {
 		return $args;
 	}
 
@@ -225,8 +251,16 @@ function blueline_maybe_wrap_plain_text_email( array $args ): array {
 		(string) ( $args['message'] ?? '' )
 	);
 
-	$headers   = $args['headers'] ?? array();
-	$headers   = is_array( $headers ) ? $headers : ( '' === (string) $headers ? array() : array( (string) $headers ) );
+	$headers = $args['headers'] ?? array();
+
+	if ( ! is_array( $headers ) ) {
+		// wp_mail() accepts a newline-separated string, but treats each ARRAY element as exactly
+		// one header line. Split the string first, or "From: A\r\nReply-To: B" would become a
+		// single malformed header and mail could be dropped or lose its Reply-To/Cc/Bcc.
+		$headers = preg_split( '/\r\n|\r|\n/', trim( (string) $headers ), -1, PREG_SPLIT_NO_EMPTY );
+		$headers = false === $headers ? array() : $headers;
+	}
+
 	$headers[] = 'Content-Type: text/html; charset=UTF-8';
 
 	$args['headers'] = $headers;

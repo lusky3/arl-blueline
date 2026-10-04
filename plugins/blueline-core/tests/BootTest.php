@@ -22,7 +22,21 @@ final class BootTest extends TestCase {
 	);
 
 	/**
-	 * Reset the stub stores and the module registry.
+	 * Temp file standing in for the PHP error log, so a skipped module's log line is captured.
+	 *
+	 * @var string
+	 */
+	private string $error_log_file = '';
+
+	/**
+	 * The error_log ini value to restore.
+	 *
+	 * @var string|false
+	 */
+	private $previous_error_log = false;
+
+	/**
+	 * Reset the stub stores and the module registries; capture the error log.
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
@@ -30,6 +44,43 @@ final class BootTest extends TestCase {
 
 		$loaded = &blueline_core_loaded_modules();
 		$loaded = array();
+		$failed = &blueline_core_failed_modules();
+		$failed = array();
+
+		$this->error_log_file     = '';
+		$this->previous_error_log = false;
+	}
+
+	/**
+	 * Send error_log() output to a temp file. Called from inside a test, not setUp(): PHPUnit installs
+	 * its own error_log capture after setUp() and would override a redirect made there.
+	 */
+	private function capture_error_log(): void {
+		$this->error_log_file     = (string) tempnam( sys_get_temp_dir(), 'blueline-core-log' );
+		$this->previous_error_log = ini_set( 'error_log', $this->error_log_file ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- redirecting the log into a temp file for this test only.
+	}
+
+	/**
+	 * Restore the error log and remove the temp file.
+	 */
+	protected function tearDown(): void {
+		if ( '' === $this->error_log_file ) {
+			return;
+		}
+
+		ini_set( 'error_log', (string) $this->previous_error_log ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- restoring what capture_error_log() redirected.
+		if ( is_file( $this->error_log_file ) ) {
+			unlink( $this->error_log_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing this test's own temp file.
+		}
+	}
+
+	/**
+	 * Everything written to the (redirected) error log so far.
+	 *
+	 * @return string
+	 */
+	private function logged(): string {
+		return (string) file_get_contents( $this->error_log_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading this test's own temp log file.
 	}
 
 	/**
@@ -38,6 +89,7 @@ final class BootTest extends TestCase {
 	 * @param bool $legacy Whether a legacy theme is reported active.
 	 */
 	private function use_fixtures( bool $legacy ): void {
+		$this->capture_error_log();
 		add_filter(
 			'blueline_core_modules',
 			static function () {
@@ -96,7 +148,7 @@ final class BootTest extends TestCase {
 	 * The shipped list names every planned module, in order, as <slug>/<slug>.php.
 	 */
 	public function test_real_module_list_is_ordered_and_follows_the_directory_convention(): void {
-		$expected = array( 'player-link', 'player-photo', 'avatars', 'account-endpoints', 'mail', 'checkout', 'admin-bar', 'seo-meta', 'search', 'privacy' );
+		$expected = array( 'player-link', 'player-photo', 'avatars', 'account-endpoints', 'seo-meta', 'mail', 'checkout', 'admin-bar', 'search', 'privacy' );
 		$modules  = blueline_core_modules();
 
 		$this->assertSame( $expected, array_keys( $modules ) );
@@ -121,6 +173,171 @@ final class BootTest extends TestCase {
 		$this->assertSame( 1, $loaded_action[0] );
 		$this->assertSame( 99, has_action( 'init', 'blueline_core_maybe_flush_rewrite_rules' ) );
 		$this->assertFalse( has_action( 'admin_notices', 'blueline_core_legacy_theme_notice' ) );
+		$this->assertSame( 10, has_action( 'admin_notices', 'blueline_core_failed_modules_notice' ), 'The missing file is surfaced, not silent.' );
+	}
+
+	/**
+	 * A listed but missing module is recorded, logged once and named in the admin notice (admins only).
+	 */
+	public function test_a_missing_module_is_recorded_logged_and_shown_to_admins(): void {
+		$this->use_fixtures( false );
+
+		blueline_core_boot();
+		blueline_core_load_modules( self::FIXTURE_MODULES );
+
+		$failed = blueline_core_failed_modules();
+		$this->assertSame( array( 'missing' ), array_keys( $failed ) );
+		$this->assertStringEndsWith( 'tests/fixtures/modules/does-not-exist.php', $failed['missing'] );
+		$this->assertSame( 1, substr_count( $this->logged(), 'blueline-core: module "missing" was not loaded' ), 'Logged once per request, not per load call.' );
+
+		ob_start();
+		blueline_core_failed_modules_notice();
+		$this->assertSame( '', ob_get_clean(), 'Not for non-admins.' );
+
+		$state                           = &blueline_test_state();
+		$state['caps']['manage_options'] = true;
+
+		ob_start();
+		blueline_core_failed_modules_notice();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringStartsWith( '<div class="notice notice-error"><p>', $html );
+		$this->assertStringContainsString( 'could not load these modules: missing', $html );
+	}
+
+	/**
+	 * An unreadable (not just absent) module file is treated the same way.
+	 */
+	public function test_an_unreadable_module_file_is_recorded(): void {
+		if ( function_exists( 'posix_geteuid' ) && 0 === posix_geteuid() ) {
+			$this->markTestSkipped( 'root can read a mode 0000 file.' );
+		}
+
+		$this->capture_error_log();
+		$file = __DIR__ . '/fixtures/modules/locked-tmp.php';
+		file_put_contents( $file, '<?php' . PHP_EOL ); // phpcs:ignore WordPress.WP.AlternativeFunctions -- creating this test's own temporary fixture.
+		chmod( $file, 0000 ); // phpcs:ignore WordPress.WP.AlternativeFunctions -- making this test's own fixture unreadable.
+
+		try {
+			blueline_core_load_modules( array( 'locked' => '../tests/fixtures/modules/locked-tmp.php' ) );
+		} finally {
+			chmod( $file, 0644 ); // phpcs:ignore WordPress.WP.AlternativeFunctions -- so it can be removed.
+			unlink( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing this test's own fixture.
+		}
+
+		$this->assertArrayHasKey( 'locked', blueline_core_failed_modules() );
+		$this->assertFalse( blueline_core_module_loaded( 'locked' ) );
+	}
+
+	/**
+	 * With every module present nothing is recorded and no notice is queued.
+	 */
+	public function test_a_clean_load_records_no_failures(): void {
+		$this->capture_error_log();
+		blueline_core_load_modules( array( 'alpha' => self::FIXTURE_MODULES['alpha'] ) );
+
+		$this->assertSame( array(), blueline_core_failed_modules() );
+		$this->assertFalse( has_action( 'admin_notices', 'blueline_core_failed_modules_notice' ) );
+		$this->assertSame( '', $this->logged() );
+	}
+
+	/**
+	 * Site Health: critical and naming the slug on a failure, recommended when idle, good otherwise.
+	 */
+	public function test_site_health_reports_failed_modules(): void {
+		$critical = blueline_core_site_health_result( array( 'privacy' => '/x/privacy.php' ), array( 'mail' => '/x/mail.php' ) );
+
+		$this->assertSame( 'critical', $critical['status'] );
+		$this->assertSame( 'red', $critical['badge']['color'] );
+		$this->assertSame( 'blueline_core_modules', $critical['test'] );
+		$this->assertStringContainsString( 'privacy', $critical['description'] );
+		$this->assertStringStartsWith( '<p>', $critical['description'] );
+
+		$idle = blueline_core_site_health_result( array(), array() );
+		$this->assertSame( 'recommended', $idle['status'] );
+
+		$good = blueline_core_site_health_result(
+			array(),
+			array(
+				'mail'   => '/x/mail.php',
+				'search' => '/x/search.php',
+			)
+		);
+		$this->assertSame( 'good', $good['status'] );
+		$this->assertStringContainsString( 'mail, search', $good['description'] );
+	}
+
+	/**
+	 * The Site Health test is registered as a direct test and reads this request's registries.
+	 */
+	public function test_site_health_test_is_registered_and_uses_the_live_registries(): void {
+		$tests = blueline_core_register_site_health_test( array( 'direct' => array( 'existing' => array() ) ) );
+
+		$this->assertArrayHasKey( 'existing', $tests['direct'] );
+		$this->assertSame( 'blueline_core_run_site_health_test', $tests['direct']['blueline_core_modules']['test'] );
+		$this->assertSame( 10, has_filter( 'site_status_tests', 'blueline_core_register_site_health_test' ) );
+
+		$this->assertSame( 'recommended', blueline_core_run_site_health_test()['status'] );
+
+		$failed            = &blueline_core_failed_modules();
+		$failed['privacy'] = '/x/privacy.php';
+		$this->assertSame( 'critical', blueline_core_run_site_health_test()['status'] );
+	}
+
+	/**
+	 * A module that depends on another always loads after it, whatever order it is listed in.
+	 */
+	public function test_a_required_module_loads_before_its_dependent(): void {
+		$this->assertSame( array( 'mail' => array( 'seo-meta' ) ), blueline_core_module_requirements() );
+
+		$ordered = blueline_core_order_modules(
+			array(
+				'mail'     => self::FIXTURE_MODULES['alpha'],
+				'other'    => self::FIXTURE_MODULES['beta'],
+				'seo-meta' => self::FIXTURE_MODULES['beta'],
+			)
+		);
+
+		$this->assertSame( array( 'seo-meta', 'mail', 'other' ), array_keys( $ordered ) );
+	}
+
+	/**
+	 * The loader enforces the order at load time, not just in the list.
+	 */
+	public function test_boot_loads_seo_meta_before_mail_even_when_listed_after_it(): void {
+		add_filter(
+			'blueline_core_modules',
+			static function () {
+				return array(
+					'mail'     => '../tests/fixtures/modules/alpha.php',
+					'seo-meta' => '../tests/fixtures/modules/beta.php',
+				);
+			}
+		);
+		add_filter( 'blueline_core_legacy_theme_active', '__return_false' );
+
+		blueline_core_boot();
+
+		$this->assertSame( array( 'seo-meta', 'mail' ), array_keys( blueline_core_loaded_modules() ) );
+	}
+
+	/**
+	 * A dependency that is switched off is not forced back on, and the dependent still loads.
+	 */
+	public function test_a_dependency_that_is_switched_off_is_not_forced_on(): void {
+		$ordered = blueline_core_order_modules( array( 'mail' => self::FIXTURE_MODULES['alpha'] ) );
+
+		$this->assertSame( array( 'mail' ), array_keys( $ordered ) );
+	}
+
+	/**
+	 * The real list loads seo-meta before mail, and the shipped files for both exist.
+	 */
+	public function test_real_list_orders_seo_meta_before_mail(): void {
+		$slugs = array_keys( blueline_core_order_modules( blueline_core_modules() ) );
+
+		$this->assertLessThan( array_search( 'mail', $slugs, true ), array_search( 'seo-meta', $slugs, true ) );
+		$this->assertSame( array_keys( blueline_core_modules() ), $slugs, 'modules.php is already in dependency order.' );
 	}
 
 	/**
@@ -170,9 +387,9 @@ final class BootTest extends TestCase {
 	}
 
 	/**
-	 * Activation sets the flag; the init helper flushes once and clears it.
+	 * Activation forgets the flushed version; the next init flushes once and records it again.
 	 */
-	public function test_activation_flags_a_flush_that_the_next_init_performs_once(): void {
+	public function test_activation_makes_the_next_init_flush_once(): void {
 		$this->flush_safe( true );
 		$flushed = $this->count_action( 'blueline_core_rewrite_rules_flushed' );
 		update_option( BLUELINE_CORE_VERSION_OPTION, BLUELINE_CORE_VERSION );
@@ -180,12 +397,31 @@ final class BootTest extends TestCase {
 		$this->assertFalse( blueline_core_maybe_flush_rewrite_rules(), 'Nothing pending before activation.' );
 
 		blueline_core_activate();
-		$this->assertSame( 1, get_option( BLUELINE_CORE_FLUSH_OPTION ) );
+		$this->assertFalse( get_option( BLUELINE_CORE_VERSION_OPTION ), 'No separate flag option is written.' );
+		$this->assertFalse( get_option( BLUELINE_CORE_FLUSH_OPTION ) );
 
 		$this->assertTrue( blueline_core_maybe_flush_rewrite_rules() );
-		$this->assertFalse( get_option( BLUELINE_CORE_FLUSH_OPTION ) );
-		$this->assertFalse( blueline_core_maybe_flush_rewrite_rules(), 'The flag is consumed.' );
+		$this->assertSame( BLUELINE_CORE_VERSION, get_option( BLUELINE_CORE_VERSION_OPTION ) );
+		$this->assertFalse( blueline_core_maybe_flush_rewrite_rules(), 'Recorded: no second flush.' );
 		$this->assertSame( 1, $flushed[0] );
+	}
+
+	/**
+	 * The version option is stored autoloaded, so the per-request check is served from the options
+	 * preload; the steady-state path reads only that one option.
+	 */
+	public function test_the_version_option_is_autoloaded_and_the_steady_state_reads_only_it(): void {
+		$this->flush_safe( true );
+
+		blueline_core_maybe_flush_rewrite_rules();
+		$this->assertTrue( blueline_test_option_autoload_args( BLUELINE_CORE_VERSION_OPTION )[0], 'update_option() is called with autoload = true.' );
+
+		// A stale legacy flag row must not matter in the steady state (it is never consulted).
+		update_option( BLUELINE_CORE_FLUSH_OPTION, 1 );
+		$flushed = $this->count_action( 'blueline_core_rewrite_rules_flushed' );
+
+		$this->assertFalse( blueline_core_maybe_flush_rewrite_rules() );
+		$this->assertSame( 0, $flushed[0] );
 	}
 
 	/**
@@ -209,7 +445,7 @@ final class BootTest extends TestCase {
 
 		$this->assertFalse( blueline_core_rewrite_flush_safe(), 'No WPMU_PLUGIN_DIR in the stub environment.' );
 		$this->assertFalse( blueline_core_maybe_flush_rewrite_rules() );
-		$this->assertSame( 1, get_option( BLUELINE_CORE_FLUSH_OPTION ), 'The flag survives for a later, safe init.' );
+		$this->assertFalse( get_option( BLUELINE_CORE_VERSION_OPTION ), 'Still unrecorded, so a later, safe init flushes.' );
 		$this->assertSame( 10, has_action( 'admin_notices', 'blueline_core_flush_blocked_notice' ) );
 		$this->assertSame( 0, $flushed[0] );
 	}

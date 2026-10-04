@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="tests/bootstrap.php" colors="true">
+<!-- Strict on purpose: a warning, a risky test (no assertions, unexpected output) or an
+     order-dependent test fails the run instead of scrolling past. Random order surfaces
+     tests that only pass in file order; reproduce a failure with the seed PHPUnit prints
+     ("Random Seed: N") by running phpunit with its random-order-seed option set to N. -->
+<phpunit
+    bootstrap="tests/bootstrap.php"
+    colors="true"
+    executionOrder="random"
+    failOnWarning="true"
+    failOnRisky="true"
+    beStrictAboutTestsThatDoNotTestAnything="true">
   <testsuites>
     <testsuite name="blueline-core">
       <directory>tests</directory>

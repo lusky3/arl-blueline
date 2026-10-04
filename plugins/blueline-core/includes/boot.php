@@ -7,10 +7,13 @@
 
 defined( 'ABSPATH' ) || exit;
 
-// Option set on activation; the next `init` (priority 99) flushes and clears it.
+// Legacy flag option (set on activation by 0.1.0). Nothing sets it any more -- activation now deletes
+// the version option below instead -- but it is still cleared after a flush, on deactivation and on
+// uninstall so a leftover row never lingers.
 const BLUELINE_CORE_FLUSH_OPTION = 'blueline_core_flush_rewrite_rules';
 
-// Last plugin version that flushed rewrite rules; a mismatch triggers one flush after an upgrade.
+// Last plugin version that flushed rewrite rules; missing or different triggers one flush (activation,
+// upgrade). Stored autoloaded so the per-request check below costs no query.
 const BLUELINE_CORE_VERSION_OPTION = 'blueline_core_version';
 
 // A function only a pre-1.1.0 Blueline theme defines (it moved into this plugin's player-link module).
@@ -63,18 +66,77 @@ function blueline_core_modules(): array {
 }
 
 /**
- * Require each module file in order, skipping files that do not exist yet.
+ * Hard module dependencies: dependent slug => slugs whose functions it calls at runtime.
+ *
+ * The loader loads a required module (when it is in the list at all) before its dependent, whatever
+ * order the list or the `blueline_core_modules` filter gives. A dependency that was switched off is
+ * not forced back on: the dependent must already degrade via function_exists().
+ *
+ * - mail needs seo-meta for blueline_social_logo_url() (the email header logo).
+ *
+ * @return array<string, string[]>
+ */
+function blueline_core_module_requirements(): array {
+	return array(
+		'mail' => array( 'seo-meta' ),
+	);
+}
+
+/**
+ * Reorder a module list so every module follows the modules it requires, otherwise keeping order.
+ *
+ * @param array<string, string> $modules Slug => file relative to includes/.
+ * @return array<string, string> Same entries, dependencies first.
+ */
+function blueline_core_order_modules( array $modules ): array {
+	$requirements = blueline_core_module_requirements();
+	$ordered      = array();
+	$visiting     = array();
+
+	$visit = static function ( string $slug ) use ( &$visit, &$ordered, &$visiting, $modules, $requirements ): void {
+		if ( isset( $ordered[ $slug ] ) || isset( $visiting[ $slug ] ) || ! isset( $modules[ $slug ] ) ) {
+			return;
+		}
+
+		$visiting[ $slug ] = true;
+		foreach ( $requirements[ $slug ] ?? array() as $required ) {
+			$visit( $required );
+		}
+		unset( $visiting[ $slug ] );
+
+		$ordered[ $slug ] = $modules[ $slug ];
+	};
+
+	foreach ( array_keys( $modules ) as $slug ) {
+		$visit( (string) $slug );
+	}
+
+	return $ordered;
+}
+
+/**
+ * Require each module file in order (dependencies first). A listed file that is missing or
+ * unreadable is skipped so the site stays up, but loudly: it is recorded (see
+ * blueline_core_failed_modules()), written to the PHP error log, shown to administrators in an admin
+ * notice and reported by the Site Health test. Every listed module is expected to exist; a miss
+ * means a broken deploy, and modules such as `privacy` are security-relevant.
  *
  * @param array<string, string> $modules Slug => file relative to includes/.
  * @return string[] Slugs loaded so far (this call and earlier ones).
  */
 function blueline_core_load_modules( array $modules ): array {
 	$loaded = &blueline_core_loaded_modules();
+	$failed = &blueline_core_failed_modules();
 
-	foreach ( $modules as $slug => $relative ) {
+	foreach ( blueline_core_order_modules( $modules ) as $slug => $relative ) {
 		$file = BLUELINE_CORE_DIR . '/includes/' . ltrim( (string) $relative, '/' );
 
 		if ( ! is_readable( $file ) ) {
+			if ( ! isset( $failed[ (string) $slug ] ) ) {
+				$failed[ (string) $slug ] = $file;
+				error_log( sprintf( 'blueline-core: module "%1$s" was not loaded: %2$s is missing or unreadable.', $slug, $file ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- a skipped module must reach the server log; there is no other channel this early in boot.
+			}
+			add_action( 'admin_notices', 'blueline_core_failed_modules_notice' );
 			continue;
 		}
 
@@ -83,6 +145,112 @@ function blueline_core_load_modules( array $modules ): array {
 	}
 
 	return array_keys( $loaded );
+}
+
+/**
+ * Request-scoped registry of modules that were listed but could not be loaded: slug => expected file.
+ *
+ * @return array<string, string>
+ */
+function &blueline_core_failed_modules(): array {
+	static $failed = array();
+
+	return $failed;
+}
+
+/**
+ * Admin notice naming the modules that failed to load. Administrators only.
+ *
+ * @return void
+ */
+function blueline_core_failed_modules_notice(): void {
+	$failed = blueline_core_failed_modules();
+
+	if ( ! $failed || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	printf(
+		'<div class="notice notice-error"><p>%s</p></div>',
+		esc_html(
+			sprintf(
+				/* translators: %s: comma-separated module slugs. */
+				__( 'Blueline Core could not load these modules: %s. Their features (and any protection they provide) are switched off. Reinstall the plugin from a complete package.', 'blueline-core' ),
+				implode( ', ', array_keys( $failed ) )
+			)
+		)
+	);
+}
+
+add_filter( 'site_status_tests', 'blueline_core_register_site_health_test' );
+/**
+ * Register the "Blueline Core modules" Site Health direct test.
+ *
+ * @param array<string, array<string, mixed>> $tests Site Health tests.
+ * @return array<string, array<string, mixed>>
+ */
+function blueline_core_register_site_health_test( $tests ) {
+	$tests['direct']['blueline_core_modules'] = array(
+		'label' => __( 'Blueline Core modules', 'blueline-core' ),
+		'test'  => 'blueline_core_run_site_health_test',
+	);
+
+	return $tests;
+}
+
+/**
+ * Run the Site Health test against this request's loader registries.
+ *
+ * @return array<string, mixed>
+ */
+function blueline_core_run_site_health_test(): array {
+	return blueline_core_site_health_result( blueline_core_failed_modules(), blueline_core_loaded_modules() );
+}
+
+/**
+ * The Site Health result for the module loader. Pure.
+ *
+ * @param array<string, string> $failed Slug => file for modules that could not be loaded.
+ * @param array<string, string> $loaded Slug => file for modules that were loaded.
+ * @return array<string, mixed>
+ */
+function blueline_core_site_health_result( array $failed, array $loaded ): array {
+	if ( $failed ) {
+		$status      = 'critical';
+		$color       = 'red';
+		$label       = __( 'Blueline Core could not load some modules', 'blueline-core' );
+		$description = sprintf(
+			/* translators: %s: comma-separated module slugs. */
+			__( 'These modules are listed but their files are missing or unreadable, so their features are off: %s. Reinstall the plugin from a complete package.', 'blueline-core' ),
+			implode( ', ', array_keys( $failed ) )
+		);
+	} elseif ( ! $loaded ) {
+		$status      = 'recommended';
+		$color       = 'orange';
+		$label       = __( 'Blueline Core has loaded no modules', 'blueline-core' );
+		$description = __( 'Either the plugin is idle beside a pre-1.1.0 Blueline theme (update the theme) or every module was switched off by a filter.', 'blueline-core' );
+	} else {
+		$status      = 'good';
+		$color       = 'blue';
+		$label       = __( 'Blueline Core modules are loaded', 'blueline-core' );
+		$description = sprintf(
+			/* translators: %s: comma-separated module slugs. */
+			__( 'Loaded: %s.', 'blueline-core' ),
+			implode( ', ', array_keys( $loaded ) )
+		);
+	}
+
+	return array(
+		'label'       => $label,
+		'status'      => $status,
+		'badge'       => array(
+			'label' => __( 'Blueline', 'blueline-core' ),
+			'color' => $color,
+		),
+		'description' => '<p>' . esc_html( $description ) . '</p>',
+		'actions'     => '',
+		'test'        => 'blueline_core_modules',
+	);
 }
 
 /**
@@ -140,12 +308,14 @@ function blueline_core_legacy_theme_notice(): void {
 }
 
 /**
- * Activation: flag a rewrite flush for the next `init`, after modules have registered their endpoints.
+ * Activation: forget the last-flushed version, so the next `init` flushes rewrite rules after the
+ * modules have registered their endpoints. (No separate flag option: see
+ * blueline_core_maybe_flush_rewrite_rules() for why.)
  *
  * @return void
  */
 function blueline_core_activate(): void {
-	update_option( BLUELINE_CORE_FLUSH_OPTION, 1, false );
+	delete_option( BLUELINE_CORE_VERSION_OPTION );
 }
 
 /**
@@ -180,13 +350,16 @@ function blueline_core_rewrite_flush_safe(): bool {
 /**
  * On `init` priority 99: flush once after activation or a version change, when safe.
  *
+ * This runs on every request, so the steady-state path must be free. It is ONE read of an
+ * autoloaded option (served from the alloptions cache WordPress already loaded, no query). An
+ * absent non-autoloaded option, by contrast, costs a query per request without a persistent object
+ * cache, which is what the old separate "flush pending" flag did; hence activation now just deletes
+ * the version option and the version mismatch drives the flush.
+ *
  * @return bool Whether rules were flushed.
  */
 function blueline_core_maybe_flush_rewrite_rules(): bool {
-	$pending = (bool) get_option( BLUELINE_CORE_FLUSH_OPTION, false )
-		|| BLUELINE_CORE_VERSION !== get_option( BLUELINE_CORE_VERSION_OPTION, '' );
-
-	if ( ! $pending ) {
+	if ( BLUELINE_CORE_VERSION === get_option( BLUELINE_CORE_VERSION_OPTION, '' ) ) {
 		return false;
 	}
 
@@ -197,7 +370,7 @@ function blueline_core_maybe_flush_rewrite_rules(): bool {
 
 	flush_rewrite_rules( false );
 	delete_option( BLUELINE_CORE_FLUSH_OPTION );
-	update_option( BLUELINE_CORE_VERSION_OPTION, BLUELINE_CORE_VERSION, false );
+	update_option( BLUELINE_CORE_VERSION_OPTION, BLUELINE_CORE_VERSION, true );
 
 	/**
 	 * Fires after the plugin flushed rewrite rules.

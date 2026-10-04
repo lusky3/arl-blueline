@@ -14,6 +14,10 @@ on:
   pull_request:
     branches: [main]
 
+# Read-only: nothing here writes to the repository, issues or packages.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: themes/blueline
@@ -48,14 +52,57 @@ jobs:
       # blueline-core's suite requires themes/blueline/tests/bootstrap.php for
       # its WordPress stubs (but not the theme's vendor/), so it runs from the
       # same checkout.
+      # composer.json and composer.lock must agree, and no locked dependency may
+      # carry a published advisory (dev tooling only today; still worth a red build).
+      - name: Validate the plugin's composer files
+        working-directory: plugins/blueline-core
+        run: composer validate --strict --no-interaction
+
       - name: Install plugin PHP dependencies
         working-directory: plugins/blueline-core
         run: composer install --no-interaction --no-progress
+
+      - name: Audit plugin dependencies
+        working-directory: plugins/blueline-core
+        run: composer audit --locked --no-interaction
 
       - name: Plugin tests
         working-directory: plugins/blueline-core
         run: composer test
 
+      # WordPress standard via plugins/blueline-core/phpcs.xml.dist (text domain,
+      # global prefixes, minimum WordPress version).
       - name: Plugin lint
         working-directory: plugins/blueline-core
         run: composer lint
+
+  # The plugin's release pipeline, exercised on every PR so a broken packager or
+  # a drifting version is found here, not when a tag is pushed (release.yml runs
+  # the same two scripts for real). Builds into a temp dir; publishes nothing.
+  plugin-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.3"
+          tools: composer
+          coverage: none
+
+      # Header Version == BLUELINE_CORE_VERSION == composer.json version (if any)
+      # == README Stable tag (if any); composer require.php == Requires PHP.
+      - name: Plugin version guard
+        run: php scripts/release/plugin-guard.php
+
+      - name: Lint the release and deploy scripts
+        run: shellcheck scripts/release/package-plugin.sh scripts/release/test-plugin-release.sh scripts/deploy-plugin.sh
+
+      # Builds the zip, asserts its exact content list, reproducibility, and that
+      # the guard and packager refuse deliberately broken copies.
+      - name: Plugin packaging self-test
+        run: bash scripts/release/test-plugin-release.sh

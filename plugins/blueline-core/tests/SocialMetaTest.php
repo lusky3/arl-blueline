@@ -14,16 +14,11 @@ require_once __DIR__ . '/../includes/seo-meta/seo-meta.php';
  * Card meta and the schema.org JSON-LD: blueline_organization_schema()
  * and blueline_social_meta_data_for_event().
  *
- * Deliberately does NOT cover blueline_social_meta_data()'s is_singular()/
- * is_front_page() dispatch, blueline_sports_event_schema()'s startDate
- * (which resolves through blueline_sp_event_start_timestamp() ->
- * get_gmt_from_date(), a real-timezone function this suite has never
- * stubbed anywhere), or the "has a custom logo" branch (has_custom_logo()
- * is hard-coded false everywhere in this bootstrap, by design -- see its
- * own docblock). All three are exercised live on staging instead, the
- * same choice this codebase already made for blueline_venue_label()'s
- * full (arena + get_term() pad name) form -- see VenueLabelTest's own
- * docblock.
+ * The printed output, the singular/front-page/archive dispatch, JSON-LD and
+ * the SportsEvent schema are covered end to end in SeoMetaOutputTest. Still
+ * not covered: the "has a custom logo" branch (has_custom_logo() is
+ * hard-coded false everywhere in this bootstrap, by design -- see its own
+ * docblock), exercised live on staging instead.
  */
 final class SocialMetaTest extends TestCase {
 
@@ -260,10 +255,31 @@ final class SocialMetaTest extends TestCase {
 	}
 
 	/**
-	 * The fallback turns the event's local time into a unix timestamp.
+	 * The fallback converts the event's local time to GMT: with a site 4 hours behind UTC, a 7:00 PM
+	 * local start is 23:00 GMT; with a UTC site the clock time is unchanged.
 	 */
-	public function test_start_timestamp_fallback_returns_a_unix_timestamp(): void {
-		$this->assertIsInt( blueline_core_seo_event_start_timestamp_fallback( 100 ) );
+	public function test_start_timestamp_fallback_converts_local_time_to_gmt(): void {
+		$state = &blueline_test_state();
+
+		$utc = blueline_core_seo_event_start_timestamp_fallback( 100 );
+		$this->assertIsInt( $utc );
+		$this->assertSame( '19:00', gmdate( 'H:i', $utc ) );
+
+		$state['gmt_offset'] = -4 * HOUR_IN_SECONDS;
+		$toronto             = blueline_core_seo_event_start_timestamp_fallback( 100 );
+		$this->assertIsInt( $toronto );
+		$this->assertSame( '23:00', gmdate( 'H:i', $toronto ) );
+		$this->assertSame( 4 * HOUR_IN_SECONDS, $toronto - $utc );
+	}
+
+	/**
+	 * An event whose date cannot be resolved has no start timestamp.
+	 */
+	public function test_start_timestamp_fallback_is_false_when_the_date_cannot_be_resolved(): void {
+		$state                     = &blueline_test_state();
+		$state['gmt_unresolvable'] = true;
+
+		$this->assertFalse( blueline_core_seo_event_start_timestamp_fallback( 100 ) );
 	}
 
 	/**

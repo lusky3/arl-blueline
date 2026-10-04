@@ -232,7 +232,7 @@ function blueline_account_render_photo_notice(): void {
 
 	$messages = array(
 		'updated'   => array( 'success', __( 'Photo updated.', 'blueline' ) ),
-		'too_large' => array( 'error', __( 'That photo is too large. The limit is 2MB.', 'blueline' ) ),
+		'too_large' => array( 'error', __( 'That photo is too large. Use a file under 2MB and no bigger than about 6000 × 6000 pixels.', 'blueline' ) ),
 		'invalid'   => array( 'error', __( 'Use a JPG, PNG, GIF, or WebP image.', 'blueline' ) ),
 		'unlinked'  => array( 'error', __( 'Link your player before changing your photo.', 'blueline' ) ),
 		'not_owner' => array( 'error', __( 'Only the confirmed owner of this player profile can change its photo.', 'blueline' ) ),

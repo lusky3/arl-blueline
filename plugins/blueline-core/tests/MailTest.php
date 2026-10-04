@@ -216,6 +216,147 @@ final class MailTest extends TestCase {
 	}
 
 	/**
+	 * A multi-line STRING headers value is split into one array entry per header line (core's
+	 * wp_mail() treats each array element as exactly one header), so From and Reply-To stay
+	 * separate and the Content-Type is appended as its own entry.
+	 */
+	public function test_maybe_wrap_splits_multiline_string_headers_into_separate_entries(): void {
+		$wrapped = blueline_maybe_wrap_plain_text_email(
+			array(
+				'subject' => 'Hi',
+				'message' => 'plain body',
+				'headers' => "From: A <a@x.test>\r\nReply-To: b@x.test",
+			)
+		);
+
+		$this->assertSame(
+			array(
+				'From: A <a@x.test>',
+				'Reply-To: b@x.test',
+				'Content-Type: text/html; charset=UTF-8',
+			),
+			$wrapped['headers']
+		);
+	}
+
+	/**
+	 * Bare LF and bare CR separators and trailing newlines are handled too, without empty entries.
+	 */
+	public function test_maybe_wrap_splits_string_headers_on_any_newline_style(): void {
+		$wrapped = blueline_maybe_wrap_plain_text_email(
+			array(
+				'subject' => 'Hi',
+				'message' => 'plain body',
+				'headers' => "Cc: c@x.test\nBcc: d@x.test\rReply-To: e@x.test\r\n\r\n",
+			)
+		);
+
+		$this->assertSame(
+			array(
+				'Cc: c@x.test',
+				'Bcc: d@x.test',
+				'Reply-To: e@x.test',
+				'Content-Type: text/html; charset=UTF-8',
+			),
+			$wrapped['headers']
+		);
+	}
+
+	/**
+	 * An already-array headers value is kept as is, and an empty string, a missing key or a
+	 * whitespace-only string all leave just the Content-Type header.
+	 */
+	public function test_maybe_wrap_keeps_array_headers_and_handles_empty_headers(): void {
+		$content_type = 'Content-Type: text/html; charset=UTF-8';
+
+		$with_array = blueline_maybe_wrap_plain_text_email(
+			array(
+				'subject' => 'Hi',
+				'message' => 'plain body',
+				'headers' => array( 'Reply-To: b@x.test' ),
+			)
+		);
+		$this->assertSame( array( 'Reply-To: b@x.test', $content_type ), $with_array['headers'] );
+
+		foreach ( array( '', "  \r\n ", null ) as $empty ) {
+			$wrapped = blueline_maybe_wrap_plain_text_email(
+				array(
+					'subject' => 'Hi',
+					'message' => 'plain body',
+					'headers' => $empty,
+				)
+			);
+			$this->assertSame( array( $content_type ), $wrapped['headers'] );
+		}
+
+		$missing = blueline_maybe_wrap_plain_text_email(
+			array(
+				'subject' => 'Hi',
+				'message' => 'plain body',
+			)
+		);
+		$this->assertSame( array( $content_type ), $missing['headers'] );
+	}
+
+	/**
+	 * Core applies `wp_mail_content_type` after parsing headers, so a plugin forcing text/plain
+	 * (for example WooCommerce's "Plain text" email type) beats our Content-Type header. Such
+	 * mail must not get the HTML wrapper, or the recipient would see raw markup.
+	 */
+	public function test_maybe_wrap_skips_mail_when_a_filter_forces_plain_text(): void {
+		add_filter( 'wp_mail_content_type', static fn() => 'text/plain' );
+
+		$original = array(
+			'to'      => 'admin@example.com',
+			'subject' => 'Test',
+			'message' => 'plain body',
+			'headers' => array( 'Reply-To: b@x.test' ),
+		);
+
+		$result = blueline_maybe_wrap_plain_text_email( $original );
+
+		blueline_test_reset_hooks();
+
+		$this->assertSame( $original, $result );
+	}
+
+	/**
+	 * Any other forced type (e.g. multipart) also means our text/html header would not survive.
+	 */
+	public function test_content_type_override_detects_any_forced_non_html_type(): void {
+		add_filter( 'wp_mail_content_type', static fn() => 'multipart/alternative' );
+		$forced = blueline_email_content_type_is_overridden();
+		blueline_test_reset_hooks();
+
+		$this->assertTrue( $forced );
+	}
+
+	/**
+	 * No filter, a pass-through filter and a filter that itself forces text/html all let our
+	 * Content-Type header survive, so the mail is still wrapped.
+	 */
+	public function test_maybe_wrap_still_wraps_when_the_content_type_filter_does_not_override_html(): void {
+		$args = array(
+			'subject' => 'Test',
+			'message' => 'plain body',
+			'headers' => array(),
+		);
+
+		$this->assertFalse( blueline_email_content_type_is_overridden() );
+		$this->assertStringContainsString( 'plain body', blueline_maybe_wrap_plain_text_email( $args )['message'] );
+
+		add_filter( 'wp_mail_content_type', static fn( $type ) => $type );
+		$passthrough = blueline_maybe_wrap_plain_text_email( $args );
+		blueline_test_reset_hooks();
+		$this->assertContains( 'Content-Type: text/html; charset=UTF-8', $passthrough['headers'] );
+
+		add_filter( 'wp_mail_content_type', static fn() => 'text/html' );
+		$forced_html = blueline_maybe_wrap_plain_text_email( $args );
+		blueline_test_reset_hooks();
+		$this->assertContains( 'Content-Type: text/html; charset=UTF-8', $forced_html['headers'] );
+	}
+
+	/**
 	 * The wp_mail filter callback itself defers entirely to wp-email-template
 	 * when it's active -- in this test environment that's always false (see
 	 * test_email_template_plugin_active_is_false_when_the_constant_is_undefined()),

@@ -14,9 +14,8 @@ defined( 'ABSPATH' ) || exit;
  *
  * "Preferred Division" (arl_division) and "Requested Team"/"Requested
  * Partner" (arl_team/arl_request/arl_request2/arl_request3) are four of the
- * ~16 custom fields the "WooCommerce Checkout Field Editor Pro" plugin (not
- * in this repo -- see this file's own top-level docblock on that boundary)
- * renders inside #customer_details on a live registration checkout. Neither
+ * ~16 custom fields the "WooCommerce Checkout Field Editor Pro" plugin (a
+ * third-party plugin, not part of this repo) renders inside #customer_details on a live registration checkout. Neither
  * field's problem is a markup bug this theme can edit directly.
  *
  * Field keys and current content were read live off staging
@@ -40,8 +39,10 @@ defined( 'ABSPATH' ) || exit;
  *   names." -- same mechanism, same fix, applied to all three rather than
  *   just the first for consistency.
  *
- * Each fix is guarded by matching the EXISTING placeholder text (not just
- * the field key) before rewriting it, because the very same field keys are
+ * Each fix is guarded by the EXISTING placeholder text (not just the field
+ * key) before rewriting it -- the "Preferred Division" fix applies only to an
+ * empty value or to its own default copy, the team/partner fixes only to the
+ * known long placeholder -- because the very same field keys are
  * reused, with different and already-fine short placeholders ("Team Name",
  * "Person's Name"), by a separate "waitlist" section on a different
  * product's checkout -- confirmed live in the same thwcfe_sections dump.
@@ -73,12 +74,10 @@ defined( 'ABSPATH' ) || exit;
  * back later, and those should see the same corrected copy.
  *
  * blueline_wc_checkout_field_guidance_for_key() is deliberately a pure,
- * one-field-at-a-time function (no WordPress calls beyond __(), which is a
- * no-op pass-through even in the plain-PHPUnit test environment) so it can
- * be unit tested exactly like blueline_homepage_registration_cta_pricing()
- * (tests/RegistrationPricingTest.php) is: real WooCommerce/WCFE array
- * shapes in, asserted array shapes out, no WordPress install required. Both
- * filters below are thin wrappers around it.
+ * one-field-at-a-time function (its only WordPress calls are __() and the
+ * `blueline_core_checkout_field_guidance` filter) so it can be unit tested
+ * with real WooCommerce/WCFE array shapes in, asserted array shapes out, and no
+ * WordPress install required. Both filters below are thin wrappers around it.
  */
 add_filter( 'woocommerce_form_field_args', 'blueline_wc_checkout_form_field_guidance', 20, 2 );
 add_filter( 'woocommerce_checkout_fields', 'blueline_wc_checkout_field_guidance', 1100 );
@@ -132,13 +131,71 @@ function blueline_wc_checkout_field_guidance( array $fields ): array {
 }
 
 /**
+ * The site-specific checkout field keys and copy blueline_wc_checkout_field_guidance_for_key()
+ * acts on, one entry per Checkout Field Editor Pro field key.
+ *
+ * Each entry is an array with:
+ * - `mode`        `set` fills the placeholder/description when each is empty or still this
+ *                 entry's own default text (an admin-edited value is left alone); `move`
+ *                 replaces the placeholder and appends the description, but only when the
+ *                 field's existing placeholder contains `match`.
+ * - `match`       (`move` only) substring of the existing placeholder that identifies the
+ *                 field to rewrite.
+ * - `placeholder` The replacement placeholder.
+ * - `description` The persistent description (set, or appended for `move`).
+ *
+ * @return array<string, array<string, string>>
+ */
+function blueline_wc_checkout_field_guidance_map(): array {
+	$partner = array(
+		'mode'        => 'move',
+		'match'       => 'Please enter only 1 name',
+		'placeholder' => __( "Person's full name", 'blueline-core' ),
+		'description' => __( 'Enter only 1 name -- do not use this field for captains or team names.', 'blueline-core' ),
+	);
+
+	$map = array(
+		'arl_division' => array(
+			'mode'        => 'set',
+			'placeholder' => __( 'Select skill level(s)', 'blueline-core' ),
+			'description' => __(
+				"This decides which numbered division you're placed in -- select every skill level you'd be comfortable playing at (see /standings for this season's actual divisions).",
+				'blueline-core'
+			),
+		),
+		'arl_team'     => array(
+			'mode'        => 'move',
+			'match'       => 'Remember',
+			'placeholder' => __( "Team or captain's name", 'blueline-core' ),
+			'description' => __( 'Remember: this is only a request, not a guarantee.', 'blueline-core' ),
+		),
+		'arl_request'  => $partner,
+		'arl_request2' => $partner,
+		'arl_request3' => $partner,
+	);
+
+	/**
+	 * Filters the checkout field guidance map: the field keys and copy the plugin rewrites on
+	 * the checkout form. Add, change or remove entries to adapt it to another site's fields.
+	 * Entries that are not arrays of the shape documented on
+	 * blueline_wc_checkout_field_guidance_map() are ignored.
+	 *
+	 * @param array<string, array<string, string>> $map Guidance entries keyed by field key.
+	 */
+	$filtered = apply_filters( 'blueline_core_checkout_field_guidance', $map );
+
+	return is_array( $filtered ) ? $filtered : $map;
+}
+
+/**
  * Move truncating/disappearing checkout-field placeholder caveats into a
  * persistent description, and give the "Preferred Division" field the
- * example text it never had, for exactly one field. See the registration
- * comment above blueline_wc_checkout_form_field_guidance() for the
- * live-audited field keys/content this acts on, and why matching is
- * guarded by the field's EXISTING placeholder content rather than its key
- * alone.
+ * example text it never had. The field keys and copy come from
+ * blueline_wc_checkout_field_guidance_map() (filterable through
+ * `blueline_core_checkout_field_guidance`). See the registration comment
+ * above blueline_wc_checkout_form_field_guidance() for the live-audited
+ * field keys/content this acts on, and why matching is guarded by the
+ * field's EXISTING content rather than its key alone.
  *
  * @param string $key  The field's id/name (e.g. 'arl_division').
  * @param array  $args WooCommerce form-field args for this one field.
@@ -151,33 +208,38 @@ function blueline_wc_checkout_field_guidance_for_key( string $key, array $args )
 		$args['autocomplete'] = $blueline_autocomplete;
 	}
 
-	if ( 'arl_division' === $key ) {
-		$args['placeholder'] = __( 'Select skill level(s)', 'blueline-core' );
-		$args['description'] = __(
-			"This decides which numbered division you're placed in -- select every skill level you'd be comfortable playing at (see /standings for this season's actual divisions).",
-			'blueline-core'
-		);
+	$entry = blueline_wc_checkout_field_guidance_map()[ $key ] ?? null;
+
+	if (
+		! is_array( $entry )
+		|| ! is_string( $entry['placeholder'] ?? null )
+		|| ! is_string( $entry['description'] ?? null )
+	) {
+		return $args;
+	}
+
+	$placeholder = (string) ( $args['placeholder'] ?? '' );
+	$description = (string) ( $args['description'] ?? '' );
+
+	if ( 'set' === ( $entry['mode'] ?? '' ) ) {
+		// Only fill what is empty or is already this copy: a placeholder or description an admin
+		// edited in Checkout Field Editor Pro must not be silently overwritten on every render.
+		if ( '' === $placeholder || $placeholder === $entry['placeholder'] ) {
+			$args['placeholder'] = $entry['placeholder'];
+		}
+
+		if ( '' === $description || $description === $entry['description'] ) {
+			$args['description'] = $entry['description'];
+		}
 
 		return $args;
 	}
 
-	if ( 'arl_team' === $key && false !== strpos( (string) ( $args['placeholder'] ?? '' ), 'Remember' ) ) {
-		$args['placeholder'] = __( "Team or captain's name", 'blueline-core' );
-		$args['description'] = trim(
-			( (string) ( $args['description'] ?? '' ) )
-			. ' ' . __( 'Remember: this is only a request, not a guarantee.', 'blueline-core' )
-		);
+	$needle = $entry['match'] ?? '';
 
-		return $args;
-	}
-
-	$is_partner_key = in_array( $key, array( 'arl_request', 'arl_request2', 'arl_request3' ), true );
-	if ( $is_partner_key && false !== strpos( (string) ( $args['placeholder'] ?? '' ), 'Please enter only 1 name' ) ) {
-		$args['placeholder'] = __( "Person's full name", 'blueline-core' );
-		$args['description'] = trim(
-			( (string) ( $args['description'] ?? '' ) )
-			. ' ' . __( 'Enter only 1 name -- do not use this field for captains or team names.', 'blueline-core' )
-		);
+	if ( 'move' === ( $entry['mode'] ?? '' ) && is_string( $needle ) && '' !== $needle && false !== strpos( $placeholder, $needle ) ) {
+		$args['placeholder'] = $entry['placeholder'];
+		$args['description'] = trim( $description . ' ' . $entry['description'] );
 	}
 
 	return $args;
@@ -275,23 +337,31 @@ function blueline_wc_required_checkbox_attributes( string $field, string $key, a
 	// "required" (`class="form-row validate-required ..."`, `<abbr
 	// class="required" ...>`), so a plain strpos() over the whole string
 	// would always find a match and this filter would never actually patch
-	// anything.
-	$pattern = '/<input\b[^>]*\bname="' . preg_quote( $key, '/' ) . '"[^>]*>/';
+	// anything. `(?<![\w-])` keeps a `data-name="key"` attribute from being mistaken for name.
+	$name_attr = '(?<![\w-])name="' . preg_quote( $key, '/' ) . '"';
 
-	if ( ! preg_match( $pattern, $field, $match ) ) {
+	if ( ! preg_match( '/<input\b[^>]*' . $name_attr . '[^>]*>/', $field, $match, PREG_OFFSET_CAPTURE ) ) {
 		return $field;
 	}
 
-	if ( preg_match( '/\brequired\b/', $match[0] ) ) {
+	list( $tag, $offset ) = $match[0];
+
+	// Is there already a real `required` attribute? Quoted attribute values are dropped first so
+	// a `validate-required` class (or any value containing the word) is not mistaken for one, and
+	// the lookarounds then reject `data-required`/`aria-required`-style attribute names.
+	$attribute_names = preg_replace( '/="[^"]*"|=\'[^\']*\'/', '', $tag );
+
+	if ( preg_match( '/(?<![\w-])required(?![\w-])/', (string) $attribute_names ) ) {
 		return $field; // Already has the real attribute; nothing to add.
 	}
 
 	$patched = preg_replace(
-		'/(\bname="' . preg_quote( $key, '/' ) . '")/',
+		'/(' . $name_attr . ')/',
 		'$1 required aria-required="true"',
-		$match[0],
+		$tag,
 		1
 	);
 
-	return str_replace( $match[0], $patched, $field );
+	// Replace only the matched occurrence, not every identical <input> in $field.
+	return substr_replace( $field, (string) $patched, (int) $offset, strlen( $tag ) );
 }

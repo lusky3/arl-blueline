@@ -13,8 +13,10 @@ theme (<1.1.0) and shows an admin notice instead of breaking anything. Theme Sit
 
 ## Deploy order (staging or production)
 
-1. **Install and activate blueline-core first.** With the old theme still active it loads nothing and shows
-   "Update the Blueline theme" to admins. No behaviour changes yet.
+1. **Install and activate blueline-core first**, from the `blueline-core-<version>.zip` attached to the GitHub release
+   (steps and checksum: `docs/RELEASING.md`, "Plugin (blueline-core)"). With the old theme still active it loads nothing
+   and shows "Update the Blueline theme" to admins. No behaviour changes yet. (Do it in this order: theme 1.1.0 without the
+   plugin has lost the features that moved into it.)
 2. **Update the theme to 1.1.0 or newer** (Dashboard > Updates, or `scripts/deploy-theme.sh`). On the next request the
    plugin boots and its modules take over.
 3. `wp rewrite flush` (the plugin flushes once itself after activation, but only when the
@@ -24,7 +26,13 @@ theme (<1.1.0) and shows an admin notice instead of breaking anything. Theme Sit
    a team page's `<head>` has Open Graph tags.
 
 Staging: `scripts/deploy-plugin.sh staging` then `scripts/deploy-theme.sh staging` (the scripts refuse production; production
-is a manual step by the site owner).
+is a manual step by the site owner). The plugin script runs a local preflight (`php -l`, version guard, PHPUnit), then after
+the rsync checks over `swp` that the plugin is active, reports the header's version and has every module loaded, and fails
+loudly otherwise. `scripts/deploy-plugin.sh staging --verify` re-runs only that check (read-only); `--skip-tests` skips the
+local PHPUnit run. A plugin held idle by a pre-1.1.0 theme is reported as idle, not as a failure.
+
+The same check by hand (the `swp` pattern: wp-cli in a sidecar container on the staging host):
+`ssh <staging host> "swp eval 'foreach ( array_keys( blueline_core_modules() ) as \$m ) { echo \$m, \" \", blueline_core_module_loaded( \$m ) ? \"LOADED\" : \"no\", \"\\n\"; }'"`.
 
 ## Rolling back to the classic theme (rookie-child)
 

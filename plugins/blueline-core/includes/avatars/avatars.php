@@ -31,6 +31,9 @@
  * deleted here or by the migration script -- YITH's own records are never
  * at risk, and the migration is a copy, not a move.
  *
+ * The avatar is personal data: it is included in WordPress's personal-data
+ * export and erasure requests by includes/privacy/privacy.php, not here.
+ *
  * `$args['alt']` is intentionally left untouched: it is already populated
  * from whatever the get_avatar()/get_avatar_url() caller passed in (core
  * merges the `$alt` parameter into `$args` before `get_avatar_data()` -- and

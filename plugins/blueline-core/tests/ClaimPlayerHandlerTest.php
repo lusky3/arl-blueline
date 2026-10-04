@@ -20,6 +20,7 @@ final class ClaimPlayerHandlerTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
+		blueline_forget_claim_pool_memo();
 		$_POST                           = array();
 		$_REQUEST                        = array();
 		$GLOBALS['bl_core_test_referer'] = 'https://example.test/account/';
@@ -31,7 +32,51 @@ final class ClaimPlayerHandlerTest extends TestCase {
 	protected function tearDown(): void {
 		$_POST    = array();
 		$_REQUEST = array();
-		unset( $GLOBALS['bl_core_test_referer'] );
+		unset( $GLOBALS['bl_core_test_referer'], $GLOBALS['wpdb'] );
+	}
+
+	/**
+	 * Make user 5 the logged-in account named $name, and offer $pool
+	 * (player_id => post_title) as the claim pool through the fake $wpdb title
+	 * fetch and the pool short-circuit filter.
+	 *
+	 * @param string             $name Account (billing) name.
+	 * @param array<int, string> $pool Pool players.
+	 */
+	private function seed_claim( string $name, array $pool ): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 5;
+		$state['post_types']      = array( 'sp_player' );
+		$state['users'][5]        = (object) array(
+			'roles'        => array( 'customer' ),
+			'display_name' => $name,
+		);
+		$state['user_meta'][5]    = array(
+			'billing_first_name' => (string) strtok( $name, ' ' ),
+			'billing_last_name'  => trim( (string) strstr( $name, ' ' ) ),
+		);
+
+		$rows = array();
+		foreach ( $pool as $player_id => $title ) {
+			$state['posts'][ $player_id ] = array(
+				'type'   => 'sp_player',
+				'status' => 'publish',
+				'author' => 0,
+			);
+			$rows[]                       = (object) array(
+				'ID'         => (string) $player_id,
+				'post_title' => $title,
+			);
+		}
+
+		$wpdb            = new Blueline_Core_Test_Wpdb();
+		$wpdb->results   = $rows;
+		$GLOBALS['wpdb'] = $wpdb;
+
+		add_filter(
+			'blueline_pre_claim_pool_player_ids',
+			static fn() => array_keys( $pool )
+		);
 	}
 
 	/**
@@ -114,5 +159,83 @@ final class ClaimPlayerHandlerTest extends TestCase {
 		$this->post_claim( 100 );
 
 		$this->assertSame( 'https://example.test/account/?blueline_claim=invalid', $this->redirect_target() );
+	}
+
+	/**
+	 * A genuine name match is linked and the user is sent back with blueline_claim=linked.
+	 */
+	public function test_a_matching_claim_links_and_redirects_with_linked(): void {
+		$this->seed_claim( 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$this->post_claim( 100 );
+
+		$this->assertSame( 'https://example.test/account/?blueline_claim=linked', $this->redirect_target() );
+		$this->assertSame( array( 5 ), get_post_meta( 100, 'sp_user', false ) );
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * The user is sent back to wherever wp_get_referer() says they came from.
+	 */
+	public function test_the_redirect_returns_to_the_validated_referer(): void {
+		$GLOBALS['bl_core_test_referer'] = 'https://example.test/team/mammoth/';
+		$this->seed_claim( 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$this->post_claim( 100 );
+
+		$this->assertSame( 'https://example.test/team/mammoth/?blueline_claim=linked', $this->redirect_target() );
+	}
+
+	/**
+	 * An absent or off-site referer makes wp_get_referer() false (it validates the host),
+	 * so the handler falls back to the account page, never to the supplied URL.
+	 */
+	public function test_a_missing_or_off_site_referer_falls_back_to_the_account_page(): void {
+		unset( $GLOBALS['bl_core_test_referer'] );
+		$this->seed_claim( 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$this->post_claim( 100 );
+
+		// The account page when WooCommerce is present (a stub may or may not define it in this process), else the home page.
+		$fallback = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : home_url( '/' );
+
+		$this->assertSame( $fallback . '?blueline_claim=linked', $this->redirect_target() );    }
+
+	/**
+	 * A player somebody else holds by the time the link is written surfaces as already_linked.
+	 */
+	public function test_already_linked_reaches_the_redirect(): void {
+		$this->seed_claim( 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( 'sp_user' => '7' ); // Claimed after the candidate list was built.
+		$this->post_claim( 100 );
+
+		$this->assertSame( 'https://example.test/account/?blueline_claim=already_linked', $this->redirect_target() );
+		$this->assertSame( array( '7' ), get_post_meta( 100, 'sp_user', false ), 'the existing owner is untouched' );
+	}
+
+	/**
+	 * An account that already holds a different player gets user_already_linked.
+	 */
+	public function test_user_already_linked_reaches_the_redirect(): void {
+		$this->seed_claim( 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		$state                   = &blueline_test_state();
+		$state['posts'][200]     = array(
+			'type'   => 'sp_player',
+			'status' => 'publish',
+		);
+		$state['post_meta'][200] = array( 'sp_user' => '5' );
+		$this->post_claim( 100 );
+
+		$this->assertSame( 'https://example.test/account/?blueline_claim=user_already_linked', $this->redirect_target() );
+		$this->assertSame( '', get_post_meta( 100, 'sp_user', true ) );
+	}
+
+	/**
+	 * A name padded with tokens so it contains several players' names is not a match for any of them.
+	 */
+	public function test_a_padded_account_name_cannot_claim_a_contained_player(): void {
+		$this->seed_claim( 'John Mike Dave Smith Brown Jones', array( 100 => 'John Smith' ) );
+		$this->post_claim( 100 );
+
+		$this->assertSame( 'https://example.test/account/?blueline_claim=invalid', $this->redirect_target() );
+		$this->assertSame( '', get_post_meta( 100, 'sp_user', true ) );
 	}
 }

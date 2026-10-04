@@ -6,6 +6,11 @@ name: Release
 # which the theme's own updater (inc/updater.php) reads. Procedure and owner
 # steps: docs/RELEASING.md.
 #
+# The release also carries blueline-core-<plugin version>.zip (+ .sha256), the
+# companion plugin built by scripts/release/package-plugin.sh. The plugin has
+# its own version line (its header Version, not the theme tag) and no updater:
+# production installs it by hand from this zip (docs/RELEASING.md, "Plugin").
+#
 # Packaging happens in the read-only `build` job; only `publish` holds
 # contents: write, and it runs nothing but `gh release create`.
 
@@ -35,6 +40,13 @@ jobs:
       # never produces a zip.
       - name: Check the tag against the theme
         run: php scripts/release/guard.php "$GITHUB_REF_NAME"
+
+      # The plugin's version sources must agree with each other (header, constant,
+      # composer.json, readme). It is versioned independently of the tag, so the
+      # tag is not compared; a drifting BLUELINE_CORE_VERSION would otherwise ship
+      # a zip whose one-time rewrite flush never re-fires after an upgrade.
+      - name: Check the plugin's version sources
+        run: php scripts/release/plugin-guard.php
 
   build:
     needs: guard
@@ -79,6 +91,30 @@ jobs:
           php scripts/release/build-manifest.php "$GITHUB_REF_NAME" "dist/blueline-${GITHUB_REF_NAME#v}.zip" dist
           cat dist/manifest.json
 
+      # The plugin's suite needs the theme checkout's WordPress stubs, not its vendor/.
+      - name: Install plugin PHP dependencies
+        working-directory: plugins/blueline-core
+        run: composer install --no-interaction --no-progress
+
+      - name: Plugin tests
+        working-directory: plugins/blueline-core
+        run: composer test
+
+      # Reproducible zip: .distignore applied by rsync, `composer install --no-dev`
+      # only if the plugin ever declares runtime dependencies, content list asserted
+      # inside the script, plus a .sha256 beside it.
+      - name: Package the plugin
+        run: |
+          plugin_zip="$(bash scripts/release/package-plugin.sh dist | tail -n 1)"
+          plugin_file="$(basename "$plugin_zip")"
+          {
+            echo
+            echo "---"
+            echo "Includes the companion plugin: \`$plugin_file\` (sha256 in \`$plugin_file.sha256\`)."
+            echo "Install it first on a new site; see docs/RELEASING.md, section Plugin."
+          } >> dist/notes.md
+          ls -l dist
+
       - name: Upload release files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -116,4 +152,6 @@ jobs:
             --title "Blueline ${GITHUB_REF_NAME#v}" \
             --notes-file dist/notes.md \
             "dist/blueline-${GITHUB_REF_NAME#v}.zip" \
-            dist/manifest.json
+            dist/manifest.json \
+            dist/blueline-core-*.zip \
+            dist/blueline-core-*.zip.sha256
