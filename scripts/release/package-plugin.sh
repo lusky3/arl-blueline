@@ -34,7 +34,7 @@ done
 [ -f "$PLUGIN/blueline-core.php" ] || fail "$PLUGIN/blueline-core.php not found"
 [ -f "$PLUGIN/.distignore" ] || fail "$PLUGIN/.distignore not found"
 
-# Version sources must agree (header, constant, composer.json, readme stable tag).
+# Version sources must agree (header, constant, composer.json, readme.txt/README.md stable tag).
 php "$ROOT/scripts/release/plugin-guard.php" "$EXPECTED" "$PLUGIN"
 
 VERSION="$(sed -nE 's/^[ *]*Version:[[:space:]]*([^[:space:]]+).*/\1/p' "$PLUGIN/blueline-core.php" | head -n1)"
@@ -92,9 +92,12 @@ rm -f "$ZIP" "$ZIP.sha256"
 
 listing="$(unzip -Z1 "$ZIP")"
 
-# Must be inside: the entry points, and every module modules.php lists. A mis-scoped
+# Must be inside: the entry points, the readme and assets, and every module modules.php lists. A mis-scoped
 # exclude would otherwise ship a plugin whose loader skips modules silently.
-for need in "$SLUG/blueline-core.php" "$SLUG/uninstall.php" "$SLUG/includes/boot.php" "$SLUG/includes/modules.php"; do
+# readme.txt and the icon/banner files feed the wp-admin plugin details (includes/plugin-info).
+for need in "$SLUG/blueline-core.php" "$SLUG/uninstall.php" "$SLUG/includes/boot.php" "$SLUG/includes/modules.php" \
+	"$SLUG/readme.txt" "$SLUG/assets/icon-128x128.png" "$SLUG/assets/icon-256x256.png" "$SLUG/assets/icon.svg" \
+	"$SLUG/assets/banner-772x250.png" "$SLUG/assets/banner-1544x500.png"; do
 	grep -qxF "$need" <<<"$listing" || fail "$need is missing from the zip"
 done
 modules_found=0

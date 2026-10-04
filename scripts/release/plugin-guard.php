@@ -6,8 +6,10 @@
  *   php scripts/release/plugin-guard.php [expected-version] [plugin-dir]
  *
  * Checks the Version header == BLUELINE_CORE_VERSION == composer.json
- * "version" (if present) == README/readme.txt "Stable tag" (if present), and
- * that composer.json's require.php floor matches the Requires PHP header.
+ * "version" (if present) == readme.txt "Stable tag" (required: readme.txt feeds
+ * the wp-admin plugin details pop-up and ships in the zip) == README.md "Stable
+ * tag" (if present), and that composer.json's require.php floor matches the
+ * Requires PHP header.
  * `expected-version` (no leading v) additionally pins the header to a value.
  *
  * Exit 0 = consistent, 1 = something disagrees, 2 = could not tell (a gate

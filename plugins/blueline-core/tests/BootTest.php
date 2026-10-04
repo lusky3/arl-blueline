@@ -148,7 +148,7 @@ final class BootTest extends TestCase {
 	 * The shipped list names every planned module, in order, as <slug>/<slug>.php.
 	 */
 	public function test_real_module_list_is_ordered_and_follows_the_directory_convention(): void {
-		$expected = array( 'player-link', 'player-photo', 'avatars', 'account-endpoints', 'seo-meta', 'mail', 'checkout', 'admin-bar', 'search', 'privacy' );
+		$expected = array( 'player-link', 'player-photo', 'avatars', 'account-endpoints', 'seo-meta', 'mail', 'checkout', 'admin-bar', 'search', 'privacy', 'plugin-info' );
 		$modules  = blueline_core_modules();
 
 		$this->assertSame( $expected, array_keys( $modules ) );

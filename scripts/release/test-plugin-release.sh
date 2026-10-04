@@ -58,8 +58,9 @@ else
 
 	# Independent oracle: the runtime files, derived from the tree, not from .distignore.
 	expected="$(cd "$PLUGIN" && {
-		printf '%s\n' blueline-core.php uninstall.php README.md
+		printf '%s\n' blueline-core.php uninstall.php README.md readme.txt
 		find includes templates -type f -name '*.php'
+		[ -d assets ] && find assets -type f
 	} | sed 's#^#blueline-core/#' | LC_ALL=C sort)"
 	actual="$(unzip -Z1 "$ZIP" | grep -v '/$' | LC_ALL=C sort)"
 	if [ "$expected" = "$actual" ]; then
@@ -67,6 +68,17 @@ else
 	else
 		fail "the zip's file list differs from the runtime files"
 		diff <(echo "$expected") <(echo "$actual") >&2
+	fi
+
+	# The details pop-up's files, by the exact names includes/plugin-info points at.
+	missing_assets=""
+	for name in readme.txt assets/icon-128x128.png assets/icon-256x256.png assets/icon.svg assets/banner-772x250.png assets/banner-1544x500.png includes/plugin-info/plugin-info.php; do
+		unzip -Z1 "$ZIP" | grep -qxF "blueline-core/$name" || missing_assets="$missing_assets $name"
+	done
+	if [ -z "$missing_assets" ]; then
+		pass "the zip ships readme.txt, the icon and banner files and the plugin-info module"
+	else
+		fail "the zip is missing:$missing_assets"
 	fi
 
 	if unzip -Z1 "$ZIP" | grep -qE '^blueline-core/(tests/|vendor|composer\.|phpunit\.xml|phpcs\.xml|\.distignore|\.gitignore|\.phpunit)'; then
@@ -123,6 +135,19 @@ expect_fail "the guard refuses a composer require.php that disagrees with Requir
 c="$(fresh_copy stable-tag)"
 printf '\n**Stable tag:** 9.9.9\n' >>"$c/README.md"
 expect_fail "the guard refuses a drifted README Stable tag" "Stable tag" php "$GUARD" "" "$c"
+
+c="$(fresh_copy readme-txt-stable-tag)"
+sed -i 's/^Stable tag:.*/Stable tag: 9.9.9/' "$c/readme.txt"
+expect_fail "the guard refuses a drifted readme.txt Stable tag" "readme.txt Stable tag is '9.9.9'" php "$GUARD" "" "$c"
+expect_fail "the packager refuses a drifted readme.txt Stable tag" "readme.txt Stable tag" env BLUELINE_PLUGIN_DIR="$c" bash "$PKG" "$WORK/o-readme-tag"
+
+c="$(fresh_copy readme-txt-no-tag)"
+sed -i '/^Stable tag:/d' "$c/readme.txt"
+expect_fail "the guard refuses a readme.txt without a Stable tag" "readme.txt has no Stable tag" php "$GUARD" "" "$c"
+
+c="$(fresh_copy readme-txt-missing)"
+rm "$c/readme.txt"
+expect_fail "the guard refuses a missing readme.txt" "readme.txt is missing" php "$GUARD" "" "$c"
 
 c="$(fresh_copy bad-version)"
 sed -i 's/^\( \* Version: *\).*/\1banana/' "$c/blueline-core.php"

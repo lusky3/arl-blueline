@@ -68,7 +68,7 @@ function blueline_plugin_release_php_floor( string $constraint ): string {
  *
  * @param string               $main_php      Contents of blueline-core.php.
  * @param string|null          $composer_json Contents of composer.json (null when absent).
- * @param array<string,string> $readmes       Readme file name => contents (only the ones that exist).
+ * @param array<string,string> $readmes       Readme file name => contents (only the ones that exist; readme.txt is required).
  * @param string               $expected      Version the caller insists on ('' = no expectation).
  * @return string[]
  */
@@ -87,6 +87,15 @@ function blueline_plugin_release_guard( string $main_php, ?string $composer_json
 	$constant = blueline_plugin_release_constant( $main_php );
 	if ( $constant !== $version ) {
 		$errors[] = "BLUELINE_CORE_VERSION is '$constant' but the Version header is '$version'.";
+	}
+
+	// readme.txt is what wp-admin's plugin details pop-up is built from (includes/plugin-info), and it
+	// ships in the zip: it must exist and carry a Stable tag equal to the version. README.md is the
+	// developer doc: its Stable tag is optional, but must agree when present.
+	if ( ! isset( $readmes['readme.txt'] ) ) {
+		$errors[] = 'readme.txt is missing: the plugin info pop-up is built from it, and its Stable tag must equal the Version header.';
+	} elseif ( '' === blueline_plugin_release_stable_tag( $readmes['readme.txt'] ) ) {
+		$errors[] = "readme.txt has no Stable tag (it must equal the Version header '$version').";
 	}
 
 	foreach ( $readmes as $name => $contents ) {

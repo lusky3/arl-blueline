@@ -2,7 +2,7 @@
 
 Companion plugin for the Blueline theme. It holds league functionality that must survive a theme switch:
 player linking and photos, avatars, My Account routing, the mail wrapper, checkout fields, the admin bar, SEO
-tags, search and privacy hardening. The theme keeps presentation and works (with fewer features) without it.
+tags, search and privacy hardening, plus the plugin details shown in wp-admin. The theme keeps presentation and works (with fewer features) without it.
 
 ## Boot
 
@@ -31,6 +31,25 @@ shown in an admin notice (`manage_options`) and reported by the Site Health test
    (text domain `blueline-core`, global prefix `blueline`, minimum WordPress 6.9, keep that equal to the plugin header).
 
 `blueline_core_module_loaded( 'slug' )` tells other code whether a module is running in this request.
+
+## Plugin details in wp-admin (`plugin-info`)
+
+The plugin is not on WordPress.org, so core has no data for its "View details" link, the info pop-up
+(plugin-information thickbox) or the icon on Dashboard > Updates. The `plugin-info` module supplies it locally
+and never makes an HTTP request:
+
+- `plugins_api` answers `plugin_information` for the slug `blueline-core` from the plugin header and `readme.txt`;
+  every other slug or action passes through unchanged.
+- `site_transient_update_plugins` gets a `no_update` entry for the plugin (icons, banners, requirements), only when
+  core has not listed it in `response` or `no_update` itself. That entry is what makes the Plugins screen show
+  "View details". It is added to a clone, so it is never saved to the database.
+- `readme.txt` is the standard WordPress readme (header block, then `== Description ==`, `== Installation ==`,
+  `== Changelog ==`). A small parser turns those sections into HTML (escaped first, then filtered by `wp_kses`):
+  `= x.y.z =` sub-headings, `* ` and `1. ` lists, paragraphs, `**bold**` and `` `code` ``. Without the file the
+  description falls back to the plugin header and the other sections are left out.
+- `assets/` holds the images, referenced by fixed names through `plugins_url()`: `icon-128x128.png`,
+  `icon-256x256.png`, `icon.svg`, `banner-772x250.png`, `banner-1544x500.png`. Replace the files, keep the names.
+  `scripts/release/package-plugin.sh` refuses a zip that lacks any of them or `readme.txt`.
 
 ## Hooks
 
@@ -64,7 +83,8 @@ one order is reproduced with the "Random Seed" it prints.
 (`--verify` runs only that check). What ships is `.distignore` (anchored rsync patterns; there are no runtime Composer
 dependencies, so `vendor/` stays out).
 
-The plugin has its own version line: bump the `Version:` header and `BLUELINE_CORE_VERSION` together (the constant change
-is what triggers the one-time rewrite flush after an upgrade). A tagged theme release attaches
+The plugin has its own version line: bump the `Version:` header, `BLUELINE_CORE_VERSION` and the `Stable tag` line of
+`readme.txt` together, and add a `= x.y.z =` entry to its changelog. The constant change is what triggers the one-time
+rewrite flush after an upgrade; the release guard refuses a `readme.txt` whose `Stable tag` differs from the header. A tagged theme release attaches
 `blueline-core-<version>.zip`, built by `scripts/release/package-plugin.sh`. Production rollout is manual: see
 `docs/RELEASING.md` ("Plugin (blueline-core)") and `docs/OPERATIONS.md`.

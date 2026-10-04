@@ -62,9 +62,16 @@ change reaches production as a zip someone uploads.
 - Plain semver, independent of the theme: `0.y.z` until the first production rollout is
   confirmed, then `1.0.0`. Patch = fix, minor = new behaviour or module, major = something
   a site owner has to react to (a removed hook, option or URL).
+- `plugins/blueline-core/readme.txt` is mandatory: it feeds the plugin's "View details"
+  pop-up (description, installation, changelog; see the `plugin-info` module). Its
+  `Stable tag` must equal the header `Version`, and each release adds a `= x.y.z =`
+  changelog entry. The icon and banners live in `plugins/blueline-core/assets/` and must
+  ship (the packager fails without them). They are rendered by
+  `docs/branding/render-assets.mjs`, which also renders the theme's `screenshot.png`
+  (required in the theme zip; it is the Appearance > Themes card image).
 - `composer.json` carries no `version` (Composer reads it from the tag). If one is ever
-  added, the guard requires it to equal the header, and likewise a `Stable tag` in a
-  readme. `composer.json`'s `require.php` floor must equal the header's `Requires PHP`.
+  added, the guard requires it to equal the header, and likewise a `Stable tag` in the
+  README.md. `composer.json`'s `require.php` floor must equal the header's `Requires PHP`.
 - Compatibility: the plugin loads only against theme **1.1.0 or newer** (an older theme
   still defines the code the plugin took over, so the plugin stays idle and shows an
   admin notice). The theme works without the plugin but lacks those features.

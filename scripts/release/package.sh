@@ -26,7 +26,7 @@ rm -f "$ZIP"
 listing="$(unzip -Z1 "$ZIP")"
 
 # Must be inside: the runtime files a mis-scoped exclude would silently drop.
-for need in blueline/style.css blueline/functions.php blueline/assets/dist/index.js \
+for need in blueline/style.css blueline/screenshot.png blueline/functions.php blueline/assets/dist/index.js \
 	blueline/assets/src/js/ blueline/tools/contrast-rules.json; do
 	if ! grep -qxF "$need" <<<"$listing" && ! grep -q "^$need" <<<"$listing"; then
 		echo "package: $need is missing from the zip" >&2
