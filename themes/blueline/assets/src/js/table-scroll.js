@@ -40,7 +40,12 @@ const CONTAINERS = [
 	'.bl-table-scroll',
 	'.sp-scrollable-table-wrapper',
 	'table.bl-table-self-scroll',
+	// QA A-02: legacy classic-editor tables scroll themselves (sportspress.css).
+	'.entry-content > table:not([class*="sp-"])',
 ].join( ',' );
+
+// Marks the attributes this file added, so only those are ever removed again.
+const FOCUS_FLAG = 'data-bl-scroll-focus';
 
 // Ignore sub-pixel rounding: a container whose scrollWidth exceeds its
 // clientWidth by a fraction is not actually scrollable, and layout maths
@@ -56,6 +61,8 @@ const SLOP = 2;
 function update( el ) {
 	const max = el.scrollWidth - el.clientWidth;
 
+	setFocusable( el, max > SLOP );
+
 	if ( max <= SLOP ) {
 		el.removeAttribute( 'data-fade-start' );
 		el.removeAttribute( 'data-fade-end' );
@@ -68,6 +75,104 @@ function update( el ) {
 
 	el.toggleAttribute( 'data-fade-start', from > SLOP );
 	el.toggleAttribute( 'data-fade-end', from < max - SLOP );
+}
+
+/**
+ * Accessible name for a scroll container: the table's caption, else the
+ * SportsPress caption heading above it, else a generic label.
+ *
+ * @param {Element} el Scroll container.
+ * @return {string} Label text.
+ */
+function scrollLabel( el ) {
+	const table =
+		'TABLE' === el.tagName
+			? el
+			: el.querySelector && el.querySelector( 'table' );
+	const caption = table && table.caption ? table.caption.textContent : '';
+	const template = el.closest && el.closest( '.sp-template' );
+	const heading =
+		template && template.querySelector( '.sp-table-caption, .sp-heading' );
+	const text = ( caption || ( heading && heading.textContent ) || '' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+
+	return uniqueLabel( el, text || 'Scrollable table' );
+}
+
+/**
+ * Two regions sharing one name are indistinguishable in a screen reader's
+ * landmark list (axe landmark-unique), and SportsPress can render two
+ * identically captioned tables (a team page's two "Upcoming Games"). The
+ * first keeps its plain name; later ones get a numeric suffix.
+ *
+ * @param {Element} el   Scroll container being named.
+ * @param {string}  text Proposed label.
+ * @return {string} Label unique among the labels this script generated.
+ */
+function uniqueLabel( el, text ) {
+	if ( ! el.ownerDocument ) {
+		return text;
+	}
+
+	const taken = Array.from(
+		el.ownerDocument.querySelectorAll( `[${ FOCUS_FLAG }="label"]` )
+	).filter( ( other ) => other !== el );
+	const labels = new Set(
+		taken.map( ( other ) => other.getAttribute( 'aria-label' ) )
+	);
+
+	let label = text;
+	for ( let n = 2; labels.has( label ); n++ ) {
+		label = `${ text } (${ n })`;
+	}
+
+	return label;
+}
+
+/**
+ * QA C-03/B-08 (WCAG 2.1.1): a container that actually overflows must be
+ * reachable by keyboard so arrow keys can scroll it; one that fits must not
+ * add an empty tab stop. A <table> keeps its own role.
+ *
+ * @param {Element} el         Scroll container.
+ * @param {boolean} scrollable Whether it currently overflows.
+ * @return {void}
+ */
+function setFocusable( el, scrollable ) {
+	const added = el.hasAttribute( FOCUS_FLAG );
+
+	if ( scrollable && ! added ) {
+		if ( el.hasAttribute( 'tabindex' ) ) {
+			return; // Someone else owns this element's focus behaviour.
+		}
+
+		el.setAttribute( FOCUS_FLAG, '' );
+		el.setAttribute( 'tabindex', '0' );
+
+		if ( 'TABLE' !== el.tagName ) {
+			el.setAttribute( 'role', 'region' );
+		}
+
+		if (
+			! el.hasAttribute( 'aria-label' ) &&
+			! el.hasAttribute( 'aria-labelledby' )
+		) {
+			el.setAttribute( FOCUS_FLAG, 'label' );
+			el.setAttribute( 'aria-label', scrollLabel( el ) );
+		}
+	} else if ( ! scrollable && added ) {
+		if ( 'label' === el.getAttribute( FOCUS_FLAG ) ) {
+			el.removeAttribute( 'aria-label' );
+		}
+
+		if ( 'TABLE' !== el.tagName ) {
+			el.removeAttribute( 'role' );
+		}
+
+		el.removeAttribute( 'tabindex' );
+		el.removeAttribute( FOCUS_FLAG );
+	}
 }
 
 /**
@@ -184,5 +289,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { update, attach, attachWithin };
+	module.exports = { update, attach, attachWithin, scrollLabel };
 }

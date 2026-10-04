@@ -222,10 +222,22 @@ figcaption {
 
 /* Quote -- italic body face, not the display face; see blocks.css. */
 .wp-block-quote {
-	border-inline-start: 4px solid var(--bl-ice);
-	padding-inline-start: var(--bl-space-5);
+	position: relative;
+	padding-inline-start: var(--bl-space-6);
 	font-style: italic;
 	color: var(--bl-ink-mid);
+}
+
+.wp-block-quote::before {
+	content: "\201C" / "";
+	position: absolute;
+	inset-block-start: -0.1em;
+	inset-inline-start: 0;
+	color: var(--bl-steel);
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: var(--bl-text-3xl);
+	font-style: normal;
+	line-height: 1;
 }
 
 .wp-block-quote cite {

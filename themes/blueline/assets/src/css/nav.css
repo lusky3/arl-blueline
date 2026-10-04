@@ -180,7 +180,7 @@
  */
 .bl-nav__submenu .bl-nav__link:focus-visible {
 	outline-offset: calc(var(--bl-focus-width) * -1);
-	box-shadow: inset 0 0 0 var(--bl-focus-width) var(--bl-focus-halo);
+	box-shadow: var(--bl-focus-ring-inset);
 }
 
 .bl-nav__toggle-sub {
@@ -511,15 +511,18 @@
 	 * drawer's own `.bl-nav__submenu { flex-basis: 100% }` (in the
 	 * max-width:959.98px block below) already keeps its accordion panels
 	 * under their label rather than beside it.
+	 *
+	 * D-12: no min-width or margin of its own, so opening it can't widen
+	 * (and shift) the right-anchored panel; links carry the indent instead.
 	 */
 	.bl-nav__submenu .bl-nav__submenu {
 		position: static;
 		flex-basis: 100%;
+		min-width: 0;
 		max-height: none;
 		overflow: visible;
 		background: transparent;
 		box-shadow: none;
-		margin-inline-start: var(--bl-space-4);
 	}
 
 	/*
@@ -545,6 +548,28 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
+	}
+
+	/* D-12: dropdown labels were 4px from the panel edge (the bar's own
+	   tight padding); nested items indent by padding, not margin. */
+	.bl-nav__submenu .bl-nav__link {
+		padding-inline: var(--bl-space-4);
+	}
+
+	.bl-nav__submenu .bl-nav__submenu .bl-nav__link {
+		padding-inline-start: calc(var(--bl-space-4) * 2);
+	}
+
+	/* A parent row's chevron fills the row height and shares its hover fill,
+	   so the highlight reaches the panel edge. */
+	.bl-nav__submenu .bl-nav__toggle-sub {
+		align-self: stretch;
+		height: auto;
+	}
+
+	.bl-nav__submenu .bl-nav__item:has(> .bl-nav__link:hover, > .bl-nav__toggle-sub:hover) > :is(.bl-nav__link, .bl-nav__toggle-sub) {
+		background: var(--bl-ink);
+		color: var(--bl-paper);
 	}
 
 	/* The active chip bleeds past its link; on the last item it
@@ -589,4 +614,10 @@
 	.bl-nav__menu > .bl-nav__item > .bl-nav__link {
 		font-size: var(--bl-text-sm);
 	}
+}
+
+/* Nested submenu toggles sit in the same clipping submenu: same inward ring. */
+.bl-nav__submenu .bl-nav__toggle-sub:focus-visible {
+	outline-offset: calc(var(--bl-focus-width) * -1);
+	box-shadow: var(--bl-focus-ring-inset);
 }

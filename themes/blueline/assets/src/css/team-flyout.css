@@ -141,6 +141,11 @@
 	animation: none;
 }
 
+/* B-02/D-03: the resting pulse shadow outranks base.css's halo; restate it. */
+.bl-team-flyout summary:focus-visible {
+	box-shadow: var(--bl-focus-ring), var(--bl-shadow-raised);
+}
+
 @keyframes bl-team-flyout-pulse {
 
 	75%,
@@ -211,7 +216,7 @@
 	 * overlap finding above), neither accounting for the header's own real,
 	 * dynamic height. */
 	max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - (var(--bl-space-4) * 2));
-	width: 74px;
+	width: 86px;
 	overflow-y: auto;
 	overflow-x: hidden;
 
@@ -223,14 +228,24 @@
 	overscroll-behavior: contain;
 	padding: var(--bl-space-4) var(--bl-space-2);
 	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
-	scrollbar-width: none;
-}
 
-.bl-team-flyout__panel::-webkit-scrollbar {
-	display: none;
+	/* B-04: its own surface (crests no longer float over page text) and a
+	   visible thin scrollbar as the "more teams below" cue. */
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border-strong);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-raised);
+	scrollbar-width: thin;
+	scrollbar-color: var(--bl-content-border-strong) transparent;
+	scrollbar-gutter: stable;
 }
 
 .bl-team-flyout__link {
+
+	/* Block + round, so the focus ring circles the crest (an inline link
+	   wrapping a block drew it around empty line fragments). */
+	display: block;
+	border-radius: 50%;
 	visibility: hidden;
 	transition: visibility 0s linear 0.2s;
 }
@@ -265,7 +280,9 @@
 	border-radius: 50%;
 	overflow: hidden;
 	box-sizing: border-box;
-	background: var(--bl-content-bg);
+
+	/* B-03: fixed white chip like .team-logo img; dark crests vanish on dark. */
+	background: var(--bl-white);
 	border: 2px solid var(--bl-content-border);
 	padding: 4px;
 	animation-name: bl-team-flyout-bob;
@@ -337,7 +354,7 @@
 @media (max-width: 480px) {
 
 	.bl-team-flyout__panel {
-		width: 62px;
+		width: 76px;
 	}
 
 	.bl-team-flyout__crest {

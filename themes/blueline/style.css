@@ -135,6 +135,9 @@ Update URI: https://github.com/lusky3/rookiehockey-blueline
 	 */
 	--bl-team-flyout-width: 34px;
 
+	/* Prose reading column (blocks.css): rem, so every text block shares one box width. */
+	--bl-measure: 44rem;
+
 	/*
 	 * Stacking order. Header/nav is the only part of the design system with
 	 * more than one layer of overlapping fixed/absolute elements, so this is
@@ -189,6 +192,14 @@ Update URI: https://github.com/lusky3/rookiehockey-blueline
 	--bl-focus-color:  #0D1729;
 	--bl-focus-halo:   #FFFFFF;
 	--bl-focus-offset: 2px;
+
+	/* The halo as a ready-made box-shadow: a component focus rule that sets its
+	 * own box-shadow must list this first, or it silently drops the halo
+	 * (tools/check-contrast.mjs's focus-ring lint). The inset form is for rings
+	 * an overflow ancestor would clip: outline-offset -width paints the outer
+	 * band, this paints the inner one. Dark mode flips colour and halo below. */
+	--bl-focus-ring:       0 0 0 calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px) var(--bl-focus-halo);
+	--bl-focus-ring-inset: inset 0 0 0 calc(var(--bl-focus-width) * 2) var(--bl-focus-halo);
 
 	/*
 	 * Occasions — Phase 2.0 foundation. Exactly one new tunable colour
@@ -284,6 +295,8 @@ Update URI: https://github.com/lusky3/rookiehockey-blueline
 		--bl-success:                #3DDC84;
 		--bl-warning:                #E8B33D;
 		--bl-danger:                 #FF6B5B;
+		--bl-focus-color:            var(--bl-ice);
+		--bl-focus-halo:             var(--bl-ink-deep);
 		color-scheme: dark;
 	}
 }
@@ -302,6 +315,11 @@ Update URI: https://github.com/lusky3/rookiehockey-blueline
 	--bl-success:                #3DDC84;
 	--bl-warning:                #E8B33D;
 	--bl-danger:                 #FF6B5B;
+
+	/* Ring flips to ice-on-dark so the outline alone carries 3:1 on the dark
+	 * content ground; the halo still covers any light chip/fill. */
+	--bl-focus-color:            var(--bl-ice);
+	--bl-focus-halo:             var(--bl-ink-deep);
 	color-scheme: dark;
 }
 

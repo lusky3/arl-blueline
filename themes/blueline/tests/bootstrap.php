@@ -3561,5 +3561,16 @@ if ( ! function_exists( 'delete_site_transient' ) ) {
 	}
 }
 
+if ( ! function_exists( 'woocommerce_show_product_images' ) ) {
+	/**
+	 * Stand-in for WooCommerce's gallery template function.
+	 *
+	 * @return void
+	 */
+	function woocommerce_show_product_images() {
+		echo '<div class="woocommerce-product-gallery"></div>';
+	}
+}
+
 // Initialise the stores above so a test that skips blueline_test_reset() still works.
 blueline_test_reset_transients();

@@ -177,4 +177,32 @@ final class TeamFlyoutTest extends TestCase {
 
 		$this->assertSame( '', trim( $html ) );
 	}
+
+	/**
+	 * D-23/B-04: the flyout is position:fixed, so its DOM spot only sets tab
+	 * order -- it is printed straight after the site header (after the skip
+	 * link, before main content), not after the footer.
+	 */
+	public function test_flyout_is_printed_after_the_header_not_the_footer(): void {
+		$strip  = static function ( string $file ): string {
+			$code = '';
+			foreach ( token_get_all( (string) file_get_contents( $file ) ) as $token ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+				if ( is_array( $token ) && in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+					continue;
+				}
+				$code .= is_array( $token ) ? $token[1] : $token;
+			}
+			return $code;
+		};
+		$header = $strip( __DIR__ . '/../header.php' );
+		$footer = $strip( __DIR__ . '/../footer.php' );
+
+		$this->assertStringNotContainsString( 'blueline_render_team_flyout(', $footer );
+		$site_header = strpos( $header, 'blueline_site_header()' );
+		$flyout      = strpos( $header, 'blueline_render_team_flyout()' );
+		$this->assertNotFalse( $site_header );
+		$this->assertNotFalse( $flyout );
+		$this->assertGreaterThan( $site_header, $flyout );
+		$this->assertLessThan( strpos( $header, 'blueline_render_announcement()' ), $flyout );
+	}
 }

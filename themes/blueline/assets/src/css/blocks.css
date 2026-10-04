@@ -27,120 +27,76 @@
 }
 
 /*
- * Prose measure -- a deliberate reading-width cap, not an accident of
- * layout. Without a sidebar, .entry-content fills the whole content column
- * (up to 1152px at 1280px viewport width); measured live on /faqs that was
- * 16px/27.2px type at ~135 characters per line, roughly double the
- * comfortable ~65-75ch ceiling. Pages with an active sidebar happened to
- * read better only because the grid narrows the column to ~90ch by
- * accident -- this holds the same measure everywhere, sidebar or not.
- * Scoped to text-bearing elements only (not the whole .entry-content
- * container) so images, tables and full-width blocks are unaffected.
- *
- * margin-inline: auto is load-bearing, not decorative -- reported live,
- * repeatedly (arl-league-info, /sponsors, /register), as "text not using
- * the available space": on any no-sidebar page this cap leaves real
- * leftover width once a paragraph is actually narrowed to 70ch, and
- * without this it all sits on ONE side (flush left) instead of split
- * evenly, reading as an accident rather than a deliberately narrow reading
- * column. This used to be fixed page-by-page (a scoped override on
- * .page-id-154 alone for the first page it was reported on) -- exactly
- * the kind of fix that needed re-discovering and re-shipping on every
- * later page it was ALSO true for, since the cap above already applies
- * everywhere. Centring it here, at the one shared rule, is what makes
- * this the last time. Harmless where the cap never engages (a sidebar
- * page inside the 960-1799.98px range this file's own rule below already
- * exempts, or a paragraph already narrower than 70ch): auto margins on an
- * already-full-width or already-narrow box resolve to 0/whatever the
- * content's own width leaves, nothing visibly shifts.
- *
- * Deliberately NOT applied to li: a list marker sits at a fixed offset
- * from ITS OWN item's box edge, so centring each <li> individually would
- * centre every bullet at a slightly different horizontal position instead
- * of one shared column the moment items wrap to different heights --
- * confirmed live this would look actively broken on a single-column list
- * spanning a wide, no-sidebar page, unlike a paragraph or heading, which
- * has no marker of its own to misalign.
+ * Prose measure for templates WITHOUT a sidebar: a narrow reading column,
+ * centred on wide pages (sidebar pages fill their column instead, below).
+ * --bl-measure is rem-based, not ch, so every text block gets the SAME box
+ * width whatever its own font size, and centred boxes of one width share one
+ * left edge (70ch made each heading level start at a different x). The entry
+ * header/footer and post navigation join the same column (layout.css).
+ * li is capped but never centred: each bullet would land at a different x.
  */
 .entry-content p,
 .entry-content li,
 .entry-content :where(h1, h2, h3, h4, h5, h6) {
-	max-width: 70ch;
+	max-width: var(--bl-measure);
 }
 
 .entry-content p,
 .entry-content :where(h1, h2, h3, h4, h5, h6) {
-	margin-inline: auto;
+	margin-inline: var(--bl-measure-inline, auto);
+}
+
+/* Top-level text blocks join the column as whole boxes (bullets align). */
+.entry-content > :is(ul, ol, dl, blockquote, pre, hr, .wp-block-file, .su-spoiler, .su-accordion, .bl-callout, .wpcf7) {
+	max-width: var(--bl-measure);
+	margin-inline: var(--bl-measure-inline, auto);
 }
 
 /*
- * A top-level list gets the same measure and centring as the paragraphs
- * around it, applied to the list box itself rather than each li (see the
- * li note above): its bullets keep one shared column, and the whole list
- * lines up with the text column instead of hanging out to the left of it
- * on a wide page (reported live on /2026/08/winter-season-registration-
- * update at 1920px: paragraphs centred, bullets ~220px further left).
+ * A page with a sidebar has a column the sidebar already sized, so prose fills
+ * it flush left on the same edge as the tables and forms around it (owner,
+ * twice: a capped or centred column reads as "not using the space" and gave
+ * text pages a different heading edge than data pages). The cap above only
+ * ever applies on templates without a sidebar.
  */
-.entry-content > :is(ul, ol) {
-	max-width: 70ch;
-	margin-inline: auto;
+.bl-content-layout--has-sidebar {
+	--bl-measure: none;
+	--bl-measure-inline: 0;
 }
 
-/*
- * ...but a wider ceiling, not no ceiling, on a page with an active
- * sidebar, in the one width range where that sidebar actually narrows
- * this column: 960-1799.98px (layout.css's own sidebar breakpoint),
- * where the sidebar's 300px grid track already brings the primary
- * column down to ~939-973px on its own (confirmed live on /arl-league-
- * info and its /equipment child at 1400px viewport) -- most of the way
- * to a comfortable measure already, so the flat 70ch/706px cap above,
- * which was tuned for a full-width no-sidebar column, needlessly
- * double-narrowed it, leaving up to a quarter of the column's own width
- * sitting empty next to the text (reported live as "not using the space
- * available"). A first attempt removed the cap here entirely -- correct
- * for short intro copy, but reported live as a fresh problem of its own
- * on long-form prose (/arl-league-info's testimonials, /faqs's longer
- * answers): an uncapped ~939px column runs ~90 characters per line, past
- * comfortable even though it isn't "empty space" anymore. 90ch (~910px
- * in this theme's body face) is the compromise: keeps nearly all the
- * width the first attempt reclaimed, while still being a real ceiling
- * for a long paragraph. Below 960px the sidebar stacks (.bl-content-
- * layout's own base single-column grid) and at 1800px+ it becomes a
- * floating panel outside the grid entirely (layout.css's own sidebar-
- * breakpoint comment) -- both put this column back to full width, where
- * the 70ch cap above is doing its real job again, so this stays scoped
- * to the exact range the sidebar's own grid track is active.
- * .bl-container:has(> .bl-content-layout--has-sidebar) also holds this
- * column's own container to a fixed 1400px through the whole range
- * (layout.css), so this cap can't let a line run away unbounded even at
- * the top of it.
- */
-@media (min-width: 960px) and (max-width: 1799.98px) {
+/* Column barely wider than the measure: stay flush, not a few px off. */
+@media (max-width: 859.98px) {
 
-	.bl-content-layout--has-sidebar .entry-content p,
-	.bl-content-layout--has-sidebar .entry-content li,
-	.bl-content-layout--has-sidebar .entry-content > :is(ul, ol),
-	.bl-content-layout--has-sidebar .entry-content :where(h1, h2, h3, h4, h5, h6) {
-		max-width: 90ch;
+	:root {
+		--bl-measure-inline: 0;
 	}
 }
 
 /*
- * ...but not inside a SportsPress template, where headings are captions and
- * fixture titles rather than running prose.
- *
- * The measure above assumes a heading starts at the content's left edge, so
- * capping it is invisible. A CENTRED heading in a container wider than 70ch is
- * a different matter: the cap shrinks its box, the box stays left, and the text
- * centres inside the shrunken box instead of the container. Measured on an
- * event page's Past Meetings tab, the "Team vs Team" title was capped to 490px
- * inside a 788px cell and its text landed 137px left of centre, while the date
- * directly above it -- not a heading, so uncapped -- sat correctly on the
- * middle. The same block looks fine on a team page only because the column
- * there is 384px, narrower than the cap, so it never engages.
+ * Data and form markup is laid out by its own rules, not the prose measure:
+ * a centred note or caption floats off the table/form it belongs to, and a
+ * centred heading inside a capped box lands off-centre.
  */
-.entry-content .sp-template :where(h1, h2, h3, h4, h5, h6) {
+.entry-content :where(.sportspress, .sp-template, .su-tabs, table) p,
+.entry-content :where(.sportspress, .sp-template, .su-tabs, table) :where(h1, h2, h3, h4, h5, h6),
+.entry-content :where(.sp-table-caption, .sp-heading, .bl-sp-table-empty-note) {
 	max-width: none;
+	margin-inline: 0;
+}
+
+/* Shop/form copy keeps the cap (it sizes the login fields) but not centring;
+   a product description is prose under a left-aligned tab strip. */
+.entry-content :where(.woocommerce, form) p,
+.entry-content :where(.woocommerce, form) :where(h1, h2, h3, h4, h5, h6),
+.woocommerce-Tabs-panel p,
+.woocommerce-Tabs-panel :where(h1, h2, h3, h4, h5, h6) {
+	margin-inline: 0;
+}
+
+/* Pages built around a data table or shop form stay flush left. */
+.bl-entry:has(> .entry-content > :is(.sportspress, .sp-template, .woocommerce, [class*="sp-section-content"])),
+.entry-content:has(> :is(.sportspress, .sp-template, .woocommerce, [class*="sp-section-content"])) {
+	--bl-measure-inline: 0;
 }
 
 /*
@@ -223,8 +179,9 @@
 	margin-block: var(--bl-space-6);
 	padding: var(--bl-space-5) var(--bl-space-6);
 	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
-	border: 1px solid var(--bl-content-border);
-	border-inline-start: 4px solid var(--bl-warning);
+
+	/* A-20: a full tinted border, not a 4px side stripe. */
+	border: 1px solid color-mix(in srgb, var(--bl-warning) 40%, var(--bl-content-border));
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
 	color: var(--bl-content-text);
@@ -464,11 +421,29 @@
  * face: this is quoted prose, not a heading/eyebrow/button.
  */
 .entry-content .wp-block-quote {
+	position: relative;
 	margin: 0;
-	padding-inline-start: var(--bl-space-5);
-	border-inline-start: 4px solid var(--bl-ice);
+	padding-inline-start: var(--bl-space-6);
 	font-style: italic;
 	color: var(--bl-content-text-secondary);
+}
+
+/* Top-level quotes join the prose column (the margin reset above zeroed it). */
+.entry-content > .wp-block-quote {
+	margin-inline: var(--bl-measure-inline, auto);
+}
+
+/* A-20: a hanging quotation mark instead of a 4px side stripe. */
+.entry-content .wp-block-quote::before {
+	content: "\201C" / "";
+	position: absolute;
+	inset-block-start: -0.1em;
+	inset-inline-start: 0;
+	color: var(--bl-steel);
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: var(--bl-text-3xl);
+	font-style: normal;
+	line-height: 1;
 }
 
 .entry-content .wp-block-quote p {
@@ -500,4 +475,187 @@
  */
 .entry-content .su-box-title[style*="color:#0066cc"][style*="background-color:#ffcc00"] {
 	color: var(--bl-ink) !important;
+}
+
+/*
+ * A-01: [su_tabs] (the past rosters/stats pages) paints white panes with
+ * #333 text; in dark mode the captions (1.1:1) and table cells (1.2-1.4:1)
+ * vanished. Content tokens in both schemes.
+ */
+.entry-content .su-tabs {
+	background: var(--bl-content-bg);
+	border: 1px solid var(--bl-content-border);
+}
+
+.entry-content .su-tabs-nav span {
+	color: var(--bl-content-text-secondary);
+}
+
+.entry-content .su-tabs-nav span:hover {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+}
+
+/* Steel bar: the selected-state indicator needs 3:1 in both schemes. */
+.entry-content .su-tabs-nav span.su-tabs-current {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	box-shadow: inset 0 -3px 0 var(--bl-steel);
+}
+
+.entry-content .su-tabs-pane {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+}
+
+/* A-08: [su_spoiler]'s #f0f0f0 title bar and white body, unchanged in dark. */
+.entry-content .su-spoiler.su-spoiler-style-fancy {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border);
+}
+
+.entry-content .su-spoiler > .su-spoiler-title {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border);
+}
+
+.entry-content .su-spoiler > .su-spoiler-content {
+	background: transparent;
+	color: inherit;
+}
+
+/* A-08: core File block's charcoal pill, in this theme's button language. */
+.entry-content .wp-block-file .wp-block-file__button {
+	padding: var(--bl-space-2) var(--bl-space-4);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	border-radius: var(--bl-radius);
+}
+
+.entry-content .wp-block-file .wp-block-file__button:hover,
+.entry-content .wp-block-file .wp-block-file__button:focus-visible {
+	background: var(--bl-ink-mid);
+	color: var(--bl-paper);
+	opacity: 1;
+}
+
+/*
+ * A-03/A-09: author-set colours in post content. Only the exact inline
+ * values the QA pass measured are defended; any other colour an author
+ * picks stays content-owned. !important is the only way past core's own
+ * !important palette classes and inline styles.
+ */
+
+/* /return-to-play-w2020-21: a pale fill with no text colour took the dark
+   theme's near-white text (1.02:1). */
+.entry-content .has-background:not(.has-text-color)[style*="background-color:#dcf5f9"] {
+	color: var(--bl-ink);
+}
+
+/* Core vivid red / inline #008000 were 3.46:1 on the dark page; the status
+   tokens pass in both schemes. */
+.entry-content .has-vivid-red-color {
+	color: var(--bl-danger) !important;
+}
+
+.entry-content [style^="color: #008000"],
+.entry-content [style^="color:#008000"] {
+	color: var(--bl-success) !important;
+}
+
+/* A-03: the dynamic-standings plugin's #f5f5f5 filter bar (1.03:1 dark). */
+.entry-content .arl-standings-filters {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border);
+}
+
+.entry-content .arl-standings-filters select {
+	background-color: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border-color: var(--bl-content-border-strong);
+}
+
+/* D-09: core's password form (the protected registration product) had
+   21px UA controls. */
+.post-password-form input[type="password"] {
+	min-height: 44px;
+	padding: var(--bl-space-2) var(--bl-space-3);
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border-strong);
+	border-radius: var(--bl-radius);
+	font: inherit;
+}
+
+.post-password-form input[type="submit"] {
+	min-height: 44px;
+	margin-block-start: var(--bl-space-2);
+	padding: var(--bl-space-2) var(--bl-space-5);
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-size: var(--bl-text-base);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	border: 0;
+	border-radius: var(--bl-radius);
+	cursor: pointer;
+}
+
+.post-password-form input[type="submit"]:hover {
+	background: var(--bl-ink-mid);
+}
+
+/*
+ * A-11: ink-filled controls on the dark page (1.14:1) had no visible shape,
+ * so the current page read lighter than its neighbours. Dark swaps to the ice
+ * CTA fill (ink text 7.7:1). layout.css owns the light rules.
+ */
+:root[data-theme="dark"] .bl-pagination .page-numbers.current,
+:root[data-theme="dark"] .search-form .search-submit,
+:root[data-theme="dark"] .entry-content .wp-block-file .wp-block-file__button,
+:root[data-theme="dark"] .post-password-form input[type="submit"] {
+	background: var(--bl-ice);
+	border-color: var(--bl-ice);
+	color: var(--bl-ink);
+}
+
+:root[data-theme="dark"] .search-form .search-submit:hover,
+:root[data-theme="dark"] .search-form .search-submit:focus-visible,
+:root[data-theme="dark"] .entry-content .wp-block-file .wp-block-file__button:hover,
+:root[data-theme="dark"] .entry-content .wp-block-file .wp-block-file__button:focus-visible,
+:root[data-theme="dark"] .post-password-form input[type="submit"]:hover {
+	background: var(--bl-pale);
+	border-color: var(--bl-pale);
+	color: var(--bl-ink);
+}
+
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) .bl-pagination .page-numbers.current,
+	:root:not([data-theme="light"]) .search-form .search-submit,
+	:root:not([data-theme="light"]) .entry-content .wp-block-file .wp-block-file__button,
+	:root:not([data-theme="light"]) .post-password-form input[type="submit"] {
+		background: var(--bl-ice);
+		border-color: var(--bl-ice);
+		color: var(--bl-ink);
+	}
+
+	:root:not([data-theme="light"]) .search-form .search-submit:hover,
+	:root:not([data-theme="light"]) .search-form .search-submit:focus-visible,
+	:root:not([data-theme="light"]) .entry-content .wp-block-file .wp-block-file__button:hover,
+	:root:not([data-theme="light"]) .entry-content .wp-block-file .wp-block-file__button:focus-visible,
+	:root:not([data-theme="light"]) .post-password-form input[type="submit"]:hover {
+		background: var(--bl-pale);
+		border-color: var(--bl-pale);
+		color: var(--bl-ink);
+	}
 }

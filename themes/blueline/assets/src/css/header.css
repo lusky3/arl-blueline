@@ -55,7 +55,7 @@
 	 * rule exactly (same box-shadow, same tokens) is what actually fixes
 	 * it, not a one-off colour choice.
 	 */
-	box-shadow: 0 0 0 calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px) var(--bl-focus-halo);
+	box-shadow: var(--bl-focus-ring);
 }
 
 /*

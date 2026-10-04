@@ -119,14 +119,84 @@ function blueline_sp_event_venue_label( int $event_id ): string {
 }
 
 /**
+ * The event's display status: SportsPress's own postponed/cancelled flag
+ * (`sp_status` meta) wins over the clock-based state (C-08).
+ *
+ * @param string $state     blueline_sp_event_state() result.
+ * @param string $sp_status The event's `sp_status` meta ('ok', 'tbd', 'postponed', 'cancelled').
+ * @return string 'final'|'pending'|'preview'|'postponed'|'cancelled'.
+ */
+function blueline_sp_event_display_status( string $state, string $sp_status ): string {
+	return in_array( $sp_status, array( 'postponed', 'cancelled' ), true ) ? $sp_status : $state;
+}
+
+/**
+ * Translated label for a blueline_sp_event_display_status() key.
+ *
+ * @param string $status Status key.
+ * @return string
+ */
+function blueline_sp_event_status_label( string $status ): string {
+	$labels = array(
+		'final'     => __( 'Final', 'blueline' ),
+		'pending'   => __( 'Result pending', 'blueline' ),
+		'preview'   => __( 'Preview', 'blueline' ),
+		'postponed' => __( 'Postponed', 'blueline' ),
+		'cancelled' => __( 'Cancelled', 'blueline' ),
+	);
+
+	return $labels[ $status ] ?? $labels['preview'];
+}
+
+/**
+ * Whether a display status may show the teams' scores: a played game, and a
+ * postponed/cancelled one that nonetheless has a result recorded -- one status
+ * pill plus the score beats a bare "Postponed" with the score only further
+ * down the page (owner, 2026-10-03). Scores still only print when recorded.
+ *
+ * @param string $status blueline_sp_event_display_status() result.
+ * @return bool
+ */
+function blueline_sp_event_status_shows_score( string $status ): bool {
+	return in_array( $status, array( 'final', 'postponed', 'cancelled' ), true );
+}
+
+/**
+ * Where a hero team's name and crest link: its own page, or '' when there is
+ * no team to link (a TBD slot) or its page is not public (draft/private).
+ *
+ * @param int $team_id sp_team post ID, 0 for a TBD slot.
+ * @return string URL, or '' for no link.
+ */
+function blueline_sp_event_team_url( int $team_id ): string {
+	if ( $team_id <= 0 || 'publish' !== get_post_status( $team_id ) ) {
+		return '';
+	}
+
+	return (string) get_permalink( $team_id );
+}
+
+/**
+ * Hero date format: add the year once the game is not in the current year (C-08).
+ *
+ * @param int $event_year   Year the event is dated.
+ * @param int $current_year Current year.
+ * @return string Date format.
+ */
+function blueline_sp_event_hero_date_format( int $event_year, int $current_year ): string {
+	return $event_year === $current_year ? 'D, M j' : 'D, M j, Y';
+}
+
+/**
  * The event masthead: teams, "vs", venue (via blueline_venue_label(),
  * P0 finding 10, so this reads "Mr. Lube and Tires Arena — Red" rather
  * than just the pad name), and either an add-to-calendar link (game has not
  * started), "Result pending" (game has started but no score is in yet), or
- * the final score (a result has been recorded). Purely additive to what
- * the_content() renders below it: SportsPress's own event-logos/
- * event-details/event-venue sections still appear and are styled via
- * sportspress.css.
+ * the final score (a result has been recorded); "Postponed"/"Cancelled"
+ * override the status label, though a recorded score still shows beside it.
+ * SportsPress's own event-details/event-venue
+ * sections still appear below it; its event-logos block repeats this hero
+ * and is hidden in sportspress.css (C-07).
  *
  * @param int $event_id sp_event post ID.
  */
@@ -140,48 +210,58 @@ function blueline_sp_event_hero( $event_id ) {
 	$has_results = ( 'results' === sp_get_status( $event_id ) );
 	$start_ts    = blueline_sp_event_start_timestamp( $event_id );
 	$state       = blueline_sp_event_state( $has_results, $start_ts );
-	$is_played   = ( 'final' === $state );
-
-	$status_labels = array(
-		'final'   => __( 'Final', 'blueline' ),
-		'pending' => __( 'Result pending', 'blueline' ),
-		'preview' => __( 'Preview', 'blueline' ),
-	);
+	$status      = blueline_sp_event_display_status( $state, (string) get_post_meta( $event_id, 'sp_status', true ) );
+	$show_score  = blueline_sp_event_status_shows_score( $status );
 
 	$venue_name = blueline_sp_event_venue_label( $event_id );
 
-	$calendar_url = ( 'preview' === $state ) ? blueline_sp_event_calendar_url( $event_id ) : '';
-	$ics_url      = ( 'preview' === $state ) ? blueline_sp_event_ics_url( $event_id ) : '';
+	$calendar_url = ( 'preview' === $status ) ? blueline_sp_event_calendar_url( $event_id ) : '';
+	$ics_url      = ( 'preview' === $status ) ? blueline_sp_event_ics_url( $event_id ) : '';
+	$date_format  = blueline_sp_event_hero_date_format( (int) get_the_date( 'Y', $event_id ), (int) current_time( 'Y' ) );
 	?>
-	<header class="sp-scoreboard">
+	<header class="sp-scoreboard sp-scoreboard--<?php echo esc_attr( $status ); ?>">
 		<?php blueline_render_faceoff_rings(); ?>
 		<div class="bl-container sp-scoreboard__inner">
 			<p class="sp-scoreboard__status">
-				<span class="bl-skew"><span><?php echo esc_html( $status_labels[ $state ] ); ?></span></span>
+				<span class="bl-skew"><span><?php echo esc_html( blueline_sp_event_status_label( $status ) ); ?></span></span>
 			</p>
 
-			<div class="sp-scoreboard__matchup">
+			<?php // The page's h1 (C-12): spans only, so the heading reads "Team A 2 vs Team B 4". ?>
+			<h1 class="sp-scoreboard__matchup">
 				<?php foreach ( array( 0, 1 ) as $slot ) : ?>
 					<?php
-					$team_id = $teams[ $slot ] ?? 0;
-					$score   = ( $is_played && $team_id ) ? blueline_sp_team_result( $event_id, $team_id ) : null;
+					$team_id  = $teams[ $slot ] ?? 0;
+					$team_url = blueline_sp_event_team_url( (int) $team_id );
+					$score    = ( $show_score && $team_id ) ? blueline_sp_team_result( $event_id, $team_id ) : null;
 					?>
-					<div class="sp-scoreboard__team">
+					<span class="sp-scoreboard__team">
 						<?php if ( $team_id && has_post_thumbnail( $team_id ) ) : ?>
-							<span class="sp-scoreboard__logo"><?php echo get_the_post_thumbnail( $team_id, 'thumbnail' ); ?></span>
+							<span class="sp-scoreboard__logo">
+								<?php if ( $team_url ) : ?>
+									<?php // The name link is the real one; this duplicate is only a bigger click target. ?>
+									<a class="sp-scoreboard__team-link" href="<?php echo esc_url( $team_url ); ?>" tabindex="-1" aria-hidden="true"><?php echo get_the_post_thumbnail( $team_id, 'thumbnail', array( 'alt' => '' ) ); ?></a>
+								<?php else : ?>
+									<?php echo get_the_post_thumbnail( $team_id, 'thumbnail', array( 'alt' => '' ) ); ?>
+								<?php endif; ?>
+							</span>
 						<?php endif; ?>
 						<span class="sp-scoreboard__team-name">
-							<?php echo esc_html( $team_id ? blueline_sp_title( $team_id ) : __( 'TBD', 'blueline' ) ); ?>
+							<?php $team_label = $team_id ? blueline_sp_title( $team_id ) : __( 'TBD', 'blueline' ); ?>
+							<?php if ( $team_url ) : ?>
+								<a class="sp-scoreboard__team-link" href="<?php echo esc_url( $team_url ); ?>"><?php echo esc_html( $team_label ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( $team_label ); ?>
+							<?php endif; ?>
 						</span>
-						<?php if ( $is_played && null !== $score ) : ?>
+						<?php if ( $show_score && null !== $score ) : ?>
 							<span class="sp-scoreboard__score"><?php echo esc_html( $score ); ?></span>
 						<?php endif; ?>
-					</div>
+					</span>
 					<?php if ( 0 === $slot ) : ?>
-						<span class="sp-scoreboard__vs" aria-hidden="true"><?php esc_html_e( 'vs', 'blueline' ); ?></span>
+						<span class="sp-scoreboard__vs"><?php esc_html_e( 'vs', 'blueline' ); ?></span>
 					<?php endif; ?>
 				<?php endforeach; ?>
-			</div>
+			</h1>
 
 			<p class="sp-scoreboard__meta">
 				<time class="sp-scoreboard__time" datetime="<?php echo esc_attr( get_the_date( DATE_W3C, $event_id ) ); ?>">
@@ -190,7 +270,7 @@ function blueline_sp_event_hero( $event_id ) {
 						sprintf(
 							/* translators: 1: event date, 2: event time. */
 							__( '%1$s · %2$s', 'blueline' ),
-							get_the_date( 'D, M j', $event_id ),
+							get_the_date( $date_format, $event_id ),
 							get_the_time( get_option( 'time_format' ), $event_id )
 						)
 					);
@@ -275,7 +355,7 @@ function blueline_sp_player_hero( $player_id ) {
 	<header class="bl-sp-hero bl-sp-hero--player">
 		<div class="bl-container bl-sp-hero__inner">
 			<?php if ( has_post_thumbnail( $player_id ) ) : ?>
-				<div class="bl-sp-hero__crest bl-sp-hero__crest--player"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail' ); ?></div>
+				<div class="bl-sp-hero__crest bl-sp-hero__crest--player"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail', array( 'alt' => '' ) ); ?></div>
 			<?php else : ?>
 				<div class="bl-sp-hero__crest bl-sp-hero__crest--fallback">
 					<?php blueline_leaf_mark( 'bl-sp-hero__crest-mark' ); ?>
@@ -307,7 +387,7 @@ function blueline_sp_player_hero( $player_id ) {
 			<?php if ( $current_team_id && 'publish' === get_post_status( $current_team_id ) ) : ?>
 				<a class="bl-sp-hero__team" href="<?php echo esc_url( get_permalink( $current_team_id ) ); ?>">
 					<?php if ( has_post_thumbnail( $current_team_id ) ) : ?>
-						<?php echo get_the_post_thumbnail( $current_team_id, 'thumbnail' ); ?>
+						<?php echo get_the_post_thumbnail( $current_team_id, 'thumbnail', array( 'alt' => '' ) ); ?>
 					<?php endif; ?>
 					<span><?php echo esc_html( blueline_sp_title( $current_team_id ) ); ?></span>
 				</a>
@@ -402,7 +482,7 @@ function blueline_sp_team_hero( $team_id ) {
 	<header class="bl-sp-hero bl-sp-hero--team"<?php echo $team_color_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blueline_team_color_style_attr() returns a complete, esc_attr()'d style attribute built only from hex values it validated itself. ?>>
 		<div class="bl-container bl-sp-hero__inner">
 			<?php if ( has_post_thumbnail( $team_id ) ) : ?>
-				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $team_id, 'medium' ); ?></div>
+				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $team_id, 'medium', array( 'alt' => '' ) ); ?></div>
 			<?php else : ?>
 				<div class="bl-sp-hero__crest bl-sp-hero__crest--fallback">
 					<?php blueline_leaf_mark( 'bl-sp-hero__crest-mark' ); ?>
@@ -444,7 +524,7 @@ function blueline_sp_staff_hero( $staff_id ) {
 	<header class="bl-sp-hero bl-sp-hero--staff">
 		<div class="bl-container bl-sp-hero__inner">
 			<?php if ( has_post_thumbnail( $staff_id ) ) : ?>
-				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $staff_id, 'thumbnail' ); ?></div>
+				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $staff_id, 'thumbnail', array( 'alt' => '' ) ); ?></div>
 			<?php endif; ?>
 
 			<div class="bl-sp-hero__identity">
@@ -490,19 +570,15 @@ function blueline_sp_event_teaser( $event_id ) {
 	$has_results = function_exists( 'sp_get_status' ) && ( 'results' === sp_get_status( $event_id ) );
 	$start_ts    = blueline_sp_event_start_timestamp( $event_id );
 	$state       = blueline_sp_event_state( $has_results, $start_ts );
-	$is_played   = ( 'final' === $state );
-
-	$status_labels = array(
-		'pending' => __( 'Result pending', 'blueline' ),
-		'preview' => __( 'Preview', 'blueline' ),
-	);
+	$status      = blueline_sp_event_display_status( $state, (string) get_post_meta( $event_id, 'sp_status', true ) );
+	$show_score  = blueline_sp_event_status_shows_score( $status );
 
 	// Keyed by team ID (blueline_sp_team_result()), not positionally zipped
 	// against a shared results array. See that function's own docblock
 	// for why a positional pairing can silently attribute one team's score
 	// to the other.
 	$scores = array();
-	if ( $is_played ) {
+	if ( $show_score ) {
 		$teams = blueline_sp_event_team_ids( $event_id );
 		foreach ( $teams as $team_id ) {
 			$score = blueline_sp_team_result( $event_id, $team_id );
@@ -522,11 +598,37 @@ function blueline_sp_event_teaser( $event_id ) {
 			<?php endif; ?>
 		</span>
 		<span class="bl-sp-event-teaser__title"><?php echo esc_html( blueline_sp_title( $event_id ) ); ?></span>
-		<?php if ( $is_played && $scores ) : ?>
+		<?php if ( $show_score && $scores ) : ?>
 			<span class="bl-sp-event-teaser__score"><?php echo esc_html( implode( ' - ', $scores ) ); ?></span>
 		<?php else : ?>
-			<span class="bl-sp-event-teaser__status"><?php echo esc_html( $status_labels[ $state ] ); ?></span>
+			<span class="bl-sp-event-teaser__status"><?php echo esc_html( blueline_sp_event_status_label( $status ) ); ?></span>
 		<?php endif; ?>
 	</a>
 	<?php
 }
+
+/**
+ * The Details table's Time cell on a postponed/cancelled game's own page.
+ *
+ * SportsPress replaces the time with the status word there, which repeats the
+ * hero's status pill right above it. The cell shows the scheduled time
+ * instead (the hero's meta line already says the same), so the status appears
+ * once. Only the page's own event: schedule rows elsewhere keep SportsPress's
+ * wording.
+ *
+ * @param mixed $time Time as SportsPress resolved it.
+ * @param mixed $id   sp_event post ID the cell is for.
+ * @return mixed
+ */
+function blueline_sp_event_details_time( $time, $id = 0 ) {
+	if ( ! is_singular( 'sp_event' ) || (int) get_queried_object_id() !== (int) $id ) {
+		return $time;
+	}
+
+	if ( ! in_array( get_post_meta( (int) $id, 'sp_status', true ), array( 'postponed', 'cancelled' ), true ) ) {
+		return $time;
+	}
+
+	return get_the_time( get_option( 'time_format' ), (int) $id );
+}
+add_filter( 'sportspress_event_time', 'blueline_sp_event_details_time', 20, 2 );

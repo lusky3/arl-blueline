@@ -264,6 +264,76 @@ function blueline_sp_event_state( $has_results, $start_timestamp, $now_timestamp
 }
 
 /**
+ * Whether a played game with no result is recent enough that a score is still
+ * expected (QA C-24: "Final score coming soon" was shown on 2016 games).
+ *
+ * @param int|false $start_timestamp GMT unix start time, or false if unknown.
+ * @param int|null  $now_timestamp   Current GMT unix time; defaults to time().
+ * @return bool
+ */
+function blueline_sp_result_still_expected( $start_timestamp, $now_timestamp = null ) {
+	if ( ! $start_timestamp ) {
+		return false;
+	}
+
+	if ( null === $now_timestamp ) {
+		$now_timestamp = time();
+	}
+
+	return $now_timestamp - (int) $start_timestamp <= 14 * DAY_IN_SECONDS;
+}
+
+/**
+ * Number of columns sportspress/event-list.php prints, so its date-heading
+ * row spans the whole table (QA C-16/B-05: the Result column was missed).
+ * Mirrors sp_column_active(): an empty column list means "every column".
+ *
+ * @param array|null $usecolumns Active column keys.
+ * @return int
+ */
+function blueline_sp_event_list_column_count( $usecolumns ) {
+	$active = static function ( $column ) use ( $usecolumns ) {
+		return empty( $usecolumns ) || in_array( $column, (array) $usecolumns, true );
+	};
+
+	$count = 2; // Date/time, plus Arena (always printed, hidden when inactive).
+
+	if ( $active( 'event' ) ) {
+		$count += 2; // Home + Away.
+	}
+
+	foreach ( array( 'time', 'league', 'season', 'article', 'day' ) as $column ) {
+		if ( $active( $column ) ) {
+			++$count;
+		}
+	}
+
+	return $count;
+}
+
+/**
+ * Whether any row of a player statistics table has a real stat value; a table
+ * of blanks and dashes gets the empty state instead (QA B-14).
+ *
+ * @param array    $rows      Rows keyed by season id, each keyed by column.
+ * @param string[] $stat_keys Stat column keys.
+ * @return bool
+ */
+function blueline_sp_stat_rows_have_values( array $rows, array $stat_keys ) {
+	foreach ( $rows as $row ) {
+		foreach ( $stat_keys as $key ) {
+			$value = trim( html_entity_decode( wp_strip_all_tags( (string) ( $row[ $key ] ?? '' ) ) ) );
+
+			if ( ! in_array( $value, array( '', '-', "\u{2014}" ), true ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
  * Subscribe URLs for a team's whole SportsPress calendar.
  *
  * The league already publishes one iCal feed per team: an sp_calendar post

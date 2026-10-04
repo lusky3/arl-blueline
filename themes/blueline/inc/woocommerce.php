@@ -85,6 +85,35 @@ add_action( 'woocommerce_after_main_content', 'blueline_wc_wrapper_end' );
 add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_start', 5 );
 add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_end', 15 );
 
+// D-17: no gallery at all for an image-less registration (not a white placeholder).
+remove_action( 'woocommerce_before_single_product_summary', 'woocommerce_show_product_images', 20 );
+add_action( 'woocommerce_before_single_product_summary', 'blueline_wc_show_product_images', 20 );
+
+/**
+ * Whether a product has a featured or gallery image to show.
+ *
+ * @param mixed $product WC_Product (or anything else, which counts as "unknown").
+ * @return bool True unless the product is known to have no image at all.
+ */
+function blueline_wc_product_has_images( $product ): bool {
+	if ( ! is_object( $product ) || ! method_exists( $product, 'get_image_id' ) || ! method_exists( $product, 'get_gallery_image_ids' ) ) {
+		return true;
+	}
+
+	return (bool) $product->get_image_id() || array() !== (array) $product->get_gallery_image_ids();
+}
+
+/**
+ * WooCommerce's own gallery output, skipped when it would only be the placeholder.
+ *
+ * @return void
+ */
+function blueline_wc_show_product_images(): void {
+	if ( function_exists( 'woocommerce_show_product_images' ) && blueline_wc_product_has_images( $GLOBALS['product'] ?? null ) ) {
+		woocommerce_show_product_images();
+	}
+}
+
 add_action( 'wp_enqueue_scripts', 'blueline_dequeue_cart_fragments', 20 );
 /**
  * Drop WooCommerce core's `wc-cart-fragments` script everywhere except
@@ -212,6 +241,37 @@ function blueline_wc_wrapper_end() {
  */
 remove_action( 'woocommerce_cart_is_empty', 'wc_empty_cart_message' );
 
+/*
+ * D-11: an empty shop/category/tag archive showed only WooCommerce's
+ * "No products were found" notice, a dead end. Same bl-empty-state as the
+ * cart, pointing at the Register page (catalogue visibility is untouched).
+ */
+remove_action( 'woocommerce_no_products_found', 'wc_no_products_found' );
+add_action( 'woocommerce_no_products_found', 'blueline_wc_no_products_found' );
+
+/**
+ * Themed "nothing listed here" state for an empty product archive (D-11).
+ * h2: the archive header above it already prints the page's h1.
+ */
+function blueline_wc_no_products_found(): void {
+	?>
+	<section class="bl-empty-state bl-empty-state--shop">
+		<?php blueline_leaf_mark( 'bl-empty-state__mark' ); ?>
+		<h2 class="bl-empty-state__title"><?php esc_html_e( 'Nothing listed here', 'blueline' ); ?></h2>
+		<p class="bl-empty-state__text">
+			<?php esc_html_e( 'Every season and program is on the Register page.', 'blueline' ); ?>
+		</p>
+		<ul class="bl-empty-state__links">
+			<li>
+				<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( blueline_resolve_link( 'page_register' ) ); ?>">
+					<span class="bl-skew"><span><?php esc_html_e( 'Go to registration', 'blueline' ); ?></span></span>
+				</a>
+			</li>
+		</ul>
+	</section>
+	<?php
+}
+
 add_action( 'woocommerce_before_checkout_form', 'blueline_checkout_reassurance' );
 /**
  * A short reassurance note above the checkout form -- the same nervous
@@ -326,6 +386,31 @@ function blueline_wc_title_buffer_active( ?bool $set = null ): bool {
 function blueline_wc_demote_product_title( string $html ): string {
 	return (string) preg_replace( '#<(/?)h1\b#i', '<$1h2', $html );
 }
+
+add_filter( 'the_password_form', 'blueline_wc_password_form_heading', 10, 2 );
+/**
+ * D-09: a password-protected product page prints only core's password form,
+ * with no title at all (axe page-has-heading-one). Give it the product's h1.
+ *
+ * @param string $output Password form markup.
+ * @param mixed  $post   The protected post (WP 5.8+ passes it).
+ * @return string
+ */
+function blueline_wc_password_form_heading( $output, $post = null ) {
+	$id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : 0;
+
+	if ( ! $id || ! is_singular( 'product' ) || get_queried_object_id() !== $id ) {
+		return $output;
+	}
+
+	return '<h1 class="product_title entry-title">' . esc_html( get_the_title( $id ) ) . '</h1>' . $output;
+}
+
+/*
+ * D-16: the Description tab panel repeated its own tab label as an h2
+ * ("Description" under a "Description" tab).
+ */
+add_filter( 'woocommerce_product_description_heading', '__return_empty_string' );
 
 /**
  * Close the link opened by blueline_wc_product_page_shortcode_title_link_open().

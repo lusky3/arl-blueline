@@ -139,7 +139,9 @@
 	padding-block: var(--bl-space-5) 0;
 }
 
-.bl-leaf-mark {
+/* A-14: zero specificity, so each placement's own size class (96px empty
+   state, 32px header...) wins even from a file loaded before this one. */
+:where(.bl-leaf-mark) {
 	width: 28px;
 	height: 28px;
 	flex: 0 0 auto;
@@ -320,7 +322,7 @@
 	padding: var(--bl-space-1) var(--bl-space-3);
 	color: var(--bl-pale);
 	font: inherit;
-	font-size: var(--bl-text-xs);
+	font-size: var(--bl-text-sm);
 	line-height: 1;
 	cursor: pointer;
 }
@@ -334,13 +336,12 @@
 }
 
 /*
- * The pressed (currently active) option -- --bl-ink fill / --bl-paper text,
- * the same "ink fill, paper text" primary-button language this theme's
- * other controls already use (see the design spec's own §2 note on why
- * that pairing keeps its fixed look in both light and dark content
- * themes: it is chrome, not content).
+ * The pressed (currently active) option. D-21: an ink fill read only ~1.2:1
+ * against its ink-deep neighbours, so it takes the ice "selected" fill with
+ * ink text instead (ink-on-ice rule), plain chrome in both content themes.
  */
 .bl-theme-toggle__option[aria-pressed="true"] {
-	background: var(--bl-ink);
-	color: var(--bl-paper);
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	font-weight: 600;
 }

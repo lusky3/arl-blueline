@@ -22,9 +22,8 @@
 		.forEach( function ( button ) {
 			button.addEventListener( 'click', function () {
 				const row = button.closest( '.bl-sp-player-selector__row' );
-				const select = row
-					? row.querySelector( '.sp-player-selector' )
-					: null;
+				// Player or staff selector (sportspress/staff-selector.php).
+				const select = row ? row.querySelector( 'select' ) : null;
 				const url = select ? select.value : '';
 
 				if ( url ) {

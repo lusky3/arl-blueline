@@ -48,7 +48,8 @@ if ( empty( $data ) ) {
 // the degenerate case this override exists to catch.
 $stat_keys = array_diff( array_keys( $labels ), array( 'name', 'team' ) );
 
-if ( empty( $stat_keys ) ) {
+// QA B-14: stat columns that are blank or dashes in every row are just as empty.
+if ( empty( $stat_keys ) || ! blueline_sp_stat_rows_have_values( $data, $stat_keys ) ) {
 	?>
 	<div class="bl-sp-empty">
 		<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>

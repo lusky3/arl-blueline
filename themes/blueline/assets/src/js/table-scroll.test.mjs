@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { update, attach, attachWithin } = require( './table-scroll.js' );
+const { update, attach, attachWithin, scrollLabel } = require( './table-scroll.js' );
 
 /**
  * Minimal fake scroll-container element: just enough surface for update()/
@@ -27,8 +27,24 @@ function fakeElement( geometry = {} ) {
 		...geometry,
 		attributes,
 		nodeType: 1,
+		tagName: 'DIV',
 		removeAttribute( name ) {
 			delete attributes[ name ];
+		},
+		setAttribute( name, value ) {
+			attributes[ name ] = String( value );
+		},
+		getAttribute( name ) {
+			return name in attributes ? attributes[ name ] : null;
+		},
+		hasAttribute( name ) {
+			return name in attributes;
+		},
+		closest() {
+			return null;
+		},
+		querySelector() {
+			return null;
 		},
 		toggleAttribute( name, force ) {
 			if ( force ) {
@@ -150,4 +166,87 @@ test( 'attachWithin: the root node itself is wired up when it matches the contai
 	attachWithin( root, null, seen );
 
 	assert.equal( seen.has( root ), true );
+} );
+
+test( 'update: an overflowing wrapper becomes a labelled, focusable region', () => {
+	const el = fakeElement( { scrollWidth: 800, clientWidth: 300 } );
+	el.closest = () => ( {
+		querySelector: () => ( { textContent: '  Upcoming\n Games ' } ),
+	} );
+
+	update( el );
+
+	assert.equal( el.attributes.tabindex, '0' );
+	assert.equal( el.attributes.role, 'region' );
+	assert.equal( el.attributes[ 'aria-label' ], 'Upcoming Games' );
+} );
+
+test( 'update: a wrapper that stops overflowing loses the tab stop again', () => {
+	const el = fakeElement( { scrollWidth: 800, clientWidth: 300 } );
+
+	update( el );
+	el.clientWidth = 800;
+	update( el );
+
+	assert.equal( 'tabindex' in el.attributes, false );
+	assert.equal( 'role' in el.attributes, false );
+	assert.equal( 'aria-label' in el.attributes, false );
+	assert.equal( 'data-bl-scroll-focus' in el.attributes, false );
+} );
+
+test( 'update: a wrapper that fits never gets a tab stop', () => {
+	const el = fakeElement( { scrollWidth: 300, clientWidth: 300 } );
+
+	update( el );
+
+	assert.equal( 'tabindex' in el.attributes, false );
+} );
+
+test( 'update: a self-scrolling table keeps its table role', () => {
+	const el = fakeElement( { scrollWidth: 800, clientWidth: 300 } );
+	el.tagName = 'TABLE';
+	el.caption = { textContent: 'Refs' };
+
+	update( el );
+
+	assert.equal( el.attributes.tabindex, '0' );
+	assert.equal( 'role' in el.attributes, false );
+	assert.equal( el.attributes[ 'aria-label' ], 'Refs' );
+} );
+
+test( 'update: an author tabindex and aria-label are never touched', () => {
+	const owned = fakeElement( { scrollWidth: 800, clientWidth: 300 } );
+	owned.attributes.tabindex = '-1';
+	update( owned );
+	assert.equal( owned.attributes.tabindex, '-1' );
+	assert.equal( 'role' in owned.attributes, false );
+
+	const named = fakeElement( { scrollWidth: 800, clientWidth: 300 } );
+	named.attributes[ 'aria-label' ] = 'Box score';
+	update( named );
+	named.clientWidth = 800;
+	update( named );
+	assert.equal( named.attributes[ 'aria-label' ], 'Box score' );
+} );
+
+test( 'scrollLabel: falls back to a generic name', () => {
+	assert.equal( scrollLabel( fakeElement() ), 'Scrollable table' );
+} );
+
+test( 'scrollLabel: a repeated caption gets a numeric suffix', () => {
+	const first = fakeElement();
+	first.setAttribute( 'data-bl-scroll-focus', 'label' );
+	first.setAttribute( 'aria-label', 'Upcoming Games' );
+	const second = fakeElement();
+	second.setAttribute( 'data-bl-scroll-focus', 'label' );
+	second.setAttribute( 'aria-label', 'Upcoming Games (2)' );
+	const third = fakeElement();
+	third.querySelector = () => ( {
+		caption: { textContent: 'Upcoming Games' },
+	} );
+	const labelled = [ first, second ];
+	third.ownerDocument = { querySelectorAll: () => labelled };
+
+	assert.equal( scrollLabel( third ), 'Upcoming Games (3)' );
+	assert.equal( scrollLabel( first ), 'Scrollable table' );
 } );

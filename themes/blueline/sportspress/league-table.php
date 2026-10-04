@@ -282,6 +282,7 @@ foreach ( $data as $team_id => $row ) :
 				'sizes'    => '24px',
 				'loading'  => 'lazy',
 				'decoding' => 'async',
+				'alt'      => '', // Decorative: the team name sits beside it (C-27).
 			)
 		);
 		$name        = '<span class="team-logo">' . $logo . '</span>' . $name;

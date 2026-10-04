@@ -270,7 +270,7 @@ if ( isset( $show_status ) && $show_status ) {
 					++$bl_i;
 					if ( has_post_thumbnail( $bl_team ) ) {
 						if ( $link_teams ) {
-							echo '<a class="team-logo logo-' . ( $bl_i % 2 ? 'odd' : 'even' ) . '" href="' . esc_url( get_post_permalink( $bl_team ) ) . '" title="' . esc_attr( get_the_title( $bl_team ) ) . '">' . get_the_post_thumbnail( $bl_team, 'sportspress-fit-icon' ) . '</a>';
+							echo '<a class="team-logo logo-' . ( $bl_i % 2 ? 'odd' : 'even' ) . '" href="' . esc_url( get_post_permalink( $bl_team ) ) . '" title="' . esc_attr( get_the_title( $bl_team ) ) . '">' . get_the_post_thumbnail( $bl_team, 'sportspress-fit-icon', array( 'alt' => get_the_title( $bl_team ) ) ) . '</a>';
 						} else {
 							echo get_the_post_thumbnail( $bl_team, 'sportspress-fit-icon', array( 'class' => 'team-logo logo-' . ( $bl_i % 2 ? 'odd' : 'even' ) ) );
 						}

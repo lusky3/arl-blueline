@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, relative, resolve } from 'node:path';
 import { extractRootTokens, extractTokensForSelector, extractRuleBlock, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
 import { contrastRatio, evaluateRule } from './lib/contrast.mjs';
+import { findFocusRingProblems } from './lib/focus-rings.mjs';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
 
@@ -397,6 +398,32 @@ function checkNoLiteralRgba( styleTokens ) {
 }
 
 /**
+ * Focus-ring coverage (tools/lib/focus-rings.mjs): no focus rule in
+ * assets/src/css may drop the halo that makes the ring visible on both
+ * light and dark grounds.
+ *
+ * @return {number} Number of offending rules.
+ */
+function checkFocusRings() {
+	const cssDir = resolve( here, '../assets/src/css' );
+	const themeRoot = resolve( here, '..' );
+	// Programmatically focused, non-interactive targets (WooCommerce notices, D-22).
+	const allowlist = [ '.woocommerce-NoticeGroup:focus' ];
+
+	let failed = 0;
+	for ( const filePath of collectCssFiles( cssDir ) ) {
+		for ( const problem of findFocusRingProblems( readFileSync( filePath, 'utf8' ), allowlist ) ) {
+			report( false, `${ relative( themeRoot, filePath ) }: ${ problem }` );
+			failed++;
+		}
+	}
+	if ( ! failed ) {
+		report( true, 'every focus rule keeps the --bl-focus-ring halo' );
+	}
+	return failed;
+}
+
+/**
  * Run every check in sequence and exit non-zero if any of them failed.
  */
 function main() {
@@ -415,6 +442,7 @@ function main() {
 	failed += checkSportsPressFixture( styleTokens );
 	failed += checkHighlightStreakFix( styleTokens );
 	failed += checkNoLiteralRgba( styleTokens );
+	failed += checkFocusRings();
 
 	process.exit( failed ? 1 : 0 );
 }

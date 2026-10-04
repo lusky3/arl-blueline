@@ -28,21 +28,26 @@
  * annotated with a scoped stylelint-disable for selector-id-pattern only.
  */
 
+/* D-02: WooCommerce's error red (#a00, 2.3:1 on the dark page) follows the
+   theme's scheme-aware danger token. */
+:root {
+	--wc-red: var(--bl-danger);
+}
+
 /* ---------------------------------------------------------------------
  * Notices -- woocommerce-message (success), woocommerce-error,
  * woocommerce-info, plus the woocommerce-notice/--success/--error
  * variants used by the ported checkout/thankyou.php.
  * ------------------------------------------------------------------- */
 
+/* D-08: block, not flex -- flex made every text node and link its own
+   item, breaking sentences apart. */
 .woocommerce-message,
 .woocommerce-error,
 .woocommerce-info,
 .woocommerce-noreviews,
 .woocommerce-notice {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--bl-space-3);
+	display: block;
 	margin: 0 0 var(--bl-space-5);
 	padding: var(--bl-space-4) var(--bl-space-5);
 	list-style: none;
@@ -101,6 +106,25 @@
 	color: var(--bl-ink);
 }
 
+/* D-01: the content link colour on ice was 2.6:1 (light) / 1.04:1 (dark);
+   ink on ice is 7.7:1 in both. */
+.woocommerce-info a:not(.button) {
+	color: var(--bl-ink);
+	text-decoration: underline;
+	text-decoration-thickness: 2px;
+}
+
+/* Only a notice carrying a button needs flex, to push the button to the end. */
+.woocommerce-message:has(> .button),
+.woocommerce-error:has(> .button),
+.woocommerce-info:has(> .button),
+.woocommerce-notice:has(> .button) {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-3);
+}
+
 .woocommerce-message a.button,
 .woocommerce-error a.button,
 .woocommerce-info a.button,
@@ -150,8 +174,12 @@
 	background: var(--bl-ink);
 }
 
+/* D-10: the .alt pair matches core's .alt:hover specificity, which
+   otherwise turned it WooCommerce purple. */
 .woocommerce a.button:hover,
 .woocommerce a.button:focus-visible,
+.woocommerce a.button.alt:hover,
+.woocommerce button.button.alt:hover,
 .woocommerce button.button:hover,
 .woocommerce button.button:focus-visible,
 .woocommerce input.button:hover,
@@ -162,6 +190,33 @@
 #place_order:focus-visible {
 	background: var(--bl-ink-mid);
 	color: var(--bl-paper);
+}
+
+/* D-03: the resting 1px ring above outranks base.css's halo; restate it. */
+.woocommerce a.button:focus-visible,
+.woocommerce button.button:focus-visible,
+.woocommerce input.button:focus-visible,
+.woocommerce #respond input#submit:focus-visible,
+.woocommerce-page a.button:focus-visible,
+.woocommerce-page button.button:focus-visible,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:focus-visible {
+	box-shadow: var(--bl-focus-ring), 0 0 0 1px var(--bl-content-button-ring);
+}
+
+/* WC Social Login hides its focus outline (outline-color: transparent). */
+.wc-social-login a.button-social-login:focus-visible {
+	outline-color: var(--bl-focus-color);
+	box-shadow: var(--bl-focus-ring);
+}
+
+/* D-22: WooCommerce focuses notices for screen readers; no ring needed. */
+.woocommerce-message:focus,
+.woocommerce-info:focus,
+.woocommerce-error:focus,
+.woocommerce-NoticeGroup:focus {
+	outline: none;
+	box-shadow: none;
 }
 
 .woocommerce a.button:disabled,
@@ -253,11 +308,14 @@ html .woocommerce form .form-row textarea {
  * (Preferred Division) -- select2 renders each as a DIFFERENT modifier
  * class on the same .select2-selection base, confirmed live: covering
  * only --single left Preferred Division a stray white box.
+ *
+ * D-06: no padding of its own -- the rendered child already pads, so this
+ * matches the 38px inputs (was 62px).
  */
 .woocommerce .select2-container .select2-selection--single,
 .woocommerce .select2-container .select2-selection--multiple {
 	height: auto;
-	padding: var(--bl-space-3);
+	padding: 0;
 	background: var(--bl-content-surface);
 	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius);
@@ -269,6 +327,23 @@ html .woocommerce form .form-row textarea {
 	color: var(--bl-content-text);
 }
 
+/* D-06: select2's #444 placeholder was 1.61:1 on the dark field; native
+   placeholders were ~3.4:1. */
+.woocommerce .select2-container .select2-selection .select2-selection__placeholder,
+.woocommerce .select2-container .select2-search__field::placeholder,
+.woocommerce .input-text::placeholder,
+.woocommerce textarea::placeholder {
+	color: var(--bl-content-text-secondary);
+	opacity: 1;
+}
+
+/* D-06: inline section-title colours (2.0-4.1:1) from the checkout
+   plugin's markup; only !important reaches them. */
+.woocommerce-checkout .arl_sectiontitle,
+.woocommerce-checkout .emergency > h4 {
+	color: var(--bl-content-text) !important;
+}
+
 /*
  * The OPEN dropdown panel select2 renders is appended to <body>, not
  * nested inside .woocommerce -- so none of the rules above ever reach it,
@@ -276,10 +351,7 @@ html .woocommerce form .form-row textarea {
  * through unchanged. Confirmed live opening "Returning Player" on
  * /account/edit-account with data-theme="dark": a plain, unthemed white
  * panel floating over an otherwise-dark page. `body >` targets exactly
- * where select2 inserts it; the highlighted (hover/keyboard-focus) option
- * keeps its own blue fill with white text unchanged -- that pairing
- * already reads fine on either background and isn't part of this token
- * system.
+ * where select2 inserts it.
  */
 body > .select2-container .select2-dropdown {
 	background: var(--bl-content-surface);
@@ -289,6 +361,19 @@ body > .select2-container .select2-dropdown {
 
 body > .select2-container .select2-results__option {
 	color: var(--bl-content-text);
+}
+
+/* D-06: select2's #ddd "selected" fill put dark-mode option text at 1.3:1. */
+body > .select2-container .select2-results__option[aria-selected="true"],
+body > .select2-container .select2-results__option[data-selected="true"] {
+	background: var(--bl-content-bg);
+}
+
+/* D-06: brand highlight instead of WordPress-admin blue; ink on ice is
+   7.7:1 in both schemes. */
+body > .select2-container .select2-results__option.select2-results__option--highlighted {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
 }
 
 /*
@@ -308,6 +393,17 @@ html body .woocommerce .woocommerce-invalid textarea {
 .woocommerce .woocommerce-input-wrapper .woocommerce-invalid-required-field {
 	color: var(--bl-danger);
 	font-size: var(--bl-text-sm);
+}
+
+/* D-02: the checkout plugin's inline errors are pure red (3.8:1 light,
+   4.45:1 dark); its email/phone rule is !important. */
+.woocommerce span.thwcfe-email-error,
+.woocommerce span.thwcfe-phone-error,
+.woocommerce span.thwcfe-min-len-error,
+.woocommerce span.thwcfe-num-error,
+.woocommerce span.thwcfe-required-error,
+.woocommerce span.thwcfe-url-error {
+	color: var(--bl-danger) !important;
 }
 
 .woocommerce .form-row {
@@ -522,6 +618,21 @@ html body .woocommerce .woocommerce-invalid textarea {
 	gap: var(--bl-space-7);
 }
 
+/* Stacked (<780px): drop WooCommerce's 48% float width (it still applies at
+   769-779px) and cap the image so the price/CTA isn't pushed off-screen. */
+@media (max-width: 779.98px) {
+
+	.woocommerce div.product div.images.woocommerce-product-gallery,
+	.woocommerce div.product div.summary.entry-summary {
+		float: none;
+		width: auto;
+	}
+
+	.woocommerce div.product div.images.woocommerce-product-gallery {
+		max-width: 420px;
+	}
+}
+
 @media (min-width: 780px) {
 
 	/* WooCommerce never puts a gallery class on div.product itself, so the
@@ -678,6 +789,12 @@ html body .woocommerce .woocommerce-invalid textarea {
 	color: var(--bl-ink);
 }
 
+/* D-15: the shared button ring drew an un-skewed frame round the ribbon in
+   dark; focus styling is untouched. */
+.woocommerce div.product form.cart .single_add_to_cart_button:not(:focus-visible) {
+	box-shadow: none;
+}
+
 .woocommerce div.product form.cart .single_add_to_cart_button::before {
 	content: "";
 	position: absolute;
@@ -778,10 +895,12 @@ html body .woocommerce .woocommerce-invalid textarea {
 	border-radius: 50%;
 }
 
+/* D-02: page-ground text on the danger fill is 6.3-6.9:1 in both schemes
+   (white was 2.8:1 on dark's lighter red); !important beats core's. */
 .woocommerce table.shop_table td.product-remove a.remove:hover,
 .woocommerce table.shop_table td.product-remove a.remove:focus-visible {
 	background: var(--bl-danger);
-	color: var(--bl-white);
+	color: var(--bl-content-bg) !important;
 }
 
 /* ---------------------------------------------------------------------
@@ -819,6 +938,12 @@ html body .woocommerce .woocommerce-invalid textarea {
 	gap: var(--bl-space-6);
 }
 
+/* WooCommerce's clearfix pseudos became flex items (a 32px phantom gap). */
+.woocommerce .cart-collaterals::before,
+.woocommerce .cart-collaterals::after {
+	display: none;
+}
+
 .woocommerce table.cart td.actions .coupon {
 	display: flex;
 	flex-wrap: wrap;
@@ -826,9 +951,25 @@ html body .woocommerce .woocommerce-invalid textarea {
 	gap: var(--bl-space-3);
 }
 
+/* One 40px control height across the coupon field and both buttons. */
 .woocommerce table.cart td.actions .coupon .input-text {
 	width: auto;
 	min-width: 12em;
+	min-height: 2.5rem;
+}
+
+.woocommerce table.cart td.actions .button {
+	min-height: 2.5rem;
+}
+
+/* Phone width: stack full-width so the field can't widen the table. */
+@media (max-width: 768px) {
+
+	.woocommerce table.cart td.actions .coupon .input-text,
+	.woocommerce table.cart td.actions .coupon .button {
+		flex: 1 1 100%;
+		min-width: 0;
+	}
 }
 
 /*
@@ -973,6 +1114,48 @@ html body .woocommerce .woocommerce-invalid textarea {
 	margin-block-end: var(--bl-space-3);
 }
 
+/* Login: fields share the edge of "Lost your password?" and social login. */
+.woocommerce form.woocommerce-form-login .form-row {
+	padding-inline: 0;
+}
+
+/* "Remember me" centred on the Log in button beside it (was 6px high). */
+.woocommerce form.woocommerce-form-login .form-row:has(> .woocommerce-form-login__submit) {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-2) var(--bl-space-4);
+}
+
+.woocommerce form.woocommerce-form-login .form-row:has(> .woocommerce-form-login__submit)::before,
+.woocommerce form.woocommerce-form-login .form-row:has(> .woocommerce-form-login__submit)::after {
+	display: none;
+}
+
+.woocommerce .woocommerce-form-login .form-row > .woocommerce-form-login__submit {
+	order: -1;
+	float: none;
+	margin: 0;
+}
+
+.woocommerce .woocommerce-form-login .form-row > .woocommerce-form-login__rememberme {
+	margin: 0;
+}
+
+/* Phone width: the social buttons stack at one full width, not ragged. */
+@media (max-width: 480px) {
+
+	.woocommerce-form-login .wc-social-login a.button-social-login {
+		display: block;
+		margin-inline: 0;
+	}
+}
+
+/* Lost password: the intro sentence sat 0px above the field label. */
+.woocommerce-ResetPassword > p:first-child {
+	margin-block-end: var(--bl-space-4);
+}
+
 .woocommerce-checkout-review-order-table {
 	margin-block-end: var(--bl-space-5);
 }
@@ -1011,6 +1194,12 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 .woocommerce-terms-and-conditions-wrapper {
 	margin-block: var(--bl-space-4);
+}
+
+/* D-01: the link colour was 4.35:1 on core's grey payment panel. */
+.woocommerce-terms-and-conditions-wrapper a.woocommerce-terms-and-conditions-link {
+	color: var(--bl-content-text);
+	text-decoration: underline;
 }
 
 .woocommerce-privacy-policy-text {
@@ -1077,4 +1266,139 @@ html body .woocommerce .woocommerce-invalid textarea {
 .wc-social-login a.button-social-login.button-social-login-google {
 	background: #3367d6;
 	border-color: #3367d6;
+}
+
+/* D-16: product tabs on content tokens (core's: a white tab on the dark
+   page, #515151 label, no hover). */
+.woocommerce div.product .woocommerce-tabs ul.tabs {
+	padding: 0;
+}
+
+.woocommerce div.product .woocommerce-tabs ul.tabs::before {
+	border-bottom-color: var(--bl-content-border-strong);
+}
+
+.woocommerce div.product .woocommerce-tabs ul.tabs li {
+	margin: 0 var(--bl-space-4) 0 0;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+}
+
+.woocommerce div.product .woocommerce-tabs ul.tabs li::before,
+.woocommerce div.product .woocommerce-tabs ul.tabs li::after {
+	display: none;
+}
+
+.woocommerce div.product .woocommerce-tabs ul.tabs li a {
+	padding: var(--bl-space-3) var(--bl-space-1);
+	color: var(--bl-content-text-secondary);
+}
+
+.woocommerce div.product .woocommerce-tabs ul.tabs li a:hover {
+	color: var(--bl-content-text);
+	text-decoration: underline;
+}
+
+/* Steel, not ice: the selected-state bar needs 3:1 in both schemes. */
+.woocommerce div.product .woocommerce-tabs ul.tabs li.active {
+	background: transparent;
+	color: var(--bl-content-text);
+	box-shadow: inset 0 -3px 0 var(--bl-steel);
+}
+
+/* ---------------------------------------------------------------------
+ * D-04/D-05: the registration rules modal (#arl-rules-modal). Its markup,
+ * inline <style> and script come from a Code Snippets entry in the
+ * database, not this repo, so it is themed from here; `html` lifts each
+ * selector past that inline style. Focus handling: js/rules-modal.js.
+ * ------------------------------------------------------------------- */
+
+html #arl-rules-modal .arl-rules-panel {
+	background: var(--bl-content-surface);
+	color: var(--bl-content-text);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-raised);
+	overscroll-behavior: contain;
+}
+
+html #arl-rules-modal h2 {
+	color: var(--bl-content-text);
+}
+
+/* The dark link token on the old fixed-white panel was 1.95:1. */
+html #arl-rules-modal .arl-rules-panel a {
+	color: var(--bl-content-link);
+}
+
+html #arl-rules-modal .arl-rules-confirm input[type="checkbox"] {
+	flex-shrink: 0;
+	width: 1.25rem;
+	height: 1.25rem;
+	margin: 0.125rem 0 0;
+	accent-color: var(--bl-steel);
+}
+
+/* The theme's button styles are scoped to .woocommerce; these 21px UA
+   buttons sit outside it on /register. */
+html #arl-rules-modal .arl-rules-actions .button {
+	min-height: 44px;
+	padding: var(--bl-space-2) var(--bl-space-5);
+	background: transparent;
+	color: var(--bl-content-text);
+	font-family: var(--bl-font-display);
+	font-size: var(--bl-text-base);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	border: 1px solid var(--bl-content-border-strong);
+	border-radius: var(--bl-radius);
+	cursor: pointer;
+}
+
+html #arl-rules-modal .arl-rules-actions .button:hover {
+	background: var(--bl-content-bg);
+}
+
+html #arl-rules-modal .arl-rules-actions .button.alt {
+	background: var(--bl-ink);
+	color: var(--bl-paper);
+	border-color: var(--bl-ink);
+}
+
+/* Ink on the dark panel has no visible edge (1.0:1); dark uses the ice
+   CTA fill, 7.7:1 with ink text. */
+:root[data-theme="dark"] #arl-rules-modal .arl-rules-actions .button.alt {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+	border-color: var(--bl-ice);
+}
+
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) #arl-rules-modal .arl-rules-actions .button.alt {
+		background: var(--bl-ice);
+		color: var(--bl-ink);
+		border-color: var(--bl-ice);
+	}
+}
+
+html #arl-rules-modal .arl-rules-actions .button.alt:not(:disabled):hover {
+	background: var(--bl-ink-mid);
+	border-color: var(--bl-ink-mid);
+}
+
+:root[data-theme="dark"] #arl-rules-modal .arl-rules-actions .button.alt:not(:disabled):hover {
+	background: var(--bl-pale);
+	border-color: var(--bl-pale);
+}
+
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) #arl-rules-modal .arl-rules-actions .button.alt:not(:disabled):hover {
+		background: var(--bl-pale);
+		border-color: var(--bl-pale);
+	}
 }

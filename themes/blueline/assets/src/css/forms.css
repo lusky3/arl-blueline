@@ -356,6 +356,31 @@ select.wpcf7-form-control {
 	cursor: not-allowed;
 }
 
+/* A-11: ink on the dark page (1.14:1) left no visible button; dark uses
+   the ice CTA fill (ink text 7.7:1). */
+:root[data-theme="dark"] .wpcf7-form input.wpcf7-submit {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+}
+
+:root[data-theme="dark"] .wpcf7-form input.wpcf7-submit:hover,
+:root[data-theme="dark"] .wpcf7-form input.wpcf7-submit:focus-visible {
+	background: var(--bl-pale);
+}
+
+@media (prefers-color-scheme: dark) {
+
+	:root:not([data-theme="light"]) .wpcf7-form input.wpcf7-submit {
+		background: var(--bl-ice);
+		color: var(--bl-ink);
+	}
+
+	:root:not([data-theme="light"]) .wpcf7-form input.wpcf7-submit:hover,
+	:root:not([data-theme="light"]) .wpcf7-form input.wpcf7-submit:focus-visible {
+		background: var(--bl-pale);
+	}
+}
+
 /*
  * The spinner CF7 inserts (span.wpcf7-spinner) is already a pure CSS
  * animation, not an image -- confirmed against the real installed

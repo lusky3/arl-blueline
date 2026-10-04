@@ -217,11 +217,37 @@
 @media (max-width: 1264px) {
 
 	/* FE-02: also no-primary-column templates (WC product, 404, full-width). */
-	.bl-content-layout__primary,
 	.bl-main > .bl-container:not(:has(> .bl-content-layout)),
 	.bl-hero__inner,
-	.bl-module__inner {
+	.bl-module__inner,
+	.bl-sp-hero__inner,
+	.bl-container--wc-sidebar {
 		padding-inline-start: var(--bl-team-flyout-width);
+	}
+
+	/* Already inside the container's own gutter: top it up to the same edge. */
+	.bl-content-layout__primary {
+		padding-inline-start: calc(var(--bl-team-flyout-width) - var(--bl-space-5));
+	}
+
+}
+
+/*
+ * That inset is one-sided; re-centre the empty state. Phones skip it: the
+ * text fills the line there, so the 5px shift would put it against the tab.
+ */
+@media (min-width: 600px) and (max-width: 1264px) {
+
+	.bl-empty-state {
+		translate: calc((var(--bl-space-5) - var(--bl-team-flyout-width)) / 2) 0;
+	}
+}
+
+/* The stacked sidebar starts on the same edge as the article above it. */
+@media (max-width: 959.98px) {
+
+	.bl-content-layout > .bl-sidebar {
+		padding-inline-start: calc(var(--bl-team-flyout-width) - var(--bl-space-5));
 	}
 }
 
@@ -244,7 +270,23 @@
 @media (min-width: 960px) and (max-width: 1480px) {
 
 	.bl-content-layout--has-sidebar .bl-content-layout__primary {
+		padding-inline-start: calc(var(--bl-team-flyout-width) - var(--bl-space-5));
+	}
+
+	.bl-content-layout--has-sidebar .bl-empty-state {
+		translate: calc((var(--bl-space-5) - var(--bl-team-flyout-width)) / 2) 0;
+	}
+
+	.bl-main--sp:has(.bl-content-layout--has-sidebar) .bl-sp-hero__inner {
 		padding-inline-start: var(--bl-team-flyout-width);
+	}
+}
+
+/* A team/player hero spans the same widened container as its sidebar layout. */
+@media (min-width: 960px) and (max-width: 1799.98px) {
+
+	.bl-main--sp:has(.bl-content-layout--has-sidebar) .bl-sp-hero__inner {
+		max-width: 1400px;
 	}
 }
 
@@ -617,6 +659,33 @@
 }
 
 /*
+ * WooCommerce prints its sidebar after <main> (past main's bottom padding)
+ * and full width, so widgets tile at card size instead of stretching.
+ */
+@media (max-width: 1799.98px) {
+
+	.bl-container--wc-sidebar {
+		padding-block-end: var(--bl-space-8);
+	}
+
+	.bl-container--wc-sidebar .bl-sidebar {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+		gap: var(--bl-space-6);
+		align-items: start;
+	}
+
+	.bl-container--wc-sidebar .bl-sidebar > :is(.widget, [class*="sp-widget-align-"]) {
+		margin-block-start: 0;
+	}
+
+	/* This rail never scrolls, so scroll cues would only take cells. */
+	.bl-container--wc-sidebar .bl-sidebar__scroll-cue {
+		display: none;
+	}
+}
+
+/*
  * "More content this way" scroll cues -- requested live: on a short page,
  * the sidebar's own widget stack can run taller than its scrollable box
  * (this file's own .bl-sidebar rules, overflow-y: auto) with nothing
@@ -948,6 +1017,14 @@
 	margin-block-end: var(--bl-space-3);
 }
 
+/* Title/meta, tags and prev/next share the prose column (blocks.css). */
+.bl-entry__header,
+.bl-entry__footer,
+.post-navigation {
+	max-width: var(--bl-measure);
+	margin-inline: var(--bl-measure-inline, auto);
+}
+
 .bl-entry-meta {
 	display: flex;
 	flex-wrap: wrap;
@@ -1002,16 +1079,32 @@
 /* Post navigation (previous/next single post -- core the_post_navigation()) */
 
 .post-navigation {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: var(--bl-space-4);
 	margin-block-start: var(--bl-space-7);
 	padding-block-start: var(--bl-space-5);
 	border-top: 1px solid var(--bl-content-border);
 }
 
+/* The grid belongs on core's .nav-links wrapper, the only child of the nav. */
+.post-navigation .nav-links {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: var(--bl-space-4);
+}
+
 .post-navigation .nav-next {
+	grid-column: 2;
 	text-align: end;
+}
+
+@media (max-width: 479.98px) {
+
+	.post-navigation .nav-links {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.post-navigation .nav-next {
+		grid-column: 1;
+	}
 }
 
 .bl-post-nav__label {
@@ -1049,6 +1142,7 @@
 
 .bl-post-card {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--bl-space-4);
 }
 
@@ -1072,6 +1166,15 @@
 	.bl-post-card__body {
 		grid-column: 2;
 	}
+
+	/* A list with no thumbnails (search results) drops the column. */
+	.bl-post-list:not(:has(.bl-post-card__thumb)) .bl-post-card {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.bl-post-list:not(:has(.bl-post-card__thumb)) .bl-post-card__body {
+		grid-column: auto;
+	}
 }
 
 .bl-post-card__thumb {
@@ -1087,6 +1190,28 @@
 	height: 100%;
 	object-fit: cover;
 	aspect-ratio: 4 / 3;
+}
+
+/* C-20: square team crests are framed, not cropped to 4:3. */
+.bl-post-card.type-sp_team .bl-post-card__thumb img {
+	padding: var(--bl-space-4);
+	background: var(--bl-white);
+	object-fit: contain;
+}
+
+/*
+ * B-13: a SportsPress archive with no thumbnails at all (players, staff)
+ * drops the reserved 240px column instead of indenting every entry.
+ */
+@media (min-width: 700px) {
+
+	.bl-sp .bl-post-list:not(:has(.bl-post-card__thumb)) .bl-post-card {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.bl-sp .bl-post-list:not(:has(.bl-post-card__thumb)) .bl-post-card__body {
+		grid-column: 1;
+	}
 }
 
 .bl-post-card__title {
@@ -1106,6 +1231,7 @@
 
 .bl-post-card__excerpt {
 	color: var(--bl-content-text-secondary);
+	overflow-wrap: anywhere;
 }
 
 .bl-post-card__more {
@@ -1164,6 +1290,7 @@
 
 .bl-pagination .prev,
 .bl-pagination .next {
+	gap: 0.35em; /* A-20: flex collapsed the space in "Older →". */
 	min-width: auto;
 	padding-inline: var(--bl-space-3);
 	font-weight: 600;
@@ -1231,6 +1358,7 @@
 
 /* FE-05: search.php's results-page form sat flush against the first result. */
 .bl-archive-header + .search-form {
+	justify-content: flex-start;
 	margin-block-end: var(--bl-space-5);
 }
 

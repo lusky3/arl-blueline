@@ -80,6 +80,20 @@
 	width: 100%;
 	height: 140px;
 	margin: 0 0 var(--bl-space-4);
+	overflow: hidden;
+}
+
+/*
+ * A-05/B-06: a linked logo's <img> sits in an auto-height <a>, so its
+ * max-height: 100% had nothing to resolve against and the ad overflowed
+ * the frame onto the sponsor name. The link fills the frame instead.
+ */
+.page-id-154 .bl-sponsor-card__logo > a {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
 }
 
 .page-id-154 .bl-sponsor-card__logo img {
@@ -106,6 +120,11 @@
 
 .page-id-154 .bl-sponsor-card__detail a {
 	color: inherit;
+}
+
+/* B-21: a phone number never breaks mid-number. */
+.page-id-154 .bl-sponsor-card__detail a[href^="tel:"] {
+	white-space: nowrap;
 }
 
 .page-id-154 .bl-sponsor-card__links {

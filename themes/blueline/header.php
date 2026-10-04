@@ -52,6 +52,14 @@ blueline_render_guest_theme_bootstrap_script();
 	<?php blueline_site_header(); ?>
 	<?php
 	/*
+	 * The team flyout (inc/team-flyout.php). position:fixed, so its DOM spot
+	 * only sets tab order: straight after the header, not after the footer
+	 * (D-23/B-04). Prints nothing unless the directory's position is 'flyout'.
+	 */
+	blueline_render_team_flyout();
+	?>
+	<?php
+	/*
 	 * Site-wide, and here rather than in a homepage template, because most
 	 * arrivals on this site are deep links shared into a team chat -- a
 	 * banner only the homepage rendered would miss them. Prints nothing

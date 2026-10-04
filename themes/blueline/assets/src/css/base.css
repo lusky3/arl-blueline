@@ -139,7 +139,7 @@ a {
 	 * outline because an element has only one outline, and unlike a border it
 	 * adds no layout size.
 	 */
-	box-shadow: 0 0 0 calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px) var(--bl-focus-halo);
+	box-shadow: var(--bl-focus-ring);
 
 	/*
 	 * Under forced-colors (Windows High Contrast), the browser strips

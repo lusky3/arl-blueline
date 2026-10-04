@@ -14,11 +14,14 @@ require_once __DIR__ . '/class-blueline-nav-walker.php';
  * Render a small decorative leaf mark (device #4 — the blue leaf).
  * Purely ornamental: aria-hidden, no text alternative needed.
  *
+ * A-14: the maple-leaf silhouette (the public-domain flag leaf), replacing a
+ * teardrop path that read as a water drop.
+ *
  * @param string $extra_class Extra class(es) for sizing/placement.
  */
 function blueline_leaf_mark( $extra_class = '' ) {
 	printf(
-		'<svg class="bl-leaf-mark %s" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 2c8 6 16 12 16 22 0 9-7 16-16 16S8 33 8 24c0-10 8-16 16-22Zm0 6c-1.2 1.9-2 4-2 6.5 0 3 1.5 5.5 3.6 7.1-2.7.4-4.9 1.9-6.3 4-1-2.9-3.4-5.1-6.3-6C15.8 16 19.3 12.6 24 8Zm0 32V22" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+		'<svg class="bl-leaf-mark %s" viewBox="-2015 -2000 4030 4030" aria-hidden="true" focusable="false"><path fill="currentColor" d="m-90 2030 45-863a95 95 0 0 0-111-98l-859 151 116-320a65 65 0 0 0-20-73l-941-762 212-99a65 65 0 0 0 34-79l-186-572 542 115a65 65 0 0 0 73-38l105-247 423 454a65 65 0 0 0 111-57l-204-1052 327 189a65 65 0 0 0 91-27l332-652 332 652a65 65 0 0 0 91 27l327-189-204 1052a65 65 0 0 0 111 57l423-454 105 247a65 65 0 0 0 73 38l542-115-186 572a65 65 0 0 0 34 79l212 99-941 762a65 65 0 0 0-20 73l116 320-859-151a95 95 0 0 0-111 98l45 863z"/></svg>',
 		esc_attr( $extra_class )
 	);
 }
@@ -799,7 +802,7 @@ function blueline_entry_meta() {
 		return;
 	}
 
-	$categories_list = get_the_category_list( ', ' );
+	$categories_list = get_the_category_list( ' ' ); // A-20: pills, so no stray ", ".
 	?>
 	<div class="bl-entry-meta">
 		<?php if ( $categories_list ) : ?>

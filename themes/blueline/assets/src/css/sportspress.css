@@ -35,8 +35,7 @@
  *   .bl-sp-empty, .bl-sp-schedule/.bl-sp-date-heading (finding 9's
  *   event-list.php override), .bl-sp-standings-toggle-* /.bl-sp-col-*
  *   (finding 14's league-table.php override), .sp-statistic /
- *   .sp-statistic-bar (declared for the brief's named selector; no shipped
- *   SP template in this install currently emits it), .is-empty (a state
+ *   .sp-statistic-bar (SP Pro's match-stats template), .is-empty (a state
  *   class assets/src/js/sponsors.js toggles on the sponsor markup above).
  */
 
@@ -112,6 +111,19 @@ table.bl-table-self-scroll {
 
 	/* overflow-y: clip is defensive, not load-bearing; see .bl-table-scroll's
 	   own comment above. */
+	overflow-y: clip;
+}
+
+/*
+ * QA A-02: a bare classic-editor content table (e.g. /refs) has no wrapper and
+ * isn't SportsPress's, so the PHP pass leaves it alone; it scrolls itself here
+ * instead of being clipped by html { overflow-x: clip }. table-scroll.js gives
+ * it the same fade + keyboard focus as the other scroll containers.
+ */
+.entry-content > table:not([class*="sp-"]) {
+	display: block;
+	max-width: 100%;
+	overflow-x: auto;
 	overflow-y: clip;
 }
 
@@ -237,7 +249,11 @@ table.bl-table-self-scroll {
  * branch is guarded server-side by blueline_team_color_style_attr()'s own
  * WCAG check instead (same guard .sp-highlight already trusts).
  */
-.bl-sp-row--mine {
+
+/* QA C-13: row + tbody selector so the zebra stripe (.odd/.even) can't win. */
+.sp-data-table tbody tr.bl-sp-row--mine,
+.bl-sp-row--mine,
+.sp-player-list tbody tr:has(.bl-sp-roster__you) {
 	background: color-mix(in srgb, var(--bl-team-primary, var(--bl-ice)) 10%, var(--bl-content-surface));
 	border-inline-start: 3px solid var(--bl-team-primary, var(--bl-content-border-strong));
 }
@@ -312,11 +328,46 @@ table.bl-table-self-scroll {
 	text-align: center;
 }
 
+/* A-18: stays a table cell (display: flex broke it out of the row, so its
+   border and stripe sat 1px off the rest); the crest is inline-block. */
 .sp-league-table td.data-name.has-logo {
-	display: flex;
+	white-space: nowrap;
+}
+
+/*
+ * QA C-17/B-15: the cell stays a table cell (a flex <td> drops out of the
+ * row, so its border stepped 1px); the crest + name pair is the inner link.
+ */
+.sp-league-table :where(td.data-name.has-logo) > a {
+	display: inline-flex;
 	align-items: center;
 	gap: var(--bl-space-2);
-	white-space: nowrap;
+	vertical-align: middle;
+}
+
+/* A row with no crest (the page's own team) keeps the shared name edge. */
+.sp-league-table:has(td.data-name.has-logo) td.data-name:not(.has-logo) {
+	padding-inline-start: calc(var(--bl-space-3) + 32px + 2 * var(--bl-space-2));
+}
+
+/*
+ * QA C-18: every stat column gets a fixed width, so the team column (the only
+ * auto-width one) absorbs the spare space and stacked division tables share
+ * column positions; numbers align by place value (right).
+ */
+.sp-league-table :is(th, td):not(.data-name) {
+	width: 3.5rem;
+}
+
+.sp-league-table :is(th, td):is(.data-record, .data-lten) {
+	width: 7rem;
+}
+
+.sp-league-table :is(th, td):not(.data-rank, .data-name, .data-record, .data-lten, .data-strk),
+.sp-event-performance :is(th, td):not(.data-number, .data-name, .data-position),
+.sp-player-statistics :is(th, td):not(.data-name, .data-team) {
+	text-align: end;
+	font-variant-numeric: tabular-nums;
 }
 
 /* ---- Event blocks / event calendar: card treatment ---- */
@@ -351,6 +402,12 @@ table.bl-table-self-scroll {
 	text-transform: uppercase;
 }
 
+/* Retagged h4 -> h3 (blueline_sp_retag_captions()); keep its size. */
+.sp-event-blocks .sp-event-title {
+	font-size: var(--bl-text-base);
+	overflow-wrap: anywhere;
+}
+
 .sp-event-blocks .sp-event-matchday {
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
@@ -358,6 +415,74 @@ table.bl-table-self-scroll {
 
 .sp-event-calendar .sp-highlight {
 	border-radius: 50%;
+}
+
+/*
+ * QA C-19: the month grid is a real fixed-layout table that fills its card
+ * (it was a 313px grid inside a self-scrolling block, clipping Saturday at
+ * 360 and leaving the card two-thirds empty on desktop).
+ */
+table.sp-event-calendar {
+	display: table;
+	width: 100%;
+	min-width: 0;
+	table-layout: fixed;
+}
+
+.sp-event-calendar :is(th, td) {
+	text-align: center;
+}
+
+/* Today stays a circle however wide the day cell gets. */
+.sp-event-calendar td.sp-highlight {
+	border-radius: 0;
+	background: radial-gradient(circle closest-side, var(--bl-team-primary, var(--bl-ice)) calc(100% - 1px), transparent 100%) center / 2.25rem 2.25rem no-repeat;
+}
+
+@media (max-width: 480px) {
+
+	.sp-event-calendar :is(th, td) {
+		padding-inline: var(--bl-space-1);
+	}
+}
+
+/*
+ * QA B-07: a fixtures card fits its column; a long match title wraps instead
+ * of pushing the away crest behind a scroll.
+ */
+.sp-event-blocks {
+	min-width: 0;
+	table-layout: fixed;
+}
+
+.sp-event-blocks td {
+	white-space: normal;
+}
+
+/*
+ * QA C-25: the venue table (map + address) fits its column instead of
+ * growing to the map's max-content and hiding the address behind a scroll.
+ */
+table.sp-event-venue {
+	display: table;
+	width: 100%;
+	min-width: 0;
+	table-layout: fixed;
+}
+
+table.sp-event-venue :is(th, td) {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+/* QA C-26: DataTables page links get a 44px touch target. */
+.dataTables_paginate .paginate_button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+	padding-inline: var(--bl-space-2);
 }
 
 .sp-event-calendar .sp-previous-month,
@@ -382,10 +507,29 @@ table.bl-table-self-scroll {
    as cards once there's room for it. */
 
 .sp-player-list td.data-name.has-photo {
-	display: flex;
+	white-space: nowrap;
+}
+
+/* QA C-17: same inner-link layout as the league table's crest cells. */
+.sp-player-list :where(td.data-name.has-photo) > a {
+	display: inline-flex;
 	align-items: center;
 	gap: var(--bl-space-2);
-	white-space: nowrap;
+	vertical-align: middle;
+}
+
+@media (min-width: 701px) {
+
+	/* Photo-less rows keep the shared name edge. */
+	.sp-player-list:has(td.data-name.has-photo) td.data-name:not(.has-photo) {
+		padding-inline-start: calc(var(--bl-space-3) + 32px + 2 * var(--bl-space-2));
+	}
+
+	/* QA C-18: stat columns right-aligned. */
+	.sp-player-list :is(th, td):not(.data-rank, .data-number, .data-name, .data-team, .data-position) {
+		text-align: end;
+		font-variant-numeric: tabular-nums;
+	}
 }
 
 @media (max-width: 700px) {
@@ -405,10 +549,11 @@ table.bl-table-self-scroll {
 		clip: rect(0, 0, 0, 0);
 	}
 
+	/* C-11: narrow stat cells, so a leaders card is ~3 short rows, not 8 lines. */
 	.sp-player-list tr {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-		gap: var(--bl-space-1) var(--bl-space-3);
+		grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+		gap: var(--bl-space-2) var(--bl-space-3);
 		padding: var(--bl-space-3);
 		margin-block-end: var(--bl-space-3);
 		border: 1px solid var(--bl-content-border);
@@ -425,6 +570,19 @@ table.bl-table-self-scroll {
 	.sp-player-list td.data-name {
 		grid-column: 1 / -1;
 		font-weight: 600;
+	}
+
+	/* Undo SP's 1px #/rank width, which wrapped "G29" one glyph per line. */
+	.sp-player-list.sp-data-table td.data-number,
+	.sp-player-list.sp-data-table td.data-rank {
+		width: auto;
+	}
+
+	/* Rank or jersey number, then the name beside it on the first row. */
+	.sp-player-list td.data-rank + td.data-name,
+	.sp-player-list td.data-number + td.data-name {
+		grid-column: 2 / -1;
+		align-self: end;
 	}
 
 	.sp-player-list td[data-label]::before {
@@ -499,20 +657,28 @@ table.bl-table-self-scroll {
  * default is overridden back to normal here for exactly that reason.
  */
 .bl-sp-roster__name-cell {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--bl-space-2);
 	white-space: normal;
 }
 
+/*
+ * QA B-15: the cell stays a table cell (display:flex broke the row border);
+ * the photo + name link is inline-flex and the badges follow it inline.
+ */
 .bl-sp-roster__name {
-	display: flex;
+	display: inline-flex;
+	vertical-align: middle;
+	margin-inline-end: var(--bl-space-2);
 	align-items: center;
 	gap: var(--bl-space-2);
 	font-size: var(--bl-text-lg);
 	font-weight: 600;
 	min-width: 0;
+}
+
+/* Photo-less rows reserve the photo slot so every name starts on one edge. */
+.bl-sp-roster:has(.bl-sp-roster__photo) .bl-sp-roster__name:not(:has(.bl-sp-roster__photo))::before {
+	content: "";
+	flex: 0 0 32px;
 }
 
 .bl-sp-roster__photo {
@@ -571,6 +737,15 @@ table.bl-table-self-scroll {
 	white-space: nowrap;
 }
 
+/* In a player list the badge rides inside the name link
+   (inc/sportspress/player-list.php): keep the link's underline off it. */
+.sp-player-list .bl-sp-roster__you {
+	display: inline-block;
+	margin-inline-start: var(--bl-space-2);
+	text-decoration: none;
+	vertical-align: middle;
+}
+
 /*
  * Current-season GP/G/A/PTS/PIM (blueline_render_roster_stats(),
  * inc/sportspress.php) -- shared between each <th> label
@@ -601,18 +776,60 @@ td.bl-sp-roster__stat {
 	}
 }
 
-/* ---- Theme-owned stat chip (declared per the brief; no shipped SP
-   template in this install currently emits .sp-statistic-*, so this rule
-   is defensive/available rather than exercised by real markup today). ---- */
+/* ---- Match stats (SP Pro event-statistics.php), C-10 ----
+   Home value | bar (home share filled, away share the track) | away value,
+   full width so the bars line up under their centred labels. */
 
-.sp-statistic,
-.sp-statistic-bar {
+.sp-statistic {
 	display: inline-flex;
 	align-items: baseline;
 	gap: var(--bl-space-1);
 	padding: var(--bl-space-1) var(--bl-space-2);
 	border: 1px solid var(--bl-content-border-strong);
 	font-variant-numeric: tabular-nums;
+}
+
+.sp-statistic-label {
+	margin-block-start: var(--bl-space-3);
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-xs);
+	text-align: center;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+/* A real table (beats table.bl-table-self-scroll); fixed never overflows. */
+table.sp-event-statistics.sp-data-table {
+	display: table;
+	width: 100%;
+	min-width: 0;
+	table-layout: fixed;
+}
+
+.sp-event-statistics .sp-statistic-value {
+	width: 3.5rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.sp-event-statistics .sp-statistic-ratio {
+	width: auto;
+}
+
+.sp-statistic-bar {
+	display: block;
+	width: 100%;
+	height: 8px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: var(--bl-content-border);
+}
+
+/* Link blue on the track: 4.2:1 light, 6.3:1 dark. */
+.sp-statistic-bar-fill {
+	height: 100%;
+	background: var(--bl-content-link);
 }
 
 /* ---- Event header / scoreboard: navy band with faceoff rings ---- */
@@ -642,6 +859,12 @@ td.bl-sp-roster__stat {
 	padding-block: var(--bl-space-7) var(--bl-space-6);
 }
 
+/* C-09: the pill, matchup and meta share one centre line. */
+.sp-scoreboard__status {
+	margin: 0;
+	text-align: center;
+}
+
 .sp-scoreboard__status .bl-skew > span {
 	display: inline-flex;
 	padding: var(--bl-space-1) var(--bl-space-3);
@@ -654,21 +877,37 @@ td.bl-sp-roster__stat {
 	font-size: var(--bl-text-sm);
 }
 
+/*
+ * C-09: equal side columns keep "vs" on the true centre whatever the name
+ * lengths, at every width. It is the page's h1 (C-12), so the heading type
+ * is reset; each child sets its own.
+ */
 .sp-scoreboard__matchup {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-wrap: wrap;
-	gap: var(--bl-space-5);
-	margin-block: var(--bl-space-4);
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	grid-template-rows: auto auto auto;
+	align-items: start;
+	gap: var(--bl-space-2) var(--bl-space-3);
+	max-width: 48rem;
+	margin: var(--bl-space-4) auto;
+	font: inherit;
+	text-transform: none;
+	color: inherit;
 }
 
+/* Crest, name and score rows are shared (subgrid), so both scores line up. */
 .sp-scoreboard__team {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: var(--bl-space-2);
-	min-width: 8rem;
+	display: grid;
+	grid-row: 1 / span 3;
+	grid-column: 1;
+	grid-template-rows: subgrid;
+	justify-items: center;
+	min-width: 0;
+	text-align: center;
+}
+
+.sp-scoreboard__team:last-child {
+	grid-column: 3;
 }
 
 /* stylelint-disable-next-line no-descending-specificity -- img thumb */
@@ -685,13 +924,29 @@ td.bl-sp-roster__stat {
 	padding: var(--bl-space-1);
 }
 
+/* Teams link to their page (blueline_sp_event_team_url()); the hero's own
+   colour and type carry through, an underline marks the target on hover. */
+.sp-scoreboard__team-link {
+	color: inherit;
+	text-decoration: none;
+}
+
+.sp-scoreboard__team-link:hover,
+.sp-scoreboard__team-link:focus-visible {
+	text-decoration: underline;
+	text-decoration-thickness: 2px;
+	text-underline-offset: 0.2em;
+}
+
 .sp-scoreboard__team-name {
 	font-family: var(--bl-font-display);
 	font-weight: 800;
 	font-style: italic;
 	text-transform: uppercase;
 	font-size: var(--bl-text-lg);
+	line-height: 1.1;
 	text-align: center;
+	overflow-wrap: anywhere;
 }
 
 .sp-scoreboard__score {
@@ -699,12 +954,21 @@ td.bl-sp-roster__stat {
 	font-weight: 800;
 	font-style: italic;
 	font-size: var(--bl-text-3xl);
+	line-height: 1;
 	color: var(--bl-ice);
+
+	/* Air above (off the team name) and below (off the date line). */
+	margin-block: var(--bl-space-3);
 }
 
+/* Centred on the crest row (C-09). */
 .sp-scoreboard__vs {
+	grid-row: 1;
+	grid-column: 2;
+	align-self: center;
 	color: var(--bl-pale);
 	font-family: var(--bl-font-display);
+	font-weight: 400;
 	font-style: italic;
 	text-transform: uppercase;
 	font-size: var(--bl-text-sm);
@@ -714,10 +978,23 @@ td.bl-sp-roster__stat {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
-	gap: var(--bl-space-3);
+	gap: var(--bl-space-1) var(--bl-space-3);
 	margin-block-end: var(--bl-space-4);
 	color: var(--bl-pale);
 	font-size: var(--bl-text-sm);
+	text-align: center;
+}
+
+@media (max-width: 480px) {
+
+	.sp-scoreboard__team-name {
+		font-size: var(--bl-text-base);
+	}
+}
+
+/* C-07: SportsPress's own logos block repeats the hero directly beneath it. */
+.single-sp_event .sp-section-content-logos {
+	display: none;
 }
 
 /*
@@ -996,6 +1273,11 @@ td.bl-sp-roster__stat {
 	color: var(--bl-content-text-secondary);
 }
 
+/* B-20: not flush against the map's bottom edge. */
+.bl-sp-venue-header__map + .bl-sp-venue-header__siblings {
+	margin-block-start: var(--bl-space-3);
+}
+
 /* Finding 3: the upcoming/past section split. */
 .bl-sp-venue-header__section {
 	margin-block: var(--bl-space-6) var(--bl-space-3);
@@ -1124,6 +1406,68 @@ td.bl-sp-roster__stat {
 	/* Sponsor logos sit on light ground here, so never invert them, per the
 	   same rule as .team-logo img above. */
 	filter: none;
+}
+
+/* ---- Single sponsor page (B-17): logo frame, then an outline button ---- */
+
+.bl-sp-sponsor-logo {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	max-width: 20rem;
+	height: 140px;
+	margin: 0 0 var(--bl-space-5);
+	padding: var(--bl-space-3);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	background: var(--bl-white);
+}
+
+.bl-sp-sponsor-logo img {
+	width: auto;
+	height: auto;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+/* Same look as .bl-btn--secondary; the skewed outline is a pseudo-element
+   because the plugin's link has no inner span to counter-skew. */
+.single-sp_sponsor .sp-sponsor-button {
+	position: relative;
+	z-index: 0;
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	margin: 0;
+	padding: var(--bl-space-2) var(--bl-space-4);
+	color: var(--bl-content-text);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	text-transform: uppercase;
+	text-decoration: none;
+}
+
+.single-sp_sponsor .sp-sponsor-button::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border: 2px solid currentcolor;
+	transform: skewX(var(--bl-skew));
+}
+
+.single-sp_sponsor .sp-sponsor-button:hover,
+.single-sp_sponsor .sp-sponsor-button:focus-visible {
+	color: var(--bl-content-bg);
+}
+
+.single-sp_sponsor .sp-sponsor-button:hover::before,
+.single-sp_sponsor .sp-sponsor-button:focus-visible::before {
+	border-color: var(--bl-content-text);
+	background: var(--bl-content-text);
 }
 
 /*
@@ -1348,6 +1692,10 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	padding: var(--bl-space-4);
 	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
+
+	/* Names sit between two crests and the clock under them: left-aligned,
+	   the text read as off-centre against both (owner, 2026-10-03). */
+	text-align: center;
 }
 
 .sp-event-name {
@@ -1361,8 +1709,41 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	color: var(--bl-content-text);
 }
 
+/* C-05: SportsPress fades inactive event tabs to opacity .5 (3.1:1 in
+   light); colour and a steel bar carry the state instead. Same specificity
+   as the plugin's rules, which load first. */
+.sp-tab-menu-item a {
+	color: var(--bl-content-text-secondary);
+	text-decoration: none;
+	opacity: 1;
+}
+
+.sp-tab-menu-item-active a {
+	color: var(--bl-content-text);
+	box-shadow: inset 0 -3px 0 var(--bl-steel);
+}
+
+.sp-tab-menu-item a:hover {
+	color: var(--bl-content-text);
+	text-decoration: underline;
+}
+
+.sp-tab-menu-item-active a:focus-visible {
+	box-shadow: var(--bl-focus-ring), inset 0 -3px 0 var(--bl-steel);
+}
+
+/* C-23: both crests flush with the card edges, the same gap to the text. */
 .sp-event-name .team-logo {
-	margin-inline-end: var(--bl-space-1);
+	margin-inline: 0 var(--bl-space-2);
+}
+
+.sp-event-name .team-logo.logo-even {
+	margin-inline: var(--bl-space-2) 0;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- countdown crest */
+.sp-event-name .team-logo img {
+	margin: 0;
 }
 
 .sp-event-venue,
@@ -1376,6 +1757,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	display: flex;
 	flex-wrap: nowrap;
 	gap: var(--bl-space-3);
+	justify-content: safe center;
 	margin: var(--bl-space-2) 0 0;
 	overflow-x: auto;
 }
@@ -1545,8 +1927,23 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	color: var(--bl-content-text);
 }
 
+/* B-22: no "#" row with an empty value for a player without a number. */
+.sp-player-details dt:has(+ dd:empty),
+.sp-player-details dd:empty {
+	display: none;
+}
+
+/* B-22: the hero already shows the photo; SP's photo section repeats it. */
+.single-sp_player:has(.bl-sp-hero__crest--player)
+.sp-section-content-photo {
+	display: none;
+}
+
 .bl-sp-player-selector {
 	margin: 0 0 var(--bl-space-5);
+
+	/* B-16: SP right-aligns this template; keep the label by its select. */
+	text-align: start;
 }
 
 .bl-sp-player-selector__label {
@@ -1559,9 +1956,11 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	letter-spacing: 0.02em;
 }
 
-.sp-player-selector {
+.sp-player-selector,
+.sp-staff-selector {
 	width: 100%;
 	max-width: 24rem;
+	min-height: 44px;
 	padding: var(--bl-space-2) var(--bl-space-3);
 	border: 1px solid var(--bl-content-border-strong);
 	border-radius: var(--bl-radius-card);
@@ -1571,7 +1970,9 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 }
 
 .sp-player-selector:hover,
-.sp-player-selector:focus-visible {
+.sp-player-selector:focus-visible,
+.sp-staff-selector:hover,
+.sp-staff-selector:focus-visible {
 	border-color: var(--bl-content-link);
 }
 
@@ -1587,9 +1988,13 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	display: flex;
 	gap: var(--bl-space-2);
 	max-width: 24rem;
+
+	/* B-16: room for the Go button's skewed corner at 360. */
+	padding-inline-end: var(--bl-space-2);
 }
 
-.bl-sp-player-selector__row .sp-player-selector {
+.bl-sp-player-selector__row .sp-player-selector,
+.bl-sp-player-selector__row .sp-staff-selector {
 	flex: 1 1 auto;
 	max-width: none;
 }
@@ -1690,14 +2095,16 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  */
 .sp-data-table tbody tr:hover,
 .sp-data-table tbody tr:focus-within {
-	background: var(--bl-surface-sunken);
+	background: color-mix(in srgb, var(--bl-ice) 20%, var(--bl-content-surface));
 }
 
+/* C-22: was --bl-surface-sunken, the even-row stripe itself, so hovering
+   an even row changed nothing. */
 .sp-data-table tbody tr.odd:hover,
 .sp-data-table tbody tr.even:hover,
 .sp-data-table tbody tr.odd:focus-within,
 .sp-data-table tbody tr.even:focus-within {
-	background: var(--bl-surface-sunken);
+	background: color-mix(in srgb, var(--bl-ice) 20%, var(--bl-content-surface));
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1747,14 +2154,16 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
  */
 .bl-table-scroll[data-fade-start],
 .sp-scrollable-table-wrapper[data-fade-start],
-table.bl-table-self-scroll[data-fade-start] {
+table.bl-table-self-scroll[data-fade-start],
+.entry-content > table[data-fade-start] {
 	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px);
 	mask-image: linear-gradient(to right, transparent, #000 24px);
 }
 
 .bl-table-scroll[data-fade-end],
 .sp-scrollable-table-wrapper[data-fade-end],
-table.bl-table-self-scroll[data-fade-end] {
+table.bl-table-self-scroll[data-fade-end],
+.entry-content > table[data-fade-end] {
 	-webkit-mask-image: linear-gradient(to left, transparent, #000 24px);
 	mask-image: linear-gradient(to left, transparent, #000 24px);
 }
@@ -1762,9 +2171,24 @@ table.bl-table-self-scroll[data-fade-end] {
 /* Both ends hidden: fade both, which is the mid-scroll case. */
 .bl-table-scroll[data-fade-start][data-fade-end],
 .sp-scrollable-table-wrapper[data-fade-start][data-fade-end],
-table.bl-table-self-scroll[data-fade-start][data-fade-end] {
+table.bl-table-self-scroll[data-fade-start][data-fade-end],
+.entry-content > table[data-fade-start][data-fade-end] {
 	-webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 	mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
+/*
+ * QA C-03/B-08: table-scroll.js makes an overflowing container focusable
+ * (data-bl-scroll-focus). The ring is inset so an outer scroll wrapper can't
+ * clip it, uses the content text colour so it shows in both schemes, and the
+ * edge fade lifts while focused so it doesn't fade the ring.
+ */
+:is(.bl-table-scroll, .sp-scrollable-table-wrapper, .entry-content > table, table)[data-bl-scroll-focus]:focus-visible {
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-content-text);
+	outline-offset: calc(-1 * var(--bl-focus-width));
+	box-shadow: none;
+	-webkit-mask-image: none;
+	mask-image: none;
 }
 
 /* ---- SportsPress inline-style neutralisation (finding 11) ----
@@ -1863,6 +2287,14 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
 .bl-sp-standings-toggle-input:focus-visible ~ .bl-sp-standings-toggle-label {
 	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
+	box-shadow: var(--bl-focus-ring);
+}
+
+/* C-02: sortable headers sit in an overflow-x scroll wrapper that clips an
+   outward ring, so draw it inside the cell instead. */
+.sp-data-table thead th:focus-visible {
+	outline-offset: calc(var(--bl-focus-width) * -1);
+	box-shadow: var(--bl-focus-ring-inset);
 }
 
 .bl-sp-standings-toggle-input:not(:checked) ~ .sp-table-wrapper .bl-sp-col-extra {
@@ -2026,75 +2458,147 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end] {
  * league tables already have their own established width strategies
  * (.bl-sp-roster__col-name's width:100% comment above is the roster's).
  */
+
+/*
+ * QA C-01: calendars add League/Season/Article/Match Day columns, and fixed
+ * percentages that already summed to 100% left those at 0 -- with
+ * min-width: max-content the table went 1,000,000px wide. Each column now has
+ * a weight (its minimum width in rem); a column's share is weight / total of
+ * the columns actually present (detected with :has()), and the table never
+ * shrinks below that total, so any column mix fits or scrolls sanely.
+ */
 .sp-event-list.bl-sp-schedule {
+	--bl-sched-date: 5.25;
+	--bl-sched-home: 8.5;
+	--bl-sched-time: 5.75;
+	--bl-sched-away: 8.5;
+	--bl-sched-league: 0;
+	--bl-sched-season: 0;
+	--bl-sched-venue: 8;
+	--bl-sched-article: 0;
+	--bl-sched-day: 0;
+	--bl-sched-total: calc(var(--bl-sched-date) + var(--bl-sched-home) + var(--bl-sched-time) + var(--bl-sched-away) + var(--bl-sched-league) + var(--bl-sched-season) + var(--bl-sched-venue) + var(--bl-sched-article) + var(--bl-sched-day));
 	table-layout: fixed;
+	min-width: calc(var(--bl-sched-total) * 1rem);
 }
 
+.sp-event-list.bl-sp-schedule:not(:has(thead th.data-home)) {
+	--bl-sched-home: 0;
+	--bl-sched-away: 0;
+}
+
+.sp-event-list.bl-sp-schedule:not(:has(thead th.data-time)) {
+	--bl-sched-time: 0;
+}
+
+.sp-event-list.bl-sp-schedule:has(thead th.data-league) {
+	--bl-sched-league: 5.5;
+}
+
+.sp-event-list.bl-sp-schedule:has(thead th.data-season) {
+	--bl-sched-season: 5.75;
+}
+
+.sp-event-list.bl-sp-schedule:has(thead th.data-article) {
+	--bl-sched-article: 4.25;
+}
+
+.sp-event-list.bl-sp-schedule:has(thead th.data-day) {
+	--bl-sched-day: 4.5;
+}
+
+/* event-list.php prints a display:none Arena header when the column is off. */
+.sp-event-list.bl-sp-schedule:has(thead th.data-venue[style*="none"]) {
+	--bl-sched-venue: 0;
+}
+
+/* Time and season ("W2015-16") never wrap. */
 .sp-event-list.bl-sp-schedule .data-date {
-	width: 10%;
-	white-space: normal; /* FE-03: "10:00 pm" wraps at phone width. */
+	width: calc(100% * var(--bl-sched-date) / var(--bl-sched-total));
+	white-space: nowrap;
 }
 
 .sp-event-list.bl-sp-schedule .data-home {
-	width: 26%;
+	width: calc(100% * var(--bl-sched-home) / var(--bl-sched-total));
 }
 
-/*
- * "Time/Result -- always short" (above) held for a real score ("3 - 2")
- * but not for the pending state's own copy -- event-list.php prints
- * "Final score coming soon" (.bl-sp-schedule__pending) for a played-but-
- * unentered game, 24 characters where every other value in this column is
- * five or six. At the original 8% (~75px) that overflowed .data-time's own
- * nowrap right through the Away column's crest and name, reported live as
- * text overlapping the away team -- confirmed live via getBoundingClientRect,
- * .data-time rendering at 75px while its "Final score coming soon" content
- * needed roughly double that. Widened here (the 3% comes off .data-date,
- * which had more room than a literal time-of-day string like "6:45 pm"
- * ever needed, see below) and given the same white-space: normal wrap
- * fallback as .data-venue below, so if a still-longer string ever lands
- * here it wraps inside its own cell instead of overflowing into the next.
- */
+/* The pending copy is the column's longest value: smaller, wraps at spaces. */
 .sp-event-list.bl-sp-schedule .data-time {
-	width: 16%;
+	width: calc(100% * var(--bl-sched-time) / var(--bl-sched-total));
 	white-space: normal;
+	overflow-wrap: normal;
+}
+
+.sp-event-list.bl-sp-schedule .bl-sp-schedule__pending {
+	display: block;
+	font-size: var(--bl-text-xs);
+	line-height: 1.3;
 }
 
 .sp-event-list.bl-sp-schedule .data-away {
-	width: 26%;
+	width: calc(100% * var(--bl-sched-away) / var(--bl-sched-total));
 }
 
-/*
- * A real venue name ("Mr. Lube and Tires Arena — Black", ~33 characters)
- * does not fit 22% of this table on one line at every viewport width this
- * table renders at -- .sp-data-table's own white-space: nowrap default
- * (see .bl-sp-roster__name-cell's own comment above for the same override
- * elsewhere) turned that into horizontal overflow and a scrollbar instead
- * of the wrap this fixed-width column actually needs, confirmed live.
- */
+.sp-event-list.bl-sp-schedule .data-league {
+	width: calc(100% * var(--bl-sched-league) / var(--bl-sched-total));
+}
+
+.sp-event-list.bl-sp-schedule .data-season {
+	width: calc(100% * var(--bl-sched-season) / var(--bl-sched-total));
+	white-space: nowrap;
+}
+
 .sp-event-list.bl-sp-schedule .data-venue {
-	width: 22%;
+	width: calc(100% * var(--bl-sched-venue) / var(--bl-sched-total));
+}
+
+.sp-event-list.bl-sp-schedule td.data-venue {
+	font-size: var(--bl-text-sm);
+	line-height: 1.35;
+}
+
+.sp-event-list.bl-sp-schedule .data-article {
+	width: calc(100% * var(--bl-sched-article) / var(--bl-sched-total));
+}
+
+.sp-event-list.bl-sp-schedule .data-day {
+	width: calc(100% * var(--bl-sched-day) / var(--bl-sched-total));
+}
+
+/* Everything but time and season wraps inside its own column. */
+.sp-event-list.bl-sp-schedule :is(.data-home, .data-away, .data-league),
+.sp-event-list.bl-sp-schedule :is(.data-venue, .data-article, .data-day) {
 	white-space: normal;
 }
 
 /*
- * FE-03: at phone width a long team name overflowed its fixed column into
- * the next. Wrap instead: the crest drops above the name first, the name
- * breaks at spaces, and only a single over-long word breaks mid-word.
+ * QA C-14/B-18: crest and name stay on one line in every row (flex-wrap:wrap
+ * stacked the crest above long names only, so rows differed); the name wraps
+ * beside the crest, and only a single over-long word breaks mid-word.
  */
 .sp-event-list.bl-sp-schedule .data-home,
 .sp-event-list.bl-sp-schedule .data-away {
-	white-space: normal;
+	padding-inline: var(--bl-space-2);
 	overflow-wrap: anywhere;
+	hyphens: auto;
 }
 
 .sp-event-list.bl-sp-schedule td.data-home a,
 .sp-event-list.bl-sp-schedule td.data-away a {
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	justify-content: center;
+	max-width: 100%;
+	text-align: start;
 }
 
-/* Time and Result wrap at spaces only ("6:45 / pm"), never mid-word. */
-.sp-event-list.bl-sp-schedule .data-date,
-.sp-event-list.bl-sp-schedule .data-time {
-	overflow-wrap: normal;
+.sp-event-list.bl-sp-schedule td.data-home .team-logo,
+.sp-event-list.bl-sp-schedule td.data-away .team-logo {
+	flex: 0 0 auto;
+	margin: 0;
+}
+
+/* The flex gap already spaces crest and name. */
+.sp-event-list.bl-sp-schedule td.data-home .team-logo img,
+.sp-event-list.bl-sp-schedule td.data-away .team-logo img {
+	margin: 0;
 }

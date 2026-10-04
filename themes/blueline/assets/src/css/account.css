@@ -759,7 +759,8 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 
 .bl-player-profile__photo-input:focus-visible + .bl-player-profile__photo-edit {
 	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
-	outline-offset: 2px;
+	outline-offset: var(--bl-focus-offset);
+	box-shadow: var(--bl-focus-ring);
 }
 
 .bl-player-profile__photo-submit {

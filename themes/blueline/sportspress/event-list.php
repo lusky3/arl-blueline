@@ -181,25 +181,8 @@ if ( $show_title && false === $title && $id ) {
 
 $identifier = uniqid( 'eventlist_' );
 
-// Column count for the date-heading row's colspan -- mirrors exactly which
-// <th> cells get printed below, so it never drifts out of sync with them.
-$bl_col_count = 1; // Date/time.
-if ( sp_column_active( $usecolumns, 'event' ) ) {
-	$bl_col_count += 2; // Home + Away.
-}
-if ( sp_column_active( $usecolumns, 'league' ) ) {
-	++$bl_col_count;
-}
-if ( sp_column_active( $usecolumns, 'season' ) ) {
-	++$bl_col_count;
-}
-++$bl_col_count; // Venue -- always printed, visible or hidden, same as stock.
-if ( sp_column_active( $usecolumns, 'article' ) ) {
-	++$bl_col_count;
-}
-if ( sp_column_active( $usecolumns, 'day' ) ) {
-	++$bl_col_count;
-}
+// Date-heading row colspan: every printed <th>, Result included (QA C-16).
+$bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 ?>
 <div class="sp-template sp-template-event-list">
 	<?php if ( $title ) : ?>
@@ -213,6 +196,21 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
 	<?php endif; ?>
+	<?php if ( empty( $data ) ) : ?>
+		<?php // QA B-14: one line, never a bare header row. ?>
+		<div class="bl-sp-empty">
+			<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>
+			<p class="bl-sp-empty__text">
+				<?php
+				if ( 'future' === $calendar->status ) {
+					esc_html_e( 'No upcoming games scheduled.', 'blueline' );
+				} else {
+					esc_html_e( 'No games scheduled yet.', 'blueline' );
+				}
+				?>
+			</p>
+		</div>
+	<?php else : ?>
 	<div class="sp-table-wrapper">
 		<table class="sp-event-list sp-event-list-format-homeaway sp-data-table bl-sp-schedule<?php echo $paginated ? ' sp-paginated-table' : ''; ?><?php echo $sortable ? ' sp-sortable-table' : ''; ?><?php echo $responsive ? ' sp-responsive-table ' . esc_attr( $identifier ) : ''; ?><?php echo $scrollable ? ' sp-scrollable-table' : ''; ?>" data-sp-rows="<?php echo esc_attr( $rows ); ?>">
 			<thead>
@@ -310,7 +308,8 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 					 * already uses for the single-event page, so this table
 					 * and that page can never disagree about the same event.
 					 */
-					$bl_event_state = blueline_sp_event_state( ! empty( $main_results ), blueline_sp_event_start_timestamp( $event->ID ) );
+					$bl_start_ts    = blueline_sp_event_start_timestamp( $event->ID );
+					$bl_event_state = blueline_sp_event_state( ! empty( $main_results ), $bl_start_ts );
 
 					if ( $bl_reverse_teams ) {
 						$main_results = array_reverse( $main_results, true );
@@ -329,7 +328,14 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 							$name = '<meta itemprop="name" content="' . esc_attr( $name ) . '">' . $name;
 
 							if ( $show_team_logo && has_post_thumbnail( $team_id ) ) :
-								$logo        = '<span class="team-logo">' . sp_get_logo( $team_id, 'mini', array( 'itemprop' => 'url' ) ) . '</span>';
+								$logo        = '<span class="team-logo">' . sp_get_logo(
+									$team_id,
+									'mini',
+									array(
+										'itemprop' => 'url',
+										'alt'      => '', // Decorative: the team name sits beside it (C-27).
+									)
+								) . '</span>';
 								$name        = $t ? $logo . ' ' . $name : $name . ' ' . $logo;
 								$bl_has_logo = ' has-logo';
 							endif;
@@ -372,8 +378,8 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 							<td class="data-time <?php echo esc_attr( $status ); ?>" data-label="<?php esc_attr_e( 'Result', 'blueline' ); ?>">
 								<?php if ( ! empty( $main_results ) ) : ?>
 									<?php echo wp_kses_post( implode( ' - ', $main_results ) ); ?>
-								<?php elseif ( 'pending' === $bl_event_state ) : ?>
-									<?php // Played (by the clock) but no result on file yet -- never a plain, future-looking dash. ?>
+								<?php elseif ( 'pending' === $bl_event_state && blueline_sp_result_still_expected( $bl_start_ts ) ) : ?>
+									<?php // Played recently, no result on file yet; older unscored games (QA C-24) fall through to the dash. ?>
 									<span class="bl-sp-schedule__pending"><?php esc_html_e( 'Final score coming soon', 'blueline' ); ?></span>
 								<?php else : ?>
 									&#8212;
@@ -459,6 +465,7 @@ if ( sp_column_active( $usecolumns, 'day' ) ) {
 			</tbody>
 		</table>
 	</div>
+	<?php endif; ?>
 	<?php if ( $id && $show_all_events_link ) : ?>
 		<div class="sp-calendar-link sp-view-all-link"><a href="<?php echo esc_url( get_permalink( $id ) ); ?>"><?php esc_html_e( 'View all events', 'sportspress' ); ?></a></div>
 	<?php endif; ?>

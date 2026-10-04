@@ -175,6 +175,108 @@ function blueline_sp_caption_heading_level(): int {
 }
 
 /**
+ * Archive-card type line for a SportsPress post ("Team", "Game · Mar 6, 2020"),
+ * so mixed league/season/position archives say what each entry is (C-20).
+ *
+ * @param string $post_type Post type.
+ * @param string $date      Formatted date, used for games only.
+ * @return string '' for a non-SportsPress type.
+ */
+function blueline_sp_post_card_label( string $post_type, string $date = '' ): string {
+	$labels = array(
+		'sp_team'     => __( 'Team', 'blueline' ),
+		'sp_player'   => __( 'Player', 'blueline' ),
+		'sp_staff'    => __( 'Staff', 'blueline' ),
+		'sp_list'     => __( 'Player list', 'blueline' ),
+		'sp_table'    => __( 'Standings', 'blueline' ),
+		'sp_calendar' => __( 'Schedule', 'blueline' ),
+		'sp_event'    => __( 'Game', 'blueline' ),
+		'sp_sponsor'  => __( 'Sponsor', 'blueline' ),
+	);
+
+	if ( ! isset( $labels[ $post_type ] ) ) {
+		return '';
+	}
+
+	return ( 'sp_event' === $post_type && '' !== $date )
+		/* translators: 1: "Game", 2: game date. */
+		? sprintf( __( '%1$s · %2$s', 'blueline' ), $labels[ $post_type ], $date )
+		: $labels[ $post_type ];
+}
+
+/**
+ * Whether an archive card shows the excerpt: SportsPress data posts (teams,
+ * players, lists...) have no prose worth teasing, and a team's auto-excerpt
+ * is its old calendar-link text (C-20). Games and hand-written excerpts keep it.
+ *
+ * @param string $post_type   Post type.
+ * @param bool   $has_excerpt Whether a manual excerpt exists.
+ * @return bool
+ */
+function blueline_post_card_shows_excerpt( string $post_type, bool $has_excerpt ): bool {
+	return $has_excerpt || 'sp_event' === $post_type || 0 !== strpos( $post_type, 'sp_' );
+}
+
+add_filter( 'the_content', 'blueline_sp_content_caption_levels', 21 );
+/**
+ * Stock SportsPress templates the theme does not override (event details/
+ * results/box score, player list, fixtures/past meetings) hard-code h4 captions
+ * and h4/h5 event-block headings; give them the contextual levels, and drop a
+ * caption that only repeats the
+ * singular table/calendar/list's own h1 (C-12, C-21, B-23).
+ *
+ * @param string $content Post content, shortcodes expanded.
+ * @return string
+ */
+function blueline_sp_content_caption_levels( $content ) {
+	if ( false === strpos( (string) $content, 'sp-table-caption' ) ) {
+		return $content;
+	}
+
+	$page_title = is_singular( array( 'sp_table', 'sp_calendar', 'sp_list' ) ) ? get_the_title( get_queried_object_id() ) : '';
+
+	return blueline_sp_retag_captions( (string) $content, blueline_sp_caption_heading_level(), (string) $page_title );
+}
+
+/**
+ * Retag stock SportsPress headings under captions of $level: captions (h4) to
+ * $level, event-block titles (h4) one below, their scores (h5) two below.
+ * A caption equal to $page_title is removed.
+ *
+ * @param string $content    HTML.
+ * @param int    $level      Caption heading level (2 or 3).
+ * @param string $page_title Singular title whose duplicate caption is removed ('' to keep all).
+ * @return string
+ */
+function blueline_sp_retag_captions( string $content, int $level, string $page_title = '' ): string {
+	$normalise = static function ( string $text ): string {
+		return strtolower( trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES, 'UTF-8' ) ) ) );
+	};
+	$title     = '' === $page_title ? '' : $normalise( $page_title );
+	$stock     = array(
+		'sp-table-caption' => array( '4', 0 ),
+		'sp-event-title'   => array( '4', 1 ),
+		'sp-event-results' => array( '5', 2 ),
+	);
+
+	return (string) preg_replace_callback(
+		'#<h([2-5]) class="(sp-table-caption|sp-event-title|sp-event-results)"([^>]*)>(.*?)</h\1>#s',
+		static function ( array $m ) use ( $level, $title, $normalise, $stock ): string {
+			if ( 'sp-table-caption' === $m[2] && '' !== $title && $normalise( $m[4] ) === $title ) {
+				return '';
+			}
+
+			if ( $stock[ $m[2] ][0] !== $m[1] ) {
+				return $m[0];
+			}
+
+			return sprintf( '<h%1$d class="%2$s"%3$s>%4$s</h%1$d>', $level + $stock[ $m[2] ][1], $m[2], $m[3], $m[4] );
+		},
+		$content
+	);
+}
+
+/**
  * Whether a block of post content contains its own h2 (A11Y-09).
  *
  * @param string $content Raw post content.
@@ -225,6 +327,29 @@ function blueline_sp_leave_sidebar(): void {
  */
 function blueline_sp_sponsors_title_level( bool $in_footer ): int {
 	return $in_footer ? 2 : blueline_sp_caption_heading_level();
+}
+
+add_action( 'sportspress_before_single_sponsor', 'blueline_sp_sponsor_single_logo' );
+/**
+ * B-17: a sponsor's own page showed only its title and a bare link; print its
+ * logo first (decorative: the sponsor name is the h1 right above it).
+ */
+function blueline_sp_sponsor_single_logo(): void {
+	echo blueline_sp_sponsor_logo_figure( (int) get_the_ID() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core-built thumbnail markup.
+}
+
+/**
+ * The single-sponsor logo figure, or '' when the sponsor has no logo.
+ *
+ * @param int $sponsor_id sp_sponsor post ID.
+ * @return string
+ */
+function blueline_sp_sponsor_logo_figure( int $sponsor_id ): string {
+	if ( ! $sponsor_id || ! has_post_thumbnail( $sponsor_id ) ) {
+		return '';
+	}
+
+	return '<figure class="bl-sp-sponsor-logo">' . get_the_post_thumbnail( $sponsor_id, 'medium', array( 'alt' => '' ) ) . '</figure>';
 }
 
 add_filter( 'wp_get_attachment_image_attributes', 'blueline_sp_sponsor_logo_alt' );

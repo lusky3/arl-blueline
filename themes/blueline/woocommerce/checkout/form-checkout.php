@@ -15,7 +15,8 @@
  * @version 9.4.0
  *
  * Cody Edits: Changed "Your order" to "Registration Details" (the
- * order review heading).
+ * order review heading). Added a screen-reader-only h2 above the
+ * customer details (heading order).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -37,6 +38,9 @@ if ( ! $checkout->is_registration_enabled() && $checkout->is_registration_requir
 	<?php if ( $checkout->get_checkout_fields() ) : ?>
 
 		<?php do_action( 'woocommerce_checkout_before_customer_details' ); ?>
+
+		<?php // D-13: core's "Billing details" is an h3 straight after the page h1; this keeps the outline in order. ?>
+		<h2 class="screen-reader-text"><?php esc_html_e( 'Your details', 'blueline' ); ?></h2>
 
 		<div class="col2-set" id="customer_details">
 			<div class="col-1">

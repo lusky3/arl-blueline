@@ -567,6 +567,11 @@ a.bl-next-games__venue:focus-visible {
 
 .bl-module--standings_snippet .bl-module__body {
 	overflow-x: auto;
+
+	/* C-02: room inside the scroll clip for the tab/toggle focus rings;
+	   padding and equal negative margin keep the layout unchanged. */
+	padding: calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px);
+	margin: calc(-1 * (var(--bl-focus-offset) + var(--bl-focus-width) + 1px));
 }
 
 /*
@@ -659,6 +664,7 @@ a.bl-next-games__venue:focus-visible {
 .bl-standings-tabs__input:nth-of-type(12):focus-visible ~ .bl-standings-tabs__label:nth-of-type(12) {
 	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
 	outline-offset: var(--bl-focus-offset);
+	box-shadow: var(--bl-focus-ring);
 }
 
 .bl-standings-tabs__panel {
