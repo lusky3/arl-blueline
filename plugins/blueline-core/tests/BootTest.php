@@ -284,32 +284,24 @@ final class BootTest extends TestCase {
 	}
 
 	/**
-	 * A module that depends on another always loads after it, whatever order it is listed in.
+	 * The mail module reads seo-meta's logo helper, so seo-meta is listed (and so loads) first.
 	 */
-	public function test_a_required_module_loads_before_its_dependent(): void {
-		$this->assertSame( array( 'mail' => array( 'seo-meta' ) ), blueline_core_module_requirements() );
+	public function test_the_real_list_loads_seo_meta_before_mail(): void {
+		$slugs = array_keys( blueline_core_modules() );
 
-		$ordered = blueline_core_order_modules(
-			array(
-				'mail'     => self::FIXTURE_MODULES['alpha'],
-				'other'    => self::FIXTURE_MODULES['beta'],
-				'seo-meta' => self::FIXTURE_MODULES['beta'],
-			)
-		);
-
-		$this->assertSame( array( 'seo-meta', 'mail', 'other' ), array_keys( $ordered ) );
+		$this->assertLessThan( array_search( 'mail', $slugs, true ), array_search( 'seo-meta', $slugs, true ) );
 	}
 
 	/**
-	 * The loader enforces the order at load time, not just in the list.
+	 * Modules load in list order, and a module switched off is simply absent (no other module is pulled in).
 	 */
-	public function test_boot_loads_seo_meta_before_mail_even_when_listed_after_it(): void {
+	public function test_boot_loads_modules_in_list_order_and_skips_switched_off_ones(): void {
 		add_filter(
 			'blueline_core_modules',
 			static function () {
 				return array(
-					'mail'     => '../tests/fixtures/modules/alpha.php',
 					'seo-meta' => '../tests/fixtures/modules/beta.php',
+					'mail'     => '../tests/fixtures/modules/alpha.php',
 				);
 			}
 		);
@@ -318,25 +310,6 @@ final class BootTest extends TestCase {
 		blueline_core_boot();
 
 		$this->assertSame( array( 'seo-meta', 'mail' ), array_keys( blueline_core_loaded_modules() ) );
-	}
-
-	/**
-	 * A dependency that is switched off is not forced back on, and the dependent still loads.
-	 */
-	public function test_a_dependency_that_is_switched_off_is_not_forced_on(): void {
-		$ordered = blueline_core_order_modules( array( 'mail' => self::FIXTURE_MODULES['alpha'] ) );
-
-		$this->assertSame( array( 'mail' ), array_keys( $ordered ) );
-	}
-
-	/**
-	 * The real list loads seo-meta before mail, and the shipped files for both exist.
-	 */
-	public function test_real_list_orders_seo_meta_before_mail(): void {
-		$slugs = array_keys( blueline_core_order_modules( blueline_core_modules() ) );
-
-		$this->assertLessThan( array_search( 'mail', $slugs, true ), array_search( 'seo-meta', $slugs, true ) );
-		$this->assertSame( array_keys( blueline_core_modules() ), $slugs, 'modules.php is already in dependency order.' );
 	}
 
 	/**

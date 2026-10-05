@@ -5,9 +5,9 @@
  * A listed file that is missing or unreadable is skipped at boot but reported loudly (error log,
  * admin notice, Site Health). Every entry is expected to exist.
  *
- * Dependencies: a module that calls another module's functions is declared in
- * blueline_core_module_requirements() (includes/boot.php); the loader loads the required module
- * first regardless of this order. Today: mail requires seo-meta (blueline_social_logo_url()).
+ * Order: modules load top to bottom. mail reads seo-meta's blueline_social_logo_url() behind
+ * function_exists(), so seo-meta stays above mail (BootTest pins it); without it the email
+ * header logo is simply empty.
  *
  * @package blueline-core
  */

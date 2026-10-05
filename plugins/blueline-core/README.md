@@ -14,9 +14,9 @@ shown in an admin notice (`manage_options`) and reported by the Site Health test
 
 ## How to add a module
 
-1. Your slug is already listed in `includes/modules.php` (`'<slug>' => '<slug>/<slug>.php'`). Order is for readability:
-   a module that calls another module's functions declares it in `blueline_core_module_requirements()`
-   (`includes/boot.php`) and the loader loads the required module first (today: `mail` requires `seo-meta`).
+1. Your slug is already listed in `includes/modules.php` (`'<slug>' => '<slug>/<slug>.php'`). Modules load top to
+   bottom. If yours calls another module's functions, list it below that module and guard the call with
+   `function_exists()` (today: `mail` reads `seo-meta`'s logo helper; the real list's order is pinned by `BootTest`).
 2. Create `includes/<slug>/<slug>.php` starting with `defined( 'ABSPATH' ) || exit;`. Extra files go in the same
    folder and are `require_once`d from it with `BLUELINE_CORE_DIR . '/includes/<slug>/…'`.
 3. Moved code keeps its names, hooks, option/meta keys and nonce actions. Register hooks at file scope as before.

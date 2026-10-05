@@ -65,56 +65,7 @@ function blueline_core_modules(): array {
 }
 
 /**
- * Hard module dependencies: dependent slug => slugs whose functions it calls at runtime.
- *
- * The loader loads a required module (when it is in the list at all) before its dependent, whatever
- * order the list or the `blueline_core_modules` filter gives. A dependency that was switched off is
- * not forced back on: the dependent must already degrade via function_exists().
- *
- * - mail needs seo-meta for blueline_social_logo_url() (the email header logo).
- *
- * @return array<string, string[]>
- */
-function blueline_core_module_requirements(): array {
-	return array(
-		'mail' => array( 'seo-meta' ),
-	);
-}
-
-/**
- * Reorder a module list so every module follows the modules it requires, otherwise keeping order.
- *
- * @param array<string, string> $modules Slug => file relative to includes/.
- * @return array<string, string> Same entries, dependencies first.
- */
-function blueline_core_order_modules( array $modules ): array {
-	$requirements = blueline_core_module_requirements();
-	$ordered      = array();
-	$visiting     = array();
-
-	$visit = static function ( string $slug ) use ( &$visit, &$ordered, &$visiting, $modules, $requirements ): void {
-		if ( isset( $ordered[ $slug ] ) || isset( $visiting[ $slug ] ) || ! isset( $modules[ $slug ] ) ) {
-			return;
-		}
-
-		$visiting[ $slug ] = true;
-		foreach ( $requirements[ $slug ] ?? array() as $required ) {
-			$visit( $required );
-		}
-		unset( $visiting[ $slug ] );
-
-		$ordered[ $slug ] = $modules[ $slug ];
-	};
-
-	foreach ( array_keys( $modules ) as $slug ) {
-		$visit( (string) $slug );
-	}
-
-	return $ordered;
-}
-
-/**
- * Require each module file in order (dependencies first). A listed file that is missing or
+ * Require each module file in list order. A listed file that is missing or
  * unreadable is skipped so the site stays up, but loudly: it is recorded (see
  * blueline_core_failed_modules()), written to the PHP error log, shown to administrators in an admin
  * notice and reported by the Site Health test. A miss means a broken deploy, and modules such as
@@ -127,7 +78,7 @@ function blueline_core_load_modules( array $modules ): void {
 	$loaded = &blueline_core_loaded_modules();
 	$failed = &blueline_core_failed_modules();
 
-	foreach ( blueline_core_order_modules( $modules ) as $slug => $relative ) {
+	foreach ( $modules as $slug => $relative ) {
 		$file = BLUELINE_CORE_DIR . '/includes/' . ltrim( (string) $relative, '/' );
 
 		if ( ! is_readable( $file ) ) {
