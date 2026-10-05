@@ -399,3 +399,88 @@ if ( ! function_exists( 'blueline_core_test_seed_claim_pool' ) ) {
 		$GLOBALS['wpdb'] = $wpdb; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- test double for $wpdb.
 	}
 }
+
+if ( ! function_exists( 'remove_accents' ) ) {
+	/**
+	 * Stand-in for remove_accents(): the Latin letters that appear in real names, mapped the way
+	 * core maps them in a non-German, non-Danish locale. A subset of core's table; the real
+	 * function is exercised on a live site. Like core's, it does not depend on the server locale.
+	 *
+	 * @param string $text Text to convert.
+	 * @return string
+	 */
+	function remove_accents( $text ) {
+		$map = array(
+			'À' => 'A',
+			'Á' => 'A',
+			'Â' => 'A',
+			'Ã' => 'A',
+			'Ä' => 'A',
+			'Å' => 'A',
+			'Æ' => 'AE',
+			'Ç' => 'C',
+			'È' => 'E',
+			'É' => 'E',
+			'Ê' => 'E',
+			'Ë' => 'E',
+			'Ì' => 'I',
+			'Í' => 'I',
+			'Î' => 'I',
+			'Ï' => 'I',
+			'Ñ' => 'N',
+			'Ò' => 'O',
+			'Ó' => 'O',
+			'Ô' => 'O',
+			'Õ' => 'O',
+			'Ö' => 'O',
+			'Ø' => 'O',
+			'Œ' => 'OE',
+			'Ù' => 'U',
+			'Ú' => 'U',
+			'Û' => 'U',
+			'Ü' => 'U',
+			'Ý' => 'Y',
+			'ß' => 's',
+			'à' => 'a',
+			'á' => 'a',
+			'â' => 'a',
+			'ã' => 'a',
+			'ä' => 'a',
+			'å' => 'a',
+			'æ' => 'ae',
+			'ç' => 'c',
+			'è' => 'e',
+			'é' => 'e',
+			'ê' => 'e',
+			'ë' => 'e',
+			'ì' => 'i',
+			'í' => 'i',
+			'î' => 'i',
+			'ï' => 'i',
+			'ñ' => 'n',
+			'ò' => 'o',
+			'ó' => 'o',
+			'ô' => 'o',
+			'õ' => 'o',
+			'ö' => 'o',
+			'ø' => 'o',
+			'œ' => 'oe',
+			'ù' => 'u',
+			'ú' => 'u',
+			'û' => 'u',
+			'ü' => 'u',
+			'ý' => 'y',
+			'ÿ' => 'y',
+			'Ł' => 'L',
+			'ł' => 'l',
+			'Š' => 'S',
+			'š' => 's',
+			'Ž' => 'Z',
+			'ž' => 'z',
+			'Č' => 'C',
+			'č' => 'c',
+		);
+
+		return strtr( (string) $text, $map );
+	}
+}

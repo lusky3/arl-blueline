@@ -75,6 +75,35 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	/**
+	 * An accent is dropped, never turned into a separator: iconv(//TRANSLIT) made "Müller" into "m uller".
+	 */
+	public function test_accented_letters_never_split_a_name_into_two_tokens(): void {
+		$this->assertSame( 'muller', blueline_normalize_name( 'Müller' ) );
+		$this->assertSame( 'cote', blueline_normalize_name( 'Côté' ) );
+		$this->assertSame( 'oystein lukasz', blueline_normalize_name( 'Øystein Łukasz' ) );
+		$this->assertSame( array( 'jose', 'muller' ), blueline_name_tokens( 'José Müller' ) );
+	}
+
+	/**
+	 * A player entered with accents and an account typed without them (or the reverse) are the same person.
+	 */
+	public function test_an_accented_name_matches_its_plain_spelling(): void {
+		$this->assertSame( 1.0, blueline_name_match_score( 'José Müller', 'Jose Muller' ) );
+		$this->assertSame( 1.0, blueline_name_match_score( 'Renée Côté', 'Renee Cote' ) );
+		$this->assertTrue( blueline_name_pair_is_specific_enough( 'José Müller', 'Jose Muller' ), 'Accents must not count as extra tokens in the padding gate.' );
+	}
+
+	/**
+	 * No locale-dependent transliteration may return: its result changes with the server's LANG,
+	 * which unit tests (run in whatever locale the developer has) cannot see.
+	 */
+	public function test_name_matching_does_not_use_locale_dependent_iconv(): void {
+		$source = (string) file_get_contents( __DIR__ . '/../includes/player-link/name-match.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local plugin file in a unit test.
+
+		$this->assertDoesNotMatchRegularExpression( '/\biconv\s*\(/', $source );
+	}
+
+	/**
 	 * Test case.
 	 */
 	public function test_identical_names_score_one(): void {

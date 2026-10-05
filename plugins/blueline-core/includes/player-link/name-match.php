@@ -3,7 +3,7 @@
  * Name matching for the player-link module: normalising, token-set scoring and the
  * security gate that decides whether a score may be offered as a candidate identity.
  *
- * Pure: no WordPress calls, so the whole file can be unit tested directly.
+ * No database or request state; the only WordPress call is remove_accents(), so the file unit tests directly.
  *
  * @package blueline-core
  */
@@ -21,11 +21,9 @@ function blueline_normalize_name( string $name ): string {
 	if ( '' === $name ) {
 		return '';
 	}
-	$translit = @iconv( 'UTF-8', 'ASCII//TRANSLIT', $name ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- iconv raises a notice on input it cannot convert; the false check below handles that.
-	if ( false !== $translit ) {
-		$name = $translit;
-	}
-	$name = strtolower( $name );
+	// Not iconv's //TRANSLIT: its output depends on the server locale ("Müller" becomes "m uller"
+	// or "M?ller"), which splits one name into two tokens and breaks matching and the gate below.
+	$name = strtolower( remove_accents( $name ) );
 	$name = str_replace( array( "'", '’' ), '', $name ); // O'Connor becomes oconnor.
 	$name = preg_replace( '/[^a-z0-9]+/', ' ', $name );
 	return trim( preg_replace( '/\s+/', ' ', $name ) );
