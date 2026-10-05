@@ -11,14 +11,11 @@ require_once __DIR__ . '/../includes/seo-meta/seo-meta.php';
 
 /**
  * Covers the pure data-shaping functions behind the Open Graph/Twitter
- * Card meta and the schema.org JSON-LD: blueline_organization_schema()
- * and blueline_social_meta_data_for_event().
+ * Card meta and the schema.org JSON-LD: blueline_organization_schema(),
+ * blueline_social_meta_data_for_event(), the logo lookup and the SportsPress helpers.
  *
  * The printed output, the singular/front-page/archive dispatch, JSON-LD and
- * the SportsEvent schema are covered end to end in SeoMetaOutputTest. Still
- * not covered: the "has a custom logo" branch (has_custom_logo() is
- * hard-coded false everywhere in this bootstrap, by design -- see its own
- * docblock), exercised live on staging instead.
+ * the SportsEvent schema are covered end to end in SeoMetaOutputTest.
  */
 final class SocialMetaTest extends TestCase {
 
@@ -47,20 +44,40 @@ final class SocialMetaTest extends TestCase {
 
 		$this->assertSame( 'SportsOrganization', $schema['@type'] );
 		$this->assertSame( 'Blueline Test Site', $schema['name'] );
-		$this->assertArrayHasKey( '@id', $schema );
-		$this->assertArrayHasKey( 'url', $schema );
+		$this->assertSame( 'https://example.test/#organization', $schema['@id'] );
+		$this->assertSame( 'https://example.test/', $schema['url'] );
 	}
 
 	/**
 	 * Test case.
 	 */
 	public function test_organization_schema_omits_logo_when_none_is_set(): void {
-		// has_custom_logo() is hard-coded false throughout this bootstrap
-		// (see its own docblock), so this is the only branch reachable in
-		// a unit test -- the "has a logo" branch is a live-only check.
-		$schema = blueline_organization_schema();
+		$this->assertSame( '', blueline_social_logo_url() );
+		$this->assertArrayNotHasKey( 'logo', blueline_organization_schema() );
+	}
 
-		$this->assertArrayNotHasKey( 'logo', $schema );
+	/**
+	 * The custom-logo theme mod flows into the logo URL, the Organization schema and the og:image
+	 * fallback of a page with no featured image.
+	 */
+	public function test_custom_logo_feeds_the_logo_url_organization_schema_and_og_image_fallback(): void {
+		$state                              = &blueline_test_state();
+		$state['theme_mods']['custom_logo'] = 55;
+
+		$this->assertSame( 'https://example.test/uploads/photo-55-full.jpg', blueline_social_logo_url() );
+		$this->assertSame( 'https://example.test/uploads/photo-55-full.jpg', blueline_organization_schema()['logo'] );
+		$this->assertSame( 'https://example.test/uploads/photo-55-full.jpg', blueline_social_meta_data()['image'] );
+	}
+
+	/**
+	 * A custom_logo id that no longer points at an image (deleted attachment) yields no logo.
+	 */
+	public function test_custom_logo_pointing_at_a_missing_attachment_yields_no_logo(): void {
+		$state                              = &blueline_test_state();
+		$state['theme_mods']['custom_logo'] = 999;
+
+		$this->assertSame( '', blueline_social_logo_url() );
+		$this->assertArrayNotHasKey( 'logo', blueline_organization_schema() );
 	}
 
 	// -----------------------------------------------------------------------
@@ -81,9 +98,7 @@ final class SocialMetaTest extends TestCase {
 		$this->assertSame( 'Puck Dynasty vs Hammers', $data['title'] );
 		$this->assertStringContainsString( 'Aug 20', $data['description'] );
 		$this->assertStringContainsString( '7:00 PM', $data['description'] );
-		// No sp_venue taxonomy registered -- taxonomy_exists( 'sp_venue' )
-		// is false, so blueline_venue_label() is never reached and no
-		// venue segment should appear.
+		// No sp_venue taxonomy registered, so there is no venue segment.
 		$this->assertStringNotContainsString( '·', $data['description'] );
 	}
 
@@ -204,11 +219,11 @@ final class SocialMetaTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// SEO plugin deference (WP-12)
+	// SEO plugin deference
 	// -----------------------------------------------------------------------
 
 	/**
-	 * No SEO plugin is defined in this suite, so the theme prints its own JSON-LD.
+	 * No SEO plugin is defined in this suite, so the module prints its own JSON-LD.
 	 */
 	public function test_structured_data_prints_without_an_seo_plugin(): void {
 		blueline_test_reset_hooks();
@@ -238,67 +253,63 @@ final class SocialMetaTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// SportsPress helpers: theme delegation and standalone fallbacks
+	// SportsPress helpers
 	// -----------------------------------------------------------------------
 
 	/**
-	 * Without the theme's helpers, the plain fallbacks read the same meta and title.
+	 * Team ids: positive ids only, re-indexed, in stored order.
 	 */
-	public function test_fallbacks_resolve_teams_title_and_missing_venue_without_the_theme(): void {
+	public function test_event_team_ids_drops_empty_ids_and_reindexes(): void {
 		$state                              = &blueline_test_state();
-		$state['posts'][10]['title']        = 'Puck Dynasty';
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 0, 11 ) );
 
-		$this->assertSame( array( 10, 11 ), blueline_core_seo_event_team_ids_fallback( 100 ) );
-		$this->assertSame( 'Puck Dynasty', blueline_core_seo_title_fallback( 10 ) );
-		$this->assertSame( '', blueline_core_seo_event_venue_label_fallback( 100 ) );
+		$this->assertSame( array( 10, 11 ), blueline_core_seo_event_team_ids( 100 ) );
 	}
 
 	/**
-	 * The fallback converts the event's local time to GMT: with a site 4 hours behind UTC, a 7:00 PM
-	 * local start is 23:00 GMT; with a UTC site the clock time is unchanged.
+	 * Players and staff use the raw post title; everything else the display title, all plain text.
 	 */
-	public function test_start_timestamp_fallback_converts_local_time_to_gmt(): void {
-		$state = &blueline_test_state();
+	public function test_title_uses_the_raw_title_for_players_and_the_display_title_otherwise(): void {
+		$state                       = &blueline_test_state();
+		$state['posts'][10]['title'] = 'Puck Dynasty';
 
-		$utc = blueline_core_seo_event_start_timestamp_fallback( 100 );
-		$this->assertIsInt( $utc );
-		$this->assertSame( '19:00', gmdate( 'H:i', $utc ) );
+		$this->assertSame( 'Puck Dynasty', blueline_core_seo_title( 10 ) );
 
+		$state['posts'][20] = array(
+			'title' => '<strong class="sp-player-number">27</strong> Matthew',
+			'type'  => 'sp_player',
+		);
+
+		$this->assertSame( '27 Matthew', blueline_core_seo_title( 20 ) );
+	}
+
+	/**
+	 * The venue label is '' for an event with no venue.
+	 */
+	public function test_venue_label_is_empty_without_a_venue(): void {
+		$this->assertSame( '', blueline_core_seo_event_venue_label( 100 ) );
+	}
+
+	/**
+	 * The start timestamp is the event's local time converted to GMT (here a site 4 hours behind UTC).
+	 */
+	public function test_start_timestamp_converts_local_time_to_gmt(): void {
+		$state               = &blueline_test_state();
 		$state['gmt_offset'] = -4 * HOUR_IN_SECONDS;
-		$toronto             = blueline_core_seo_event_start_timestamp_fallback( 100 );
-		$this->assertIsInt( $toronto );
-		$this->assertSame( '23:00', gmdate( 'H:i', $toronto ) );
-		$this->assertSame( 4 * HOUR_IN_SECONDS, $toronto - $utc );
+
+		$timestamp = blueline_core_seo_event_start_timestamp( 100 );
+
+		$this->assertIsInt( $timestamp );
+		$this->assertSame( '23:00', gmdate( 'H:i', $timestamp ), '7:00 PM local is 23:00 GMT.' );
 	}
 
 	/**
 	 * An event whose date cannot be resolved has no start timestamp.
 	 */
-	public function test_start_timestamp_fallback_is_false_when_the_date_cannot_be_resolved(): void {
+	public function test_start_timestamp_is_false_when_the_date_cannot_be_resolved(): void {
 		$state                     = &blueline_test_state();
 		$state['gmt_unresolvable'] = true;
 
-		$this->assertFalse( blueline_core_seo_event_start_timestamp_fallback( 100 ) );
-	}
-
-	/**
-	 * With the theme's helpers loaded, the wrappers return what the theme returns, and that
-	 * matches the fallbacks for the same event.
-	 */
-	public function test_wrappers_delegate_to_the_theme_helpers_when_present(): void {
-		require_once BLUELINE_DIR . '/inc/sportspress.php';
-
-		$state                              = &blueline_test_state();
-		$state['posts'][10]['title']        = 'Puck Dynasty';
-		$state['posts'][11]['title']        = 'Hammers';
-		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
-
-		$this->assertSame( blueline_sp_event_team_ids( 100 ), blueline_core_seo_event_team_ids( 100 ) );
-		$this->assertSame( blueline_sp_title( 10 ), blueline_core_seo_title( 10 ) );
-		$this->assertSame( blueline_sp_event_venue_label( 100 ), blueline_core_seo_event_venue_label( 100 ) );
-		$this->assertSame( blueline_sp_event_start_timestamp( 100 ), blueline_core_seo_event_start_timestamp( 100 ) );
-		$this->assertSame( blueline_core_seo_event_team_ids_fallback( 100 ), blueline_core_seo_event_team_ids( 100 ) );
-		$this->assertSame( blueline_core_seo_title_fallback( 10 ), blueline_core_seo_title( 10 ) );
+		$this->assertFalse( blueline_core_seo_event_start_timestamp( 100 ) );
 	}
 }

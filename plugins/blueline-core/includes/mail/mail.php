@@ -1,12 +1,9 @@
 <?php
 /**
- * Branding for non-WooCommerce mail: the wp-email-template plugin's
- * option overrides and the plain-text fallback wrapper. Moved from
- * themes/blueline/inc/email.php.
- *
- * Contact Form 7, Gravity Forms and core mail need no WooCommerce. Brand colours come from
- * blueline_core_email_brand(), which a theme fills in through the `blueline_core_email_brand`
- * filter; the defaults below are the Blueline tokens.
+ * Branding for non-WooCommerce mail (Contact Form 7, Gravity Forms, WordPress core): the
+ * wp-email-template plugin's option overrides and a plain-text fallback wrapper. Brand colours
+ * come from blueline_core_email_brand(); a theme can replace them through the
+ * `blueline_core_email_brand` filter.
  *
  * @package blueline-core
  */
@@ -28,9 +25,8 @@ function blueline_core_email_brand(): array {
 		'ink_mid'     => '#2E4A74',
 		'accent_text' => '#3F6E9D',
 		'border'      => '#DBE7F0',
-		// Soft dependency on the seo-meta module's blueline_social_logo_url(): when that module is
-		// not loaded the logo is simply empty and the template renders without one. The
-		// function_exists() guard is therefore load-bearing; do not replace it with a direct call.
+		// Soft dependency on the seo-meta module: without it the logo is empty and the template
+		// renders without one, so the function_exists() guard must stay.
 		'logo'        => function_exists( 'blueline_social_logo_url' ) ? (string) blueline_social_logo_url() : '',
 	);
 
@@ -59,35 +55,18 @@ function blueline_core_email_brand(): array {
 
 add_filter( 'option_wp_email_template_general', 'blueline_wp_email_template_general_overrides' );
 /**
- * The wp-email-template plugin (a3rev) is this site's one general-purpose
- * HTML-mail wrapper for every wp_mail() sender that isn't WooCommerce/FUE
- * (those already have their own branded system, in the theme) -- Contact Form 7, Gravity Forms' remaining notifications, and
- * WordPress core's own mail all go out through it. Two distinct things
- * this pins in the same option:
+ * Pin the wp-email-template plugin's (a3rev) general settings, used for every wp_mail() sender
+ * that is not WooCommerce/FUE (Contact Form 7, Gravity Forms, WordPress core):
  *
- * - `apply_template_all_emails` forced to "yes": the plugin's own master
- *   switch, confirmed live to be "no" by default -- with it off, NOTHING
- *   wraps a plain wp_mail() call in HTML at all, which is why an
- *   unmodified CF7 test submission arrived as bare plain text.
- * - `apply_for_woo_emails` forced to "no", unchanged from before: the
- *   plugin ALSO wraps WooCommerce/Follow-Up Emails output with its own
- *   generic template on top of WooCommerce's own (confirmed live:
- *   wp_email_template_general's own apply_for_woo_emails was "yes") --
- *   off-brand styling (Verdana/Century-Gothic-italic, #1155CC links)
- *   competing with the WooCommerce option overrides. Turning the master switch
- *   on makes this exclusion load-bearing in a way it wasn't before
- *   (previously the master switch being off already prevented any
- *   wrapping, Woo included).
+ * - `apply_template_all_emails` forced to "yes": the plugin's master switch defaults to "no",
+ *   and with it off nothing wraps a plain wp_mail() call in HTML at all.
+ * - `apply_for_woo_emails` forced to "no": otherwise the plugin also wraps WooCommerce/FUE mail
+ *   in its own off-brand template on top of WooCommerce's.
+ * - `background_colour` (the canvas outside the 600px card) repointed to the brand paper colour,
+ *   the same token the WooCommerce email styling uses, so every branded email shares one canvas.
  *
- * `background_colour` (the outermost canvas, outside the 600px card) is
- * also repointed to --bl-paper here, matching the same token the
- * WooCommerce email overrides in the theme use for the identical role, so every
- * branded email on the site -- Woo, FUE, or this plugin's -- shares one
- * outer-canvas colour.
- *
- * A targeted merge throughout, never a wholesale replacement of the
- * stored option, so any other setting an admin configures there later
- * (email_container_width, outlook_apply_border, etc.) survives untouched.
+ * A targeted merge, never a replacement of the stored option, so any other setting an admin
+ * configures there survives.
  *
  * @param mixed $value The stored wp_email_template_general option value.
  * @return mixed
@@ -101,36 +80,24 @@ function blueline_wp_email_template_general_overrides( $value ) {
 	$value['apply_for_woo_emails']      = 'no';
 
 	if ( isset( $value['background_colour'] ) && is_array( $value['background_colour'] ) ) {
-		$value['background_colour']['color'] = blueline_core_email_brand()['paper']; // --bl-paper.
+		$value['background_colour']['color'] = blueline_core_email_brand()['paper'];
 	}
 
 	return $value;
 }
 
 /*
- * No option-filter for wp_email_template_style_body/style_header's own
- * font/colour keys (content_font, h1_font-h6_font, content_link_colour,
- * content_background_colour, base_colour, header_font) -- confirmed live,
- * by reading the plugin's own classes/class-email-functions.php, that its
- * rendering code hardcodes ALL of those as PHP literals in its own
- * shortcode-replacement array and never reads them from these options at
- * all, despite a real, working admin settings UI for them. A first attempt
- * at filtering those options (like every other override in this file) had
- * zero effect on an actual sent test email for exactly this reason. The
- * theme's own emails/email_header.html and emails/email_footer.html --
- * the plugin's own theme-override mechanism, the same one WooCommerce
- * templates in this theme already use -- carry the real brand values for
- * those specific properties instead; see that file's own docblock for the
- * full trace.
+ * There is deliberately no option filter for wp_email_template_style_body/style_header's font and
+ * colour keys (content_font, h1_font-h6_font, content_link_colour, base_colour, header_font...):
+ * the plugin's rendering code hardcodes them as PHP literals and never reads those options, so
+ * filtering them has no effect on a sent mail. The brand values for those properties live in the
+ * theme's own email header/footer template overrides instead.
  */
 
 add_filter( 'option_wp_email_template_style_header_image', 'blueline_wp_email_template_style_header_image_overrides' );
 /**
- * The logo band sitting above the header band -- this site's logo image
- * itself is already correctly configured (an admin-uploaded attachment,
- * not this theme's concern), only its own background colour is
- * repointed here, to the same --bl-paper token as the header and outer
- * canvas, for the same reason.
+ * Repoint the background of the logo band above the header band to the brand paper colour, like
+ * the header and the outer canvas.
  *
  * @param mixed $value The stored wp_email_template_style_header_image option value.
  * @return mixed
@@ -141,17 +108,15 @@ function blueline_wp_email_template_style_header_image_overrides( $value ) {
 	}
 
 	if ( isset( $value['header_image_background_color'] ) && is_array( $value['header_image_background_color'] ) ) {
-		$value['header_image_background_color']['color'] = blueline_core_email_brand()['paper']; // --bl-paper.
+		$value['header_image_background_color']['color'] = blueline_core_email_brand()['paper'];
 	}
 
 	return $value;
 }
 
 /**
- * Whether the wp-email-template plugin is active on this install --
- * `WP_EMAIL_TEMPLATE_DIR` is a constant its own main plugin file defines
- * unconditionally at load time, the same detection shape this theme
- * already uses for WooCommerce (`class_exists( 'WooCommerce' )`).
+ * Whether the wp-email-template plugin is active (its main file defines `WP_EMAIL_TEMPLATE_DIR`
+ * unconditionally at load time).
  *
  * @return bool
  */
@@ -160,15 +125,10 @@ function blueline_email_template_plugin_active(): bool {
 }
 
 /**
- * Whether a wp_mail() call has already been given HTML content -- either
- * an explicit `Content-Type: text/html` header, or a message that already
- * looks like a real HTML document/fragment. WooCommerce/FUE's own emails
- * are always already-complete HTML by the time they reach wp_mail() (this
- * theme's own woocommerce/emails/*.php templates, or FUE's "WooCommerce"
- * template mode inheriting the same), so this is the generic signal that
- * lets blueline_maybe_wrap_plain_text_email() below skip them without
- * needing a per-plugin exclusion list the way wp-email-template's own
- * `apply_for_woo_emails` toggle does.
+ * Whether a wp_mail() call already has HTML content: an explicit `Content-Type: text/html`
+ * header, or a message that already looks like an HTML document or fragment. WooCommerce/FUE
+ * mail is always complete HTML by the time it reaches wp_mail(), so this skips it without a
+ * per-plugin exclusion list.
  *
  * @param array $args wp_mail()'s own filterable args: to, subject, message, headers, attachments.
  * @return bool
@@ -206,16 +166,14 @@ function blueline_email_content_type_is_overridden(): bool {
 }
 
 /**
- * Renders templates/plain-text-fallback.php with $subject/ $message and $blueline_core_brand
- * in scope, the same "plain PHP template, variables via the calling scope"
- * convention the theme's own woocommerce/emails/*.php templates use -- not a shortcode-replacement string, since this
- * template has no wp-email-template-specific placeholder syntax to honour.
+ * Render templates/plain-text-fallback.php. The template reads $subject, $message and
+ * $blueline_core_brand from this function's scope.
  *
  * @param string $subject The email's own subject line.
  * @param string $message The plain-text message body.
  * @return string
  */
-function blueline_render_plain_text_email_wrapper( string $subject, string $message ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- both ARE used, read by plain-text-fallback.php via PHP's own include-inherits-calling-scope behaviour (see that file's own @var docblock), which this sniff cannot see statically.
+function blueline_render_plain_text_email_wrapper( string $subject, string $message ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- both are read by plain-text-fallback.php through the include's inherited scope, which this sniff cannot see.
 	$blueline_core_brand = blueline_core_email_brand();
 
 	ob_start();
@@ -224,16 +182,11 @@ function blueline_render_plain_text_email_wrapper( string $subject, string $mess
 }
 
 /**
- * Wraps a genuinely plain-text wp_mail() call (CF7, Gravity Forms, WP
- * core's own notification emails -- none of which have any HTML template
- * of their own) in a minimal branded shell, using the
- * site logo (blueline_social_logo_url(), the seo-meta module) rather than
- * any plugin-configured logo setting.
+ * Wrap a genuinely plain-text wp_mail() call (CF7, Gravity Forms, core notifications) in a
+ * minimal branded shell with the site logo.
  *
- * Split from blueline_wrap_plain_text_email_in_brand_template() below so
- * this pure decision-and-transform logic is directly testable without
- * needing to fake WP_EMAIL_TEMPLATE_DIR (a real constant a test cannot
- * safely define and later undefine).
+ * Split from blueline_wrap_plain_text_email_in_brand_template() so the decision-and-transform
+ * logic is testable without defining the WP_EMAIL_TEMPLATE_DIR constant.
  *
  * Mail is left untouched when it is already HTML, or when another plugin forces a content type
  * through `wp_mail_content_type` (see blueline_email_content_type_is_overridden()).
@@ -254,9 +207,8 @@ function blueline_maybe_wrap_plain_text_email( array $args ): array {
 	$headers = $args['headers'] ?? array();
 
 	if ( ! is_array( $headers ) ) {
-		// wp_mail() accepts a newline-separated string, but treats each ARRAY element as exactly
-		// one header line. Split the string first, or "From: A\r\nReply-To: B" would become a
-		// single malformed header and mail could be dropped or lose its Reply-To/Cc/Bcc.
+		// wp_mail() accepts a newline-separated string but treats each ARRAY element as one header
+		// line: split first, or "From: A\r\nReply-To: B" becomes a single malformed header.
 		$headers = preg_split( '/\r\n|\r|\n/', trim( (string) $headers ), -1, PREG_SPLIT_NO_EMPTY );
 		$headers = false === $headers ? array() : $headers;
 	}
@@ -270,15 +222,9 @@ function blueline_maybe_wrap_plain_text_email( array $args ): array {
 
 add_filter( 'wp_mail', 'blueline_wrap_plain_text_email_in_brand_template' );
 /**
- * The plugin-owned fallback for exactly the gap
- * blueline_wp_email_template_general_overrides() otherwise fills: if
- * wp-email-template is active, this defers to it entirely (that plugin's
- * own master switch is what actually wraps CF7/Gravity Forms/WP-core mail
- * in HTML in that case) and does nothing here, so the two mechanisms
- * never compete. Only when that plugin is NOT active does this wrap
- * plain-text mail itself, so branding never silently regresses to plain
- * text if that plugin is ever deactivated or removed -- discovered as a
- * real risk during this feature's own development.
+ * Wrap plain-text mail in the brand template only when wp-email-template is NOT active. When it
+ * is, that plugin's master switch already wraps this mail, and doing both would double-wrap; when
+ * it is deactivated, branding must not silently regress to plain text.
  *
  * @param array $args wp_mail()'s own filterable args.
  * @return array

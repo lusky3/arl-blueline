@@ -7,13 +7,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-// Legacy flag option (set on activation by 0.1.0). Nothing sets it any more -- activation now deletes
-// the version option below instead -- but it is still cleared after a flush, on deactivation and on
-// uninstall so a leftover row never lingers.
+// Legacy flush-flag option: nothing sets it any more, but it is still cleared after a flush, on
+// deactivation and on uninstall so a leftover row never lingers.
 const BLUELINE_CORE_FLUSH_OPTION = 'blueline_core_flush_rewrite_rules';
 
 // Last plugin version that flushed rewrite rules; missing or different triggers one flush (activation,
-// upgrade). Stored autoloaded so the per-request check below costs no query.
+// upgrade). Stored autoloaded so the per-request check costs no query.
 const BLUELINE_CORE_VERSION_OPTION = 'blueline_core_version';
 
 // A function only a pre-1.1.0 Blueline theme defines (it moved into this plugin's player-link module).
@@ -118,13 +117,13 @@ function blueline_core_order_modules( array $modules ): array {
  * Require each module file in order (dependencies first). A listed file that is missing or
  * unreadable is skipped so the site stays up, but loudly: it is recorded (see
  * blueline_core_failed_modules()), written to the PHP error log, shown to administrators in an admin
- * notice and reported by the Site Health test. Every listed module is expected to exist; a miss
- * means a broken deploy, and modules such as `privacy` are security-relevant.
+ * notice and reported by the Site Health test. A miss means a broken deploy, and modules such as
+ * `privacy` are security-relevant.
  *
  * @param array<string, string> $modules Slug => file relative to includes/.
- * @return string[] Slugs loaded so far (this call and earlier ones).
+ * @return void
  */
-function blueline_core_load_modules( array $modules ): array {
+function blueline_core_load_modules( array $modules ): void {
 	$loaded = &blueline_core_loaded_modules();
 	$failed = &blueline_core_failed_modules();
 
@@ -132,10 +131,8 @@ function blueline_core_load_modules( array $modules ): array {
 		$file = BLUELINE_CORE_DIR . '/includes/' . ltrim( (string) $relative, '/' );
 
 		if ( ! is_readable( $file ) ) {
-			if ( ! isset( $failed[ (string) $slug ] ) ) {
-				$failed[ (string) $slug ] = $file;
-				error_log( sprintf( 'blueline-core: module "%1$s" was not loaded: %2$s is missing or unreadable.', $slug, $file ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- a skipped module must reach the server log; there is no other channel this early in boot.
-			}
+			$failed[ (string) $slug ] = $file;
+			error_log( sprintf( 'blueline-core: module "%1$s" was not loaded: %2$s is missing or unreadable.', $slug, $file ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- a skipped module must reach the server log; there is no other channel this early in boot.
 			add_action( 'admin_notices', 'blueline_core_failed_modules_notice' );
 			continue;
 		}
@@ -143,8 +140,6 @@ function blueline_core_load_modules( array $modules ): array {
 		require_once $file;
 		$loaded[ (string) $slug ] = $file;
 	}
-
-	return array_keys( $loaded );
 }
 
 /**
@@ -309,8 +304,7 @@ function blueline_core_legacy_theme_notice(): void {
 
 /**
  * Activation: forget the last-flushed version, so the next `init` flushes rewrite rules after the
- * modules have registered their endpoints. (No separate flag option: see
- * blueline_core_maybe_flush_rewrite_rules() for why.)
+ * modules have registered their endpoints.
  *
  * @return void
  */
@@ -337,7 +331,7 @@ function blueline_core_deactivate(): void {
  * @return bool
  */
 function blueline_core_rewrite_flush_safe(): bool {
-	$safe = defined( 'WPMU_PLUGIN_DIR' ) && is_readable( WPMU_PLUGIN_DIR . '/' . BLUELINE_CORE_REGISTER_FIX_MU_PLUGIN );
+	$safe = is_readable( WPMU_PLUGIN_DIR . '/' . BLUELINE_CORE_REGISTER_FIX_MU_PLUGIN );
 
 	/**
 	 * Filters whether the plugin may flush rewrite rules (e.g. a local site without the mu-plugin).
@@ -350,11 +344,10 @@ function blueline_core_rewrite_flush_safe(): bool {
 /**
  * On `init` priority 99: flush once after activation or a version change, when safe.
  *
- * This runs on every request, so the steady-state path must be free. It is ONE read of an
- * autoloaded option (served from the alloptions cache WordPress already loaded, no query). An
- * absent non-autoloaded option, by contrast, costs a query per request without a persistent object
- * cache, which is what the old separate "flush pending" flag did; hence activation now just deletes
- * the version option and the version mismatch drives the flush.
+ * This runs on every request, so the steady-state path must be free: ONE read of an autoloaded
+ * option (served from the alloptions cache, no query). An absent non-autoloaded flag option would
+ * cost a query per request without a persistent object cache, so activation deletes the version
+ * option and the version mismatch drives the flush instead.
  *
  * @return bool Whether rules were flushed.
  */

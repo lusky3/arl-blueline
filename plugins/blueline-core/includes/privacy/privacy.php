@@ -1,27 +1,23 @@
 <?php
 /**
- * Member privacy: stop core from publishing the site's user list.
+ * Member privacy.
  *
- * Members author their own sp_player posts, so core's REST users endpoint,
- * the users sitemap, author archives and oEmbed author fields would
- * otherwise list every member's real name and email-derived slug to
- * anonymous visitors.
+ * First half: stop core from publishing the site's user list. Members author their own
+ * sp_player posts, so core's REST users endpoint, the users sitemap, author archives and
+ * oEmbed author fields would otherwise expose every member's real name and email-derived slug.
+ * This hardening ends when the plugin is deactivated.
  *
- * Moved from themes/blueline/inc/privacy.php. This hardening only applies
- * while the blueline-core plugin is active: deactivating the plugin
- * re-exposes the user list.
- *
- * The second half of the file registers WordPress personal-data exporters
- * and erasers (Tools > Export / Erase Personal Data) for the data this
- * plugin owns about a user: the custom avatar (user meta
- * `blueline_avatar_id` and its media file) and the player link (post meta
- * `sp_user` on the member's sp_player post, plus a flagged player photo).
- * Core's own export and erase know nothing about either.
+ * Second half: the personal-data exporters and erasers (Tools > Export / Erase Personal Data)
+ * for what this plugin stores about a user: the custom avatar (user meta `blueline_avatar_id`
+ * and its media file) and the player link (`sp_user` on the sp_player post, plus a flagged
+ * player photo). Core knows nothing about either.
  *
  * @package blueline-core
  */
 
 defined( 'ABSPATH' ) || exit;
+
+require_once BLUELINE_CORE_DIR . '/includes/shared/attachment-usage.php';
 
 /**
  * Whether the current user may browse other users: anyone who can edit
@@ -99,37 +95,6 @@ function blueline_strip_oembed_author( $data ) {
 }
 
 /**
- * User meta key of the custom avatar pointer (avatars module). Resolved at
- * call time with a literal fallback, because the avatars module can be
- * switched off through the `blueline_core_modules` filter while this one
- * stays on, and the pointer would still need exporting and erasing.
- *
- * @return string
- */
-function blueline_privacy_avatar_meta_key(): string {
-	return defined( 'BLUELINE_AVATAR_META_KEY' ) ? (string) constant( 'BLUELINE_AVATAR_META_KEY' ) : 'blueline_avatar_id';
-}
-
-/**
- * Post meta key linking an sp_player post to its user (player-link module).
- *
- * @return string
- */
-function blueline_privacy_player_user_meta_key(): string {
-	return defined( 'BLUELINE_PLAYER_USER_META' ) ? (string) constant( 'BLUELINE_PLAYER_USER_META' ) : 'sp_user';
-}
-
-/**
- * Attachment meta key flagging a photo uploaded through the player-photo
- * handler (player-photo module).
- *
- * @return string
- */
-function blueline_privacy_player_photo_flag_key(): string {
-	return defined( 'BLUELINE_PLAYER_PHOTO_FLAG_META' ) ? (string) constant( 'BLUELINE_PLAYER_PHOTO_FLAG_META' ) : '_blueline_player_photo';
-}
-
-/**
  * The user ID behind an email address in a privacy request.
  *
  * @param mixed $email_address Email address from the request.
@@ -152,7 +117,7 @@ function blueline_privacy_user_id_for_email( $email_address ): int {
  * @return int Attachment ID, or 0 for no pointer, a stale pointer or a pointer at a non-attachment.
  */
 function blueline_privacy_avatar_attachment_id( int $user_id ): int {
-	$attachment_id = absint( get_user_meta( $user_id, blueline_privacy_avatar_meta_key(), true ) );
+	$attachment_id = absint( get_user_meta( $user_id, BLUELINE_AVATAR_META_KEY, true ) );
 
 	return ( $attachment_id && 'attachment' === get_post_type( $attachment_id ) ) ? $attachment_id : 0;
 }
@@ -177,7 +142,7 @@ function blueline_privacy_linked_player_ids( int $user_id ): array {
 		array(
 			'post_type'      => 'sp_player',
 			'post_status'    => 'any',
-			'meta_key'       => blueline_privacy_player_user_meta_key(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a rare, admin-triggered privacy request, not a request-time query.
+			'meta_key'       => blueline_player_user_meta_key(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a rare, admin-triggered privacy request, not a request-time query.
 			'meta_value'     => (string) $user_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			'posts_per_page' => -1,
 			'fields'         => 'ids',
@@ -192,41 +157,15 @@ function blueline_privacy_linked_player_ids( int $user_id ): array {
 }
 
 /**
- * Whether a post other than $ignore_post_id uses $attachment_id as its
- * featured image. Fails closed: a failed lookup counts as "in use".
- *
- * @param int $attachment_id  Attachment ID.
- * @param int $ignore_post_id Post whose use of the attachment does not count.
- * @return bool
- */
-function blueline_privacy_attachment_is_thumbnail_elsewhere( int $attachment_id, int $ignore_post_id ): bool {
-	global $wpdb;
-
-	if ( ! is_object( $wpdb ) ) {
-		return true;
-	}
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one indexed postmeta lookup across every post type and status (get_posts() cannot cover both); must not be cached because it gates a delete.
-	$other_post = $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value = %s AND post_id != %d LIMIT 1",
-			(string) $attachment_id,
-			$ignore_post_id
-		)
-	);
-
-	return null !== $other_post || '' !== (string) $wpdb->last_error;
-}
-
-/**
- * Whether another user's avatar pointer (ours or YITH's) references the attachment.
+ * Whether another user's avatar pointer (ours, or YITH's still-present `yith-wcmap-avatar`)
+ * references the attachment.
  *
  * @param int $attachment_id Attachment ID.
  * @param int $user_id       The requesting user, excluded from the check.
  * @return bool
  */
 function blueline_privacy_attachment_is_avatar_of_other_user( int $attachment_id, int $user_id ): bool {
-	foreach ( array( blueline_privacy_avatar_meta_key(), 'yith-wcmap-avatar' ) as $meta_key ) {
+	foreach ( array( BLUELINE_AVATAR_META_KEY, 'yith-wcmap-avatar' ) as $meta_key ) {
 		$others = get_users(
 			array(
 				'meta_key'   => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a rare, admin-triggered privacy request, not a request-time query.
@@ -264,7 +203,7 @@ function blueline_privacy_attachment_is_deletable( int $attachment_id, int $user
 		return false;
 	}
 
-	return ! blueline_privacy_attachment_is_thumbnail_elsewhere( $attachment_id, $ignore_post_id )
+	return ! blueline_attachment_is_thumbnail_elsewhere( $attachment_id, $ignore_post_id )
 		&& ! blueline_privacy_attachment_is_avatar_of_other_user( $attachment_id, $user_id );
 }
 
@@ -391,8 +330,7 @@ function blueline_erase_avatar_personal_data( $email_address, $page = 1 ) { // p
 		return $response;
 	}
 
-	$meta_key = blueline_privacy_avatar_meta_key();
-	$raw      = get_user_meta( $user_id, $meta_key, true );
+	$raw = get_user_meta( $user_id, BLUELINE_AVATAR_META_KEY, true );
 	if ( '' === (string) $raw ) {
 		return $response;
 	}
@@ -400,7 +338,7 @@ function blueline_erase_avatar_personal_data( $email_address, $page = 1 ) { // p
 	$attachment_id = absint( $raw );
 	$post_type     = $attachment_id ? get_post_type( $attachment_id ) : false;
 
-	if ( delete_user_meta( $user_id, $meta_key ) ) {
+	if ( delete_user_meta( $user_id, BLUELINE_AVATAR_META_KEY ) ) {
 		$response['items_removed'] = true;
 	} else {
 		$response['items_retained'] = true;
@@ -440,7 +378,7 @@ function blueline_privacy_player_photo_id( int $player_id, int $user_id ): int {
 		return 0;
 	}
 
-	if ( '1' !== (string) get_post_meta( $photo_id, blueline_privacy_player_photo_flag_key(), true ) ) {
+	if ( '1' !== (string) get_post_meta( $photo_id, BLUELINE_PLAYER_PHOTO_FLAG_META, true ) ) {
 		return 0;
 	}
 
@@ -543,7 +481,7 @@ function blueline_erase_player_personal_data( $email_address, $page = 1 ) { // p
 			}
 		}
 
-		if ( delete_post_meta( $player_id, blueline_privacy_player_user_meta_key(), (string) $user_id ) ) {
+		if ( delete_post_meta( $player_id, blueline_player_user_meta_key(), (string) $user_id ) ) {
 			$response['items_removed'] = true;
 		} else {
 			$response['messages'][] = sprintf(

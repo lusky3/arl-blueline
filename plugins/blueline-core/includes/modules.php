@@ -6,9 +6,8 @@
  * admin notice, Site Health). Every entry is expected to exist.
  *
  * Dependencies: a module that calls another module's functions is declared in
- * blueline_core_module_requirements() (includes/boot.php); the loader then loads the required
- * module first regardless of this order. Today: mail requires seo-meta (blueline_social_logo_url()).
- * Keep requirements listed before their dependents here too, for readability.
+ * blueline_core_module_requirements() (includes/boot.php); the loader loads the required module
+ * first regardless of this order. Today: mail requires seo-meta (blueline_social_logo_url()).
  *
  * @package blueline-core
  */

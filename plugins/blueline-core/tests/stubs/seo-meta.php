@@ -7,6 +7,8 @@
  * - queried_object_id is the "current post" get_the_ID() reports.
  * - gmt_offset is the site's offset from UTC in seconds (default 0); gmt_unresolvable makes
  *   get_gmt_from_date() return '' (an event whose date cannot be resolved).
+ * - theme_mods[<name>] feeds get_theme_mod() (e.g. 'custom_logo' => an attachment id).
+ * - $GLOBALS['shortcode_tags'] is the registered-shortcode registry strip_shortcodes() honours.
  *
  * @package blueline-core
  */
@@ -95,16 +97,38 @@ if ( ! function_exists( 'post_password_required' ) ) {
 
 if ( ! function_exists( 'strip_shortcodes' ) ) {
 	/**
-	 * Stand-in for strip_shortcodes(): removes `[tag ...]`, `[tag]...[/tag]` and `[/tag]` markers
-	 * (enclosed content between a pair is also removed, as core does for registered shortcodes).
+	 * Stand-in for strip_shortcodes(): like core, removes only REGISTERED shortcodes
+	 * ($GLOBALS['shortcode_tags']) -- `[tag ...]`, `[tag]...[/tag]` (enclosed content too) and
+	 * stray `[/tag]` markers; unregistered `[tags]` stay.
 	 *
 	 * @param string $content Content.
 	 * @return string
 	 */
 	function strip_shortcodes( $content ) {
-		$content = (string) preg_replace( '/\[(\w[\w-]*)(?:\s[^\]]*)?\].*?\[\/\1\]/s', '', (string) $content );
+		$content = (string) $content;
+		$tags    = array_keys( (array) ( $GLOBALS['shortcode_tags'] ?? array() ) );
 
-		return (string) preg_replace( '/\[\/?\w[\w-]*(?:\s[^\]]*)?\]/', '', $content );
+		if ( ! $tags ) {
+			return $content;
+		}
+
+		$names   = implode( '|', array_map( 'preg_quote', $tags ) );
+		$content = (string) preg_replace( '/\[(' . $names . ')(?:\s[^\]]*)?\].*?\[\/\1\]/s', '', $content );
+
+		return (string) preg_replace( '/\[\/?(?:' . $names . ')(?:\s[^\]]*)?\]/', '', $content );
+	}
+}
+
+if ( ! function_exists( 'get_theme_mod' ) ) {
+	/**
+	 * Stand-in for get_theme_mod(): the value registered under the state's `theme_mods`.
+	 *
+	 * @param string $name          Theme mod name.
+	 * @param mixed  $default_value Returned when the mod is not set.
+	 * @return mixed
+	 */
+	function get_theme_mod( $name, $default_value = false ) {
+		return blueline_test_state()['theme_mods'][ $name ] ?? $default_value;
 	}
 }
 

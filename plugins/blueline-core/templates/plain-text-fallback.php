@@ -1,24 +1,13 @@
 <?php
 /**
- * Blueline -- self-contained branded email wrapper for plain-text mail. Moved from
- * themes/blueline/emails/plain-text-fallback.php.
+ * Branded email wrapper for plain-text mail, used only when the wp-email-template plugin is not
+ * active (see blueline_email_template_plugin_active(), includes/mail/mail.php).
  *
- * Used ONLY when the wp-email-template plugin is not active
- * (blueline_email_template_plugin_active(), includes/mail/mail.php) -- when
- * it is, that plugin's own template (and the overrides of it,
- * blueline_wp_email_template_general_overrides() and friends) handles
- * branding instead, and this file is never reached.
+ * Every style is inline, not in a <style> block: this is the fallback path, so it assumes
+ * nothing beyond a plain <table> layout, including clients that strip <style> blocks entirely.
  *
- * Every style is inline, not in a <style> block: unlike wp-email-template's
- * own template (which can rely on more capable email clients), this is the
- * fallback path, so it assumes nothing beyond what a plain <table> layout
- * with inline styles renders correctly everywhere, including clients that
- * strip <style> blocks entirely.
- *
- * $message is plain text by contract (blueline_maybe_wrap_plain_text_email()
- * only ever calls this for mail that is NOT already HTML) and may
- * originate from a public-facing form submission (Contact Form 7, Gravity
- * Forms) -- esc_html() before nl2br() below, never trusted as markup.
+ * $message is plain text by contract and may originate from a public form submission (Contact
+ * Form 7, Gravity Forms): esc_html() before nl2br() below, never trusted as markup.
  *
  * @var string $subject             The email's own subject line.
  * @var string $message             The plain-text message body.

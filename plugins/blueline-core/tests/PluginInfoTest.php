@@ -15,40 +15,6 @@ require_once __DIR__ . '/../includes/plugin-info/plugin-info.php';
 final class PluginInfoTest extends TestCase {
 
 	/**
-	 * Temp files created by a test.
-	 *
-	 * @var string[]
-	 */
-	private array $temp_files = array();
-
-	/**
-	 * Remove temp files.
-	 */
-	protected function tearDown(): void {
-		foreach ( $this->temp_files as $file ) {
-			if ( is_file( $file ) ) {
-				unlink( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing the test's own temp file.
-			}
-		}
-		$this->temp_files = array();
-	}
-
-	/**
-	 * Write a readme to a unique temp path (the parser caches per path).
-	 *
-	 * @param string $contents Readme text.
-	 * @return string Path.
-	 */
-	private function temp_readme( string $contents ): string {
-		$path = sys_get_temp_dir() . '/blueline-readme-' . uniqid( '', true ) . '.txt';
-		file_put_contents( $path, $contents ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- test fixture in the temp dir.
-
-		$this->temp_files[] = $path;
-
-		return $path;
-	}
-
-	/**
 	 * The hooks are registered.
 	 */
 	public function test_it_registers_both_filters(): void {
@@ -182,55 +148,41 @@ final class PluginInfoTest extends TestCase {
 	 * Hostile readme content is escaped, never emitted as markup.
 	 */
 	public function test_hostile_readme_lines_are_escaped(): void {
-		$path = $this->temp_readme(
+		$readme   = blueline_core_plugin_info_parse_readme(
 			"=== Evil ===\nTested up to: 7.1\n\n== Description ==\n<script>alert(1)</script>\n* <img src=x onerror=alert(1)> **b** `<b>`\n\n"
 			. "== Changelog ==\n= <i>1.0</i> =\n* [click](javascript:alert(1)) <a href=\"javascript:alert(1)\">x</a>\n"
 		);
+		$sections = blueline_core_plugin_info_sections( $readme, '' );
+		$all      = implode( '', $sections );
 
-		$info = blueline_core_plugin_info_data( $path );
-		$all  = implode( '', $info->sections );
-
+		$this->assertSame( '7.1', $readme['headers']['tested up to'] );
 		$this->assertStringNotContainsString( '<script', $all );
 		$this->assertStringNotContainsString( '<img', $all );
 		$this->assertStringNotContainsString( '<a ', $all );
 		$this->assertStringNotContainsString( '<i>', $all );
-		$this->assertStringContainsString( '&lt;script&gt;alert(1)&lt;/script&gt;', $info->sections['description'] );
-		$this->assertStringContainsString( '<strong>b</strong>', $info->sections['description'] );
-		$this->assertStringContainsString( '<code>&lt;b&gt;</code>', $info->sections['description'] );
+		$this->assertStringContainsString( '&lt;script&gt;alert(1)&lt;/script&gt;', $sections['description'] );
+		$this->assertStringContainsString( '<strong>b</strong>', $sections['description'] );
+		$this->assertStringContainsString( '<code>&lt;b&gt;</code>', $sections['description'] );
 	}
 
 	/**
-	 * A missing readme degrades to the plugin header description, with no warning.
+	 * An empty or missing readme has no sections of its own, so the description falls back to the
+	 * plugin header's (escaped like any other text); with no header description either, no sections.
 	 */
-	public function test_a_missing_readme_degrades_without_warnings(): void {
-		$info = blueline_core_plugin_info_data( sys_get_temp_dir() . '/blueline-no-such-readme-' . uniqid( '', true ) . '.txt' );
+	public function test_an_empty_readme_degrades_to_the_header_description(): void {
+		$readme = blueline_core_plugin_info_parse_readme( '' );
 
-		$this->assertSame( array( 'description' ), array_keys( $info->sections ) );
-		$this->assertStringContainsString( 'League functionality for the Blueline theme', $info->sections['description'] );
-		$this->assertSame( '', $info->tested );
-		$this->assertSame( '6.9', $info->requires, 'The header still supplies the requirements.' );
-		$this->assertSame( BLUELINE_CORE_VERSION, $info->version );
+		$this->assertSame( array( 'description' => '<p>League &lt;b&gt;tools&lt;/b&gt;.</p>' ), blueline_core_plugin_info_sections( $readme, 'League <b>tools</b>.' ) );
+		$this->assertSame( array(), blueline_core_plugin_info_sections( $readme, '' ) );
 	}
 
 	/**
-	 * Garbage in the readme neither warns nor yields sections.
+	 * A readme's own description wins over the header's.
 	 */
-	public function test_an_empty_readme_yields_no_sections_but_the_header_description(): void {
-		$info = blueline_core_plugin_info_data( $this->temp_readme( '' ) );
+	public function test_a_readme_description_wins_over_the_header_description(): void {
+		$readme = blueline_core_plugin_info_parse_readme( "=== X ===\n\n== Description ==\nFrom the readme.\n" );
 
-		$this->assertSame( array( 'description' ), array_keys( $info->sections ) );
-	}
-
-	/**
-	 * A readme is read once per path in a request.
-	 */
-	public function test_the_readme_is_parsed_once_per_path(): void {
-		$path  = $this->temp_readme( "=== X ===\nTested up to: 6.9\n\n== Description ==\nFirst.\n" );
-		$first = blueline_core_plugin_info_readme( $path );
-
-		file_put_contents( $path, "=== X ===\nTested up to: 1.0\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- test fixture in the temp dir.
-
-		$this->assertSame( $first, blueline_core_plugin_info_readme( $path ) );
+		$this->assertSame( array( 'description' => '<p>From the readme.</p>' ), blueline_core_plugin_info_sections( $readme, 'From the header.' ) );
 	}
 
 	/**

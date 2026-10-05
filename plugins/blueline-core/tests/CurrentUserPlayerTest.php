@@ -1,6 +1,6 @@
 <?php
 /**
- * Unit tests for the current-user resolvers. Moved from the theme's PlayerDataTest.php.
+ * Unit tests for the current-user resolvers.
  *
  * @package blueline-core
  */
@@ -61,12 +61,8 @@ final class CurrentUserPlayerTest extends TestCase {
 	}
 
 	/**
-	 * Both resolvers under test here are pure composition of two
-	 * already-tested helpers (blueline_get_linked_player_id(),
-	 * blueline_player_current_team_ids()), so these tests fake THEIR
-	 * inputs (current_user_id, sp_user meta, sp_current_team rows) rather
-	 * than re-proving either helper's own internals -- those already have
-	 * their own coverage (PlayerLinkTest.php here, the theme's PlayerDataTest.php).
+	 * Reset the fake-WordPress state. Both resolvers compose already-tested helpers, so the tests
+	 * fake those helpers' inputs (current_user_id, sp_user meta, sp_current_team rows).
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();

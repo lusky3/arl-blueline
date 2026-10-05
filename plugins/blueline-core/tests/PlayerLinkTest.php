@@ -25,7 +25,6 @@ final class PlayerLinkTest extends TestCase {
 		parent::setUp();
 		blueline_test_reset();
 		blueline_test_reset_state();
-		blueline_forget_claim_pool_memo();
 		unset( $GLOBALS['bl_core_test_before_add_post_meta'], $GLOBALS['bl_core_test_after_add_post_meta'] );
 	}
 
@@ -55,43 +54,15 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	/**
-	 * Make $user_id a plain account named $name, and offer exactly the
-	 * $pool players (id => title) as the claim pool, via the fake $wpdb title
-	 * fetch and the pool short-circuit filter.
+	 * Make $user_id a plain account named $name and offer exactly the $pool players (id => title)
+	 * as eligible claim-pool members, which the real pool query then finds.
 	 *
 	 * @param int                $user_id Account ID (also the current user).
 	 * @param string             $name    The account's billing name.
 	 * @param array<int, string> $pool    player_id => post_title.
 	 */
 	private function seed_claim_pool( int $user_id, string $name, array $pool ): void {
-		$state                          = &blueline_test_state();
-		$state['current_user_id']       = $user_id;
-		$state['users'][ $user_id ]     = (object) array(
-			'roles'        => array( 'customer' ),
-			'display_name' => $name,
-		);
-		$state['user_meta'][ $user_id ] = array(
-			'billing_first_name' => (string) strtok( $name, ' ' ),
-			'billing_last_name'  => trim( (string) strstr( $name, ' ' ) ),
-		);
-
-		$rows = array();
-		foreach ( $pool as $player_id => $title ) {
-			$this->seed_player_post( $player_id );
-			$rows[] = (object) array(
-				'ID'         => (string) $player_id,
-				'post_title' => $title,
-			);
-		}
-
-		$wpdb            = new Blueline_Core_Test_Wpdb();
-		$wpdb->results   = $rows;
-		$GLOBALS['wpdb'] = $wpdb;
-
-		add_filter(
-			'blueline_pre_claim_pool_player_ids',
-			static fn() => array_keys( $pool )
-		);
+		blueline_core_test_seed_claim_pool( $user_id, $name, $pool );
 	}
 
 	/**
@@ -192,10 +163,8 @@ final class PlayerLinkTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_season_slug_session_letter_rejects_year_first_slug(): void {
-		// The exact failure mode review flagged: a future "2026-winter"
-		// slugging convention must not be classified by a bare first
-		// character (which would read as session "2" and silently re-merge
-		// Winter/Summer for every term sharing that leading digit).
+		// A "2026-winter" convention must not be classified by its bare first character
+		// (session "2"), which would silently re-merge Winter and Summer.
 		$this->assertNull( blueline_season_slug_session_letter( '2026-winter' ) );
 	}
 
@@ -657,7 +626,7 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// Name-claim eligibility and verified ownership (SEC-01).
+	// Name-claim eligibility and verified ownership.
 	// -----------------------------------------------------------------------
 
 	/**
@@ -768,7 +737,7 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// A-02: the name gate bounds BOTH sides, so a padded account name cannot
+	// The name gate bounds BOTH sides, so a padded account name cannot
 	// borrow every two-token player whose tokens it happens to contain.
 	// -----------------------------------------------------------------------
 
@@ -828,7 +797,7 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// A-07: the linked-player lookup is deterministic and status-agnostic.
+	// The linked-player lookup is deterministic and status-agnostic.
 	// -----------------------------------------------------------------------
 
 	/**
@@ -890,7 +859,7 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// A-04: blueline_link_player_to_user() enforces the claim rules itself.
+	// blueline_link_player_to_user() enforces the claim rules itself.
 	// -----------------------------------------------------------------------
 
 	/**
@@ -962,7 +931,7 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// A-01: the write is conditional and the invariant is re-checked after it.
+	// The write is conditional and the invariant is re-checked after it.
 	// -----------------------------------------------------------------------
 
 	/**
@@ -1043,8 +1012,8 @@ final class PlayerLinkTest extends TestCase {
 	 */
 	public function test_a_placeholder_sp_user_row_is_taken_over(): void {
 		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
-		$state                   = &blueline_test_state();
-		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '0' );
+		$state = &blueline_test_state();
+		$state['post_meta'][100][ BLUELINE_PLAYER_USER_META ] = '0';
 
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
 		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
@@ -1062,27 +1031,55 @@ final class PlayerLinkTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// A-11: the claim pool's season terms are resolved once per request.
+	// The claim pool's season terms and linked-player lookups are memoised per request.
 	// -----------------------------------------------------------------------
 
 	/**
 	 * Test case.
 	 */
-	public function test_claim_pool_season_terms_are_memoised_until_forgotten(): void {
-		$this->assertNull( blueline_claim_pool_memo() );
+	public function test_claim_pool_season_terms_are_memoised_until_the_cache_is_flushed(): void {
+		$group = blueline_player_link_cache_group();
 
 		$this->assertSame( array(), blueline_claim_pool_season_term_ids() ); // sp_season is not registered here.
-		$this->assertSame( array(), blueline_claim_pool_memo(), 'the empty answer is memoised too' );
+		wp_cache_get( 'claim_pool_season_term_ids', $group, false, $found );
+		$this->assertTrue( $found, 'the empty answer is memoised too' );
 
-		$memo = &blueline_claim_pool_memo();
-		$memo = array( 7, 8 ); // Prove the second call does not re-resolve.
-		unset( $memo );
-
+		wp_cache_set( 'claim_pool_season_term_ids', array( 7, 8 ), $group ); // Prove the second call does not re-resolve.
 		$this->assertSame( array( 7, 8 ), blueline_claim_pool_season_term_ids() );
 
-		blueline_forget_claim_pool_memo();
+		wp_cache_flush();
 
-		$this->assertNull( blueline_claim_pool_memo() );
+		wp_cache_get( 'claim_pool_season_term_ids', $group, false, $found );
+		$this->assertFalse( $found );
 		$this->assertSame( array(), blueline_claim_pool_season_term_ids() );
+	}
+
+	/**
+	 * The module's memos live in a non-persistent cache group, so a persistent object cache can
+	 * never serve a stale link or pool across requests.
+	 */
+	public function test_request_memos_use_a_non_persistent_cache_group(): void {
+		$group = blueline_player_link_cache_group();
+
+		$this->assertContains( $group, $GLOBALS['bl_core_test_non_persistent_groups'] );
+	}
+
+	/**
+	 * Linking busts the cached "no link" answer, and the next lookup re-queries.
+	 */
+	public function test_linked_player_lookup_is_memoised_and_forgotten(): void {
+		$this->seed_player_post( 100 );
+		$state                   = &blueline_test_state();
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_USER_META => '5' );
+
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+
+		unset( $state['post_meta'][100] ); // The memo, not the store, answers now.
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+
+		blueline_forget_linked_player_cache( 5 );
+
+		$this->assertNull( blueline_get_linked_player_id( 5 ) );
+		$this->assertNull( blueline_get_linked_player_id( 5 ), 'a null answer is memoised too' );
 	}
 }

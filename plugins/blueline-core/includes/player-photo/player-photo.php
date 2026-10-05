@@ -1,40 +1,31 @@
 <?php
 /**
- * Player photo upload handler, EXIF stripping and the legacy /profile-picture 301.
- * Moved from themes/blueline/inc/account/player-profile.php; the pencil form
- * and blueline_account_render_photo_notice() stay in the theme.
+ * Player photo upload handler and EXIF stripping, plus the legacy /profile-picture 301.
+ * The pencil form and blueline_account_render_photo_notice() live in the theme.
  *
  * @package blueline-core
  */
 
 defined( 'ABSPATH' ) || exit;
 
-// Attachment meta flag: this upload handler created the attachment, so it may delete it once replaced.
-const BLUELINE_PLAYER_PHOTO_FLAG_META = '_blueline_player_photo';
+require_once BLUELINE_CORE_DIR . '/includes/shared/attachment-usage.php';
+
+const BLUELINE_PLAYER_PHOTO_MAX_BYTES  = 2 * 1024 * 1024;
+const BLUELINE_PLAYER_PHOTO_MIME_TYPES = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
 
 /**
- * Redirect to Player Profile carrying an outcome status
- * (blueline_account_render_photo_notice() reads it back), and exit.
+ * Redirect to Player Profile and exit. A non-null status is carried in the query string for
+ * blueline_account_render_photo_notice() to read back.
  *
- * NOT wc_add_notice(): confirmed live (staging, 2026-09-04) that
- * WC()->session/WC()->cart -- what wc_add_notice() actually writes into --
- * are never initialised on an admin_post_* request, because admin-post.php
- * lives under /wp-admin/ and WooCommerce's own frontend bootstrap skips
- * everywhere is_admin() is true, admin-post.php included even though it is
- * how a front-end form is meant to reach PHP. Calling wc_add_notice() here
- * threw "Call to undefined function" and fataled the whole request
- * (500, every upload). blueline_handle_claim_player_submission() (the
- * OTHER admin_post_* form handler, blueline-core's player-link module)
- * already solved this the same way: a status in the redirect's query
- * string, read back by a small dedicated notice renderer instead of
- * WooCommerce's session-backed one.
+ * Not wc_add_notice(): WooCommerce never initialises its session or cart on an admin_post_*
+ * request (admin-post.php lives under /wp-admin/), so wc_add_notice() fatals there.
  *
- * @param string $redirect_to Where to send the user back to.
- * @param string $status      A key blueline_account_render_photo_notice() recognises.
- * @return void
+ * @param string      $redirect_to Where to send the user back to.
+ * @param string|null $status      A key blueline_account_render_photo_notice() recognises, or null for none.
+ * @return never
  */
-function blueline_redirect_after_photo_upload( string $redirect_to, string $status ): void {
-	wp_safe_redirect( esc_url_raw( add_query_arg( 'blueline_photo', $status, $redirect_to ) ) );
+function blueline_redirect_with_photo_status_and_exit( string $redirect_to, ?string $status = null ): never {
+	wp_safe_redirect( null === $status ? $redirect_to : esc_url_raw( add_query_arg( 'blueline_photo', $status, $redirect_to ) ) );
 	exit;
 }
 
@@ -42,16 +33,9 @@ add_action( 'admin_post_blueline_upload_player_photo', 'blueline_handle_player_p
 /**
  * Handle the Player Profile pencil-icon's photo upload.
  *
- * $player_id is resolved server-side from the logged-in session
- * (blueline_current_user_player_id(), never trusted from the request), so a
- * tampered submission can only ever change the SUBMITTER's own player photo
- * -- there is no player_id field in the form for a forged request to alter.
- *
- * File validation mirrors sportspress-player-tools' own upload handler
- * (2MB cap, real image bytes checked via getimagesize() rather than the
- * browser-supplied MIME type, wp_check_filetype_and_ext() against the
- * filename): same threat model, same answer, just reachable for a real
- * player this time.
+ * The player is resolved server-side from the logged-in session, never from the request, so a
+ * forged submission can only ever change the submitter's own player photo. The file is not
+ * touched until the login, nonce, link and ownership checks have all passed.
  *
  * @return void
  */
@@ -69,69 +53,105 @@ function blueline_handle_player_photo_upload(): void {
 	$player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
 
 	if ( ! $player_id ) {
-		blueline_redirect_after_photo_upload( $redirect, 'unlinked' );
+		blueline_redirect_with_photo_status_and_exit( $redirect, 'unlinked' );
 	}
 
 	if ( ! blueline_user_is_verified_player_owner( get_current_user_id(), $player_id ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'not_owner' );
+		blueline_redirect_with_photo_status_and_exit( $redirect, 'not_owner' );
 	}
 
-	// PHP reports an upload it refused (over upload_max_filesize, partial, no temp dir...)
-	// through ['error'], with tmp_name empty -- read it so the user gets feedback.
-	$upload_error = isset( $_FILES['player_photo']['error'] ) ? (int) $_FILES['player_photo']['error'] : UPLOAD_ERR_OK;
+	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- every field is validated, and the file's real bytes inspected, by blueline_player_photo_file_status().
+	$status = blueline_player_photo_file_status( $_FILES['player_photo'] ?? array() );
 
-	if ( UPLOAD_ERR_NO_FILE === $upload_error ) {
-		wp_safe_redirect( $redirect );
-		exit;
+	if ( 'ok' === $status ) {
+		$status = blueline_store_uploaded_player_photo( $player_id ) ? 'updated' : 'error';
 	}
 
-	if ( UPLOAD_ERR_INI_SIZE === $upload_error || UPLOAD_ERR_FORM_SIZE === $upload_error ) {
-		blueline_redirect_after_photo_upload( $redirect, 'too_large' );
+	blueline_redirect_with_photo_status_and_exit( $redirect, 'none' === $status ? null : $status );
+}
+
+/**
+ * Validate a submitted photo without touching WordPress state.
+ *
+ * Checks run in this order and the first failure wins: PHP's own upload error, the byte cap,
+ * the real image bytes (type, dimensions, pixel cap), then the file name's agreement with them.
+ *
+ * @param array $file The $_FILES['player_photo'] entry (empty when absent).
+ * @return string 'ok', 'none' (nothing was submitted), or the refusal: 'too_large', 'invalid' or 'error'.
+ */
+function blueline_player_photo_file_status( array $file ): string {
+	// PHP reports an upload it refused (over upload_max_filesize, partial, no temp dir...) through
+	// ['error'] with tmp_name empty.
+	$status = blueline_player_photo_upload_error_status( isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_OK );
+	if ( 'ok' !== $status ) {
+		return $status;
 	}
 
-	if ( UPLOAD_ERR_OK !== $upload_error ) {
-		blueline_redirect_after_photo_upload( $redirect, 'error' );
+	if ( empty( $file['tmp_name'] ) ) {
+		return 'none';
 	}
 
-	if ( empty( $_FILES['player_photo']['tmp_name'] ) ) {
-		wp_safe_redirect( $redirect );
-		exit;
+	if ( isset( $file['size'] ) && $file['size'] > BLUELINE_PLAYER_PHOTO_MAX_BYTES ) {
+		return 'too_large';
 	}
 
-	$max_size = 2 * 1024 * 1024;
-	if ( isset( $_FILES['player_photo']['size'] ) && $_FILES['player_photo']['size'] > $max_size ) {
-		blueline_redirect_after_photo_upload( $redirect, 'too_large' );
-	}
+	$filename = isset( $file['name'] ) ? sanitize_file_name( wp_unslash( $file['name'] ) ) : '';
 
-	$allowed_mime_types = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+	return blueline_player_photo_image_status( (string) $file['tmp_name'], $filename );
+}
 
-	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- tmp_name is a server-generated temp file path from PHP's own upload handling, never attacker-supplied content; getimagesize() below reads and validates the file's real bytes, which is the actual security check here.
-	$image_info = getimagesize( $_FILES['player_photo']['tmp_name'] );
-	if ( false === $image_info || ! in_array( $image_info['mime'], $allowed_mime_types, true ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
+/**
+ * Map a PHP UPLOAD_ERR_* code to a photo status.
+ *
+ * @param int $code The upload error code.
+ * @return string 'ok', 'none', 'too_large' or 'error'.
+ */
+function blueline_player_photo_upload_error_status( int $code ): string {
+	return match ( $code ) {
+		UPLOAD_ERR_OK => 'ok',
+		UPLOAD_ERR_NO_FILE => 'none',
+		UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'too_large',
+		default => 'error',
+	};
+}
+
+/**
+ * Judge an upload by its real bytes, never the browser-supplied MIME type.
+ *
+ * @param string $tmp_name Server-generated temp file path from PHP's upload handling.
+ * @param string $filename Sanitised client file name.
+ * @return string 'ok', 'invalid' or 'too_large'.
+ */
+function blueline_player_photo_image_status( string $tmp_name, string $filename ): string {
+	$image_info = getimagesize( $tmp_name );
+	if ( false === $image_info || ! in_array( $image_info['mime'], BLUELINE_PLAYER_PHOTO_MIME_TYPES, true ) ) {
+		return 'invalid';
 	}
 
 	// A small file can still declare a huge bitmap (a decompression bomb): decoding allocates
 	// width x height x 4 bytes, so refuse oversized dimensions before anything decodes the image.
 	if ( (int) $image_info[0] <= 0 || (int) $image_info[1] <= 0 ) {
-		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
+		return 'invalid';
 	}
 
 	if ( (int) $image_info[0] * (int) $image_info[1] > blueline_player_photo_max_pixels( $image_info ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'too_large' );
+		return 'too_large';
 	}
 
-	$filename = isset( $_FILES['player_photo']['name'] ) ? sanitize_file_name( wp_unslash( $_FILES['player_photo']['name'] ) ) : '';
-	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- same tmp_name as above; wp_check_filetype_and_ext() itself re-reads the file's real bytes against $filename, it does not trust either as a bare string.
-	$checked       = wp_check_filetype_and_ext( $_FILES['player_photo']['tmp_name'], $filename );
-	$resolved_mime = ! empty( $checked['type'] ) ? $checked['type'] : '';
+	// wp_check_filetype_and_ext() re-reads the file and must agree with the file name's extension.
+	$checked = wp_check_filetype_and_ext( $tmp_name, $filename );
 
-	if ( ! $resolved_mime || ! in_array( $resolved_mime, $allowed_mime_types, true ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'invalid' );
-	}
+	return ! empty( $checked['type'] ) && in_array( $checked['type'], BLUELINE_PLAYER_PHOTO_MIME_TYPES, true ) ? 'ok' : 'invalid';
+}
 
-	// admin-post.php already loads these through wp-admin/includes/admin.php; the guard
-	// only matters for a caller that reaches this handler some other way.
+/**
+ * Hand a validated upload to WordPress (EXIF stripped on the way in) and make it the player's photo.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return bool Whether the new photo is now the player's thumbnail.
+ */
+function blueline_store_uploaded_player_photo( int $player_id ): bool {
+	// admin-post.php already loads these; the guard only matters for another caller.
 	if ( ! function_exists( 'media_handle_upload' ) ) {
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 		require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -142,25 +162,16 @@ function blueline_handle_player_photo_upload(): void {
 	$attachment_id = media_handle_upload( 'player_photo', $player_id );
 	remove_filter( 'wp_handle_upload', 'blueline_strip_uploaded_photo_metadata' );
 
-	if ( is_wp_error( $attachment_id ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'error' );
-	}
-
-	if ( ! blueline_set_player_photo( $player_id, $attachment_id ) ) {
-		blueline_redirect_after_photo_upload( $redirect, 'error' );
-	}
-
-	blueline_redirect_after_photo_upload( $redirect, 'updated' );
+	return ! is_wp_error( $attachment_id ) && blueline_set_player_photo( $player_id, $attachment_id );
 }
 
 /**
  * The largest bitmap (width x height, in pixels) a player photo may declare.
  *
- * Decoding allocates about width x height x 4 bytes, and the 2MB byte cap
- * alone does not bound that: a tiny, highly compressed PNG can declare tens
- * of thousands of pixels per side. The default of 40,000,000 px (about
- * 6300 x 6300, 160MB decoded) is far above any real phone or camera photo
- * that fits in 2MB, yet low enough to keep the decode inside a PHP worker.
+ * Decoding allocates about width x height x 4 bytes, and the byte cap alone does not bound
+ * that: a tiny, highly compressed PNG can declare tens of thousands of pixels per side. The
+ * default of 40,000,000 px (about 6300 x 6300, 160MB decoded) is far above any real photo that
+ * fits in 2MB, yet low enough to keep the decode inside a PHP worker.
  *
  * @param array $image_info The getimagesize() result for the upload.
  * @return int Pixel cap, at least 1.
@@ -238,29 +249,6 @@ function blueline_replaced_player_photo_is_deletable( int $previous_id, int $new
 }
 
 /**
- * Whether any post other than $player_id uses $attachment_id as its featured image.
- *
- * @param int $attachment_id Attachment ID.
- * @param int $player_id     The player post to ignore.
- * @return bool
- */
-function blueline_attachment_is_thumbnail_elsewhere( int $attachment_id, int $player_id ): bool {
-	global $wpdb;
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one postmeta lookup across every post type and status (get_posts() cannot cover both); wp_postmeta indexes meta_key and post_id but not meta_value, so this scans the _thumbnail_id rows -- acceptable because it only runs on a photo replacement, never on a page view; must not be cached because it gates a delete.
-	$other_post = $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value = %s AND post_id != %d LIMIT 1",
-			(string) $attachment_id,
-			$player_id
-		)
-	);
-
-	// Fail closed: a failed lookup counts as "still in use".
-	return null !== $other_post || '' !== (string) $wpdb->last_error;
-}
-
-/**
  * `wp_handle_upload` filter, added only around the player-photo upload:
  * strip EXIF/GPS from the stored original before WordPress builds its
  * sub-sizes from it. Fails closed -- an unstrippable file is deleted and
@@ -301,8 +289,7 @@ function blueline_strip_image_metadata( string $path, string $mime ): bool {
 		return 'image/gif' === $mime;
 	}
 
-	// Prefer GD for this one re-encode (see blueline_prefer_gd_image_editor()); WordPress still falls
-	// back to Imagick, and the Imagick handling below, when GD cannot do the job.
+	// GD first (see blueline_prefer_gd_image_editor()); WordPress still falls back to Imagick when GD cannot do the job.
 	add_filter( 'wp_image_editors', 'blueline_prefer_gd_image_editor', PHP_INT_MAX );
 	$editor = wp_get_image_editor( $path );
 	remove_filter( 'wp_image_editors', 'blueline_prefer_gd_image_editor', PHP_INT_MAX );
@@ -312,8 +299,7 @@ function blueline_strip_image_metadata( string $path, string $mime ): bool {
 
 	$editor->maybe_exif_rotate();
 
-	// Imagick keeps the EXIF/IPTC/XMP profiles on save, so remove them from the editor's
-	// own handle first: one decode and one lossy encode instead of a second pass over the file.
+	// Strip on the editor's own Imagick handle so there is one decode and one lossy encode, not a second pass over the file.
 	$stripped_in_editor = false;
 	if ( $editor instanceof WP_Image_Editor_Imagick ) {
 		$image = blueline_imagick_editor_handle( $editor );
@@ -419,18 +405,10 @@ function blueline_strip_imagick_profiles( string $path ): bool {
 add_action( 'template_redirect', 'blueline_redirect_profile_picture_endpoint' );
 /**
  * 301 sportspress-player-tools' own /account/profile-picture/ endpoint to
- * /account/player-profile/, which now carries the same capability (see
- * blueline_render_player_profile_bio_section()'s own docblock for why that
- * plugin's page never actually worked for a real player) plus everything
- * else Player Profile already shows.
+ * /account/player-profile/, which now carries the same capability.
  *
- * This is a THIRD-PARTY plugin's rewrite endpoint, not a WooCommerce
- * built-in -- deliberately its own small check, not folded into
- * blueline_account_endpoints()/blueline_account_legacy_redirect_map()
- * (inc/account/endpoints.php), which exist specifically to rename
- * WooCommerce's OWN default slugs without breaking WC_Query's internal
- * query-var resolution. 'profile-picture' has no such internal meaning to
- * preserve; it only needs to stop resolving to the plugin's broken page.
+ * Deliberately separate from the legacy map in account-endpoints.php: that map only renames
+ * WooCommerce's own slugs, and 'profile-picture' belongs to a third-party plugin.
  *
  * @return void
  */

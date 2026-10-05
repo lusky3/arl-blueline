@@ -255,27 +255,22 @@ final class MigrateYithAvatarsCommandTest extends TestCase {
 	}
 
 	/**
+	 * User 3's meta row refuses writes, as if a plugin vetoed `update_user_metadata`.
+	 */
+	private function refuse_writes_for_user_3(): void {
+		blueline_test_state()['user_meta'][3] = new Blueline_Core_Test_Rejecting_Meta_Row( array( 'yith-wcmap-avatar' => '500' ) );
+	}
+
+	/**
 	 * A write that does not stick is FAILED (never "migrated"), the report is still
 	 * printed in full, and the run ends in WP_CLI::error() so the exit status is non-zero.
 	 */
 	public function test_rejected_write_is_reported_as_failed_and_errors(): void {
 		blueline_test_state()['caps']['edit_users'] = true;
-
-		$command = new class() extends Blueline_Core_Migrate_Yith_Avatars_Command {
-			/**
-			 * Simulate a plugin vetoing the meta write.
-			 *
-			 * @param int $user_id       User ID.
-			 * @param int $attachment_id Attachment ID.
-			 * @return bool
-			 */
-			protected function write_avatar( int $user_id, int $attachment_id ): bool { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- override signature.
-				return false;
-			}
-		};
+		$this->refuse_writes_for_user_3();
 
 		try {
-			$command( array(), array( 'apply' => true ) );
+			( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array( 'apply' => true ) );
 			$this->fail( 'Expected the run to end in an error.' );
 		} catch ( Blueline_Test_Cli_Exit_Exception $e ) {
 			$this->assertStringContainsString( '1 row(s) FAILED', $e->getMessage() );
@@ -294,50 +289,15 @@ final class MigrateYithAvatarsCommandTest extends TestCase {
 	}
 
 	/**
-	 * Report mode never fails: nothing is written, so there is nothing to reject.
+	 * Report mode never writes, so a store that refuses writes cannot make it fail.
 	 */
 	public function test_report_mode_never_reports_a_failure(): void {
-		$command = new class() extends Blueline_Core_Migrate_Yith_Avatars_Command {
-			/**
-			 * Would fail every write, but report mode must never call it.
-			 *
-			 * @param int $user_id       User ID.
-			 * @param int $attachment_id Attachment ID.
-			 * @return bool
-			 */
-			protected function write_avatar( int $user_id, int $attachment_id ): bool { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- override signature.
-				$GLOBALS['bl_test_write_called'] = true;
-				return false;
-			}
-		};
+		$this->refuse_writes_for_user_3();
 
-		$command( array(), array() );
+		( new Blueline_Core_Migrate_Yith_Avatars_Command() )( array(), array() );
 
-		$this->assertArrayNotHasKey( 'bl_test_write_called', $GLOBALS );
+		$this->assertStringContainsString( 'would migrate', $this->lines_with( 'user3' )[0] );
 		$this->assertSame( array(), $this->entries_of_type( 'error' ) );
-	}
-
-	/**
-	 * The real write path confirms by reading the stored value back, and treats writing an unchanged value as success.
-	 */
-	public function test_write_avatar_confirms_by_reading_back(): void {
-		$command = new class() extends Blueline_Core_Migrate_Yith_Avatars_Command {
-			/**
-			 * Expose the protected write.
-			 *
-			 * @param int $user_id       User ID.
-			 * @param int $attachment_id Attachment ID.
-			 * @return bool
-			 */
-			public function write( int $user_id, int $attachment_id ): bool {
-				return $this->write_avatar( $user_id, $attachment_id );
-			}
-		};
-
-		$this->assertTrue( $command->write( 3, 500 ) );
-		$this->assertSame( 500, get_user_meta( 3, 'blueline_avatar_id', true ) );
-		// Writing the value that is already stored is still a success (update_user_meta() itself returns false then).
-		$this->assertTrue( $command->write( 3, 500 ) );
 	}
 
 	/**

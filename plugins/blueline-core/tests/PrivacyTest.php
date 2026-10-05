@@ -1,6 +1,6 @@
 <?php
 /**
- * Unit tests for includes/privacy/privacy.php (SEC-02: user enumeration).
+ * Unit tests for includes/privacy/privacy.php (user enumeration).
  *
  * @package blueline-core
  */

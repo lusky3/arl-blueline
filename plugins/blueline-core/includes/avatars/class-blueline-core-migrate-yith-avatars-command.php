@@ -1,23 +1,19 @@
 <?php
 /**
- * `wp blueline-core migrate-yith-avatars [--apply]`. Ported from
- * scripts/one-off/2026-08-11-migrate-yith-avatars.php (same source, same
- * safety checks; see that file's docblock for the staging evidence).
+ * `wp blueline-core migrate-yith-avatars [--apply] [--force]`.
  *
  * Source is user meta `yith-wcmap-avatar` (YITH's real per-user link), not the
- * `yith_wcmap_users_avatar_ids` option, which is a flat bookkeeping list of
- * attachment IDs and is printed as evidence only. Neither YITH record is ever
- * written or deleted: this copies into `blueline_avatar_id`. Report-only unless
- * `--apply`; idempotent.
+ * `yith_wcmap_users_avatar_ids` option, which is a flat list of attachment IDs printed as
+ * evidence only. Neither YITH record is ever written or deleted: this copies into
+ * `blueline_avatar_id`. Report-only unless `--apply`; idempotent.
  *
- * A user who already has a DIFFERENT `blueline_avatar_id` is reported as
- * CONFLICT and left alone: that value was chosen on this site (or by an
- * earlier run) and YITH's copy is the older record, so overwriting it
- * silently would lose the newer choice. `--force` overwrites deliberately.
+ * A user who already has a DIFFERENT `blueline_avatar_id` is reported as CONFLICT and left
+ * alone: that value was chosen on this site (or by an earlier run) and YITH's copy is the
+ * older record. `--force` overwrites deliberately.
  *
- * Exit status: a row whose write did not stick is FAILED and the command ends
- * with WP_CLI::error() (non-zero). Skipped rows and conflicts end with a
- * warning (exit 0), since they are data to review, not errors in the run.
+ * Exit status: a row whose write did not stick is FAILED and the command ends with
+ * WP_CLI::error() (non-zero). Skipped rows and conflicts end with a warning (exit 0): they
+ * are data to review, not errors in the run.
  *
  * @package blueline-core
  */
@@ -79,10 +75,9 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 		$apply = ! empty( $assoc_args['apply'] );
 		$force = ! empty( $assoc_args['force'] );
 
-		// Refuse before reading or printing anything, as the original script did.
+		// Refuse before reading or printing anything.
 		if ( $apply && ! current_user_can( 'edit_users' ) ) {
 			WP_CLI::error( 'Refusing to apply: no current user with the edit_users capability. Re-run with --user=<an-administrator-id>.' );
-			return;
 		}
 
 		$option_value = get_option( self::YITH_OPTION, array() );
@@ -92,10 +87,9 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 		WP_CLI::log( self::YITH_OPTION . ' = ' . wp_json_encode( $option_value ) );
 		WP_CLI::log( '' );
 
-		$seen = array();
 		$rows = array();
 		foreach ( $this->yith_users() as $user ) {
-			$rows[] = $this->migrate_user( (int) $user->ID, (string) $user->user_login, $apply, $force, $seen );
+			$rows[] = $this->process_user( (int) $user->ID, (string) $user->user_login, $apply, $force );
 		}
 
 		WP_CLI::log( $apply ? '=== APPLYING -- writing blueline_avatar_id ===' : '=== REPORT MODE (default) -- no writes will be made; pass --apply to write ===' );
@@ -107,7 +101,8 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 		WP_CLI::log( '' );
 		WP_CLI::log( 'Rows found (real user -> attachment links): ' . count( $rows ) );
 
-		$orphans = self::orphaned_attachment_ids( $option_value, $seen );
+		$owned_ids = array_filter( array_map( 'absint', array_column( $rows, 'attachment_id' ) ) );
+		$orphans   = self::orphaned_attachment_ids( $option_value, $owned_ids );
 		if ( $orphans ) {
 			WP_CLI::log( 'Orphaned entries in ' . self::YITH_OPTION . ' with no owning user (not migrated -- nothing to attribute them to): ' . implode( ', ', $orphans ) );
 		}
@@ -119,10 +114,10 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 	}
 
 	/**
-	 * Summarise the run and surface what needs attention: warnings for skipped
-	 * rows and conflicts, and a final error (non-zero exit) when any write failed.
+	 * Summarise the run: warnings for skipped rows and conflicts, and a final error
+	 * (non-zero exit) when any write failed.
 	 *
-	 * @param array<int, array<string, mixed>> $rows Rows from migrate_user().
+	 * @param array<int, array<string, mixed>> $rows Rows from process_user().
 	 * @return void
 	 */
 	private function report_outcomes( array $rows ): void {
@@ -160,7 +155,7 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 	 *
 	 * @return object[] Rows carrying ID and user_login.
 	 */
-	protected function yith_users(): array {
+	private function yith_users(): array {
 		return get_users(
 			array(
 				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- one-off migration command, not a request-time query.
@@ -178,19 +173,18 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 	}
 
 	/**
-	 * Evaluate (and with $apply, write) one user's avatar; returns its table row.
+	 * Evaluate one user's avatar, write it when $apply says so, and return its table row.
 	 *
 	 * The row's extra `outcome` key (not a printed column) is one of
 	 * migrate, noop, skipped, conflict or failed, for the run summary.
 	 *
-	 * @param int              $user_id    User ID.
-	 * @param string           $user_login Login, for the report.
-	 * @param bool             $apply      Whether to write.
-	 * @param bool             $force      Whether to overwrite a different existing avatar.
-	 * @param array<int, true> &$seen      Attachment IDs owned by some user (filled in).
+	 * @param int    $user_id    User ID.
+	 * @param string $user_login Login, for the report.
+	 * @param bool   $apply      Whether to write.
+	 * @param bool   $force      Whether to overwrite a different existing avatar.
 	 * @return array<string, string|int>
 	 */
-	private function migrate_user( int $user_id, string $user_login, bool $apply, bool $force, array &$seen ): array {
+	private function process_user( int $user_id, string $user_login, bool $apply, bool $force ): array {
 		$raw_value     = get_user_meta( $user_id, self::YITH_META_KEY, true );
 		$attachment_id = absint( $raw_value );
 		$existing      = absint( get_user_meta( $user_id, BLUELINE_AVATAR_META_KEY, true ) );
@@ -210,8 +204,7 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 			);
 		}
 
-		$seen[ $attachment_id ] = true;
-		$planned                = $apply ? (string) $attachment_id : $attachment_id . ' (report only)';
+		$planned = $apply ? (string) $attachment_id : $attachment_id . ' (report only)';
 
 		if ( 'attachment' !== get_post_type( $attachment_id ) ) {
 			$outcome = 'skipped';
@@ -251,16 +244,16 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 	/**
 	 * Write `blueline_avatar_id` and confirm it stuck.
 	 *
-	 * The function update_user_meta() returns false for BOTH a rejected write (for example a
-	 * plugin vetoing it through `update_user_metadata`) and an unchanged value,
-	 * so its return value alone cannot say which. The stored value is read back
-	 * instead: the write counts only if the meta now holds the attachment ID.
+	 * Core's update_user_meta() returns false for BOTH a rejected write (a plugin vetoing it through
+	 * `update_user_metadata`) and an unchanged value, so its return value cannot say which.
+	 * The stored value is read back instead: the write counts only if the meta now holds the
+	 * attachment ID.
 	 *
 	 * @param int $user_id       User ID.
 	 * @param int $attachment_id Attachment ID to store.
 	 * @return bool Whether the stored value is now $attachment_id.
 	 */
-	protected function write_avatar( int $user_id, int $attachment_id ): bool {
+	private function write_avatar( int $user_id, int $attachment_id ): bool {
 		update_user_meta( $user_id, BLUELINE_AVATAR_META_KEY, $attachment_id );
 
 		return absint( get_user_meta( $user_id, BLUELINE_AVATAR_META_KEY, true ) ) === $attachment_id;
@@ -269,12 +262,12 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 	/**
 	 * Attachment IDs in the YITH option that no user's meta points at.
 	 *
-	 * @param array            $option_value The option's value.
-	 * @param array<int, true> $seen         Attachment IDs some user owns.
+	 * @param array $option_value The option's value.
+	 * @param int[] $owned_ids    Attachment IDs some user owns.
 	 * @return int[]
 	 */
-	public static function orphaned_attachment_ids( array $option_value, array $seen ): array {
-		return array_values( array_diff( array_map( 'absint', array_values( $option_value ) ), array_keys( $seen ) ) );
+	private static function orphaned_attachment_ids( array $option_value, array $owned_ids ): array {
+		return array_values( array_diff( array_map( 'absint', array_values( $option_value ) ), $owned_ids ) );
 	}
 
 	/**
@@ -283,7 +276,7 @@ class Blueline_Core_Migrate_Yith_Avatars_Command extends WP_CLI_Command {
 	 * @param array<string, string|int> $row Row keyed by COLUMNS.
 	 * @return string
 	 */
-	public static function table_row( array $row ): string {
+	private static function table_row( array $row ): string {
 		$cells = array();
 		foreach ( self::COLUMNS as $key => $width ) {
 			$cells[] = str_pad( (string) $row[ $key ], $width );

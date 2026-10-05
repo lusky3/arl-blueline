@@ -1,6 +1,6 @@
 <?php
 /**
- * Unit tests.
+ * Unit tests for the admin-bar module.
  *
  * @package blueline-core
  */
@@ -10,12 +10,8 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../includes/admin-bar/admin-bar.php';
 
 /**
- * Live-site review: a plain player-role account signed in to /account saw
- * the full WordPress/SportsPress admin toolbar, including a direct
- * "ARL Settings" link (/wp-admin/admin.php?page=sportspress) and "Admin
- * Notices" -- covers blueline_hide_admin_bar_for_players(), the
- * `show_admin_bar` filter callback that hides it for anyone without
- * `manage_options` (every such role, not only players).
+ * Covers blueline_hide_admin_bar_for_players(), the `show_admin_bar` callback that hides the
+ * toolbar from anyone without `manage_options` (every such role, not only players).
  */
 final class AdminBarPlayerVisibilityTest extends TestCase {
 

@@ -6,6 +6,8 @@
  */
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../includes/seo-meta/seo-meta.php';
@@ -23,6 +25,7 @@ final class SeoMetaOutputTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
+		unset( $GLOBALS['shortcode_tags'] );
 
 		$state              = &blueline_test_state();
 		$state['posts'][55] = array( 'is_image' => true );
@@ -125,7 +128,7 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// C-01: plain-text titles
+	// Plain-text titles
 	// -----------------------------------------------------------------------
 
 	/**
@@ -240,25 +243,33 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	/**
-	 * The venue label is plain text too (term names are stored entity-encoded).
+	 * Without the theme's label helper the venue is the first sp_venue term name, as plain text
+	 * (term names are stored entity-encoded).
 	 */
-	public function test_venue_label_is_decoded(): void {
+	public function test_venue_label_is_the_decoded_term_name(): void {
 		blueline_test_register_term( 900, 'sp_venue', 'Arena &amp; Pad' );
 		blueline_test_set_post_terms( 100, 'sp_venue', array( 900 ) );
-
-		if ( function_exists( 'blueline_sp_event_venue_label' ) ) {
-			// The theme's helper is loaded in this process (it needs a real WP_Term, which the stub
-			// environment lacks): the wrapper must still return its answer as plain text.
-			$this->assertSame( blueline_core_seo_plain_text( blueline_sp_event_venue_label( 100 ) ), blueline_core_seo_event_venue_label( 100 ) );
-
-			return;
-		}
 
 		$this->assertSame( 'Arena & Pad', blueline_core_seo_event_venue_label( 100 ) );
 	}
 
+	/**
+	 * When the theme provides its arena/pad label, that wins, still reduced to plain text. Runs in
+	 * its own process because the fake theme function cannot be un-defined for later tests.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_venue_label_prefers_the_themes_label_as_plain_text(): void {
+		eval( 'function blueline_sp_event_venue_label( int $event_id ): string { return "Central Arena &amp; Rink &mdash; Pad 2"; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- defines the theme function only in this isolated process.
+
+		blueline_test_register_term( 900, 'sp_venue', 'Pad 2' );
+		blueline_test_set_post_terms( 100, 'sp_venue', array( 900 ) );
+
+		$this->assertSame( 'Central Arena & Rink — Pad 2', blueline_core_seo_event_venue_label( 100 ) );
+	}
+
 	// -----------------------------------------------------------------------
-	// C-02: eventStatus
+	// eventStatus
 	// -----------------------------------------------------------------------
 
 	/**
@@ -370,7 +381,7 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// C-10: filters
+	// SEO-plugin filters
 	// -----------------------------------------------------------------------
 
 	/**
@@ -396,7 +407,7 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// C-06: JSON hardening
+	// JSON hardening
 	// -----------------------------------------------------------------------
 
 	/**
@@ -429,7 +440,7 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------------
-	// C-08: description without the content filter chain
+	// Description without the content filter chain
 	// -----------------------------------------------------------------------
 
 	/**
@@ -473,7 +484,8 @@ final class SeoMetaOutputTest extends TestCase {
 				return $content;
 			}
 		);
-		$words = implode( ' ', array_map( static fn( $i ) => 'word' . $i, range( 1, 40 ) ) );
+		$GLOBALS['shortcode_tags']['gallery'] = '__return_empty_string'; // Registered, so strip_shortcodes() removes it.
+		$words                                = implode( ' ', array_map( static fn( $i ) => 'word' . $i, range( 1, 40 ) ) );
 		$this->set_up_singular_request(
 			311,
 			'post',
@@ -488,6 +500,15 @@ final class SeoMetaOutputTest extends TestCase {
 		$this->assertStringNotContainsString( '<', $description );
 		$this->assertCount( 30, explode( ' ', rtrim( $description, '…' ) ) );
 		$this->assertSame( 0, $rendered[0], 'No the_content filtering in wp_head.' );
+	}
+
+	/**
+	 * Only registered shortcodes are stripped, as in core; an unregistered tag's text stays.
+	 */
+	public function test_unregistered_shortcodes_are_left_in_the_description(): void {
+		$this->set_up_singular_request( 314, 'post', array( 'content' => 'Hello [unknownshort] world' ) );
+
+		$this->assertSame( 'Hello [unknownshort] world', blueline_core_seo_post_description( 314 ) );
 	}
 
 	/**

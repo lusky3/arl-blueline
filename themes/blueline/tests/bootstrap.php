@@ -706,9 +706,8 @@ function blueline_test_reset_state(): void {
 		'queried_post_type' => '',
 	);
 
-	if ( function_exists( 'blueline_linked_player_cache' ) ) {
-		$cache = &blueline_linked_player_cache();
-		$cache = array();
+	if ( function_exists( 'wp_cache_flush' ) ) {
+		wp_cache_flush(); // The plugin's request-scoped memos live in the object cache.
 	}
 }
 
@@ -1051,6 +1050,14 @@ if ( ! function_exists( 'get_posts' ) ) {
 	 * @return int[]
 	 */
 	function get_posts( $args = array() ) {
+		// A suite may model query shapes this stub cannot (see plugins/blueline-core/tests/stubs/player-link.php); null means "not mine".
+		if ( isset( $GLOBALS['bl_test_get_posts_model'] ) ) {
+			$modelled = $GLOBALS['bl_test_get_posts_model']( $args );
+			if ( null !== $modelled ) {
+				return $modelled;
+			}
+		}
+
 		$state = &blueline_test_state();
 
 		$key   = (string) ( $args['meta_key'] ?? '' );

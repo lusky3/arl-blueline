@@ -6,7 +6,7 @@
  */
 
 // phpcs:disable Universal.Files.SeparateFunctionsFromOO.Mixed -- the class stand-ins belong with the function stubs that return them.
-// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound -- three one-line stand-ins for WP_User, WP_Post, WP_Comment.
+// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound -- the small stand-in classes (WP_User, WP_Post, WP_Comment, a write-refusing meta row).
 
 if ( ! class_exists( 'WP_User' ) ) {
 	/**
@@ -80,6 +80,23 @@ if ( ! class_exists( 'WP_Comment' ) ) {
 	}
 }
 
+if ( ! class_exists( 'Blueline_Core_Test_Rejecting_Meta_Row' ) ) {
+	/**
+	 * A user's meta row that silently ignores writes, as update_user_meta() behaves when a plugin
+	 * vetoes it through `update_user_metadata`. Assign it to $state['user_meta'][ $user_id ].
+	 */
+	class Blueline_Core_Test_Rejecting_Meta_Row extends ArrayObject {
+
+		/**
+		 * Ignore the write.
+		 *
+		 * @param mixed $key   Meta key.
+		 * @param mixed $value Meta value.
+		 */
+		public function offsetSet( mixed $key, mixed $value ): void {} // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- override signature.
+	}
+}
+
 if ( ! function_exists( 'get_users' ) ) {
 	/**
 	 * Stand-in for get_users() over the state's 'users' and 'user_meta'.
@@ -111,7 +128,7 @@ if ( ! function_exists( 'get_users' ) ) {
 			}
 
 			if ( '' !== $key ) {
-				$row = $state['user_meta'][ $user_id ] ?? array();
+				$row = (array) ( $state['user_meta'][ $user_id ] ?? array() );
 				if ( ! array_key_exists( $key, $row ) ) {
 					continue;
 				}

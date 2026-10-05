@@ -47,7 +47,7 @@ final class AccountNavItemsTest extends TestCase {
 	}
 
 	/**
-	 * Sub-project 2 (Preferences page): 'preferences' must carry its own
+	 * 'preferences' must carry its own
 	 * group -- never 'billing' -- so the nav template renders it as a
 	 * top-level pill, never inside the Billing disclosure.
 	 */
@@ -83,7 +83,7 @@ final class AccountNavItemsTest extends TestCase {
 	}
 
 	/**
-	 * Sub-project 3 (Player Profile tab): 'player-profile' must carry the
+	 * 'player-profile' must carry the
 	 * 'league' group -- never 'billing' -- so the nav template renders it
 	 * as a top-level pill, never inside the Billing disclosure.
 	 */

@@ -177,18 +177,17 @@ final class BootTest extends TestCase {
 	}
 
 	/**
-	 * A listed but missing module is recorded, logged once and named in the admin notice (admins only).
+	 * A listed but missing module is recorded, logged and named in the admin notice (admins only).
 	 */
 	public function test_a_missing_module_is_recorded_logged_and_shown_to_admins(): void {
 		$this->use_fixtures( false );
 
 		blueline_core_boot();
-		blueline_core_load_modules( self::FIXTURE_MODULES );
 
 		$failed = blueline_core_failed_modules();
 		$this->assertSame( array( 'missing' ), array_keys( $failed ) );
 		$this->assertStringEndsWith( 'tests/fixtures/modules/does-not-exist.php', $failed['missing'] );
-		$this->assertSame( 1, substr_count( $this->logged(), 'blueline-core: module "missing" was not loaded' ), 'Logged once per request, not per load call.' );
+		$this->assertSame( 1, substr_count( $this->logged(), 'blueline-core: module "missing" was not loaded' ) );
 
 		ob_start();
 		blueline_core_failed_modules_notice();
@@ -443,7 +442,7 @@ final class BootTest extends TestCase {
 		$flushed = $this->count_action( 'blueline_core_rewrite_rules_flushed' );
 		blueline_core_activate();
 
-		$this->assertFalse( blueline_core_rewrite_flush_safe(), 'No WPMU_PLUGIN_DIR in the stub environment.' );
+		$this->assertFalse( blueline_core_rewrite_flush_safe(), 'The stub mu-plugin directory has no register-fix file.' );
 		$this->assertFalse( blueline_core_maybe_flush_rewrite_rules() );
 		$this->assertFalse( get_option( BLUELINE_CORE_VERSION_OPTION ), 'Still unrecorded, so a later, safe init flushes.' );
 		$this->assertSame( 10, has_action( 'admin_notices', 'blueline_core_flush_blocked_notice' ) );

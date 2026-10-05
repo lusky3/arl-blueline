@@ -93,15 +93,13 @@ function blueline_core_ownership_other_owned_player( int $user_id, int $player_i
 }
 
 /**
- * Enrich raw linked-player rows with the linked user, a category and, for the
- * rows `apply` could act on (role_not_author), the evidence an operator needs
- * to judge them: name-match score, post date and risk flags. The extra lookups
- * run only for those rows, not for every linked player.
+ * Enrich raw linked-player rows with the linked user, a category and, for the rows `apply` could
+ * act on (role_not_author), the evidence to judge them: name-match score, post date and risk
+ * flags. The extra lookups run only for those rows.
  *
- * `name_score` is blueline_name_match_score() of the linked user's billing or
- * display name against the player title (0 when the user does not exist). A
- * low score on a row that would be handed ownership is the sign of a stranger's
- * name claim made before the claimant registered.
+ * `name_score` is blueline_name_match_score() of the linked user's billing or display name
+ * against the player title (0 when the user does not exist). A low score on a row that would be
+ * handed ownership suggests a stranger's name claim made before the claimant registered.
  *
  * @param object[] $linked Rows with ID, post_title, post_author, sp_user (and optionally post_date).
  * @return array<int, array{player_id:int, player:string, sp_user:int, user_login:string, post_author:int, category:string, post_date:string, name_score:float, flags:string}>
@@ -177,10 +175,9 @@ function blueline_core_ownership_parse_ids( string $raw ) {
 /**
  * Decide whether `apply` may set $player_id's post_author to its linked user.
  *
- * Refuses, with a reason, when handing over ownership would look wrong:
- * the linked user already owns a different player (one account, one record), or
- * the current post_author is an existing user who holds the Player role (a real
- * registrant's record; not an unset legacy author such as an admin).
+ * Refuses, with a reason, when handing over ownership would look wrong: the linked user already
+ * owns a different player (one account, one record), or the current post_author is an existing
+ * user with the Player role (a real registrant's record, not an unset legacy author such as an admin).
  *
  * @param int $player_id sp_player post ID.
  * @return array{ok:bool, reason:string, from:int, to:int}
@@ -219,10 +216,9 @@ function blueline_core_ownership_plan( int $player_id ): array {
 /**
  * Decide whether `unlink` may remove $player_id's sp_user row.
  *
- * Only a view-only name claim (linked user is neither post_author nor a Player
- * role holder) or a dangling link (user no longer exists) may be removed: a
- * verified owner, a Player-role member or the post_author is never unlinked by
- * this tool.
+ * Only a view-only name claim (linked user is neither post_author nor a Player role holder) or a
+ * dangling link (user no longer exists) may be removed; a verified owner, a Player-role member
+ * or the post_author is never unlinked by this tool.
  *
  * @param int $player_id sp_player post ID.
  * @return array{ok:bool, reason:string, user:int, category:string}
@@ -265,9 +261,8 @@ function blueline_core_ownership_unlink_plan( int $player_id ): array {
 /**
  * One CSV line (RFC 4180 quoting).
  *
- * A cell that starts with = + - @ tab or CR would be evaluated as a formula by
- * spreadsheet software (player titles and logins are user-supplied), so it is
- * prefixed with a single quote, which spreadsheets treat as "text".
+ * A cell starting with = + - @ tab or CR would be evaluated as a formula by spreadsheet software
+ * (player titles and logins are user-supplied), so it gets a leading single quote ("text").
  *
  * @param array<int|string, scalar> $cells Cell values.
  * @return string

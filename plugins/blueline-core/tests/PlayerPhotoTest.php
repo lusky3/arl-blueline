@@ -246,7 +246,7 @@ final class PlayerPhotoTest extends TestCase {
 	}
 
 	/**
-	 * A-08: when set_post_thumbnail() fails the new attachment is deleted, the
+	 * When set_post_thumbnail() fails the new attachment is deleted, the
 	 * previous (flagged, deletable) photo is kept and failure is reported.
 	 */
 	public function test_set_player_photo_failure_deletes_the_new_attachment_and_keeps_the_old_photo(): void {
@@ -263,7 +263,7 @@ final class PlayerPhotoTest extends TestCase {
 	}
 
 	/**
-	 * A-08: a set that claims success but does not read back as the new
+	 * A set that claims success but does not read back as the new
 	 * attachment must not delete the previous photo either.
 	 */
 	public function test_set_player_photo_unconfirmed_thumbnail_keeps_the_old_photo(): void {
@@ -298,7 +298,7 @@ final class PlayerPhotoTest extends TestCase {
 	}
 
 	/**
-	 * SEC-01: a name-claimed link (no Player role / not post_author) cannot change the photo.
+	 * A name-claimed link (no Player role / not post_author) cannot change the photo.
 	 */
 	public function test_upload_by_a_name_claimed_link_is_refused(): void {
 		$state                              = &blueline_test_state();

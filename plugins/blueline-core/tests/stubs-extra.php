@@ -10,6 +10,11 @@
  * @package blueline-core
  */
 
+if ( ! defined( 'WPMU_PLUGIN_DIR' ) ) {
+	// Core always defines it; an empty directory, so the register-fix mu-plugin is never "present".
+	define( 'WPMU_PLUGIN_DIR', sys_get_temp_dir() . '/blueline-core-tests-no-mu-plugins' );
+}
+
 if ( ! function_exists( 'register_activation_hook' ) ) {
 	/**
 	 * Stand-in for register_activation_hook(): records the callback per plugin file.

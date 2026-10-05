@@ -1,75 +1,33 @@
 <?php
 /**
- * Custom avatars from user meta `blueline_avatar_id`. Moved from
- * themes/blueline/inc/account/avatars.php.
+ * Custom avatars from user meta `blueline_avatar_id`, replacing yith-woocommerce-customize-myaccount-page's.
  *
- * Replaces yith-woocommerce-customize-myaccount-page's custom-avatar feature
- * (spec §6.6, Task 13). YITH's actual per-user link -- confirmed by reading
- * its own source (`includes/class-yith-wcmap-avatar.php`) and staging's real
- * data, not assumed -- is user meta `yith-wcmap-avatar` (an attachment ID),
- * read via `get_user_avatar_id()` and substituted with a hand-built <img>
- * tag on the low-level `pre_get_avatar` filter. The `yith_wcmap_users_avatar_ids`
- * option is a separate, internal bookkeeping list (every attachment ID the
- * plugin has ever used as *someone's* avatar, for cleanup/media-library
- * filtering) -- it is not keyed by user ID, and can go stale relative to the
- * real per-user links (see the migration script for the staging evidence).
+ * Filters the data-only `pre_get_avatar_data` and sets just `$args['url']`, so core builds the
+ * <img> markup (class, size, loading attributes) exactly as it does for a Gravatar; one filter
+ * covers get_avatar() and get_avatar_url(). `$args['alt']` is the caller's job and is left alone.
  *
- * This file filters the later, data-only `pre_get_avatar_data` hook instead
- * of `pre_get_avatar` -- setting only `$args['url']` and letting core's own
- * get_avatar_data()/get_avatar() build the final <img> markup (class,
- * height, width, alt, loading/fetchpriority/decoding attributes) exactly as
- * it would for a Gravatar, rather than re-implementing that markup by hand
- * the way YITH's `get_avatar()` callback does. `get_avatar_url()` is itself
- * a thin wrapper around `get_avatar_data()` (see
- * wp-includes/link-template.php), so this one filter covers both core entry
- * points the task interface names.
- *
- * The migrated data lives in user meta `blueline_avatar_id`, written by
- * `wp blueline-core migrate-yith-avatars --apply` (class-blueline-core-migrate-yith-avatars-command.php,
- * ported from scripts/one-off/2026-08-11-migrate-yith-avatars.php). Neither
- * `yith-wcmap-avatar` nor `yith_wcmap_users_avatar_ids` is read, written, or
- * deleted here or by the migration script -- YITH's own records are never
- * at risk, and the migration is a copy, not a move.
- *
- * The avatar is personal data: it is included in WordPress's personal-data
- * export and erasure requests by includes/privacy/privacy.php, not here.
- *
- * `$args['alt']` is intentionally left untouched: it is already populated
- * from whatever the get_avatar()/get_avatar_url() caller passed in (core
- * merges the `$alt` parameter into `$args` before `get_avatar_data()` -- and
- * therefore this filter -- ever runs), so a meaningful alt is a call site
- * concern, not this filter's.
+ * The pointer is written by `wp blueline-core migrate-yith-avatars --apply`, which copies from
+ * YITH's `yith-wcmap-avatar` user meta and never writes or deletes YITH's records. The avatar
+ * is personal data: includes/privacy/privacy.php exports and erases it.
  *
  * @package blueline-core
  */
 
 defined( 'ABSPATH' ) || exit;
 
+require_once BLUELINE_CORE_DIR . '/includes/shared/attachment-usage.php';
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/class-blueline-core-migrate-yith-avatars-command.php';
 }
 
-/**
- * User meta key holding a user's theme-owned custom avatar attachment ID.
- *
- * @var string
- */
-const BLUELINE_AVATAR_META_KEY = 'blueline_avatar_id';
-
 add_filter( 'pre_get_avatar_data', 'blueline_pre_get_avatar_data', 10, 2 );
 /**
- * Substitute a user's migrated custom avatar for the default Gravatar
- * resolution, when one is set and its attachment still exists.
+ * Substitute a user's custom avatar for the Gravatar, when one is set and its attachment still exists.
  *
- * Setting `$args['url']` here short-circuits the rest of
- * `get_avatar_data()` (see its `pre_get_avatar_data` filter docs in
- * wp-includes/link-template.php) -- no Gravatar hash or network round-trip
- * is computed, and `get_avatar()`/`get_avatar_url()` take the URL from
- * here. Returning `$args` unchanged (every early-return branch below) falls
- * through to WordPress's normal Gravatar-or-default-image resolution, so a
- * user with no override, or one whose attachment has since been deleted,
- * degrades exactly like any other user -- never a broken image, never a
- * fatal.
+ * Setting `$args['url']` short-circuits the rest of get_avatar_data() (no Gravatar hash is
+ * computed). Every early return leaves `$args` unchanged, so a user with no override, or whose
+ * attachment was deleted, falls back to Gravatar like anyone else.
  *
  * @param array $args        Arguments passed to get_avatar_data(), after processing.
  * @param mixed $id_or_email The avatar to retrieve. Accepts a user ID, email,
@@ -77,9 +35,7 @@ add_filter( 'pre_get_avatar_data', 'blueline_pre_get_avatar_data', 10, 2 );
  * @return array
  */
 function blueline_pre_get_avatar_data( array $args, $id_or_email ): array {
-	// Something with earlier/higher priority already resolved a URL --
-	// don't override a more specific decision (mirrors the short-circuit
-	// contract get_avatar_data() itself documents for this filter).
+	// Something with an earlier priority already resolved a URL: keep that decision.
 	if ( isset( $args['url'] ) ) {
 		return $args;
 	}
@@ -107,13 +63,10 @@ function blueline_pre_get_avatar_data( array $args, $id_or_email ): array {
 }
 
 /**
- * Resolve the WordPress user ID behind get_avatar_data()'s polymorphic
- * $id_or_email parameter, for the shapes that can plausibly own a
- * theme-owned custom avatar.
+ * Resolve the user ID behind get_avatar_data()'s polymorphic $id_or_email parameter.
  *
- * A comment left by a logged-out visitor has no WP user account for a
- * custom avatar to be attached to, so it correctly resolves to 0 here and
- * falls through to Gravatar/default -- not an error case.
+ * A logged-out commenter has no account to own an avatar, so that resolves to 0 and falls
+ * through to Gravatar.
  *
  * @param mixed $id_or_email The avatar to retrieve. Accepts a user ID,
  *                            Gravatar hash, email, WP_User, WP_Post, or

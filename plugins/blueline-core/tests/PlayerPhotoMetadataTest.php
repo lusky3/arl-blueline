@@ -1,6 +1,6 @@
 <?php
 /**
- * Unit tests for the player-photo metadata strip (SEC-05).
+ * Unit tests for the player-photo metadata strip.
  *
  * @package blueline-core
  */
@@ -191,7 +191,7 @@ final class PlayerPhotoMetadataTest extends TestCase {
 	}
 
 	/**
-	 * A-13: the Imagick editor's own handle is stripped BEFORE its single save();
+	 * The Imagick editor's own handle is stripped BEFORE its single save();
 	 * the file is never re-opened for a second decode/encode, and the EXIF/GPS,
 	 * XMP and IPTC profiles are gone (only the colour profile survives).
 	 */
@@ -214,7 +214,7 @@ final class PlayerPhotoMetadataTest extends TestCase {
 	}
 
 	/**
-	 * A-13: if the editor's handle cannot be reached the old second-pass strip still runs (fail closed on metadata).
+	 * If the editor's handle cannot be reached the old second-pass strip still runs (fail closed on metadata).
 	 */
 	public function test_imagick_editor_without_a_reachable_handle_falls_back_to_a_second_pass(): void {
 		$this->require_imagick_stub();
@@ -228,7 +228,7 @@ final class PlayerPhotoMetadataTest extends TestCase {
 	}
 
 	/**
-	 * A-13: a failed save on the Imagick editor still fails the strip.
+	 * A failed save on the Imagick editor still fails the strip.
 	 */
 	public function test_imagick_editor_save_failure_reports_false(): void {
 		$this->require_imagick_stub();

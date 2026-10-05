@@ -1,19 +1,19 @@
 <?php
 /**
- * Unit tests for blueline_handle_player_photo_upload()'s validation branches.
+ * Unit tests for blueline_player_photo_file_status() (every validation branch, in order) and for
+ * blueline_handle_player_photo_upload() (the redirect each outcome maps to).
  *
  * @package blueline-core
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../includes/player-link/player-link.php';
 require_once __DIR__ . '/../includes/player-photo/player-photo.php';
 
 /**
- * Walks the upload handler end to end against real temp files: nonce, upload
- * errors, size, dimensions (image bomb), content sniffing, extension/content
- * mismatch, media_handle_upload failure, the success path and ownership.
+ * Runs the validator and the upload handler against real temp files (real getimagesize()).
  */
 final class PlayerPhotoUploadHandlerTest extends TestCase {
 
@@ -103,23 +103,59 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 	}
 
 	/**
-	 * Point $_FILES['player_photo'] at a fixture.
+	 * A minimal 3x2 BMP: a real image type that is not on the allow-list.
+	 *
+	 * @return string
+	 */
+	private function bmp_header(): string {
+		return 'BM' . pack( 'V', 54 ) . pack( 'vv', 0, 0 ) . pack( 'V', 54 ) . pack( 'V', 40 ) . pack( 'V', 3 ) . pack( 'V', 2 )
+			. pack( 'vv', 1, 24 ) . str_repeat( pack( 'V', 0 ), 6 );
+	}
+
+	/**
+	 * A $_FILES entry for a fixture.
 	 *
 	 * @param string   $bytes File contents.
 	 * @param string   $name  Client file name.
 	 * @param int|null $size  Reported size (defaults to the real one).
 	 * @param int      $error PHP upload error code.
+	 * @return array
 	 */
-	private function upload( string $bytes, string $name, ?int $size = null, int $error = UPLOAD_ERR_OK ): void {
-		$path = $this->temp_file( $bytes );
-
-		$_FILES['player_photo'] = array(
+	private function file( string $bytes, string $name, ?int $size = null, int $error = UPLOAD_ERR_OK ): array {
+		return array(
 			'name'     => $name,
 			'type'     => 'image/png',
-			'tmp_name' => $path,
+			'tmp_name' => $this->temp_file( $bytes ),
 			'error'    => $error,
 			'size'     => $size ?? strlen( $bytes ),
 		);
+	}
+
+	/**
+	 * A $_FILES entry PHP refused before storing anything (no temp file).
+	 *
+	 * @param int $error PHP upload error code.
+	 * @return array
+	 */
+	private function refused_file( int $error ): array {
+		return array(
+			'name'     => 'a.png',
+			'type'     => '',
+			'tmp_name' => '',
+			'error'    => $error,
+			'size'     => 0,
+		);
+	}
+
+	/**
+	 * Point $_FILES['player_photo'] at a fixture.
+	 *
+	 * @param string   $bytes File contents.
+	 * @param string   $name  Client file name.
+	 * @param int|null $size  Reported size (defaults to the real one).
+	 */
+	private function upload( string $bytes, string $name, ?int $size = null ): void {
+		$_FILES['player_photo'] = $this->file( $bytes, $name, $size );
 	}
 
 	/**
@@ -137,6 +173,68 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 		}
 
 		$this->fail( 'The handler must redirect.' );
+	}
+
+	/**
+	 * Every validation branch of blueline_player_photo_file_status(), in the order it is checked.
+	 *
+	 * @return array<string, array{0: callable, 1: string}> Label => [ builder taking the test case, expected status ].
+	 */
+	public static function file_status_cases(): array {
+		return array(
+			'valid png'                                 => array( static fn( self $t ) => $t->file( $t->png_header( 600, 800 ), 'a.png' ), 'ok' ),
+			'valid gif'                                 => array( static fn( self $t ) => $t->file( "GIF89a\x03\x00\x02\x00\x00\x00\x00;", 'a.gif' ), 'ok' ),
+			'exactly the 2MB byte cap'                  => array( static fn( self $t ) => $t->file( $t->png_header( 10, 10 ), 'a.png', 2 * 1024 * 1024 ), 'ok' ),
+			'one byte over the 2MB cap'                 => array( static fn( self $t ) => $t->file( $t->png_header( 10, 10 ), 'a.png', 2 * 1024 * 1024 + 1 ), 'too_large' ),
+			'PHP upload_max_filesize error'             => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_INI_SIZE ), 'too_large' ),
+			'PHP MAX_FILE_SIZE error'                   => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_FORM_SIZE ), 'too_large' ),
+			'PHP partial upload'                        => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_PARTIAL ), 'error' ),
+			'PHP no temp dir'                           => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_NO_TMP_DIR ), 'error' ),
+			'PHP cannot write'                          => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_CANT_WRITE ), 'error' ),
+			'PHP extension stopped it'                  => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_EXTENSION ), 'error' ),
+			'nothing submitted'                         => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_NO_FILE ), 'none' ),
+			'no $_FILES entry at all'                   => array( static fn() => array(), 'none' ),
+			'OK but no temp file'                       => array( static fn( self $t ) => $t->refused_file( UPLOAD_ERR_OK ), 'none' ),
+			'upload error wins over a stale tmp_name'   => array( static fn( self $t ) => $t->file( $t->png_header( 10, 10 ), 'a.png', null, UPLOAD_ERR_INI_SIZE ), 'too_large' ),
+			'byte cap is checked before the bytes'      => array( static fn( self $t ) => $t->file( 'not an image', 'a.png', 2 * 1024 * 1024 + 1 ), 'too_large' ),
+			'text file named .jpg'                      => array( static fn( self $t ) => $t->file( 'just some text, not an image', 'x.jpg' ), 'invalid' ),
+			'real image type off the allow-list (bmp)'  => array( static fn( self $t ) => $t->file( $t->bmp_header(), 'a.bmp' ), 'invalid' ),
+			'zero width'                                => array( static fn( self $t ) => $t->file( $t->png_header( 0, 10 ), 'a.png' ), 'invalid' ),
+			'zero height'                               => array( static fn( self $t ) => $t->file( $t->png_header( 10, 0 ), 'a.png' ), 'invalid' ),
+			'exactly 40,000,000 px'                     => array( static fn( self $t ) => $t->file( $t->png_header( 8000, 5000 ), 'a.png' ), 'ok' ),
+			'one row over 40,000,000 px'                => array( static fn( self $t ) => $t->file( $t->png_header( 8000, 5001 ), 'a.png' ), 'too_large' ),
+			'image bomb'                                => array( static fn( self $t ) => $t->file( $t->png_header( 50000, 50000 ), 'a.png' ), 'too_large' ),
+			'pixel cap is checked before the extension' => array( static fn( self $t ) => $t->file( $t->png_header( 50000, 50000 ), 'x.jpg' ), 'too_large' ),
+			'png bytes under a .jpg name'               => array( static fn( self $t ) => $t->file( $t->png_header( 10, 10 ), 'x.jpg' ), 'invalid' ),
+			'image under a non-image extension'         => array( static fn( self $t ) => $t->file( $t->png_header( 10, 10 ), 'x.txt' ), 'invalid' ),
+			'image with no client name'                 => array( static fn( self $t ) => array_diff_key( $t->file( $t->png_header( 10, 10 ), 'a.png' ), array( 'name' => 1 ) ), 'invalid' ),
+		);
+	}
+
+	/**
+	 * The validator returns the expected status for each branch.
+	 *
+	 * @param callable $build    Builds the $_FILES entry.
+	 * @param string   $expected Expected status.
+	 */
+	#[DataProvider( 'file_status_cases' )]
+	public function test_file_status( callable $build, string $expected ): void {
+		$this->assertSame( $expected, blueline_player_photo_file_status( $build( $this ) ) );
+	}
+
+	/**
+	 * The pixel cap stays tunable through blueline_core_player_photo_max_pixels.
+	 */
+	public function test_file_status_honours_the_pixel_cap_filter(): void {
+		add_filter(
+			'blueline_core_player_photo_max_pixels',
+			static function () {
+				return 50;
+			}
+		);
+
+		$this->assertSame( 'too_large', blueline_player_photo_file_status( $this->file( $this->png_header( 10, 10 ), 'a.png' ) ), '100 px > 50' );
+		$this->assertSame( 'ok', blueline_player_photo_file_status( $this->file( $this->png_header( 5, 10 ), 'a.png' ) ), '50 px <= 50' );
 	}
 
 	/**
@@ -166,7 +264,7 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 	}
 
 	/**
-	 * SEC-01: a Player-role user who is NOT the post_author of the linked player is refused.
+	 * A Player-role user who is NOT the post_author of the linked player is refused.
 	 */
 	public function test_player_role_user_who_is_not_the_post_author_is_refused(): void {
 		blueline_test_state()['posts'][ self::PLAYER ]['author'] = 99;
@@ -177,9 +275,9 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 	}
 
 	/**
-	 * A file over the 2MB byte cap is too_large, without being inspected.
+	 * A refused file (here over the 2MB byte cap) redirects with its status and never reaches WordPress.
 	 */
-	public function test_file_over_two_megabytes_is_too_large(): void {
+	public function test_refused_file_redirects_with_its_status(): void {
 		$this->upload( $this->png_header( 10, 10 ), 'a.png', 2 * 1024 * 1024 + 1 );
 
 		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect() );
@@ -187,131 +285,32 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 	}
 
 	/**
-	 * A-09: PHP's own size errors (upload_max_filesize / MAX_FILE_SIZE) report too_large.
-	 */
-	public function test_php_size_errors_report_too_large(): void {
-		foreach ( array( UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE ) as $error ) {
-			$_FILES['player_photo'] = array(
-				'name'     => 'a.png',
-				'type'     => '',
-				'tmp_name' => '',
-				'error'    => $error,
-				'size'     => 0,
-			);
-
-			$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect(), "error {$error}" );
-		}
-	}
-
-	/**
-	 * A-09: UPLOAD_ERR_NO_FILE is the silent "nothing submitted" redirect.
+	 * Nothing submitted is the silent redirect (no status).
 	 */
 	public function test_no_file_error_redirects_silently(): void {
-		$_FILES['player_photo'] = array(
-			'name'     => '',
-			'type'     => '',
-			'tmp_name' => '',
-			'error'    => UPLOAD_ERR_NO_FILE,
-			'size'     => 0,
-		);
+		$_FILES['player_photo'] = $this->refused_file( UPLOAD_ERR_NO_FILE );
 
 		$this->assertSame( 'https://example.test/account/player-profile/', $this->redirect() );
 	}
 
 	/**
-	 * A-09: any other upload error (partial upload, no temp dir, ...) reports a generic error.
+	 * Any other upload error (partial upload, no temp dir, ...) reports a generic error.
 	 */
 	public function test_other_upload_errors_report_error(): void {
-		foreach ( array( UPLOAD_ERR_PARTIAL, UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION ) as $error ) {
-			$_FILES['player_photo'] = array(
-				'name'     => 'a.png',
-				'type'     => '',
-				'tmp_name' => '',
-				'error'    => $error,
-				'size'     => 0,
-			);
+		$_FILES['player_photo'] = $this->refused_file( UPLOAD_ERR_PARTIAL );
 
-			$this->assertStringContainsString( 'blueline_photo=error', $this->redirect(), "error {$error}" );
-		}
-
+		$this->assertStringContainsString( 'blueline_photo=error', $this->redirect() );
 		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
 	}
 
 	/**
-	 * A-03: a tiny file that declares an enormous bitmap is refused before any decode.
+	 * An invalid file redirects with "invalid" and never reaches WordPress.
 	 */
-	public function test_oversize_pixel_dimensions_are_refused(): void {
-		$this->upload( $this->png_header( 50000, 50000 ), 'bomb.png' );
-
-		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect() );
-		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
-	}
-
-	/**
-	 * A-03: a photo exactly at the default cap passes; one pixel row more does not.
-	 */
-	public function test_pixel_cap_boundary(): void {
-		$this->upload( $this->png_header( 8000, 5000 ), 'edge.png' );
-		$this->assertStringContainsString( 'blueline_photo=updated', $this->redirect(), '40,000,000 px is allowed' );
-
-		$this->upload( $this->png_header( 8000, 5001 ), 'over.png' );
-		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect(), '40,008,000 px is refused' );
-	}
-
-	/**
-	 * A-03: the cap is filterable through blueline_core_player_photo_max_pixels.
-	 */
-	public function test_pixel_cap_is_filterable(): void {
-		add_filter(
-			'blueline_core_player_photo_max_pixels',
-			static function () {
-				return 50;
-			}
-		);
-
-		$this->upload( $this->png_header( 10, 10 ), 'a.png' );
-		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect(), '100 px > 50' );
-
-		$this->upload( $this->png_header( 5, 10 ), 'a.png' );
-		$this->assertStringContainsString( 'blueline_photo=updated', $this->redirect(), '50 px <= 50' );
-	}
-
-	/**
-	 * A zero-dimension header is invalid, not an accidental pass of the pixel cap.
-	 */
-	public function test_zero_dimension_image_is_invalid(): void {
-		$this->upload( $this->png_header( 0, 10 ), 'a.png' );
-
-		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
-	}
-
-	/**
-	 * Not an image at all (text named x.jpg): getimagesize() rejects it.
-	 */
-	public function test_text_file_named_jpg_is_invalid(): void {
+	public function test_invalid_file_redirects_as_invalid(): void {
 		$this->upload( 'just some text, not an image', 'x.jpg' );
 
 		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
 		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
-	}
-
-	/**
-	 * A real PNG under a .jpg name: the extension/content mismatch is rejected by wp_check_filetype_and_ext().
-	 */
-	public function test_extension_content_mismatch_is_invalid(): void {
-		$this->upload( $this->png_header( 10, 10 ), 'x.jpg' );
-
-		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
-		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
-	}
-
-	/**
-	 * A real image under a non-image extension is rejected too.
-	 */
-	public function test_image_with_a_non_image_extension_is_invalid(): void {
-		$this->upload( $this->png_header( 10, 10 ), 'x.txt' );
-
-		$this->assertStringContainsString( 'blueline_photo=invalid', $this->redirect() );
 	}
 
 	/**

@@ -135,9 +135,7 @@ final class AccountEndpointsTest extends TestCase {
 	}
 
 	/**
-	 * P1 sub-project (account shell rebuild): edit-account moved out of the
-	 * Billing group so it renders as a top-level nav pill, not inside the
-	 * Billing disclosure.
+	 * The edit-account endpoint sits outside the Billing group, so it renders as a top-level nav pill.
 	 */
 	public function test_edit_account_is_not_in_the_billing_group(): void {
 		$e = blueline_account_endpoints();
@@ -146,9 +144,7 @@ final class AccountEndpointsTest extends TestCase {
 	}
 
 	/**
-	 * Sub-project 2 (Preferences page): a new top-level endpoint, grouped
-	 * separately from league/billing/account since it's neither team content
-	 * nor account administration -- it's site-experience settings.
+	 * Preferences is its own group: neither team content nor account administration.
 	 */
 	public function test_preferences_endpoint_exists_with_its_own_group(): void {
 		$e = blueline_account_endpoints();
@@ -274,12 +270,9 @@ final class AccountEndpointsTest extends TestCase {
 	}
 
 	/**
-	 * P4 finding 7: the browser tab's <title> is driven exclusively by
-	 * `woocommerce_endpoint_{endpoint}_title`, keyed by WooCommerce's
-	 * query-var name -- NOT this theme's own ARL slug. 'registrations' must
-	 * therefore surface under 'orders', matching
-	 * blueline_account_slug_query_var()'s own translation, or the filter
-	 * registered against this array's keys would silently never fire.
+	 * The tab title is driven by `woocommerce_endpoint_{endpoint}_title`, keyed by WooCommerce's
+	 * query-var name, not the URL slug: 'registrations' must surface under 'orders', or the
+	 * filter registered against these keys would never fire.
 	 */
 	public function test_endpoint_titles_are_keyed_by_query_var_not_arl_slug(): void {
 		$titles = blueline_account_endpoint_titles();
@@ -311,7 +304,7 @@ final class AccountEndpointsTest extends TestCase {
 	public function test_endpoint_titles_match_this_themes_own_copy_not_woocommerces_defaults(): void {
 		// Regression pin for the live mismatch: WooCommerce's own hard-coded
 		// defaults are "Addresses" and "Account details" (lowercase d) --
-		// this theme's copy is "Addresses" (same, coincidentally) and
+		// our copy is "Addresses" (same, coincidentally) and
 		// "Account Details" (capital D). Both must resolve to THIS theme's
 		// copy, not silently fall back to WooCommerce's.
 		$titles = blueline_account_endpoint_titles();
@@ -321,7 +314,7 @@ final class AccountEndpointsTest extends TestCase {
 	}
 
 	/**
-	 * Sub-project 3 (Player Profile tab): a new top-level endpoint in the
+	 * Player Profile is a top-level endpoint in the
 	 * 'league' group, alongside my-team/my-schedule -- genuinely team/player
 	 * content, not account administration or site-experience settings.
 	 */

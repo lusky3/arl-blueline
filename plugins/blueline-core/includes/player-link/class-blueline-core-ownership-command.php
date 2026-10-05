@@ -1,10 +1,9 @@
 <?php
 /**
- * `wp blueline-core ownership report|apply|unlink`: the safe path for the SEC-01
- * ownership decision. `report` lists Player-role members who are linked by
- * sp_user but are not the player's post_author; `apply` fixes explicit ids;
- * `unlink` removes a wrong name claim. Shell-only (WP-CLI), so no capability
- * check is needed, matching the other operator commands.
+ * `wp blueline-core ownership report|apply|unlink`: the league's tools for sp_player
+ * ownership. `report` lists Player-role members who are linked by sp_user but are not
+ * the player's post_author; `apply` fixes explicit ids; `unlink` removes a wrong name
+ * claim. Shell-only (WP-CLI), so no capability check is needed.
  *
  * @package blueline-core
  */

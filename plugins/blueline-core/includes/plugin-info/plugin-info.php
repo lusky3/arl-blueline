@@ -11,7 +11,6 @@
  *   api.wordpress.org.
  * - `site_transient_update_plugins` gets a `no_update` entry for this plugin (only when core has not
  *   put it in `response` or `no_update` itself), which is what makes core treat it as a known plugin.
- *   The injection works on a clone, so it is never written back to the database.
  * - The icon and banner file names are fixed by this module and live in assets/.
  *
  * @package blueline-core
@@ -19,7 +18,6 @@
 
 defined( 'ABSPATH' ) || exit;
 
-// The slug WordPress asks about (the plugin folder and text domain).
 const BLUELINE_CORE_PLUGIN_INFO_SLUG = 'blueline-core';
 
 add_filter( 'plugins_api', 'blueline_core_plugin_info_api', 10, 3 );
@@ -56,7 +54,7 @@ add_filter( 'site_transient_update_plugins', 'blueline_core_plugin_info_known_pl
  *
  * Only an object value is touched, only when the plugin is in neither `response` nor `no_update`, and
  * every other entry stays as it is. A clone is returned so the (possibly cached) transient object is
- * not mutated and the entry is never persisted by code that reads and re-saves the transient.
+ * not mutated.
  *
  * @param mixed $value The `update_plugins` site transient (an object, or false when unset).
  * @return mixed
@@ -135,12 +133,11 @@ function blueline_core_plugin_info_assets(): array {
 /**
  * The plugin_information object for this plugin.
  *
- * @param string|null $readme_path Readme to read (default: this plugin's readme.txt).
  * @return stdClass
  */
-function blueline_core_plugin_info_data( ?string $readme_path = null ): stdClass {
+function blueline_core_plugin_info_data(): stdClass {
 	$headers = blueline_core_plugin_info_headers();
-	$readme  = blueline_core_plugin_info_readme( $readme_path );
+	$readme  = blueline_core_plugin_info_readme();
 	$assets  = blueline_core_plugin_info_assets();
 
 	$homepage       = $headers['PluginURI'];
@@ -162,30 +159,40 @@ function blueline_core_plugin_info_data( ?string $readme_path = null ): stdClass
 	$info->tested         = (string) ( $readme['headers']['tested up to'] ?? '' );
 
 	// WordPress reads the update transient (and so this) several times a request; build the markup once.
-	static $sections_cache = array();
-	$cache_key             = (string) $readme_path;
+	static $sections = null;
+	$sections        = $sections ?? blueline_core_plugin_info_sections( $readme, $headers['Description'] );
 
-	if ( ! isset( $sections_cache[ $cache_key ] ) ) {
-		$sections = array();
-		foreach ( array( 'description', 'installation', 'changelog' ) as $section ) {
-			$html = blueline_core_plugin_info_markup( (string) ( $readme['sections'][ $section ] ?? '' ) );
-			if ( '' !== $html ) {
-				$sections[ $section ] = $html;
-			}
-		}
-		if ( ! isset( $sections['description'] ) && '' !== $headers['Description'] ) {
-			$sections['description'] = blueline_core_plugin_info_markup( $headers['Description'] );
-		}
-
-		$sections_cache[ $cache_key ] = $sections;
-	}
-
-	$info->sections      = $sections_cache[ $cache_key ];
+	$info->sections      = $sections;
 	$info->banners       = $assets['banners'];
 	$info->icons         = $assets['icons'];
 	$info->download_link = '';
 
 	return $info;
+}
+
+/**
+ * The pop-up's description, installation and changelog tabs as HTML, from a parsed readme. A
+ * missing description section falls back to the plugin header's description.
+ *
+ * @param array{headers: array<string, string>, sections: array<string, string>} $readme             As returned by blueline_core_plugin_info_parse_readme().
+ * @param string                                                                 $header_description The plugin header's Description.
+ * @return array<string, string> Section name => HTML, only for non-empty sections.
+ */
+function blueline_core_plugin_info_sections( array $readme, string $header_description ): array {
+	$sections = array();
+
+	foreach ( array( 'description', 'installation', 'changelog' ) as $section ) {
+		$html = blueline_core_plugin_info_markup( (string) ( $readme['sections'][ $section ] ?? '' ) );
+		if ( '' !== $html ) {
+			$sections[ $section ] = $html;
+		}
+	}
+
+	if ( ! isset( $sections['description'] ) && '' !== $header_description ) {
+		$sections['description'] = blueline_core_plugin_info_markup( $header_description );
+	}
+
+	return $sections;
 }
 
 /**
@@ -220,28 +227,26 @@ function blueline_core_plugin_info_headers(): array {
 }
 
 /**
- * Parse a readme.txt, once per request and path. A missing or unreadable file yields empty parts and
- * no warning.
+ * This plugin's readme.txt, parsed once per request. A missing or unreadable file yields empty
+ * parts and no warning.
  *
- * @param string|null $path Readme to read (default: this plugin's readme.txt).
  * @return array{headers: array<string, string>, sections: array<string, string>}
  */
-function blueline_core_plugin_info_readme( ?string $path = null ): array {
-	static $cache = array();
+function blueline_core_plugin_info_readme(): array {
+	static $readme = null;
 
-	$path = $path ?? BLUELINE_CORE_DIR . '/readme.txt';
-
-	if ( ! isset( $cache[ $path ] ) ) {
+	if ( null === $readme ) {
+		$path = BLUELINE_CORE_DIR . '/readme.txt';
 		$text = '';
 		if ( is_file( $path ) && is_readable( $path ) ) {
 			$contents = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a small local file shipped with the plugin, not a remote URL.
 			$text     = is_string( $contents ) ? $contents : '';
 		}
 
-		$cache[ $path ] = blueline_core_plugin_info_parse_readme( $text );
+		$readme = blueline_core_plugin_info_parse_readme( $text );
 	}
 
-	return $cache[ $path ];
+	return $readme;
 }
 
 /**

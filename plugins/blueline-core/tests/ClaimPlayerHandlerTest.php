@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../includes/player-link/player-link.php';
 
 /**
- * Covers blueline_handle_claim_player_submission()'s guards (SEC-01).
+ * Covers blueline_handle_claim_player_submission()'s guards.
  */
 final class ClaimPlayerHandlerTest extends TestCase {
 
@@ -20,7 +20,6 @@ final class ClaimPlayerHandlerTest extends TestCase {
 	protected function setUp(): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
-		blueline_forget_claim_pool_memo();
 		$_POST                           = array();
 		$_REQUEST                        = array();
 		$GLOBALS['bl_core_test_referer'] = 'https://example.test/account/';
@@ -32,51 +31,18 @@ final class ClaimPlayerHandlerTest extends TestCase {
 	protected function tearDown(): void {
 		$_POST    = array();
 		$_REQUEST = array();
-		unset( $GLOBALS['bl_core_test_referer'], $GLOBALS['wpdb'] );
+		unset( $GLOBALS['bl_core_test_referer'], $GLOBALS['wpdb'], $GLOBALS['bl_core_test_after_claim_pool_query'] );
 	}
 
 	/**
-	 * Make user 5 the logged-in account named $name, and offer $pool
-	 * (player_id => post_title) as the claim pool through the fake $wpdb title
-	 * fetch and the pool short-circuit filter.
+	 * Make user 5 the logged-in account named $name and offer $pool (player_id => post_title) as
+	 * eligible claim-pool members, which the real pool query then finds.
 	 *
 	 * @param string             $name Account (billing) name.
 	 * @param array<int, string> $pool Pool players.
 	 */
 	private function seed_claim( string $name, array $pool ): void {
-		$state                    = &blueline_test_state();
-		$state['current_user_id'] = 5;
-		$state['post_types']      = array( 'sp_player' );
-		$state['users'][5]        = (object) array(
-			'roles'        => array( 'customer' ),
-			'display_name' => $name,
-		);
-		$state['user_meta'][5]    = array(
-			'billing_first_name' => (string) strtok( $name, ' ' ),
-			'billing_last_name'  => trim( (string) strstr( $name, ' ' ) ),
-		);
-
-		$rows = array();
-		foreach ( $pool as $player_id => $title ) {
-			$state['posts'][ $player_id ] = array(
-				'type'   => 'sp_player',
-				'status' => 'publish',
-				'author' => 0,
-			);
-			$rows[]                       = (object) array(
-				'ID'         => (string) $player_id,
-				'post_title' => $title,
-			);
-		}
-
-		$wpdb            = new Blueline_Core_Test_Wpdb();
-		$wpdb->results   = $rows;
-		$GLOBALS['wpdb'] = $wpdb;
-
-		add_filter(
-			'blueline_pre_claim_pool_player_ids',
-			static fn() => array_keys( $pool )
-		);
+		blueline_core_test_seed_claim_pool( 5, $name, $pool );
 	}
 
 	/**
@@ -196,15 +162,18 @@ final class ClaimPlayerHandlerTest extends TestCase {
 		// The account page when WooCommerce is present (a stub may or may not define it in this process), else the home page.
 		$fallback = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : home_url( '/' );
 
-		$this->assertSame( $fallback . '?blueline_claim=linked', $this->redirect_target() );    }
+		$this->assertSame( $fallback . '?blueline_claim=linked', $this->redirect_target() );
+	}
 
 	/**
 	 * A player somebody else holds by the time the link is written surfaces as already_linked.
 	 */
 	public function test_already_linked_reaches_the_redirect(): void {
 		$this->seed_claim( 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
-		$state                   = &blueline_test_state();
-		$state['post_meta'][100] = array( 'sp_user' => '7' ); // Claimed after the candidate list was built.
+		$GLOBALS['bl_core_test_after_claim_pool_query'] = static function () {
+			$state                   = &blueline_test_state();
+			$state['post_meta'][100] = array( 'sp_user' => '7' ); // Claimed after the candidate list was built.
+		};
 		$this->post_claim( 100 );
 
 		$this->assertSame( 'https://example.test/account/?blueline_claim=already_linked', $this->redirect_target() );

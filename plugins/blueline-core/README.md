@@ -65,7 +65,6 @@ and never makes an HTTP request:
 | `blueline_core_seo_plugin_active` | filter | `( bool $active )`: report that another SEO plugin owns the meta tags, so the plugin prints none. The older name `blueline_seo_plugin_active` is still honoured (deprecated; it wins on conflict). |
 | `blueline_core_checkout_field_guidance` | filter | `( array $map )`: the per-field placeholder/description copy the checkout module applies. |
 | `blueline_core_player_photo_max_pixels` | filter | `( int $pixels )`: upload cap on width x height (default 40,000,000, about 6300 x 6300). |
-| `blueline_pre_claim_pool_player_ids` | filter | `( ?int[] $ids, int $user_id )`: replace the query that picks which players a name claim is scored against. Candidates still pass the name gate and every link check. |
 
 The plugin never reads the theme's `blueline_settings` option; the theme answers through these filters.
 
