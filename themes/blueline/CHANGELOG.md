@@ -8,6 +8,8 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.0-rc.2]
+
 ### Added
 - **blueline-core companion plugin** (`plugins/blueline-core/`): player claim flow and
   the `sp_user` link, player photo upload, avatars, My Account endpoints and menu,
@@ -22,6 +24,15 @@ as the release notes.
 - Default team logo: a team with no logo (or whose logo image file is missing) shows a
   brand badge everywhere a team logo is drawn, instead of an empty box. The SEO tags
   never use it (social networks can't display an SVG).
+- Event pages: both teams (name and crest) link to their team page, and a postponed or
+  cancelled game that has a recorded result shows the score beside its single status.
+- Player lists (division lists, stats): the signed-in player's own row gets the "You"
+  badge and tint that standings already had.
+- Appearance > Themes shows a branded screenshot; the plugin has a "View details" pop-up,
+  icon and banner (no WordPress.org listing needed). The release also attaches
+  `blueline-core-<version>.zip` and its checksum.
+- blueline-core: personal-data export and erase for avatars and the player link;
+  `wp blueline-core ownership unlink`; the YITH avatar migration reports conflicts.
 
 ### Changed
 - Homepage, WooCommerce, account, forms and occasions CSS load only on pages that use
@@ -33,10 +44,30 @@ as the release notes.
 - A replaced player photo that was uploaded through the site is deleted; earlier uploads are never touched.
 - `inc/sportspress.php` is split into `inc/sportspress/*`; redundant `function_exists`
   guards on the theme's own helpers are removed.
+- On pages with a sidebar, text fills the column flush left on the same edge as tables
+  (it was a centred ~908px column); the brand leaf is the maple-leaf silhouette; the
+  Next Puck Drop widget is centred.
+- blueline-core: `player-link.php` is split into focused files, the photo upload handler
+  into a validator and a store step, and the player-photo metadata strip prefers GD
+  (Imagick stays as the fallback).
 
 ### Fixed
 - Search form spacing and the logged-out /account heading alignment; Quotes Llama author
   images get `alt=""`.
+- QA pass across every page type: clipped, misaligned and overlapping elements (clipped
+  1,094 to 132, misaligned 212 to 10 in a 1,110-load sweep); every page has an `<h1>`;
+  overflowing tables are keyboard-scrollable; the rules modal traps focus; focus rings keep
+  a halo in light and dark; contrast fixes on cards, tabs, calendars and forms.
+- Logged-in screens: the Account & Billing menu no longer opens over the Registrations
+  table, the Preferences appearance toggle is readable in light mode, native buttons no
+  longer show a grey box behind the skewed pill, the admin bar no longer covers the header
+  on phones, and the duplicate "Profile Picture" tab is gone.
+- Accented names ("José Müller") match their plain spelling when claiming a player; the
+  matcher no longer depends on the server locale.
+- blueline-core hardening: an atomic player claim, a name gate that padded names cannot
+  bypass, a pixel cap on photo uploads, real `eventStatus` in structured data, clean
+  plain-text titles and JSON-LD, correct multi-line mail headers, and a loud report when a
+  module fails to load.
 
 ## [1.1.0-rc.1]
 
