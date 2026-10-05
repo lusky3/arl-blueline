@@ -180,4 +180,16 @@ function blueline_settings_maybe_enqueue_occasions_script( string $hook_suffix )
 		) . ';',
 		'before'
 	);
+
+	wp_add_inline_style( 'wp-admin', blueline_settings_occasions_styles() );
+}
+
+/**
+ * The "How Occasions work" disclosure's summary was 18px tall, under the 24px WCAG 2.5.8
+ * target minimum. Small enough to inline (same precedent as the photo picker's styles).
+ *
+ * @return string
+ */
+function blueline_settings_occasions_styles(): string {
+	return '.bl-occasions__help summary{cursor:pointer;min-height:24px;padding-block:4px;box-sizing:border-box;}';
 }

@@ -82,13 +82,6 @@
 	}
 }
 
-@media (max-width: 600.98px) {
-
-	.admin-bar .skip-link.screen-reader-text:focus {
-		top: var(--bl-space-3);
-	}
-}
-
 /*
  * Sticky header, shrinking on scroll.
  *
@@ -180,10 +173,12 @@
 }
 
 /*
- * WordPress' own admin bar is itself fixed at top:0 for logged-in users, so a
- * fixed header has to start below it or the two overlap. Core switches the bar
- * from 32px to 46px at 783px and drops it to position:absolute below 601px,
- * where the page scrolls it away and no offset applies.
+ * WordPress' own admin bar is fixed at top:0 for logged-in users, so a fixed
+ * header has to start below it or the two overlap. Core switches the bar from
+ * 32px to 46px at 783px. Below 601px core makes it position:absolute so it
+ * scrolls away, but this header is fixed and stays put, so the bar would sit
+ * on top of the header's top half until the page scrolled: keep the bar fixed
+ * there too, and the 46px offset applies at every phone width.
  */
 .admin-bar .bl-header {
 	top: 32px;
@@ -198,8 +193,8 @@
 
 @media (max-width: 600.98px) {
 
-	.admin-bar .bl-header {
-		top: 0;
+	.admin-bar #wpadminbar {
+		position: fixed;
 	}
 }
 
@@ -737,6 +732,21 @@
 	align-items: center;
 	min-height: 44px;
 	position: relative;
+}
+
+/*
+ * A native <button> (the claim card's confirm, the widget's "show again")
+ * brings the browser's own button box, which showed as a grey rectangle behind
+ * the skewed pill. The .bl-skew inside is the whole visual, so drop the box.
+ * Links need no reset.
+ */
+button.bl-btn {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
 }
 
 .bl-btn .bl-skew {

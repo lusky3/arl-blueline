@@ -643,6 +643,34 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	font-size: var(--bl-text-sm);
 }
 
+/*
+ * The theme toggle is styled for the footer's dark ground (pale text, ink
+ * borders). On the Preferences page it sits on a content card, where that was
+ * pale blue on white (1.71:1). Inside <main> it takes the content tokens,
+ * which follow light and dark.
+ */
+.bl-main .bl-theme-toggle__label,
+.bl-main .bl-theme-toggle__option {
+	color: var(--bl-content-text-secondary);
+}
+
+.bl-main .bl-theme-toggle__group {
+	border-color: var(--bl-content-border-strong);
+}
+
+.bl-main .bl-theme-toggle__option + .bl-theme-toggle__option {
+	border-inline-start-color: var(--bl-content-border);
+}
+
+.bl-main .bl-theme-toggle__option:hover {
+	background: var(--bl-surface-sunken);
+}
+
+.bl-main .bl-theme-toggle__option[aria-pressed="true"] {
+	background: var(--bl-ice);
+	color: var(--bl-ink);
+}
+
 .bl-preferences-widget__confirmation[hidden] {
 	display: none;
 }

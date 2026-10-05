@@ -430,3 +430,20 @@ function blueline_redirect_profile_picture_endpoint(): void {
 	wp_safe_redirect( wc_get_account_endpoint_url( 'player-profile' ), 301 );
 	exit;
 }
+
+add_filter( 'woocommerce_account_menu_items', 'blueline_remove_profile_picture_menu_item', 99 );
+/**
+ * Drop sportspress-player-tools' "Profile Picture" tab from the account menu: the redirect above
+ * sends it to Player Profile, so it was a second link to the same page. Runs after the plugin
+ * adds it (its filter uses the default priority).
+ *
+ * @param mixed $items Account menu items, endpoint => label.
+ * @return mixed
+ */
+function blueline_remove_profile_picture_menu_item( $items ) {
+	if ( is_array( $items ) ) {
+		unset( $items['profile-picture'] );
+	}
+
+	return $items;
+}

@@ -52,11 +52,11 @@ $blueline_pill_items    = array_values( array_filter( $blueline_nav_items, stati
 $blueline_billing_items = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' === $item['group'] ) );
 
 /*
- * Whether the CURRENT page is one of the billing-group endpoints -- the
- * <details> starts collapsed, so nothing else marks it (or its <summary>)
- * as the active nav item when viewing e.g. /account/edit-address/ or the
- * refund-requests tab. Mirrors the same wc_get_account_menu_item_classes()
- * check the <li> loop below already runs per item.
+ * Whether the CURRENT page is one of the billing-group endpoints. The <details> stays
+ * collapsed (its panel is an absolutely positioned dropdown, so opening it by default floated
+ * it over the page's own content); this only marks the <summary> as the active nav item when
+ * viewing e.g. /account/edit-address/ or the refund-requests tab. Mirrors the same
+ * wc_get_account_menu_item_classes() check the <li> loop below already runs per item.
  */
 $blueline_billing_active = (bool) array_filter(
 	$blueline_billing_items,
@@ -80,7 +80,7 @@ $blueline_billing_active = (bool) array_filter(
 
 		<?php if ( $blueline_billing_items ) : ?>
 			<li class="bl-account-nav__billing-item">
-				<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>"<?php echo $blueline_billing_active ? ' open' : ''; ?>>
+				<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>">
 					<summary<?php echo $blueline_billing_active ? ' aria-current="true"' : ''; ?>><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
 					<ul class="bl-account-nav__billing-panel">
 						<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>
