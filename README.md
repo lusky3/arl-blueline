@@ -1,7 +1,7 @@
 # Blueline
 
-A WordPress theme and companion plugin built for the [Adult Rookie League](https://www.rookiehockey.ca),
-a recreational hockey league. It runs on [SportsPress](https://wordpress.org/plugins/sportspress/) and
+A WordPress theme and companion plugin built for the [Adult Recreational League](https://www.rookiehockey.ca)
+(ARL), a recreational hockey league. It runs on [SportsPress](https://wordpress.org/plugins/sportspress/) and
 [WooCommerce](https://woocommerce.com/) and carries the league's 2026 brand.
 
 This is a bespoke project built for one league's site, published so others can read, reuse or learn from it.

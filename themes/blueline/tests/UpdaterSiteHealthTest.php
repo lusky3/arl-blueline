@@ -136,7 +136,7 @@ final class UpdaterSiteHealthTest extends TestCase {
 	#[RunInSeparateProcess]
 	public function test_token_never_appears_in_any_result(): void {
 		define( 'BLUELINE_GITHUB_TOKEN', 'secret-token-xyz' );
-		blueline_test_http_expect( 'https://api.github.com/repos/lusky3/rookiehockey-blueline/releases?per_page=10', array( 'response' => array( 'code' => 401 ) ) );
+		blueline_test_http_expect( 'https://api.github.com/repos/lusky3/arl-blueline/releases?per_page=10', array( 'response' => array( 'code' => 401 ) ) );
 
 		$result = blueline_updater_run_health_test();
 

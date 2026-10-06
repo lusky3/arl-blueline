@@ -24,14 +24,14 @@ final class UpdaterReleaseSelectionTest extends TestCase {
 	 */
 	private function release( string $tag, array $over = array() ): array {
 		$version = ltrim( $tag, 'v' );
-		$api     = 'https://api.github.com/repos/lusky3/rookiehockey-blueline/releases/assets/';
+		$api     = 'https://api.github.com/repos/lusky3/arl-blueline/releases/assets/';
 
 		return array_merge(
 			array(
 				'tag_name'   => $tag,
 				'draft'      => false,
 				'prerelease' => false !== strpos( $tag, '-' ),
-				'html_url'   => 'https://github.com/lusky3/rookiehockey-blueline/releases/tag/' . $tag,
+				'html_url'   => 'https://github.com/lusky3/arl-blueline/releases/tag/' . $tag,
 				'assets'     => array(
 					array(
 						'name' => 'blueline-' . $version . '.zip',

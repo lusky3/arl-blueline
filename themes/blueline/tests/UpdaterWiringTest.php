@@ -18,7 +18,7 @@ require_once __DIR__ . '/../inc/updater.php';
  */
 final class UpdaterWiringTest extends TestCase {
 
-	private const API = 'https://api.github.com/repos/lusky3/rookiehockey-blueline/';
+	private const API = 'https://api.github.com/repos/lusky3/arl-blueline/';
 
 	/**
 	 * The hook tags the updater registers once booted with a token.
@@ -43,7 +43,7 @@ final class UpdaterWiringTest extends TestCase {
 	private function seed_candidate(): array {
 		$candidate = array(
 			'version'     => '1.2.0',
-			'release_url' => 'https://github.com/lusky3/rookiehockey-blueline/releases/tag/v1.2.0',
+			'release_url' => 'https://github.com/lusky3/arl-blueline/releases/tag/v1.2.0',
 			'package'     => self::API . 'releases/assets/21',
 			'manifest'    => array(
 				'version'      => '1.2.0',
@@ -128,7 +128,7 @@ final class UpdaterWiringTest extends TestCase {
 			array(
 				'theme'        => 'blueline',
 				'version'      => '1.2.0',
-				'url'          => 'https://github.com/lusky3/rookiehockey-blueline/releases/tag/v1.2.0',
+				'url'          => 'https://github.com/lusky3/arl-blueline/releases/tag/v1.2.0',
 				'package'      => self::API . 'releases/assets/21',
 				'requires'     => '6.9',
 				'requires_php' => '8.3',

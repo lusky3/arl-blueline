@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for reporting. **Do not use this form for security problems**; follow
-        [SECURITY.md](https://github.com/lusky3/rookiehockey-blueline/blob/main/SECURITY.md) instead.
+        [SECURITY.md](https://github.com/lusky3/arl-blueline/blob/main/SECURITY.md) instead.
   - type: dropdown
     id: component
     attributes:

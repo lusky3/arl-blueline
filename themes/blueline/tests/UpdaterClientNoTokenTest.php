@@ -78,7 +78,7 @@ final class UpdaterClientNoTokenTest extends TestCase {
 	 * Requests to the repo API never go out unauthenticated.
 	 */
 	public function test_request_to_repo_api_without_token_fails_without_a_request(): void {
-		$result = blueline_updater_request( 'https://api.github.com/repos/lusky3/rookiehockey-blueline/releases' );
+		$result = blueline_updater_request( 'https://api.github.com/repos/lusky3/arl-blueline/releases' );
 
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( array(), $GLOBALS['bl_test_http_log'] );

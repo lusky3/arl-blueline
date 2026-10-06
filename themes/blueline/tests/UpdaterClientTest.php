@@ -19,7 +19,7 @@ require_once __DIR__ . '/../inc/updater-client.php';
 final class UpdaterClientTest extends TestCase {
 
 	private const TOKEN   = 'test-token-abc123';
-	private const API     = 'https://api.github.com/repos/lusky3/rookiehockey-blueline/';
+	private const API     = 'https://api.github.com/repos/lusky3/arl-blueline/';
 	private const STORAGE = 'https://release-assets.githubusercontent.com/signed/';
 
 	/**
@@ -64,7 +64,7 @@ final class UpdaterClientTest extends TestCase {
 			'tag_name'   => 'v' . $version,
 			'draft'      => false,
 			'prerelease' => false !== strpos( $version, '-' ),
-			'html_url'   => 'https://github.com/lusky3/rookiehockey-blueline/releases/tag/v' . $version,
+			'html_url'   => 'https://github.com/lusky3/arl-blueline/releases/tag/v' . $version,
 			'assets'     => array(
 				array(
 					'name' => 'blueline-' . $version . '.zip',
@@ -206,7 +206,7 @@ final class UpdaterClientTest extends TestCase {
 		$this->assertSame( 'ok', $state['status'] );
 		$this->assertSame( '1.1.0', $state['candidate']['version'] );
 		$this->assertSame( $this->asset_url( 1, false ), $state['candidate']['package'] );
-		$this->assertSame( 'https://github.com/lusky3/rookiehockey-blueline/releases/tag/v1.1.0', $state['candidate']['release_url'] );
+		$this->assertSame( 'https://github.com/lusky3/arl-blueline/releases/tag/v1.1.0', $state['candidate']['release_url'] );
 	}
 
 	/**

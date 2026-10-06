@@ -19,7 +19,7 @@ final class UpdaterRulesTest extends TestCase {
 	/**
 	 * Repo API base used by the cases below.
 	 */
-	private const API = 'https://api.github.com/repos/lusky3/rookiehockey-blueline/';
+	private const API = 'https://api.github.com/repos/lusky3/arl-blueline/';
 
 	/**
 	 * URLs the token may be sent to.
@@ -30,7 +30,7 @@ final class UpdaterRulesTest extends TestCase {
 		return array(
 			'releases list'  => array( self::API . 'releases?per_page=10' ),
 			'asset'          => array( self::API . 'releases/assets/123' ),
-			'uppercase host' => array( 'https://API.GITHUB.COM/repos/lusky3/rookiehockey-blueline/releases' ),
+			'uppercase host' => array( 'https://API.GITHUB.COM/repos/lusky3/arl-blueline/releases' ),
 		);
 	}
 
@@ -42,16 +42,16 @@ final class UpdaterRulesTest extends TestCase {
 	public static function rejected_urls(): array {
 		return array(
 			'other repo'            => array( 'https://api.github.com/repos/lusky3/other/releases' ),
-			'repo name prefix'      => array( 'https://api.github.com/repos/lusky3/rookiehockey-blueline-evil/x' ),
-			'http'                  => array( 'http://api.github.com/repos/lusky3/rookiehockey-blueline/x' ),
-			'lookalike subdomain'   => array( 'https://api.github.com.evil.test/repos/lusky3/rookiehockey-blueline/x' ),
-			'host in path'          => array( 'https://evil.test/api.github.com/repos/lusky3/rookiehockey-blueline/x' ),
-			'userinfo'              => array( 'https://user@api.github.com/repos/lusky3/rookiehockey-blueline/x' ),
-			'port'                  => array( 'https://api.github.com:8443/repos/lusky3/rookiehockey-blueline/x' ),
-			'github.com not api'    => array( 'https://github.com/lusky3/rookiehockey-blueline/releases' ),
-			'dot-dot traversal'     => array( 'https://api.github.com/repos/lusky3/rookiehockey-blueline/../other/x' ),
-			'encoded traversal'     => array( 'https://api.github.com/repos/lusky3/rookiehockey-blueline/%2e%2e/other/x' ),
-			'encoded traversal alt' => array( 'https://api.github.com/repos/lusky3/rookiehockey-blueline/%2E%2E/other/x' ),
+			'repo name prefix'      => array( 'https://api.github.com/repos/lusky3/arl-blueline-evil/x' ),
+			'http'                  => array( 'http://api.github.com/repos/lusky3/arl-blueline/x' ),
+			'lookalike subdomain'   => array( 'https://api.github.com.evil.test/repos/lusky3/arl-blueline/x' ),
+			'host in path'          => array( 'https://evil.test/api.github.com/repos/lusky3/arl-blueline/x' ),
+			'userinfo'              => array( 'https://user@api.github.com/repos/lusky3/arl-blueline/x' ),
+			'port'                  => array( 'https://api.github.com:8443/repos/lusky3/arl-blueline/x' ),
+			'github.com not api'    => array( 'https://github.com/lusky3/arl-blueline/releases' ),
+			'dot-dot traversal'     => array( 'https://api.github.com/repos/lusky3/arl-blueline/../other/x' ),
+			'encoded traversal'     => array( 'https://api.github.com/repos/lusky3/arl-blueline/%2e%2e/other/x' ),
+			'encoded traversal alt' => array( 'https://api.github.com/repos/lusky3/arl-blueline/%2E%2E/other/x' ),
 			'empty'                 => array( '' ),
 		);
 	}
