@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in the theme or plugin is broken
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Do not use this form for security problems**; follow
+        [SECURITY.md](https://github.com/lusky3/rookiehockey-blueline/blob/main/SECURITY.md) instead.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Theme
+        - blueline-core plugin
+        - Build, release or deploy scripts
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Theme and plugin versions (Appearance > Themes, Plugins), plus WordPress, WooCommerce and SportsPress versions.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, browser, device
+      description: Please do not include member names, emails or other personal data.
