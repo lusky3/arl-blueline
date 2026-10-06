@@ -8,10 +8,17 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.0]
+
+First stable release of the 1.1 line: everything in 1.1.0-rc.1 and 1.1.0-rc.2 below, plus the
+following. The repository is now public under GPL-2.0-or-later.
+
 ### Added
 - A wp-admin notice (Dashboard, Plugins, Themes) tells administrators when the Blueline
   Core plugin is not installed or not active, with an Activate or Upload button, instead of
   leaving the missing features to Site Health alone.
+- Repository: README, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, issue and PR templates, and a
+  GPL-2.0 `LICENSE`. End-to-end CI runs on a GitHub-hosted runner.
 
 ## [1.1.0-rc.2]
 
