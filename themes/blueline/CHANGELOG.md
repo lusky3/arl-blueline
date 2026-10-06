@@ -8,6 +8,17 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.1]
+
+### Changed
+- The repository is now `lusky3/arl-blueline` (was `rookiehockey-blueline`). The theme
+  updater, `Update URI` and the plugin homepage use the new name.
+
+### Fixed
+- Install 1.1.1 rather than 1.1.0: GitHub redirects a renamed repository's API to a
+  numeric `repositories/<id>` path, which the updater's pinned-path check rejects, so a
+  site running 1.1.0 cannot discover later updates and must be updated by hand.
+
 ## [1.1.0]
 
 First stable release of the 1.1 line: everything in 1.1.0-rc.1 and 1.1.0-rc.2 below, plus the

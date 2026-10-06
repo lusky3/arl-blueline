@@ -10,7 +10,7 @@
 defined( 'ABSPATH' ) || exit;
 
 if ( ! defined( 'BLUELINE_UPDATER_REPO' ) ) {
-	define( 'BLUELINE_UPDATER_REPO', 'lusky3/rookiehockey-blueline' );
+	define( 'BLUELINE_UPDATER_REPO', 'lusky3/arl-blueline' );
 }
 
 // Redirect hops allowed per download (API -> signed storage is one).

@@ -3,7 +3,7 @@ Contributors: lusky3
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.3
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,6 +31,9 @@ Each feature is a module that can be switched off with the `blueline_core_module
 3. Against an older theme the plugin does nothing and shows an admin notice, because that theme still provides these features itself.
 
 == Changelog ==
+
+= 0.1.1 =
+* The plugin's homepage link follows the repository rename to arl-blueline.
 
 = 0.1.0 =
 * First release as a companion plugin: the league features moved out of the Blueline theme.

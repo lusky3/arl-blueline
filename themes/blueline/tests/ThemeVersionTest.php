@@ -47,7 +47,7 @@ final class ThemeVersionTest extends TestCase {
 	 */
 	public function test_style_header_declares_update_uri(): void {
 		$this->assertMatchesRegularExpression(
-			'~^Update URI:\s*https://github\.com/lusky3/rookiehockey-blueline\s*$~m',
+			'~^Update URI:\s*https://github\.com/lusky3/arl-blueline\s*$~m',
 			$this->theme_file( 'style.css' )
 		);
 	}

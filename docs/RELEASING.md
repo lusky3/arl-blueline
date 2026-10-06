@@ -145,7 +145,7 @@ verifies the plugin is active, at the header's version, with every module loaded
 Claude and CI never create, request or handle the token.
 
 - **R1. Create the token.** GitHub > Settings > Developer settings > Fine-grained
-  tokens: this repository only (`lusky3/rookiehockey-blueline`), permission
+  tokens: this repository only (`lusky3/arl-blueline`), permission
   **Contents: Read-only**, the longest expiry offered (max 1 year).
 - **R2. Configure each site** in `wp-config.php` (above the "stop editing" line):
 
@@ -154,9 +154,9 @@ Claude and CI never create, request or handle the token.
 
   The token lives only here: not in the database, not in a settings screen.
 - **R3. Confirm the private-repo redirect** once an rc release exists (get an asset id
-  with `gh api repos/lusky3/rookiehockey-blueline/releases --jq '.[0].assets[].id'`):
+  with `gh api repos/lusky3/arl-blueline/releases --jq '.[0].assets[].id'`):
 
-      BLUELINE_GITHUB_TOKEN=<token> scripts/verify-github-asset-redirect.sh lusky3/rookiehockey-blueline <asset_id>
+      BLUELINE_GITHUB_TOKEN=<token> scripts/verify-github-asset-redirect.sh lusky3/arl-blueline <asset_id>
 
   Expect `302`, a redirect host listed in `BLUELINE_UPDATER_STORAGE_HOSTS`
   (`inc/updater-rules.php`), then `200`/`206` from storage without credentials. The

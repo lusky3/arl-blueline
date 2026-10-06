@@ -35,7 +35,7 @@ final class PluginInfoTest extends TestCase {
 		$this->assertSame( '6.9', $info->requires );
 		$this->assertSame( '8.3', $info->requires_php );
 		$this->assertSame( '7.1', $info->tested );
-		$this->assertSame( 'https://github.com/lusky3/rookiehockey-blueline', $info->homepage );
+		$this->assertSame( 'https://github.com/lusky3/arl-blueline', $info->homepage );
 		$this->assertStringContainsString( 'Adult Recreational League', $info->author );
 		// The author links to the Author URI, not the Plugin URI.
 		$this->assertStringContainsString( '<a href="https://www.rookiehockey.ca">', $info->author );
@@ -218,7 +218,7 @@ final class PluginInfoTest extends TestCase {
 		$this->assertSame( 'blueline-core', $entry->slug );
 		$this->assertSame( $file, $entry->plugin );
 		$this->assertSame( BLUELINE_CORE_VERSION, $entry->new_version );
-		$this->assertSame( 'https://github.com/lusky3/rookiehockey-blueline', $entry->url );
+		$this->assertSame( 'https://github.com/lusky3/arl-blueline', $entry->url );
 		$this->assertSame( '', $entry->package );
 		$this->assertSame( '6.9', $entry->requires );
 		$this->assertSame( '8.3', $entry->requires_php );
