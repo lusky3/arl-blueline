@@ -325,3 +325,90 @@ function blueline_site_health_core_plugin_result( bool $active ): array {
 		'test'        => 'blueline_core_plugin',
 	);
 }
+
+/**
+ * Where Blueline Core stands, for the admin notice below.
+ *
+ * @param bool                 $loaded    Whether the plugin is loaded (it defines BLUELINE_CORE_VERSION).
+ * @param array<string, mixed> $installed get_plugins() output: plugin file => header data.
+ * @return array{state: string, file: string}|null Null when loaded; otherwise 'inactive' (installed,
+ *                                                  `file` is its plugin file) or 'missing'.
+ */
+function blueline_core_plugin_notice_model( bool $loaded, array $installed ): ?array {
+	if ( $loaded ) {
+		return null;
+	}
+
+	foreach ( array_keys( $installed ) as $file ) {
+		// Any folder name: the zip's folder can be renamed on upload.
+		if ( 'blueline-core.php' === basename( (string) $file ) ) {
+			return array(
+				'state' => 'inactive',
+				'file'  => (string) $file,
+			);
+		}
+	}
+
+	return array(
+		'state' => 'missing',
+		'file'  => '',
+	);
+}
+
+/**
+ * The notice markup. Pure.
+ *
+ * @param array{state: string, file: string}|null $model        blueline_core_plugin_notice_model().
+ * @param string                                  $activate_url Activation link (inactive state).
+ * @param string                                  $upload_url   Upload-a-plugin screen (missing state).
+ * @return string '' when there is nothing to say.
+ */
+function blueline_core_plugin_notice_html( ?array $model, string $activate_url, string $upload_url ): string {
+	if ( null === $model ) {
+		return '';
+	}
+
+	$what = __( 'Player linking, photos, avatars, the My Account league tabs, the mail wrapper, SEO tags and member-privacy hardening live in it, so they are missing until it is active.', 'blueline' );
+
+	if ( 'inactive' === $model['state'] ) {
+		$lead   = __( 'The Blueline Core plugin is installed but not active.', 'blueline' );
+		$action = '<a class="button button-primary" href="' . esc_url( $activate_url ) . '">' . esc_html__( 'Activate Blueline Core', 'blueline' ) . '</a>';
+	} else {
+		$lead   = __( 'The Blueline Core plugin is not installed.', 'blueline' );
+		$action = '<a class="button button-primary" href="' . esc_url( $upload_url ) . '">' . esc_html__( 'Upload the plugin', 'blueline' ) . '</a> '
+			. esc_html__( 'Use blueline-core-<version>.zip from the Blueline release.', 'blueline' );
+	}
+
+	return '<div class="notice notice-warning"><p><strong>' . esc_html( $lead ) . '</strong> ' . esc_html( $what ) . '</p><p>' . $action . '</p></div>';
+}
+
+add_action( 'admin_notices', 'blueline_render_core_plugin_notice' );
+/**
+ * Tell administrators when Blueline Core is not active. Site Health already reports it, but nobody
+ * visits Site Health unprompted, and the site otherwise just loses those features without a word.
+ * Shown to users who can activate plugins, on the screens where they would act on it.
+ *
+ * @return void
+ */
+function blueline_render_core_plugin_notice(): void {
+	global $pagenow;
+
+	if ( ! in_array( $pagenow, array( 'index.php', 'plugins.php', 'themes.php' ), true ) || ! current_user_can( 'activate_plugins' ) ) {
+		return;
+	}
+
+	if ( ! function_exists( 'get_plugins' ) && defined( 'ABSPATH' ) && file_exists( ABSPATH . 'wp-admin/includes/plugin.php' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	}
+
+	$model = blueline_core_plugin_notice_model( defined( 'BLUELINE_CORE_VERSION' ), function_exists( 'get_plugins' ) ? get_plugins() : array() );
+	$file  = null === $model ? '' : $model['file'];
+
+	echo wp_kses_post(
+		blueline_core_plugin_notice_html(
+			$model,
+			admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $file ) . '&_wpnonce=' . wp_create_nonce( 'activate-plugin_' . $file ) ),
+			admin_url( 'plugin-install.php?tab=upload' )
+		)
+	);
+}

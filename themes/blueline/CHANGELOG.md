@@ -8,6 +8,11 @@ as the release notes.
 
 ## [Unreleased]
 
+### Added
+- A wp-admin notice (Dashboard, Plugins, Themes) tells administrators when the Blueline
+  Core plugin is not installed or not active, with an Activate or Upload button, instead of
+  leaving the missing features to Site Health alone.
+
 ## [1.1.0-rc.2]
 
 ### Added
