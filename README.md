@@ -46,7 +46,8 @@ composer test && composer lint
 ```
 
 `assets/dist` is committed, so run `npm run build` and commit its output with any CSS or JS change. The
-repository's Git hook runs the same gate before each commit: `git config core.hooksPath .githooks`.
+repository's Git hook runs the theme gate before any commit that stages theme files (enable it with
+`git config core.hooksPath .githooks`); run the plugin gate yourself.
 
 Browser tests live in `themes/blueline/tests-e2e/` (Playwright against a disposable WordPress sandbox,
 run by CI) and `themes/blueline/tests-browser/` (run by hand against a full local clone).
