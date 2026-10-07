@@ -571,6 +571,64 @@ function blueline_contact_url(): string {
 }
 
 /**
+ * The path part of a request URI, for building a "same page on the classic site" link.
+ *
+ * Drops the query string and any leading "/classic" (a page already reached through the switch route), and
+ * always returns a path that starts with "/".
+ *
+ * @param string $uri    Request URI.
+ * @param string $prefix The router's route prefix, normally "/classic".
+ * @return string
+ */
+function blueline_classic_path( string $uri, string $prefix = '/classic' ): string {
+	$path = (string) strstr( $uri . '?', '?', true );
+	$path = '/' . ltrim( $path, '/' );
+	$pre  = '/' . trim( $prefix, '/' );
+	if ( strtolower( $pre ) === strtolower( $path ) ) {
+		return '/';
+	}
+	if ( 0 === stripos( $path, $pre . '/' ) ) {
+		$path = substr( $path, strlen( $pre ) );
+	}
+	return $path;
+}
+
+/**
+ * Where the footer's "Switch to Classic Site" link points; '' hides the link.
+ *
+ * With the ARL Domain Router (mu-plugin) installed, the classic site is a different domain, so the link is the
+ * router's /classic/<path> route: it opens the same page on the old site. Without it, the older Theme Switcha
+ * cookie link is used while that plugin is active.
+ *
+ * @param string      $request_uri    Current request URI.
+ * @param string|null $router_prefix  The router's route prefix, or null when the router is not installed.
+ * @param string      $home           Home URL.
+ * @param bool        $switcha_active Whether the Theme Switcha plugin is active and enabled.
+ * @return string
+ */
+function blueline_classic_site_url_for( string $request_uri, ?string $router_prefix, string $home, bool $switcha_active ): string {
+	if ( null !== $router_prefix ) {
+		return rtrim( $home, '/' ) . '/' . trim( $router_prefix, '/' ) . blueline_classic_path( $request_uri, $router_prefix );
+	}
+	return $switcha_active ? '/?theme-switch=rookie-child' : '';
+}
+
+/**
+ * The footer's classic-site link for the current request.
+ *
+ * @return string
+ */
+function blueline_classic_site_url(): string {
+	$router_prefix = null;
+	if ( function_exists( 'arl_dr_config' ) ) {
+		$cfg           = arl_dr_config();
+		$router_prefix = isset( $cfg['to_legacy_prefix'] ) ? (string) $cfg['to_legacy_prefix'] : '/classic';
+	}
+	$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '/'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only the path is used, and it is escaped on output.
+	return blueline_classic_site_url_for( $uri, $router_prefix, home_url(), function_exists( 'theme_switcha_check_enabled' ) && theme_switcha_check_enabled() );
+}
+
+/**
  * Output the site footer: a permanent "The League" trust column (contact,
  * location, FAQs, legal -- there was previously none of this anywhere in
  * the footer), any populated widget columns, then a bottom bar with the
@@ -608,22 +666,9 @@ function blueline_site_footer() {
 						<li><a href="<?php echo esc_url( 'mailto:' . blueline_settings( 'contact_email' ) ); ?>"><?php echo esc_html( blueline_settings( 'contact_email' ) ); ?></a></li>
 						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_faqs' ) ); ?>"><?php esc_html_e( 'FAQs', 'blueline' ); ?></a></li>
 						<li><a href="<?php echo esc_url( blueline_resolve_link( 'page_legal' ) ); ?>"><?php esc_html_e( 'Privacy Policy & Legal', 'blueline' ); ?></a></li>
-						<?php
-						/*
-						 * Rollout-period escape hatch: rookie-child (the theme
-						 * blueline replaced) has its own matching banner, offering
-						 * the reverse switch back to blueline -- see that theme's
-						 * own functions.php (not in this repo; it predates version
-						 * control on this site). Gated on the Theme Switcha plugin
-						 * itself being enabled, not a settings toggle of this
-						 * theme's own: once that plugin is deactivated at the end
-						 * of the rollout, this link self-removes rather than
-						 * lingering as a dead ?theme-switch= link with nothing left
-						 * to handle it.
-						 */
-						if ( function_exists( 'theme_switcha_check_enabled' ) && theme_switcha_check_enabled() ) :
-							?>
-							<li><a href="<?php echo esc_url( add_query_arg( 'theme-switch', 'rookie-child' ) ); ?>"><?php esc_html_e( 'Switch to Classic Site', 'blueline' ); ?></a></li>
+						<?php $blueline_classic_url = blueline_classic_site_url(); ?>
+						<?php if ( '' !== $blueline_classic_url ) : ?>
+							<li><a href="<?php echo esc_url( $blueline_classic_url ); ?>"><?php esc_html_e( 'Switch to Classic Site', 'blueline' ); ?></a></li>
 						<?php endif; ?>
 					</ul>
 				</div>
