@@ -34,6 +34,9 @@ function arl_dr_defaults(): array {
 		'primary_theme'          => array( 'blueline', 'blueline' ),
 		'legacy_hosts'           => array( 'rookiehockey.ca', 'www.rookiehockey.ca', 'rookiehockey.com', 'www.rookiehockey.com' ),
 		'legacy_canonical'       => 'www.rookiehockey.ca',
+		// Set false to leave the legacy hosts completely untouched (they are still recognised for URL rewriting on
+		// the primary face). Used to stage the primary face behind a preview before the old domains change.
+		'legacy_enabled'         => true,
 		'legacy_theme'           => array( 'rookie', 'rookie-child' ),
 		'alias_hosts'            => array( 'www.arlhockey.ca', 'arlhockey.com', 'www.arlhockey.com', 'adultrecreationalleague.ca', 'www.adultrecreationalleague.ca', 'coedhockey.ca', 'www.coedhockey.ca', 'beginnerhockey.ca', 'www.beginnerhockey.ca' ),
 		// Hosts that appear inside stored content or options and should be normalised too (staging uses one).
@@ -359,7 +362,7 @@ function arl_dr_boot(): void {
 	}
 	$cfg    = arl_dr_config();
 	$family = arl_dr_family( $host, $cfg );
-	if ( 'other' === $family ) {
+	if ( 'other' === $family || ( 'legacy' === $family && empty( $cfg['legacy_enabled'] ) ) ) {
 		return;
 	}
 

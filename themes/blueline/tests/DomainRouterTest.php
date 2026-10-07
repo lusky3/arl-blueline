@@ -154,6 +154,18 @@ final class DomainRouterTest extends TestCase {
 	}
 
 	/**
+	 * The legacy face is on by default and can be switched off without losing the host list.
+	 */
+	public function test_legacy_face_switch(): void {
+		$cfg = $this->cfg();
+		$this->assertTrue( $cfg['legacy_enabled'] );
+		$this->assertContains( 'rookiehockey.ca', arl_dr_known_bases( $cfg ) );
+		$cfg['legacy_enabled'] = false;
+		$this->assertContains( 'rookiehockey.ca', arl_dr_known_bases( $cfg ), 'still normalised on the primary face' );
+		$this->assertSame( 'legacy', arl_dr_family( 'www.rookiehockey.ca', $cfg ) );
+	}
+
+	/**
 	 * URLs in a page are pointed at the host being served; e-mail addresses and asset sub-domains are not.
 	 */
 	public function test_rewrite_to_primary_leaves_mail_and_assets(): void {
