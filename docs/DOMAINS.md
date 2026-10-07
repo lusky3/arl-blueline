@@ -56,6 +56,30 @@ Staging's web server accepts any Host header, so the real hostnames were exercis
 redirect above, REST root per host, admin-ajax left alone, e-mail addresses untouched). The rehearsal caught one
 bug (the URL rewriter was undoing the canonical tag), now fixed and covered by a test.
 
+## Production (live since 2026-10-06)
+
+- `arlhockey.ca` (+ `arlhockey.com`) has its own Let's Encrypt certificate (acme.sh, Cloudflare DNS validation,
+  auto-renewing) and its own nginx server block on the same WordPress docroot as `rookiehockey.ca`. The
+  alias block (`adultrecreationalleague.ca/.com`, `coedhockey.ca`, `beginnerhockey.ca`, each with `www.`)
+  returns a 301 to `https://arlhockey.ca$request_uri`.
+- `wp-content/mu-plugins/arl-domain-router.php` is the file in this repo; `arl-domain-router-config.php` is the
+  production-only override: `legacy_redirect` is `/account`, `/checkout`, `/cart`. `/wp-admin` and `/wp-login.php`
+  deliberately stay on the old host because the JumpCloud SAML settings (`wp_saml_auth_settings`: base URL, entity
+  ID and ACS URL) are pinned to `www.rookiehockey.ca`; add them back to that list once SSO is moved.
+- Blueline-only options set in the database: `theme_mods_blueline` (header menu = "Menu 3.0", logo) and
+  `blueline_settings` (non-default keys only). The team-page layout and the home/FAQs templates are applied by the
+  router on the primary face only, because those database values are shared with the old theme.
+- `blueline-core` is active; YITH "Customize My Account Page" is off. The Turnstile widget lists both domains.
+
+### Gotchas
+
+- `service nginx reload` is graceful: old workers keep serving open keep-alive connections (Cloudflare reuses them)
+  for a moment. Wait until `pgrep -f "worker process is shutting down"` is empty before any step that depends on
+  the new config, or two redirect rules can briefly point at each other.
+- The legacy theme's settings (`theme_mods_rookie*`) and order meta contain the old host on purpose; do not rewrite them.
+- Still pointing at the old host and working there: PayPal/Stripe webhooks (`/wc-api`), the e-Transfer Worker and
+  FreeScout webhooks (REST), SAML, OneSignal, social-login redirect URIs. Move them one at a time.
+
 ## Rollback
 
 Delete `arl-domain-router.php` from `mu-plugins/`; restore `home` and `siteurl`; re-run the stored-URL replacement
