@@ -136,6 +136,24 @@ final class DomainRouterTest extends TestCase {
 	}
 
 	/**
+	 * Page-template overrides apply to the configured slugs only.
+	 */
+	public function test_primary_page_template_overrides(): void {
+		$this->assertSame( 'template-homepage.php', arl_dr_page_template_for( 'home', $this->cfg() ) );
+		$this->assertSame( 'default', arl_dr_page_template_for( 'faqs', $this->cfg() ) );
+		$this->assertNull( arl_dr_page_template_for( 'register', $this->cfg() ) );
+	}
+
+	/**
+	 * The primary face gets the new team-page layout (no "tabs" divider); the legacy face gets no overrides.
+	 */
+	public function test_primary_option_overrides_are_configured(): void {
+		$order = $this->cfg()['primary_options']['sportspress_team_template_order'];
+		$this->assertSame( array( 'calendar', 'schedule' ), array_slice( $order, 0, 2 ) );
+		$this->assertNotContains( 'tabs', $order );
+	}
+
+	/**
 	 * URLs in a page are pointed at the host being served; e-mail addresses and asset sub-domains are not.
 	 */
 	public function test_rewrite_to_primary_leaves_mail_and_assets(): void {

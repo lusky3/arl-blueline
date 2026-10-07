@@ -30,23 +30,33 @@ defined( 'ABSPATH' ) || exit;
  */
 function arl_dr_defaults(): array {
 	return array(
-		'primary'            => 'arlhockey.ca',
-		'primary_theme'      => array( 'blueline', 'blueline' ),
-		'legacy_hosts'       => array( 'rookiehockey.ca', 'www.rookiehockey.ca', 'rookiehockey.com', 'www.rookiehockey.com' ),
-		'legacy_canonical'   => 'www.rookiehockey.ca',
-		'legacy_theme'       => array( 'rookie', 'rookie-child' ),
-		'alias_hosts'        => array( 'www.arlhockey.ca', 'arlhockey.com', 'www.arlhockey.com', 'adultrecreationalleague.ca', 'www.adultrecreationalleague.ca', 'coedhockey.ca', 'www.coedhockey.ca', 'beginnerhockey.ca', 'www.beginnerhockey.ca' ),
+		'primary'                => 'arlhockey.ca',
+		'primary_theme'          => array( 'blueline', 'blueline' ),
+		'legacy_hosts'           => array( 'rookiehockey.ca', 'www.rookiehockey.ca', 'rookiehockey.com', 'www.rookiehockey.com' ),
+		'legacy_canonical'       => 'www.rookiehockey.ca',
+		'legacy_theme'           => array( 'rookie', 'rookie-child' ),
+		'alias_hosts'            => array( 'www.arlhockey.ca', 'arlhockey.com', 'www.arlhockey.com', 'adultrecreationalleague.ca', 'www.adultrecreationalleague.ca', 'coedhockey.ca', 'www.coedhockey.ca', 'beginnerhockey.ca', 'www.beginnerhockey.ca' ),
 		// Hosts that appear inside stored content or options and should be normalised too (staging uses one).
-		'stored_hosts'       => array(),
+		'stored_hosts'           => array(),
 		// Legacy requests under these paths are sent to the primary host. /wc-api is deliberately NOT here: payment
 		// webhooks are registered at the old address and a redirect would turn their POST into a GET.
-		'legacy_redirect'    => array( '/wp-admin', '/wp-login.php', '/account', '/checkout', '/cart' ),
+		'legacy_redirect'        => array( '/wp-admin', '/wp-login.php', '/account', '/checkout', '/cart' ),
 		// ...except these (the legacy theme's front end still needs them).
-		'legacy_redirect_ok' => array( '/wp-admin/admin-ajax.php' ),
+		'legacy_redirect_ok'     => array( '/wp-admin/admin-ajax.php' ),
+		// Options and page templates that differ ONLY on the primary face. They are global in the database, so
+		// changing them there would change the legacy site too; here they are applied per request instead.
+		'primary_options'        => array(
+			'sportspress_team_template_order' => array( 'calendar', 'schedule', 'logo', 'excerpt', 'content', 'link', 'details', 'staff', 'lists', 'tables', 'events' ),
+		),
+		// Page slug => template file ('default' = no template). Top-level pages only.
+		'primary_page_templates' => array(
+			'home' => 'template-homepage.php',
+			'faqs' => 'default',
+		),
 		// Links that cross between the two faces. They survive URL normalising because they are same-host paths:
 		// <primary>/classic/<path> -> <legacy>/<path>, and <legacy>/new/<path> -> <primary>/<path>.
-		'to_legacy_prefix'   => '/classic',
-		'to_primary_prefix'  => '/new',
+		'to_legacy_prefix'       => '/classic',
+		'to_primary_prefix'      => '/new',
 	);
 }
 
@@ -305,6 +315,18 @@ function arl_dr_canonical_url( string $uri, array $cfg ): string {
 }
 
 /**
+ * Template to force for a page on the primary face, by page slug.
+ *
+ * @param string               $slug Page slug.
+ * @param array<string, mixed> $cfg  Configuration.
+ * @return string|null Template file, 'default', or null for no override.
+ */
+function arl_dr_page_template_for( string $slug, array $cfg ): ?string {
+	$map = (array) $cfg['primary_page_templates'];
+	return isset( $map[ $slug ] ) ? (string) $map[ $slug ] : null;
+}
+
+/**
  * The (sanitised) host header of the current request, '' when there is none (WP-CLI, cron).
  *
  * @return string
@@ -373,6 +395,34 @@ function arl_dr_boot(): void {
 	}
 
 	if ( 'primary' === $family ) {
+		foreach ( (array) $cfg['primary_options'] as $name => $value ) {
+			add_filter(
+				'pre_option_' . $name,
+				static function () use ( $value ) {
+					return $value;
+				}
+			);
+		}
+		add_filter(
+			'get_post_metadata',
+			static function ( $value, $post_id, $meta_key, $single ) use ( $cfg ) {
+				if ( '_wp_page_template' !== $meta_key || 'page' !== get_post_type( (int) $post_id ) ) {
+					return $value;
+				}
+				$post = get_post( (int) $post_id );
+				if ( ! $post || 0 !== (int) $post->post_parent ) {
+					return $value;
+				}
+				$template = arl_dr_page_template_for( (string) $post->post_name, $cfg );
+				if ( null === $template ) {
+					return $value;
+				}
+				return $single ? $template : array( $template );
+			},
+			10,
+			4
+		);
+
 		// The legacy-only Simple CSS plugin was written for the Rookie theme and would fight Blueline.
 		add_filter(
 			'option_simple_css',
