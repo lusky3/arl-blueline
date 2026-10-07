@@ -82,27 +82,27 @@ final class DomainRouterTest extends TestCase {
 	 */
 	public static function redirects(): array {
 		return array(
-			'alias keeps path and query'   => array( 'coedhockey.ca', '/team/ducks?x=1', 'https://arlhockey.ca/team/ducks?x=1', 301 ),
-			'alias root'                   => array( 'www.arlhockey.ca', '/', 'https://arlhockey.ca/', 301 ),
-			'legacy account'               => array( 'www.rookiehockey.ca', '/account/registrations', 'https://arlhockey.ca/account/registrations', 302 ),
-			'legacy account exact'         => array( 'rookiehockey.ca', '/account', 'https://arlhockey.ca/account', 302 ),
-			'legacy checkout order'        => array( 'rookiehockey.com', '/checkout/order-received/5/?key=abc', 'https://arlhockey.ca/checkout/order-received/5/?key=abc', 302 ),
-			'legacy cart'                  => array( 'www.rookiehockey.ca', '/cart/', 'https://arlhockey.ca/cart/', 302 ),
-			'legacy admin'                 => array( 'www.rookiehockey.ca', '/wp-admin/edit.php', 'https://arlhockey.ca/wp-admin/edit.php', 302 ),
-			'legacy login'                 => array( 'www.rookiehockey.ca', '/wp-login.php?redirect_to=x', 'https://arlhockey.ca/wp-login.php?redirect_to=x', 302 ),
-			'legacy wc-api'                => array( 'www.rookiehockey.ca', '/wc-api/paypal/', 'https://arlhockey.ca/wc-api/paypal/', 302 ),
-			'legacy admin-ajax stays'      => array( 'www.rookiehockey.ca', '/wp-admin/admin-ajax.php', null, 0 ),
-			'legacy home stays'            => array( 'www.rookiehockey.ca', '/', null, 0 ),
-			'legacy news stays'            => array( 'www.rookiehockey.ca', '/2026/08/winter-season-registration-update', null, 0 ),
-			'prefix is a path segment'     => array( 'www.rookiehockey.ca', '/accounting', null, 0 ),
-			'primary account stays'        => array( 'arlhockey.ca', '/account/', null, 0 ),
-			'primary to classic deep'      => array( 'arlhockey.ca', '/classic/team/ducks?x=1', 'https://www.rookiehockey.ca/team/ducks?x=1', 302 ),
-			'primary to classic home'      => array( 'arlhockey.ca', '/classic', 'https://www.rookiehockey.ca/', 302 ),
-			'primary classicist is a page' => array( 'arlhockey.ca', '/classical', null, 0 ),
-			'legacy to new deep'           => array( 'www.rookiehockey.ca', '/new/standings', 'https://arlhockey.ca/standings', 302 ),
-			'legacy newsletter is a page'  => array( 'www.rookiehockey.ca', '/newsletter', null, 0 ),
-			'unknown host untouched'       => array( 'staging.rookiehockey.ca', '/account/', null, 0 ),
-			'empty uri becomes root'       => array( 'coedhockey.ca', '', 'https://arlhockey.ca/', 301 ),
+			'alias keeps path and query'     => array( 'coedhockey.ca', '/team/ducks?x=1', 'https://arlhockey.ca/team/ducks?x=1', 301 ),
+			'alias root'                     => array( 'www.arlhockey.ca', '/', 'https://arlhockey.ca/', 301 ),
+			'legacy account'                 => array( 'www.rookiehockey.ca', '/account/registrations', 'https://arlhockey.ca/account/registrations', 302 ),
+			'legacy account exact'           => array( 'rookiehockey.ca', '/account', 'https://arlhockey.ca/account', 302 ),
+			'legacy checkout order'          => array( 'rookiehockey.com', '/checkout/order-received/5/?key=abc', 'https://arlhockey.ca/checkout/order-received/5/?key=abc', 302 ),
+			'legacy cart'                    => array( 'www.rookiehockey.ca', '/cart/', 'https://arlhockey.ca/cart/', 302 ),
+			'legacy admin'                   => array( 'www.rookiehockey.ca', '/wp-admin/edit.php', 'https://arlhockey.ca/wp-admin/edit.php', 302 ),
+			'legacy login'                   => array( 'www.rookiehockey.ca', '/wp-login.php?redirect_to=x', 'https://arlhockey.ca/wp-login.php?redirect_to=x', 302 ),
+			'legacy wc-api stays (webhooks)' => array( 'www.rookiehockey.ca', '/wc-api/paypal/', null, 0 ),
+			'legacy admin-ajax stays'        => array( 'www.rookiehockey.ca', '/wp-admin/admin-ajax.php', null, 0 ),
+			'legacy home stays'              => array( 'www.rookiehockey.ca', '/', null, 0 ),
+			'legacy news stays'              => array( 'www.rookiehockey.ca', '/2026/08/winter-season-registration-update', null, 0 ),
+			'prefix is a path segment'       => array( 'www.rookiehockey.ca', '/accounting', null, 0 ),
+			'primary account stays'          => array( 'arlhockey.ca', '/account/', null, 0 ),
+			'primary to classic deep'        => array( 'arlhockey.ca', '/classic/team/ducks?x=1', 'https://www.rookiehockey.ca/team/ducks?x=1', 302 ),
+			'primary to classic home'        => array( 'arlhockey.ca', '/classic', 'https://www.rookiehockey.ca/', 302 ),
+			'primary classicist is a page'   => array( 'arlhockey.ca', '/classical', null, 0 ),
+			'legacy to new deep'             => array( 'www.rookiehockey.ca', '/new/standings', 'https://arlhockey.ca/standings', 302 ),
+			'legacy newsletter is a page'    => array( 'www.rookiehockey.ca', '/newsletter', null, 0 ),
+			'unknown host untouched'         => array( 'staging.rookiehockey.ca', '/account/', null, 0 ),
+			'empty uri becomes root'         => array( 'coedhockey.ca', '', 'https://arlhockey.ca/', 301 ),
 		);
 	}
 
@@ -122,6 +122,17 @@ final class DomainRouterTest extends TestCase {
 			return;
 		}
 		$this->assertSame( array( $expected, $status ), $got );
+	}
+
+	/**
+	 * Redirects keep the request method for anything but GET and HEAD.
+	 */
+	public function test_redirect_status_preserves_method(): void {
+		$this->assertSame( 302, arl_dr_redirect_status( 302, 'GET' ) );
+		$this->assertSame( 301, arl_dr_redirect_status( 301, 'head' ) );
+		$this->assertSame( 307, arl_dr_redirect_status( 302, 'POST' ) );
+		$this->assertSame( 308, arl_dr_redirect_status( 301, 'POST' ) );
+		$this->assertSame( 307, arl_dr_redirect_status( 302, 'PUT' ) );
 	}
 
 	/**

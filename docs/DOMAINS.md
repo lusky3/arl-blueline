@@ -6,7 +6,7 @@ Rookie theme from the same WordPress install. The old brand names redirect to th
 | Host | Face | Behaviour |
 |---|---|---|
 | `arlhockey.ca` | primary | Blueline; URLs on this host |
-| `rookiehockey.ca`, `www.rookiehockey.ca`, `rookiehockey.com`, `www.rookiehockey.com` | legacy | Rookie / Rookie Child; URLs on the host served; `rel=canonical` points at `arlhockey.ca`; admin, login, account, cart, checkout and `wc-api` go to `arlhockey.ca` |
+| `rookiehockey.ca`, `www.rookiehockey.ca`, `rookiehockey.com`, `www.rookiehockey.com` | legacy | Rookie / Rookie Child; URLs on the host served; `rel=canonical` points at `arlhockey.ca`; admin, login, account, cart and checkout go to `arlhockey.ca` (`/wc-api` is still served on the old host so payment webhooks keep working until they are repointed; non-GET requests are redirected with 307/308 so a POST survives) |
 | `www.arlhockey.ca`, `arlhockey.com`, `adultrecreationalleague.ca`, `coedhockey.ca`, `beginnerhockey.ca` (+ `www.`) | alias | 301 to the same path on `arlhockey.ca` |
 | anything else (staging, WP-CLI, cron) | other | untouched |
 

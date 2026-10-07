@@ -38,8 +38,9 @@ function arl_dr_defaults(): array {
 		'alias_hosts'        => array( 'www.arlhockey.ca', 'arlhockey.com', 'www.arlhockey.com', 'adultrecreationalleague.ca', 'www.adultrecreationalleague.ca', 'coedhockey.ca', 'www.coedhockey.ca', 'beginnerhockey.ca', 'www.beginnerhockey.ca' ),
 		// Hosts that appear inside stored content or options and should be normalised too (staging uses one).
 		'stored_hosts'       => array(),
-		// Legacy requests under these paths are sent to the primary host.
-		'legacy_redirect'    => array( '/wp-admin', '/wp-login.php', '/account', '/checkout', '/cart', '/wc-api' ),
+		// Legacy requests under these paths are sent to the primary host. /wc-api is deliberately NOT here: payment
+		// webhooks are registered at the old address and a redirect would turn their POST into a GET.
+		'legacy_redirect'    => array( '/wp-admin', '/wp-login.php', '/account', '/checkout', '/cart' ),
 		// ...except these (the legacy theme's front end still needs them).
 		'legacy_redirect_ok' => array( '/wp-admin/admin-ajax.php' ),
 		// Links that cross between the two faces. They survive URL normalising because they are same-host paths:
@@ -137,6 +138,20 @@ function arl_dr_path_goes_to_primary( string $path, array $cfg ): bool {
 		}
 	}
 	return false;
+}
+
+/**
+ * Redirect status that keeps the request method for non-GET requests (307/308 instead of 302/301).
+ *
+ * @param int    $status Base status (301 or 302).
+ * @param string $method HTTP method.
+ * @return int
+ */
+function arl_dr_redirect_status( int $status, string $method ): int {
+	if ( in_array( strtoupper( $method ), array( 'GET', 'HEAD' ), true ) ) {
+		return $status;
+	}
+	return 301 === $status ? 308 : 307;
 }
 
 /**
@@ -328,7 +343,8 @@ function arl_dr_boot(): void {
 
 	$redirect = arl_dr_redirect_for( $host, arl_dr_request_uri(), $cfg );
 	if ( null !== $redirect ) {
-		header( 'Location: ' . $redirect[0], true, $redirect[1] );
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- compared against a fixed list in arl_dr_redirect_status().
+		header( 'Location: ' . $redirect[0], true, arl_dr_redirect_status( $redirect[1], $method ) );
 		exit;
 	}
 
