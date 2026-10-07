@@ -44,6 +44,8 @@ final class DomainRouterTest extends TestCase {
 			'alias arlhockey com'  => array( 'arlhockey.com', 'alias' ),
 			'alias old brand'      => array( 'adultrecreationalleague.ca', 'alias' ),
 			'alias coed'           => array( 'coedhockey.ca', 'alias' ),
+			'alias beginner'       => array( 'beginnerhockey.ca', 'alias' ),
+			'alias beginner www'   => array( 'www.beginnerhockey.ca', 'alias' ),
 			'staging is untouched' => array( 'staging.rookiehockey.ca', 'other' ),
 			'empty'                => array( '', 'other' ),
 			'lookalike suffix'     => array( 'arlhockey.ca.evil.test', 'other' ),

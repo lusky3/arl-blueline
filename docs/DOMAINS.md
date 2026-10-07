@@ -7,7 +7,7 @@ Rookie theme from the same WordPress install. The old brand names redirect to th
 |---|---|---|
 | `arlhockey.ca` | primary | Blueline; URLs on this host |
 | `rookiehockey.ca`, `www.rookiehockey.ca`, `rookiehockey.com`, `www.rookiehockey.com` | legacy | Rookie / Rookie Child; URLs on the host served; `rel=canonical` points at `arlhockey.ca`; admin, login, account, cart, checkout and `wc-api` go to `arlhockey.ca` |
-| `www.arlhockey.ca`, `arlhockey.com`, `adultrecreationalleague.ca`, `coedhockey.ca` (+ `www.`) | alias | 301 to the same path on `arlhockey.ca` |
+| `www.arlhockey.ca`, `arlhockey.com`, `adultrecreationalleague.ca`, `coedhockey.ca`, `beginnerhockey.ca` (+ `www.`) | alias | 301 to the same path on `arlhockey.ca` |
 | anything else (staging, WP-CLI, cron) | other | untouched |
 
 The routing is `mu-plugins/arl-domain-router.php`: one file, copied into `wp-content/mu-plugins/`. It does nothing

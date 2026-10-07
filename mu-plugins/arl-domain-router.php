@@ -35,7 +35,7 @@ function arl_dr_defaults(): array {
 		'legacy_hosts'       => array( 'rookiehockey.ca', 'www.rookiehockey.ca', 'rookiehockey.com', 'www.rookiehockey.com' ),
 		'legacy_canonical'   => 'www.rookiehockey.ca',
 		'legacy_theme'       => array( 'rookie', 'rookie-child' ),
-		'alias_hosts'        => array( 'www.arlhockey.ca', 'arlhockey.com', 'www.arlhockey.com', 'adultrecreationalleague.ca', 'www.adultrecreationalleague.ca', 'coedhockey.ca', 'www.coedhockey.ca' ),
+		'alias_hosts'        => array( 'www.arlhockey.ca', 'arlhockey.com', 'www.arlhockey.com', 'adultrecreationalleague.ca', 'www.adultrecreationalleague.ca', 'coedhockey.ca', 'www.coedhockey.ca', 'beginnerhockey.ca', 'www.beginnerhockey.ca' ),
 		// Hosts that appear inside stored content or options and should be normalised too (staging uses one).
 		'stored_hosts'       => array(),
 		// Legacy requests under these paths are sent to the primary host.
