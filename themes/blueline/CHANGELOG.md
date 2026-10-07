@@ -8,6 +8,11 @@ as the release notes.
 
 ## [Unreleased]
 
+### Fixed
+- The footer's "Switch to Classic Site" link now opens the same page on the classic domain through the domain
+  router's `/classic/<path>` route. It used the Theme Switcha cookie link, which forced the classic theme on
+  the new domain itself once the site ran on two domains.
+
 ## [1.1.1]
 
 ### Changed
