@@ -60,6 +60,30 @@ final class HeroEffectiveStateTest extends TestCase {
 	}
 
 	/**
+	 * The live bug: registration products are purchasable (so the state is
+	 * registration_open) but none carries the Featured tag, so the hero has no
+	 * offers to sell. While games are being played the fallback must be
+	 * in_season -- "Season starts <next game's date>" three weeks into a
+	 * season that has been running since September is plainly wrong.
+	 */
+	public function test_registration_open_while_playing_falls_back_to_in_season_not_preseason(): void {
+		$state_data = array(
+			'next_event_id' => 42,
+			'is_playing'    => true,
+		);
+
+		$content = blueline_homepage_hero_content( 'registration_open', $state_data );
+
+		$this->assertSame( 'in_season', $content['state'] );
+		$this->assertSame(
+			blueline_homepage_hero_in_season_content( $state_data ),
+			array_diff_key( $content, array( 'state' => null ) ),
+			'fallback copy must be byte-identical to calling the in-season content function directly'
+		);
+		$this->assertSame( blueline_homepage_module_order( 'in_season' ), blueline_homepage_module_order( $content['state'] ) );
+	}
+
+	/**
 	 * The same stale request with no upcoming event at all must fall back
 	 * to offseason, not preseason -- there is nothing to be "pre" about.
 	 */
