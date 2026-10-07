@@ -8,6 +8,12 @@ as the release notes.
 
 ## [Unreleased]
 
+### Added
+- `mu-plugins/arl-domain-router.php`: serves one WordPress under two faces by hostname (`arlhockey.ca` runs
+  Blueline; `rookiehockey.ca/.com` keep the classic theme with a canonical tag pointing at the primary), redirects
+  alias domains to the primary and sends admin, login, account and checkout from the old domains to it. See
+  `docs/DOMAINS.md`.
+
 ## [1.1.1]
 
 ### Changed

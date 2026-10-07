@@ -49,6 +49,11 @@ jobs:
       - name: Run the gate
         run: npm run check
 
+      # The domain-router mu-plugin lives outside the theme; its tests run in the theme suite above, its
+      # WordPress coding-standard lint runs here with the theme's phpcs.
+      - name: Lint the mu-plugin
+        run: vendor/bin/phpcs --standard=WordPress --extensions=php ../../mu-plugins
+
       # blueline-core's suite requires themes/blueline/tests/bootstrap.php for
       # its WordPress stubs (but not the theme's vendor/), so it runs from the
       # same checkout.
