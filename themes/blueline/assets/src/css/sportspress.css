@@ -2520,6 +2520,7 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 
 .sp-event-list.bl-sp-schedule .data-home {
 	width: calc(100% * var(--bl-sched-home) / var(--bl-sched-total));
+	text-align: end; /* mirrored lockup, see "Live feedback: the schedule looks off balance" below */
 }
 
 /* The pending copy is the column's longest value: smaller, wraps at spaces. */
@@ -2537,6 +2538,7 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 
 .sp-event-list.bl-sp-schedule .data-away {
 	width: calc(100% * var(--bl-sched-away) / var(--bl-sched-total));
+	text-align: start;
 }
 
 .sp-event-list.bl-sp-schedule .data-league {
@@ -2586,9 +2588,28 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 .sp-event-list.bl-sp-schedule td.data-home a,
 .sp-event-list.bl-sp-schedule td.data-away a {
 	flex-wrap: nowrap;
-	justify-content: center;
+	justify-content: flex-start;
 	max-width: 100%;
 	text-align: start;
+}
+
+/*
+ * Live feedback: "the schedule looks off balance ... the logo alignment and not
+ * being symmetrical". Each crest-and-name group used to be CENTRED in its
+ * column, logo first on both sides, so a crest sat wherever its team's name
+ * length put it: measured live, the crest's left edge ranged from 16px to 56px
+ * into the same 203px cell, and the two sides did not mirror each other.
+ *
+ * In this table, unlike the event-page lockup above, mirroring is symmetric by
+ * construction: the Result column is a fixed width and Home and Away get equal
+ * shares, so the axis never moves whatever the names are called. Home is
+ * therefore name-then-logo, right-aligned, and Away logo-then-name,
+ * left-aligned. Every crest sits the same distance from the Result column and
+ * the names point outward; the headers align to match.
+ */
+.sp-event-list.bl-sp-schedule td.data-home a {
+	flex-direction: row-reverse;
+	text-align: end;
 }
 
 .sp-event-list.bl-sp-schedule td.data-home .team-logo,
