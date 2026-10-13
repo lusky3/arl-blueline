@@ -799,6 +799,31 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	white-space: nowrap;
 }
 
+/* Added by player-photo-upload.js: the up-front limits, then the live
+   "Uploading..." / refusal message. */
+.bl-player-profile__photo-hint,
+.bl-player-profile__photo-status {
+	margin: var(--bl-space-2) 0 0;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-player-profile__photo-status:empty {
+	display: none;
+}
+
+.bl-player-profile__photo-status--error {
+	color: var(--bl-danger);
+}
+
+/* Mid-upload the pencil cannot be pressed, so a second tap cannot start
+   another pick. */
+.bl-player-profile__photo-form.is-busy .bl-player-profile__photo-edit {
+	opacity: 0.6;
+	cursor: progress;
+	pointer-events: none;
+}
+
 .bl-player-profile__name {
 	margin: 0;
 	font-weight: 600;

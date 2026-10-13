@@ -104,21 +104,28 @@ function labelSelect2Fields( root ) {
 	);
 }
 
-function initCheckoutSelect2Labels() {
-	const form = document.querySelector( 'form.checkout' );
-	if ( ! form || 'undefined' === typeof window.MutationObserver ) {
-		return;
-	}
+// The same Checkout Field Editor Pro selects render on the checkout and on the
+// account's Edit Account / Addresses forms, so every one of them needs naming.
+const SELECT2_FORMS_SELECTOR =
+	'form.checkout, .woocommerce-MyAccount-content form';
+
+/**
+ * Keep one form's select2 comboboxes named.
+ *
+ * @param {Element} form Form to watch.
+ * @param {Window}  win  Window providing MutationObserver and setTimeout.
+ */
+function watchSelect2Labels( form, win ) {
 	let queued = false;
 	const run = () => {
 		queued = false;
 		labelSelect2Fields( form );
 	};
 	// selectWoo initialises after this script and re-renders on open/close.
-	new window.MutationObserver( () => {
+	new win.MutationObserver( () => {
 		if ( ! queued ) {
 			queued = true;
-			window.setTimeout( run, 0 );
+			win.setTimeout( run, 0 );
 		}
 	} ).observe( form, {
 		childList: true,
@@ -129,18 +136,115 @@ function initCheckoutSelect2Labels() {
 	run();
 }
 
+/**
+ * @param {Document} doc Document holding the forms.
+ * @param {Window}   win Window providing MutationObserver and setTimeout.
+ */
+function initSelect2Labels( doc, win ) {
+	if ( 'undefined' === typeof win.MutationObserver ) {
+		return;
+	}
+	doc.querySelectorAll( SELECT2_FORMS_SELECTOR ).forEach( ( form ) =>
+		watchSelect2Labels( form, win )
+	);
+}
+
+/**
+ * Checkout Field Editor Pro prints its section titles on Edit Account as <h4>s
+ * straight under the page's <h1>, skipping two levels. The tag cannot be
+ * changed from here, so give them the level they should have.
+ *
+ * @param {Element} root Where to look.
+ */
+function levelAccountSectionHeadings( root ) {
+	root.querySelectorAll(
+		'.woocommerce-MyAccount-content .arl_sectiontitle'
+	).forEach( ( title ) => {
+		if ( title.hasAttribute( 'aria-level' ) ) {
+			return;
+		}
+		title.setAttribute( 'role', 'heading' );
+		title.setAttribute( 'aria-level', '2' );
+	} );
+}
+
+/**
+ * The Edit Account fields WooCommerce stars as required carry no `required`
+ * attribute, so a blank one submits and fails only on the server, with no
+ * message beside the field. Plain inputs only: a select2-backed <select> is
+ * hidden from the user, and the browser cannot show its validation bubble.
+ *
+ * @param {Element} root Where to look.
+ */
+function markStarredFieldsRequired( root ) {
+	root.querySelectorAll( '.woocommerce-EditAccountForm .form-row' ).forEach(
+		( row ) => {
+			if ( ! row.querySelector( 'label abbr.required' ) ) {
+				return;
+			}
+			const field = row.querySelector(
+				'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea'
+			);
+			if ( field && ! field.hasAttribute( 'required' ) ) {
+				field.setAttribute( 'required', '' );
+				field.setAttribute( 'aria-required', 'true' );
+			}
+		}
+	);
+}
+
+const ADDRESS_AUTOCOMPLETE = {
+	address_1: 'address-line1',
+	address_2: 'address-line2',
+};
+
+/**
+ * The checkout plugin sets autocomplete="off" on the street address lines,
+ * which defeats the browser's address fill on the form that most needs it.
+ *
+ * @param {Element} root Where to look.
+ */
+function fixAddressAutocomplete( root ) {
+	root.querySelectorAll( 'input[autocomplete="off"]' ).forEach( ( input ) => {
+		const match = /^(?:billing|shipping)_(address_[12])$/.exec(
+			input.id || ''
+		);
+		if ( match ) {
+			input.setAttribute(
+				'autocomplete',
+				ADDRESS_AUTOCOMPLETE[ match[ 1 ] ]
+			);
+		}
+	} );
+}
+
+function initWooCommerceEnhancements() {
+	fixCheckoutFieldDescriptionAriaHidden();
+	fixAddressAutocomplete( document );
+	levelAccountSectionHeadings( document );
+	markStarredFieldsRequired( document );
+	initSelect2Labels( document, window );
+}
+
 if ( typeof document !== 'undefined' ) {
 	if ( 'loading' === document.readyState ) {
-		document.addEventListener( 'DOMContentLoaded', () => {
-			fixCheckoutFieldDescriptionAriaHidden();
-			initCheckoutSelect2Labels();
-		} );
+		document.addEventListener(
+			'DOMContentLoaded',
+			initWooCommerceEnhancements
+		);
 	} else {
-		fixCheckoutFieldDescriptionAriaHidden();
-		initCheckoutSelect2Labels();
+		initWooCommerceEnhancements();
 	}
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { select2LabelledBy, labelSelect2Fields };
+	module.exports = {
+		select2LabelledBy,
+		labelSelect2Fields,
+		SELECT2_FORMS_SELECTOR,
+		initSelect2Labels,
+		levelAccountSectionHeadings,
+		markStarredFieldsRequired,
+		fixAddressAutocomplete,
+	};
 }

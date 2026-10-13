@@ -109,6 +109,7 @@ select.wpcf7-form-control,
 textarea.wpcf7-form-control {
 	box-sizing: border-box;
 	width: 100%;
+	min-height: 44px;
 	padding: var(--bl-space-3);
 	background: var(--bl-content-surface);
 	color: var(--bl-content-text);
@@ -333,6 +334,7 @@ select.wpcf7-form-control {
 
 .wpcf7-form input.wpcf7-submit {
 	display: inline-block;
+	min-height: 44px;
 	padding: var(--bl-space-3) var(--bl-space-5);
 	background: var(--bl-ink);
 	color: var(--bl-paper);

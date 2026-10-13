@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { update, attach, attachWithin, scrollLabel } = require( './table-scroll.js' );
+const { CONTAINERS, update, attach, attachWithin, scrollLabel } = require( './table-scroll.js' );
 
 /**
  * Minimal fake scroll-container element: just enough surface for update()/
@@ -249,4 +249,27 @@ test( 'scrollLabel: a repeated caption gets a numeric suffix', () => {
 
 	assert.equal( scrollLabel( third ), 'Upcoming Games (3)' );
 	assert.equal( scrollLabel( first ), 'Scrollable table' );
+} );
+
+test( 'CONTAINERS: Gutenberg table blocks are scroll containers too', () => {
+	assert.ok( CONTAINERS.split( ',' ).includes( '.entry-content .wp-block-table' ) );
+} );
+
+test( 'scrollLabel: a Gutenberg table block is named by its figcaption', () => {
+	const figure = fakeElement();
+	figure.querySelector = ( selector ) =>
+		'figcaption' === selector ? { textContent: ' Registration fees ' } : null;
+
+	assert.equal( scrollLabel( figure ), 'Registration fees' );
+} );
+
+test( 'update: an overflowing Gutenberg table block becomes a focusable region', () => {
+	const figure = fakeElement( { scrollWidth: 800, clientWidth: 300 } );
+	figure.tagName = 'FIGURE';
+
+	update( figure );
+
+	assert.equal( figure.attributes.tabindex, '0' );
+	assert.equal( figure.attributes.role, 'region' );
+	assert.equal( figure.attributes[ 'aria-label' ], 'Scrollable table' );
 } );
