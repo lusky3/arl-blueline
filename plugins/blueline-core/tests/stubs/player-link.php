@@ -241,8 +241,8 @@ if ( ! function_exists( 'wp_cache_flush' ) ) {
 if ( ! function_exists( 'blueline_core_test_meta_clause_matches' ) ) {
 	/**
 	 * Evaluate one get_posts() meta_query node (a clause, or a nested relation group) against a
-	 * post's meta rows. Models the compare operators the claim pool uses: =, IN, NOT IN and
-	 * NOT EXISTS, with a missing row failing NOT IN as it does in SQL.
+	 * post's meta rows. Models the compare operators the claim pool and the sitemap exclusions
+	 * use: =, IN, NOT IN, EXISTS and NOT EXISTS, with a missing row failing NOT IN as it does in SQL.
 	 *
 	 * @param array $node Clause ( key, compare, value ) or group ( relation + clauses ).
 	 * @param array $meta The post's meta, key => value or Blueline_Test_Meta_Rows.
@@ -275,6 +275,8 @@ if ( ! function_exists( 'blueline_core_test_meta_clause_matches' ) ) {
 		switch ( $compare ) {
 			case 'NOT EXISTS':
 				return array() === $rows;
+			case 'EXISTS':
+				return array() !== $rows;
 			case '=':
 				return in_array( (string) ( $node['value'] ?? '' ), $rows, true );
 			case 'IN':

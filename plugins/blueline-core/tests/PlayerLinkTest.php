@@ -396,6 +396,177 @@ final class PlayerLinkTest extends TestCase {
 		);
 	}
 
+	/**
+	 * The staging shape that locked winter players out: a newer, EMPTY season term of the other
+	 * session letter (s2099) sits above the season being played (w2026-27). The pool follows the
+	 * season being played and leaves the empty newer term out.
+	 */
+	public function test_resolve_pool_follows_the_season_being_played_past_a_newer_empty_term(): void {
+		$terms  = array(
+			array(
+				'term_id' => 682,
+				'slug'    => 's2099',
+			),
+			array(
+				'term_id' => 674,
+				'slug'    => 'w2026-27',
+			),
+			array(
+				'term_id' => 666,
+				'slug'    => 's2026',
+			),
+			array(
+				'term_id' => 654,
+				'slug'    => 'w2025-26',
+			),
+		);
+		$counts = array(
+			682 => 0,
+			674 => 496,
+			666 => 300,
+			654 => 524,
+		);
+		$count  = static function ( $term_id ) use ( $counts ) {
+			return $counts[ $term_id ] ?? 0;
+		};
+
+		$this->assertSame( array( 674 ), blueline_resolve_claim_pool_term_ids( $terms, $count, array( 674 ) ) );
+
+		// Without a season being played to anchor on, the newest term still decides (the old rule).
+		$this->assertSame( array( 682, 666 ), blueline_resolve_claim_pool_term_ids( $terms, $count ) );
+	}
+
+	/**
+	 * A newer season set up ahead of time joins the pool once registrants are on its rosters, so
+	 * a first-timer tagged only with next season can claim; the season being played stays first.
+	 */
+	public function test_resolve_pool_adds_the_newest_term_once_it_has_players(): void {
+		$terms  = array(
+			array(
+				'term_id' => 690,
+				'slug'    => 's2099',
+			),
+			array(
+				'term_id' => 682,
+				'slug'    => 's2027',
+			),
+			array(
+				'term_id' => 674,
+				'slug'    => 'w2026-27',
+			),
+			array(
+				'term_id' => 654,
+				'slug'    => 'w2025-26',
+			),
+		);
+		$counts = array(
+			690 => 0,
+			682 => 40,
+			674 => 496,
+			654 => 524,
+		);
+
+		$result = blueline_resolve_claim_pool_term_ids(
+			$terms,
+			static function ( $term_id ) use ( $counts ) {
+				return $counts[ $term_id ] ?? 0;
+			},
+			array( 674 )
+		);
+
+		$this->assertSame( array( 674, 682 ), $result );
+	}
+
+	/**
+	 * The season being played keeps the sparse same-session fallback: it is compared with the
+	 * previous season of its own letter, never with a newer term.
+	 */
+	public function test_resolve_pool_sparse_fallback_is_relative_to_the_season_being_played(): void {
+		$terms  = array(
+			array(
+				'term_id' => 682,
+				'slug'    => 's2099',
+			),
+			array(
+				'term_id' => 674,
+				'slug'    => 'w2026-27',
+			),
+			array(
+				'term_id' => 666,
+				'slug'    => 's2026',
+			),
+			array(
+				'term_id' => 654,
+				'slug'    => 'w2025-26',
+			),
+		);
+		$counts = array(
+			682 => 0,
+			674 => 90,
+			666 => 9999,
+			654 => 524,
+		);
+
+		$result = blueline_resolve_claim_pool_term_ids(
+			$terms,
+			static function ( $term_id ) use ( $counts ) {
+				return $counts[ $term_id ] ?? 0;
+			},
+			array( 674 )
+		);
+
+		$this->assertSame( array( 674, 654 ), $result );
+	}
+
+	/**
+	 * An active term that is not in the list (a playoff term, or an unclassifiable slug) is no
+	 * anchor: resolution falls back to the newest term, as before.
+	 */
+	public function test_resolve_pool_ignores_an_active_term_it_cannot_use(): void {
+		$terms = array(
+			array(
+				'term_id' => 674,
+				'slug'    => 'w2026-27',
+			),
+			array(
+				'term_id' => 999,
+				'slug'    => '2026-winter',
+			),
+		);
+		$count = static function () {
+			return 10;
+		};
+
+		$this->assertSame( array( 674 ), blueline_resolve_claim_pool_term_ids( $terms, $count, array( 700 ) ) );
+		$this->assertSame( array( 674 ), blueline_resolve_claim_pool_term_ids( $terms, $count, array( 999 ) ) );
+	}
+
+	/**
+	 * A malformed newest slug no longer empties the pool when the season being played is known.
+	 */
+	public function test_resolve_pool_unclassifiable_newest_term_does_not_block_an_active_anchor(): void {
+		$terms = array(
+			array(
+				'term_id' => 999,
+				'slug'    => '2026-winter',
+			),
+			array(
+				'term_id' => 674,
+				'slug'    => 'w2026-27',
+			),
+		);
+
+		$result = blueline_resolve_claim_pool_term_ids(
+			$terms,
+			static function () {
+				return 10;
+			},
+			array( 674 )
+		);
+
+		$this->assertSame( array( 674 ), $result );
+	}
+
 	// -----------------------------------------------------------------------
 	// Candidate gate -- the single-token identity-squatting hole.
 	// -----------------------------------------------------------------------
