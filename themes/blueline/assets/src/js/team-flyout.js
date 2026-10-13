@@ -32,10 +32,104 @@
 // Grace period before a hover-opened panel closes, so crossing a gap on the way to a crest doesn't dismiss it.
 const HOVER_CLOSE_DELAY_MS = 450;
 
+// Set once the visitor has opened the flyout: the tab's attention pulse has done its job and stops for good (team-flyout.css).
+const OPENED_KEY = 'blueline:team-flyout-opened';
+
+/**
+ * Whether focus has left the flyout for good, as opposed to moving between
+ * its own controls or a click landing on its non-focusable padding.
+ *
+ * A null relatedTarget means focus went to nothing: the window lost focus, or
+ * a pointer press landed on something unfocusable. Pressing inside the open
+ * panel (its scrollbar, the gaps between crests) must not close it, so that
+ * case only counts as leaving when the pointer is not over the flyout.
+ *
+ * @param {{contains: Function}} flyout        The flyout element.
+ * @param {Element|null}         relatedTarget The element receiving focus, if any.
+ * @param {boolean}              pointerInside Whether the pointer is over the flyout.
+ * @return {boolean} True when the panel should close.
+ */
+function focusLeftFlyout( flyout, relatedTarget, pointerInside ) {
+	if ( relatedTarget ) {
+		return ! flyout.contains( relatedTarget );
+	}
+
+	return ! pointerInside;
+}
+
+/**
+ * Whether this browser has opened the flyout before. Storage can throw
+ * (disabled, private mode), in which case the pulse simply keeps its
+ * three-pulse cap on every page.
+ *
+ * @param {{getItem: Function}} storage A localStorage-like object.
+ * @return {boolean} True when it was opened on an earlier visit.
+ */
+function hasOpenedBefore( storage ) {
+	try {
+		return '1' === storage.getItem( OPENED_KEY );
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Remember that the flyout has been opened. A failure to store is not worth
+ * surfacing: the pulse is decorative.
+ *
+ * @param {{setItem: Function}} storage A localStorage-like object.
+ */
+function rememberOpened( storage ) {
+	try {
+		storage.setItem( OPENED_KEY, '1' );
+	} catch {
+		// Intentionally ignored -- see this function's own docblock.
+	}
+}
+
 if ( typeof document !== 'undefined' ) {
 	const flyout = document.querySelector( '.bl-team-flyout' );
 
-	// Escape closes it from the tab or the panel, on any input (A11Y-07).
+	if ( flyout ) {
+		// `window.localStorage` itself can throw on access, hence the getter.
+		const getStorage = () => {
+			try {
+				return window.localStorage;
+			} catch {
+				return null;
+			}
+		};
+
+		if ( getStorage() && hasOpenedBefore( getStorage() ) ) {
+			flyout.classList.add( 'bl-team-flyout--seen' );
+		}
+
+		flyout.addEventListener( 'toggle', () => {
+			if ( flyout.open ) {
+				flyout.classList.add( 'bl-team-flyout--seen' );
+
+				if ( getStorage() ) {
+					rememberOpened( getStorage() );
+				}
+			}
+		} );
+
+		// Tabbing (or clicking) away closes it: left open, the panel sat over whatever received focus next.
+		flyout.addEventListener( 'focusout', ( event ) => {
+			if (
+				flyout.open &&
+				focusLeftFlyout(
+					flyout,
+					event.relatedTarget,
+					flyout.matches( ':hover' )
+				)
+			) {
+				flyout.open = false;
+			}
+		} );
+	}
+
+	// Escape closes it from the tab or the panel, on any input.
 	if ( flyout ) {
 		flyout.addEventListener( 'keydown', ( event ) => {
 			if ( 'Escape' !== event.key || ! flyout.open ) {
@@ -102,4 +196,13 @@ if ( typeof document !== 'undefined' ) {
 			}
 		} );
 	}
+}
+
+if ( typeof module !== 'undefined' && module.exports ) {
+	module.exports = {
+		focusLeftFlyout,
+		hasOpenedBefore,
+		rememberOpened,
+		OPENED_KEY,
+	};
 }

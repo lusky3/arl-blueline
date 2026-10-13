@@ -8,6 +8,25 @@ as the release notes.
 
 ## [Unreleased]
 
+### Changed
+- The "next game" reminder no longer appears on the My Account, cart or checkout pages, where it sat over the
+  fields being filled in. On phones it is now a slim bar along the bottom of the screen ("Fri 6:45 pm · vs Ice
+  Bears · Red") instead of a card, and the page leaves room for it so the footer and any focused field are
+  never hidden behind it. It is now labelled "Your next game" for screen readers and the desktop card.
+- The Teams tab now shows each team's name beside its crest (it used to be a crest alone, with the name only
+  as a hover tooltip that never shows on a phone), and the crests load straight away instead of opening as
+  blank circles.
+- The Teams tab's attention pulse now stops after three pulses, and for good once you have opened it. The
+  crests no longer bob. The Teams panel now sits above the next-game reminder.
+- Seasonal effects (snow, poppies, fireworks) get a "Hide seasonal effects" button in the footer.
+
+### Fixed
+- Keyboard focus is no longer lost to the top of the page when you dismiss the announcement banner or the
+  next-game reminder.
+- The Teams panel closes when keyboard focus leaves it, instead of staying open over whatever you tabbed to.
+- The push-notification bell no longer sits on top of the mobile menu, and it tucks away while the phone
+  next-game bar is showing.
+
 ## [1.1.4]
 
 ### Fixed
