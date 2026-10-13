@@ -65,4 +65,4 @@ omitted rather than leading to empty pages.
   `/arl-league-info/contact-us/` on production and confirm it shows the address, not `u0070u006c...`.
 - [ ] **Object cache.** Staging has the Redis plugin but no `object-cache.php` drop-in, so the new caches use
   `wp_options` there. Confirm production has a working drop-in (`wp redis status`).
-- [ ] Put the GitHub update token's expiry in a calendar (`docs/RELEASING.md`, step R4).
+- [ ] If you configured the optional GitHub update token, put its expiry in a calendar (`docs/RELEASING.md`, step R4). Without a token, updates are checked anonymously and nothing expires.
