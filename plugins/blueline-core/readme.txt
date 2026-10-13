@@ -32,6 +32,9 @@ Each feature is a module that can be switched off with the `blueline_core_module
 
 == Changelog ==
 
+= Unreleased =
+* A profile photo larger than the server's request limit now returns to Player Profile with the "too large" message instead of ending on a blank page.
+
 = 0.1.1 =
 * The plugin's homepage link follows the repository rename to arl-blueline.
 
