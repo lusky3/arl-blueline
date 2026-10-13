@@ -8,6 +8,20 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.3]
+
+### Fixed
+- The home page hero no longer says "Season starts <date>" once games are being played. When registration
+  was open but no product carried the Featured tag, the hero fell back to its preseason copy, which prints the
+  next game's date as the season start. It now falls back to the in-season hero while games are being played.
+- Schedule table: each team's crest and name are mirrored (home is name then crest, away is crest then name)
+  instead of centred, so every crest sits the same distance from the Result column. Crests used to land
+  wherever the team name's length put them, up to 40px apart row to row.
+- Schedule table on phones: team names no longer break mid-word ("Lumberjac/ks"). The Home and Away columns
+  are wider, and a name that still cannot fit is cut off with an ellipsis instead of being split. Hovering it
+  shows the full name; on a touch screen the first tap shows the full name and a second tap opens the team
+  page. Names that fit behave as before.
+
 ## [1.1.2]
 
 ### Fixed
