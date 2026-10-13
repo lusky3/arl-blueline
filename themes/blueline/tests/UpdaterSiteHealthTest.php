@@ -49,7 +49,6 @@ final class UpdaterSiteHealthTest extends TestCase {
 	 */
 	public static function verdicts(): array {
 		return array(
-			'no token'     => array( 'no_token', null, 'recommended', 'orange' ),
 			'unauthorized' => array( 'unauthorized', null, 'critical', 'red' ),
 			'rate limited' => array( 'rate_limited', null, 'recommended', 'orange' ),
 			'error'        => array( 'error', null, 'recommended', 'orange' ),
@@ -100,13 +99,25 @@ final class UpdaterSiteHealthTest extends TestCase {
 	}
 
 	/**
-	 * The expired-token message tells the admin what to do.
+	 * The refusal message covers both causes: a bad configured token, and (with
+	 * no token) a repository that is no longer public.
 	 */
-	public function test_unauthorized_message_points_at_the_token(): void {
+	public function test_unauthorized_message_covers_a_bad_token_and_a_private_repo(): void {
 		$description = blueline_updater_health_result( $this->state( 'unauthorized' ) )['description'];
 
 		$this->assertStringContainsString( 'BLUELINE_GITHUB_TOKEN', $description );
 		$this->assertStringContainsString( 'expire', $description );
+		$this->assertStringContainsString( 'no longer be public', $description );
+	}
+
+	/**
+	 * A rate-limit message tells the admin the optional token raises the limit.
+	 */
+	public function test_rate_limited_message_mentions_the_optional_token(): void {
+		$description = blueline_updater_health_result( $this->state( 'rate_limited' ) )['description'];
+
+		$this->assertStringContainsString( 'BLUELINE_GITHUB_TOKEN', $description );
+		$this->assertStringContainsString( 'raises the limit', $description );
 	}
 
 	/**
@@ -121,13 +132,24 @@ final class UpdaterSiteHealthTest extends TestCase {
 	}
 
 	/**
-	 * No token: a recommendation, and not a single request.
+	 * No token configured: the check still runs, anonymously, and a healthy
+	 * answer is a healthy result (this is the state of a live site that never
+	 * had a token, which used to report updates as switched off).
 	 */
-	public function test_run_makes_no_http_when_no_token(): void {
+	public function test_run_checks_anonymously_when_no_token(): void {
+		blueline_test_http_expect(
+			'https://api.github.com/repos/lusky3/arl-blueline/releases?per_page=10',
+			array(
+				'response' => array( 'code' => 200 ),
+				'body'     => '[]',
+			)
+		);
+
 		$result = blueline_updater_run_health_test();
 
-		$this->assertSame( 'recommended', $result['status'] );
-		$this->assertSame( array(), $GLOBALS['bl_test_http_log'] );
+		$this->assertSame( 'good', $result['status'] );
+		$this->assertCount( 1, $GLOBALS['bl_test_http_log'] );
+		$this->assertArrayNotHasKey( 'Authorization', $GLOBALS['bl_test_http_log'][0]['args']['headers'] );
 	}
 
 	/**

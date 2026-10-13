@@ -72,13 +72,15 @@ final class UpdaterWiringTest extends TestCase {
 	}
 
 	/**
-	 * Without a token the module registers nothing.
+	 * Without a token the module still registers every hook: the repository is
+	 * public, and a site that never configured a token must get updates (live
+	 * ran 1.1.2 for hours with 1.1.3 published because this used to return early).
 	 */
-	public function test_boot_registers_nothing_without_token(): void {
+	public function test_boot_registers_hooks_without_a_token(): void {
 		blueline_updater_boot();
 
 		foreach ( self::TAGS as $tag ) {
-			$this->assertArrayNotHasKey( $tag, $GLOBALS['bl_test_hooks'], $tag );
+			$this->assertArrayHasKey( $tag, $GLOBALS['bl_test_hooks'], $tag );
 		}
 	}
 

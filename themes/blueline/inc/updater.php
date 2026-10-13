@@ -2,11 +2,13 @@
 /**
  * Theme updates from GitHub releases: the WordPress surface.
  *
- * Active only when BLUELINE_GITHUB_TOKEN is set in wp-config.php (and
- * BLUELINE_UPDATE_CHANNEL picks `stable` or `beta`). The style.css `Update URI`
- * header routes WordPress's update check to `update_themes_github.com`, which
- * also keeps wordpress.org from being asked about this theme. Rules live in
- * updater-rules.php, HTTP/cache/download in updater-client.php.
+ * Always active: the repository is public, so no credentials are needed.
+ * BLUELINE_GITHUB_TOKEN in wp-config.php is optional (a higher rate limit, or a
+ * private fork) and BLUELINE_UPDATE_CHANNEL picks `stable` or `beta`. The
+ * style.css `Update URI` header routes WordPress's update check to
+ * `update_themes_github.com`, which also keeps wordpress.org from being asked
+ * about this theme. Rules live in updater-rules.php, HTTP/cache/download in
+ * updater-client.php.
  *
  * @package blueline
  */
@@ -14,18 +16,13 @@
 defined( 'ABSPATH' ) || exit;
 
 add_action( 'after_setup_theme', 'blueline_updater_boot' );
-// Registered even without a token: explaining why updates are off is the point.
 add_filter( 'site_status_tests', 'blueline_updater_register_health_test' );
 /**
- * Register the updater's hooks, or nothing at all without a token.
+ * Register the updater's hooks.
  *
  * @return void
  */
 function blueline_updater_boot(): void {
-	if ( '' === blueline_updater_token() ) {
-		return;
-	}
-
 	add_filter( 'update_themes_github.com', 'blueline_updater_filter_update', 10, 4 );
 	add_filter( 'upgrader_pre_download', 'blueline_updater_filter_pre_download', 10, 4 );
 	add_action( 'upgrader_process_complete', 'blueline_updater_on_upgrade', 10, 2 );
@@ -79,8 +76,8 @@ function blueline_updater_filter_update( $update, $theme_data = array(), $styles
 }
 
 /**
- * `upgrader_pre_download`: fetch our own release asset (the token must not
- * reach WordPress's generic downloader) and verify its sha256.
+ * `upgrader_pre_download`: fetch our own release asset (a configured token
+ * must not reach WordPress's generic downloader) and verify its sha256.
  *
  * @param mixed  $reply      Short-circuit value so far.
  * @param string $package    Package URL.
@@ -141,7 +138,8 @@ function blueline_updater_register_health_test( $tests ) {
 }
 
 /**
- * Run the test against the cached update state (no network without a token).
+ * Run the test against the cached update state (one request only when the
+ * cache is empty or stale).
  *
  * @return array<string, mixed>
  */
@@ -164,20 +162,15 @@ function blueline_updater_health_result( array $state ): array {
 	$level   = 'good';
 
 	switch ( $status ) {
-		case 'no_token':
-			$level   = 'recommended';
-			$color   = 'orange';
-			$message = __( 'Theme updates from GitHub are switched off. Add BLUELINE_GITHUB_TOKEN to wp-config.php to receive Blueline updates.', 'blueline' );
-			break;
 		case 'unauthorized':
 			$level   = 'critical';
 			$color   = 'red';
-			$message = __( 'GitHub refused the update token. It may be missing, revoked, expired (fine-grained tokens expire) or lack access to the theme repository. Replace BLUELINE_GITHUB_TOKEN in wp-config.php.', 'blueline' );
+			$message = __( 'GitHub refused the update request. If BLUELINE_GITHUB_TOKEN is set in wp-config.php it may be revoked, expired (fine-grained tokens expire) or lack access to the theme repository, so replace or remove it. Without a token, the repository may no longer be public.', 'blueline' );
 			break;
 		case 'rate_limited':
 			$level   = 'recommended';
 			$color   = 'orange';
-			$message = __( 'GitHub is rate limiting update checks. Blueline will try again within the hour.', 'blueline' );
+			$message = __( 'GitHub is rate limiting update checks. Blueline will try again within the hour. Defining BLUELINE_GITHUB_TOKEN in wp-config.php raises the limit.', 'blueline' );
 			break;
 		case 'ok':
 			$message = '' === $latest

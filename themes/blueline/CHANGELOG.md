@@ -8,6 +8,14 @@ as the release notes.
 
 ## [Unreleased]
 
+### Fixed
+- Theme updates now work without a GitHub token. The updater did nothing at all unless `BLUELINE_GITHUB_TOKEN`
+  was set in `wp-config.php`, which was needed while the repository was private. It is public now, so a site
+  with no token checked for updates never, and kept showing the old version when a release was published.
+  The token is now optional (it only raises the rate limit, or reaches a private fork). Site Health no longer
+  reports "switched off" for a site without one. A site running 1.1.3 or older still needs this version
+  installed by hand once.
+
 ## [1.1.3]
 
 ### Fixed
