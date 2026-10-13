@@ -64,7 +64,7 @@ omitted rather than leading to empty pages.
 - [ ] **Contact Us email.** On staging the page's email script lost its backslashes in a database import (fixed on staging). Open
   `/arl-league-info/contact-us/` on production and confirm it shows the address, not `u0070u006c...`.
 - [ ] **Email content type.** blueline-core forces wp-email-template's "Email content type" to HTML (multipart made Mailgun send raw HTML as text). With the plugin active, `wp eval 'echo get_option("wp_email_template_general")["email_content_type"];'` must print `html`; then send a Contact Us test and confirm it arrives formatted.
-- [ ] **robots.txt.** Production's `robots.txt` has no `Sitemap:` line and none of WooCommerce's rules, so it looks like a static file in the web root, which bypasses WordPress. Delete it so WordPress's own one is served, or add `Sitemap: https://arlhockey.ca/wp-sitemap.xml` to it; then purge the Cloudflare cache for `/robots.txt`.
+- [ ] **robots.txt.** Production's `robots.txt` has no `Sitemap:` line and none of WooCommerce's rules, so it looks like a static file in the web root, which bypasses WordPress. Delete it so WordPress's own one is served, or add `Sitemap: https://<site domain>/wp-sitemap.xml` to it; then purge the Cloudflare cache for `/robots.txt`.
 - [ ] **Object cache.** Staging has the Redis plugin but no `object-cache.php` drop-in, so the new caches use
   `wp_options` there. Confirm production has a working drop-in (`wp redis status`).
 - [ ] If you configured the optional GitHub update token, put its expiry in a calendar (`docs/RELEASING.md`, step R4). Without a token, updates are checked anonymously and nothing expires.
