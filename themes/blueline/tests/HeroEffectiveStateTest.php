@@ -80,7 +80,12 @@ final class HeroEffectiveStateTest extends TestCase {
 			array_diff_key( $content, array( 'state' => null ) ),
 			'fallback copy must be byte-identical to calling the in-season content function directly'
 		);
-		$this->assertSame( blueline_homepage_module_order( 'in_season' ), blueline_homepage_module_order( $content['state'] ) );
+		// An explicit list, not blueline_homepage_module_order() against itself, which
+		// would pass whatever that function returned.
+		$this->assertSame(
+			array( 'next_games', 'standings_snippet', 'latest_news' ),
+			blueline_homepage_module_order( $content['state'] )
+		);
 	}
 
 	/**
