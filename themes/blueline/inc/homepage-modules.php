@@ -87,6 +87,11 @@ function blueline_product_has_tag( int $product_id, string $tag_name ): bool {
  * selling normally everywhere else (/register, WooCommerce's own product
  * pages) without this hero ever mentioning it.
  *
+ * A Featured product must also be a paid product the shop still lists
+ * (blueline_registration_product_offer_kind()): the league hides a
+ * registration product once its spots are filled, and the hero went on
+ * quoting its price because the tag stayed on.
+ *
  * @return array<int, array{product: object, price_label: string, price: float, role_label: string}>
  */
 function blueline_homepage_registration_offers(): array {
@@ -105,7 +110,7 @@ function blueline_homepage_registration_offers(): array {
 
 		$product = wc_get_product( $product_id );
 
-		if ( ! $product || ! $product->is_purchasable() || ! $product->is_in_stock() ) {
+		if ( 'paid' !== blueline_registration_product_offer_kind( $product ) ) {
 			continue;
 		}
 
@@ -316,18 +321,20 @@ function blueline_homepage_event_season_label( int $event_id ): string {
  * publish-only query here would silently under-count exactly the way
  * Task 6's first pass did.
  *
- * Drives both the in_season eyebrow's "Week {n}" and the headline's
- * "{n} games this week"; the brief's table uses the same {n} token in
- * both cells, so both read off this one count.
+ * Drives the in_season headline's "{n} games this week". Postponed and
+ * cancelled games are not counted: they are not being played.
  *
+ * @param int|null $now Unix timestamp to evaluate against; null means now.
+ *                      Resolved through blueline_season_state_moment(), so
+ *                      the bounds are site-local like post_date.
  * @return int
  */
-function blueline_homepage_games_this_week(): int {
+function blueline_homepage_games_this_week( ?int $now = null ): int {
 	if ( ! post_type_exists( 'sp_event' ) ) {
 		return 0;
 	}
 
-	$now = current_time( 'mysql' );
+	list( $now_mysql, $now_ts ) = blueline_season_state_moment( $now );
 
 	$query = new WP_Query(
 		array(
@@ -339,14 +346,87 @@ function blueline_homepage_games_this_week(): int {
 			'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
 				array(
 					'column' => 'post_date',
-					'after'  => $now,
-					'before' => gmdate( 'Y-m-d H:i:s', strtotime( $now ) + 7 * DAY_IN_SECONDS ),
+					'after'  => $now_mysql,
+					'before' => gmdate( 'Y-m-d H:i:s', $now_ts + 7 * DAY_IN_SECONDS ),
 				),
 			),
+			'meta_query'     => blueline_season_state_live_event_meta_query(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded by post_type sp_event and a 7-day date range.
 		)
 	);
 
 	return count( $query->posts );
+}
+
+/**
+ * Pure: which week of the season $now_mysql falls in, counting 7-day spans
+ * from the day of the season's first game (week 1 is that day and the six
+ * after it). Dates only, so a late first game does not push the week
+ * boundary to a late hour.
+ *
+ * @param string $first_event_mysql The first game's site-local post_date.
+ * @param string $now_mysql         The moment to evaluate, site-local.
+ * @return int The week number, or 0 before the first game or on a bad date.
+ */
+function blueline_homepage_season_week_number( string $first_event_mysql, string $now_mysql ): int {
+	$first = DateTimeImmutable::createFromFormat( '!Y-m-d', substr( $first_event_mysql, 0, 10 ) );
+	$today = DateTimeImmutable::createFromFormat( '!Y-m-d', substr( $now_mysql, 0, 10 ) );
+
+	if ( ! $first || ! $today || $today < $first ) {
+		return 0;
+	}
+
+	return intdiv( (int) $first->diff( $today )->days, 7 ) + 1;
+}
+
+/**
+ * The current week of the season $event_id belongs to, counted from that
+ * sp_season's first game that went ahead (see
+ * blueline_homepage_season_week_number()).
+ *
+ * @param int      $event_id An sp_event in the season being played.
+ * @param int|null $now      Unix timestamp to evaluate against; null means now.
+ * @return int The week number, or 0 when it cannot be worked out.
+ */
+function blueline_homepage_season_week( int $event_id, ?int $now = null ): int {
+	if ( ! $event_id || ! taxonomy_exists( 'sp_season' ) ) {
+		return 0;
+	}
+
+	$season_ids = wp_get_object_terms( $event_id, 'sp_season', array( 'fields' => 'ids' ) );
+
+	if ( is_wp_error( $season_ids ) || empty( $season_ids ) ) {
+		return 0;
+	}
+
+	$first = get_posts(
+		array(
+			'post_type'      => 'sp_event',
+			'post_status'    => array( 'publish', 'future' ),
+			'posts_per_page' => 1,
+			'orderby'        => 'date',
+			'order'          => 'ASC',
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- one season term, one row.
+				array(
+					'taxonomy' => 'sp_season',
+					'field'    => 'term_id',
+					'terms'    => (int) $season_ids[0],
+				),
+			),
+			'meta_query'     => blueline_season_state_live_event_meta_query(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- one season term, one row.
+		)
+	);
+
+	$first_post = ! empty( $first ) ? get_post( (int) $first[0] ) : null;
+
+	if ( ! $first_post ) {
+		return 0;
+	}
+
+	list( $now_mysql ) = blueline_season_state_moment( $now );
+
+	return blueline_homepage_season_week_number( (string) $first_post->post_date, $now_mysql );
 }
 
 /**
@@ -489,31 +569,88 @@ function blueline_homepage_hero_preseason_content( array $state_data ): array {
 }
 
 /**
+ * Hero content while only $0 waitlist products are on offer: say so, with
+ * no price anywhere, and keep the next-game line while games are being
+ * played -- the same sell-and-play overlap the registration hero carries.
+ *
+ * @param array  $state_data Result of blueline_season_state_data().
+ * @param string $season     The waitlisted season's label, or ''.
+ * @return array{eyebrow: string, headline_html: string, subcopy_lines: string[], cta_label: string, cta_url: string, cta_variant: string}
+ */
+function blueline_homepage_hero_waitlist_content( array $state_data, string $season ): array {
+	$subcopy_lines = array();
+
+	if ( ! empty( $state_data['is_playing'] ) && ! empty( $state_data['next_event_id'] ) ) {
+		$next_line = blueline_homepage_next_event_line( (int) $state_data['next_event_id'] );
+
+		if ( $next_line ) {
+			$subcopy_lines[] = $next_line;
+		}
+	}
+
+	return array(
+		'eyebrow'       => $season
+			/* translators: %s: the waitlisted season's label, e.g. "Winter 2026-27". */
+			? sprintf( __( '%s · Waitlist open', 'blueline' ), $season )
+			: __( 'Waitlist open', 'blueline' ),
+		'headline_html' => blueline_hero_headline(
+			blueline_settings( 'hero_registration_headline' ),
+			blueline_settings( 'hero_registration_highlight' )
+		),
+		'subcopy_lines' => $subcopy_lines,
+		'cta_label'     => __( 'Join the waitlist', 'blueline' ),
+		'cta_url'       => blueline_resolve_link( 'page_register' ),
+		'cta_variant'   => 'primary',
+	);
+}
+
+/**
  * Hero content for the in_season state.
  *
- * @param array $state_data Result of blueline_season_state_data().
+ * The eyebrow carries the real week of the season (counted from the
+ * season's first game), never the game count, and drops "Week" when the
+ * week cannot be worked out. In a week with no games the headline names the
+ * next game's date rather than "0 games this week".
+ *
+ * @param array    $state_data Result of blueline_season_state_data().
+ * @param int|null $now        Unix timestamp to evaluate against; null means now.
  * @return array{eyebrow: string, headline_html: string, cta_label: string, cta_url: string, cta_variant: string}
  */
-function blueline_homepage_hero_in_season_content( array $state_data ): array {
+function blueline_homepage_hero_in_season_content( array $state_data, ?int $now = null ): array {
 	$event_id = ! empty( $state_data['next_event_id'] ) ? (int) $state_data['next_event_id'] : 0;
 	$season   = blueline_homepage_event_season_label( $event_id );
-	$count    = blueline_homepage_games_this_week();
+	$count    = blueline_homepage_games_this_week( $now );
+	$week     = blueline_homepage_season_week( $event_id, $now );
 
-	$eyebrow = $season
-		/* translators: 1: current season label, 2: number of games this week. */
-		? sprintf( __( '%1$s · Week %2$d', 'blueline' ), $season, $count )
-		/* translators: %d: number of games this week. */
-		: sprintf( __( 'Week %d', 'blueline' ), $count );
+	if ( $season && $week ) {
+		/* translators: 1: current season label, 2: week of the season. */
+		$eyebrow = sprintf( __( '%1$s · Week %2$d', 'blueline' ), $season, $week );
+	} elseif ( $season ) {
+		$eyebrow = $season;
+	} elseif ( $week ) {
+		/* translators: %d: week of the season. */
+		$eyebrow = sprintf( __( 'Week %d', 'blueline' ), $week );
+	} else {
+		$eyebrow = __( 'In season', 'blueline' );
+	}
 
-	// The brief's table highlights only {n} ("**{n}** games this week."),
-	// not the whole "N games" phrase, so the pluralized noun is a plain,
-	// separately-escaped substitution alongside the highlighted number,
-	// not passed through blueline_hero_headline()'s single-highlight helper.
-	$headline_html = sprintf(
-		blueline_settings( 'hero_in_season_headline' ),
-		blueline_hero_highlight( (string) $count ),
-		esc_html( _n( 'game', 'games', $count, 'blueline' ) )
-	);
+	if ( 0 === $count && $event_id ) {
+		$headline_html = blueline_hero_headline(
+			/* translators: %s: the next game's date, e.g. "Fri, Oct 23". */
+			__( 'Next game: %s', 'blueline' ),
+			get_the_date( 'D, M j', $event_id )
+		);
+	} else {
+		// The brief's table highlights only {n} ("**{n}** games this week."),
+		// not the whole "N games" phrase, so the pluralized noun is a plain,
+		// separately-escaped substitution alongside the highlighted number,
+		// not passed through blueline_hero_headline()'s single-highlight helper.
+		$headline_html = sprintf(
+			blueline_settings( 'hero_in_season_headline' ),
+			blueline_hero_highlight( (string) $count ),
+			esc_html( _n( 'game', 'games', $count, 'blueline' ) )
+		);
+	}
 
 	return array(
 		'eyebrow'       => $eyebrow,
@@ -579,9 +716,15 @@ function blueline_homepage_hero_offseason_content(): array {
  * markup instead of a class that names one state while showing another's
  * copy. That mismatch was a shipped bug; do not drop this key while editing.
  *
+ * When no paid registration is on offer but a $0 waitlist is, the copy is
+ * the waitlist hero (blueline_homepage_hero_waitlist_content()) whatever
+ * the season state, and the result carries `variant => 'waitlist'`: the
+ * class names that variant, while 'state' remains the season the module
+ * order should follow.
+ *
  * @param string $state      One of the five known season states.
  * @param array  $state_data Result of blueline_season_state_data().
- * @return array{state: string, eyebrow: string, headline_html: string, subcopy_lines: string[], cta_label: string, cta_url: string, cta_variant: string}
+ * @return array{state: string, variant?: string, eyebrow: string, headline_html: string, subcopy_lines?: string[], cta_label: string, cta_url: string, cta_variant: string}
  */
 function blueline_homepage_hero_content( string $state, array $state_data ): array {
 	if ( 'registration_open' === $state ) {
@@ -632,7 +775,24 @@ function blueline_homepage_hero_content( string $state, array $state_data ): arr
 	);
 
 	$effective_state = isset( $builders[ $state ] ) ? $state : 'offseason';
-	$builder         = $builders[ $effective_state ];
+
+	// Only $0 waitlists on offer: the hero says so, with no price. Checked
+	// live, like the paid offers above, rather than off the cached state.
+	// 'state' stays the season being played, because that is what the
+	// module order below the hero follows; 'variant' names the copy shown.
+	$waitlist_id = (int) ( blueline_season_state_product_signal()[2] ?? 0 );
+
+	if ( $waitlist_id ) {
+		$content            = blueline_homepage_hero_waitlist_content(
+			$state_data,
+			blueline_homepage_registration_season_label( $waitlist_id )
+		);
+		$content['state']   = $effective_state;
+		$content['variant'] = 'waitlist';
+		return $content;
+	}
+
+	$builder = $builders[ $effective_state ];
 
 	$content          = $builder( $state_data );
 	$content['state'] = $effective_state;
@@ -687,9 +847,11 @@ function blueline_band_shots(): array {
  * blueline_homepage_hero_content() actually rendered, not the requested
  * $state; those can differ (a registration_open request whose product
  * fails live re-verification renders preseason/offseason copy instead),
- * and the class must agree with what is actually on the page. The
- * effective state is returned so the caller (template-homepage.php) can
- * keep the module order in sync with whatever the hero actually showed.
+ * and the class must agree with what is actually on the page -- which is
+ * why the waitlist hero's class is bl-hero--waitlist rather than its
+ * season state. The effective state is returned so the caller
+ * (template-homepage.php) can keep the module order in sync with whatever
+ * the hero actually showed.
  *
  * @param string $state One of registration_open|preseason|in_season|playoffs|offseason.
  * @return string The effective state actually rendered.
@@ -723,7 +885,7 @@ function blueline_render_hero( string $state ): string {
 
 	blueline_render_band_photo_head();
 	?>
-	<section class="bl-hero bl-hero--<?php echo esc_attr( $effective_state ); ?><?php echo $bl_has_photo ? ' bl-band-photo' : ''; ?>">
+	<section class="bl-hero bl-hero--<?php echo esc_attr( $content['variant'] ?? $effective_state ); ?><?php echo $bl_has_photo ? ' bl-band-photo' : ''; ?>">
 		<?php blueline_render_faceoff_rings(); ?>
 
 		<div class="bl-container bl-hero__inner">
@@ -889,31 +1051,45 @@ function blueline_homepage_module_empty_state( string $message ) {
 }
 
 /**
- * The next_games module: real upcoming games. post_status MUST include 'future',
- * because WordPress core assigns that status (not 'publish') to any post dated
- * ahead of now, and every genuinely upcoming sp_event on this site carries
- * it. See the docblock on BLUELINE_PUBLISHED_STATUS in inc/season-state.php.
+ * The next_games module's query: the next four games that are going ahead.
+ * post_status MUST include 'future', because WordPress core assigns that
+ * status (not 'publish') to any post dated ahead of now, and every genuinely
+ * upcoming sp_event on this site carries it. See the docblock on
+ * BLUELINE_PUBLISHED_STATUS in inc/season-state.php. Postponed and cancelled
+ * games are left out, so the next real game shows in their place.
+ *
+ * @param int|null $now Unix timestamp to evaluate against; null means now.
+ * @return array WP_Query args.
+ */
+function blueline_homepage_next_games_query_args( ?int $now = null ): array {
+	list( $now_mysql ) = blueline_season_state_moment( $now );
+
+	return array(
+		'post_type'      => 'sp_event',
+		'post_status'    => array( 'publish', 'future' ),
+		'posts_per_page' => 4,
+		'orderby'        => 'date',
+		'order'          => 'ASC',
+		'no_found_rows'  => true,
+		'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
+			array(
+				'column' => 'post_date',
+				'after'  => $now_mysql,
+			),
+		),
+		'meta_query'     => blueline_season_state_live_event_meta_query(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- four rows of one post type.
+	);
+}
+
+/**
+ * The next_games module: real upcoming games (see
+ * blueline_homepage_next_games_query_args()).
  */
 function blueline_homepage_module_next_games() {
 	$events = array();
 
 	if ( post_type_exists( 'sp_event' ) ) {
-		$query = new WP_Query(
-			array(
-				'post_type'      => 'sp_event',
-				'post_status'    => array( 'publish', 'future' ),
-				'posts_per_page' => 4,
-				'orderby'        => 'date',
-				'order'          => 'ASC',
-				'no_found_rows'  => true,
-				'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
-					array(
-						'column' => 'post_date',
-						'after'  => current_time( 'mysql' ),
-					),
-				),
-			)
-		);
+		$query = new WP_Query( blueline_homepage_next_games_query_args() );
 
 		$events = $query->posts;
 	}
