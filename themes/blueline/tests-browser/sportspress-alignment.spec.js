@@ -3,10 +3,16 @@
  *
  * SportsPress renders a fixture mirrored -- home is name-then-crest, away is
  * crest-then-name, and its always-loaded core stylesheet aligns the schedule's
- * two team columns inward. The result is only symmetric when both team names
- * happen to be the same length, which is why these assertions are geometric:
- * "is the kick-off time actually on the centre line" is the property that was
- * broken, and no amount of checking class names would have caught it.
+ * two team columns inward. On the event page that is only symmetric when both
+ * team names happen to be the same length, so the lockup there is rebuilt as two
+ * equal columns; the assertions are geometric because "is the kick-off time
+ * actually on the centre line" is the property that was broken, and no amount of
+ * checking class names would have caught it.
+ *
+ * The schedule TABLE is the opposite case: Result is a fixed-width column and
+ * Home/Away share equal widths, so the mirrored lockup is symmetric by
+ * construction there and is kept. What broke it was centring each crest-and-name
+ * group in its cell, which put a crest wherever the name's length dictated.
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
@@ -116,7 +122,7 @@ test.describe( 'schedule table team columns', () => {
 		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
 	} );
 
-	test( 'home and away cells and their headers are centred', async ( { page } ) => {
+	test( 'home and away cells and their headers point inward', async ( { page } ) => {
 		const aligns = await page.evaluate( () => {
 			const pick = ( sel ) => {
 				const el = document.querySelector( sel );
@@ -131,14 +137,16 @@ test.describe( 'schedule table team columns', () => {
 			};
 		} );
 
-		// SportsPress' own stylesheet had these as right/left/left/left.
-		expect( aligns.homeCell ).toBe( 'center' );
-		expect( aligns.awayCell ).toBe( 'center' );
-		expect( aligns.homeHead ).toBe( 'center' );
-		expect( aligns.awayHead ).toBe( 'center' );
+		// Home hugs the Result column from the left, Away from the right. These
+		// were `center` when each crest-and-name group floated in the middle of
+		// its cell, which let the crest wander with the name's length.
+		expect( aligns.homeCell ).toBe( 'end' );
+		expect( aligns.homeHead ).toBe( 'end' );
+		expect( aligns.awayCell ).toBe( 'start' );
+		expect( aligns.awayHead ).toBe( 'start' );
 	} );
 
-	test( 'the crest precedes the name in both team columns', async ( { page } ) => {
+	test( 'the lockups mirror: home is name-then-crest, away is crest-then-name', async ( { page } ) => {
 		const order = await page.evaluate( () => {
 			const read = ( sel ) => {
 				const cell = document.querySelector( sel );
@@ -186,13 +194,56 @@ test.describe( 'schedule table team columns', () => {
 		expect( order.home ).not.toBeNull();
 		expect( order.away ).not.toBeNull();
 
-		for ( const side of [ 'home', 'away' ] ) {
-			// Crest before name in BOTH columns. Before the fix the home cell
-			// was name-then-crest, so this failed on `home` alone.
-			expect(
-				order[ side ].crestX,
-				`${ side } cell (${ order[ side ].name }) should lead with its crest`
-			).toBeLessThan( order[ side ].nameX );
+		// Home: the name sits left of its crest, so the crest is the edge next to
+		// the Result column. Away: the crest leads, for the same reason.
+		expect(
+			order.home.crestX,
+			`home cell (${ order.home.name }) should end with its crest`
+		).toBeGreaterThan( order.home.nameX );
+		expect(
+			order.away.crestX,
+			`away cell (${ order.away.name }) should lead with its crest`
+		).toBeLessThan( order.away.nameX );
+	} );
+
+	test( 'every crest sits the same distance from the Result column in every row', async ( { page } ) => {
+		const gaps = await page.evaluate( () =>
+			[ ...document.querySelectorAll( '.sp-event-list tbody tr' ) ]
+				.map( ( row ) => {
+					const home = row.querySelector( 'td.data-home img' );
+					const away = row.querySelector( 'td.data-away img' );
+					const time = row.querySelector( 'td.data-time' );
+
+					if ( ! home || ! away || ! time ) {
+						return null;
+					}
+
+					const t = time.getBoundingClientRect();
+
+					return {
+						home: Math.round( t.left - home.getBoundingClientRect().right ),
+						away: Math.round( away.getBoundingClientRect().left - t.right ),
+					};
+				} )
+				.filter( Boolean )
+		);
+
+		// Enough rows that the spread below means something.
+		expect( gaps.length ).toBeGreaterThanOrEqual( 3 );
+
+		const spread = ( key ) => {
+			const values = gaps.map( ( g ) => g[ key ] );
+			return Math.max( ...values ) - Math.min( ...values );
+		};
+
+		// Crests are 30-32px boxes, so a couple of pixels is image shape, not
+		// drift. Centred groups put the same crest 16-56px apart row to row.
+		expect( spread( 'home' ), 'home crest distance varies by row' ).toBeLessThanOrEqual( 3 );
+		expect( spread( 'away' ), 'away crest distance varies by row' ).toBeLessThanOrEqual( 3 );
+
+		// And the two sides mirror each other.
+		for ( const gap of gaps ) {
+			expect( Math.abs( gap.home - gap.away ) ).toBeLessThanOrEqual( 3 );
 		}
 	} );
 } );
