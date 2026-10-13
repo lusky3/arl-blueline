@@ -88,9 +88,10 @@ final class SportspressTableFixesTest extends TestCase {
 	 */
 	public function test_template_gates_the_pending_copy_on_the_cut_off(): void {
 		$this->assertMatchesRegularExpression(
-			"/'pending' === \\\$bl_event_state && blueline_sp_result_still_expected\( \\\$bl_start_ts \)/",
+			'/blueline_sp_schedule_result_html\([^;]*\$bl_event_state,\s*blueline_sp_result_still_expected\( \$bl_start_ts \)/',
 			$this->source( 'sportspress/event-list.php' )
 		);
+		$this->assertStringNotContainsString( 'coming soon', blueline_sp_schedule_result_html( array(), 'ok', 'pending', false ) );
 	}
 
 	/**

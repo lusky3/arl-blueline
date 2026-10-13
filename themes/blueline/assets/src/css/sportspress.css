@@ -2086,6 +2086,44 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	font-style: italic;
 }
 
+/*
+ * Postponed / cancelled / time TBD (sp_status). A pill rather than plain text,
+ * so it never reads as part of a score printed beside it, and the time of a
+ * game that is off is struck through so it does not read as on.
+ */
+.bl-sp-schedule__status {
+	display: inline-block;
+	max-width: 100%;
+	padding: 0 var(--bl-space-1);
+	border: 1px solid currentcolor;
+	border-radius: 999px;
+	color: var(--bl-content-text);
+	font-size: var(--bl-text-xs);
+	font-weight: 700;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.bl-sp-schedule__score {
+	white-space: nowrap;
+}
+
+/* In the narrow Result column a recorded score goes under its status pill. */
+.bl-sp-schedule__status + .bl-sp-schedule__score {
+	display: block;
+	margin-block-start: var(--bl-space-1);
+}
+
+.bl-sp-schedule__row--postponed .bl-sp-schedule__time time,
+.bl-sp-schedule__row--cancelled .bl-sp-schedule__time time {
+	text-decoration: line-through;
+}
+
+/* The phone layout's "vs" between the teams; the table has columns. */
+.bl-sp-schedule__vs {
+	display: none;
+}
+
 /* ---- Data-table row hover + mobile scroll cue (finding 12) ----
  *
  * No .sp-data-table anywhere had a hover state; on a 30-row schedule the
@@ -2484,7 +2522,9 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 	--bl-sched-away: 10.5;
 	--bl-sched-league: 0;
 	--bl-sched-season: 0;
-	--bl-sched-venue: 8;
+
+	/* Two lines for "Mr. Lube and Tires / Arena — Red" at 768px, not three. */
+	--bl-sched-venue: 9;
 	--bl-sched-article: 0;
 	--bl-sched-day: 0;
 	--bl-sched-total: calc(var(--bl-sched-date) + var(--bl-sched-home) + var(--bl-sched-time) + var(--bl-sched-away) + var(--bl-sched-league) + var(--bl-sched-season) + var(--bl-sched-venue) + var(--bl-sched-article) + var(--bl-sched-day));
@@ -2533,9 +2573,13 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 	text-align: end; /* mirrored lockup, see "Live feedback: the schedule looks off balance" below */
 }
 
-/* The pending copy is the column's longest value: smaller, wraps at spaces. */
+/*
+ * The pending copy is the column's longest value: smaller, wraps at spaces.
+ * Narrower padding than its neighbours leaves room for the "Postponed" pill.
+ */
 .sp-event-list.bl-sp-schedule .data-time {
 	width: calc(100% * var(--bl-sched-time) / var(--bl-sched-total));
+	padding-inline: var(--bl-space-2);
 	white-space: normal;
 	overflow-wrap: normal;
 }
@@ -2635,19 +2679,176 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 }
 
 /*
- * A name wraps at spaces but never inside a word. The cell's own
- * `overflow-wrap: anywhere` is what split "Lumberjacks" into "Lumberjac" and
- * "ks" on a phone; a word that genuinely cannot fit (a retired team's long
- * title) is clamped with an ellipsis instead, and team-name-tooltip.js offers
- * the full name on tap, focus and hover. `min-width: 0` lets the flex item
- * shrink below its content so the clamp can take effect.
+ * A name wraps at spaces, onto at most two lines. The columns are sized so no
+ * active team's longest word needs breaking ("Lumberjac/ks" was a column too
+ * narrow, fixed by --bl-sched-home); a word that still cannot fit -- larger
+ * text, or WCAG 1.4.12 letter/word spacing -- breaks onto the second line
+ * rather than being cut off, which a single-line ellipsis did. Past two lines
+ * the name is clamped, and team-name-tooltip.js offers the full name on tap,
+ * focus and hover. `min-width: 0` lets the flex item shrink below its content
+ * so the clamp can take effect.
  */
 .sp-event-list.bl-sp-schedule .bl-sp-team-name {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	min-width: 0;
 	overflow: hidden;
-	overflow-wrap: normal;
+	overflow-wrap: anywhere;
 	hyphens: manual;
 	text-overflow: ellipsis;
+}
+
+/*
+ * Phones: one card per game instead of a table that scrolls sideways. At 390px
+ * the table's first screen showed only Time, Home and Result; the opponent and
+ * the pad were off to the right, behind a scroll most people never find. Same
+ * reading order as the homepage's Next games cards:
+ *
+ *   6:45 pm                        [result]
+ *   [crest] Home  vs  [crest] Away
+ *   Arena — Pad
+ *
+ * The row becomes a wrapping flex line rather than a grid: `order` moves the
+ * Result cell up beside the time, the row's ::before is a full-width break
+ * after them, and when both names do not fit on one line the away team drops
+ * to its own line instead of either being squeezed. Above 600px the table and
+ * its mirrored crest lockup are unchanged.
+ */
+@media (max-width: 600px) {
+
+	.sp-event-list.bl-sp-schedule,
+	.sp-event-list.bl-sp-schedule tbody {
+		display: block;
+		width: 100%;
+		min-width: 0;
+	}
+
+	/* Visually hidden, like the roster cards' header. */
+	.sp-event-list.bl-sp-schedule thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+	}
+
+	.sp-event-list.bl-sp-schedule tr.bl-sp-date-heading,
+	.sp-event-list.bl-sp-schedule tr.bl-sp-date-heading th {
+		display: block;
+	}
+
+	.sp-event-list.bl-sp-schedule tr.bl-sp-date-heading th {
+		padding-inline: 0;
+		margin-block-start: var(--bl-space-3);
+		background: transparent;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		column-gap: var(--bl-space-2);
+		margin-block: var(--bl-space-2);
+		padding: var(--bl-space-3);
+		background: var(--bl-content-surface);
+		border: 1px solid var(--bl-content-border);
+		border-radius: var(--bl-radius-card);
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row::before {
+		content: "";
+		order: 3;
+		flex-basis: 100%;
+		height: var(--bl-space-2);
+	}
+
+	/* Anything a plugin adds to the row lands after the teams, full width. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td {
+		display: block;
+		order: 6;
+		flex: 1 0 100%;
+		width: auto;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		text-align: start;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-date {
+		order: 1;
+		flex: 1 1 auto;
+		width: auto;
+		color: var(--bl-content-text);
+		font-weight: 600;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-date a {
+		color: inherit;
+	}
+
+	/* Result, end-aligned on the time's line. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-time {
+		order: 2;
+		flex: 0 1 auto;
+		width: auto;
+		text-align: end;
+	}
+
+	/* A card's result line has room for the pill and score side by side. */
+	.sp-event-list.bl-sp-schedule .bl-sp-schedule__status + .bl-sp-schedule__score {
+		display: inline;
+		margin-inline-start: var(--bl-space-1);
+	}
+
+	/* A future game's dash: with no column heading it is only noise. */
+	.sp-event-list.bl-sp-schedule .bl-sp-schedule__none {
+		display: none;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away {
+		display: flex;
+		align-items: center;
+		gap: var(--bl-space-2);
+		flex: 0 1 auto;
+		width: auto;
+		font-weight: 600;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home {
+		order: 4;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away {
+		order: 5;
+	}
+
+	.sp-event-list.bl-sp-schedule .bl-sp-schedule__vs {
+		display: inline;
+		color: var(--bl-content-text-secondary);
+		font-weight: 400;
+	}
+
+	/* Crest first in both, as in "Home vs Away": nothing to mirror. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home a,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away a {
+		flex-direction: row;
+		text-align: start;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-venue {
+		order: 7;
+		padding-block-start: var(--bl-space-1);
+	}
+
+	/* Calendar-only columns (League, Season...) keep their label. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td:is(.data-league, .data-season, .data-article, .data-day)[data-label]::before {
+		content: attr(data-label) ": ";
+		color: var(--bl-content-text-secondary);
+	}
 }
 
 /*

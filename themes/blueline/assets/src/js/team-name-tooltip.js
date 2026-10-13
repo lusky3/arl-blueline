@@ -4,8 +4,8 @@
  * The Home/Away columns are sized so every active team's name fits (see
  * `--bl-sched-home` in sportspress.css), but a name can still be longer than
  * its column: a retired team's full title, or a phone with large text. Such a
- * name is clamped with an ellipsis rather than split mid-word. This offers the
- * whole name instead of leaving the reader to guess:
+ * name wraps onto a second line and is clamped there with an ellipsis. This
+ * offers the whole name instead of leaving the reader to guess:
  *
  * - mouse: the link carries a `title`, so hovering shows the browser tooltip;
  * - keyboard: focusing the link shows the bubble;
@@ -35,13 +35,37 @@ const OFFSET = 6;
 const EDGE = 8;
 
 /**
- * Whether a name's text is wider than the box showing it.
+ * Whether a name's text is bigger than the box showing it: wider (a word that
+ * cannot fit its line) or taller (more lines than the clamp shows).
  *
- * @param {{scrollWidth: number, clientWidth: number}} el Name element.
+ * @param {{scrollWidth: number, clientWidth: number, scrollHeight: number, clientHeight: number}} el Name element.
  * @return {boolean} True if the text is cut off.
  */
 function isClipped( el ) {
-	return el.scrollWidth - el.clientWidth > SLOP;
+	return (
+		el.scrollWidth - el.clientWidth > SLOP ||
+		el.scrollHeight - el.clientHeight > SLOP
+	);
+}
+
+/**
+ * What a scroll should do to the bubble.
+ *
+ * Focusing a link inside the table's horizontal scroller scrolls it into view,
+ * so hiding on every scroll hid the bubble the focus had only just shown. While
+ * its link keeps focus the bubble follows it instead; a tap-revealed bubble on
+ * an unfocused link would otherwise float over the wrong row, so it hides.
+ *
+ * @param {{showing: boolean, focused: boolean}} state `showing` is whether the
+ *                                                     bubble is up; `focused` whether its link has focus.
+ * @return {'none'|'reposition'|'hide'} What to do.
+ */
+function resolveScroll( { showing, focused } ) {
+	if ( ! showing ) {
+		return 'none';
+	}
+
+	return focused ? 'reposition' : 'hide';
 }
 
 /**
@@ -80,6 +104,7 @@ function clampLeft( desired, width, viewport ) {
 }
 
 let tip = null;
+let shownLink = null;
 let armedLink = null;
 let hideTimer = 0;
 let lastPointerType = '';
@@ -111,15 +136,34 @@ function hideTip() {
 	window.clearTimeout( hideTimer );
 	hideTimer = 0;
 
-	if ( armedLink ) {
-		armedLink.removeAttribute( 'aria-describedby' );
+	if ( shownLink ) {
+		shownLink.removeAttribute( 'aria-describedby' );
 	}
 
+	shownLink = null;
 	armedLink = null;
 
 	if ( tip ) {
 		tip.hidden = true;
 	}
+}
+
+/**
+ * Put the bubble just below its link, inside the viewport.
+ *
+ * @param {Element} link The team link.
+ * @return {void}
+ */
+function placeTip( link ) {
+	const bubble = getTip();
+	const rect = link.getBoundingClientRect();
+
+	bubble.style.left = `${ clampLeft(
+		rect.left + window.scrollX,
+		bubble.offsetWidth,
+		document.documentElement.clientWidth
+	) }px`;
+	bubble.style.top = `${ rect.bottom + window.scrollY + OFFSET }px`;
 }
 
 /**
@@ -133,20 +177,15 @@ function showTip( link, arm ) {
 	hideTip();
 
 	const bubble = getTip();
-	const rect = link.getBoundingClientRect();
 
 	bubble.textContent = ( link.textContent || '' )
 		.replace( /\s+/g, ' ' )
 		.trim();
 	bubble.hidden = false;
 	link.setAttribute( 'aria-describedby', TIP_ID );
+	shownLink = link;
 
-	bubble.style.left = `${ clampLeft(
-		rect.left + window.scrollX,
-		bubble.offsetWidth,
-		document.documentElement.clientWidth
-	) }px`;
-	bubble.style.top = `${ rect.bottom + window.scrollY + OFFSET }px`;
+	placeTip( link );
 
 	// A focus-shown bubble is not armed, so the click that follows a focus is
 	// still read as a first tap; hideTip() on blur clears its describedby.
@@ -178,7 +217,7 @@ function syncClamped() {
 			link.removeAttribute( 'data-bl-clipped' );
 			link.removeAttribute( 'title' );
 
-			if ( link === armedLink ) {
+			if ( link === shownLink ) {
 				hideTip();
 			}
 		}
@@ -240,6 +279,21 @@ function onFocusOut( event ) {
 	}
 }
 
+function onScroll() {
+	const action = resolveScroll( {
+		showing: null !== shownLink,
+		focused:
+			null !== shownLink &&
+			shownLink.ownerDocument.activeElement === shownLink,
+	} );
+
+	if ( 'reposition' === action ) {
+		placeTip( shownLink );
+	} else if ( 'hide' === action ) {
+		hideTip();
+	}
+}
+
 function initTeamNameTooltip() {
 	if ( ! document.querySelector( NAME_SELECTOR ) ) {
 		return;
@@ -285,8 +339,8 @@ function initTeamNameTooltip() {
 		}
 	} );
 
-	// A bubble positioned for the old scroll offset would float over the wrong row.
-	document.addEventListener( 'scroll', hideTip, true );
+	// Capturing, so a scroll inside the table's own scroller counts too.
+	document.addEventListener( 'scroll', onScroll, true );
 }
 
 if ( typeof document !== 'undefined' ) {
@@ -298,5 +352,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { isClipped, resolveTap, clampLeft };
+	module.exports = { isClipped, resolveTap, resolveScroll, clampLeft };
 }

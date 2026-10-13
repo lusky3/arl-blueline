@@ -8,6 +8,21 @@ as the release notes.
 
 ## [Unreleased]
 
+### Fixed
+- Schedule tables now say when a game is postponed, cancelled or has its time still to be confirmed. A postponed
+  game with a 0-0 on file used to look like a final score, and a cancelled one looked like a game still on. The
+  status shows as a label in the Result column (beside any score that was recorded), and the kick-off time of a
+  postponed or cancelled game is struck through.
+- On phones, the schedule (the Schedule page, a team's Upcoming Games, any schedule table) shows one card per game
+  instead of a table you had to scroll sideways to find the opponent and the rink: the time and result, then
+  "Home vs Away" with both crests, then the arena and pad. Tablets and desktops keep the table.
+- Screen readers now hear each game's time link as the game ("6:45 pm, Lumberjacks vs Ice Bears, October 16,
+  2026"), not just "6:45 pm" repeated for every game in the same time slot.
+- Team names in the schedule wrap onto a second line instead of being cut off when text is enlarged or spaced
+  out, and the full-name bubble no longer disappears when moving to a team name with the keyboard scrolls the page.
+- The Arena column keeps the pad with the end of the arena name ("Mr. Lube and Tires / Arena — Red"), so a line
+  never starts with "— Red", and fits on two lines at tablet width instead of three.
+
 ## [1.1.4]
 
 ### Fixed

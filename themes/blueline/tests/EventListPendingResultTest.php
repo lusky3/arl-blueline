@@ -45,19 +45,28 @@ final class EventListPendingResultTest extends TestCase {
 	}
 
 	/**
-	 * The Result cell must branch on the 'pending' state to print the
-	 * "coming soon" copy, and must still fall through to the plain em dash
-	 * for every other case (a genuinely future game) -- the fix must add a
-	 * distinction, not replace the dash outright.
+	 * The Result cell is built by blueline_sp_schedule_result_html() from the
+	 * same state, so the pending/dash distinction below is the one it renders.
 	 */
-	public function test_result_cell_branches_on_pending_before_falling_back_to_the_dash(): void {
+	public function test_result_cell_is_built_from_the_shared_state(): void {
 		$src = (string) file_get_contents( __DIR__ . '/../sportspress/event-list.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
 
 		$this->assertMatchesRegularExpression(
-			'/main_results.*pending.*bl_event_state.*Final score coming soon.*8212/s',
-			$src,
-			'the Result cell must check for results, then the pending state, then fall back to the plain dash, in that order'
+			'/blueline_sp_schedule_result_html\(\s*\(array\) \$main_results,\s*\$status,\s*\$bl_event_state,\s*blueline_sp_result_still_expected\( \$bl_start_ts \)/',
+			$src
 		);
+	}
+
+	/**
+	 * A recent pending game says "coming soon"; a genuinely future game, and an
+	 * old unscored one, keep the plain dash -- the fix adds a distinction, it
+	 * does not replace the dash outright.
+	 */
+	public function test_result_cell_branches_on_pending_before_falling_back_to_the_dash(): void {
+		$this->assertStringContainsString( 'Final score coming soon', blueline_sp_schedule_result_html( array(), 'ok', 'pending', true ) );
+		$this->assertStringContainsString( '&#8212;', blueline_sp_schedule_result_html( array(), 'ok', 'pending', false ) );
+		$this->assertStringContainsString( '&#8212;', blueline_sp_schedule_result_html( array(), 'ok', 'preview', true ) );
+		$this->assertStringNotContainsString( 'Final score coming soon', blueline_sp_schedule_result_html( array(), 'ok', 'preview', true ) );
 	}
 
 	/**
