@@ -2469,9 +2469,19 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
  */
 .sp-event-list.bl-sp-schedule {
 	--bl-sched-date: 5.25;
-	--bl-sched-home: 8.5;
+
+	/*
+	 * Home/Away carry a 32px crest, an 8px gap and 16px of padding around the
+	 * name, so a column needs ~56px more than the name itself. 10.5rem leaves
+	 * room for the widest word in an active team's name at the table's text size
+	 * ("Stormtroopers", 109px, measured) at the table's minimum width, where a
+	 * column is as many rem wide as its weight; at 8.5 an 11-letter word broke
+	 * mid-word ("Lumberjac/ks"). Wider columns scroll a little further on a
+	 * phone; the table already scrolls there for Arena.
+	 */
+	--bl-sched-home: 10.5;
 	--bl-sched-time: 5.75;
-	--bl-sched-away: 8.5;
+	--bl-sched-away: 10.5;
 	--bl-sched-league: 0;
 	--bl-sched-season: 0;
 	--bl-sched-venue: 8;
@@ -2622,4 +2632,46 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 .sp-event-list.bl-sp-schedule td.data-home .team-logo img,
 .sp-event-list.bl-sp-schedule td.data-away .team-logo img {
 	margin: 0;
+}
+
+/*
+ * A name wraps at spaces but never inside a word. The cell's own
+ * `overflow-wrap: anywhere` is what split "Lumberjacks" into "Lumberjac" and
+ * "ks" on a phone; a word that genuinely cannot fit (a retired team's long
+ * title) is clamped with an ellipsis instead, and team-name-tooltip.js offers
+ * the full name on tap, focus and hover. `min-width: 0` lets the flex item
+ * shrink below its content so the clamp can take effect.
+ */
+.sp-event-list.bl-sp-schedule .bl-sp-team-name {
+	min-width: 0;
+	overflow: hidden;
+	overflow-wrap: normal;
+	hyphens: manual;
+	text-overflow: ellipsis;
+}
+
+/*
+ * The full-name bubble team-name-tooltip.js shows for a clamped name. Appended
+ * to <body> rather than the table because the table sits in its own horizontal
+ * scroller, which would clip it.
+ */
+.bl-sp-team-tip {
+	position: absolute;
+	z-index: var(--bl-z-floating-widget);
+	box-sizing: border-box;
+	max-width: min(20rem, calc(100vw - (2 * var(--bl-space-4))));
+	padding: var(--bl-space-2) var(--bl-space-3);
+	background: var(--bl-content-surface);
+	border: 1px solid var(--bl-content-border);
+	border-radius: var(--bl-radius-card);
+	box-shadow: var(--bl-shadow-raised);
+	color: var(--bl-content-text);
+	font-size: var(--bl-text-sm);
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+	pointer-events: none;
+}
+
+.bl-sp-team-tip[hidden] {
+	display: none;
 }
