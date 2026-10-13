@@ -161,26 +161,19 @@ test.describe( 'schedule table team columns', () => {
 					return null;
 				}
 
-				// The team name is a bare text node with no element to measure,
-				// so range over THAT NODE only. Ranging over the whole link
-				// would include the crest and make the comparison below
+				// Measure the name's own element, not the whole link: the link
+				// includes the crest, which would make the comparison below
 				// trivially true.
-				const link = cell.querySelector( 'a' );
-				const textNode = [ ...link.childNodes ].find(
-					( n ) => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length
-				);
+				const nameEl = cell.querySelector( 'a .bl-sp-team-name' );
 
-				if ( ! textNode ) {
+				if ( ! nameEl ) {
 					return null;
 				}
 
-				const range = document.createRange();
-				range.selectNode( textNode );
-
 				return {
 					crestX: Math.round( img.getBoundingClientRect().x ),
-					nameX: Math.round( range.getBoundingClientRect().x ),
-					name: textNode.textContent.trim(),
+					nameX: Math.round( nameEl.getBoundingClientRect().x ),
+					name: nameEl.textContent.trim(),
 				};
 			};
 
@@ -245,5 +238,73 @@ test.describe( 'schedule table team columns', () => {
 		for ( const gap of gaps ) {
 			expect( Math.abs( gap.home - gap.away ) ).toBeLessThanOrEqual( 3 );
 		}
+	} );
+} );
+
+test.describe( 'schedule team names on a phone', () => {
+	test.use( { hasTouch: true } );
+
+	test.beforeEach( async ( { page } ) => {
+		await page.setViewportSize( { width: 400, height: 900 } );
+		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+	} );
+
+	test( 'no current team name is clipped or split mid-word', async ( { page } ) => {
+		const result = await page.evaluate( () => {
+			const names = [ ...document.querySelectorAll( '.bl-sp-schedule .bl-sp-team-name' ) ];
+
+			return {
+				total: names.length,
+				clipped: names
+					.filter( ( n ) => n.scrollWidth - n.clientWidth > 1 )
+					.map( ( n ) => n.textContent.trim() ),
+				// A one-word name taller than a line and a half was split.
+				split: names
+					.filter( ( n ) => {
+						const oneWord = n.textContent.trim().split( /\s+/ ).length === 1;
+						const line = parseFloat( window.getComputedStyle( n ).lineHeight );
+
+						return oneWord && n.getBoundingClientRect().height > line * 1.5;
+					} )
+					.map( ( n ) => n.textContent.trim() ),
+			};
+		} );
+
+		// Enough names that "none are clipped" means something.
+		expect( result.total ).toBeGreaterThanOrEqual( 4 );
+		expect( result.clipped, 'names cut off by their column' ).toEqual( [] );
+		expect( result.split, 'single words broken mid-word' ).toEqual( [] );
+	} );
+
+	test( 'a clamped name shows its full text on a first tap and follows the link on the second', async ( { page } ) => {
+		const longName = 'Supercalifragilisticexpialidocious';
+
+		const href = await page.evaluate( ( text ) => {
+			const name = document.querySelector( '.bl-sp-schedule td.data-away .bl-sp-team-name' );
+
+			name.textContent = text;
+			// The module re-measures on resize.
+			window.dispatchEvent( new Event( 'resize' ) );
+
+			return name.closest( 'a' ).getAttribute( 'href' );
+		}, longName );
+
+		const link = page.locator( 'a[data-bl-clipped]' ).first();
+		const tip = page.locator( '#bl-sp-team-tip' );
+
+		await expect( link ).toHaveAttribute( 'title', longName );
+
+		await link.scrollIntoViewIfNeeded();
+		await link.tap();
+
+		// First tap: the full name appears and the page does not navigate.
+		await expect( tip ).toBeVisible();
+		await expect( tip ).toHaveText( longName );
+		await expect( link ).toHaveAttribute( 'aria-describedby', 'bl-sp-team-tip' );
+		expect( new URL( page.url() ).pathname ).toBe( '/schedule' );
+
+		// Second tap on the same name follows the link.
+		await link.tap();
+		await page.waitForURL( ( url ) => href.endsWith( url.pathname ) || url.href === href );
 	} );
 } );

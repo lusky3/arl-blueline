@@ -22,3 +22,4 @@ import './sidebar-jump-nav.js';
 import './sidebar-scroll-cues.js';
 import './quotes-llama-alt.js';
 import './team-logo-links.js';
+import './team-name-tooltip.js';

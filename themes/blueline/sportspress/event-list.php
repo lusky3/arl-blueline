@@ -325,7 +325,10 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 								continue;
 							}
 
-							$name = '<meta itemprop="name" content="' . esc_attr( $name ) . '">' . $name;
+							// The visible name gets its own element so a name too long for a
+							// narrow column can be clamped and offered in full (assets/src/js/
+							// team-name-tooltip.js) instead of breaking mid-word.
+							$name = '<meta itemprop="name" content="' . esc_attr( $name ) . '"><span class="bl-sp-team-name">' . $name . '</span>';
 
 							if ( $show_team_logo && has_post_thumbnail( $team_id ) ) :
 								$logo        = '<span class="team-logo">' . sp_get_logo(
