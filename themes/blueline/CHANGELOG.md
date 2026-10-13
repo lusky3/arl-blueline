@@ -8,6 +8,8 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.4]
+
 ### Fixed
 - Theme updates now work without a GitHub token. The updater did nothing at all unless `BLUELINE_GITHUB_TOKEN`
   was set in `wp-config.php`, which was needed while the repository was private. It is public now, so a site

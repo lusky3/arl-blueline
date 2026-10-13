@@ -5,8 +5,9 @@
  * updater-rules.php.
  *
  * The repository is public, so no token is needed: requests go out anonymously
- * (GitHub allows 60 an hour per address, and a check runs at most every 12
- * hours). A token is optional. When BLUELINE_GITHUB_TOKEN is defined in
+ * (GitHub allows 60 an hour per address; a successful check is cached for 12
+ * hours and a failed one for 1, and "Check again" bypasses the cache). A token
+ * is optional. When BLUELINE_GITHUB_TOKEN is defined in
  * wp-config.php it is attached to requests for this repo's API and nothing
  * else, which lifts that limit or reaches a private fork, and it never appears
  * in an error message.
