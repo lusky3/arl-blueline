@@ -146,7 +146,8 @@ Claude and CI never create, request or handle the token.
 
 **The token is optional.** The repository is public, so a site checks for updates
 anonymously with no configuration (GitHub allows 60 requests an hour per address; a
-check runs at most every 12 hours). R1-R4 apply only when you choose to define one: for
+successful check is cached for 12 hours and a failed one for 1, and Dashboard > Updates >
+"Check again" bypasses the cache). R1-R4 apply only when you choose to define one: for
 a higher rate limit, or because the repository is a private fork. Before 1.1.4 a site
 with no token never checked at all (the updater did nothing without one), so a site
 still on 1.1.3 or older needs one manual theme install of 1.1.4 or newer before it
