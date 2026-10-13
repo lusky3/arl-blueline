@@ -595,9 +595,17 @@ function blueline_homepage_hero_content( string $state, array $state_data ): arr
 
 		// Every product driving registration_open turned out not to be
 		// purchasable when re-checked live (a stale transient, at most 15
-		// minutes old); never point a Register button at one. Fall back to
+		// minutes old), or none of them carries the Featured tag the hero
+		// sells from; never point a Register button at one. Fall back to
 		// whatever the event signals say instead of inventing a sixth state.
-		$state = ! empty( $state_data['next_event_id'] ) ? 'preseason' : 'offseason';
+		// Games already being played means in_season, not preseason: the
+		// preseason copy prints the NEXT game's date as "Season starts ...",
+		// which is wrong for the months a running season overlaps a sale.
+		if ( ! empty( $state_data['next_event_id'] ) ) {
+			$state = ! empty( $state_data['is_playing'] ) ? 'in_season' : 'preseason';
+		} else {
+			$state = 'offseason';
+		}
 	}
 
 	/*
