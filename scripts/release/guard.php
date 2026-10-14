@@ -17,7 +17,7 @@ if ( 'cli' === PHP_SAPI && isset( $argv[0] ) && realpath( $argv[0] ) === __FILE_
 	$theme = dirname( __DIR__, 2 ) . '/themes/blueline/';
 	$files = array();
 
-	foreach ( array( 'style.css', 'functions.php', 'CHANGELOG.md' ) as $name ) {
+	foreach ( array( 'style.css', 'functions.php', 'CHANGELOG.md', 'package.json' ) as $name ) {
 		$contents = is_readable( $theme . $name ) ? file_get_contents( $theme . $name ) : false;
 		if ( false === $contents ) {
 			fwrite( STDERR, "release guard: cannot read $name\n" );
@@ -26,7 +26,7 @@ if ( 'cli' === PHP_SAPI && isset( $argv[0] ) && realpath( $argv[0] ) === __FILE_
 		$files[ $name ] = $contents;
 	}
 
-	$errors = blueline_release_guard( $tag, $files['style.css'], $files['functions.php'], $files['CHANGELOG.md'] );
+	$errors = blueline_release_guard( $tag, $files['style.css'], $files['functions.php'], $files['CHANGELOG.md'], $files['package.json'] );
 	foreach ( $errors as $error ) {
 		fwrite( STDERR, "release guard: $error\n" );
 	}

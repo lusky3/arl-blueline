@@ -1,6 +1,6 @@
 # Blueline
 
-A WordPress theme and companion plugin built for the [Adult Recreational League](https://www.rookiehockey.ca)
+A WordPress theme and companion plugin built for the [Adult Recreational League](https://arlhockey.ca)
 (ARL), a recreational hockey league. It runs on [SportsPress](https://wordpress.org/plugins/sportspress/) and
 [WooCommerce](https://woocommerce.com/) and carries the league's 2026 brand.
 
@@ -11,6 +11,7 @@ It is not a general-purpose theme, and you should expect to adapt it.
 |---|---|---|
 | **Blueline theme** | [`themes/blueline/`](themes/blueline) | Presentation: templates, CSS and JS, the Appearance > Blueline settings panel, homepage modules, the team flyout, My Account page renderers, and WooCommerce and SportsPress template overrides. |
 | **blueline-core plugin** | [`plugins/blueline-core/`](plugins/blueline-core) | Data, URLs and behaviour that must survive a theme switch: the player claim flow and photo upload, avatars, My Account routing, the mail wrapper, checkout fixes, SEO and social tags, search ordering and member-privacy hardening. |
+| **Domain router** | [`mu-plugins/arl-domain-router.php`](mu-plugins/arl-domain-router.php) | A must-use plugin that serves Blueline on `arlhockey.ca` and the classic theme on `rookiehockey.ca` from one WordPress install, and redirects the alias domains. See [`docs/DOMAINS.md`](docs/DOMAINS.md). |
 
 The theme works without the plugin (it simply lacks those features) and the plugin refuses to load against a
 theme older than 1.1.0. Details are in [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
@@ -54,8 +55,10 @@ run by CI) and `themes/blueline/tests-browser/` (run by hand against a full loca
 
 ## Docs
 
-- [`docs/OPERATIONS.md`](docs/OPERATIONS.md): how the theme and plugin deploy together, rollback, cutover checklist
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md): how the theme and plugin deploy together, rollback, cutover checklist,
+  and the template-override drift check
 - [`docs/RELEASING.md`](docs/RELEASING.md): versioning, the release workflow, theme updates from GitHub releases
+- [`docs/DOMAINS.md`](docs/DOMAINS.md): which host serves which theme, and the domain migration
 - [`docs/DESIGN.md`](docs/DESIGN.md) and [`docs/PRODUCT.md`](docs/PRODUCT.md): the design system and product intent
 - [`themes/blueline/CHANGELOG.md`](themes/blueline/CHANGELOG.md): what changed in each release
 - [`plugins/blueline-core/README.md`](plugins/blueline-core/README.md): the plugin's module system

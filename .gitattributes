@@ -1,0 +1,3 @@
+# Store every text file with LF endings, whatever the contributor's OS.
+# Git detects binaries (fonts, images, zips) itself and leaves them alone.
+* text=auto eol=lf

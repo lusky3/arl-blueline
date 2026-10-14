@@ -67,6 +67,26 @@ final class ReleaseGuardTest extends TestCase {
 	}
 
 	/**
+	 * The npm manifest drifted from style.css.
+	 */
+	public function test_guard_fails_on_package_json_mismatch(): void {
+		$errors = blueline_release_guard( 'v1.2.0', $this->style( '1.2.0' ), $this->functions( '1.2.0' ), "## 1.2.0\n- x\n", '{"name":"blueline","version":"1.0.0"}' );
+
+		$this->assertCount( 1, $errors );
+		$this->assertStringContainsString( 'package.json version', $errors[0] );
+	}
+
+	/**
+	 * A matching package.json adds no error.
+	 */
+	public function test_guard_passes_with_matching_package_json(): void {
+		$this->assertSame(
+			array(),
+			blueline_release_guard( 'v1.2.0', $this->style( '1.2.0' ), $this->functions( '1.2.0' ), "## 1.2.0\n- x\n", '{"name":"blueline","version":"1.2.0"}' )
+		);
+	}
+
+	/**
 	 * No changelog entry at all.
 	 */
 	public function test_guard_fails_on_missing_changelog(): void {
