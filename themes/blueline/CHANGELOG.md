@@ -9,6 +9,24 @@ as the release notes.
 ## [Unreleased]
 
 ### Fixed
+- Team pages show their division again, and My Team shows the team's record again, for the 2026-27 season.
+  The theme looked for a season's teams in a place SportsPress only fills when a standings table is edited
+  by hand, so every table created for the new season looked empty.
+- A player on two current teams now sees both. "My next game" is the earliest game across all of their
+  teams and says which team is playing ("Kings @ Ducks"), and My Team shows one card per team, each with its
+  own roster and its own "Add your season to" calendar buttons.
+- Postponed and cancelled games are no longer shown as a player's next game, on the account dashboard, on
+  My Schedule or in the "Next Puck Drop" countdown; the next game that is going ahead shows instead. A
+  game whose status changes now counts as "Updated since you last checked".
+- My Schedule lists the player's next few games (up to five after the next one, across all of their teams)
+  instead of a single game, with postponed and cancelled games labelled, and a calendar button per team.
+- Single-game "Add to calendar" links (Apple/Outlook and Google) give the arena, pad and street address
+  ("Mr. Lube and Tires Arena — Black, 1179 Northside Rd, …") instead of just the pad name, so maps apps can
+  find the rink.
+- Games whose time is still to be decided say "Time TBD" on the game page and the account pages, and offer
+  no "Add to calendar" link, instead of showing a placeholder time as if it were real.
+- Turning off "My next game" or "My team" in the theme settings now sends `/account/my-schedule/` and
+  `/account/my-team/` to the account dashboard instead of showing a blank page.
 - The home page hero (and the header's Register button) no longer quotes prices for registrations the league
   has hidden from the shop. A product with "Hidden" catalogue visibility is never offered, even when it is
   tagged Featured and still in stock.

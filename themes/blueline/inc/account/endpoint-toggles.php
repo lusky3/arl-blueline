@@ -49,3 +49,48 @@ function blueline_account_endpoint_enabled_by_section( $enabled, $slug ): bool {
 
 	return blueline_section_enabled( $section_key );
 }
+
+/**
+ * The league endpoint this request is for whose section is switched off, or
+ * null. Hiding the menu entry is not enough: a bookmarked or emailed
+ * `/account/my-team/` link still reaches the endpoint, whose renderer then
+ * prints nothing at all.
+ *
+ * @param array<string,mixed> $query_vars The main query's vars ($wp->query_vars).
+ * @return string|null Endpoint slug, e.g. 'my-team'.
+ */
+function blueline_account_disabled_endpoint_in_request( array $query_vars ): ?string {
+	foreach ( blueline_account_endpoint_section_keys() as $slug => $section_key ) {
+		if ( array_key_exists( $slug, $query_vars ) && ! blueline_section_enabled( $section_key ) ) {
+			return $slug;
+		}
+	}
+
+	return null;
+}
+
+add_action( 'template_redirect', 'blueline_redirect_disabled_account_endpoint' );
+/**
+ * Send a request for a switched-off league endpoint to the account dashboard
+ * instead of rendering a blank page.
+ *
+ * Temporary (302), because the section can be switched back on.
+ *
+ * @return void
+ */
+function blueline_redirect_disabled_account_endpoint() {
+	if ( ! function_exists( 'is_account_page' ) || ! function_exists( 'wc_get_page_permalink' ) || ! is_account_page() ) {
+		return;
+	}
+
+	global $wp;
+
+	$query_vars = ( isset( $wp ) && is_array( $wp->query_vars ?? null ) ) ? $wp->query_vars : array();
+
+	if ( null === blueline_account_disabled_endpoint_in_request( $query_vars ) ) {
+		return;
+	}
+
+	wp_safe_redirect( wc_get_page_permalink( 'myaccount' ) );
+	exit;
+}
