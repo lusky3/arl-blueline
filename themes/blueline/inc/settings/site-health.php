@@ -277,6 +277,36 @@ function blueline_site_health_format_acknowledgements( array $acknowledgements, 
 	return implode( "\n", $lines );
 }
 
+/**
+ * The oldest Blueline Core plugin this theme works with.
+ *
+ * The theme updates itself from GitHub releases; the plugin does not (it has
+ * no update source), so it is installed by hand. A theme release that relies
+ * on a plugin change would otherwise run happily against the old plugin and
+ * lose a feature without a word. Raise this in the same release that needs the
+ * newer plugin; Site Health and an admin notice then ask for the upgrade.
+ */
+const BLUELINE_CORE_MIN_VERSION = '0.1.1';
+
+/**
+ * Whether a loaded Blueline Core plugin is older than this theme needs.
+ *
+ * @param string $loaded_version The plugin's BLUELINE_CORE_VERSION, '' when unknown or not loaded.
+ * @return bool False when the version is unknown: not being able to tell is not evidence it is old.
+ */
+function blueline_core_plugin_is_outdated( string $loaded_version ): bool {
+	return '' !== $loaded_version && version_compare( $loaded_version, BLUELINE_CORE_MIN_VERSION, '<' );
+}
+
+/**
+ * The loaded plugin's version, or '' when it is not loaded.
+ *
+ * @return string
+ */
+function blueline_core_plugin_loaded_version(): string {
+	return ( defined( 'BLUELINE_CORE_VERSION' ) && is_string( BLUELINE_CORE_VERSION ) ) ? BLUELINE_CORE_VERSION : '';
+}
+
 add_filter( 'site_status_tests', 'blueline_site_health_register_core_plugin_test' );
 /**
  * Register the "Blueline Core plugin is active" direct test.
@@ -299,26 +329,46 @@ function blueline_site_health_register_core_plugin_test( $tests ) {
  * @return array<string, mixed>
  */
 function blueline_site_health_run_core_plugin_test(): array {
-	return blueline_site_health_core_plugin_result( defined( 'BLUELINE_CORE_VERSION' ) );
+	return blueline_site_health_core_plugin_result( defined( 'BLUELINE_CORE_VERSION' ), blueline_core_plugin_loaded_version() );
 }
 
 /**
- * The Site Health result for an active or missing Blueline Core plugin. Pure.
+ * The Site Health result for an active, outdated or missing Blueline Core plugin. Pure.
  *
- * @param bool $active Whether Blueline Core is loaded.
+ * @param bool   $active  Whether Blueline Core is loaded.
+ * @param string $version The loaded plugin's version, '' when unknown.
  * @return array<string, mixed>
  */
-function blueline_site_health_core_plugin_result( bool $active ): array {
-	$message = $active
-		? __( 'Account features, the mail wrapper, SEO tags and privacy hardening are provided by Blueline Core.', 'blueline' )
-		: __( 'Account features (player linking, photos, avatars, My Account links), the mail wrapper, SEO tags and privacy hardening live in the Blueline Core plugin. Activate it from Plugins; until then those features are missing.', 'blueline' );
+function blueline_site_health_core_plugin_result( bool $active, string $version = '' ): array {
+	$outdated = $active && blueline_core_plugin_is_outdated( $version );
+
+	if ( $outdated ) {
+		$message = sprintf(
+			/* translators: 1: installed plugin version, 2: oldest version this theme needs. */
+			__( 'Blueline Core %1$s is installed, but this theme needs %2$s or newer, so some account, mail, SEO or privacy features may be missing or behave differently. The plugin does not update itself: download the newest blueline-core zip from the Blueline release, then use Plugins > Add New > Upload Plugin and choose "Replace current with uploaded".', 'blueline' ),
+			$version,
+			BLUELINE_CORE_MIN_VERSION
+		);
+	} elseif ( $active ) {
+		$message = __( 'Account features, the mail wrapper, SEO tags and privacy hardening are provided by Blueline Core.', 'blueline' );
+	} else {
+		$message = __( 'Account features (player linking, photos, avatars, My Account links), the mail wrapper, SEO tags and privacy hardening live in the Blueline Core plugin. Activate it from Plugins; until then those features are missing.', 'blueline' );
+	}
+
+	if ( $outdated ) {
+		$label = __( 'Blueline Core plugin is out of date', 'blueline' );
+	} else {
+		$label = $active ? __( 'Blueline Core plugin is active', 'blueline' ) : __( 'Blueline Core plugin is not active', 'blueline' );
+	}
+
+	$good = $active && ! $outdated;
 
 	return array(
-		'label'       => $active ? __( 'Blueline Core plugin is active', 'blueline' ) : __( 'Blueline Core plugin is not active', 'blueline' ),
-		'status'      => $active ? 'good' : 'recommended',
+		'label'       => $label,
+		'status'      => $good ? 'good' : 'recommended',
 		'badge'       => array(
 			'label' => __( 'Blueline', 'blueline' ),
-			'color' => $active ? 'blue' : 'orange',
+			'color' => $good ? 'blue' : 'orange',
 		),
 		'description' => '<p>' . esc_html( $message ) . '</p>',
 		'actions'     => '',
@@ -331,11 +381,22 @@ function blueline_site_health_core_plugin_result( bool $active ): array {
  *
  * @param bool                 $loaded    Whether the plugin is loaded (it defines BLUELINE_CORE_VERSION).
  * @param array<string, mixed> $installed get_plugins() output: plugin file => header data.
- * @return array{state: string, file: string}|null Null when loaded; otherwise 'inactive' (installed,
- *                                                  `file` is its plugin file) or 'missing'.
+ * @param string               $version   The loaded plugin's version, '' when unknown.
+ * @return array<string, string>|null Null when loaded and new enough; otherwise 'inactive' (installed,
+ *                                    `file` is its plugin file), 'missing', or 'outdated' (loaded but older
+ *                                    than BLUELINE_CORE_MIN_VERSION; also carries `version` and `required`).
  */
-function blueline_core_plugin_notice_model( bool $loaded, array $installed ): ?array {
+function blueline_core_plugin_notice_model( bool $loaded, array $installed, string $version = '' ): ?array {
 	if ( $loaded ) {
+		if ( blueline_core_plugin_is_outdated( $version ) ) {
+			return array(
+				'state'    => 'outdated',
+				'file'     => '',
+				'version'  => $version,
+				'required' => BLUELINE_CORE_MIN_VERSION,
+			);
+		}
+
 		return null;
 	}
 
@@ -358,9 +419,9 @@ function blueline_core_plugin_notice_model( bool $loaded, array $installed ): ?a
 /**
  * The notice markup. Pure.
  *
- * @param array{state: string, file: string}|null $model        blueline_core_plugin_notice_model().
- * @param string                                  $activate_url Activation link (inactive state).
- * @param string                                  $upload_url   Upload-a-plugin screen (missing state).
+ * @param array<string, string>|null $model        blueline_core_plugin_notice_model().
+ * @param string                     $activate_url Activation link (inactive state).
+ * @param string                     $upload_url   Upload-a-plugin screen (missing state).
  * @return string '' when there is nothing to say.
  */
 function blueline_core_plugin_notice_html( ?array $model, string $activate_url, string $upload_url ): string {
@@ -370,7 +431,17 @@ function blueline_core_plugin_notice_html( ?array $model, string $activate_url, 
 
 	$what = __( 'Player linking, photos, avatars, the My Account league tabs, the mail wrapper, SEO tags and member-privacy hardening live in it, so they are missing until it is active.', 'blueline' );
 
-	if ( 'inactive' === $model['state'] ) {
+	if ( 'outdated' === $model['state'] ) {
+		$lead = sprintf(
+			/* translators: 1: installed plugin version, 2: oldest version this theme needs. */
+			__( 'The Blueline Core plugin is out of date (%1$s installed, %2$s or newer needed).', 'blueline' ),
+			$model['version'] ?? '',
+			$model['required'] ?? BLUELINE_CORE_MIN_VERSION
+		);
+		$what   = __( 'Some account, mail, SEO or privacy features may be missing or behave differently until it is updated. The plugin does not update itself.', 'blueline' );
+		$action = '<a class="button button-primary" href="' . esc_url( $upload_url ) . '">' . esc_html__( 'Upload the new plugin', 'blueline' ) . '</a> '
+			. esc_html__( 'Use the newest blueline-core zip from the Blueline release and choose "Replace current with uploaded".', 'blueline' );
+	} elseif ( 'inactive' === $model['state'] ) {
 		$lead   = __( 'The Blueline Core plugin is installed but not active.', 'blueline' );
 		$action = '<a class="button button-primary" href="' . esc_url( $activate_url ) . '">' . esc_html__( 'Activate Blueline Core', 'blueline' ) . '</a>';
 	} else {
@@ -379,12 +450,14 @@ function blueline_core_plugin_notice_html( ?array $model, string $activate_url, 
 			. esc_html__( 'Use blueline-core-<version>.zip from the Blueline release.', 'blueline' );
 	}
 
-	return '<div class="notice notice-warning"><p><strong>' . esc_html( $lead ) . '</strong> ' . esc_html( $what ) . '</p><p>' . $action . '</p></div>';
+	// A <section>, not a <div>: see inc/settings/cache.php's notice for why a
+	// <div> with these classes is removed from wp-admin by a plugin in use here.
+	return '<section class="notice notice-warning"><p><strong>' . esc_html( $lead ) . '</strong> ' . esc_html( $what ) . '</p><p>' . $action . '</p></section>';
 }
 
 add_action( 'admin_notices', 'blueline_render_core_plugin_notice' );
 /**
- * Tell administrators when Blueline Core is not active. Site Health already reports it, but nobody
+ * Tell administrators when Blueline Core is not active or is older than this theme needs. Site Health already reports it, but nobody
  * visits Site Health unprompted, and the site otherwise just loses those features without a word.
  * Shown to users who can activate plugins, on the screens where they would act on it.
  *
@@ -401,7 +474,7 @@ function blueline_render_core_plugin_notice(): void {
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
 	}
 
-	$model = blueline_core_plugin_notice_model( defined( 'BLUELINE_CORE_VERSION' ), function_exists( 'get_plugins' ) ? get_plugins() : array() );
+	$model = blueline_core_plugin_notice_model( defined( 'BLUELINE_CORE_VERSION' ), function_exists( 'get_plugins' ) ? get_plugins() : array(), blueline_core_plugin_loaded_version() );
 	$file  = null === $model ? '' : $model['file'];
 
 	echo wp_kses_post(

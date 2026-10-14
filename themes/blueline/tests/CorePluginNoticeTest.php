@@ -71,6 +71,60 @@ final class CorePluginNoticeTest extends TestCase {
 	}
 
 	/**
+	 * Loaded but too old: an 'outdated' model naming both versions.
+	 */
+	public function test_loaded_but_outdated_plugin_gets_an_outdated_model(): void {
+		$model = blueline_core_plugin_notice_model( true, array(), '0.0.9' );
+
+		$this->assertSame( 'outdated', $model['state'] );
+		$this->assertSame( '0.0.9', $model['version'] );
+		$this->assertSame( BLUELINE_CORE_MIN_VERSION, $model['required'] );
+	}
+
+	/**
+	 * Loaded and new enough, or of unknown version: nothing to say.
+	 */
+	public function test_loaded_current_plugin_has_no_model(): void {
+		$this->assertNull( blueline_core_plugin_notice_model( true, array(), BLUELINE_CORE_MIN_VERSION ) );
+		$this->assertNull( blueline_core_plugin_notice_model( true, array(), '' ) );
+	}
+
+	/**
+	 * Outdated: says so, names the versions, and offers the upload screen,
+	 * not the activation link (it is already active).
+	 */
+	public function test_outdated_html_offers_upload(): void {
+		$html = blueline_core_plugin_notice_html(
+			blueline_core_plugin_notice_model( true, array(), '0.0.9' ),
+			'https://example.test/activate',
+			'https://example.test/upload'
+		);
+
+		$this->assertStringContainsString( 'out of date', $html );
+		$this->assertStringContainsString( '0.0.9 installed', $html );
+		$this->assertStringContainsString( BLUELINE_CORE_MIN_VERSION . ' or newer needed', $html );
+		$this->assertStringContainsString( 'href="https://example.test/upload"', $html );
+		$this->assertStringNotContainsString( 'example.test/activate', $html );
+	}
+
+	/**
+	 * The notice is a <section>, never a <div> carrying "notice" classes.
+	 */
+	public function test_notice_is_not_a_div(): void {
+		$html = blueline_core_plugin_notice_html(
+			array(
+				'state' => 'missing',
+				'file'  => '',
+			),
+			'a',
+			'b'
+		);
+
+		$this->assertStringStartsWith( '<section class="notice notice-warning">', $html );
+		$this->assertStringNotContainsString( '<div', $html );
+	}
+
+	/**
 	 * Nothing to say renders nothing.
 	 */
 	public function test_html_is_empty_without_a_model(): void {
