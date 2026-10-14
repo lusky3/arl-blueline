@@ -45,6 +45,7 @@ final class DistIgnoreTest extends TestCase {
 		foreach ( $rules as $rule ) {
 			$this->assertStringNotContainsString( ' #', $rule );
 			$this->assertSame( trim( $rule ), $rule, 'no stray whitespace' );
+			$this->assertDoesNotMatchRegularExpression( '/^[+-]\S/', $rule, 'an include/exclude prefix needs one space after it' );
 		}
 	}
 
@@ -71,10 +72,27 @@ final class DistIgnoreTest extends TestCase {
 		);
 		$this->assertSame( 0, $status, implode( "\n", $output ) );
 
-		foreach ( array( 'style.css', 'functions.php', 'CHANGELOG.md', 'assets/dist/index.js', 'tools/contrast-rules.json', 'inc/updater-rules.php' ) as $present ) {
-			$this->assertFileExists( $this->out . '/' . $present );
+		$present = array(
+			'style.css',
+			'functions.php',
+			'CHANGELOG.md',
+			'assets/dist/index.js',
+			'assets/dist/index.css',
+			'assets/dist/account.css',
+			'assets/dist/account.asset.php',
+			'assets/dist/fonts/inter-variable.woff2',
+			'assets/fonts/OFL-Inter.txt',
+			'assets/fonts/OFL-BarlowCondensed.txt',
+			'tools/contrast-rules.json',
+			'tools/tokens.json',
+			'inc/updater-rules.php',
+			'assets/src/js/settings-photos.js',
+			'assets/src/js/settings-brand-colors.js',
+			'assets/src/js/settings-occasions.js',
+		);
+		foreach ( $present as $path ) {
+			$this->assertFileExists( $this->out . '/' . $path );
 		}
-		$this->assertNotEmpty( glob( $this->out . '/assets/src/js/*.js' ), 'assets/src/js ships' );
 
 		$absent = array(
 			'tests',
@@ -92,9 +110,63 @@ final class DistIgnoreTest extends TestCase {
 			'.gitignore',
 			'node_modules',
 			'vendor',
+			'tools/lib',
+			'tools/check-contrast.mjs',
+			'assets/src/js/index.js',
+			'assets/src/js/navigation.js',
+			'assets/fonts/inter-variable.woff2',
+			'assets/dist/account.js',
+			'assets/dist/editor.js',
 		);
 		foreach ( $absent as $path ) {
 			$this->assertFileDoesNotExist( $this->out . '/' . $path );
+		}
+		$this->assertSame( array(), glob( $this->out . '/assets/fonts/*.woff2' ), 'font sources stay out; assets/dist/fonts/ ships' );
+	}
+
+	/**
+	 * Every assets/src/js file the package leaves out must already be inside a bundle.
+	 *
+	 * A script enqueued straight from source but missing a "+" line would
+	 * otherwise vanish from the release without an error.
+	 */
+	public function test_every_excluded_source_script_is_bundled(): void {
+		$src      = dirname( __DIR__ ) . '/assets/src/js/';
+		$shipped  = array( 'settings-photos.js', 'settings-brand-colors.js', 'settings-occasions.js' );
+		$bundled  = array();
+		$frontier = array( 'index.js', 'editor.js' );
+		while ( $frontier ) {
+			$file = array_pop( $frontier );
+			if ( isset( $bundled[ $file ] ) || ! is_file( $src . $file ) ) {
+				continue;
+			}
+			$bundled[ $file ] = true;
+			preg_match_all( "/(?:from\s+|import\s+|require\(\s*)'\.\/([\w.-]+\.js)'/", (string) file_get_contents( $src . $file ), $m ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local source file in a unit test.
+			array_push( $frontier, ...$m[1] );
+		}
+
+		$sources = array_map( 'basename', (array) glob( $src . '*.js' ) );
+		$this->assertNotEmpty( $sources, 'premise: source scripts found' );
+		foreach ( $sources as $file ) {
+			if ( in_array( $file, $shipped, true ) ) {
+				continue;
+			}
+			$this->assertArrayHasKey( $file, $bundled, "assets/src/js/$file is excluded from the package but not imported by index.js or editor.js: give it a + line in .distignore or import it" );
+		}
+	}
+
+	/**
+	 * The assets/dist/*.js files .distignore drops are the empty stubs of CSS-only entries.
+	 */
+	public function test_excluded_dist_scripts_are_empty_stubs(): void {
+		$lines   = (array) file( __DIR__ . '/../.distignore', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		$dropped = preg_grep( '#^/assets/dist/[\w-]+\.js$#', $lines );
+
+		$this->assertNotEmpty( $dropped, 'premise: dist stubs listed' );
+		foreach ( $dropped as $rule ) {
+			$path = dirname( __DIR__ ) . $rule;
+			$this->assertFileExists( $path );
+			$this->assertSame( 0, filesize( $path ), "$rule now has content: ship it (remove its .distignore line)" );
 		}
 	}
 }

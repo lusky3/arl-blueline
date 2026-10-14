@@ -14,7 +14,7 @@ SRC="$(cd "$SCRIPT_DIR/.." && pwd)/themes/blueline/"
 
 # What ships is defined once, in themes/blueline/.distignore (rsync syntax),
 # which the release zip (scripts/release/package.sh) reads too -- see its
-# header for why tools/ and assets/src/js/ must NOT be excluded.
+# header for which tools/ and assets/src/js/ files must ship.
 # --delete-excluded removes anything excluded there that an earlier deploy
 # already shipped.
 [ -f "$SRC/.distignore" ] || { echo "missing $SRC.distignore" >&2; exit 1; }
