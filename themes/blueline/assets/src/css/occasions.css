@@ -50,8 +50,7 @@
  *
  * One shared keyframe, varied per instance only via the --bl-occasion-fall-*
  * custom properties below -- matches this codebase's own established
- * technique for "many staggered instances of one animation" (compare
- * team-flyout.css's .bl-team-flyout__item:nth-child(3n+N) bob stagger).
+ * technique for "many staggered instances of one animation".
  * Six `nth-child(6n+N)` lanes (left position, duration, delay, drift,
  * size) repeat cyclically across however many particles a given occasion
  * prints, so a handful of CSS rules produces visibly varied motion across
@@ -484,8 +483,7 @@
 /*
  * Canada Day: two larger, mostly-still maple leaves (as distinct from the
  * falling confetti further below) -- a slow bob-and-turn in a fixed
- * corner spot, the same "ambient, not falling" treatment team-flyout.css's
- * own crest-bob animation uses for its own icons. Placed here, ahead of
+ * corner spot -- "ambient, not falling". Placed here, ahead of
  * the falling-confetti colour rule below that targets the same
  * `.bl-occasion-motif--maple-leaf` element via a MORE specific selector
  * (stylelint's no-descending-specificity: the less-specific selector
@@ -726,9 +724,9 @@
 
 /*
  * Reduced motion: freeze every animated piece at a visible resting frame
- * rather than removing it -- this theme's own convention (compare
- * team-flyout.css's identical `animation: none` block), never a full
- * `display: none` of the whole effects layer. A frozen mid-fall particle
+ * rather than removing it -- this theme's own convention, never a full
+ * `display: none` of the whole effects layer (that is the visitor's own
+ * choice, below). A frozen mid-fall particle
  * or a frozen firework mid-bloom still reads as festive decoration; it
  * just no longer moves. The snowdrift/frost vignette are already static
  * (no animation), so neither needs an entry here.
@@ -758,4 +756,36 @@
 		transform: scale(1);
 		text-shadow: 0 0 10px currentcolor;
 	}
+}
+
+/*
+ * The visitor's own "Hide seasonal effects" choice
+ * (assets/src/js/occasion-effects-toggle.js): the whole layer goes away, not
+ * just its motion -- the effects loop for as long as the page is open, beside
+ * the content being read, so there has to be an on-page way to stop them that
+ * does not depend on an operating-system setting.
+ */
+.bl-occasion-effects-hidden .bl-occasion-effects {
+	display: none;
+}
+
+/*
+ * Footer-bar button styled like the footer theme toggle's own options
+ * (footer.css): pale on ink-deep, 44px target.
+ */
+.bl-occasion-toggle {
+	appearance: none;
+	min-height: 44px;
+	padding: var(--bl-space-1) var(--bl-space-3);
+	background: transparent;
+	border: 1px solid var(--bl-ink-mid);
+	color: var(--bl-pale);
+	font: inherit;
+	font-size: var(--bl-text-sm);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bl-occasion-toggle:hover {
+	background: var(--bl-ink-mid);
 }

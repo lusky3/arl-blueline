@@ -23,6 +23,8 @@
  * contained to this feature.
  */
 
+const { moveFocusOut } = require( './dismiss-focus.js' );
+
 const STORAGE_KEY = 'blueline:announcement-dismissed';
 
 /**
@@ -67,6 +69,14 @@ if ( banner ) {
 
 	if ( dismiss ) {
 		dismiss.addEventListener( 'click', function () {
+			// Before `hidden`, or focus on the dismiss button is lost to
+			// <body>. <main> carries tabindex="-1" for exactly this.
+			moveFocusOut(
+				banner,
+				[ document.getElementById( 'main' ) ],
+				dismiss.ownerDocument.activeElement
+			);
+
 			banner.hidden = true;
 
 			if ( fingerprint ) {

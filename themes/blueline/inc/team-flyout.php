@@ -1,7 +1,7 @@
 <?php
 /**
  * The team flyout: a sitewide, left-edge <details> disclosure of team
- * crests, gently bobbing, one of two positions the team directory can
+ * crests and names, one of two positions the team directory can
  * render in (the other being blueline_footer_team_directory(),
  * inc/template-tags.php) -- see docs/superpowers/specs/2026-09-03-blueline-
  * team-flyout-design.md.
@@ -83,24 +83,32 @@ function blueline_render_team_flyout(): void {
 			<ul class="bl-team-flyout__list">
 				<?php foreach ( $teams as $team ) : ?>
 					<li class="bl-team-flyout__item">
-						<a class="bl-team-flyout__link" href="<?php echo esc_url( $team['link'] ); ?>" title="<?php echo esc_attr( $team['name'] ); ?>">
+						<a class="bl-team-flyout__link" href="<?php echo esc_url( $team['link'] ); ?>">
 							<span class="bl-team-flyout__crest">
 								<?php if ( has_post_thumbnail( $team['id'] ) ) : ?>
 									<?php
 									/*
 									 * Decorative here, same reasoning as
 									 * blueline_footer_team_directory()'s own
-									 * crest: the team name is the link's real
-									 * accessible name via the screen-reader-
-									 * text span below, so alt text here would
-									 * make it announce twice.
+									 * crest: the team name beside it is the
+									 * link's real accessible name, so alt text
+									 * here would make it announce twice.
+									 *
+									 * Eager, at low priority, not lazy: the
+									 * panel is hidden until opened, and a lazy
+									 * image inside it does not start loading
+									 * until then -- the visitor opened a panel
+									 * of blank circles. The crests are small
+									 * thumbnails, so letting them load quietly
+									 * behind the page costs little.
 									 */
 									echo get_the_post_thumbnail(
 										$team['id'],
 										'thumbnail',
 										array(
 											'alt'         => '',
-											'loading'     => 'lazy',
+											'loading'     => 'eager',
+											'fetchpriority' => 'low',
 											'aria-hidden' => 'true',
 										)
 									);
@@ -109,7 +117,8 @@ function blueline_render_team_flyout(): void {
 									<?php blueline_leaf_mark(); ?>
 								<?php endif; ?>
 							</span>
-							<span class="screen-reader-text"><?php echo esc_html( $team['name'] ); ?></span>
+							<?php // Visible, not a hover tooltip: touch has no hover, and a crest alone does not say which team it is. ?>
+							<span class="bl-team-flyout__name"><?php echo esc_html( $team['name'] ); ?></span>
 						</a>
 					</li>
 				<?php endforeach; ?>
