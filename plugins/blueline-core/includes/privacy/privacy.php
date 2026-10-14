@@ -4,7 +4,8 @@
  *
  * First half: stop core from publishing the site's user list. Members author their own
  * sp_player posts, so core's REST users endpoint, the users sitemap, author archives and
- * oEmbed author fields would otherwise expose every member's real name and email-derived slug.
+ * oEmbed author fields would otherwise expose every member's real name and email-derived slug,
+ * and the REST `author` field would map every player to the account that owns it.
  * This hardening ends when the plugin is deactivated.
  *
  * Second half: the personal-data exporters and erasers (Tools > Export / Erase Personal Data)
@@ -20,32 +21,134 @@ defined( 'ABSPATH' ) || exit;
 require_once BLUELINE_CORE_DIR . '/includes/shared/attachment-usage.php';
 
 /**
- * Whether the current user may browse other users: anyone who can edit
- * posts (the block editor's author picker needs the users endpoint) or
- * list users.
+ * Whether the current user may browse other users. Only list_users counts: SportsPress's
+ * Player role holds edit_posts (and upload_files), so any capability a member can have is
+ * not a reason to hand them the member list.
  *
  * @return bool
  */
 function blueline_can_view_user_directory(): bool {
-	return current_user_can( 'list_users' ) || current_user_can( 'edit_posts' );
+	return current_user_can( 'list_users' );
+}
+
+/**
+ * Whether the current user is staff who assigns authors in the block editor. Such a user
+ * reaches the users collection only through the editor's author picker; see
+ * blueline_restrict_user_rest_dispatch().
+ *
+ * @return bool
+ */
+function blueline_can_pick_post_authors(): bool {
+	return current_user_can( 'edit_others_posts' );
+}
+
+/**
+ * Whether the current user may see which account authored a post in REST output. The
+ * author of an sp_player post is the member who owns that player, so this is the same
+ * member list in another form.
+ *
+ * @return bool
+ */
+function blueline_can_see_post_authors(): bool {
+	return blueline_can_view_user_directory() || blueline_can_pick_post_authors();
 }
 
 add_filter( 'rest_endpoints', 'blueline_restrict_user_rest_endpoints' );
 /**
  * Remove the users collection and single-user REST routes for visitors who
  * may not browse users. /wp/v2/users/me (the caller's own record) is kept.
+ * Editors keep the routes registered; the dispatch gate below narrows them.
  *
  * @param array $endpoints Registered REST routes.
  * @return array
  */
 function blueline_restrict_user_rest_endpoints( $endpoints ) {
-	if ( ! is_array( $endpoints ) || blueline_can_view_user_directory() ) {
+	if ( ! is_array( $endpoints ) || blueline_can_view_user_directory() || blueline_can_pick_post_authors() ) {
 		return $endpoints;
 	}
 
 	unset( $endpoints['/wp/v2/users'], $endpoints['/wp/v2/users/(?P<id>[\d]+)'] );
 
 	return $endpoints;
+}
+
+add_filter( 'rest_pre_dispatch', 'blueline_restrict_user_rest_dispatch', 10, 3 );
+/**
+ * For an editor without list_users, answer every users-collection or single-user request
+ * except the block editor's author picker (`?who=authors`) with the same 404 an
+ * unregistered route gives. Route matching is case-insensitive, as core's is.
+ *
+ * @param mixed                $result  An earlier short-circuit result, or null.
+ * @param WP_REST_Server|null  $server  REST server (unused).
+ * @param WP_REST_Request|null $request The request.
+ * @return mixed
+ */
+function blueline_restrict_user_rest_dispatch( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- rest_pre_dispatch signature.
+	if ( null !== $result || ! $request instanceof WP_REST_Request || blueline_can_view_user_directory() ) {
+		return $result;
+	}
+
+	if ( ! preg_match( '#^/wp/v2/users(?:/(\d+))?/?$#i', (string) $request->get_route(), $matches ) ) {
+		return $result;
+	}
+
+	if ( empty( $matches[1] ) && blueline_can_pick_post_authors() && 'authors' === $request->get_param( 'who' ) ) {
+		return $result;
+	}
+
+	return new WP_Error(
+		'rest_no_route',
+		__( 'No route was found matching the URL and request method.', 'blueline-core' ),
+		array( 'status' => 404 )
+	);
+}
+
+foreach ( array( 'post', 'sp_player' ) as $blueline_privacy_post_type ) {
+	add_filter( "rest_prepare_{$blueline_privacy_post_type}", 'blueline_strip_rest_post_author' );
+	add_filter( "rest_{$blueline_privacy_post_type}_query", 'blueline_strip_rest_author_query_args' );
+}
+unset( $blueline_privacy_post_type );
+
+/**
+ * Remove the author ID and the author link from a post or player in REST output for anyone
+ * who may not see post authors: a player's post_author is the member who owns it, so the
+ * public field maps every player to an account.
+ *
+ * @param mixed $response WP_REST_Response for one post.
+ * @return mixed
+ */
+function blueline_strip_rest_post_author( $response ) {
+	if ( ! $response instanceof WP_REST_Response || blueline_can_see_post_authors() ) {
+		return $response;
+	}
+
+	$data = $response->get_data();
+	if ( is_array( $data ) ) {
+		unset( $data['author'] );
+		$response->set_data( $data );
+	}
+
+	$response->remove_link( 'author' );
+
+	return $response;
+}
+
+/**
+ * Drop the `author` and `author_exclude` collection filters (author__in / author__not_in by
+ * the time they reach WP_Query) for anyone who may not see post authors, so ownership cannot
+ * be probed one user ID at a time.
+ *
+ * @param mixed $args WP_Query args built from the REST request.
+ * @return mixed
+ */
+function blueline_strip_rest_author_query_args( $args ) {
+	if ( ! is_array( $args ) || blueline_can_see_post_authors() ) {
+		return $args;
+	}
+
+	unset( $args['author__in'], $args['author__not_in'] );
+
+	return $args;
 }
 
 add_filter( 'wp_sitemaps_add_provider', 'blueline_remove_users_sitemap_provider', 10, 2 );

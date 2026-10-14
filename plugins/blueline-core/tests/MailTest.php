@@ -47,6 +47,7 @@ final class MailTest extends TestCase {
 
 		$this->assertSame( 'yes', $patched['apply_template_all_emails'] );
 		$this->assertSame( 'no', $patched['apply_for_woo_emails'] );
+		$this->assertSame( 'html', $patched['email_content_type'] );
 		$this->assertSame( '#F7FBFC', $patched['background_colour']['color'] );
 		$this->assertSame( '600', $patched['email_container_width'] );
 	}
@@ -68,9 +69,23 @@ final class MailTest extends TestCase {
 			array(
 				'apply_template_all_emails' => 'yes',
 				'apply_for_woo_emails'      => 'no',
+				'email_content_type'        => 'html',
 			),
 			blueline_wp_email_template_general_overrides( array() )
 		);
+	}
+
+	/**
+	 * The content type is pinned to plain HTML: a stored "multipart" (the plugin's default, and
+	 * what a copied database or a settings re-save brings back) makes Mailgun deliver the raw
+	 * HTML source as the message text.
+	 */
+	public function test_wp_email_template_general_overrides_pins_the_content_type_to_html(): void {
+		foreach ( array( 'multipart', 'plain', '', 'html' ) as $stored ) {
+			$patched = blueline_wp_email_template_general_overrides( array( 'email_content_type' => $stored ) );
+
+			$this->assertSame( 'html', $patched['email_content_type'], 'stored: ' . $stored );
+		}
 	}
 
 	/**
