@@ -5,8 +5,13 @@
  * @package blueline
  */
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/sections.php';
+require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/team-flyout.php';
@@ -153,6 +158,49 @@ final class TeamFlyoutTest extends TestCase {
 	 */
 	public function test_a_team_with_a_crest_does_not_get_the_leaf_mark_fallback(): void {
 		$this->markTestSkipped( 'get_the_post_thumbnail() has no test stub -- see this test\'s own docblock.' );
+	}
+
+	/**
+	 * The team name is printed beside the crest, not only in a hover
+	 * tooltip, so touch users and anyone tabbing can tell teams apart.
+	 */
+	public function test_each_link_shows_the_team_name_visibly(): void {
+		$this->team( 115100, 'Mammoth' );
+		$GLOBALS['bl_test_options']['sportspress_league_menu_teams'] = array( '115100' );
+
+		ob_start();
+		blueline_render_team_flyout();
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '/<span class="bl-team-flyout__name">Mammoth<\/span>/', $html );
+		$this->assertStringNotContainsString( 'screen-reader-text', $html );
+		$this->assertStringNotContainsString( 'title="Mammoth"', $html );
+	}
+
+	/**
+	 * Crests load eagerly at low priority: lazy images inside a panel that is
+	 * hidden never start loading until it opens, which showed blank circles.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_crests_load_eagerly_at_low_priority(): void {
+		eval( 'function get_the_post_thumbnail( $id, $size, $attr ) { $GLOBALS["bl_test_thumb_attr"] = $attr; return "<img>"; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- get_the_post_thumbnail() has no shared stub (see test_a_team_with_a_crest_does_not_get_the_leaf_mark_fallback); this one records the attributes it is given.
+		blueline_test_reset_state();
+		blueline_test_reset_options();
+		blueline_test_reset_hooks();
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_team_directory_position' => 'flyout' ) );
+		add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
+		$this->team( 115100, 'Mammoth', true );
+		$GLOBALS['bl_test_options']['sportspress_league_menu_teams'] = array( '115100' );
+
+		ob_start();
+		blueline_render_team_flyout();
+		ob_end_clean();
+
+		$attr = $GLOBALS['bl_test_thumb_attr'];
+		$this->assertSame( 'eager', $attr['loading'] );
+		$this->assertSame( 'low', $attr['fetchpriority'] );
+		$this->assertSame( '', $attr['alt'] );
 	}
 
 	/**

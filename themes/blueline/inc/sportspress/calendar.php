@@ -165,6 +165,68 @@ function blueline_sp_next_dated_event( array $scope_args = array(), $now = null 
 }
 
 /**
+ * The query scope for the Countdown widget (sportspress/countdown.php): its
+ * configured team/league/season, in the meta_query/tax_query shape stock
+ * SportsPress's countdown template builds, plus stock's exclusion of
+ * postponed/cancelled events.
+ *
+ * The exclusion belongs to the scope itself, so it also governs the theme's
+ * own stale-pick re-check (blueline_sp_next_dated_event()), not only stock's
+ * first pick: otherwise a stale game could be swapped for a postponed one.
+ *
+ * @param mixed    $team              Configured team id, or empty.
+ * @param mixed    $league            Configured league term(s), or empty.
+ * @param mixed    $season            Configured season term(s), or empty.
+ * @param string[] $excluded_statuses `sp_status` values to leave out; empty to include every status.
+ * @return array
+ */
+function blueline_sp_countdown_scope_args( $team, $league, $season, array $excluded_statuses ): array {
+	$scope = array();
+
+	if ( $team ) {
+		$scope['meta_query'][] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- mirrors stock countdown.php's own team scoping; a single-team lookup, not an unbounded query.
+			'key'   => 'sp_team',
+			'value' => $team,
+		);
+	}
+
+	if ( $excluded_statuses ) {
+		$scope['meta_query'][] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- mirrors stock countdown.php's own status exclusion.
+			'relation' => 'OR',
+			array(
+				'key'     => 'sp_status',
+				'compare' => 'NOT IN',
+				'value'   => array_values( $excluded_statuses ),
+			),
+			array(
+				'key'     => 'sp_status',
+				'compare' => 'NOT EXISTS',
+			),
+		);
+	}
+
+	if ( $league || $season ) {
+		$scope['tax_query'] = array( 'relation' => 'AND' ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- mirrors stock countdown.php's own league/season scoping.
+
+		if ( $league ) {
+			$scope['tax_query'][] = array(
+				'taxonomy' => 'sp_league',
+				'terms'    => $league,
+			);
+		}
+
+		if ( $season ) {
+			$scope['tax_query'][] = array(
+				'taxonomy' => 'sp_season',
+				'terms'    => $season,
+			);
+		}
+	}
+
+	return $scope;
+}
+
+/**
  * Pure decision: explanatory copy for a league table (sportspress/
  * league-table.php) where no listed team has played any games yet, or ''
  * when at least one has -- or when there is simply no way to tell.
@@ -581,7 +643,53 @@ function blueline_output_team_schedule_section() {
 }
 
 /**
- * Shared start/end timestamps and venue label for a single sp_event's
+ * Whether SportsPress marks an event's time as not settled yet (`sp_status`
+ * 'tbd'). Its post date still carries a placeholder time, which must never be
+ * shown or exported as if it were the real one.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return bool
+ */
+function blueline_sp_event_time_is_tbd( $event_id ) {
+	return 'tbd' === get_post_meta( (int) $event_id, 'sp_status', true );
+}
+
+/**
+ * Where a single game is, for a calendar entry: the player-facing venue label
+ * ("Mr. Lube and Tires Arena — Black", blueline_venue_label()) followed by the
+ * venue's street address, so a maps app can resolve it. A bare pad name such
+ * as "Black" resolves to nothing. Either half is left out when unknown.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string
+ */
+function blueline_sp_event_calendar_location( $event_id ) {
+	if ( ! taxonomy_exists( 'sp_venue' ) ) {
+		return '';
+	}
+
+	$venues = wp_get_post_terms( (int) $event_id, 'sp_venue' );
+
+	if ( is_wp_error( $venues ) || empty( $venues ) ) {
+		return '';
+	}
+
+	$term_id = (int) $venues[0]->term_id;
+	$label   = blueline_venue_label( $term_id );
+
+	if ( '' === $label ) {
+		$label = (string) $venues[0]->name;
+	}
+
+	// SportsPress keeps a venue's address in the legacy per-term option, not term meta.
+	$venue_meta = get_option( 'taxonomy_' . $term_id );
+	$address    = is_array( $venue_meta ) && ! empty( $venue_meta['sp_address'] ) ? trim( (string) $venue_meta['sp_address'] ) : '';
+
+	return implode( ', ', array_filter( array( $label, $address ), 'strlen' ) );
+}
+
+/**
+ * Shared start/end timestamps and location for a single sp_event's
  * calendar links (Google and Apple/Outlook, blueline_sp_event_calendar_url()
  * and blueline_sp_event_ics_url() below) -- kept in one place so the two
  * links can never silently disagree on when the game starts/ends or where
@@ -589,9 +697,14 @@ function blueline_output_team_schedule_section() {
  *
  * @param int $event_id sp_event post ID.
  * @return array{start:int, end:int, location:string}|null Null when the
- *         start time is unknown.
+ *         start time is unknown or not settled yet (TBD), so neither link
+ *         offers a made-up time.
  */
 function blueline_sp_event_calendar_bounds( $event_id ) {
+	if ( blueline_sp_event_time_is_tbd( $event_id ) ) {
+		return null;
+	}
+
 	$start_ts = blueline_sp_event_start_timestamp( $event_id );
 
 	if ( ! $start_ts ) {
@@ -607,12 +720,10 @@ function blueline_sp_event_calendar_bounds( $event_id ) {
 		}
 	}
 
-	$venue_names = taxonomy_exists( 'sp_venue' ) ? wp_get_post_terms( $event_id, 'sp_venue', array( 'fields' => 'names' ) ) : array();
-
 	return array(
 		'start'    => $start_ts,
 		'end'      => $start_ts + ( $minutes * MINUTE_IN_SECONDS ),
-		'location' => ( ! is_wp_error( $venue_names ) && ! empty( $venue_names ) ) ? $venue_names[0] : '',
+		'location' => blueline_sp_event_calendar_location( $event_id ),
 	);
 }
 
@@ -635,11 +746,13 @@ function blueline_sp_event_calendar_url( $event_id ) {
 		return '';
 	}
 
+	// add_query_arg() does not encode values (see blueline_team_calendar_urls()),
+	// and a location now carries spaces, commas and sometimes an "&".
 	$args = array(
 		'action'   => 'TEMPLATE',
-		'text'     => blueline_sp_title( $event_id ),
+		'text'     => rawurlencode( blueline_sp_title( $event_id ) ),
 		'dates'    => gmdate( 'Ymd\THis\Z', $bounds['start'] ) . '/' . gmdate( 'Ymd\THis\Z', $bounds['end'] ),
-		'location' => $bounds['location'],
+		'location' => rawurlencode( $bounds['location'] ),
 	);
 
 	return add_query_arg( $args, 'https://calendar.google.com/calendar/render' );

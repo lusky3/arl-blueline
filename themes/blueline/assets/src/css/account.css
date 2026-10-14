@@ -481,22 +481,68 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 }
 
 /*
- * The two season-subscribe links. assets/src/js/calendar-links.js moves the
- * platform-appropriate one ahead of the other (the DOM node itself, so tab
- * order matches).
+ * A team's two season-subscribe links, on each My Team card and on the My
+ * Schedule tab. assets/src/js/calendar-links.js moves the platform-appropriate
+ * one ahead of the other (the DOM node itself, so tab order matches).
  */
-.bl-account-next-game__calendar {
+.bl-account-calendar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bl-space-2);
+	margin-block-start: var(--bl-space-4);
 }
 
-.bl-account-next-game__calendar-label {
+.bl-account-calendar__label {
 
 	/* Never reordered: the JS only moves the buttons, after this label. */
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
+}
+
+/* ---------------------------------------------------------------------
+ * My schedule ("Coming up")
+ * ------------------------------------------------------------------- */
+
+.bl-account-schedule {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bl-account-schedule__item + .bl-account-schedule__item {
+	border-top: 1px solid var(--bl-content-border);
+}
+
+.bl-account-schedule__link {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--bl-space-1) var(--bl-space-3);
+	padding-block: var(--bl-space-3);
+	color: inherit;
+	text-decoration: none;
+}
+
+.bl-account-schedule__link:hover .bl-account-schedule__matchup,
+.bl-account-schedule__link:focus-visible .bl-account-schedule__matchup {
+	text-decoration: underline;
+}
+
+.bl-account-schedule__when {
+	font-weight: 600;
+}
+
+.bl-account-schedule__venue {
+	flex-basis: 100%;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-account-schedule__status {
+	font-weight: 600;
+	font-size: var(--bl-text-sm);
+	text-transform: uppercase;
 }
 
 /* ---------------------------------------------------------------------
@@ -797,6 +843,31 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	inset-inline-start: 0;
 	margin-block-start: var(--bl-space-2);
 	white-space: nowrap;
+}
+
+/* Added by player-photo-upload.js: the up-front limits, then the live
+   "Uploading..." / refusal message. */
+.bl-player-profile__photo-hint,
+.bl-player-profile__photo-status {
+	margin: var(--bl-space-2) 0 0;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+}
+
+.bl-player-profile__photo-status:empty {
+	display: none;
+}
+
+.bl-player-profile__photo-status--error {
+	color: var(--bl-danger);
+}
+
+/* Mid-upload the pencil cannot be pressed, so a second tap cannot start
+   another pick. */
+.bl-player-profile__photo-form.is-busy .bl-player-profile__photo-edit {
+	opacity: 0.6;
+	cursor: progress;
+	pointer-events: none;
 }
 
 .bl-player-profile__name {

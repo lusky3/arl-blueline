@@ -46,6 +46,8 @@
 // clears this exact key) -- via this file's own `module.exports` below,
 // not by convention, and preferences-widget-reset.test.mjs asserts the two
 // stay equal.
+const { moveFocusOut } = require( './dismiss-focus.js' );
+
 const DISMISSED_KEY = 'blueline:next-game-dismissed';
 // Shared with account-next-game.js; storage-keys.test.mjs asserts they match.
 const SEEN_KEY = 'blueline:next-game-seen';
@@ -158,8 +160,27 @@ if ( typeof document !== 'undefined' ) {
 
 		const dismiss = widget.querySelector( '[data-bl-next-game-dismiss]' );
 
+		// Where focus was just before it entered the widget (the widget is
+		// last in the DOM, so that is normally the footer control tabbed
+		// out of): the least surprising place to hand it back to.
+		let lastOutside = null;
+
+		document.addEventListener( 'focusin', function ( event ) {
+			if ( ! widget.contains( event.target ) ) {
+				lastOutside = event.target;
+			}
+		} );
+
 		if ( dismiss ) {
 			dismiss.addEventListener( 'click', function () {
+				// Before `hidden`: a hidden element cannot take focus, and
+				// hiding the focused button would drop it to <body>.
+				moveFocusOut(
+					widget,
+					[ lastOutside, document.getElementById( 'main' ) ],
+					dismiss.ownerDocument.activeElement
+				);
+
 				widget.hidden = true;
 
 				if ( currentRaw ) {

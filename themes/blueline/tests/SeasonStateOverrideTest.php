@@ -485,17 +485,15 @@ final class SeasonStateOverrideTest extends TestCase {
 	}
 
 	/**
-	 * A plain read still caches, exactly as before this task -- the bypass
-	 * is scoped to the explicit-timestamp path and changes nothing about
-	 * ordinary front-end traffic.
+	 * A plain read with WooCommerce and SportsPress both missing (as in this
+	 * stub environment) still answers, but does not cache: that answer was
+	 * computed without the catalogue or the schedule. The cached path with
+	 * both loaded is covered in SeasonStateSignalsTest.
 	 */
-	public function test_a_plain_read_still_populates_the_cache(): void {
-		blueline_season_state_data();
+	public function test_a_plain_read_without_its_dependencies_is_not_cached(): void {
+		$this->assertSame( 'offseason', blueline_season_state_data()['state'] );
 
-		$cached = get_transient( 'blueline_season_state' );
-
-		$this->assertIsArray( $cached );
-		$this->assertSame( 'offseason', $cached['state'] );
+		$this->assertFalse( get_transient( 'blueline_season_state' ) );
 	}
 
 	/**

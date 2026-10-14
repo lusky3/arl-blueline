@@ -4,8 +4,13 @@
  * (which URL gets the token, which release wins) are pure and live in
  * updater-rules.php.
  *
- * The token comes from wp-config.php only. It is attached to requests for this
- * repo's API and nothing else, and never appears in an error message.
+ * The repository is public, so no token is needed: requests go out anonymously
+ * (GitHub allows 60 an hour per address; a successful check is cached for 12
+ * hours and a failed one for 1, and "Check again" bypasses the cache). A token
+ * is optional. When BLUELINE_GITHUB_TOKEN is defined in
+ * wp-config.php it is attached to requests for this repo's API and nothing
+ * else, which lifts that limit or reaches a private fork, and it never appears
+ * in an error message.
  *
  * @package blueline
  */
@@ -61,7 +66,8 @@ function blueline_updater_error( string $reason, int $status = 0, string $rate =
  * GET a URL, following redirects by hand so the token never leaves GitHub's API.
  *
  * Each hop is decided by blueline_updater_next_hop(); the Authorization header
- * is sent only while the current URL is on this repo's API. With `filename`,
+ * is sent only while the current URL is on this repo's API, and only when a
+ * token is configured. With `filename`,
  * every hop streams to that file (a redirect's body is empty and is overwritten
  * by the next hop), so the final hop's body is what remains.
  *
@@ -79,10 +85,7 @@ function blueline_updater_request( string $url, array $args = array() ) {
 			'User-Agent' => 'Blueline/' . ( defined( 'BLUELINE_VERSION' ) ? BLUELINE_VERSION : '0' ),
 		);
 
-		if ( blueline_updater_is_repo_api_url( $current ) ) {
-			if ( '' === $token ) {
-				return blueline_updater_error( 'no_token' );
-			}
+		if ( '' !== $token && blueline_updater_is_repo_api_url( $current ) ) {
 			$headers['Authorization'] = 'Bearer ' . $token;
 		}
 
@@ -136,7 +139,7 @@ function blueline_updater_status_from_error( WP_Error $error ): string {
 /**
  * A fresh state record.
  *
- * @param string                    $status    ok, unauthorized, rate_limited, error or no_token.
+ * @param string                    $status    ok, unauthorized, rate_limited or error.
  * @param array<string, mixed>|null $candidate The update to offer, if any.
  * @return array<string, mixed>
  */
@@ -206,16 +209,12 @@ function blueline_updater_fetch_state(): array {
  * The cached update state; refreshed when absent, stale for this install, or forced.
  *
  * `ok` (including "nothing newer") is cached 12h, any failure 1h so a bad token
- * or a rate limit is not hammered. No token means no state and no request.
+ * or a rate limit is not hammered. Works without a token (see the file header).
  *
  * @param bool $force Skip the cache.
  * @return array<string, mixed>
  */
 function blueline_updater_state( bool $force = false ): array {
-	if ( '' === blueline_updater_token() ) {
-		return blueline_updater_make_state( 'no_token' );
-	}
-
 	if ( ! $force ) {
 		$cached = get_site_transient( BLUELINE_UPDATER_CACHE_KEY );
 		$fresh  = blueline_updater_make_state( 'ok' );

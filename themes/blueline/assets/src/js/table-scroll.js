@@ -42,6 +42,8 @@ const CONTAINERS = [
 	'table.bl-table-self-scroll',
 	// QA A-02: legacy classic-editor tables scroll themselves (sportspress.css).
 	'.entry-content > table:not([class*="sp-"])',
+	// Gutenberg's table block: blocks.css makes the <figure> the scroller.
+	'.entry-content .wp-block-table',
 ].join( ',' );
 
 // Marks the attributes this file added, so only those are ever removed again.
@@ -90,10 +92,17 @@ function scrollLabel( el ) {
 			? el
 			: el.querySelector && el.querySelector( 'table' );
 	const caption = table && table.caption ? table.caption.textContent : '';
+	// A Gutenberg table block keeps its caption in a <figcaption>, not a <caption>.
+	const figcaption = el.querySelector && el.querySelector( 'figcaption' );
 	const template = el.closest && el.closest( '.sp-template' );
 	const heading =
 		template && template.querySelector( '.sp-table-caption, .sp-heading' );
-	const text = ( caption || ( heading && heading.textContent ) || '' )
+	const text = (
+		caption ||
+		( figcaption && figcaption.textContent ) ||
+		( heading && heading.textContent ) ||
+		''
+	)
 		.replace( /\s+/g, ' ' )
 		.trim();
 
@@ -289,5 +298,5 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { update, attach, attachWithin, scrollLabel };
+	module.exports = { CONTAINERS, update, attach, attachWithin, scrollLabel };
 }

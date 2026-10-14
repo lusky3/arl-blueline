@@ -36,6 +36,8 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 		blueline_test_reset_state();
 		$_REQUEST = array();
 		$_FILES   = array();
+		$_POST    = array();
+		unset( $_SERVER['CONTENT_LENGTH'] );
 
 		$GLOBALS['bl_core_test_deleted_attachments'] = array();
 		$GLOBALS['bl_core_test_media_calls']         = array();
@@ -57,6 +59,8 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 	protected function tearDown(): void {
 		$_REQUEST = array();
 		$_FILES   = array();
+		$_POST    = array();
+		unset( $_SERVER['CONTENT_LENGTH'] );
 
 		foreach ( $this->temp_files as $temp_file ) {
 			if ( file_exists( $temp_file ) ) {
@@ -282,6 +286,78 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 
 		$this->assertStringContainsString( 'blueline_photo=too_large', $this->redirect() );
 		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * A body over post_max_size makes PHP drop $_POST and $_FILES, nonce included. The member is sent back to
+	 * Player Profile with the too-large notice instead of a bare "link expired" admin-post page.
+	 */
+	public function test_post_over_post_max_size_redirects_with_too_large_before_the_nonce_check(): void {
+		$_POST                     = array();
+		$_SERVER['CONTENT_LENGTH'] = (string) ( 19 * 1024 * 1024 );
+
+		try {
+			blueline_handle_player_photo_upload();
+			$this->fail( 'The handler must redirect.' );
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			$this->assertStringContainsString( 'blueline_photo=too_large', $e->location );
+			$this->assertStringContainsString( '/account/player-profile/', $e->location );
+		}
+
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
+	 * An empty body that was never big (no Content-Length, or zero) is not an overflow: it still hits the nonce check.
+	 *
+	 * @return array<string, array{0: string|null}>
+	 */
+	public static function not_an_overflow_cases(): array {
+		return array(
+			'no Content-Length' => array( null ),
+			'zero length'       => array( '0' ),
+		);
+	}
+
+	/**
+	 * Only a non-empty Content-Length with an empty $_POST counts as an overflow.
+	 *
+	 * @param string|null $content_length The CONTENT_LENGTH server value, or null for none.
+	 */
+	#[DataProvider( 'not_an_overflow_cases' )]
+	public function test_empty_post_without_a_body_is_still_nonce_checked( ?string $content_length ): void {
+		$_POST = array();
+		if ( null !== $content_length ) {
+			$_SERVER['CONTENT_LENGTH'] = $content_length;
+		}
+
+		$this->expectException( Blueline_Test_WP_Die_Exception::class );
+
+		blueline_handle_player_photo_upload();
+	}
+
+	/**
+	 * A normal submission (fields present) with a body is not an overflow, even with a Content-Length.
+	 */
+	public function test_post_with_fields_and_a_body_is_not_an_overflow(): void {
+		$_POST                     = array( 'action' => 'blueline_upload_player_photo' );
+		$_SERVER['CONTENT_LENGTH'] = '1048576';
+		$this->upload( $this->png_header( 600, 800 ), 'player.png' );
+
+		$this->assertStringContainsString( 'blueline_photo=updated', $this->redirect() );
+	}
+
+	/**
+	 * A logged-out visitor is refused before the overflow check can redirect them anywhere.
+	 */
+	public function test_overflow_while_logged_out_is_still_refused(): void {
+		blueline_test_state()['current_user_id'] = 0;
+		$_POST                                   = array();
+		$_SERVER['CONTENT_LENGTH']               = (string) ( 19 * 1024 * 1024 );
+
+		$this->expectException( Blueline_Test_WP_Die_Exception::class );
+
+		blueline_handle_player_photo_upload();
 	}
 
 	/**

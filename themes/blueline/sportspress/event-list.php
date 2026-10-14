@@ -282,13 +282,14 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 						continue;
 					}
 
-					$bl_date_key = get_post_time( 'Y-m-d', false, $event );
+					$bl_date_key   = get_post_time( 'Y-m-d', false, $event );
+					$bl_date_label = (string) get_post_time( get_option( 'date_format' ), false, $event, true );
 					if ( $bl_date_key !== $bl_prev_date ) {
 						$bl_prev_date = $bl_date_key;
 						printf(
 							'<tr class="bl-sp-date-heading"><th scope="colgroup" colspan="%1$d">%2$s</th></tr>',
 							(int) $bl_col_count,
-							esc_html( get_post_time( get_option( 'date_format' ), false, $event, true ) )
+							esc_html( $bl_date_label )
 						);
 					}
 
@@ -296,6 +297,10 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 					$video        = get_post_meta( $event->ID, 'sp_video', true );
 					$status       = get_post_meta( $event->ID, 'sp_status', true ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- $status is this loop's own per-event value (mirrors the stock event-list.php this overrides), not a WordPress global.
 					$main_results = apply_filters( 'sportspress_event_list_main_results', sp_get_main_results( $event ), $event->ID );
+
+					// Postponed / cancelled / time TBD: labelled in the Result cell and the time link (sp_status).
+					$bl_status       = blueline_sp_schedule_status( $status );
+					$bl_status_label = '' !== $bl_status ? blueline_sp_schedule_status_label( $bl_status ) : '';
 
 					/*
 					 * Finding 5 (live review): a past game with no result
@@ -315,8 +320,9 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 						$main_results = array_reverse( $main_results, true );
 					}
 
-					$teams_array = array();
-					$bl_has_logo = '';
+					$teams_array   = array();
+					$bl_team_names = array();
+					$bl_has_logo   = '';
 
 					if ( $teams ) :
 						foreach ( $teams as $t => $team_id ) :
@@ -325,7 +331,12 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 								continue;
 							}
 
-							$name = '<meta itemprop="name" content="' . esc_attr( $name ) . '">' . $name;
+							$bl_team_names[] = wp_strip_all_tags( $name );
+
+							// The visible name gets its own element so a name too long for a
+							// narrow column can be clamped and offered in full (assets/src/js/
+							// team-name-tooltip.js) instead of breaking mid-word.
+							$name = '<meta itemprop="name" content="' . esc_attr( $name ) . '"><span class="bl-sp-team-name">' . $name . '</span>';
 
 							if ( $show_team_logo && has_post_thumbnail( $team_id ) ) :
 								$logo        = '<span class="team-logo">' . sp_get_logo(
@@ -354,10 +365,11 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 					endif;
 
 					if ( $bl_reverse_teams ) {
-						$teams_array = array_reverse( $teams_array, true );
+						$teams_array   = array_reverse( $teams_array, true );
+						$bl_team_names = array_reverse( $bl_team_names );
 					}
 					?>
-					<tr class="sp-row sp-post<?php echo 0 === $i % 2 ? ' alternate' : ''; ?> sp-row-no-<?php echo (int) $i; ?>" itemscope itemtype="http://schema.org/SportsEvent">
+					<tr class="sp-row sp-post<?php echo 0 === $i % 2 ? ' alternate' : ''; ?> sp-row-no-<?php echo (int) $i; ?><?php echo '' !== $bl_status ? ' bl-sp-schedule__row--' . esc_attr( $bl_status ) : ''; ?>" itemscope itemtype="http://schema.org/SportsEvent">
 						<td class="data-date bl-sp-schedule__time" data-label="<?php esc_attr_e( 'Time', 'sportspress' ); ?>">
 							<?php if ( $link_events ) : ?>
 								<a href="<?php echo esc_url( get_post_permalink( $event->ID, false, true ) ); ?>" itemprop="url">
@@ -366,6 +378,8 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 								<?php echo esc_html( get_post_time( get_option( 'time_format' ), false, $event ) ); ?>
 							</time>
 							<?php if ( $link_events ) : ?>
+								<?php // Several games share a time slot; the link's name says which game it is. ?>
+								<span class="screen-reader-text"><?php echo esc_html( blueline_sp_schedule_link_context( $bl_team_names, $bl_date_label, $bl_status_label ) ); ?></span>
 								</a>
 							<?php endif; ?>
 						</td>
@@ -376,19 +390,19 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 						<?php if ( sp_column_active( $usecolumns, 'time' ) ) : ?>
 							<?php // Matches the column header above; this is what the stacked mobile view prints as the row's label. ?>
 							<td class="data-time <?php echo esc_attr( $status ); ?>" data-label="<?php esc_attr_e( 'Result', 'blueline' ); ?>">
-								<?php if ( ! empty( $main_results ) ) : ?>
-									<?php echo wp_kses_post( implode( ' - ', $main_results ) ); ?>
-								<?php elseif ( 'pending' === $bl_event_state && blueline_sp_result_still_expected( $bl_start_ts ) ) : ?>
-									<?php // Played recently, no result on file yet; older unscored games (QA C-24) fall through to the dash. ?>
-									<span class="bl-sp-schedule__pending"><?php esc_html_e( 'Final score coming soon', 'blueline' ); ?></span>
-								<?php else : ?>
-									&#8212;
-								<?php endif; ?>
+								<?php
+								// Status label (with any recorded score beside it), else the score, the "coming soon" note or the dash.
+								echo blueline_sp_schedule_result_html( (array) $main_results, $status, $bl_event_state, blueline_sp_result_still_expected( $bl_start_ts ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built and escaped by blueline_sp_schedule_result_html() (inc/sportspress/core.php).
+								?>
 							</td>
 						<?php endif; ?>
 						<?php if ( sp_column_active( $usecolumns, 'event' ) ) : ?>
-							<?php $bl_away = array_shift( $teams_array ); ?>
-							<td class="data-away<?php echo esc_attr( $bl_has_logo ); ?>" itemprop="competitor" itemscope itemtype="http://schema.org/SportsTeam" data-label="<?php esc_attr_e( 'Away', 'sportspress' ); ?>"><?php echo wp_kses_post( $bl_away ); ?></td>
+							<?php
+							$bl_away = array_shift( $teams_array );
+							// The "vs" only shows in the stacked phone layout, where Home and Away share one line.
+							$bl_vs = ( $bl_home && $bl_away ) ? '<span class="bl-sp-schedule__vs">' . esc_html_x( 'vs', 'home team vs away team', 'blueline' ) . '</span>' : '';
+							?>
+							<td class="data-away<?php echo esc_attr( $bl_has_logo ); ?>" itemprop="competitor" itemscope itemtype="http://schema.org/SportsTeam" data-label="<?php esc_attr_e( 'Away', 'sportspress' ); ?>"><?php echo wp_kses_post( $bl_vs . $bl_away ); ?></td>
 						<?php endif; ?>
 						<?php if ( sp_column_active( $usecolumns, 'league' ) ) : ?>
 							<td class="data-league" data-label="<?php esc_attr_e( 'League', 'sportspress' ); ?>">
@@ -415,7 +429,7 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 						$bl_venue_names = array();
 						if ( $bl_venues && ! is_wp_error( $bl_venues ) ) {
 							foreach ( $bl_venues as $bl_venue_term ) {
-								$bl_venue_names[] = blueline_venue_label( $bl_venue_term->term_id );
+								$bl_venue_names[] = blueline_sp_schedule_venue_text( (string) blueline_venue_label( $bl_venue_term->term_id ) );
 							}
 						}
 						?>

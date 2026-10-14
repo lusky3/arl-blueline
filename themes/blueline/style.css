@@ -4,7 +4,7 @@ Theme URI: https://www.rookiehockey.ca
 Author: Adult Recreational League
 Author URI: https://www.rookiehockey.ca
 Description: Standalone theme for the ARL — SportsPress Pro and WooCommerce, built on the 2026 ARL brand.
-Version: 1.1.1
+Version: 1.1.4
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.3
@@ -160,6 +160,9 @@ Update URI: https://github.com/lusky3/arl-blueline
 	 *                          content but below the mobile nav drawer, so
 	 *                          open navigation is never visually obscured
 	 *                          by it
+	 *   --bl-z-flyout          the sitewide team flyout (team-flyout.css) --
+	 *                          above the next-game widget so its open panel is
+	 *                          never hidden behind it, below the drawer
 	 *   --bl-z-drawer          mobile nav drawer (nav.css)
 	 *   --bl-z-header-controls .bl-header__brand/__actions, raised above the
 	 *                          mobile drawer -- see the comment on
@@ -174,6 +177,7 @@ Update URI: https://github.com/lusky3/arl-blueline
 	--bl-z-occasion-effect: 1;
 	--bl-z-nav-submenu: 40;
 	--bl-z-floating-widget: 45;
+	--bl-z-flyout: 48;
 	--bl-z-drawer: 50;
 	--bl-z-header-controls: 55;
 	--bl-z-header: 60;

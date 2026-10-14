@@ -144,7 +144,16 @@ verifies the plugin is active, at the header's version, with every module loaded
 
 Claude and CI never create, request or handle the token.
 
-- **R1. Create the token.** GitHub > Settings > Developer settings > Fine-grained
+**The token is optional.** The repository is public, so a site checks for updates
+anonymously with no configuration (GitHub allows 60 requests an hour per address; a
+successful check is cached for 12 hours and a failed one for 1, and Dashboard > Updates >
+"Check again" bypasses the cache). R1-R4 apply only when you choose to define one: for
+a higher rate limit, or because the repository is a private fork. Before 1.1.4 a site
+with no token never checked at all (the updater did nothing without one), so a site
+still on 1.1.3 or older needs one manual theme install of 1.1.4 or newer before it
+starts seeing updates.
+
+- **R1. Create the token (optional).** GitHub > Settings > Developer settings > Fine-grained
   tokens: this repository only (`lusky3/arl-blueline`), permission
   **Contents: Read-only**, the longest expiry offered (max 1 year).
 - **R2. Configure each site** in `wp-config.php` (above the "stop editing" line):
@@ -161,16 +170,17 @@ Claude and CI never create, request or handle the token.
   Expect `302`, a redirect host listed in `BLUELINE_UPDATER_STORAGE_HOSTS`
   (`inc/updater-rules.php`), then `200`/`206` from storage without credentials. The
   script never prints the token. If the host differs, add it to that constant.
-- **R4. Token renewal.** Put the token's expiry in a calendar. When it lapses, update
-  checks stop and Site Health (Tools > Site Health > Status) goes **critical**
-  ("GitHub refused the update token"). Create a new token and replace the constant.
+- **R4. Token renewal (only if you set one).** Put the token's expiry in a calendar. When
+  it lapses, update checks stop and Site Health (Tools > Site Health > Status) goes
+  **critical** ("GitHub refused the update request"). Create a new token and replace the
+  constant, or remove it to fall back to anonymous checks.
 
 ## Staging end-to-end (owner-run, in order)
 
 1. Merge the updater PR. Deploy main to staging with `scripts/deploy-theme.sh staging`
-   (staging runs 1.0.1 plus the updater, no token yet: Site Health shows a
-   recommendation to add the token).
-2. Do R1-R2 on staging. Site Health now reports the channel and "up to date".
+   (staging runs 1.0.1 plus the updater; with no token it checks anonymously).
+2. Set the channel on staging (R2's `BLUELINE_UPDATE_CHANNEL` line; a token is optional).
+   Site Health reports the channel and "up to date".
 3. Release-prep PR: version `1.1.0-rc.1` in `style.css` and `functions.php`,
    `## 1.1.0-rc.1` in `CHANGELOG.md`. Merge, then
    `git tag v1.1.0-rc.1 && git push origin v1.1.0-rc.1`. Confirm the workflow passes

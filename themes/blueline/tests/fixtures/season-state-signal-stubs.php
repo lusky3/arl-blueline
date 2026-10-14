@@ -1,6 +1,7 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable.
 /**
- * Scripted WordPress/WooCommerce stand-ins for SeasonStateSignalsTest.
+ * Scripted WordPress/WooCommerce stand-ins for SeasonStateSignalsTest and
+ * HomepageSeasonRulesTest.
  *
  * Loaded ONLY inside #[RunInSeparateProcess] tests: defining WP_Query or
  * wc_get_product() in the shared process would change what every other test
@@ -21,6 +22,7 @@ $GLOBALS['bl_test_wc_products']       = array();
 $GLOBALS['bl_test_post_dates']        = array();
 $GLOBALS['bl_test_object_taxonomies'] = array();
 $GLOBALS['bl_test_object_term_slugs'] = array();
+$GLOBALS['bl_test_object_term_ids']   = array();
 
 /**
  * Scripted WP_Query: each instance takes the next queued `posts` result.
@@ -46,17 +48,62 @@ class WP_Query {
 }
 
 /**
- * A product with fixed purchasable/in-stock answers.
+ * A product with fixed purchasable/in-stock/visibility/price answers.
  */
 class Blueline_Test_Signal_Product {
 
 	/**
 	 * Constructor.
 	 *
-	 * @param bool $purchasable is_purchasable() answer.
-	 * @param bool $in_stock    is_in_stock() answer.
+	 * @param bool   $purchasable is_purchasable() answer.
+	 * @param bool   $in_stock    is_in_stock() answer.
+	 * @param string $visibility  get_catalog_visibility() answer.
+	 * @param string $price       get_price() answer, WooCommerce's raw string.
+	 * @param int    $id          get_id() answer.
 	 */
-	public function __construct( private bool $purchasable, private bool $in_stock ) {}
+	public function __construct(
+		private bool $purchasable,
+		private bool $in_stock,
+		private string $visibility = 'visible',
+		private string $price = '100',
+		private int $id = 0
+	) {}
+
+	/**
+	 * Product ID.
+	 *
+	 * @return int
+	 */
+	public function get_id(): int {
+		return $this->id;
+	}
+
+	/**
+	 * Product title.
+	 *
+	 * @return string
+	 */
+	public function get_name(): string {
+		return 'Product ' . $this->id;
+	}
+
+	/**
+	 * Raw price.
+	 *
+	 * @return string
+	 */
+	public function get_price(): string {
+		return $this->price;
+	}
+
+	/**
+	 * Catalog visibility: visible, catalog, search or hidden.
+	 *
+	 * @return string
+	 */
+	public function get_catalog_visibility(): string {
+		return $this->visibility;
+	}
 
 	/**
 	 * Whether the product can be bought.
@@ -78,7 +125,8 @@ class Blueline_Test_Signal_Product {
 }
 
 /**
- * Stand-in for wc_get_product(): a seeded product, or false.
+ * Stand-in for wc_get_product(): a seeded product, or false. A seed is
+ * `array( purchasable, in_stock [, visibility [, price ] ] )`.
  *
  * @param int $id Product ID.
  * @return Blueline_Test_Signal_Product|false
@@ -86,7 +134,9 @@ class Blueline_Test_Signal_Product {
 function wc_get_product( $id ) {
 	$seed = $GLOBALS['bl_test_wc_products'][ (int) $id ] ?? null;
 
-	return null === $seed ? false : new Blueline_Test_Signal_Product( $seed[0], $seed[1] );
+	return null === $seed
+		? false
+		: new Blueline_Test_Signal_Product( $seed[0], $seed[1], $seed[2] ?? 'visible', $seed[3] ?? '100', (int) $id );
 }
 
 /**
@@ -112,13 +162,19 @@ function get_object_taxonomies( $object_type ) { // phpcs:ignore Generic.CodeAna
 }
 
 /**
- * Stand-in for wp_get_object_terms(): seeded slugs (or WP_Error) per taxonomy.
+ * Stand-in for wp_get_object_terms(): seeded slugs/names (or WP_Error) per
+ * taxonomy, or the seeded term IDs when `fields => ids` is asked for and
+ * `bl_test_object_term_ids` holds that taxonomy.
  *
  * @param int[]  $object_ids Object IDs (ignored).
  * @param string $taxonomy   Taxonomy.
- * @param array  $args       Args (ignored).
- * @return string[]|WP_Error
+ * @param array  $args       Args; only `fields => ids` is honoured.
+ * @return array|WP_Error
  */
-function wp_get_object_terms( $object_ids, $taxonomy, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed,Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with core.
+function wp_get_object_terms( $object_ids, $taxonomy, $args = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- signature parity with core.
+	if ( 'ids' === ( $args['fields'] ?? '' ) && isset( $GLOBALS['bl_test_object_term_ids'][ $taxonomy ] ) ) {
+		return $GLOBALS['bl_test_object_term_ids'][ $taxonomy ];
+	}
+
 	return $GLOBALS['bl_test_object_term_slugs'][ $taxonomy ] ?? array();
 }
