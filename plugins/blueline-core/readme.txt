@@ -34,6 +34,13 @@ Each feature is a module that can be switched off with the `blueline_core_module
 == Changelog ==
 
 = Unreleased =
+* Team and player pages now have a search/preview description (team, division and season; player, team and season) instead of none.
+* Game page titles include the date and stay within 60 characters, so rematches no longer share one title, and a game's search result no longer repeats the sponsor name.
+* Game structured data now includes the rink's street address and coordinates (needed for Google's event results) and names the home and away teams.
+* Team pages add team structured data; team, game and venue pages add a breadcrumb trail.
+* Descriptions no longer show leftover "[shortcode]" text, are cut at a whole word, and archives (news, venues, search, 404) no longer repeat the site tagline. The news page and each venue page get their own description.
+* Archives and page-2+ lists now name themselves as the canonical address, so tracking links are not indexed as copies.
+* Link previews: pages, teams and games are "website" (posts "article", players "profile"); a square logo or photo uses the small preview card instead of being cropped; image size and alt text are included; banner-shaped images are skipped in favour of an optional default share image (attachment id in the `blueline_core_default_share_image` option).
 * Player accounts can no longer list the site's members or open author pages. Only administrators can; editors can still pick a post's author in the editor.
 * Posts and players in the public REST API no longer show which account owns them.
 * Claiming a player follows the season being played. Creating next season's term before its rosters are filled no longer hides this season's players, and a claim card shows the player's current season.
