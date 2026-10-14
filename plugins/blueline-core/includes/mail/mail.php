@@ -62,6 +62,9 @@ add_filter( 'option_wp_email_template_general', 'blueline_wp_email_template_gene
  *   and with it off nothing wraps a plain wp_mail() call in HTML at all.
  * - `apply_for_woo_emails` forced to "no": otherwise the plugin also wraps WooCommerce/FUE mail
  *   in its own off-brand template on top of WooCommerce's.
+ * - `email_content_type` forced to "html": the plugin's default "multipart" makes FluentSMTP's
+ *   Mailgun handler send the template's HTML source as the plain-text body, so recipients see
+ *   raw markup. Pinned here because a copied database or a settings re-save resets it.
  * - `background_colour` (the canvas outside the 600px card) repointed to the brand paper colour,
  *   the same token the WooCommerce email styling uses, so every branded email shares one canvas.
  *
@@ -78,6 +81,7 @@ function blueline_wp_email_template_general_overrides( $value ) {
 
 	$value['apply_template_all_emails'] = 'yes';
 	$value['apply_for_woo_emails']      = 'no';
+	$value['email_content_type']        = 'html';
 
 	if ( isset( $value['background_colour'] ) && is_array( $value['background_colour'] ) ) {
 		$value['background_colour']['color'] = blueline_core_email_brand()['paper'];

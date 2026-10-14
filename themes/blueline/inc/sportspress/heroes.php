@@ -271,7 +271,7 @@ function blueline_sp_event_hero( $event_id ) {
 							/* translators: 1: event date, 2: event time. */
 							__( '%1$s · %2$s', 'blueline' ),
 							get_the_date( $date_format, $event_id ),
-							get_the_time( get_option( 'time_format' ), $event_id )
+							blueline_sp_event_time_is_tbd( $event_id ) ? __( 'Time TBD', 'blueline' ) : get_the_time( get_option( 'time_format' ), $event_id )
 						)
 					);
 					?>

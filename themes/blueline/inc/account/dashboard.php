@@ -519,9 +519,12 @@ function blueline_format_team_record( array $row ): ?string {
 }
 
 /**
- * The My Team module: crest, division, record, my jersey number, and
- * teammate list (or a count on the compact dashboard view) -- all five
- * fields the brief's Step 6 names for this module.
+ * The My Team module: one card per current team, each with crest, division,
+ * record, my jersey number, teammate list (or a count on the compact
+ * dashboard view), and that team's season-calendar subscribe links.
+ *
+ * A player on two current teams gets two cards, each titled with its team's
+ * name, so neither roster is hidden behind the other.
  *
  * Record is read from SportsPress's own already-computed standings
  * (blueline_get_team_record(), via the team's current-season sp_table),
@@ -543,107 +546,229 @@ function blueline_account_render_my_team( int $player_id, bool $full = false ) {
 		return;
 	}
 
-	$team = blueline_get_player_team( $player_id );
+	$teams = blueline_get_player_teams( $player_id );
 
-	blueline_account_module_start(
-		'my-team',
-		__( 'My team', 'blueline' ),
-		$team ? get_permalink( $team['team_id'] ) : '',
-		__( 'View team & standings', 'blueline' )
-	);
-
-	if ( ! $team ) {
+	if ( ! $teams ) {
+		blueline_account_module_start( 'my-team', __( 'My team', 'blueline' ) );
 		blueline_account_module_empty_state( __( 'You’re not on a roster yet. Once you’re added to a team, it will show up here.', 'blueline' ) );
-	} else {
-		$roster       = blueline_get_team_roster( $team['team_id'], $player_id );
-		$record_row   = blueline_get_team_record( $team['team_id'] );
-		$record_label = $record_row ? blueline_format_team_record( $record_row ) : null;
-		?>
-		<div class="bl-account-team">
-			<div class="bl-account-team__identity">
-				<?php if ( $team['logo_id'] ) : ?>
-					<span class="bl-account-team__crest"><?php echo wp_get_attachment_image( $team['logo_id'], 'thumbnail' ); ?></span>
-				<?php else : ?>
-					<span class="bl-account-team__crest bl-account-team__crest--fallback">
-						<?php blueline_leaf_mark( 'bl-account-team__crest-mark' ); ?>
-					</span>
-				<?php endif; ?>
-
-				<div class="bl-account-team__meta">
-					<p class="bl-account-team__name"><?php echo esc_html( $team['name'] ); ?></p>
-					<?php if ( $team['division'] ) : ?>
-						<p class="bl-account-team__division"><?php echo esc_html( $team['division'] ); ?></p>
-					<?php endif; ?>
-					<p class="bl-account-team__record">
-						<?php if ( $record_label ) : ?>
-							<?php
-							echo esc_html(
-								sprintf(
-									/* translators: %s: record summary, e.g. "5-6-3 · 13 PTS". */
-									__( 'Record: %s', 'blueline' ),
-									$record_label
-								)
-							);
-							?>
-						<?php else : ?>
-							<?php esc_html_e( 'Record not available yet.', 'blueline' ); ?>
-						<?php endif; ?>
-					</p>
-					<?php if ( $team['number'] ) : ?>
-						<p class="bl-account-team__number">
-							<?php
-							echo esc_html(
-								sprintf(
-									/* translators: %s: jersey number. */
-									__( 'Jersey #%s', 'blueline' ),
-									$team['number']
-								)
-							);
-							?>
-						</p>
-					<?php endif; ?>
-				</div>
-			</div>
-
-			<?php if ( $roster && $full ) : ?>
-				<ul class="bl-account-team__roster">
-					<?php foreach ( $roster as $mate ) : ?>
-						<li><a href="<?php echo esc_url( get_permalink( $mate['player_id'] ) ); ?>"><?php echo esc_html( $mate['name'] ); ?></a></li>
-					<?php endforeach; ?>
-				</ul>
-			<?php elseif ( $roster ) : ?>
-				<p class="bl-account-team__roster-summary">
-					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: %d: teammate count. */
-							_n( '%d teammate', '%d teammates', count( $roster ), 'blueline' ),
-							count( $roster )
-						)
-					);
-					?>
-				</p>
-			<?php endif; ?>
-		</div>
-		<?php
+		blueline_account_module_end();
+		return;
 	}
 
-	blueline_account_module_end();
+	$several = count( $teams ) > 1;
+
+	foreach ( $teams as $index => $team ) {
+		blueline_account_module_start(
+			0 === $index ? 'my-team' : 'my-team-' . $team['team_id'],
+			$several
+				? sprintf(
+					/* translators: %s: team name. */
+					__( 'My team: %s', 'blueline' ),
+					$team['name']
+				)
+				: __( 'My team', 'blueline' ),
+			(string) get_permalink( $team['team_id'] ),
+			__( 'View team & standings', 'blueline' )
+		);
+
+		blueline_account_render_team_card( $player_id, $team, $full );
+		blueline_account_render_team_calendar( $team['team_id'], __( 'Add your season to:', 'blueline' ) );
+
+		blueline_account_module_end();
+	}
 }
 
 /**
- * The My Next Game module: date, time, rink AND pad, opponent, and an
- * add-to-calendar link. Venue is shown as a link straight to its own
- * sp_venue archive (taxonomy-venue.php, Task 8) rather than inventing a
- * second "which arena" label here -- that page already carries the street
- * address and, when the arena is split into named pads sharing one
- * address (e.g. the Red/Black pair), a cross-link to the sibling pad.
+ * The body of one My Team card. See blueline_account_render_my_team().
  *
- * Reuses blueline_sp_event_calendar_url() (inc/sportspress.php) for the
- * add-to-calendar link rather than a new .ics/template_redirect endpoint:
- * the brief offers a Google Calendar URL as an explicit alternative, and
- * this one is already shipped, tested in production use on single-event
- * pages, and adds no new query var or request handler to secure.
+ * @param int                                                                            $player_id sp_player post ID.
+ * @param array{team_id:int, name:string, logo_id:?int, division:string, number:?string} $team      blueline_player_team_summary()'s row.
+ * @param bool                                                                           $full      Full named roster (true) or a teammate count (false).
+ */
+function blueline_account_render_team_card( int $player_id, array $team, bool $full ) {
+	$roster       = blueline_get_team_roster( $team['team_id'], $player_id );
+	$record_row   = blueline_get_team_record( $team['team_id'] );
+	$record_label = $record_row ? blueline_format_team_record( $record_row ) : null;
+	?>
+	<div class="bl-account-team">
+		<div class="bl-account-team__identity">
+			<?php if ( $team['logo_id'] ) : ?>
+				<span class="bl-account-team__crest"><?php echo wp_get_attachment_image( $team['logo_id'], 'thumbnail' ); ?></span>
+			<?php else : ?>
+				<span class="bl-account-team__crest bl-account-team__crest--fallback">
+					<?php blueline_leaf_mark( 'bl-account-team__crest-mark' ); ?>
+				</span>
+			<?php endif; ?>
+
+			<div class="bl-account-team__meta">
+				<p class="bl-account-team__name"><?php echo esc_html( $team['name'] ); ?></p>
+				<?php if ( $team['division'] ) : ?>
+					<p class="bl-account-team__division"><?php echo esc_html( $team['division'] ); ?></p>
+				<?php endif; ?>
+				<p class="bl-account-team__record">
+					<?php if ( $record_label ) : ?>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %s: record summary, e.g. "5-6-3 · 13 PTS". */
+								__( 'Record: %s', 'blueline' ),
+								$record_label
+							)
+						);
+						?>
+					<?php else : ?>
+						<?php esc_html_e( 'Record not available yet.', 'blueline' ); ?>
+					<?php endif; ?>
+				</p>
+				<?php if ( $team['number'] ) : ?>
+					<p class="bl-account-team__number">
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %s: jersey number. */
+								__( 'Jersey #%s', 'blueline' ),
+								$team['number']
+							)
+						);
+						?>
+					</p>
+				<?php endif; ?>
+			</div>
+		</div>
+
+		<?php if ( $roster && $full ) : ?>
+			<ul class="bl-account-team__roster">
+				<?php foreach ( $roster as $mate ) : ?>
+					<li><a href="<?php echo esc_url( get_permalink( $mate['player_id'] ) ); ?>"><?php echo esc_html( $mate['name'] ); ?></a></li>
+				<?php endforeach; ?>
+			</ul>
+		<?php elseif ( $roster ) : ?>
+			<p class="bl-account-team__roster-summary">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %d: teammate count. */
+						_n( '%d teammate', '%d teammates', count( $roster ), 'blueline' ),
+						count( $roster )
+					)
+				);
+				?>
+			</p>
+		<?php endif; ?>
+	</div>
+	<?php
+}
+
+/**
+ * A team's season-subscribe links -- Apple/Outlook (webcal) and Google -- or
+ * nothing when the team has no published calendar.
+ *
+ * The team's whole season, not one game: a subscription puts every fixture in
+ * the reader's calendar in one action and keeps correcting itself when a game
+ * moves, where a single-event "add" leaves a stale entry behind on a
+ * reschedule.
+ *
+ * Both destinations render, always. assets/src/js/calendar-links.js marks the
+ * one matching the reader's platform so it comes first and reads as the
+ * primary action -- it never hides the other, because a wrong guess would
+ * then leave someone with no way to subscribe at all.
+ *
+ * @param int    $team_id sp_team post ID.
+ * @param string $label   Lead-in text, already translated.
+ */
+function blueline_account_render_team_calendar( int $team_id, string $label ) {
+	$team_calendar = blueline_team_calendar_urls( $team_id );
+
+	if ( ! $team_calendar ) {
+		return;
+	}
+	?>
+	<div class="bl-account-calendar" data-calendar-links>
+		<span class="bl-account-calendar__label"><?php echo esc_html( $label ); ?></span>
+		<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
+			<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
+		</a>
+		<a class="bl-btn bl-btn--secondary" data-calendar="google" href="<?php echo esc_url( $team_calendar['google'] ); ?>">
+			<span class="bl-skew"><span><?php esc_html_e( 'Google', 'blueline' ); ?></span></span>
+		</a>
+	</div>
+	<?php
+}
+
+/**
+ * "Fri, Oct 16 at 9:45 pm" for a game, or "Fri, Oct 16 · Time TBD" when
+ * SportsPress marks its time as not settled -- a firm-looking time for a TBD
+ * slot is a made-up time.
+ *
+ * @param array{event_id:int, status:string} $event A blueline_player_event_summary() row.
+ * @return string
+ */
+function blueline_account_event_when( array $event ): string {
+	$date = get_the_date( 'D, M j', $event['event_id'] );
+
+	if ( 'tbd' === ( $event['status'] ?? '' ) ) {
+		return sprintf(
+			/* translators: %s: event date. */
+			__( '%s · Time TBD', 'blueline' ),
+			$date
+		);
+	}
+
+	return sprintf(
+		/* translators: 1: event date, 2: event time. */
+		__( '%1$s at %2$s', 'blueline' ),
+		$date,
+		get_the_time( get_option( 'time_format' ), $event['event_id'] )
+	);
+}
+
+/**
+ * "Kings @ Ducks" / "Kings vs Ducks" for a game: always names which of the
+ * player's teams is playing, since a player on two teams cannot otherwise
+ * tell whose game it is.
+ *
+ * @param array{team_id:int, opponent_team_id:?int, is_home:bool} $event A blueline_player_event_summary() row.
+ * @return string
+ */
+function blueline_account_event_matchup( array $event ): string {
+	$opponent_name = $event['opponent_team_id']
+		? blueline_sp_title( $event['opponent_team_id'] )
+		: __( 'TBD', 'blueline' );
+
+	$versus = $event['is_home'] ? __( 'vs', 'blueline' ) : __( '@', 'blueline' );
+
+	if ( empty( $event['team_id'] ) ) {
+		return sprintf(
+			/* translators: 1: "vs" (home) or "@" (away), 2: opponent team name. */
+			__( '%1$s %2$s', 'blueline' ),
+			$versus,
+			$opponent_name
+		);
+	}
+
+	return sprintf(
+		/* translators: 1: the player's own team name, 2: "vs" (home) or "@" (away), 3: opponent team name. */
+		__( '%1$s %2$s %3$s', 'blueline' ),
+		blueline_sp_title( $event['team_id'] ),
+		$versus,
+		$opponent_name
+	);
+}
+
+/**
+ * The My Next Game module: date, time, rink AND pad, which of the player's
+ * teams is playing, and the opponent -- the soonest game across all of the
+ * player's current teams that is still going ahead (postponed and cancelled
+ * games are skipped at the source, blueline_get_player_next_event()). Venue
+ * is shown as a link straight to its own sp_venue archive
+ * (taxonomy-venue.php, Task 8) rather than inventing a second "which arena"
+ * label here -- that page already carries the street address and, when the
+ * arena is split into named pads sharing one address (e.g. the Red/Black
+ * pair), a cross-link to the sibling pad.
+ *
+ * The season-calendar subscribe links live on each My Team card (and the My
+ * Schedule tab), one per team, rather than here: this card shows one game
+ * from one of possibly several teams.
  *
  * `data-bl-next-game-account` carries `event_id:fingerprint`, the same
  * pair shape and the same `blueline:next-game-dismissed` localStorage key
@@ -674,50 +799,14 @@ function blueline_account_render_next_game( int $player_id ) {
 	if ( ! $event ) {
 		blueline_account_module_empty_state( blueline_settings( 'account_empty_next_game' ) );
 	} else {
-		$opponent_name = $event['opponent_team_id']
-			? blueline_sp_title( $event['opponent_team_id'] )
-			: __( 'TBD', 'blueline' );
-
-		/*
-		 * The team's whole season, not this one game. A subscription puts every
-		 * fixture in the reader's calendar in one action and keeps correcting
-		 * itself when a game moves -- a single-event "add" leaves a stale entry
-		 * behind on a reschedule, which for a league that moves games is the
-		 * worse failure. Falls back to nothing (the button simply does not
-		 * render) when a team has no published calendar.
-		 */
-		$bl_team_id    = blueline_player_current_team_id( $player_id );
-		$team_calendar = $bl_team_id ? blueline_team_calendar_urls( $bl_team_id ) : null;
-		$venue_url     = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
+		$venue_url = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
 		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>">
 			<p class="bl-account-next-game__updated" data-bl-next-game-account-updated hidden>
 				<?php esc_html_e( 'Updated since you last checked', 'blueline' ); ?>
 			</p>
-			<p class="bl-account-next-game__date">
-				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: 1: event date, 2: event time. */
-						__( '%1$s at %2$s', 'blueline' ),
-						get_the_date( 'D, M j', $event['event_id'] ),
-						get_the_time( get_option( 'time_format' ), $event['event_id'] )
-					)
-				);
-				?>
-			</p>
-			<p class="bl-account-next-game__matchup">
-				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: 1: "vs" (home) or "@" (away), 2: opponent team name. */
-						__( '%1$s %2$s', 'blueline' ),
-						$event['is_home'] ? __( 'vs', 'blueline' ) : __( '@', 'blueline' ),
-						$opponent_name
-					)
-				);
-				?>
-			</p>
+			<p class="bl-account-next-game__date"><?php echo esc_html( blueline_account_event_when( $event ) ); ?></p>
+			<p class="bl-account-next-game__matchup"><?php echo esc_html( blueline_account_event_matchup( $event ) ); ?></p>
 			<?php if ( $event['venue'] ) : ?>
 				<p class="bl-account-next-game__venue">
 					<?php if ( $venue_url && ! is_wp_error( $venue_url ) ) : ?>
@@ -731,33 +820,101 @@ function blueline_account_render_next_game( int $player_id ) {
 				<a class="bl-account-module__link" href="<?php echo esc_url( get_permalink( $event['event_id'] ) ); ?>">
 					<?php esc_html_e( 'Game details', 'blueline' ); ?> <span aria-hidden="true">&rarr;</span>
 				</a>
-				<?php if ( $team_calendar ) : ?>
-					<?php
-					/*
-					 * Both destinations render, always. assets/src/js/
-					 * calendar-links.js marks the one matching the reader's
-					 * platform so it comes first and reads as the primary
-					 * action -- it never hides the other, because a wrong guess
-					 * would then leave someone with no way to subscribe at all,
-					 * and a desktop reader legitimately wants whichever their
-					 * own calendar is.
-					 */
-					?>
-					<div class="bl-account-next-game__calendar" data-calendar-links>
-						<span class="bl-account-next-game__calendar-label">
-							<?php esc_html_e( 'Add your season to:', 'blueline' ); ?>
-						</span>
-						<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
-							<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
-						</a>
-						<a class="bl-btn bl-btn--secondary" data-calendar="google" href="<?php echo esc_url( $team_calendar['google'] ); ?>">
-							<span class="bl-skew"><span><?php esc_html_e( 'Google', 'blueline' ); ?></span></span>
-						</a>
-					</div>
-				<?php endif; ?>
 			</div>
 		</div>
 		<?php
+	}
+
+	blueline_account_module_end();
+}
+
+/**
+ * How many games the My Schedule tab lists after the next-game card. Small on
+ * purpose: this is "what's coming up", and the team pages and /schedule hold
+ * the full season.
+ */
+const BLUELINE_ACCOUNT_SCHEDULE_LENGTH = 5;
+
+/**
+ * The games the My Schedule tab lists under the next-game card: the player's
+ * upcoming games across all of their teams, soonest first, without the one
+ * the card already shows. Postponed and cancelled games stay in (labelled),
+ * because a schedule that silently drops a called-off game leaves the reader
+ * wondering where it went.
+ *
+ * @param int      $player_id     sp_player post ID.
+ * @param int|null $next_event_id The event the next-game card shows, if any.
+ * @return array<int, array> blueline_player_event_summary() rows.
+ */
+function blueline_account_schedule_events( int $player_id, ?int $next_event_id ): array {
+	$events = blueline_get_player_upcoming_events( $player_id, BLUELINE_ACCOUNT_SCHEDULE_LENGTH + 1, true );
+
+	$events = array_values(
+		array_filter(
+			$events,
+			static fn( array $event ): bool => $event['event_id'] !== $next_event_id
+		)
+	);
+
+	return array_slice( $events, 0, BLUELINE_ACCOUNT_SCHEDULE_LENGTH );
+}
+
+/**
+ * The "Coming up" module on the My Schedule tab: the player's next few games
+ * after the one in the next-game card, then one season-subscribe row per
+ * team.
+ *
+ * @param int $player_id sp_player post ID.
+ */
+function blueline_account_render_schedule( int $player_id ) {
+	if ( ! blueline_section_enabled( 'account_next_game' ) ) {
+		return;
+	}
+
+	$next   = blueline_get_player_next_event( $player_id );
+	$events = blueline_account_schedule_events( $player_id, $next ? $next['event_id'] : null );
+	$teams  = blueline_get_player_teams( $player_id );
+
+	blueline_account_module_start( 'schedule', __( 'Coming up', 'blueline' ) );
+
+	if ( ! $events ) {
+		blueline_account_module_empty_state( __( 'No other games are on the schedule yet.', 'blueline' ) );
+	} else {
+		?>
+		<ol class="bl-account-schedule">
+			<?php foreach ( $events as $event ) : ?>
+				<?php
+				$called_off  = in_array( $event['status'], blueline_player_called_off_statuses(), true );
+				$venue_label = $event['venue_term_id'] ? blueline_venue_label( $event['venue_term_id'] ) : '';
+				?>
+				<li class="bl-account-schedule__item">
+					<a class="bl-account-schedule__link" href="<?php echo esc_url( get_permalink( $event['event_id'] ) ); ?>">
+						<span class="bl-account-schedule__when"><?php echo esc_html( blueline_account_event_when( $event ) ); ?></span>
+						<span class="bl-account-schedule__matchup"><?php echo esc_html( blueline_account_event_matchup( $event ) ); ?></span>
+						<?php if ( '' !== $venue_label ) : ?>
+							<span class="bl-account-schedule__venue"><?php echo esc_html( $venue_label ); ?></span>
+						<?php endif; ?>
+						<?php if ( $called_off ) : ?>
+							<span class="bl-account-schedule__status"><?php echo esc_html( blueline_sp_event_status_label( $event['status'] ) ); ?></span>
+						<?php endif; ?>
+					</a>
+				</li>
+			<?php endforeach; ?>
+		</ol>
+		<?php
+	}
+
+	foreach ( $teams as $team ) {
+		blueline_account_render_team_calendar(
+			$team['team_id'],
+			count( $teams ) > 1
+				? sprintf(
+					/* translators: %s: team name. */
+					__( 'Add the %s season to:', 'blueline' ),
+					$team['name']
+				)
+				: __( 'Add your season to:', 'blueline' )
+		);
 	}
 
 	blueline_account_module_end();
@@ -955,4 +1112,5 @@ function blueline_account_my_schedule_endpoint() {
 	}
 
 	blueline_account_render_next_game( $player_id );
+	blueline_account_render_schedule( $player_id );
 }

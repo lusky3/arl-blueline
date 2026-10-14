@@ -93,11 +93,13 @@ final class SocialMetaTest extends TestCase {
 		$state['posts'][11]['title']        = 'Hammers';
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
 
-		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+		$state['timezone'] = 'UTC';
+		$date              = gmdate( 'M j, Y', (int) strtotime( '7:00 PM +0000' ) );
 
-		$this->assertSame( 'Puck Dynasty vs Hammers', $data['title'] );
-		$this->assertStringContainsString( 'Aug 20', $data['description'] );
-		$this->assertStringContainsString( '7:00 PM', $data['description'] );
+		$data = blueline_social_meta_data_for_event( 100 );
+
+		$this->assertSame( 'Puck Dynasty vs Hammers — ' . $date, $data['title'] );
+		$this->assertStringContainsString( gmdate( 'D, M j', (int) strtotime( '7:00 PM +0000' ) ) . ' at 7:00 PM', $data['description'] );
 		// No sp_venue taxonomy registered, so there is no venue segment.
 		$this->assertStringNotContainsString( '·', $data['description'] );
 	}
@@ -110,9 +112,11 @@ final class SocialMetaTest extends TestCase {
 		$state['posts'][10]['title']        = 'Puck Dynasty';
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10 ) );
 
-		$data = blueline_social_meta_data_for_event( 100, '' );
+		$state['timezone'] = 'UTC';
 
-		$this->assertSame( 'Puck Dynasty vs TBD', $data['title'] );
+		$data = blueline_social_meta_data_for_event( 100 );
+
+		$this->assertStringStartsWith( 'Puck Dynasty vs TBD — ', $data['title'] );
 	}
 
 	/**
@@ -130,7 +134,7 @@ final class SocialMetaTest extends TestCase {
 		);
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
 
-		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+		$data = blueline_social_meta_data_for_event( 100 );
 
 		$this->assertStringContainsString( 'photo-55-large', $data['image'] );
 	}
@@ -147,7 +151,7 @@ final class SocialMetaTest extends TestCase {
 		);
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
 
-		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+		$data = blueline_social_meta_data_for_event( 100 );
 
 		$this->assertStringContainsString( 'photo-66-large', $data['image'] );
 	}
@@ -160,10 +164,11 @@ final class SocialMetaTest extends TestCase {
 		$state['posts'][10]['title']        = 'Puck Dynasty';
 		$state['posts'][11]['title']        = 'Hammers';
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
+		$state['theme_mods']['custom_logo'] = 55;
 
-		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+		$data = blueline_social_meta_data_for_event( 100 );
 
-		$this->assertSame( 'https://example.test/logo.png', $data['image'] );
+		$this->assertSame( 'https://example.test/uploads/photo-55-full.jpg', $data['image'] );
 	}
 
 	/**
@@ -181,15 +186,16 @@ final class SocialMetaTest extends TestCase {
 			'thumbnail_id' => 66,
 		);
 		$state['post_meta'][100]['sp_team'] = new Blueline_Test_Meta_Rows( array( 10, 11 ) );
+		$state['theme_mods']['custom_logo'] = 55;
 
-		$data = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+		$data = blueline_social_meta_data_for_event( 100 );
 
 		$this->assertStringContainsString( 'photo-66-large', $data['image'], 'The placeholder team is skipped for the next real logo.' );
 
 		$state['posts'][11]['thumbnail_id'] = -1;
-		$data                               = blueline_social_meta_data_for_event( 100, 'https://example.test/logo.png' );
+		$data                               = blueline_social_meta_data_for_event( 100 );
 
-		$this->assertSame( 'https://example.test/logo.png', $data['image'], 'Two placeholders fall back to the site logo.' );
+		$this->assertSame( 'https://example.test/uploads/photo-55-full.jpg', $data['image'], 'Two placeholders fall back to the site logo.' );
 	}
 
 	/**
@@ -212,7 +218,7 @@ final class SocialMetaTest extends TestCase {
 	public function test_event_meta_type_is_website_and_url_is_the_permalink(): void {
 		blueline_test_register_post( 100, 'publish', 'https://example.test/event/100' );
 
-		$data = blueline_social_meta_data_for_event( 100, '' );
+		$data = blueline_social_meta_data_for_event( 100 );
 
 		$this->assertSame( 'website', $data['type'] );
 		$this->assertSame( 'https://example.test/event/100', $data['url'] );

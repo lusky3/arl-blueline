@@ -26,6 +26,53 @@ as the release notes.
 - The Teams panel closes when keyboard focus leaves it, instead of staying open over whatever you tabbed to.
 - The push-notification bell no longer sits on top of the mobile menu, and it tucks away while the phone
   next-game bar is showing.
+### Fixed
+- Schedule tables now say when a game is postponed, cancelled or has its time still to be confirmed. A postponed
+  game with a 0-0 on file used to look like a final score, and a cancelled one looked like a game still on. The
+  status shows as a label in the Result column (beside any score that was recorded), and the kick-off time of a
+  postponed or cancelled game is struck through.
+- On phones, the schedule (the Schedule page, a team's Upcoming Games, any schedule table) shows one card per game
+  instead of a table you had to scroll sideways to find the opponent and the rink: the time and result, then
+  "Home vs Away" with both crests, then the arena and pad. Tablets and desktops keep the table.
+- Screen readers now hear each game's time link as the game ("6:45 pm, Lumberjacks vs Ice Bears, October 16,
+  2026"), not just "6:45 pm" repeated for every game in the same time slot.
+- Team names in the schedule wrap onto a second line instead of being cut off when text is enlarged or spaced
+  out, and the full-name bubble no longer disappears when moving to a team name with the keyboard scrolls the page.
+- The Arena column keeps the pad with the end of the arena name ("Mr. Lube and Tires / Arena — Red"), so a line
+  never starts with "— Red", and fits on two lines at tablet width instead of three.
+- Team pages show their division again, and My Team shows the team's record again, for the 2026-27 season.
+  The theme looked for a season's teams in a place SportsPress only fills when a standings table is edited
+  by hand, so every table created for the new season looked empty.
+- A player on two current teams now sees both. "My next game" is the earliest game across all of their
+  teams and says which team is playing ("Kings @ Ducks"), and My Team shows one card per team, each with its
+  own roster and its own "Add your season to" calendar buttons.
+- Postponed and cancelled games are no longer shown as a player's next game, on the account dashboard, on
+  My Schedule or in the "Next Puck Drop" countdown; the next game that is going ahead shows instead. A
+  game whose status changes now counts as "Updated since you last checked".
+- My Schedule lists the player's next few games (up to five after the next one, across all of their teams)
+  instead of a single game, with postponed and cancelled games labelled, and a calendar button per team.
+- Single-game "Add to calendar" links (Apple/Outlook and Google) give the arena, pad and street address
+  ("Mr. Lube and Tires Arena — Black, 1179 Northside Rd, …") instead of just the pad name, so maps apps can
+  find the rink.
+- Games whose time is still to be decided say "Time TBD" on the game page and the account pages, and offer
+  no "Add to calendar" link, instead of showing a placeholder time as if it were real.
+- Turning off "My next game" or "My team" in the theme settings now sends `/account/my-schedule/` and
+  `/account/my-team/` to the account dashboard instead of showing a blank page.
+- The home page hero (and the header's Register button) no longer quotes prices for registrations the league
+  has hidden from the shop. A product with "Hidden" catalogue visibility is never offered, even when it is
+  tagged Featured and still in stock.
+- A $0 waitlist no longer counts as "registration open", so the site stops reading as open all year while a
+  waitlist is on sale. Between seasons, when only waitlists are on offer, the hero says "Waitlist open" with a
+  "Join the waitlist" button and no prices. While games are being played the hero stays the in-season one.
+- Postponed and cancelled games no longer appear as the next game in the hero, in the home page's Next games
+  list, or in the in-season "games this week" count. The next game that is going ahead shows instead, and a
+  cancelled game's date is no longer printed as the season start.
+- The in-season hero shows the real week of the season ("W2026-27 · Week 2"), counted from the season's first
+  game. It used to print the number of games in the next seven days as the week. In a week with no games the
+  headline now names the next game's date instead of "0 games this week".
+- The home page's season emphasis is no longer cached for 15 minutes when WooCommerce or SportsPress was
+  briefly unavailable (for example during a plugin update), and a sale that changes stock now refreshes it
+  straight away.
 
 ## [1.1.4]
 

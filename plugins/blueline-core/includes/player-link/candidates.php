@@ -117,8 +117,8 @@ function blueline_player_candidate_detail( int $player_id ): array {
 
 /**
  * The name of the claim-pool season term $player_id carries, which is the season that made them
- * a candidate, not their whole sp_season tag history. Pool terms are newest first, so a player
- * tagged with both the current and a fallback season reports the current one.
+ * a candidate, not their whole sp_season tag history. The pool lists the season being played
+ * first, so a player tagged with it and with a fallback or next season reports the current one.
  *
  * @param int $player_id sp_player post ID.
  * @return string Term name, or '' if sp_season is inactive, the pool is empty, or the player

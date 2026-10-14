@@ -9,6 +9,11 @@
  *   get_gmt_from_date() return '' (an event whose date cannot be resolved).
  * - theme_mods[<name>] feeds get_theme_mod() (e.g. 'custom_logo' => an attachment id).
  * - $GLOBALS['shortcode_tags'] is the registered-shortcode registry strip_shortcodes() honours.
+ * - request[] describes the non-singular request: 'home', 'archive', 'search', '404' (bools),
+ *   'tax' (the taxonomy slug of a term archive), 'paged' (int) and 'object' (the queried term).
+ * - posts[<id>]['width'|'height'|'sizes'] describe an attachment image (wp_get_attachment_metadata());
+ *   post_type_archives[<type>] is that type's archive URL, post_type_labels[<type>] its plural label,
+ *   term_links[<id>] a term's URL.
  *
  * @package blueline-core
  */
@@ -157,12 +162,178 @@ if ( ! function_exists( 'wp_trim_words' ) ) {
 
 if ( ! function_exists( 'get_pagenum_link' ) ) {
 	/**
-	 * Stand-in for get_pagenum_link().
+	 * Stand-in for get_pagenum_link(): like core it keeps the request's other query args (the
+	 * state's request['query'], e.g. 'utm=x') on the link.
 	 *
 	 * @param int $page_number Page number.
 	 * @return string
 	 */
 	function get_pagenum_link( $page_number = 1 ) {
-		return 'https://example.test/archive/' . ( (int) $page_number > 1 ? 'page/' . (int) $page_number . '/' : '' );
+		$query = (string) ( blueline_test_state()['request']['query'] ?? '' );
+
+		return 'https://example.test/archive/' . ( (int) $page_number > 1 ? 'page/' . (int) $page_number . '/' : '' ) . ( '' !== $query ? '?' . $query : '' );
+	}
+}
+
+if ( ! function_exists( 'wp_date' ) ) {
+	/**
+	 * Stand-in for wp_date(): the timestamp formatted in the site timezone (wp_timezone()), as core does.
+	 *
+	 * @param string   $format    PHP date format.
+	 * @param int|null $timestamp Unix timestamp.
+	 * @return string
+	 */
+	function wp_date( $format, $timestamp = null ) {
+		$date = new DateTimeImmutable( '@' . (int) ( null === $timestamp ? time() : $timestamp ) );
+
+		return $date->setTimezone( wp_timezone() )->format( (string) $format );
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
+	/**
+	 * Stand-in for wp_get_attachment_metadata(): the full-size `width`/`height` a test gave the
+	 * attachment (posts[<id>]['width'|'height'], plus an optional 'sizes' map), or false for none.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return array|false
+	 */
+	function wp_get_attachment_metadata( $attachment_id = 0 ) {
+		$post = blueline_test_state()['posts'][ (int) $attachment_id ] ?? array();
+
+		if ( empty( $post['width'] ) ) {
+			return false;
+		}
+
+		return array(
+			'width'  => (int) $post['width'],
+			'height' => (int) ( $post['height'] ?? 0 ),
+			'sizes'  => (array) ( $post['sizes'] ?? array() ),
+		);
+	}
+}
+
+if ( ! function_exists( 'get_post_type_object' ) ) {
+	/**
+	 * Stand-in for get_post_type_object(): an object with `labels->name` from the state's
+	 * post_type_labels[<type>], or null.
+	 *
+	 * @param string $post_type Post type.
+	 * @return object|null
+	 */
+	function get_post_type_object( $post_type ) {
+		$label = blueline_test_state()['post_type_labels'][ $post_type ] ?? null;
+
+		return null === $label ? null : (object) array( 'labels' => (object) array( 'name' => $label ) );
+	}
+}
+
+if ( ! function_exists( 'is_home' ) ) {
+	/**
+	 * Stand-in for is_home() (the blog posts index).
+	 *
+	 * @return bool
+	 */
+	function is_home() {
+		return ! empty( blueline_test_state()['request']['home'] );
+	}
+}
+
+if ( ! function_exists( 'is_archive' ) ) {
+	/**
+	 * Stand-in for is_archive(): any archive, and every term archive.
+	 *
+	 * @return bool
+	 */
+	function is_archive() {
+		$request = blueline_test_state()['request'] ?? array();
+
+		return ! empty( $request['archive'] ) || ! empty( $request['tax'] );
+	}
+}
+
+if ( ! function_exists( 'is_tax' ) ) {
+	/**
+	 * Stand-in for is_tax().
+	 *
+	 * @param string $taxonomy Optional taxonomy to match.
+	 * @return bool
+	 */
+	function is_tax( $taxonomy = '' ) {
+		$current = (string) ( blueline_test_state()['request']['tax'] ?? '' );
+
+		return '' !== $current && ( '' === $taxonomy || $current === $taxonomy );
+	}
+}
+
+if ( ! function_exists( 'is_search' ) ) {
+	/**
+	 * Stand-in for is_search().
+	 *
+	 * @return bool
+	 */
+	function is_search() {
+		return ! empty( blueline_test_state()['request']['search'] );
+	}
+}
+
+if ( ! function_exists( 'is_404' ) ) {
+	/**
+	 * Stand-in for is_404().
+	 *
+	 * @return bool
+	 */
+	function is_404() { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.FunctionNameInvalid -- WP core name.
+		return ! empty( blueline_test_state()['request']['404'] );
+	}
+}
+
+if ( ! function_exists( 'get_query_var' ) ) {
+	/**
+	 * Stand-in for get_query_var(): only `paged` is modelled.
+	 *
+	 * @param string $var_name      Query var.
+	 * @param mixed  $default_value Fallback.
+	 * @return mixed
+	 */
+	function get_query_var( $var_name, $default_value = '' ) {
+		return 'paged' === $var_name ? (int) ( blueline_test_state()['request']['paged'] ?? 0 ) : $default_value;
+	}
+}
+
+if ( ! function_exists( 'get_queried_object' ) ) {
+	/**
+	 * Stand-in for get_queried_object(): the request's `object`.
+	 *
+	 * @return object|null
+	 */
+	function get_queried_object() {
+		return blueline_test_state()['request']['object'] ?? null;
+	}
+}
+
+if ( ! function_exists( 'get_term_link' ) ) {
+	/**
+	 * Stand-in for get_term_link().
+	 *
+	 * @param object|int $term Term.
+	 * @return string
+	 */
+	function get_term_link( $term ) {
+		$id = is_object( $term ) ? (int) $term->term_id : (int) $term;
+
+		return blueline_test_state()['term_links'][ $id ] ?? 'https://example.test/term/' . $id . '/';
+	}
+}
+
+if ( ! function_exists( 'get_post_type_archive_link' ) ) {
+	/**
+	 * Stand-in for get_post_type_archive_link(): false unless the state registers an archive URL.
+	 *
+	 * @param string $post_type Post type.
+	 * @return string|false
+	 */
+	function get_post_type_archive_link( $post_type ) {
+		return blueline_test_state()['post_type_archives'][ $post_type ] ?? false;
 	}
 }
