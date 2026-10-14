@@ -643,7 +643,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		}
 
 		WP_CLI::confirm(
-			'This deletes every Blueline setting AND the save-snapshot history that would otherwise let you undo it. Unlike `reset`, nothing survives to restore from. Continue?',
+			'This deletes every Blueline setting AND the save-snapshot history that would otherwise let you undo it, plus the theme\'s cached data, update-check result and scheduled cache refresh. Members\' own light/dark choices are kept. Unlike `reset`, nothing survives to restore from. Continue?',
 			$assoc_args
 		);
 
@@ -707,6 +707,10 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * nothing. That is an unresolved question about this server, not about
 	 * this command.
 	 *
+	 * Either way it prints a reminder that a Cloudflare edge cache, if the
+	 * site is behind one, is not touched: this clears the server's page cache
+	 * only.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp blueline settings flush-cache --user=admin
@@ -723,6 +727,9 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		}
 
 		if ( blueline_settings_cli_flush_page_cache( BLUELINE_SRCACHE_PURGE ) ) {
+			// Printed on success too: a clean server purge says nothing about a
+			// Cloudflare edge cache in front of it.
+			WP_CLI::warning( blueline_cache_purge_cloudflare_message() );
 			WP_CLI::success( __( 'The guarded page-cache purge ran. See this subcommand\'s own documentation for what a successful run does and does not prove.', 'blueline' ) );
 			return;
 		}
@@ -740,6 +747,8 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 				? $command
 				: blueline_cache_purge_unresolvable_host_message()
 		);
+
+		WP_CLI::log( blueline_cache_purge_cloudflare_message() );
 
 		WP_CLI::error( __( 'Nothing was purged. Run the command above on the server.', 'blueline' ) );
 	}

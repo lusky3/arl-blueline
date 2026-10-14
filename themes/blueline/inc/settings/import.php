@@ -43,7 +43,8 @@
  *    the real write triggers -- returning both what each field WOULD become
  *    and what was rejected.
  * 4. blueline_settings_import_dropped_keys() names every key the schema
- *    does not declare, so a caller can report them rather than leave the
+ *    does not declare (other than `occasions`, which the export carries and
+ *    the import validates separately), so a caller can report them rather than leave the
  *    write to drop them in silence.
  * 5. (Not here.) The write itself goes through
  *    `update_option( BLUELINE_SETTINGS_OPTION, ... )`, hence through
@@ -273,6 +274,37 @@ function blueline_settings_import_sanitize_payload( array $payload, array $schem
 	$errors = array();
 
 	foreach ( $payload as $key => $value ) {
+		if ( 'occasions' === $key ) {
+			// Not a schema field, but the export carries it, so an import has to
+			// accept it or the export is not a backup. Run through the same
+			// validator the write itself applies (blueline_sanitize_occasions()
+			// via the sanitize callback's reserved-key path), so the preview
+			// shows what would really be stored.
+			if ( ! is_array( $value ) ) {
+				$errors[] = __( 'Occasions must be a list of occasions; the file carries something else, so nothing was imported.', 'blueline' );
+				continue;
+			}
+
+			$clean = blueline_sanitize_occasions( $value );
+
+			if ( count( $clean ) !== count( $value ) ) {
+				$errors[] = sprintf(
+					/* translators: %d: how many occasions in the file are incomplete or invalid. */
+					_n(
+						'%d occasion in the file is incomplete or invalid, so nothing was imported. Fix or remove it and try again.',
+						'%d occasions in the file are incomplete or invalid, so nothing was imported. Fix or remove them and try again.',
+						count( $value ) - count( $clean ),
+						'blueline'
+					),
+					count( $value ) - count( $clean )
+				);
+				continue;
+			}
+
+			$values[ $key ] = $clean;
+			continue;
+		}
+
 		if ( ! isset( $schema[ $key ] ) ) {
 			continue; // Not a real field -- update_option() would drop it, not reject it.
 		}
@@ -320,7 +352,9 @@ function blueline_settings_import_sanitize_payload( array $payload, array $schem
  *                   key is a real schema field.
  */
 function blueline_settings_import_dropped_keys( array $payload, array $schema ): array {
-	return array_keys( array_diff_key( $payload, $schema ) );
+	// `occasions` is not a schema field but is importable (see
+	// blueline_settings_import_sanitize_payload()), so it is not "dropped".
+	return array_keys( array_diff_key( $payload, $schema, array( 'occasions' => true ) ) );
 }
 
 /**
