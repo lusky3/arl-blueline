@@ -8,7 +8,7 @@ By contributing you agree that your work is licensed under GPL-2.0-or-later, lik
 
 ## Set up
 
-See the *Develop* section of the [README](README.md). You need PHP 8.3, Composer, and Node 20.
+See the *Develop* section of the [README](README.md). You need PHP 8.3, Composer, and Node 22.
 
 ## Before you open a pull request
 
