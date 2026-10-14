@@ -14,7 +14,10 @@
  * that doesn't fit a league site (no visitor here is thinking about
  * "past orders"), reworded to plain account-verification language.
  *
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/customer-verify-email.php
+ *
  * @package blueline
+ * @version 11.0.0
  */
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;

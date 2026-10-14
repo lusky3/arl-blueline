@@ -16,7 +16,10 @@
  * following order" doesn't accurately describe. Reworded; every hook and
  * variable is otherwise unchanged from stock.
  *
+ * Copied from PayPal for WooCommerce 4.6.15: paypal-for-woocommerce/template/emails/angelleye-admin-new-partial-paid-order.php
+ *
  * @package blueline
+ * @version 3.7.0
  */
 
 defined( 'ABSPATH' ) || exit;

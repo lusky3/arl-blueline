@@ -2,17 +2,16 @@
 /**
  * Admin new order email
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/emails/admin-new-order.php.
+ * Blueline override: the stock template with "registration" in place of "order" in the intro.
+ * Every edited string uses the blueline text domain; the rest is the
+ * original. When WooCommerce bumps @version, re-copy the original and
+ * re-apply those strings (scripts/check-template-versions.sh).
  *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/admin-new-order.php
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates\Emails\HTML
- * @version 9.8.0
+ * @version 10.4.0
  */
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
@@ -29,17 +28,16 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
 <?php
 echo $email_improvements_enabled ? '<div class="email-introduction">' : '';
 /* translators: %s: Customer billing full name */
-$text = __( 'You’ve received the following registration from %s:', 'woocommerce' );
+$text = __( 'You’ve received the following registration from %s:', 'blueline' );
 if ( $email_improvements_enabled ) {
 	/* translators: %s: Customer billing full name */
-	$text = __( 'Woo! You’ve received a new registration from %s:', 'woocommerce' );
+	$text = __( 'You’ve received a new registration from %s:', 'blueline' );
 }
 ?>
 <p><?php printf( esc_html( $text ), esc_html( $order->get_formatted_billing_full_name() ) ); ?></p>
 <?php echo $email_improvements_enabled ? '</div>' : ''; ?>
 
 <?php
-
 /*
  * @hooked WC_Emails::order_details() Shows the order details table.
  * @hooked WC_Structured_Data::generate_order_data() Generates structured data.
@@ -63,7 +61,7 @@ do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_
  * Show user-defined additional content - this is set in each email's settings.
  */
 if ( $additional_content ) {
-	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td class="email-additional-content">' : '';
+	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation"><tr><td class="email-additional-content">' : '';
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 	echo $email_improvements_enabled ? '</td></tr></table>' : '';
 }

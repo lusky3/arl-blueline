@@ -2,17 +2,16 @@
 /**
  * Customer failed order email
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/emails/customer-failed-order.php.
+ * Blueline override: the stock template with registration wording, and a link back to the account's Registrations page instead of the site name.
+ * Every edited string uses the blueline text domain; the rest is the
+ * original. When WooCommerce bumps @version, re-copy the original and
+ * re-apply those strings (scripts/check-template-versions.sh).
  *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/customer-failed-order.php
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates\Emails
- * @version 9.8.0
+ * @version 10.4.0
  */
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
@@ -42,20 +41,20 @@ if ( ! empty( $order->get_billing_first_name() ) ) {
 }
 ?>
 </p>
-<p><?php esc_html_e( "Unfortunately, we couldn't complete your registration due to an issue with your payment method.", 'woocommerce' ); ?></p>
-<?php /* translators: %s: Site title */ ?>
+<p><?php esc_html_e( "Unfortunately, we couldn't complete your registration due to an issue with your payment method.", 'blueline' ); ?></p>
 <p>
 <?php
-echo wp_kses(
-	__( "If you'd like to continue with your registration, please return to your <a href='https://www.rookiehockey.ca/account/registrations'>account page</a> and try a different method of payment.", 'woocommerce' ),
-	array(
-		'a' => array(
-			'href' => array(),
-		),
-	)
+printf(
+	wp_kses(
+		/* translators: %s: URL of the customer's Registrations page in My Account. */
+		__( 'If you\'d like to continue with your registration, please return to your <a href="%s">account page</a> and try a different method of payment.', 'blueline' ),
+		array( 'a' => array( 'href' => array() ) )
+	),
+	esc_url( wc_get_account_endpoint_url( 'registrations' ) )
 );
 ?>
-</p><p><?php esc_html_e( 'Your registration details are as follows:', 'woocommerce' ); ?></p>
+</p>
+<p><?php esc_html_e( 'Your registration details are as follows:', 'blueline' ); ?></p>
 <?php echo $email_improvements_enabled ? '</div>' : ''; ?>
 
 <?php
@@ -90,7 +89,7 @@ do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_
  * Show user-defined additional content - this is set in each email's settings.
  */
 if ( $additional_content ) {
-	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td class="email-additional-content">' : '';
+	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation"><tr><td class="email-additional-content">' : '';
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 	echo $email_improvements_enabled ? '</td></tr></table>' : '';
 }

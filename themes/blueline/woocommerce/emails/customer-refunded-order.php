@@ -2,17 +2,16 @@
 /**
  * Customer refunded order email
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/emails/customer-refunded-order.php.
+ * Blueline override: the stock template with registration wording in the refund intro.
+ * Every edited string uses the blueline text domain; the rest is the
+ * original. When WooCommerce bumps @version, re-copy the original and
+ * re-apply those strings (scripts/check-template-versions.sh).
  *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/customer-refunded-order.php
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates\Emails
- * @version 9.8.0
+ * @version 10.4.0
  */
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
@@ -42,28 +41,23 @@ if ( ! empty( $order->get_billing_first_name() ) ) {
 <?php
 if ( $email_improvements_enabled ) {
 	if ( $partial_refund ) {
-		/* translators: %s: Site title */
-		echo sprintf( esc_html__( 'Your registration has been partially refunded.', 'woocommerce' ), esc_html( $blogname ) ) . "\n\n";
+		echo esc_html__( 'Your registration has been partially refunded.', 'blueline' ) . "\n\n";
 	} else {
-		/* translators: %s: Site title */
-		echo sprintf( esc_html__( 'Your registration has been refunded.', 'woocommerce' ), esc_html( $blogname ) ) . "\n\n";
+		echo esc_html__( 'Your registration has been refunded.', 'blueline' ) . "\n\n";
 	}
 	echo '</p><p>';
-	echo esc_html__( 'There are more details below for your reference:', 'woocommerce' ) . "\n\n";
+	echo esc_html__( 'There are more details below for your reference:', 'blueline' ) . "\n\n";
 
 } elseif ( $partial_refund ) {
-	/* translators: %s: Site title */
-	printf( esc_html__( 'Your registration has been partially refunded. There are more details below for your reference:', 'woocommerce' ), esc_html( $blogname ) );
+	esc_html_e( 'Your registration has been partially refunded. There are more details below for your reference:', 'blueline' );
 } else {
-	/* translators: %s: Site title */
-	printf( esc_html__( 'Your registration has been refunded. There are more details below for your reference:', 'woocommerce' ), esc_html( $blogname ) );
+	esc_html_e( 'Your registration has been refunded. There are more details below for your reference:', 'blueline' );
 }
 ?>
 </p>
 <?php echo $email_improvements_enabled ? '</div>' : ''; ?>
 
 <?php
-
 /*
  * @hooked WC_Emails::order_details() Shows the order details table.
  * @hooked WC_Structured_Data::generate_order_data() Generates structured data.
@@ -87,7 +81,7 @@ do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_
  * Show user-defined additional content - this is set in each email's settings.
  */
 if ( $additional_content ) {
-	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td class="email-additional-content">' : '';
+	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation"><tr><td class="email-additional-content">' : '';
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 	echo $email_improvements_enabled ? '</td></tr></table>' : '';
 }
