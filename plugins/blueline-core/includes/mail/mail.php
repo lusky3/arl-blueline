@@ -11,6 +11,48 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
+ * A URL as mail should link to it: on the primary host when the stored site address is an old one.
+ *
+ * The domain router (mu-plugins/arl-domain-router.php) points home_url() at the host being served,
+ * but only while a request carries a Host header. Mail built anywhere else (WP-Cron from the CLI,
+ * Action Scheduler, a webhook, WP-CLI) sees the database address, which can still be the legacy
+ * host, so its links would send members to the old site. A legacy or alias host is therefore
+ * swapped for the router's primary host. Anything else is returned untouched: the primary host
+ * itself, a staging host, an external CDN, or a site with no router at all.
+ *
+ * Also left untouched when the router has the legacy hosts switched off (`legacy_enabled` false):
+ * the primary face is not live yet in that state, so a primary link would go nowhere.
+ *
+ * @param string $url An absolute URL built from home_url() or an upload URL.
+ * @return string
+ */
+function blueline_core_mail_url( string $url ): string {
+	if ( ! function_exists( 'arl_dr_config' ) || ! function_exists( 'arl_dr_family' ) || ! function_exists( 'arl_dr_normalise_host' ) ) {
+		return $url;
+	}
+
+	$host = wp_parse_url( $url, PHP_URL_HOST );
+
+	if ( ! is_string( $host ) || '' === $host ) {
+		return $url;
+	}
+
+	$cfg = arl_dr_config();
+
+	if ( empty( $cfg['legacy_enabled'] ) || ! in_array( arl_dr_family( $host, $cfg ), array( 'legacy', 'alias' ), true ) ) {
+		return $url;
+	}
+
+	$primary = arl_dr_normalise_host( (string) ( $cfg['primary'] ?? '' ) );
+
+	if ( '' === $primary ) {
+		return $url;
+	}
+
+	return (string) preg_replace( '#^[a-z][a-z0-9+.-]*://[^/?\#]+#i', 'https://' . $primary, $url, 1 );
+}
+
+/**
  * The brand colours and logo the mail module uses: hard-coded Blueline token defaults, passed
  * through the `blueline_core_email_brand` filter (a theme supplies its own values there).
  * Invalid hex values fall back to the default for that key.
@@ -49,6 +91,8 @@ function blueline_core_email_brand(): array {
 
 		$brand[ $key ] = ( is_string( $value ) && 1 === preg_match( '/^#[0-9a-fA-F]{6}$/', $value ) ) ? $value : $default;
 	}
+
+	$brand['logo'] = '' === $brand['logo'] ? '' : blueline_core_mail_url( $brand['logo'] );
 
 	return $brand;
 }
