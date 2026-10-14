@@ -546,7 +546,9 @@ table.sp-event-venue :is(th, td) {
 		width: 1px;
 		height: 1px;
 		overflow: hidden;
+		/* stylelint-disable-next-line property-no-deprecated -- legacy fallback */
 		clip: rect(0, 0, 0, 0);
+		clip-path: inset(50%);
 	}
 
 	/* C-11: narrow stat cells, so a leaders card is ~3 short rows, not 8 lines. */
@@ -2282,7 +2284,9 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 	width: 1px;
 	height: 1px;
 	overflow: hidden;
+	/* stylelint-disable-next-line property-no-deprecated -- legacy fallback */
 	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	white-space: nowrap;
 }
 
@@ -2731,7 +2735,9 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 		width: 1px;
 		height: 1px;
 		overflow: hidden;
+		/* stylelint-disable-next-line property-no-deprecated -- legacy fallback */
 		clip: rect(0, 0, 0, 0);
+		clip-path: inset(50%);
 	}
 
 	.sp-event-list.bl-sp-schedule tr.bl-sp-date-heading,

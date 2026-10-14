@@ -7,6 +7,8 @@
 /*
  * Visually-hidden utility, shared by the skip link and every icon-only
  * control (mobile toggle, submenu toggles) introduced by the header/nav.
+ * clip-path does the hiding (as in WordPress core); the deprecated clip
+ * stays only as a fallback for browsers without clip-path.
  */
 .screen-reader-text {
 	position: absolute;
@@ -15,7 +17,9 @@
 	margin: -1px;
 	padding: 0;
 	overflow: hidden;
+	/* stylelint-disable-next-line property-no-deprecated -- legacy fallback */
 	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	white-space: nowrap;
 	border: 0;
 }
@@ -29,7 +33,9 @@
 	height: auto;
 	padding: var(--bl-space-2) var(--bl-space-4);
 	overflow: visible;
+	/* stylelint-disable-next-line property-no-deprecated -- undo fallback */
 	clip: auto;
+	clip-path: none;
 	white-space: normal;
 	background: var(--bl-paper);
 	color: var(--bl-ink);
