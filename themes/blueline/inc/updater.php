@@ -158,6 +158,7 @@ function blueline_updater_health_result( array $state ): array {
 	$status  = (string) ( $state['status'] ?? 'error' );
 	$channel = (string) ( $state['channel'] ?? 'stable' );
 	$latest  = is_array( $state['candidate'] ?? null ) ? (string) $state['candidate']['version'] : '';
+	$reject  = is_array( $state['rejected'] ?? null ) ? $state['rejected'] : null;
 	$color   = 'blue';
 	$level   = 'good';
 
@@ -172,7 +173,33 @@ function blueline_updater_health_result( array $state ): array {
 			$color   = 'orange';
 			$message = __( 'GitHub is rate limiting update checks. Blueline will try again within the hour. Defining BLUELINE_GITHUB_TOKEN in wp-config.php raises the limit.', 'blueline' );
 			break;
+		case 'not_found':
+			$level   = 'critical';
+			$color   = 'red';
+			$message = __( 'GitHub could not find the Blueline theme repository, so updates cannot be checked. It may have been renamed, deleted or made private. This is not a token problem; ask whoever maintains the theme releases. (A token that cannot see a private repository is reported this way too.)', 'blueline' );
+			break;
 		case 'ok':
+			if ( null !== $reject ) {
+				$level = 'recommended';
+				$color = 'orange';
+				if ( 'manifest' === ( $reject['reason'] ?? '' ) ) {
+					/* translators: %s: version number of the release that cannot be installed. */
+					$template = __( 'Blueline %s has been published, but its update manifest is missing, unreadable or does not match the release, so it is not being offered. Ask whoever published it to fix the release files; sites will not receive it until then.', 'blueline' );
+				} else {
+					/* translators: %s: version number of the release that cannot be installed. */
+					$template = __( 'Blueline %s has been published, but its theme zip or update manifest was not uploaded, so it is not being offered. Ask whoever published it to fix the release files; sites will not receive it until then.', 'blueline' );
+				}
+				$message = sprintf( $template, (string) ( $reject['version'] ?? '' ) );
+				if ( '' !== $latest ) {
+					$message .= ' ' . sprintf(
+						/* translators: %s: older version that is still available. */
+						__( 'Blueline %s is still available from Dashboard > Updates.', 'blueline' ),
+						$latest
+					);
+				}
+				break;
+			}
+
 			$message = '' === $latest
 				? sprintf(
 					/* translators: %s: update channel (stable or beta). */
