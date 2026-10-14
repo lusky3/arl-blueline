@@ -210,13 +210,15 @@
 	box-shadow: var(--bl-focus-ring);
 }
 
-/* D-22: WooCommerce focuses notices for screen readers; no ring needed. */
+/* account.js moves focus to a result notice on load for screen readers; a
+   sighted keyboard user needs to see where focus went, so it keeps the ring. */
 .woocommerce-message:focus,
 .woocommerce-info:focus,
 .woocommerce-error:focus,
 .woocommerce-NoticeGroup:focus {
-	outline: none;
-	box-shadow: none;
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
+	outline-offset: var(--bl-focus-offset);
+	box-shadow: var(--bl-focus-ring);
 }
 
 .woocommerce a.button:disabled,
@@ -297,6 +299,7 @@
 html .woocommerce form .form-row .input-text,
 html .woocommerce form .form-row select,
 html .woocommerce form .form-row textarea {
+	min-height: 44px; /* A full touch target; the fields measured 38px. */
 	background: var(--bl-content-surface);
 	color: var(--bl-content-text);
 	border-color: var(--bl-content-border-strong);
@@ -338,10 +341,22 @@ html .woocommerce form .form-row textarea {
 }
 
 /* D-06: inline section-title colours (2.0-4.1:1) from the checkout
-   plugin's markup; only !important reaches them. */
+   plugin's markup; only !important reaches them. The same titles print on
+   Edit Account, where the dark theme took them to 2:1 (brick red on navy). */
 .woocommerce-checkout .arl_sectiontitle,
-.woocommerce-checkout .emergency > h4 {
+.woocommerce-checkout .emergency > h4,
+.woocommerce-MyAccount-content .arl_sectiontitle,
+.woocommerce-MyAccount-content .emergency > h4 {
 	color: var(--bl-content-text) !important;
+	font-family: var(--bl-font-display);
+}
+
+/* select2 draws its own focus state on the container, not the hidden field. */
+.woocommerce .select2-container--focus .select2-selection,
+.woocommerce .select2-container--open .select2-selection {
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
+	outline-offset: var(--bl-focus-offset);
+	box-shadow: var(--bl-focus-ring);
 }
 
 /*

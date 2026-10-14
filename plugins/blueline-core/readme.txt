@@ -34,6 +34,7 @@ Each feature is a module that can be switched off with the `blueline_core_module
 == Changelog ==
 
 = Unreleased =
+* A profile photo larger than the server's request limit now returns to Player Profile with the "too large" message instead of ending on a blank page.
 * Team and player pages now have a search/preview description (team, division and season; player, team and season) instead of none.
 * Game page titles include the date and stay within 60 characters, so rematches no longer share one title, and a game's search result no longer repeats the sponsor name.
 * Game structured data now includes the rink's street address and coordinates (needed for Google's event results) and names the home and away teams.

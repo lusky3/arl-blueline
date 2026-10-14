@@ -8,6 +8,29 @@ as the release notes.
 
 ## [Unreleased]
 
+### Fixed
+- Checkout no longer drops keyboard and screen-reader focus on the "Got a credit code?" or "Returning player?"
+  prompt when the page opens. Focus only moves to a real result message (an error, or a saved/applied
+  confirmation), and that message now shows a visible focus outline.
+- Edit Account and Addresses: the dropdowns and the multi-select (Returning Player, Level of Experience,
+  Preferred Division, Gender) now have names a screen reader announces and a visible focus outline, as on checkout.
+  The plugin's section titles ("Player Profile", "Emergency Contact Info") use the page text colour, so they are
+  readable in dark mode, and are announced as headings in order.
+- Edit Account and Addresses: a field the page reports as wrong ("First name is a required field.") is now
+  marked invalid and linked to its message, as on login. Starred Edit Account fields are marked required, so a
+  blank one is caught before the page reloads.
+- Contact form: the second name box ("Last") is announced as "Last name", and the name and email boxes now tell
+  the browser what they hold, so autofill works. Form fields on the account, checkout and contact pages are at
+  least 44px tall for touch.
+- Checkout: the street address lines no longer switch autofill off.
+- Checkout: the terms checkbox no longer shares an id with the heading of the Terms page.
+- Profile photo: the page now says the photo uploads as soon as you choose it, and the 2 MB limit, before you
+  pick one. It shows "Uploading photo..." while it works. A photo over 2 MB (most phone photos) is shrunk in
+  the browser and uploaded instead of refused; a file that cannot be shrunk is refused on the spot with the
+  too-large message. A photo over the server's request limit used to end on a blank page and now returns to Player
+  Profile with the same message.
+- Tables inside page content (the editor's Table block) that are wider than the screen can be scrolled with the
+  keyboard.
 ### Changed
 - The "next game" reminder no longer appears on the My Account, cart or checkout pages, where it sat over the
   fields being filled in. On phones it is now a slim bar along the bottom of the screen ("Fri 6:45 pm · vs Ice

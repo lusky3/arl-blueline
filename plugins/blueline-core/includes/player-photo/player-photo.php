@@ -44,11 +44,17 @@ function blueline_handle_player_photo_upload(): void {
 		wp_die( esc_html__( 'You must be logged in to do this.', 'blueline-core' ), 403 );
 	}
 
-	check_admin_referer( 'blueline_upload_player_photo' );
-
 	$redirect = function_exists( 'wc_get_account_endpoint_url' )
 		? wc_get_account_endpoint_url( 'player-profile' )
 		: home_url( '/' );
+
+	// Before the nonce check: an oversized body takes the nonce with it, so check_admin_referer() would
+	// show a bare "link expired" page instead of telling the member what went wrong.
+	if ( blueline_player_photo_post_overflowed() ) {
+		blueline_redirect_with_photo_status_and_exit( $redirect, 'too_large' );
+	}
+
+	check_admin_referer( 'blueline_upload_player_photo' );
 
 	$player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
 
@@ -68,6 +74,18 @@ function blueline_handle_player_photo_upload(): void {
 	}
 
 	blueline_redirect_with_photo_status_and_exit( $redirect, 'none' === $status ? null : $status );
+}
+
+/**
+ * Whether PHP discarded this request's body for exceeding post_max_size.
+ *
+ * Past that limit PHP empties $_POST and $_FILES entirely (nonce and action included) while the
+ * request still reports a Content-Length; a real submission always carries at least its action field.
+ *
+ * @return bool
+ */
+function blueline_player_photo_post_overflowed(): bool {
+	return empty( $_POST ) && isset( $_SERVER['CONTENT_LENGTH'] ) && (int) $_SERVER['CONTENT_LENGTH'] > 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- the point is that no body (so no nonce) arrived; nothing from the request is read or acted on.
 }
 
 /**

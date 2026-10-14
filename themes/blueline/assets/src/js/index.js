@@ -10,6 +10,7 @@ import './sponsors.js';
 import './announcement.js';
 import './woocommerce-account-form-errors.js';
 import './woocommerce.js';
+import './contact-form-fields.js';
 import './rules-modal.js';
 import './standings-tabs.js';
 import './floating-next-game.js';
