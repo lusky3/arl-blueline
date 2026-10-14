@@ -8,6 +8,11 @@ as the release notes.
 
 ## [Unreleased]
 
+### Added
+- `mu-plugins/arl-domain-router.php`: serves one WordPress under two faces by hostname (`arlhockey.ca` runs
+  Blueline; `rookiehockey.ca/.com` keep the classic theme with a canonical tag pointing at the primary), redirects
+  alias domains to the primary and sends admin, login, account and checkout from the old domains to it. See
+  `docs/DOMAINS.md`.
 ### Fixed
 - Checkout no longer drops keyboard and screen-reader focus on the "Got a credit code?" or "Returning player?"
   prompt when the page opens. Focus only moves to a real result message (an error, or a saved/applied

@@ -2,8 +2,9 @@
 /**
  * Loads WordPress core's real HTML API (WP_HTML_Tag_Processor,
  * WP_HTML_Processor) from the pinned johnpbloch/wordpress-core dev
- * dependency (same version as staging), in core's own wp-settings.php
- * order, plus stand-ins for the four core functions it calls.
+ * dependency, in core's own wp-settings.php
+ * order, plus stand-ins for the core functions it calls that live outside
+ * the HTML API (and that a full WordPress bootstrap would otherwise supply).
  *
  * Only theme code that checks class_exists( 'WP_HTML_Processor' ) sees a
  * difference, so loading it into the shared test process is safe.
@@ -15,6 +16,10 @@ if ( ! class_exists( 'WP_HTML_Processor' ) ) {
 	$blueline_wp_includes = dirname( __DIR__, 2 ) . '/vendor/johnpbloch/wordpress-core/wp-includes';
 
 	require_once $blueline_wp_includes . '/compat-utf8.php';
+	// Core's real wp_has_noncharacters(). Since 7.1 the compat-utf8.php
+	// fallback just calls it (and is deprecated), so a stand-in that routed
+	// back to the fallback would recurse forever.
+	require_once $blueline_wp_includes . '/utf8.php';
 	require_once $blueline_wp_includes . '/class-wp-token-map.php';
 
 	foreach (
@@ -67,15 +72,19 @@ if ( ! function_exists( 'wp_trigger_error' ) ) {
 	}
 }
 
-if ( ! function_exists( 'wp_has_noncharacters' ) ) {
+if ( ! function_exists( '_deprecated_function' ) ) {
 	/**
-	 * Core's utf8.php wrapper, minus its PCRE probe: the pure fallback.
+	 * Records core's _deprecated_function() calls so tests can assert none.
 	 *
-	 * @param string $text Text to scan.
-	 * @return bool
+	 * Core 7.1's HTML API calls this from its deprecated utf8 fallback and
+	 * from WP_HTML_Open_Elements, so it must exist before any of them run.
+	 *
+	 * @param string $function_name Function name.
+	 * @param string $version       Version deprecated in.
+	 * @param string $replacement   Replacement function.
 	 */
-	function wp_has_noncharacters( string $text ): bool {
-		return _wp_has_noncharacters_fallback( $text );
+	function _deprecated_function( $function_name, $version, $replacement = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with core.
+		$GLOBALS['bl_test_html_api_notices'][] = $function_name . ' is deprecated since ' . $version;
 	}
 }
 
