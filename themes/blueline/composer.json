@@ -3,6 +3,9 @@
   "description": "ARL standalone theme",
   "type": "wordpress-theme",
   "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=8.3"
+  },
   "require-dev": {
     "phpunit/phpunit": "^12.0",
     "squizlabs/php_codesniffer": "^3.10",
@@ -12,11 +15,11 @@
   "scripts": {
     "test": "phpunit",
     "test:oracle": "BLUELINE_WP_CORE_INCLUDES_DIR=\"$(pwd)/.wp-core-oracle/wp-includes\" phpunit",
-    "lint": "phpcs --standard=WordPress --extensions=php --ignore=vendor,node_modules,.wp-core-oracle,assets/dist,woocommerce/emails/*,woocommerce/checkout/form-coupon.php,woocommerce/myaccount/store-credit.php,woocommerce/myaccount/dashboard-store-credit.php,woocommerce/myaccount/my-refund-requests.php ."
+    "lint": "phpcs"
   },
   "scripts-descriptions": {
     "test:oracle": "Like `test`, but points WpCoreContractTest's optional oracle job at a local snapshot of staging's WordPress core instead of letting it skip. Fetch that snapshot first with ../../scripts/fetch-wp-core-oracle.sh (from the repo root) -- this script does not fetch it itself, so a stale or missing .wp-core-oracle/ fails loudly rather than silently comparing against nothing.",
-    "lint": "The woocommerce/ entries above are narrowly scoped to files that really are vendor code this theme did not author. emails/* (WooCommerce core) and the two Store Credit templates carry no edits at all: none authored to WordPress Coding Standards, none of it this theme's code. form-coupon.php (WooCommerce core) now carries a light tone pass on its two visible strings only (see that file's own 'Cody Edits' note) -- still excluded here rather than moved down to the theme-edited list below, because pulling an otherwise-untouched vendor template into full WPCS conformance over a two-string copy edit is a bigger, riskier change than the edit itself, the same reasoning that keeps my-refund-requests.php excluded. my-refund-requests.php comes from a third plugin (YITH Advanced Refund System) and carries only two label-only string edits ('Order' to 'Reg #'); unlike the WooCommerce-derived files below, it was never close to WPCS to begin with (spaces instead of tabs throughout, several unescaped echoes, a global override), so bringing it into line would mean reformatting a whole third-party template this theme did not author -- a bigger and riskier change than the two-word edit it actually carries -- and it stays excluded on that basis, not because it is unmodified. This used to be a single blanket 'woocommerce/*' pattern, which was FALSE for the rest of the directory: woocommerce/myaccount/navigation.php, woocommerce/myaccount/dashboard.php, woocommerce/checkout/thankyou.php, woocommerce/archive-product.php, woocommerce/cart/cart-totals.php, woocommerce/checkout/form-checkout.php, woocommerce/checkout/form-login.php and woocommerce/checkout/review-order.php are theme-authored or theme-edited WooCommerce-core overrides (see each file's own header comment -- 'Cody Edits', an ARL override, or a Task N rationale) that were being hidden from the escaping sniff by that blanket exclusion, despite being close enough to WPCS that linting them cost almost nothing (four missing docblock summaries and two quoting nits, fixed alongside this change). Each excluded path here is a full, unambiguous file or directory match rather than a bare substring, so this list cannot accidentally swallow a same-named theme file the way a bare 'woocommerce' once matched inc/woocommerce.php."
+    "lint": "WordPress Coding Standards over the whole theme, tests included, using phpcs.xml.dist: the text domain (blueline), the global prefix (blueline) and the minimum WordPress version are enforced, and each exclusion (vendor templates under woocommerce/, the plugin template overrides, test stand-ins) is listed there with its reason."
   },
   "config": { "allow-plugins": { "dealerdirect/phpcodesniffer-composer-installer": true } }
 }
