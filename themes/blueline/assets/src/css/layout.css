@@ -1311,6 +1311,36 @@
 	color: var(--bl-content-bg);
 }
 
+/*
+ * Primary (ice ribbon) hover and pressed states. The ribbon lightens toward
+ * white on hover -- mixed from the occasion accent so a seasonal accent keeps
+ * its own hue -- and ink text on it stays above AA. Hover is limited to
+ * pointers that can hover, so a tap does not leave the ribbon stuck light.
+ * Pressed (both variants) nudges the ribbon down 1px and dims it slightly; it
+ * restates the skew because this `transform` replaces .bl-skew's own. The focus
+ * ring is unchanged: it is drawn on the un-skewed parent.
+ */
+@media (hover: hover) {
+
+	.bl-btn--primary:hover .bl-skew {
+		background: color-mix(in srgb, var(--bl-occasion-accent) 78%, var(--bl-white));
+	}
+}
+
+.bl-btn--primary:active .bl-skew,
+.bl-btn--secondary:active .bl-skew {
+	transform: skewX(var(--bl-skew)) translateY(1px);
+	filter: brightness(0.95);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+	.bl-btn--primary .bl-skew,
+	.bl-btn--secondary .bl-skew {
+		transition: background-color 0.12s ease-out, color 0.12s ease-out, transform 0.08s ease-out;
+	}
+}
+
 /* Empty states (no posts, no search results, 404) */
 
 .bl-empty-state {

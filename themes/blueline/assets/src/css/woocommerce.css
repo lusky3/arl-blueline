@@ -19,7 +19,9 @@
  * its :focus-visible ring as well as the label, which the project has
  * already rejected once for that reason. These follow that same, already-
  * reviewed precedent: same on-brand button language (ink fill, paper text,
- * heavy italic caps), kept upright.
+ * heavy italic caps), kept upright. The primary (.alt) buttons -- Register
+ * Now, Proceed to checkout, Place order -- are the exception: they wear the
+ * ice ribbon on a ::before layer (see "Primary actions" below).
  *
  * A handful of selectors below target #place_order/#order_review_heading:
  * WooCommerce core hard-codes those ids in the (unmodified) stock templates
@@ -169,11 +171,6 @@
 	font-size: var(--bl-text-lg);
 }
 
-.woocommerce a.button.alt,
-.woocommerce button.button.alt {
-	background: var(--bl-ink);
-}
-
 /* D-10: the .alt pair matches core's .alt:hover specificity, which
    otherwise turned it WooCommerce purple. */
 .woocommerce a.button:hover,
@@ -259,6 +256,117 @@
 .woocommerce input.button.alt:disabled[disabled] {
 	background: var(--bl-ink);
 	color: var(--bl-paper);
+}
+
+/*
+ * Primary actions (.alt) -- "Register Now" / "Join the waitlist", "Proceed to
+ * checkout", "Place order": the brand's skewed ice ribbon, the same look as
+ * .bl-btn--primary elsewhere (header.css, layout.css), so the purchase step
+ * does not drop to a generic ink rectangle. Plain (non-.alt) buttons -- "Update
+ * cart", "Apply coupon" -- stay ink: they are the secondary actions.
+ *
+ * The file-level comment explains why these cannot take the .bl-btn markup: a
+ * single <a>/<button> has no inner node to counter-skew. The skew therefore
+ * lives on a ::before layer with its own skewX(), so the real element stays an
+ * un-skewed rectangle (hit target and :focus-visible ring both honest) and the
+ * label is never transformed at all. The ribbon intentionally does not fill the
+ * button's own corners, like nav.css's ribbon; the button's background is
+ * transparent so the page shows through there.
+ *
+ * This block sits after the disabled rules above so its `background: none`
+ * wins over their ink fill; the resting opacity: 0.6 on :disabled dims the
+ * ribbon with the label, and a second one here would multiply.
+ */
+.woocommerce a.button.alt,
+.woocommerce button.button.alt,
+.woocommerce input.button.alt,
+.woocommerce a.button.alt:hover,
+.woocommerce a.button.alt:focus-visible,
+.woocommerce button.button.alt:hover,
+.woocommerce button.button.alt:focus-visible,
+.woocommerce button.button.alt:disabled[disabled],
+.woocommerce input.button.alt:disabled[disabled],
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:hover,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:focus-visible,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:disabled {
+	position: relative;
+	z-index: 0;
+	overflow: visible;
+	min-height: 44px;
+	background: none;
+	color: var(--bl-ink);
+}
+
+/* D-15: the shared 1px ring drew an un-skewed frame round the ribbon; the
+   focus ring (restated above) is untouched. */
+.woocommerce a.button.alt:not(:focus-visible),
+.woocommerce button.button.alt:not(:focus-visible),
+.woocommerce input.button.alt:not(:focus-visible),
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:not(:focus-visible) {
+	box-shadow: none;
+}
+
+.woocommerce a.button.alt::before,
+.woocommerce button.button.alt::before,
+.woocommerce input.button.alt::before,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+
+	/* The canonical "CTA ribbon fill": --bl-occasion-accent defaults to
+	 * --bl-ice, and an active occasion swaps it (see header.css). */
+	background: var(--bl-occasion-accent);
+	border-radius: var(--bl-radius);
+	transform: skewX(var(--bl-skew));
+}
+
+/* Hover lightens the ribbon, matching .bl-btn--primary (layout.css). */
+@media (hover: hover) {
+
+	.woocommerce a.button.alt:hover::before,
+	.woocommerce button.button.alt:hover::before,
+	.woocommerce input.button.alt:hover::before,
+	/* stylelint-disable-next-line selector-id-pattern */
+	#place_order:hover::before {
+		background: color-mix(in srgb, var(--bl-occasion-accent) 78%, var(--bl-white));
+	}
+}
+
+/* Pressed: every Woo button moves down 1px; the ribbon also dims slightly. */
+.woocommerce a.button:active,
+.woocommerce button.button:active,
+.woocommerce input.button:active,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:active {
+	transform: translateY(1px);
+}
+
+.woocommerce a.button.alt:active::before,
+.woocommerce button.button.alt:active::before,
+.woocommerce input.button.alt:active::before,
+/* stylelint-disable-next-line selector-id-pattern */
+#place_order:active::before {
+	filter: brightness(0.95);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+	.woocommerce a.button.alt::before,
+	.woocommerce button.button.alt::before,
+	.woocommerce input.button.alt::before,
+	/* stylelint-disable-next-line selector-id-pattern */
+	#place_order::before {
+		transition: background-color 0.12s ease-out, filter 0.08s ease-out;
+	}
 }
 
 /* ---------------------------------------------------------------------
@@ -715,6 +823,57 @@ html body .woocommerce .woocommerce-invalid textarea {
 	color: var(--bl-content-text-secondary);
 }
 
+/*
+ * Processing-fee note straight after a paid product's price (the card and
+ * /register), so the fee is known before the cart. Quiet by design: secondary
+ * colour, small, not bold.
+ */
+.woocommerce .bl-price-fee {
+	margin: 0 0 var(--bl-space-4);
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+	font-weight: 400;
+}
+
+.woocommerce ul.products li.product .price:has(+ .bl-price-fee) {
+	margin-block-end: var(--bl-space-1);
+}
+
+/* "What's included" on a product page: the league's short description. */
+.woocommerce div.product .bl-product-included {
+	margin-block: var(--bl-space-5);
+}
+
+.woocommerce div.product .bl-product-included__title {
+	margin: 0 0 var(--bl-space-2);
+	font-size: var(--bl-text-lg);
+}
+
+.woocommerce div.product .bl-product-included p {
+	margin: 0 0 var(--bl-space-2);
+}
+
+/* "Choose your registration" jump link above the Register page's text. */
+.bl-register-jump {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bl-space-3) var(--bl-space-5);
+	margin-block: var(--bl-space-5);
+}
+
+.bl-register-jump__prices {
+	margin: 0;
+	color: var(--bl-content-text-secondary);
+	font-weight: 600;
+}
+
+/* Where that link lands: an empty block ahead of the first product card. The
+   page's own scroll-padding keeps it clear of the fixed header. */
+.bl-anchor-target {
+	display: block;
+}
+
 .woocommerce div.product form.cart {
 	display: flex;
 	flex-wrap: wrap;
@@ -773,80 +932,9 @@ html body .woocommerce .woocommerce-invalid textarea {
 	color: var(--bl-warning);
 }
 
-/*
- * Add-to-cart / registration CTA -- P4 finding 5: this is the single most
- * important button on the site (it IS the ~$500 registration purchase) and
- * it was rendering as a plain dark rectangle (background #132343,
- * border-radius 0, no skew) while every other primary CTA in the header and
- * hero is a skewed ice ribbon. The file-level comment above explains why
- * WooCommerce's OTHER buttons (place_order, coupon, block-editor buttons)
- * stay upright on purpose -- a single <button>/<a> has no inner node to
- * counter-skew without restructuring ported markup. This is the deliberate
- * exception: the actual purchase action should read as the brand's primary
- * action, not just another generic WooCommerce button.
- *
- * The skew therefore lives on a ::before background layer with its own
- * skewX() transform, rather than on the button itself: the real <button>
- * stays a plain, un-skewed rectangle (hit target and :focus-visible ring
- * both honest, per the skew hard constraint), and the label text is never
- * transformed at all -- there is nothing to counter-skew back because it
- * was never skewed in the first place. The visible ice parallelogram
- * intentionally does not fill the button's own corners (the same "ribbon
- * bleeds outside its box" look nav.css's .bl-skew ribbon already uses); the
- * button's own background is transparent so paper shows through there,
- * matching the page ground.
- */
-.woocommerce div.product form.cart .single_add_to_cart_button {
-	position: relative;
-	z-index: 0;
-	overflow: visible;
-	background: none;
-	color: var(--bl-ink);
-}
-
-/* D-15: the shared button ring drew an un-skewed frame round the ribbon in
-   dark; focus styling is untouched. */
-.woocommerce div.product form.cart .single_add_to_cart_button:not(:focus-visible) {
-	box-shadow: none;
-}
-
-.woocommerce div.product form.cart .single_add_to_cart_button::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	z-index: -1;
-
-	/* This button's own special-cased "CTA ribbon fill" -- see
-	 * header.css's .bl-btn--primary .bl-skew for the canonical, shared
-	 * one and why --bl-occasion-accent is a no-op swap by default. */
-	background: var(--bl-occasion-accent);
-	border-radius: var(--bl-radius);
-	transform: skewX(var(--bl-skew));
-}
-
-.woocommerce div.product form.cart .single_add_to_cart_button:hover,
-.woocommerce div.product form.cart .single_add_to_cart_button:focus-visible {
-	color: var(--bl-ink);
-}
-
-.woocommerce div.product form.cart .single_add_to_cart_button:hover::before,
-.woocommerce div.product form.cart .single_add_to_cart_button:focus-visible::before {
-
-	/* --bl-ink at 12%, darkening the ice fill for hover/focus feedback without
-	 * introducing a new fill token -- same technique base.css's tap-highlight
-	 * colour uses. Mixed against transparent, not --bl-white: this shadow
-	 * darkens the ::before's own --bl-ice fill, so the translucent form is
-	 * what actually reproduces the old rgb()'s composited result. */
-	box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--bl-ink) 12%, transparent);
-}
-
-/*
- * :disabled is deliberately NOT re-dimmed here: the shared
- * `.woocommerce button.button:disabled { opacity: 0.6; }` rule above already
- * applies to the whole element, including this ::before pseudo, since
- * `opacity` composites an element and its pseudo-elements as one group. A
- * second opacity here would multiply (0.6 x 0.6), dimming the ribbon too far.
- */
+/* Add-to-cart / registration CTA: a primary (.alt) button, so it takes the
+   shared ice-ribbon recipe above (hover, pressed, focus and disabled states
+   included) rather than a copy of it here. */
 
 /* ---------------------------------------------------------------------
  * Tables shared by cart, checkout order review, and the My Account
@@ -1201,6 +1289,28 @@ html body .woocommerce .woocommerce-invalid textarea {
 	padding: var(--bl-space-3) 0 0 var(--bl-space-6);
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
+}
+
+/*
+ * The "Fee Applies" note beside each card payment method comes from a Code
+ * Snippets entry that styles it red (#d9534f), which reads as an error on a
+ * form where nothing is wrong; it is information. Secondary text colour keeps
+ * it quiet and readable in both colour schemes (the snippet's own <style> is
+ * printed later but at lower specificity, so this wins), and its hover panel
+ * follows the page's surface tokens instead of fixed black-on-white. The "ⓘ"
+ * glyph in its text is the info icon.
+ */
+#payment .wc_payment_method .ppcp-fee-tooltip-wrapper {
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+}
+
+#payment .wc_payment_method .ppcp-fee-tooltip-wrapper .ppcp-fee-tooltip-box {
+	background: var(--bl-content-surface);
+	border-color: var(--bl-content-border-strong);
+	color: var(--bl-content-text);
+	font-weight: 400;
 }
 
 #payment .form-row {

@@ -196,6 +196,10 @@ function blueline_dequeue_commerce_assets(): void {
  * wrapper has already closed.
  */
 function blueline_wc_sidebar_wrapper_start() {
+	if ( blueline_wc_page_has_no_sidebar() ) {
+		return;
+	}
+
 	echo '<div class="bl-container bl-container--wc-sidebar">';
 }
 
@@ -203,6 +207,10 @@ function blueline_wc_sidebar_wrapper_start() {
  * Close the container opened by blueline_wc_sidebar_wrapper_start().
  */
 function blueline_wc_sidebar_wrapper_end() {
+	if ( blueline_wc_page_has_no_sidebar() ) {
+		return;
+	}
+
 	echo '</div>';
 }
 
@@ -463,7 +471,15 @@ function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_i
 		return $html;
 	}
 
-	$image = wp_get_attachment_image( $attachment_id, 'woocommerce_single', false, array( 'class' => 'wp-post-image' ) );
+	$image = wp_get_attachment_image(
+		$attachment_id,
+		'woocommerce_single',
+		false,
+		array(
+			'class' => 'wp-post-image',
+			'sizes' => blueline_wc_product_image_sizes( 'woocommerce_single', true ),
+		)
+	);
 	if ( '' === $image ) {
 		return $html;
 	}
@@ -474,6 +490,483 @@ function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_i
 		esc_url( $permalink ),
 		$image
 	);
+}
+
+/*
+ * The registration funnel -- Register page, product page, cart, checkout.
+ */
+
+/**
+ * Whether this request is a page that must not carry the site sidebar: a
+ * single product and the cart, like checkout, are the transactional steps, and
+ * the countdown, recent posts and quote widgets only distract from them (and a
+ * quote widget can print anything the league ever typed into it).
+ *
+ * @return bool
+ */
+function blueline_wc_page_has_no_sidebar(): bool {
+	return ( function_exists( 'is_product' ) && is_product() ) || ( function_exists( 'is_cart' ) && is_cart() );
+}
+
+add_filter( 'is_active_sidebar', 'blueline_wc_funnel_sidebar_filter', 10, 2 );
+/**
+ * Report the main widget area as empty on product and cart pages, so page.php
+ * reserves no sidebar column and sidebar.php renders nothing.
+ *
+ * @param bool       $is_active Whether the sidebar has widgets.
+ * @param string|int $index     Sidebar ID.
+ * @return bool
+ */
+function blueline_wc_funnel_sidebar_filter( $is_active, $index ) {
+	if ( 'sidebar-1' !== $index || ! $is_active || is_admin() ) {
+		return $is_active;
+	}
+
+	return ! blueline_wc_page_has_no_sidebar();
+}
+
+/**
+ * The registration products in the current season's category, memoised for the
+ * request: the price, button and fee filters below run once per product card.
+ *
+ * @param bool $refresh Drop the memo (tests).
+ * @return int[]
+ */
+function blueline_wc_season_product_ids( bool $refresh = false ): array {
+	static $ids = null;
+
+	if ( $refresh || null === $ids ) {
+		$ids = blueline_registration_season_product_ids();
+	}
+
+	return $ids;
+}
+
+/**
+ * Whether a product is one of the season's $0 waitlist products. Mirrors
+ * blueline_registration_product_offer_kind(): a registration-category product
+ * on offer at $0 is a waitlist. It does not require catalogue visibility,
+ * because the Register page embeds a waitlist by SKU however it is listed.
+ *
+ * @param mixed $product A WC_Product, or anything else (which is never one).
+ * @return bool
+ */
+function blueline_wc_is_waitlist_product( $product ): bool {
+	if ( ! is_object( $product ) || ! method_exists( $product, 'get_price' ) ) {
+		return false;
+	}
+
+	$price = $product->get_price();
+
+	if ( '' === $price || null === $price || (float) $price > 0 ) {
+		return false;
+	}
+
+	return in_array( (int) $product->get_id(), blueline_wc_season_product_ids(), true );
+}
+
+add_filter( 'woocommerce_product_single_add_to_cart_text', 'blueline_wc_waitlist_add_to_cart_text', 20, 2 );
+add_filter( 'woocommerce_product_add_to_cart_text', 'blueline_wc_waitlist_add_to_cart_text', 20, 2 );
+/**
+ * "Join the waitlist" instead of "Register Now" on a waitlist product. Runs
+ * after the Code Snippets entry that sets the site-wide "Register Now" text.
+ *
+ * @param string $text    Current button text.
+ * @param mixed  $product The product.
+ * @return string
+ */
+function blueline_wc_waitlist_add_to_cart_text( $text, $product = null ) {
+	return blueline_wc_is_waitlist_product( $product ) ? __( 'Join the waitlist', 'blueline' ) : $text;
+}
+
+add_filter( 'woocommerce_get_price_html', 'blueline_wc_waitlist_price_html', 20, 2 );
+/**
+ * "Free" instead of "$0.00" for a waitlist product: joining costs nothing, and
+ * "$0.00" beside a Register button reads as a pricing mistake.
+ *
+ * @param string $price_html Price markup.
+ * @param mixed  $product    The product.
+ * @return string
+ */
+function blueline_wc_waitlist_price_html( $price_html, $product = null ) {
+	if ( ! blueline_wc_is_waitlist_product( $product ) ) {
+		return $price_html;
+	}
+
+	return '<span class="bl-price-free">' . esc_html__( 'Free', 'blueline' ) . '</span>';
+}
+
+/**
+ * The card processing fee this site adds at checkout, for the note beside a
+ * price.
+ *
+ * Source of truth: the "Add Service Fee To Payments (Woocommerce)" Code
+ * Snippets entry (staging snippet 50), which adds a non-taxable "Processing
+ * Fee" of 3.5% of the cart plus $0.30 whenever the chosen gateway is one of the
+ * PayPal Complete Payments ones (angelleye_ppcp, angelleye_ppcp_cc,
+ * angelleye_ppcp_apple_pay, angelleye_ppcp_google_pay: PayPal, card, Apple Pay,
+ * Google Pay). The Interac e-Transfer gateway (betpg) is not in that list, so
+ * it adds no fee. (The Booster per-gateway fee options also in the database
+ * are inert: that plugin is not active.) Keep these numbers in step with that
+ * snippet, or override them with the filter.
+ *
+ * @return array{percent?: float, fixed?: float, free_gateway_id?: string, free_gateway_label?: string} Empty array switches the note off.
+ */
+function blueline_wc_card_fee_terms(): array {
+	$terms = array(
+		'percent'            => 3.5,
+		'fixed'              => 0.30,
+		'free_gateway_id'    => 'betpg',
+		'free_gateway_label' => 'Interac e-Transfer',
+	);
+
+	/**
+	 * Filter the processing-fee terms quoted on product cards. Return an empty
+	 * array to show no fee note at all.
+	 *
+	 * @param array $terms percent, fixed, free_gateway_id, free_gateway_label.
+	 */
+	$terms = apply_filters( 'blueline_wc_card_fee_terms', $terms );
+
+	return is_array( $terms ) ? $terms : array();
+}
+
+/**
+ * Whether a payment gateway is switched on.
+ *
+ * @param string $gateway_id Gateway ID.
+ * @return bool
+ */
+function blueline_wc_gateway_enabled( string $gateway_id ): bool {
+	if ( '' === $gateway_id || ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) {
+		return false;
+	}
+
+	$gateways = WC()->payment_gateways()->payment_gateways();
+
+	return isset( $gateways[ $gateway_id ] ) && 'yes' === $gateways[ $gateway_id ]->enabled;
+}
+
+/**
+ * The one-sentence fee note: what the fee is, and which method has none, naming
+ * that method only while its gateway is actually enabled.
+ *
+ * @return string Plain text; empty when the note is switched off.
+ */
+function blueline_wc_card_fee_message(): string {
+	$terms = blueline_wc_card_fee_terms();
+
+	if ( ! isset( $terms['percent'], $terms['fixed'] ) ) {
+		return '';
+	}
+
+	$percent = rtrim( rtrim( number_format( (float) $terms['percent'], 2, '.', '' ), '0' ), '.' );
+	$fixed   = (float) $terms['fixed'] > 0 ? ' + $' . number_format( (float) $terms['fixed'], 2, '.', '' ) : '';
+
+	/* translators: 1: percentage such as 3.5, 2: optional fixed amount such as " + $0.30". */
+	$message = sprintf( __( 'Card, PayPal, Apple Pay and Google Pay add a %1$s%%%2$s processing fee.', 'blueline' ), $percent, $fixed );
+
+	$free_id    = (string) ( $terms['free_gateway_id'] ?? '' );
+	$free_label = (string) ( $terms['free_gateway_label'] ?? '' );
+
+	if ( '' !== $free_label && blueline_wc_gateway_enabled( $free_id ) ) {
+		/* translators: %s: payment method with no fee, such as Interac e-Transfer. */
+		$message .= ' ' . sprintf( __( '%s has no fee.', 'blueline' ), $free_label );
+	}
+
+	return $message;
+}
+
+add_action( 'woocommerce_single_product_summary', 'blueline_wc_render_product_fee_note', 11 );
+add_action( 'woocommerce_after_shop_loop_item_title', 'blueline_wc_render_product_fee_note', 11 );
+/**
+ * The processing-fee note straight after a paid product's price, so the fee is
+ * known on the card and not first met in the cart.
+ *
+ * @return void
+ */
+function blueline_wc_render_product_fee_note(): void {
+	$product = $GLOBALS['product'] ?? null;
+
+	if ( ! is_object( $product ) || ! method_exists( $product, 'get_price' ) || (float) $product->get_price() <= 0 ) {
+		return;
+	}
+
+	$message = blueline_wc_card_fee_message();
+
+	if ( '' === $message ) {
+		return;
+	}
+
+	printf( '<p class="bl-price-fee">%s</p>', esc_html( $message ) );
+}
+
+/**
+ * Whether the request is a page whose content embeds products (the Register
+ * page). The page text is database content, so it is recognised by what it
+ * contains rather than by slug or ID.
+ *
+ * @return bool
+ */
+function blueline_wc_is_product_listing_page(): bool {
+	if ( ! is_page() || ! in_the_loop() || ! is_main_query() ) {
+		return false;
+	}
+
+	$page_id = (int) get_queried_object_id();
+
+	if ( $page_id <= 0 || get_the_ID() !== $page_id ) {
+		return false;
+	}
+
+	$content = get_post_field( 'post_content', $page_id );
+
+	return false !== stripos( $content, '[product_page' ) || false !== stripos( $content, '[add_to_cart' );
+}
+
+add_filter( 'the_content', 'blueline_wc_register_jump_filter', 20 );
+/**
+ * Put a "Choose your registration" jump link above the Register page's text.
+ * The purchase cards sit wherever the page's own content puts them (about five
+ * screens down on a phone); this gets a visitor to them in one tap. The line
+ * under the button prices the same products the homepage hero advertises: both
+ * come from blueline_homepage_registration_offers(), which reads the season's
+ * products from blueline_registration_season_product_ids().
+ *
+ * @param string $content Page content.
+ * @return string
+ */
+function blueline_wc_register_jump_filter( $content ) {
+	if ( ! blueline_wc_is_product_listing_page() ) {
+		return $content;
+	}
+
+	$parts = array();
+
+	foreach ( blueline_homepage_registration_offers() as $offer ) {
+		if ( '' === $offer['price_label'] ) {
+			continue;
+		}
+
+		$parts[] = trim( $offer['role_label'] . ' ' . $offer['price_label'] );
+	}
+
+	ob_start();
+	?>
+	<div class="bl-register-jump">
+		<a class="bl-btn bl-btn--primary" href="#bl-choose-registration">
+			<span class="bl-skew"><span><?php esc_html_e( 'Choose your registration', 'blueline' ); ?></span></span>
+		</a>
+		<?php if ( ! empty( $parts ) ) : ?>
+			<p class="bl-register-jump__prices"><?php echo esc_html( implode( ' · ', $parts ) ); ?></p>
+		<?php endif; ?>
+	</div>
+	<?php
+	return trim( (string) ob_get_clean() ) . $content;
+}
+
+add_action( 'woocommerce_before_single_product', 'blueline_wc_register_anchor_target' );
+/**
+ * The element the jump link lands on: printed once, before the first product
+ * card embedded in a page (never on a real product page).
+ *
+ * @return void
+ */
+function blueline_wc_register_anchor_target(): void {
+	static $printed = false;
+
+	if ( $printed || ( function_exists( 'is_product' ) && is_product() ) ) {
+		return;
+	}
+
+	$printed = true;
+	echo '<span id="bl-choose-registration" class="bl-anchor-target"></span>';
+}
+
+remove_action( 'woocommerce_single_product_summary', 'woocommerce_template_single_excerpt', 20 );
+add_action( 'woocommerce_single_product_summary', 'blueline_wc_render_included_block', 20 );
+/**
+ * The product summary's short description. On a real product page it becomes a
+ * "What's included" block: the short description the league writes for the
+ * product (season dates, game count, what the fee covers), or, for a paid
+ * product with none, the one-payment line the checkout page already uses. A
+ * waitlist with no short description prints nothing. On the Register page's
+ * embedded cards the plain excerpt is kept as before.
+ *
+ * Filter blueline_wc_product_included_html to replace the block.
+ *
+ * @return void
+ */
+function blueline_wc_render_included_block(): void {
+	if ( ! function_exists( 'is_product' ) || ! is_product() ) {
+		if ( function_exists( 'woocommerce_template_single_excerpt' ) ) {
+			woocommerce_template_single_excerpt();
+		}
+		return;
+	}
+
+	$product = $GLOBALS['product'] ?? null;
+
+	if ( ! is_object( $product ) || ! method_exists( $product, 'get_short_description' ) ) {
+		return;
+	}
+
+	$short = trim( (string) $product->get_short_description() );
+
+	if ( '' !== $short ) {
+		$body = apply_filters( 'woocommerce_short_description', $short );
+	} elseif ( (float) $product->get_price() > 0 ) {
+		$body = '<p>' . esc_html__( 'One payment covers the whole season: jersey, socks, officials and ice time.', 'blueline' ) . '</p>';
+	} else {
+		return;
+	}
+
+	$html = '<section class="bl-product-included"><h2 class="bl-product-included__title">' . esc_html__( 'What’s included', 'blueline' ) . '</h2><div class="woocommerce-product-details__short-description">' . $body . '</div></section>';
+
+	/**
+	 * Filter the "What's included" block on a product page.
+	 *
+	 * @param string $html    Block markup.
+	 * @param object $product The product.
+	 */
+	echo apply_filters( 'blueline_wc_product_included_html', $html, $product ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above; the short description goes through WooCommerce's own filter.
+}
+
+/**
+ * The `sizes` attribute for a product image, matching the box it fills:
+ *
+ * - woocommerce_single: the product page's gallery (a column of up to 420px
+ *   under 780px; at 780px and up the 5/9 grid column of the 1200px container,
+ *   which tops out at about 618px), or, embedded on the Register page, the
+ *   half-width card column (about the viewport minus 94px on a phone, 324px at
+ *   most).
+ * - woocommerce_thumbnail: a shop-loop card (the viewport minus the page gutter
+ *   and the card's padding on a phone, otherwise at most about 320px).
+ *
+ * WooCommerce's own default is the registered image width (200px here), which
+ * made the browser fall back to the 768px original for a 300px box.
+ *
+ * @param string $size     woocommerce_single or woocommerce_thumbnail.
+ * @param bool   $embedded Whether the image is a card embedded in a page.
+ * @return string
+ */
+function blueline_wc_product_image_sizes( string $size, bool $embedded = false ): string {
+	if ( 'woocommerce_thumbnail' === $size ) {
+		return '(max-width: 583px) calc(100vw - 82px), 320px';
+	}
+
+	if ( $embedded ) {
+		return '(max-width: 600px) calc(100vw - 94px), 324px';
+	}
+
+	return '(max-width: 779px) min(420px, calc(100vw - 40px)), min(618px, calc((100vw - 88px) * 5 / 9))';
+}
+
+add_filter( 'woocommerce_gallery_image_html_attachment_image_params', 'blueline_wc_gallery_image_params', 10, 4 );
+/**
+ * Real `sizes` for the product page's gallery images, and, on the first (the
+ * page's largest image above the fold), eager loading at high priority so the
+ * browser fetches it ahead of the page's other images.
+ *
+ * @param array  $params        wp_get_attachment_image() attributes.
+ * @param int    $attachment_id Attachment ID.
+ * @param string $image_size    Image size name.
+ * @param bool   $main_image    Whether this is the gallery's first image.
+ * @return array
+ */
+function blueline_wc_gallery_image_params( $params, $attachment_id = 0, $image_size = '', $main_image = false ) {
+	if ( ! function_exists( 'is_product' ) || ! is_product() || 'woocommerce_single' !== $image_size ) {
+		return $params;
+	}
+
+	$params['sizes'] = blueline_wc_product_image_sizes( 'woocommerce_single' );
+
+	if ( $main_image ) {
+		$params['fetchpriority'] = 'high';
+		$params['loading']       = 'eager';
+	}
+
+	return $params;
+}
+
+remove_action( 'woocommerce_before_shop_loop_item_title', 'woocommerce_template_loop_product_thumbnail', 10 );
+add_action( 'woocommerce_before_shop_loop_item_title', 'blueline_wc_loop_product_thumbnail', 10 );
+/**
+ * Attributes for a product image in a shop loop: the real `sizes`, and the
+ * first image on a shop or category archive loaded eagerly at high priority
+ * (it is above the fold there). Related products on a product page are below
+ * the fold and keep the lazy default.
+ *
+ * @param bool $reset Forget that the first image was already handed out (tests).
+ * @return array{sizes: string, fetchpriority?: string, loading?: string}
+ */
+function blueline_wc_loop_image_attributes( bool $reset = false ): array {
+	static $first_done = false;
+
+	if ( $reset ) {
+		$first_done = false;
+	}
+
+	$attributes = array( 'sizes' => blueline_wc_product_image_sizes( 'woocommerce_thumbnail' ) );
+
+	$on_archive = ( function_exists( 'is_product' ) && ! is_product() )
+		&& ( ( function_exists( 'is_shop' ) && is_shop() ) || ( function_exists( 'is_product_taxonomy' ) && is_product_taxonomy() ) );
+
+	if ( ! $first_done && $on_archive ) {
+		$attributes['fetchpriority'] = 'high';
+		$attributes['loading']       = 'eager';
+	}
+
+	$first_done = true;
+
+	return $attributes;
+}
+
+/**
+ * The shop loop's product image (replaces woocommerce_template_loop_product_thumbnail()).
+ *
+ * @return void
+ */
+function blueline_wc_loop_product_thumbnail(): void {
+	$product = $GLOBALS['product'] ?? null;
+
+	if ( ! is_object( $product ) || ! method_exists( $product, 'get_image' ) ) {
+		return;
+	}
+
+	echo $product->get_image( 'woocommerce_thumbnail', blueline_wc_loop_image_attributes() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own image markup.
+}
+
+add_filter( 'woocommerce_get_image_size_single', 'blueline_wc_image_size_single' );
+add_filter( 'woocommerce_get_image_size_thumbnail', 'blueline_wc_image_size_thumbnail' );
+/**
+ * Generate product page images at 640px wide (the registered 200px made every
+ * source a stretched thumbnail). Only affects images uploaded or regenerated
+ * after this; a larger size the owner chose is kept.
+ *
+ * @param array $size width, height, crop.
+ * @return array
+ */
+function blueline_wc_image_size_single( $size ) {
+	if ( is_array( $size ) && isset( $size['width'] ) && (int) $size['width'] < 640 ) {
+		$size['width'] = 640;
+	}
+
+	return $size;
+}
+
+/**
+ * Generate shop-loop thumbnails at 320px wide; see blueline_wc_image_size_single().
+ *
+ * @param array $size width, height, crop.
+ * @return array
+ */
+function blueline_wc_image_size_thumbnail( $size ) {
+	if ( is_array( $size ) && isset( $size['width'] ) && (int) $size['width'] < 320 ) {
+		$size['width'] = 320;
+	}
+
+	return $size;
 }
 
 /**
