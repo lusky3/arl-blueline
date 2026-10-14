@@ -8,6 +8,23 @@ as the release notes.
 
 ## [Unreleased]
 
+### Fixed
+- The home page hero (and the header's Register button) no longer quotes prices for registrations the league
+  has hidden from the shop. A product with "Hidden" catalogue visibility is never offered, even when it is
+  tagged Featured and still in stock.
+- A $0 waitlist no longer counts as "registration open", so the site stops reading as open all year while a
+  waitlist is on sale. Between seasons, when only waitlists are on offer, the hero says "Waitlist open" with a
+  "Join the waitlist" button and no prices. While games are being played the hero stays the in-season one.
+- Postponed and cancelled games no longer appear as the next game in the hero, in the home page's Next games
+  list, or in the in-season "games this week" count. The next game that is going ahead shows instead, and a
+  cancelled game's date is no longer printed as the season start.
+- The in-season hero shows the real week of the season ("W2026-27 · Week 2"), counted from the season's first
+  game. It used to print the number of games in the next seven days as the week. In a week with no games the
+  headline now names the next game's date instead of "0 games this week".
+- The home page's season emphasis is no longer cached for 15 minutes when WooCommerce or SportsPress was
+  briefly unavailable (for example during a plugin update), and a sale that changes stock now refreshes it
+  straight away.
+
 ## [1.1.4]
 
 ### Fixed
