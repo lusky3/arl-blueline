@@ -308,6 +308,28 @@ final class PlayerPhotoUploadHandlerTest extends TestCase {
 	}
 
 	/**
+	 * The Player Profile form names its action in the URL, so after an overflow admin-post.php still finds it in
+	 * $_GET/$_REQUEST while $_POST is empty. A query-string action must not hide the overflow from the handler.
+	 */
+	public function test_overflow_with_the_action_only_in_the_url_redirects_with_too_large(): void {
+		$_GET                      = array( 'action' => 'blueline_upload_player_photo' );
+		$_REQUEST                  = $_GET; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- building the request admin-post.php would see, not processing it.
+		$_POST                     = array();
+		$_SERVER['CONTENT_LENGTH'] = (string) ( 9 * 1024 * 1024 );
+
+		try {
+			blueline_handle_player_photo_upload();
+			$this->fail( 'The handler must redirect.' );
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			$this->assertSame( 'https://example.test/account/player-profile/?blueline_photo=too_large', $e->location );
+		} finally {
+			$_GET = array();
+		}
+
+		$this->assertSame( array(), $GLOBALS['bl_core_test_media_calls'] );
+	}
+
+	/**
 	 * An empty body that was never big (no Content-Length, or zero) is not an overflow: it still hits the nonce check.
 	 *
 	 * @return array<string, array{0: string|null}>
