@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="tests/bootstrap.php" colors="true">
+<!-- Strict on purpose, matching plugins/blueline-core/phpunit.xml: a warning, a risky test
+     (no assertions, unexpected output, unclosed output buffer) or an order-dependent test
+     fails the run instead of scrolling past. Random order surfaces tests that only pass in
+     file order; reproduce a failure with the seed PHPUnit prints ("Random Seed: N") by
+     running phpunit with its random-order-seed option set to N. The extension resets
+     request state before every test; see tests/class-blueline-test-isolation-extension.php. -->
+<phpunit
+    bootstrap="tests/bootstrap.php"
+    colors="true"
+    executionOrder="random"
+    failOnWarning="true"
+    failOnRisky="true"
+    beStrictAboutTestsThatDoNotTestAnything="true">
   <testsuites>
     <testsuite name="blueline">
       <directory>tests</directory>
     </testsuite>
   </testsuites>
+  <extensions>
+    <bootstrap class="Blueline_Test_Isolation_Extension"/>
+  </extensions>
 </phpunit>

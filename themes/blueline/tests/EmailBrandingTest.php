@@ -33,6 +33,17 @@ require_once __DIR__ . '/../inc/email.php';
 final class EmailBrandingTest extends TestCase {
 
 	/**
+	 * Several cases below seed a brand-color override into the option store;
+	 * without a reset here the default-value cases would read whichever
+	 * override ran last.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		blueline_test_reset();
+	}
+
+	/**
 	 * The one hard accessibility constraint this whole feature turns on:
 	 * base_color drives link text color under WooCommerce's
 	 * email_improvements flag, so it must be the WCAG-AA text-safe token
