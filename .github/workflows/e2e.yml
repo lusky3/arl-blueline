@@ -260,7 +260,7 @@ jobs:
         # summary page.
         env:
           BLUELINE_E2E_BASE_URL: http://localhost:8082
-        run: npm run test:e2e
+        run: npm run test:e2e -- --repeat-each=3
 
       - name: Check nginx for cut-off responses
         # The signature of the stall fixed above. Reported even when every
