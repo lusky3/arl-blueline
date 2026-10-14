@@ -72,39 +72,15 @@ if ( isset( $show_excluded ) && $show_excluded ) {
 }
 
 /*
- * The team/league/season scope this widget was configured with, in the
- * exact shape blueline_sp_next_dated_event() expects -- built once, up
- * front, regardless of which of the three branches below actually resolves
- * $bl_post, since our OWN "is there a real future event?" re-check below
- * needs to stay within that same scope no matter how the stock pick was
- * made.
+ * The team/league/season scope this widget was configured with, plus stock's
+ * postponed/cancelled exclusion, in the exact shape blueline_sp_next_dated_event()
+ * expects -- built once, up front, regardless of which of the three branches
+ * below actually resolves $bl_post, since our OWN "is there a real future
+ * event?" re-check below must stay within that same scope, and must never
+ * swap a stale game for a postponed or cancelled one, no matter how the stock
+ * pick was made.
  */
-$bl_scope_args = array();
-if ( $team ) {
-	$bl_scope_args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- mirrors stock countdown.php's own team scoping; a single-team lookup, not an unbounded query.
-		array(
-			'key'   => 'sp_team',
-			'value' => $team,
-		),
-	);
-}
-if ( $league || $season ) {
-	$bl_scope_args['tax_query'] = array( 'relation' => 'AND' ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- mirrors stock countdown.php's own league/season scoping.
-
-	if ( $league ) {
-		$bl_scope_args['tax_query'][] = array(
-			'taxonomy' => 'sp_league',
-			'terms'    => $league,
-		);
-	}
-
-	if ( $season ) {
-		$bl_scope_args['tax_query'][] = array(
-			'taxonomy' => 'sp_season',
-			'terms'    => $season,
-		);
-	}
-}
+$bl_scope_args = blueline_sp_countdown_scope_args( $team, $league, $season, (array) $excluded_statuses );
 
 if ( isset( $id ) ) :
 	$bl_post = get_post( $id );
@@ -134,23 +110,8 @@ elseif ( $calendar ) :
 		}
 	}
 else :
-	$args = $bl_scope_args;
-
-	// Exclude postponed or cancelled events.
-	$args['meta_query'][] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- mirrors stock countdown.php's own status exclusion.
-		'relation' => 'OR',
-		array(
-			'key'     => 'sp_status',
-			'compare' => 'NOT IN',
-			'value'   => $excluded_statuses,
-		),
-		array(
-			'key'     => 'sp_status',
-			'compare' => 'NOT EXISTS',
-		),
-	);
-
-	$bl_post = sp_get_next_event( $args );
+	// $bl_scope_args already excludes postponed or cancelled events.
+	$bl_post = sp_get_next_event( $bl_scope_args );
 endif;
 
 /*

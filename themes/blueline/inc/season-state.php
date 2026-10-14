@@ -37,6 +37,10 @@ const BLUELINE_SEASON_STATES = array( 'registration_open', 'preseason', 'in_seas
  * facts a caller may need separately. Extracted so both can be asked
  * without going through the five-state enum at all.
  *
+ * `has_purchasable_product` means a PAID product the shop lists: a $0
+ * waitlist or a hidden product never makes registration open (see
+ * blueline_registration_product_offer_kind()).
+ *
  * @param array $signals Same shape as blueline_decide_season_state().
  * @return bool
  */
@@ -219,6 +223,56 @@ function blueline_registration_season_product_ids(): array {
 }
 
 /**
+ * What one registration-category product is on offer as, if anything.
+ *
+ * Not on offer: unpurchasable, out of stock, or hidden from the shop
+ * catalogue. The league hides a registration product when its spots are
+ * filled, and WooCommerce keeps a hidden product purchasable by direct link,
+ * so visibility is the signal that it is closed; "search"-only visibility is
+ * treated the same, because the shop does not list it.
+ *
+ * On offer at a price above zero is registration. On offer at $0 is a
+ * waitlist: it must never read as "registration open", or that state stays
+ * on for as long as the waitlist does -- which can be all year.
+ *
+ * @param object $product A WC_Product.
+ * @return string 'paid', 'waitlist', or '' when the product is not on offer.
+ */
+function blueline_registration_product_offer_kind( $product ): string {
+	if ( ! $product || ! $product->is_purchasable() || ! $product->is_in_stock() ) {
+		return '';
+	}
+
+	if ( ! in_array( $product->get_catalog_visibility(), array( 'visible', 'catalog' ), true ) ) {
+		return '';
+	}
+
+	return (float) $product->get_price() > 0 ? 'paid' : 'waitlist';
+}
+
+/**
+ * The meta_query clause that keeps postponed and cancelled games out of an
+ * sp_event query, for every "next game" surface this theme owns. Events with
+ * no sp_status at all are kept: that is how most games are stored.
+ *
+ * @return array A WP_Query meta_query.
+ */
+function blueline_season_state_live_event_meta_query(): array {
+	return array(
+		'relation' => 'OR',
+		array(
+			'key'     => 'sp_status',
+			'compare' => 'NOT EXISTS',
+		),
+		array(
+			'key'     => 'sp_status',
+			'value'   => array( 'postponed', 'cancelled' ),
+			'compare' => 'NOT IN',
+		),
+	);
+}
+
+/**
  * The single moment every time-sensitive read in blueline_season_state_data()
  * derives from, in the two forms that function needs it: the site-local
  * `Y-m-d H:i:s` string its `date_query` bounds are expressed in, and the Unix
@@ -311,13 +365,19 @@ function blueline_season_state_moment( ?int $now = null ): array {
  * `$now` instead: that would be an unbounded set of cache keys for a value
  * only the live path ever reuses.
  *
+ * Nor is a plain read cached while WooCommerce or SportsPress is missing
+ * (mid-update, or skipped for one CLI process): the answer then is computed
+ * from falsy defaults, and caching it would keep the homepage on the wrong
+ * emphasis for 15 minutes after the plugin is back.
+ *
  * @param int|null $now Unix timestamp to evaluate against; null means now.
  * @return array {
  *     @type string   $state                 One of the five season states.
- *     @type int|null $product_id            Purchasable product driving registration_open, if any.
- *     @type int|null $next_event_id         Soonest upcoming sp_event, if any.
+ *     @type int|null $product_id            Paid product driving registration_open, if any.
+ *     @type int|null $next_event_id         Soonest upcoming sp_event that is going ahead, if any.
  *     @type bool     $is_registration_open  Independent of $state -- see blueline_decide_registration_open().
  *     @type bool     $is_playing            Independent of $state -- see blueline_decide_is_playing().
+ *     @type bool     $is_waitlist_open      Only $0 waitlist products are on offer.
  * }
  */
 function blueline_season_state_data( ?int $now = null ): array {
@@ -330,7 +390,7 @@ function blueline_season_state_data( ?int $now = null ): array {
 		}
 	}
 
-	list( $has_purchasable_product, $product_id ) = blueline_season_state_product_signal();
+	list( $has_purchasable_product, $product_id, $waitlist_id ) = blueline_season_state_product_signal();
 
 	$events = blueline_season_state_no_event_signals();
 
@@ -351,9 +411,10 @@ function blueline_season_state_data( ?int $now = null ): array {
 		'next_event_id'        => $next_event_id,
 		'is_registration_open' => blueline_decide_registration_open( $signals ),
 		'is_playing'           => blueline_decide_is_playing( $signals ),
+		'is_waitlist_open'     => null !== $waitlist_id,
 	);
 
-	if ( $use_cache ) {
+	if ( $use_cache && function_exists( 'wc_get_product' ) && post_type_exists( 'sp_event' ) ) {
 		set_transient( BLUELINE_SEASON_STATE_TRANSIENT, $data, 15 * MINUTE_IN_SECONDS );
 	}
 
@@ -361,28 +422,38 @@ function blueline_season_state_data( ?int $now = null ): array {
 }
 
 /**
- * The WooCommerce signal: the first purchasable, in-stock product in the
- * current season's product_cat.
+ * The WooCommerce signal: the first paid registration product on offer in
+ * the current season's product_cat, or failing that the first $0 waitlist
+ * on offer. See blueline_registration_product_offer_kind() for what "on
+ * offer" means.
  *
  * Read through wc_get_product() only, never the meta lookup table -- see
  * blueline_season_state_data()'s docblock for why.
  *
- * @return array{0: bool, 1: int|null} Whether one exists, and its ID.
+ * @return array{0: bool, 1: int|null, 2: int|null} Whether a paid product is
+ *         on offer, its ID, and -- only when no paid product is -- the ID of
+ *         a waitlist product on offer.
  */
 function blueline_season_state_product_signal(): array {
 	if ( ! function_exists( 'wc_get_product' ) ) {
-		return array( false, null );
+		return array( false, null, null );
 	}
 
-	foreach ( blueline_registration_season_product_ids() as $candidate_id ) {
-		$product = wc_get_product( $candidate_id );
+	$waitlist_id = null;
 
-		if ( $product && $product->is_purchasable() && $product->is_in_stock() ) {
-			return array( true, (int) $candidate_id );
+	foreach ( blueline_registration_season_product_ids() as $candidate_id ) {
+		$kind = blueline_registration_product_offer_kind( wc_get_product( $candidate_id ) );
+
+		if ( 'paid' === $kind ) {
+			return array( true, (int) $candidate_id, null );
+		}
+
+		if ( 'waitlist' === $kind && null === $waitlist_id ) {
+			$waitlist_id = (int) $candidate_id;
 		}
 	}
 
-	return array( false, null );
+	return array( false, null, $waitlist_id );
 }
 
 /**
@@ -431,6 +502,10 @@ function blueline_season_state_event_signals( string $now_mysql, int $now_ts ): 
 					'after'  => $now_mysql,
 				),
 			),
+			// A postponed or cancelled game is not "upcoming": counting it
+			// would send players to a game that is not happening, and print
+			// its date as the season start.
+			'meta_query'     => blueline_season_state_live_event_meta_query(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded by post_type sp_event and the date range above.
 		)
 	);
 
@@ -693,5 +768,9 @@ if ( function_exists( 'add_action' ) ) {
 	add_action( 'save_post_product', 'blueline_bust_season_state_cache' );
 	add_action( 'save_post_sp_event', 'blueline_bust_season_state_cache' );
 	add_action( 'woocommerce_update_product', 'blueline_bust_season_state_cache' );
+	// A sale changes stock without saving the product, so neither hook
+	// above fires when the last spot sells.
+	add_action( 'woocommerce_product_set_stock', 'blueline_bust_season_state_cache' );
+	add_action( 'woocommerce_product_set_stock_status', 'blueline_bust_season_state_cache' );
 	add_action( 'admin_notices', 'blueline_render_season_state_override_notice' );
 }

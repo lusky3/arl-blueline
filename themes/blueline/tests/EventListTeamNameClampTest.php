@@ -4,8 +4,8 @@
  *
  * On a phone a 13-letter team name broke mid-word ("Lumberjac/ks") because the
  * Home/Away cells set `overflow-wrap: anywhere`. The fix gives the visible name
- * its own element so a name too long for its column is clamped with an ellipsis
- * and offered in full (assets/src/js/team-name-tooltip.js, unit-tested in
+ * its own element so a name too long for its column wraps, is clamped past two
+ * lines and offered in full (assets/src/js/team-name-tooltip.js, unit-tested in
  * team-name-tooltip.test.mjs). The template cannot be rendered by this suite
  * (see EventListPendingResultTest.php's docblock), so this source-scans the two
  * files the behaviour depends on.
@@ -46,16 +46,37 @@ final class EventListTeamNameClampTest extends TestCase {
 	}
 
 	/**
-	 * The clamp must turn off the cell's mid-word breaking for the name itself,
-	 * and be able to shrink below its content or it never takes effect.
+	 * A name wraps onto a second line before anything is cut off (WCAG 1.4.12:
+	 * text spacing overrides widen every word, and a single-line ellipsis then
+	 * hid part of it), is clamped only past two lines, and can shrink below its
+	 * content or the clamp never takes effect.
 	 */
-	public function test_stylesheet_clamps_the_name_instead_of_breaking_mid_word(): void {
+	public function test_stylesheet_wraps_the_name_to_two_lines_before_clamping(): void {
 		$css = $this->theme_file( 'assets/src/css/sportspress.css' );
 
 		$this->assertMatchesRegularExpression(
-			'/\.bl-sp-schedule \.bl-sp-team-name\s*\{[^}]*min-width:\s*0;[^}]*overflow:\s*hidden;[^}]*overflow-wrap:\s*normal;[^}]*text-overflow:\s*ellipsis;/s',
+			'/\.bl-sp-schedule \.bl-sp-team-name\s*\{[^}]*display:\s*-webkit-box;[^}]*-webkit-line-clamp:\s*2;[^}]*min-width:\s*0;[^}]*overflow:\s*hidden;[^}]*overflow-wrap:\s*anywhere;/s',
 			$css
 		);
+		$this->assertDoesNotMatchRegularExpression(
+			'/\.bl-sp-schedule \.bl-sp-team-name\s*\{[^}]*white-space:\s*nowrap/s',
+			$css,
+			'a one-line name cannot wrap out of a text-spacing override'
+		);
+	}
+
+	/**
+	 * Below 600px the schedule is cards, not a sideways-scrolling table: the
+	 * 40rem minimum width is dropped and every row is laid out on its own.
+	 */
+	public function test_stylesheet_stacks_rows_as_cards_on_phones(): void {
+		$css = $this->theme_file( 'assets/src/css/sportspress.css' );
+
+		$this->assertSame( 1, preg_match( '/@media \(max-width: 600px\) \{\s*\.sp-event-list\.bl-sp-schedule,.*?\n\}/s', $css, $block ) );
+		$this->assertMatchesRegularExpression( '/min-width:\s*0;/', $block[0] );
+		$this->assertMatchesRegularExpression( '/tbody tr\.sp-row \{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s', $block[0] );
+		$this->assertMatchesRegularExpression( '/td\.data-time \{[^}]*order:\s*2;[^}]*text-align:\s*end;/s', $block[0] );
+		$this->assertMatchesRegularExpression( '/td\.data-venue \{[^}]*order:\s*7;/s', $block[0] );
 	}
 
 	/**

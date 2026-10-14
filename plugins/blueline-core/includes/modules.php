@@ -25,5 +25,6 @@ return array(
 	'admin-bar'         => 'admin-bar/admin-bar.php',
 	'search'            => 'search/search.php',
 	'privacy'           => 'privacy/privacy.php',
+	'indexing'          => 'indexing/indexing.php',
 	'plugin-info'       => 'plugin-info/plugin-info.php',
 );

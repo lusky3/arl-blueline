@@ -20,9 +20,9 @@
  * this is visually open, and a click's native toggle is never fighting a
  * competing always-on rule.)
  *
- * --bl-z-floating-widget (style.css's centralized scale), reused rather
- * than a new z-index variable: the same "sitewide persistent overlay
- * chrome" tier as the existing floating next-game widget.
+ * --bl-z-flyout (style.css's centralized scale) sits one step above the
+ * floating next-game widget's tier, so an open panel is never hidden behind
+ * that widget, and still below the mobile nav drawer.
  */
 
 /*
@@ -56,7 +56,7 @@
 	position: fixed;
 	inset-block: 0;
 	left: 0;
-	z-index: var(--bl-z-floating-widget);
+	z-index: var(--bl-z-flyout);
 	display: flex;
 	align-items: center;
 
@@ -112,6 +112,11 @@
 	 * (animation-iteration-count: 1 under that media query), so this
 	 * needs no separate override to behave for that preference.
 	 *
+	 * Three pulses, not forever: an attention cue that never stops is
+	 * motion the visitor cannot dismiss. assets/src/js/team-flyout.js adds
+	 * .bl-team-flyout--seen once the flyout has been opened (and remembers
+	 * it), which stops it for good.
+	 *
 	 * A second, constant shadow -- --bl-shadow-raised, the same elevation
 	 * token floating-next-game.css already uses for its own "floats over
 	 * arbitrary page content" card -- is appended after the pulse's own
@@ -124,7 +129,11 @@
 	box-shadow:
 		0 0 0 0 color-mix(in srgb, var(--bl-ice) 55%, transparent),
 		var(--bl-shadow-raised);
-	animation: bl-team-flyout-pulse 4s cubic-bezier(0, 0, 0.2, 1) infinite;
+	animation: bl-team-flyout-pulse 4s cubic-bezier(0, 0, 0.2, 1) 3;
+}
+
+.bl-team-flyout--seen summary {
+	animation: none;
 }
 
 .bl-team-flyout summary::-webkit-details-marker {
@@ -180,7 +189,7 @@
 
 	/* Centered within the viewport space BELOW the fixed header, not the
 	 * full viewport -- the header (z-index: var(--bl-z-header), 60) sits
-	 * above this panel (var(--bl-z-floating-widget), 45), and centering
+	 * above this panel (var(--bl-z-flyout), 48), and centering
 	 * against the full 100vh (the previous `top: 50%`, which this element's
 	 * position:fixed ancestor with no explicit height resolves against the
 	 * viewport) put the panel's top edge only ~16px down at any viewport
@@ -216,7 +225,10 @@
 	 * overlap finding above), neither accounting for the header's own real,
 	 * dynamic height. */
 	max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - (var(--bl-space-4) * 2));
-	width: 86px;
+
+	/* Wide enough for a crest plus the team's name beside it; min() keeps
+	 * it inside the viewport at the 360px floor. */
+	width: min(220px, calc(100vw - var(--bl-team-flyout-width) - var(--bl-space-4)));
 	overflow-y: auto;
 	overflow-x: hidden;
 
@@ -242,10 +254,16 @@
 
 .bl-team-flyout__link {
 
-	/* Block + round, so the focus ring circles the crest (an inline link
-	   wrapping a block drew it around empty line fragments). */
-	display: block;
-	border-radius: 50%;
+	/* A row of crest + name: the whole row is the target and the focus ring
+	   frames both (an inline link wrapping a block drew it around empty line
+	   fragments). */
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-3);
+	padding: var(--bl-space-1);
+	border-radius: var(--bl-radius-card);
+	color: var(--bl-content-text);
+	text-decoration: none;
 	visibility: hidden;
 	transition: visibility 0s linear 0.2s;
 }
@@ -266,8 +284,8 @@
 .bl-team-flyout__list {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	gap: var(--bl-space-4);
+	align-items: stretch;
+	gap: var(--bl-space-2);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -275,6 +293,7 @@
 
 .bl-team-flyout__crest {
 	display: block;
+	flex: none;
 	width: 56px;
 	height: 56px;
 	border-radius: 50%;
@@ -285,9 +304,6 @@
 	background: var(--bl-white);
 	border: 2px solid var(--bl-content-border);
 	padding: 4px;
-	animation-name: bl-team-flyout-bob;
-	animation-timing-function: ease-in-out;
-	animation-iteration-count: infinite;
 }
 
 .bl-team-flyout__crest img,
@@ -299,51 +315,31 @@
 }
 
 /*
- * Three-way stagger via :nth-child, not per-element inline styles: this
- * markup has no JavaScript to compute per-item random values (Global
- * Constraints), and a fixed 3-phase cycle already reads as organic enough
- * at this item count -- confirmed against the brainstorming mockup, which
- * used JS-randomized values purely because that was easiest in a throwaway
- * prototype, not because the production version needs it.
+ * The crests used to bob forever; a looping animation beside the content
+ * people are reading is gone, not paused.
  */
-.bl-team-flyout__item:nth-child(3n+1) .bl-team-flyout__crest {
-	animation-delay: 0s;
-	animation-duration: 3.6s;
-}
-
-.bl-team-flyout__item:nth-child(3n+2) .bl-team-flyout__crest {
-	animation-delay: 0.6s;
-	animation-duration: 4.2s;
-}
-
-.bl-team-flyout__item:nth-child(3n) .bl-team-flyout__crest {
-	animation-delay: 1.2s;
-	animation-duration: 3.9s;
-}
-
 .bl-team-flyout__link:hover .bl-team-flyout__crest,
 .bl-team-flyout__link:focus-visible .bl-team-flyout__crest {
 	border-color: var(--bl-ice);
-	animation-play-state: paused;
 }
 
-@keyframes bl-team-flyout-bob {
+/*
+ * Printed beside the crest (not a hover tooltip): touch has no hover. Long
+ * names wrap rather than clip.
+ */
+.bl-team-flyout__name {
+	min-width: 0;
+	font-size: var(--bl-text-sm);
+	font-weight: 600;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
 
-	0%,
-	100% {
-		transform: translateY(0);
-	}
-
-	50% {
-		transform: translateY(-6px);
-	}
+.bl-team-flyout__link:hover .bl-team-flyout__name {
+	text-decoration: underline;
 }
 
 @media (prefers-reduced-motion: reduce) {
-
-	.bl-team-flyout__crest {
-		animation: none;
-	}
 
 	.bl-team-flyout__panel,
 	.bl-team-flyout__link {
@@ -354,7 +350,7 @@
 @media (max-width: 480px) {
 
 	.bl-team-flyout__panel {
-		width: 76px;
+		width: min(200px, calc(100vw - var(--bl-team-flyout-width) - var(--bl-space-4)));
 	}
 
 	.bl-team-flyout__crest {

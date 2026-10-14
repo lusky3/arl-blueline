@@ -185,9 +185,9 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	/**
-	 * A player page uses the raw post title (no badge), plain.
+	 * A player page uses the raw post title (no badge), plain, and is a profile.
 	 */
-	public function test_player_page_uses_the_clean_title_and_article_type(): void {
+	public function test_player_page_uses_the_clean_title_and_profile_type(): void {
 		$this->set_up_singular_request(
 			301,
 			'sp_player',
@@ -200,13 +200,13 @@ final class SeoMetaOutputTest extends TestCase {
 
 		$html = $this->render_head();
 
-		$this->assertStringContainsString( '<meta property="og:type" content="article">', $html );
+		$this->assertStringContainsString( '<meta property="og:type" content="profile">', $html );
 		$this->assertStringContainsString( '<meta property="og:title" content="Matthew Mascola">', $html );
 		$this->assertStringContainsString( '<meta property="og:url" content="https://example.test/sp_player/301/">', $html );
 		$this->assertStringContainsString( '<meta property="og:description" content="Center, #27.">', $html );
 		$this->assertStringContainsString( '<meta name="description" content="Center, #27.">', $html );
 		$this->assertStringContainsString( '<meta property="og:image" content="https://example.test/uploads/photo-55-large.jpg">', $html );
-		$this->assertStringContainsString( '<meta name="twitter:card" content="summary_large_image">', $html );
+		$this->assertStringContainsString( '<meta name="twitter:card" content="summary">', $html, 'A photo of unknown shape is not cropped into the large card.' );
 	}
 
 	/**
@@ -227,13 +227,16 @@ final class SeoMetaOutputTest extends TestCase {
 	 */
 	public function test_event_page_decodes_team_names_in_meta_and_json_ld(): void {
 		$this->set_up_event_request( array( 'Bob&#8217;s &amp; Co', 'Hammers' ) );
+		$state             = &blueline_test_state();
+		$state['timezone'] = 'UTC';
+		$date              = gmdate( 'M j, Y', (int) strtotime( '7:00 PM +0000' ) );
 
 		$html = $this->render_head();
 
-		$this->assertStringContainsString( '<meta property="og:title" content="Bob’s &amp; Co vs Hammers">', $html );
+		$this->assertStringContainsString( '<meta property="og:title" content="Bob’s &amp; Co vs Hammers — ' . $date . '">', $html );
 		$this->assertStringContainsString( '<meta property="og:type" content="website">', $html );
 		$this->assertStringContainsString( '<meta property="og:url" content="https://example.test/event/100">', $html );
-		$this->assertStringContainsString( 'Aug 20 at 7:00 PM', $html );
+		$this->assertStringContainsString( ' at 7:00 PM', $html );
 		$this->assertStringNotContainsString( '&#8217;', $html );
 
 		$event = $this->sports_event( $html );
@@ -338,7 +341,10 @@ final class SeoMetaOutputTest extends TestCase {
 		$state['gmt_unresolvable'] = true;
 
 		$this->assertNull( blueline_sports_event_schema( 100 ) );
-		$this->assertCount( 1, $this->json_ld( $this->render_head() )['@graph'], 'Only the Organization node.' );
+		$types = array_column( $this->json_ld( $this->render_head() )['@graph'], '@type' );
+
+		$this->assertNotContains( 'SportsEvent', $types );
+		$this->assertContains( 'SportsOrganization', $types );
 	}
 
 	/**
@@ -471,8 +477,8 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	/**
-	 * Without an excerpt the raw content is stripped of shortcodes/tags and trimmed to 30 words,
-	 * without the content filters.
+	 * Without an excerpt the raw content is stripped of shortcodes/tags and cut at a word boundary
+	 * within the description limit, without the content filters.
 	 */
 	public function test_content_description_strips_shortcodes_and_markup_and_trims(): void {
 		$rendered = new \ArrayObject( array( 0 ) );
@@ -496,19 +502,53 @@ final class SeoMetaOutputTest extends TestCase {
 
 		$this->assertStringStartsWith( 'Hello there & welcome. word1 word2', $description );
 		$this->assertStringEndsWith( '…', $description );
+		$this->assertLessThanOrEqual( 155, mb_strlen( $description ) );
 		$this->assertStringNotContainsString( 'gallery', $description );
 		$this->assertStringNotContainsString( '<', $description );
-		$this->assertCount( 30, explode( ' ', rtrim( $description, '…' ) ) );
+		$this->assertMatchesRegularExpression( '/ word\d+…$/', $description, 'Cut between words, never inside one.' );
 		$this->assertSame( 0, $rendered[0], 'No the_content filtering in wp_head.' );
 	}
 
 	/**
-	 * Only registered shortcodes are stripped, as in core; an unregistered tag's text stays.
+	 * A token from a deactivated plugin's shortcode (no longer registered, so core leaves it) never
+	 * reaches a snippet.
 	 */
-	public function test_unregistered_shortcodes_are_left_in_the_description(): void {
-		$this->set_up_singular_request( 314, 'post', array( 'content' => 'Hello [unknownshort] world' ) );
+	public function test_leftover_shortcode_tokens_are_removed_from_the_description(): void {
+		$this->set_up_singular_request( 314, 'post', array( 'content' => '[wc_frontend_manager] Hello [unknownshort id="3"] world' ) );
 
-		$this->assertSame( 'Hello [unknownshort] world', blueline_core_seo_post_description( 314 ) );
+		$this->assertSame( 'Hello world', blueline_core_seo_post_description( 314 ) );
+	}
+
+	/**
+	 * Provider: input, limit, expected.
+	 *
+	 * @return array<string, array{0: string, 1: int, 2: string}>
+	 */
+	public static function limit_text_cases(): array {
+		return array(
+			'short text is whole'              => array( 'Just a few words.', 155, 'Just a few words.' ),
+			'exactly at the limit is whole'    => array( 'abcde fghij', 11, 'abcde fghij' ),
+			'cut at a word boundary'           => array( 'alpha beta gamma delta', 16, 'alpha beta…' ),
+			'cut lands on a word edge'         => array( 'alpha beta gamma', 11, 'alpha beta…' ),
+			'trailing punctuation is not kept' => array( 'alpha beta, gamma delta', 13, 'alpha beta…' ),
+			'one very long word is cut hard'   => array( 'abcdefghijklmnopqrstuvwxyz tail', 10, 'abcdefghi…' ),
+			'multibyte text counts characters' => array( 'éééé éééé éééé', 10, 'éééé éééé…' ),
+		);
+	}
+
+	/**
+	 * The result never exceeds the limit, ellipsis included, and never ends mid-word.
+	 *
+	 * @param string $input    Text.
+	 * @param int    $limit    Limit.
+	 * @param string $expected Expected result.
+	 */
+	#[DataProvider( 'limit_text_cases' )]
+	public function test_limit_text_caps_at_a_word_boundary( string $input, int $limit, string $expected ): void {
+		$result = blueline_core_seo_limit_text( $input, $limit );
+
+		$this->assertSame( $expected, $result );
+		$this->assertLessThanOrEqual( $limit, mb_strlen( $result ) );
 	}
 
 	/**

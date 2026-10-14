@@ -15,9 +15,10 @@
  * than the corner this used to permanently collide with.
  *
  * --bl-z-floating-widget (style.css's centralized scale) sits between
- * --bl-z-nav-submenu and --bl-z-drawer on purpose: above ordinary page
- * content, but below the mobile nav drawer, so opening navigation is never
- * visually obscured by this widget.
+ * --bl-z-nav-submenu and --bl-z-flyout/--bl-z-drawer on purpose: above
+ * ordinary page content, but below the team flyout (whose open panel must
+ * never be hidden behind this widget) and the mobile nav drawer, so opening
+ * navigation is never visually obscured by this widget.
  *
  * A capped width, not a percentage of the viewport, keeps this a small
  * chip rather than a second column at any width -- and never causes the
@@ -83,10 +84,31 @@
 	display: none;
 }
 
+/*
+ * Says whose game this is; hidden in the phone bar, where the date,
+ * opponent and venue stand alone.
+ */
+.bl-floating-next-game__kicker {
+	margin: 0 0 var(--bl-space-1);
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-xs);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
 .bl-floating-next-game__date {
 	margin: 0 0 var(--bl-space-1);
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-xs);
+}
+
+/*
+ * The short date is the phone bar's; `display: none` keeps it out of the
+ * accessibility tree otherwise.
+ */
+.bl-floating-next-game__date-short {
+	display: none;
 }
 
 .bl-floating-next-game__matchup {
@@ -149,4 +171,148 @@
 	.bl-floating-next-game {
 		bottom: calc(var(--bl-space-4) + env(safe-area-inset-bottom));
 	}
+}
+
+/*
+ * Phones: a compact full-width bottom bar ("Fri 6:45 pm · vs Ice Bears · Red")
+ * instead of a 280x109 card. The card covered the footer theme toggle, the
+ * footer crests and whatever form field or button focus landed on near the
+ * bottom edge. The bar is half the height and the page reserves exactly its
+ * height (below), so the footer can always scroll clear of it and focused
+ * controls are scrolled out from under it.
+ *
+ * Declared after the @supports rule above so its `bottom: 0` wins at equal
+ * specificity.
+ */
+@media (max-width: 600px) {
+
+	/*
+	 * On the root so the page wrapper below can reserve exactly what the
+	 * bar occupies.
+	 */
+	:root {
+		--bl-next-game-bar-height: 56px;
+		--bl-next-game-bar-total: calc(var(--bl-next-game-bar-height) + env(safe-area-inset-bottom));
+	}
+
+	.bl-floating-next-game {
+		display: flex;
+		align-items: center;
+		gap: var(--bl-space-3);
+		inset: auto 0 0;
+		width: auto;
+		max-width: none;
+		block-size: var(--bl-next-game-bar-total);
+		padding: 0 0 env(safe-area-inset-bottom);
+		padding-inline-start: var(--bl-space-4);
+		border-inline: 0;
+		border-block-end: 0;
+		border-radius: 0;
+	}
+
+	.bl-floating-next-game[hidden] {
+		display: none;
+	}
+
+	.bl-floating-next-game__kicker {
+		display: none;
+	}
+
+	.bl-floating-next-game__updated {
+		flex: none;
+		margin: 0;
+	}
+
+	.bl-floating-next-game__date {
+		flex: none;
+		margin: 0;
+		color: var(--bl-content-text);
+		font-size: var(--bl-text-sm);
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	.bl-floating-next-game__date-full {
+		display: none;
+	}
+
+	.bl-floating-next-game__date-short {
+		display: inline;
+	}
+
+	/*
+	 * One line, the full bar height: a comfortable tap target that
+	 * truncates instead of wrapping.
+	 */
+	.bl-floating-next-game__matchup {
+		flex: 1 1 auto;
+		min-width: 0;
+		margin: 0;
+		overflow: hidden;
+		line-height: var(--bl-next-game-bar-height);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.bl-floating-next-game__venue {
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: 32%;
+		margin: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.bl-floating-next-game__venue a {
+		display: inline-block;
+		max-width: 100%;
+		overflow: hidden;
+		line-height: 44px;
+		text-overflow: ellipsis;
+		vertical-align: middle;
+	}
+
+	.bl-floating-next-game__dismiss {
+		position: static;
+		flex: none;
+	}
+
+	/*
+	 * Reserve the bar's height at the bottom of the page and of the scroller
+	 * while it is showing -- :has() so a dismissal (which only sets `hidden`)
+	 * gives the space straight back.
+	 */
+	body:has(.bl-floating-next-game:not([hidden])) .bl-site {
+		padding-block-end: var(--bl-next-game-bar-total);
+	}
+
+	html:has(.bl-floating-next-game:not([hidden])) {
+		scroll-padding-bottom: calc(var(--bl-next-game-bar-total) + var(--bl-space-3));
+	}
+
+	/*
+	 * The push-notification bell is fixed to the same bottom edge; it
+	 * cannot sit on the bar.
+	 */
+	body:has(.bl-floating-next-game:not([hidden])) #onesignal-bell-container {
+		display: none !important;
+	}
+}
+
+/*
+ * The OneSignal push-notification plugin injects a fixed bell
+ * (`#onesignal-bell-container`) at a z-index far above this theme's scale, so
+ * it sat over the open mobile drawer, the rules modal and the footer theme
+ * toggle. Pulled back below the drawer (and everything above it), clear of a
+ * phone's home indicator, and hidden while the drawer is open. Scoped by id:
+ * a no-op when the plugin is inactive.
+ */
+#onesignal-bell-container {
+	z-index: var(--bl-z-nav-submenu) !important;
+	bottom: calc(var(--bl-space-4) + env(safe-area-inset-bottom)) !important;
+}
+
+body.bl-nav-open #onesignal-bell-container {
+	display: none !important;
 }
