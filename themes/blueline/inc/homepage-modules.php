@@ -716,11 +716,12 @@ function blueline_homepage_hero_offseason_content(): array {
  * markup instead of a class that names one state while showing another's
  * copy. That mismatch was a shipped bug; do not drop this key while editing.
  *
- * When no paid registration is on offer but a $0 waitlist is, the copy is
- * the waitlist hero (blueline_homepage_hero_waitlist_content()) whatever
- * the season state, and the result carries `variant => 'waitlist'`: the
- * class names that variant, while 'state' remains the season the module
- * order should follow.
+ * When no paid registration is on offer but a $0 waitlist is, and no games
+ * are being played, the copy is the waitlist hero
+ * (blueline_homepage_hero_waitlist_content()) and the result carries
+ * `variant => 'waitlist'`: the class names that variant, while 'state'
+ * remains the season state the module order should follow. While games are
+ * being played the season's own hero wins.
  *
  * @param string $state      One of the five known season states.
  * @param array  $state_data Result of blueline_season_state_data().
@@ -776,11 +777,16 @@ function blueline_homepage_hero_content( string $state, array $state_data ): arr
 
 	$effective_state = isset( $builders[ $state ] ) ? $state : 'offseason';
 
-	// Only $0 waitlists on offer: the hero says so, with no price. Checked
-	// live, like the paid offers above, rather than off the cached state.
-	// 'state' stays the season being played, because that is what the
-	// module order below the hero follows; 'variant' names the copy shown.
-	$waitlist_id = (int) ( blueline_season_state_product_signal()[2] ?? 0 );
+	// Only $0 waitlists on offer, and no games being played: the hero says so,
+	// with no price. While a season is running the hero is for the people
+	// playing in it, so it keeps its own copy; the waitlist stays one click
+	// away in the header. Checked live, like the paid offers above, rather
+	// than off the cached state. 'state' stays the season state, because that
+	// is what the module order below the hero follows; 'variant' names the
+	// copy shown.
+	$waitlist_id = empty( $state_data['is_playing'] )
+		? (int) ( blueline_season_state_product_signal()[2] ?? 0 )
+		: 0;
 
 	if ( $waitlist_id ) {
 		$content            = blueline_homepage_hero_waitlist_content(

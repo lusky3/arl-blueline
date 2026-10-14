@@ -210,13 +210,54 @@ final class HomepageSeasonRulesTest extends TestCase {
 	}
 
 	/**
-	 * The live case: every paid product is hidden and only $0 waitlists are
-	 * on sale. The hero says "Waitlist open" with no price (even if the
-	 * state was forced to registration_open), and the module order still
-	 * follows the season actually being played.
+	 * Every paid product is hidden and only a $0 waitlist is on sale, with no
+	 * games being played (between seasons). The hero says "Waitlist open" with
+	 * no price (even if the state was forced to registration_open).
 	 */
 	#[RunInSeparateProcess]
-	public function test_waitlist_only_season_shows_the_waitlist_hero(): void {
+	public function test_waitlist_only_between_seasons_shows_the_waitlist_hero(): void {
+		$this->seed_waitlist_only_season();
+
+		$content = blueline_homepage_hero_content(
+			'registration_open',
+			array(
+				'next_event_id' => 42,
+				'is_playing'    => false,
+			)
+		);
+
+		$this->assertSame( 'waitlist', $content['variant'] );
+		$this->assertSame( 'preseason', $content['state'] );
+		$this->assertSame( 'Fall 2026 · Waitlist open', $content['eyebrow'] );
+		$this->assertSame( 'Join the waitlist', $content['cta_label'] );
+		$this->assertStringNotContainsString( '$', implode( ' ', $content['subcopy_lines'] ) . $content['cta_label'] );
+	}
+
+	/**
+	 * The live case: a season is running and only $0 waitlists are on sale.
+	 * The hero stays the in-season hero (it is for the people playing); the
+	 * waitlist is reached from the header, not by replacing their games.
+	 */
+	#[RunInSeparateProcess]
+	public function test_waitlist_only_while_playing_keeps_the_in_season_hero(): void {
+		$this->seed_waitlist_only_season();
+
+		$content = blueline_homepage_hero_content(
+			'registration_open',
+			array(
+				'next_event_id' => 42,
+				'is_playing'    => true,
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'variant', $content );
+		$this->assertSame( 'in_season', $content['state'] );
+	}
+
+	/**
+	 * Shared set-up: paid products hidden, one visible $0 waitlist.
+	 */
+	private function seed_waitlist_only_season(): void {
 		$this->load_stubs();
 		$this->seed_registration_season();
 		$this->feature( 21 );
@@ -228,20 +269,6 @@ final class HomepageSeasonRulesTest extends TestCase {
 			22 => array( true, true, 'hidden', '170' ),
 			23 => array( true, true, 'visible', '0' ),
 		);
-
-		$content = blueline_homepage_hero_content(
-			'registration_open',
-			array(
-				'next_event_id' => 42,
-				'is_playing'    => true,
-			)
-		);
-
-		$this->assertSame( 'waitlist', $content['variant'] );
-		$this->assertSame( 'in_season', $content['state'] );
-		$this->assertSame( 'Fall 2026 · Waitlist open', $content['eyebrow'] );
-		$this->assertSame( 'Join the waitlist', $content['cta_label'] );
-		$this->assertStringNotContainsString( '$', implode( ' ', $content['subcopy_lines'] ) . $content['cta_label'] );
 	}
 
 	/**

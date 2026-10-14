@@ -13,8 +13,8 @@ as the release notes.
   has hidden from the shop. A product with "Hidden" catalogue visibility is never offered, even when it is
   tagged Featured and still in stock.
 - A $0 waitlist no longer counts as "registration open", so the site stops reading as open all year while a
-  waitlist is on sale. When only waitlists are on offer, the hero says "Waitlist open" with a "Join the
-  waitlist" button and no prices, and still shows the next game while the season is being played.
+  waitlist is on sale. Between seasons, when only waitlists are on offer, the hero says "Waitlist open" with a
+  "Join the waitlist" button and no prices. While games are being played the hero stays the in-season one.
 - Postponed and cancelled games no longer appear as the next game in the hero, in the home page's Next games
   list, or in the in-season "games this week" count. The next game that is going ahead shows instead, and a
   cancelled game's date is no longer printed as the season start.
