@@ -361,9 +361,12 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 	 * never registered as a post type in this suite's default state, so
 	 * blueline_homepage_games_this_week() (gated on post_type_exists())
 	 * returns 0, and _n( 'game', 'games', 0, ... ) resolves to the plural.
+	 * No next_event_id is passed: with one, a zero count names the next
+	 * game's date instead (HomepageSeasonRulesTest), which is not this
+	 * setting's headline.
 	 */
 	public function test_in_season_headline_renders_unchanged_with_the_default_value(): void {
-		$content = blueline_homepage_hero_in_season_content( array( 'next_event_id' => 42 ) );
+		$content = blueline_homepage_hero_in_season_content( array() );
 
 		$this->assertSame(
 			'<span class="bl-hero__highlight">0</span> games this week.',

@@ -50,7 +50,8 @@ function blueline_normalize_player_stats( array $raw ): array {
  * $team_id's own sp_table post for the season currently driving the
  * schedule (blueline_current_sp_season_term_id()) -- the specific
  * standings table this team is rostered into for that season, found by
- * checking each season-scoped table's own sp_teams roster meta, not by
+ * checking each season-scoped table's own team list
+ * (blueline_sp_table_team_ids()), not by
  * matching strings in the post title (unlike the simpler,
  * Division-1-only homepage snippet in inc/homepage-modules.php, this must
  * work for a team in ANY division).
@@ -98,14 +99,50 @@ function blueline_team_current_table_id( int $team_id ): ?int {
 	);
 
 	foreach ( $table_ids as $table_id ) {
-		$rostered_teams = get_post_meta( $table_id, 'sp_teams', true );
-
-		if ( is_array( $rostered_teams ) && array_key_exists( $team_id, $rostered_teams ) ) {
+		if ( in_array( $team_id, blueline_sp_table_team_ids( (int) $table_id ), true ) ) {
 			return (int) $table_id;
 		}
 	}
 
 	return null;
+}
+
+/**
+ * The teams an sp_table lists, read the way SP_League_Table itself reads them.
+ *
+ * The table's teams are the repeated `sp_team` meta rows (the same source
+ * SportsPress's own table class uses). `sp_teams` is only SportsPress's
+ * manual-override store, keyed by team id: older tables that were edited by
+ * hand carry it, but tables created programmatically -- every W2026-27 table
+ * on this site -- leave it empty, so reading it alone lost every team's
+ * division and record the moment that season started. It is still consulted
+ * when a table has no `sp_team` rows at all.
+ *
+ * @param int $table_id sp_table post ID.
+ * @return int[] Positive team ids, in stored order, without duplicates.
+ */
+function blueline_sp_table_team_ids( int $table_id ): array {
+	$ids = array();
+
+	foreach ( (array) get_post_meta( $table_id, 'sp_team', false ) as $row ) {
+		$id = is_scalar( $row ) ? absint( $row ) : 0;
+
+		if ( $id > 0 && ! in_array( $id, $ids, true ) ) {
+			$ids[] = $id;
+		}
+	}
+
+	if ( $ids ) {
+		return $ids;
+	}
+
+	$overrides = get_post_meta( $table_id, 'sp_teams', true );
+
+	if ( ! is_array( $overrides ) ) {
+		return array();
+	}
+
+	return array_values( array_unique( array_filter( array_map( 'absint', array_keys( $overrides ) ) ) ) );
 }
 
 /**
@@ -169,7 +206,7 @@ function blueline_player_division_name( int $team_id ): string {
  * | S2026") computes team 111510's own row as
  * `['gp'=>14,'w'=>5,'l'=>6,'tie'=>3,'ot'=>0,'pts'=>13,...]` -- real,
  * non-placeholder data, because SP_League_Table derives it from the
- * table's own curated `sp_teams` roster plus event results, not from a
+ * table's own `sp_team` rows plus event results, not from a
  * single event's sp_results meta the way a naive per-event tally would.
  *
  * @param int $team_id sp_team post ID.
@@ -257,53 +294,56 @@ function blueline_player_current_team_ids( int $player_id ): array {
 }
 
 /**
- * The first of $player_id's current teams that is actually published, so a
- * draft or deleted team cannot shadow a live one behind it.
+ * Every one of $player_id's current teams that is actually published, so a
+ * draft or deleted team cannot stand in for a live one.
+ *
+ * A player can genuinely be on two current teams at once (e.g. a skater on
+ * one team and a spare goalie on another); readers that answer "my team" or
+ * "my next game" must look across all of them, not just the first.
+ *
+ * @param int $player_id Player post id.
+ * @return int[] Published team post ids, first-stored first.
+ */
+function blueline_player_published_team_ids( int $player_id ): array {
+	return array_values(
+		array_filter(
+			blueline_player_current_team_ids( $player_id ),
+			static fn( int $team_id ): bool => 'publish' === get_post_status( $team_id )
+		)
+	);
+}
+
+/**
+ * The first of $player_id's published current teams.
+ *
+ * Only for a context that genuinely has room for one team (e.g. a claim
+ * candidate's disambiguating detail); the account's next-game, schedule and
+ * My Team readers use blueline_player_published_team_ids() instead.
  *
  * @param int $player_id Player post id.
  * @return int Team post id, or 0 when the player has no published current team.
  */
 function blueline_player_current_team_id( int $player_id ): int {
-	foreach ( blueline_player_current_team_ids( $player_id ) as $team_id ) {
-		if ( 'publish' === get_post_status( $team_id ) ) {
-			return $team_id;
-		}
-	}
+	$team_ids = blueline_player_published_team_ids( $player_id );
 
-	return 0;
+	return $team_ids ? $team_ids[0] : 0;
 }
 
 /**
- * $player_id's current team, bundled with the fields the brief's interface
- * names for this reader: crest, division, and the player's own jersey number.
- * Division is resolved through the team's current-season sp_table
- * (blueline_player_division_name()), not the team's or player's own
- * accumulated sp_league terms directly.
+ * One of $player_id's teams, bundled with the fields the My Team card shows:
+ * crest, division, and the player's own jersey number. Division is resolved
+ * through the team's current-season sp_table (blueline_player_division_name()),
+ * not the team's or player's own accumulated sp_league terms directly.
  *
- * "Record" is deliberately NOT part of this return shape -- the brief's
- * interface for THIS function lists exactly team_id/name/logo_id/
- * division/number, and record needed a different, table-based lookup
- * (blueline_get_team_record()) added after review. Keeping it a separate
- * call, called directly by the My Team renderer
- * (inc/account/dashboard.php), avoids silently growing this documented
- * interface.
+ * "Record" is deliberately NOT part of this return shape: it needs a
+ * different, table-based lookup (blueline_get_team_record()) that the My Team
+ * renderer (inc/account/dashboard.php) calls directly.
  *
  * @param int $player_id sp_player post ID.
- * @return array{team_id:int, name:string, logo_id:?int, division:string, number:?string}|null
- *         Null if SportsPress is inactive, the player has no team, or the
- *         team post no longer exists/is unpublished.
+ * @param int $team_id   sp_team post ID.
+ * @return array{team_id:int, name:string, logo_id:?int, division:string, number:?string}
  */
-function blueline_get_player_team( int $player_id ): ?array {
-	if ( $player_id <= 0 || ! post_type_exists( 'sp_player' ) || ! post_type_exists( 'sp_team' ) ) {
-		return null;
-	}
-
-	$team_id = blueline_player_current_team_id( $player_id );
-
-	if ( ! $team_id ) {
-		return null;
-	}
-
+function blueline_player_team_summary( int $player_id, int $team_id ): array {
 	// Raw meta, not get_post_thumbnail_id(): the dashboard crest needs a real attachment id (it has its own leaf fallback).
 	$logo_id = (int) get_post_meta( $team_id, '_thumbnail_id', true );
 
@@ -314,6 +354,40 @@ function blueline_get_player_team( int $player_id ): ?array {
 		'division' => blueline_player_division_name( $team_id ),
 		'number'   => blueline_player_jersey_number( $player_id ),
 	);
+}
+
+/**
+ * Every one of $player_id's published current teams, each as
+ * blueline_player_team_summary() describes it, first-stored first.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return array<int, array{team_id:int, name:string, logo_id:?int, division:string, number:?string}>
+ *         Empty if SportsPress is inactive or the player has no published team.
+ */
+function blueline_get_player_teams( int $player_id ): array {
+	if ( $player_id <= 0 || ! post_type_exists( 'sp_player' ) || ! post_type_exists( 'sp_team' ) ) {
+		return array();
+	}
+
+	return array_map(
+		static fn( int $team_id ): array => blueline_player_team_summary( $player_id, $team_id ),
+		blueline_player_published_team_ids( $player_id )
+	);
+}
+
+/**
+ * $player_id's first published current team (see blueline_get_player_teams()
+ * for all of them).
+ *
+ * @param int $player_id sp_player post ID.
+ * @return array{team_id:int, name:string, logo_id:?int, division:string, number:?string}|null
+ *         Null if SportsPress is inactive, the player has no team, or the
+ *         team post no longer exists/is unpublished.
+ */
+function blueline_get_player_team( int $player_id ): ?array {
+	$teams = blueline_get_player_teams( $player_id );
+
+	return $teams ? $teams[0] : null;
 }
 
 /**
@@ -371,75 +445,116 @@ function blueline_current_sp_season_term_id(): ?int {
 
 /**
  * A stable identifier for the schedule facts of one event -- changes if and
- * only if the date/time, venue, opponent, or home/away flag changes, and
- * stays identical across repeated calls given the same four inputs. A plain
- * hash, not cryptography: this only needs to detect a change, not resist a
- * forgery, so md5() is enough and needs no salt.
+ * only if the date/time, venue, opponent, home/away flag or SportsPress
+ * status changes, and stays identical across repeated calls given the same
+ * inputs. A plain hash, not cryptography: this only needs to detect a change,
+ * not resist a forgery, so md5() is enough and needs no salt.
+ *
+ * An on-time status ('ok', or no status at all) adds nothing to the hash, so
+ * fingerprints browsers stored before the status was part of it still match
+ * for every game whose status never changed; only a game that turns TBD,
+ * postponed or cancelled reads as changed.
  *
  * Split out as its own pure function -- no WP_Query, no WordPress bootstrap
  * needed -- specifically so it can be unit tested directly; see
- * tests/PlayerDataTest.php. blueline_get_player_next_event() is the only
- * caller. Design spec: docs/superpowers/specs/2026-08-25-blueline-schedule-
- * change-notice-design.md.
+ * tests/PlayerDataTest.php. Design spec: docs/superpowers/specs/2026-08-25-
+ * blueline-schedule-change-notice-design.md.
  *
  * @param int|null $timestamp        Event start timestamp, or null.
  * @param int|null $venue_term_id    sp_venue term id, or null.
  * @param int|null $opponent_team_id Opponent sp_team post id, or null.
  * @param bool     $is_home          Whether the player's own team is home.
- * @return string An md5 hash of the four inputs.
+ * @param string   $status           The event's `sp_status` meta.
+ * @return string An md5 hash of the inputs.
  */
-function blueline_event_schedule_fingerprint( ?int $timestamp, ?int $venue_term_id, ?int $opponent_team_id, bool $is_home ): string {
-	return md5(
-		implode(
-			'|',
-			array(
-				(string) $timestamp,
-				(string) $venue_term_id,
-				(string) $opponent_team_id,
-				$is_home ? '1' : '0',
-			)
-		)
+function blueline_event_schedule_fingerprint( ?int $timestamp, ?int $venue_term_id, ?int $opponent_team_id, bool $is_home, string $status = '' ): string {
+	$parts = array(
+		(string) $timestamp,
+		(string) $venue_term_id,
+		(string) $opponent_team_id,
+		$is_home ? '1' : '0',
 	);
+
+	if ( '' !== $status && 'ok' !== $status ) {
+		$parts[] = $status;
+	}
+
+	return md5( implode( '|', $parts ) );
 }
 
 /**
- * The soonest sp_event whose sp_team meta includes $player_id's current
- * team, today or later. post_status MUST include 'future' -- WordPress
- * core assigns that status (not 'publish') to any post dated ahead of now,
- * and every genuinely upcoming sp_event on this site carries it (33 of 33
- * on staging; see BLUELINE_PUBLISHED_STATUS's docblock in
- * inc/season-state.php for the confirmed count). A publish-only query here
- * would silently show a player's LAST game as their "next" one.
+ * The `sp_status` values that mean a game is not going ahead as listed. A
+ * "next game" must never be one of these: the player would be sent to a game
+ * that is not happening, while the real next one goes unmentioned.
  *
- * @param int $player_id sp_player post ID.
- * @return array{event_id:int, timestamp:int|null, venue:string, venue_term_id:?int, opponent_team_id:?int, is_home:bool, fingerprint:string}|null
+ * @return string[]
  */
-function blueline_get_player_next_event( int $player_id ): ?array {
-	if ( $player_id <= 0 || ! post_type_exists( 'sp_event' ) ) {
-		return null;
+function blueline_player_called_off_statuses(): array {
+	return array( 'postponed', 'cancelled' );
+}
+
+/**
+ * $player_id's upcoming sp_events across EVERY one of their published current
+ * teams, soonest first, each described by blueline_player_event_summary().
+ *
+ * The post_status MUST include 'future' -- WordPress core assigns that status
+ * (not 'publish') to any post dated ahead of now, and every genuinely
+ * upcoming sp_event on this site carries it (33 of 33 on staging; see
+ * BLUELINE_PUBLISHED_STATUS's docblock in inc/season-state.php for the
+ * confirmed count). A publish-only query here would silently show a player's
+ * LAST game as their "next" one.
+ *
+ * @param int  $player_id          sp_player post ID.
+ * @param int  $limit              Maximum number of events.
+ * @param bool $include_called_off Whether postponed/cancelled games are listed
+ *                                 (a schedule labels them; a "next game" skips them).
+ * @return array<int, array{event_id:int, team_id:int, timestamp:int|null, venue:string, venue_term_id:?int, opponent_team_id:?int, is_home:bool, status:string, fingerprint:string}>
+ */
+function blueline_get_player_upcoming_events( int $player_id, int $limit = 5, bool $include_called_off = false ): array {
+	if ( $player_id <= 0 || $limit <= 0 || ! post_type_exists( 'sp_event' ) ) {
+		return array();
 	}
 
-	$team_id = blueline_player_current_team_id( $player_id );
+	$team_ids = blueline_player_published_team_ids( $player_id );
 
-	if ( ! $team_id ) {
-		return null;
+	if ( ! $team_ids ) {
+		return array();
+	}
+
+	$meta_query = array(
+		'relation' => 'AND',
+		array(
+			'key'     => 'sp_team',
+			'value'   => array_map( 'strval', $team_ids ),
+			'compare' => 'IN',
+		),
+	);
+
+	if ( ! $include_called_off ) {
+		$meta_query[] = array(
+			'relation' => 'OR',
+			array(
+				'key'     => 'sp_status',
+				'value'   => blueline_player_called_off_statuses(),
+				'compare' => 'NOT IN',
+			),
+			array(
+				'key'     => 'sp_status',
+				'compare' => 'NOT EXISTS',
+			),
+		);
 	}
 
 	$query = new WP_Query(
 		array(
 			'post_type'      => 'sp_event',
 			'post_status'    => array( 'publish', 'future' ),
-			'posts_per_page' => 1,
+			'posts_per_page' => $limit,
 			'orderby'        => 'date',
 			'order'          => 'ASC',
 			'fields'         => 'ids',
 			'no_found_rows'  => true,
-			'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- scoped to one team's own games, not an unbounded query.
-				array(
-					'key'   => 'sp_team',
-					'value' => (string) $team_id,
-				),
-			),
+			'meta_query'     => $meta_query, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- scoped to one player's own teams and capped by posts_per_page, not an unbounded query.
 			'date_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- bounded by post_type sp_event, not an unbounded query.
 				array(
 					'column' => 'post_date',
@@ -449,14 +564,46 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 		)
 	);
 
-	if ( empty( $query->posts ) ) {
-		return null;
+	$events = array();
+
+	foreach ( (array) $query->posts as $event_id ) {
+		$events[] = blueline_player_event_summary( (int) $event_id, $team_ids );
 	}
 
-	$event_id = (int) $query->posts[0];
+	return $events;
+}
 
-	$teams   = array_values( array_filter( array_map( 'absint', (array) get_post_meta( $event_id, 'sp_team', false ) ) ) );
-	$is_home = ! empty( $teams ) && $team_id === $teams[0];
+/**
+ * One game from the point of view of a player on $team_ids: which of their
+ * teams is playing, home or away, against whom, where, and its status.
+ *
+ * When both of the player's teams are in the same game, the home side is the
+ * one reported.
+ *
+ * @param int   $event_id sp_event post ID.
+ * @param int[] $team_ids The player's published current team ids.
+ * @return array{event_id:int, team_id:int, timestamp:int|null, venue:string, venue_term_id:?int, opponent_team_id:?int, is_home:bool, status:string, fingerprint:string}
+ */
+function blueline_player_event_summary( int $event_id, array $team_ids ): array {
+	$teams = array();
+
+	foreach ( (array) get_post_meta( $event_id, 'sp_team', false ) as $row ) {
+		$id = is_scalar( $row ) ? absint( $row ) : 0;
+
+		if ( $id > 0 && ! in_array( $id, $teams, true ) ) {
+			$teams[] = $id;
+		}
+	}
+
+	$team_id = 0;
+	foreach ( $teams as $t ) {
+		if ( in_array( $t, $team_ids, true ) ) {
+			$team_id = $t;
+			break;
+		}
+	}
+
+	$is_home = $team_id > 0 && $team_id === $teams[0];
 
 	$opponent_team_id = null;
 	foreach ( $teams as $t ) {
@@ -473,16 +620,34 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 
 	$timestamp_value = $timestamp ? $timestamp : null;
 	$venue_term_id   = $venue_term ? (int) $venue_term->term_id : null;
+	$status          = (string) get_post_meta( $event_id, 'sp_status', true );
+	$status          = '' === $status ? 'ok' : $status;
 
 	return array(
 		'event_id'         => $event_id,
+		'team_id'          => $team_id,
 		'timestamp'        => $timestamp_value,
 		'venue'            => $venue_term ? (string) $venue_term->name : '',
 		'venue_term_id'    => $venue_term_id,
 		'opponent_team_id' => $opponent_team_id,
 		'is_home'          => $is_home,
-		'fingerprint'      => blueline_event_schedule_fingerprint( $timestamp_value, $venue_term_id, $opponent_team_id, $is_home ),
+		'status'           => $status,
+		'fingerprint'      => blueline_event_schedule_fingerprint( $timestamp_value, $venue_term_id, $opponent_team_id, $is_home, $status ),
 	);
+}
+
+/**
+ * The soonest game, across every one of $player_id's current teams, that is
+ * still going ahead (postponed and cancelled games are skipped, so the real
+ * next game shows instead). `team_id` names which of the player's teams it is.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return array{event_id:int, team_id:int, timestamp:int|null, venue:string, venue_term_id:?int, opponent_team_id:?int, is_home:bool, status:string, fingerprint:string}|null
+ */
+function blueline_get_player_next_event( int $player_id ): ?array {
+	$events = blueline_get_player_upcoming_events( $player_id, 1 );
+
+	return $events ? $events[0] : null;
 }
 
 /**

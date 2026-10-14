@@ -1231,7 +1231,7 @@ table.sp-event-statistics.sp-data-table {
 /*
  * A team's own calendar-subscribe links
  * (blueline_render_team_calendar_links(), inc/sportspress.php) -- same
- * flex contract as .bl-account-next-game__calendar (account.css),
+ * flex contract as .bl-account-calendar (account.css),
  * which assets/src/js/calendar-links.js already reorders sitewide by
  * platform; this is a second, differently-classed consumer of that same
  * global script, not a second copy of it.

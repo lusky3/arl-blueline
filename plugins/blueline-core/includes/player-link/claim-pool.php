@@ -115,62 +115,86 @@ function blueline_sp_season_player_count( int $term_id ): int {
 /**
  * Pure resolver: which sp_season term_id(s) form the claim pool.
  *
- * Takes the non-playoff terms newest first, as plain data, and a callable reporting a term's real
- * player count. Pure, so logging of unclassifiable slugs is the caller's job.
+ * Takes the non-playoff terms newest first, as plain data, a callable reporting a term's real
+ * player count, and the term(s) of the season being played. Pure, so logging of unclassifiable
+ * slugs is the caller's job.
  *
+ * - Anchored on the season being played: the first of $active_term_ids found in $terms with a
+ *   recognised slug. Term_id order alone is not enough, because an admin creates next season's
+ *   term (or a stray test term) before anyone is on its rosters, and anchoring on that empty
+ *   newest term locks out everyone playing now. With no usable active term the newest term
+ *   anchors, as it always did.
  * - Session-scoped: the league runs Winter and Summer sessions on one interleaved term_id
- *   sequence, so every comparison and fallback stays within the newest term's session letter.
- *   Walking the sequence blindly lands on the OTHER session's term and hides current
+ *   sequence, so the sparse comparison and its fallback stay within the anchor's session
+ *   letter. Walking the sequence blindly lands on the OTHER session's term and hides current
  *   registrants who do not play both sessions.
- * - Additive: the newest term is ALWAYS included; while it is sparse, the most recent
+ * - Additive: the anchor is ALWAYS included; while it is sparse, the most recent older
  *   same-session term with players is ADDED, never substituted. Substituting would hide a
  *   first-time registrant (tagged only with the new season) exactly when they need the claim
  *   flow, and keeping both leaves returning players (still tagged with the previous season)
- *   reachable.
- * - A term whose slug has no recognised session is excluded, not guessed. If the newest term
- *   itself is unclassifiable there is no session anchor and the result is empty, which the
- *   caller treats as "use the broad pool".
+ *   reachable. Likewise the newest term above the anchor that already has players is added, so
+ *   someone registered only for next season can claim before it starts.
+ * - A term whose slug has no recognised session is excluded, not guessed. If the anchor itself
+ *   is unclassifiable there is no session and the result is empty, which the caller treats as
+ *   "use the broad pool".
  *
- * @param array<int, array{term_id:int, slug:string}> $terms    Non-playoff sp_season terms, newest first.
- * @param callable                                    $count_fn int $term_id -> int sp_player member count.
+ * The anchor comes first in the result, so a player tagged with several pool seasons is labelled
+ * with the one being played (see blueline_player_candidate_season_label()).
+ *
+ * @param array<int, array{term_id:int, slug:string}> $terms           Non-playoff sp_season terms, newest first.
+ * @param callable                                    $count_fn        int $term_id -> int sp_player member count.
+ * @param int[]                                       $active_term_ids sp_season term(s) of the season being played.
  * @return int[] Term ID(s) to include in the pool; empty if nothing usable.
  */
-function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn ): array {
+function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn, array $active_term_ids = array() ): array {
+	$terms = array_values( $terms );
+
 	if ( empty( $terms ) ) {
 		return array();
 	}
 
-	$current_letter = blueline_season_slug_session_letter( $terms[0]['slug'] );
+	$active_term_ids = array_map( 'intval', $active_term_ids );
+	$anchor_index    = 0;
+
+	foreach ( $terms as $index => $term ) {
+		if ( in_array( (int) $term['term_id'], $active_term_ids, true ) && null !== blueline_season_slug_session_letter( $term['slug'] ) ) {
+			$anchor_index = $index;
+			break;
+		}
+	}
+
+	$anchor         = $terms[ $anchor_index ];
+	$current_letter = blueline_season_slug_session_letter( $anchor['slug'] );
 
 	if ( null === $current_letter ) {
 		return array();
 	}
 
-	$same_session_terms = array();
-	foreach ( $terms as $term ) {
+	$older_same_session = array();
+	foreach ( array_slice( $terms, $anchor_index + 1 ) as $term ) {
 		if ( blueline_season_slug_session_letter( $term['slug'] ) === $current_letter ) {
-			$same_session_terms[] = $term;
+			$older_same_session[] = $term;
 		}
 	}
 
-	if ( empty( $same_session_terms ) ) {
-		return array();
+	$current_count  = $count_fn( $anchor['term_id'] );
+	$previous_count = isset( $older_same_session[0] ) ? $count_fn( $older_same_session[0]['term_id'] ) : 0;
+
+	$term_ids = array( (int) $anchor['term_id'] );
+
+	if ( blueline_is_claim_pool_sparse( $current_count, $previous_count ) ) {
+		foreach ( $older_same_session as $term ) {
+			if ( $count_fn( $term['term_id'] ) > 0 ) {
+				$term_ids[] = (int) $term['term_id'];
+				break; // Anchor plus ONE fallback, not every older term with members.
+			}
+		}
 	}
 
-	$current        = $same_session_terms[0];
-	$current_count  = $count_fn( $current['term_id'] );
-	$previous_count = isset( $same_session_terms[1] ) ? $count_fn( $same_session_terms[1]['term_id'] ) : 0;
-
-	$term_ids = array( (int) $current['term_id'] );
-
-	if ( ! blueline_is_claim_pool_sparse( $current_count, $previous_count ) ) {
-		return $term_ids;
-	}
-
-	foreach ( array_slice( $same_session_terms, 1 ) as $term ) {
-		if ( $count_fn( $term['term_id'] ) > 0 ) {
+	foreach ( array_slice( $terms, 0, $anchor_index ) as $term ) {
+		if ( null !== blueline_season_slug_session_letter( $term['slug'] ) && $count_fn( $term['term_id'] ) > 0 ) {
 			$term_ids[] = (int) $term['term_id'];
-			break; // Current plus ONE fallback, not every older term with members.
+			break; // Only the newest populated one: the season being registered for.
 		}
 	}
 
@@ -178,9 +202,67 @@ function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn 
 }
 
 /**
- * The sp_season term_id(s) whose members form the claim pool: the current season, plus the most
- * recent populated same-session one while the current one is sparse (see
- * blueline_resolve_claim_pool_term_ids(), which holds the decision logic).
+ * The sp_season term IDs of the season being played: those of the next scheduled sp_event, or,
+ * between seasons, of the most recently played one. The same definition the theme uses for "the
+ * current season" (blueline_current_sp_season_term_id()); computed here so the claim flow does
+ * not depend on the active theme.
+ *
+ * Upcoming events carry post_status 'future' (WordPress gives every post dated ahead of now that
+ * status), played ones 'publish'.
+ *
+ * @return int[] Term IDs, possibly empty (no events, or the event has no season).
+ */
+function blueline_claim_pool_active_season_term_ids(): array {
+	if ( ! post_type_exists( 'sp_event' ) || ! taxonomy_exists( 'sp_season' ) ) {
+		return array();
+	}
+
+	$query = array(
+		'post_type'      => 'sp_event',
+		'posts_per_page' => 1,
+		'orderby'        => 'date',
+		'fields'         => 'ids',
+		'no_found_rows'  => true,
+	);
+
+	$event_ids = get_posts(
+		$query + array(
+			'post_status' => 'future',
+			'order'       => 'ASC',
+		)
+	);
+
+	if ( empty( $event_ids ) ) {
+		$event_ids = get_posts(
+			$query + array(
+				'post_status' => 'publish',
+				'order'       => 'DESC',
+			)
+		);
+	}
+
+	if ( empty( $event_ids ) ) {
+		return array();
+	}
+
+	$terms = wp_get_post_terms( (int) $event_ids[0], 'sp_season' );
+
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return array();
+	}
+
+	return array_map(
+		static function ( $term ) {
+			return (int) $term->term_id;
+		},
+		$terms
+	);
+}
+
+/**
+ * The sp_season term_id(s) whose members form the claim pool: the season being played, plus the
+ * most recent populated same-session one while it is sparse, plus a newer season once it has
+ * players (see blueline_resolve_claim_pool_term_ids(), which holds the decision logic).
  *
  * Playoff terms are excluded up front (the same "slug contains playoff" signal as Season State):
  * they are a postseason subset of a roster, not its base.
@@ -210,9 +292,11 @@ function blueline_claim_pool_season_term_ids(): array {
  * Resolve the claim pool's season term IDs from the database, uncached.
  * See blueline_claim_pool_season_term_ids() for what the pool is.
  *
+ * @param callable|null $count_fn int $term_id -> int sp_player member count; defaults to
+ *                                blueline_sp_season_player_count().
  * @return int[] Term ID(s), possibly empty.
  */
-function blueline_compute_claim_pool_season_term_ids(): array {
+function blueline_compute_claim_pool_season_term_ids( ?callable $count_fn = null ): array {
 	if ( ! taxonomy_exists( 'sp_season' ) ) {
 		return array();
 	}
@@ -243,18 +327,12 @@ function blueline_compute_claim_pool_season_term_ids(): array {
 		return array();
 	}
 
-	// The newest term anchors the whole resolution. If its shape cannot be classified, degrade to
-	// the broad pool rather than shift the anchor to the next-newest term, which would be a guess.
-	if ( null === blueline_season_slug_session_letter( $non_playoff_terms[0]->slug ) ) {
-		blueline_log_nonconforming_season_slug( (int) $non_playoff_terms[0]->term_id, $non_playoff_terms[0]->slug );
-		return array();
-	}
-
+	// Unclassifiable terms stay in the list (logged) so the resolver, not this loop, decides what
+	// they mean: skipped as a fallback, or "no usable anchor" when the newest term would anchor.
 	$season_terms = array();
 	foreach ( $non_playoff_terms as $term ) {
 		if ( null === blueline_season_slug_session_letter( $term->slug ) ) {
 			blueline_log_nonconforming_season_slug( (int) $term->term_id, $term->slug );
-			continue;
 		}
 
 		$season_terms[] = array(
@@ -263,7 +341,11 @@ function blueline_compute_claim_pool_season_term_ids(): array {
 		);
 	}
 
-	return blueline_resolve_claim_pool_term_ids( $season_terms, 'blueline_sp_season_player_count' );
+	return blueline_resolve_claim_pool_term_ids(
+		$season_terms,
+		$count_fn ?? 'blueline_sp_season_player_count',
+		blueline_claim_pool_active_season_term_ids()
+	);
 }
 
 /**
