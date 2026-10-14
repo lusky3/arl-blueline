@@ -23,6 +23,8 @@
  * paginated) -- the same split single-team.php's own the_content() already
  * gets correct via SportsPress's own event-fixtures-results.php.
  *
+ * Upstream: none (theme-authored; SportsPress ships no template of this name).
+ *
  * @package blueline
  */
 

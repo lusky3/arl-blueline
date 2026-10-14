@@ -18,6 +18,8 @@
  * template differs from the other three single-*.php templates sharing that
  * skeleton.
  *
+ * Upstream: none (theme-authored; SportsPress ships no template of this name).
+ *
  * @package blueline
  */
 

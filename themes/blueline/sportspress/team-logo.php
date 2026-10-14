@@ -20,6 +20,7 @@
  * SportsPress Pro 2.7.29; re-check this override when that version changes.
  *
  * @package blueline
+ * @version 1.4 (copied from SportsPress Pro 2.7.29: sportspress-pro/includes/sportspress/templates/team-logo.php)
  */
 
 defined( 'ABSPATH' ) || exit;

@@ -34,6 +34,30 @@ local PHPUnit run. A plugin held idle by a pre-1.1.0 theme is reported as idle, 
 The same check by hand (the `swp` pattern: wp-cli in a sidecar container on the staging host):
 `ssh <staging host> "swp eval 'foreach ( array_keys( blueline_core_modules() ) as \$m ) { echo \$m, \" \", blueline_core_module_loaded( \$m ) ? \"LOADED\" : \"no\", \"\\n\"; }'"`.
 
+## Template overrides after a plugin update
+
+The theme overrides templates from WooCommerce, WooCommerce Subscriptions, Store Credit, PayPal for WooCommerce,
+YITH Advanced Refund System and SportsPress Pro (`themes/blueline/woocommerce/`, `themes/blueline/sportspress/`).
+Each override's header names the original it was copied from and that original's `@version`. After updating any
+of those plugins on staging, run:
+
+    scripts/check-template-versions.sh
+
+It reads the originals from staging's plugin directory (read-only, over the SSH host in `scripts/lib/hosts.env`;
+`BLUELINE_PLUGINS_DIR=<path to wp-content/plugins>` checks a local copy instead) and prints one row per override.
+Exit 1 means at least one needs work:
+
+- **DRIFT**: the original's `@version` moved. Copy the new original over the override, re-apply the theme's edits
+  (the strings in the `blueline` text domain, plus anything the header describes), and set `@version` and the
+  "Copied from" line to the new original.
+- **REVIEW**: the original has no `@version` (PayPal, YITH) and the plugin's version changed. Diff the original
+  against the version named in the header; if nothing changed, just update the plugin version in the header.
+- **MISSING**: the plugin no longer ships that template. Delete the override or find where it moved.
+- **NO-SOURCE / NO-VERSION**: an override records no original. Add the "Copied from" line and `@version`.
+
+It is a manual check, not CI: CI cannot see staging's plugins. WooCommerce's own WooCommerce > Status > System
+status ("Templates") flags outdated WooCommerce and Subscriptions overrides too, but not SportsPress, PayPal or YITH.
+
 ## Rolling back to the classic theme (rookie-child)
 
 The classic theme relied on the YITH "Customize My Account Page" plugin for the account URLs. To roll back:
