@@ -163,17 +163,23 @@ $bl_zero_games_note = blueline_sp_zero_games_note(
 // player can be rostered onto several current teams across divisions
 // (blueline_current_user_team_ids()'s own docblock). Read ONCE, outside the
 // row loop, not once per row: it is the same answer for every row this
-// template renders.
-$bl_my_team_ids = function_exists( 'blueline_current_user_team_ids' ) ? blueline_current_user_team_ids() : array();
+// template renders. Left empty when this render becomes a copy shared by
+// every visitor ([arl_standings]); the viewer's row is then marked per
+// request instead (inc/sportspress/standings.php).
+$bl_shared_render = blueline_sp_standings_shared_render();
+$bl_my_team_ids   = ( ! $bl_shared_render && function_exists( 'blueline_current_user_team_ids' ) ) ? blueline_current_user_team_ids() : array();
 
 // wp_kses_post()'s rules plus img srcset/sizes/decoding, so the logo's responsive sources survive.
 $bl_kses_allowed = blueline_sp_kses_allowed_html();
 
-$output  = '<th class="data-rank">' . esc_attr__( 'Pos', 'sportspress' ) . '</th>';
-$output .= '<th class="data-name">' . esc_html( $labels['name'] ) . '</th>';
+$bl_heading_id = 'bl-sp-caption-' . $identifier;
+$bl_legend_id  = 'bl-sp-legend-' . $identifier;
+
+$output  = '<th class="data-rank" scope="col">' . blueline_sp_standings_header_html( 'pos', __( 'Pos', 'sportspress' ) ) . '</th>';
+$output .= '<th class="data-name" scope="col">' . esc_html( $labels['name'] ) . '</th>';
 
 if ( $bl_has_record ) {
-	$output .= '<th class="data-record bl-sp-col-record">' . esc_html__( 'Record', 'blueline' ) . '</th>';
+	$output .= '<th class="data-record bl-sp-col-record" scope="col" aria-describedby="' . esc_attr( $bl_legend_id ) . '">' . esc_html__( 'Record', 'blueline' ) . '</th>';
 }
 
 foreach ( $labels as $key => $label ) :
@@ -184,7 +190,7 @@ foreach ( $labels as $key => $label ) :
 		continue;
 	}
 	$bl_extra_class = blueline_sp_extra_class( $key, $bl_extra_keys );
-	$output        .= '<th class="data-' . esc_attr( $key ) . esc_attr( $bl_extra_class ) . '">' . esc_html( $label ) . '</th>';
+	$output        .= '<th class="data-' . esc_attr( $key ) . esc_attr( $bl_extra_class ) . '" scope="col">' . blueline_sp_standings_header_html( (string) $key, (string) $label ) . '</th>';
 endforeach;
 
 $output = '<thead><tr>' . $output . '</tr></thead><tbody>';
@@ -250,14 +256,18 @@ foreach ( $data as $team_id => $row ) :
 	 * way single-team.php does it -- because a league table can (and on
 	 * /standings, does) list many teams on one page; only the viewer's own
 	 * row may carry their team's colour.
+	 *
+	 * data-team-id is on every row, for every viewer: it is how the
+	 * per-request pass finds the viewer's row in a shared copy.
 	 */
+	$bl_is_mine   = in_array( $team_id, $bl_my_team_ids, true );
 	$bl_mine_attr = '';
-	if ( in_array( $team_id, $bl_my_team_ids, true ) ) :
+	if ( $bl_is_mine ) :
 		$tr_class    .= ' bl-sp-row--mine';
 		$bl_mine_attr = blueline_team_color_style_attr( $team_id );
 	endif;
 
-	$output .= '<tr class="' . ( 0 === $i % 2 ? 'odd' : 'even' ) . $tr_class . ' sp-row-no-' . (int) $i . '"' . $bl_mine_attr . '>';
+	$output .= '<tr class="' . ( 0 === $i % 2 ? 'odd' : 'even' ) . $tr_class . ' sp-row-no-' . (int) $i . '" data-team-id="' . (int) $team_id . '"' . $bl_mine_attr . '>';
 
 	$output .= '<td class="data-rank' . $td_class . '" data-label="' . esc_attr( $labels['pos'] ) . '">' . esc_html( (string) sp_array_value( $row, 'pos' ) ) . '</td>';
 
@@ -293,7 +303,7 @@ foreach ( $data as $team_id => $row ) :
 		$name = '<a href="' . esc_url( get_post_permalink( $team_id ) ) . '">' . $name . '</a>';
 	endif;
 
-	$output .= '<td class="data-name' . $name_class . $td_class . '" data-label="' . esc_attr( $labels['name'] ) . '">' . wp_kses( $name, $bl_kses_allowed ) . '</td>';
+	$output .= '<td class="data-name' . $name_class . $td_class . '" data-label="' . esc_attr( $labels['name'] ) . '">' . wp_kses( $name, $bl_kses_allowed ) . blueline_sp_standings_mine_label( $bl_is_mine, $bl_shared_render ) . '</td>';
 
 	if ( $bl_has_record ) :
 		$bl_record_parts = array();
@@ -332,7 +342,7 @@ $output .= '</tbody>';
 		// this fixes (this caption used to be a hardcoded, level-skipping
 		// h4 everywhere).
 		$bl_caption_level = blueline_sp_caption_heading_level();
-		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
+		printf( '<h%1$d class="sp-table-caption" id="%3$s">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ), esc_attr( $bl_heading_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
 	<?php endif; ?>
 	<?php if ( $bl_zero_games_note ) : ?>
@@ -356,10 +366,16 @@ $output .= '</tbody>';
 		</label>
 	<?php endif; ?>
 	<div class="sp-table-wrapper">
-		<table class="sp-league-table sp-league-table-<?php echo esc_attr( $id ); ?> sp-data-table<?php echo $sortable ? ' sp-sortable-table' : ''; ?><?php echo $responsive ? ' sp-responsive-table ' . esc_attr( $identifier ) : ''; ?><?php echo $scrollable ? ' sp-scrollable-table' : ''; ?><?php echo $paginated ? ' sp-paginated-table' : ''; ?>" data-sp-rows="<?php echo esc_attr( $rows ); ?>">
+		<table class="sp-league-table sp-league-table-<?php echo esc_attr( $id ); ?> sp-data-table<?php echo $sortable ? ' sp-sortable-table' : ''; ?><?php echo $responsive ? ' sp-responsive-table ' . esc_attr( $identifier ) : ''; ?><?php echo $scrollable ? ' sp-scrollable-table' : ''; ?><?php echo $paginated ? ' sp-paginated-table' : ''; ?>" data-sp-rows="<?php echo esc_attr( $rows ); ?>"<?php echo $title ? ' aria-labelledby="' . esc_attr( $bl_heading_id ) . '"' : ''; ?>>
+			<?php if ( ! $title ) : ?>
+				<caption class="screen-reader-text"><?php esc_html_e( 'Standings', 'blueline' ); ?></caption>
+			<?php endif; ?>
 			<?php echo wp_kses( $output, $bl_kses_allowed ); ?>
 		</table>
 	</div>
+	<?php if ( $bl_has_record ) : ?>
+		<p class="bl-sp-standings-legend" id="<?php echo esc_attr( $bl_legend_id ); ?>"><?php echo esc_html( blueline_sp_standings_record_legend( $bl_record_keys ) ); ?></p>
+	<?php endif; ?>
 	<?php if ( $show_full_table_link ) : ?>
 		<div class="sp-league-table-link sp-view-all-link"><a href="<?php echo esc_url( get_permalink( $id ) ); ?>"><?php esc_html_e( 'View full table', 'sportspress' ); ?></a></div>
 	<?php endif; ?>

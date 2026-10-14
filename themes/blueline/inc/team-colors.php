@@ -553,6 +553,19 @@ function blueline_team_color_set( $team_id ): array {
  * @return string Escaped ` style="..."`, or ''.
  */
 function blueline_team_color_style_attr( $team_id ): string {
+	$style = blueline_team_color_style_value( $team_id );
+
+	return '' === $style ? '' : ' style="' . esc_attr( $style ) . '"';
+}
+
+/**
+ * The unescaped value behind blueline_team_color_style_attr(), for callers
+ * that set the attribute through the HTML API (which escapes it itself).
+ *
+ * @param int $team_id `sp_team` post ID.
+ * @return string Declarations such as `--bl-team-primary: #cc0000; ...;`, or ''.
+ */
+function blueline_team_color_style_value( $team_id ): string {
 	$colors = blueline_team_color_set( $team_id );
 
 	if ( empty( $colors ) ) {
@@ -568,7 +581,7 @@ function blueline_team_color_style_attr( $team_id ): string {
 		$declarations[] = '--bl-team-accent: ' . $colors['accent'];
 	}
 
-	return ' style="' . esc_attr( implode( '; ', $declarations ) . ';' ) . '"';
+	return implode( '; ', $declarations ) . ';';
 }
 
 /**

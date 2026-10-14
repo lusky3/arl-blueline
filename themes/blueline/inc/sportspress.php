@@ -21,6 +21,7 @@ defined( 'ABSPATH' ) || exit;
 require_once __DIR__ . '/sportspress/core.php';
 require_once __DIR__ . '/sportspress/nav-options.php';
 require_once __DIR__ . '/sportspress/table-scroll.php';
+require_once __DIR__ . '/sportspress/standings.php';
 require_once __DIR__ . '/sportspress/calendar.php';
 require_once __DIR__ . '/sportspress/heroes.php';
 require_once __DIR__ . '/sportspress/venues.php';

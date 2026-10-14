@@ -582,11 +582,18 @@ a.bl-next-games__venue:focus-visible {
  * hidden radio plus a `~` sibling selector, extended from a single on/off
  * toggle to a mutually-exclusive set via :nth-of-type pairing (radio and
  * panel share a position, not an id -- sp_table post ids aren't known when
- * this file is authored). Radios/labels/panels are flat siblings of
- * .bl-standings-tabs (see that function's own comment on why), so labels
- * -- inline -- and panels -- block -- fall into two visual rows for free,
- * with no flex/grid needed on the wrapper.
+ * this file is authored). Radios and labels share the
+ * .bl-standings-tabs__group fieldset, which names the group; the panels are
+ * that fieldset's siblings, so the labels form one row and the panels sit
+ * below it.
  */
+
+.bl-standings-tabs__group {
+	min-inline-size: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
 
 .bl-standings-tabs__input {
 	position: absolute;
@@ -599,10 +606,12 @@ a.bl-next-games__venue:focus-visible {
 	white-space: nowrap;
 }
 
+/* The chip stays small; the label around it is the 44px-tall tap target. */
 .bl-standings-tabs__label {
 	display: inline-flex;
+	align-items: center;
+	min-block-size: 44px;
 	margin-inline-end: var(--bl-space-2);
-	margin-block-end: var(--bl-space-2);
 	cursor: pointer;
 	user-select: none;
 }
@@ -610,7 +619,7 @@ a.bl-next-games__venue:focus-visible {
 /* stylelint-disable-next-line no-descending-specificity -- unrelated to
    the hero CTA's own higher-specificity .bl-skew rule above. */
 .bl-standings-tabs__label .bl-skew {
-	padding: var(--bl-space-1) var(--bl-space-3);
+	padding: var(--bl-space-1) var(--bl-space-2);
 	border: 1px solid var(--bl-content-border-strong);
 	border-radius: 999px;
 	color: var(--bl-content-text-secondary);
@@ -676,29 +685,38 @@ a.bl-next-games__venue:focus-visible {
 
 /*
  * :nth-of-type counts by tag name among siblings, not by class -- radios
- * are the only <input>s here and panels the only <div>s, so "1st input" and
- * "1st div" both correctly mean "this division's own pair" with no id
- * matching needed. 12 pairs is well above this site's own historical
- * maximum (7 lettered groups, one winter season). inc/homepage-modules.php's
- * BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS caps how many tabs/panels are ever
- * rendered at exactly this number -- there is no 13th pair below to match,
- * so a season that somehow exceeds it simply never offers a tab for the
- * extra divisions (still reachable on /standings) rather than rendering an
- * unmatchable, permanently-blank tab strip.
+ * are the only <input>s in the fieldset and panels the only <div>s beside
+ * it, so "1st input" and "1st div" both correctly mean "this division's own
+ * pair" with no id matching needed. The panels are outside the fieldset, so
+ * the wrapper's :has() reaches them where `~` cannot. 12 pairs is well above
+ * this site's own historical maximum (7 lettered groups, one winter season).
+ * inc/homepage-modules.php's BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS caps how
+ * many tabs/panels are ever rendered at exactly this number -- there is no
+ * 13th pair below to match, so a season that somehow exceeds it simply never
+ * offers a tab for the extra divisions (still reachable on /standings)
+ * rather than rendering an unmatchable, permanently-blank tab strip.
  */
-.bl-standings-tabs__input:nth-of-type(1):checked ~ .bl-standings-tabs__panel:nth-of-type(1),
-.bl-standings-tabs__input:nth-of-type(2):checked ~ .bl-standings-tabs__panel:nth-of-type(2),
-.bl-standings-tabs__input:nth-of-type(3):checked ~ .bl-standings-tabs__panel:nth-of-type(3),
-.bl-standings-tabs__input:nth-of-type(4):checked ~ .bl-standings-tabs__panel:nth-of-type(4),
-.bl-standings-tabs__input:nth-of-type(5):checked ~ .bl-standings-tabs__panel:nth-of-type(5),
-.bl-standings-tabs__input:nth-of-type(6):checked ~ .bl-standings-tabs__panel:nth-of-type(6),
-.bl-standings-tabs__input:nth-of-type(7):checked ~ .bl-standings-tabs__panel:nth-of-type(7),
-.bl-standings-tabs__input:nth-of-type(8):checked ~ .bl-standings-tabs__panel:nth-of-type(8),
-.bl-standings-tabs__input:nth-of-type(9):checked ~ .bl-standings-tabs__panel:nth-of-type(9),
-.bl-standings-tabs__input:nth-of-type(10):checked ~ .bl-standings-tabs__panel:nth-of-type(10),
-.bl-standings-tabs__input:nth-of-type(11):checked ~ .bl-standings-tabs__panel:nth-of-type(11),
-.bl-standings-tabs__input:nth-of-type(12):checked ~ .bl-standings-tabs__panel:nth-of-type(12) {
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(1):checked) > .bl-standings-tabs__panel:nth-of-type(1),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(2):checked) > .bl-standings-tabs__panel:nth-of-type(2),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(3):checked) > .bl-standings-tabs__panel:nth-of-type(3),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(4):checked) > .bl-standings-tabs__panel:nth-of-type(4),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(5):checked) > .bl-standings-tabs__panel:nth-of-type(5),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(6):checked) > .bl-standings-tabs__panel:nth-of-type(6),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(7):checked) > .bl-standings-tabs__panel:nth-of-type(7),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(8):checked) > .bl-standings-tabs__panel:nth-of-type(8),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(9):checked) > .bl-standings-tabs__panel:nth-of-type(9),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(10):checked) > .bl-standings-tabs__panel:nth-of-type(10),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(11):checked) > .bl-standings-tabs__panel:nth-of-type(11),
+.bl-standings-tabs:has(.bl-standings-tabs__input:nth-of-type(12):checked) > .bl-standings-tabs__panel:nth-of-type(12) {
 	display: block;
+}
+
+/* A browser without :has() shows every division rather than none. */
+@supports not selector(:has(*)) {
+
+	.bl-standings-tabs__panel {
+		display: block;
+	}
 }
 
 @media (min-width: 700px) {

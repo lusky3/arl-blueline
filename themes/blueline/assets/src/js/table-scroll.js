@@ -227,9 +227,34 @@ function attach( el, resizeObserver, seen ) {
 
 	if ( resizeObserver ) {
 		resizeObserver.observe( el );
+
+		// A table that widens inside a container of fixed width (the standings
+		// "Show full stats" toggle) changes the container's overflow without
+		// resizing the container, so watch the table too.
+		const table =
+			'TABLE' === el.tagName ? null : el.querySelector( 'table' );
+
+		if ( table ) {
+			resizeObserver.observe( table );
+		}
 	}
 
 	update( el );
+}
+
+/**
+ * The scroll container a resize observation belongs to: the element itself
+ * when it is one, else the container a table sits in.
+ *
+ * @param {Element} el Observed element.
+ * @return {Element|null} Scroll container, or null.
+ */
+function containerFor( el ) {
+	if ( el.matches && el.matches( CONTAINERS ) ) {
+		return el;
+	}
+
+	return el.closest ? el.closest( CONTAINERS ) : null;
 }
 
 /**
@@ -262,7 +287,13 @@ function initTableScroll() {
 	const resizeObserver =
 		'undefined' !== typeof window.ResizeObserver
 			? new window.ResizeObserver( ( entries ) => {
-					entries.forEach( ( entry ) => update( entry.target ) );
+					entries.forEach( ( entry ) => {
+						const container = containerFor( entry.target );
+
+						if ( container ) {
+							update( container );
+						}
+					} );
 				} )
 			: null;
 
@@ -298,5 +329,12 @@ if ( typeof document !== 'undefined' ) {
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { CONTAINERS, update, attach, attachWithin, scrollLabel };
+	module.exports = {
+		CONTAINERS,
+		update,
+		attach,
+		attachWithin,
+		scrollLabel,
+		containerFor,
+	};
 }
