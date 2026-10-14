@@ -629,6 +629,115 @@ function blueline_sp_extra_class( string $key, array $extra_keys ): string {
 }
 
 /**
+ * The schedule-table status for a game: SportsPress's own `sp_status` flag
+ * when it says the game is not on as listed, '' for an on-time game.
+ *
+ * @param mixed $sp_status The event's `sp_status` meta ('ok', 'tbd', 'postponed', 'cancelled').
+ * @return string 'postponed'|'cancelled'|'tbd'|''.
+ */
+function blueline_sp_schedule_status( $sp_status ): string {
+	return in_array( $sp_status, array( 'postponed', 'cancelled', 'tbd' ), true ) ? $sp_status : '';
+}
+
+/**
+ * Label for a blueline_sp_schedule_status() key. Postponed and cancelled use
+ * the event hero's own words, so the table and the game's page agree; "Time
+ * TBD" because the Time column beside it still shows a provisional time.
+ *
+ * @param string $status blueline_sp_schedule_status() result.
+ * @return string
+ */
+function blueline_sp_schedule_status_label( string $status ): string {
+	if ( 'tbd' === $status ) {
+		return __( 'Time TBD', 'blueline' );
+	}
+
+	return blueline_sp_event_status_label( $status );
+}
+
+/**
+ * The schedule's Result cell (sportspress/event-list.php).
+ *
+ * A postponed or cancelled game often carries a recorded 0-0, which on its own
+ * reads as a final score; the status label always comes first and the score,
+ * when there is one, sits beside it (the event hero does the same). A status
+ * game never falls through to "Final score coming soon" or the dash, which
+ * both say the game is still on.
+ *
+ * @param array  $main_results   Team ID => score, as sp_get_main_results() returns.
+ * @param mixed  $sp_status      The event's `sp_status` meta.
+ * @param string $state          blueline_sp_event_state() result.
+ * @param bool   $still_expected blueline_sp_result_still_expected() result.
+ * @return string HTML.
+ */
+function blueline_sp_schedule_result_html( array $main_results, $sp_status, string $state, bool $still_expected ): string {
+	$status = blueline_sp_schedule_status( $sp_status );
+	$score  = $main_results
+		? '<span class="bl-sp-schedule__score">' . wp_kses_post( implode( ' - ', $main_results ) ) . '</span>'
+		: '';
+
+	if ( '' !== $status ) {
+		$label = sprintf(
+			'<span class="bl-sp-schedule__status bl-sp-schedule__status--%1$s">%2$s</span>',
+			esc_attr( $status ),
+			esc_html( blueline_sp_schedule_status_label( $status ) )
+		);
+
+		return '' === $score ? $label : $label . ' ' . $score;
+	}
+
+	if ( '' !== $score ) {
+		return $score;
+	}
+
+	// Played recently, no result on file yet; older unscored games (QA C-24) get the dash.
+	if ( 'pending' === $state && $still_expected ) {
+		return '<span class="bl-sp-schedule__pending">' . esc_html__( 'Final score coming soon', 'blueline' ) . '</span>';
+	}
+
+	return '<span class="bl-sp-schedule__none">&#8212;</span>';
+}
+
+/**
+ * Visually hidden text that follows the kick-off time inside a schedule row's
+ * event link, so the link is named for the game ("6:45 pm, Kings vs Hammers,
+ * October 16, 2026") rather than a bare time several rows share. The visible
+ * time stays first, so the spoken name still starts with what is on screen.
+ *
+ * @param string[] $team_names   Home then away, plain text.
+ * @param string   $date         Formatted game date.
+ * @param string   $status_label blueline_sp_schedule_status_label(), or ''.
+ * @return string Plain text, '' when there is nothing to add.
+ */
+function blueline_sp_schedule_link_context( array $team_names, string $date, string $status_label = '' ): string {
+	$team_names = array_values( array_filter( array_map( 'strval', $team_names ), 'strlen' ) );
+	$parts      = array();
+
+	if ( count( $team_names ) >= 2 ) {
+		/* translators: 1: home team, 2: away team. */
+		$parts[] = sprintf( __( '%1$s vs %2$s', 'blueline' ), $team_names[0], $team_names[1] );
+	} elseif ( $team_names ) {
+		$parts[] = $team_names[0];
+	}
+
+	$parts = array_merge( $parts, array_filter( array( $date, $status_label ), 'strlen' ) );
+
+	return $parts ? ', ' . implode( ', ', $parts ) : '';
+}
+
+/**
+ * The schedule's Arena text: blueline_venue_label()'s "Arena — Pad" with the
+ * dash glued to both neighbours, so a narrow column wraps inside the arena name
+ * and never strands "— Red" at the start of its own line.
+ *
+ * @param string $label blueline_venue_label() result.
+ * @return string Plain text.
+ */
+function blueline_sp_schedule_venue_text( string $label ): string {
+	return (string) preg_replace( '/\s+—\s+/u', "\u{00A0}—\u{00A0}", $label );
+}
+
+/**
  * Pure decision behind blueline_team_events_current_season_id(): given
  * SportsPress' own filter value ($season -- its plugin default of 0, or
  * whatever an earlier-priority `sp_team_events_season` callback already

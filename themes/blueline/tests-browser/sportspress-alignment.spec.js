@@ -13,6 +13,10 @@
  * Home/Away share equal widths, so the mirrored lockup is symmetric by
  * construction there and is kept. What broke it was centring each crest-and-name
  * group in its cell, which put a crest wherever the name's length dictated.
+ *
+ * At 600px and below the schedule is not a table at all but one card per game
+ * (time and result, then "Home vs Away", then the arena), so the mirrored
+ * lockup is checked at tablet and desktop widths only.
  */
 
 const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
@@ -116,128 +120,194 @@ test.describe( 'event fixture lockup', () => {
 	} );
 } );
 
-test.describe( 'schedule table team columns', () => {
-	test.beforeEach( async ( { page } ) => {
-		await page.setViewportSize( { width: 1200, height: 900 } );
-		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
-	} );
-
-	test( 'home and away cells and their headers point inward', async ( { page } ) => {
-		const aligns = await page.evaluate( () => {
-			const pick = ( sel ) => {
-				const el = document.querySelector( sel );
-				return el ? window.getComputedStyle( el ).textAlign : null;
-			};
-
-			return {
-				homeCell: pick( '.sp-event-list td.data-home' ),
-				awayCell: pick( '.sp-event-list td.data-away' ),
-				homeHead: pick( '.sp-event-list th.data-home' ),
-				awayHead: pick( '.sp-event-list th.data-away' ),
-			};
+for ( const width of [ 768, 1200 ] ) {
+	test.describe( `schedule table team columns at ${ width }px`, () => {
+		test.beforeEach( async ( { page } ) => {
+			await page.setViewportSize( { width, height: 900 } );
+			await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
 		} );
 
-		// Home hugs the Result column from the left, Away from the right. These
-		// were `center` when each crest-and-name group floated in the middle of
-		// its cell, which let the crest wander with the name's length.
-		expect( aligns.homeCell ).toBe( 'end' );
-		expect( aligns.homeHead ).toBe( 'end' );
-		expect( aligns.awayCell ).toBe( 'start' );
-		expect( aligns.awayHead ).toBe( 'start' );
-	} );
-
-	test( 'the lockups mirror: home is name-then-crest, away is crest-then-name', async ( { page } ) => {
-		const order = await page.evaluate( () => {
-			const read = ( sel ) => {
-				const cell = document.querySelector( sel );
-
-				if ( ! cell ) {
-					return null;
-				}
-
-				const img = cell.querySelector( 'img' );
-
-				if ( ! img ) {
-					return null;
-				}
-
-				// Measure the name's own element, not the whole link: the link
-				// includes the crest, which would make the comparison below
-				// trivially true.
-				const nameEl = cell.querySelector( 'a .bl-sp-team-name' );
-
-				if ( ! nameEl ) {
-					return null;
-				}
+		test( 'home and away cells and their headers point inward', async ( { page } ) => {
+			const aligns = await page.evaluate( () => {
+				const pick = ( sel ) => {
+					const el = document.querySelector( sel );
+					return el ? window.getComputedStyle( el ).textAlign : null;
+				};
 
 				return {
-					crestX: Math.round( img.getBoundingClientRect().x ),
-					nameX: Math.round( nameEl.getBoundingClientRect().x ),
-					name: nameEl.textContent.trim(),
+					homeCell: pick( '.sp-event-list td.data-home' ),
+					awayCell: pick( '.sp-event-list td.data-away' ),
+					homeHead: pick( '.sp-event-list th.data-home' ),
+					awayHead: pick( '.sp-event-list th.data-away' ),
 				};
-			};
+			} );
 
-			return {
-				home: read( '.sp-event-list td.data-home.has-logo' ),
-				away: read( '.sp-event-list td.data-away.has-logo' ),
-			};
+			// Home hugs the Result column from the left, Away from the right. These
+			// were `center` when each crest-and-name group floated in the middle of
+			// its cell, which let the crest wander with the name's length.
+			expect( aligns.homeCell ).toBe( 'end' );
+			expect( aligns.homeHead ).toBe( 'end' );
+			expect( aligns.awayCell ).toBe( 'start' );
+			expect( aligns.awayHead ).toBe( 'start' );
 		} );
 
-		// Both sides must actually be measurable, or this asserts nothing.
-		expect( order.home ).not.toBeNull();
-		expect( order.away ).not.toBeNull();
+		test( 'the lockups mirror: home is name-then-crest, away is crest-then-name', async ( { page } ) => {
+			const order = await page.evaluate( () => {
+				const read = ( sel ) => {
+					const cell = document.querySelector( sel );
 
-		// Home: the name sits left of its crest, so the crest is the edge next to
-		// the Result column. Away: the crest leads, for the same reason.
-		expect(
-			order.home.crestX,
-			`home cell (${ order.home.name }) should end with its crest`
-		).toBeGreaterThan( order.home.nameX );
-		expect(
-			order.away.crestX,
-			`away cell (${ order.away.name }) should lead with its crest`
-		).toBeLessThan( order.away.nameX );
-	} );
-
-	test( 'every crest sits the same distance from the Result column in every row', async ( { page } ) => {
-		const gaps = await page.evaluate( () =>
-			[ ...document.querySelectorAll( '.sp-event-list tbody tr' ) ]
-				.map( ( row ) => {
-					const home = row.querySelector( 'td.data-home img' );
-					const away = row.querySelector( 'td.data-away img' );
-					const time = row.querySelector( 'td.data-time' );
-
-					if ( ! home || ! away || ! time ) {
+					if ( ! cell ) {
 						return null;
 					}
 
-					const t = time.getBoundingClientRect();
+					const img = cell.querySelector( 'img' );
+
+					if ( ! img ) {
+						return null;
+					}
+
+					// Measure the name's own element, not the whole link: the link
+					// includes the crest, which would make the comparison below
+					// trivially true.
+					const nameEl = cell.querySelector( 'a .bl-sp-team-name' );
+
+					if ( ! nameEl ) {
+						return null;
+					}
 
 					return {
-						home: Math.round( t.left - home.getBoundingClientRect().right ),
-						away: Math.round( away.getBoundingClientRect().left - t.right ),
+						crestX: Math.round( img.getBoundingClientRect().x ),
+						nameX: Math.round( nameEl.getBoundingClientRect().x ),
+						name: nameEl.textContent.trim(),
 					};
-				} )
-				.filter( Boolean )
-		);
+				};
 
-		// Enough rows that the spread below means something.
-		expect( gaps.length ).toBeGreaterThanOrEqual( 3 );
+				return {
+					home: read( '.sp-event-list td.data-home.has-logo' ),
+					away: read( '.sp-event-list td.data-away.has-logo' ),
+				};
+			} );
 
-		const spread = ( key ) => {
-			const values = gaps.map( ( g ) => g[ key ] );
-			return Math.max( ...values ) - Math.min( ...values );
-		};
+			// Both sides must actually be measurable, or this asserts nothing.
+			expect( order.home ).not.toBeNull();
+			expect( order.away ).not.toBeNull();
 
-		// Crests are 30-32px boxes, so a couple of pixels is image shape, not
-		// drift. Centred groups put the same crest 16-56px apart row to row.
-		expect( spread( 'home' ), 'home crest distance varies by row' ).toBeLessThanOrEqual( 3 );
-		expect( spread( 'away' ), 'away crest distance varies by row' ).toBeLessThanOrEqual( 3 );
+			// Home: the name sits left of its crest, so the crest is the edge next to
+			// the Result column. Away: the crest leads, for the same reason.
+			expect(
+				order.home.crestX,
+				`home cell (${ order.home.name }) should end with its crest`
+			).toBeGreaterThan( order.home.nameX );
+			expect(
+				order.away.crestX,
+				`away cell (${ order.away.name }) should lead with its crest`
+			).toBeLessThan( order.away.nameX );
+		} );
 
-		// And the two sides mirror each other.
-		for ( const gap of gaps ) {
-			expect( Math.abs( gap.home - gap.away ) ).toBeLessThanOrEqual( 3 );
-		}
+		test( 'every crest sits the same distance from the Result column in every row', async ( { page } ) => {
+			const gaps = await page.evaluate( () =>
+				[ ...document.querySelectorAll( '.sp-event-list tbody tr' ) ]
+					.map( ( row ) => {
+						const home = row.querySelector( 'td.data-home img' );
+						const away = row.querySelector( 'td.data-away img' );
+						const time = row.querySelector( 'td.data-time' );
+
+						if ( ! home || ! away || ! time ) {
+							return null;
+						}
+
+						const t = time.getBoundingClientRect();
+
+						return {
+							home: Math.round( t.left - home.getBoundingClientRect().right ),
+							away: Math.round( away.getBoundingClientRect().left - t.right ),
+						};
+					} )
+					.filter( Boolean )
+			);
+
+			// Enough rows that the spread below means something.
+			expect( gaps.length ).toBeGreaterThanOrEqual( 3 );
+
+			const spread = ( key ) => {
+				const values = gaps.map( ( g ) => g[ key ] );
+				return Math.max( ...values ) - Math.min( ...values );
+			};
+
+			// Crests are 30-32px boxes, so a couple of pixels is image shape, not
+			// drift. Centred groups put the same crest 16-56px apart row to row.
+			expect( spread( 'home' ), 'home crest distance varies by row' ).toBeLessThanOrEqual( 3 );
+			expect( spread( 'away' ), 'away crest distance varies by row' ).toBeLessThanOrEqual( 3 );
+
+			// And the two sides mirror each other.
+			for ( const gap of gaps ) {
+				expect( Math.abs( gap.home - gap.away ) ).toBeLessThanOrEqual( 3 );
+			}
+		} );
+	} );
+}
+
+test.describe( 'schedule cards on a phone', () => {
+	test.beforeEach( async ( { page } ) => {
+		await page.setViewportSize( { width: 390, height: 900 } );
+		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+	} );
+
+	test( 'every game shows its opponent and arena without scrolling sideways', async ( { page } ) => {
+		const result = await page.evaluate( () => {
+			const doc = document.documentElement;
+			const rows = [ ...document.querySelectorAll( '.bl-sp-schedule tbody tr.sp-row' ) ];
+			const table = document.querySelector( '.bl-sp-schedule' );
+
+			return {
+				rows: rows.length,
+				pageScrolls: doc.scrollWidth > doc.clientWidth,
+				tableScrolls: table.parentElement.scrollWidth > table.parentElement.clientWidth + 1,
+				hidden: rows
+					.filter( ( row ) =>
+						[ 'td.data-away', 'td.data-venue' ].some( ( sel ) => {
+							const cell = row.querySelector( sel );
+
+							return cell && cell.offsetParent && cell.getBoundingClientRect().right > window.innerWidth;
+						} )
+					)
+					.map( ( row ) => row.textContent.replace( /\s+/g, ' ' ).trim() ),
+			};
+		} );
+
+		expect( result.rows ).toBeGreaterThanOrEqual( 3 );
+		expect( result.pageScrolls ).toBe( false );
+		expect( result.tableScrolls, 'the schedule must not scroll sideways on a phone' ).toBe( false );
+		expect( result.hidden, 'away team or arena off the right edge' ).toEqual( [] );
+	} );
+
+	test( 'a card reads time, then Home vs Away, then the arena', async ( { page } ) => {
+		const card = await page.evaluate( () => {
+			const row = document.querySelector( '.bl-sp-schedule tbody tr.sp-row' );
+			const top = ( sel ) => Math.round( row.querySelector( sel ).getBoundingClientRect().top );
+			const vs = row.querySelector( '.bl-sp-schedule__vs' );
+
+			return {
+				time: top( 'td.data-date' ),
+				home: top( 'td.data-home' ),
+				venue: top( 'td.data-venue' ),
+				vsShown: !! vs && vs.getBoundingClientRect().width > 0,
+				resultEnd: Math.round( row.querySelector( 'td.data-time' ).getBoundingClientRect().right ),
+				rowEnd: Math.round( row.getBoundingClientRect().right ),
+			};
+		} );
+
+		expect( card.home ).toBeGreaterThan( card.time );
+		expect( card.venue ).toBeGreaterThan( card.home );
+		expect( card.vsShown ).toBe( true );
+		// Result hugs the card's end, within its padding.
+		expect( card.rowEnd - card.resultEnd ).toBeLessThanOrEqual( 24 );
+	} );
+
+	test( 'the time link is named for the game, not just the time', async ( { page } ) => {
+		const link = page.locator( '.bl-sp-schedule td.data-date a' ).first();
+
+		await expect( link ).toHaveAccessibleName( / vs /, { ignoreCase: true } );
 	} );
 } );
 
@@ -256,7 +326,7 @@ test.describe( 'schedule team names on a phone', () => {
 			return {
 				total: names.length,
 				clipped: names
-					.filter( ( n ) => n.scrollWidth - n.clientWidth > 1 )
+					.filter( ( n ) => n.scrollWidth - n.clientWidth > 1 || n.scrollHeight - n.clientHeight > 1 )
 					.map( ( n ) => n.textContent.trim() ),
 				// A one-word name taller than a line and a half was split.
 				split: names
@@ -277,7 +347,8 @@ test.describe( 'schedule team names on a phone', () => {
 	} );
 
 	test( 'a clamped name shows its full text on a first tap and follows the link on the second', async ( { page } ) => {
-		const longName = 'Supercalifragilisticexpialidocious';
+		// Long enough to run past the two-line clamp even in a full-width card.
+		const longName = Array( 4 ).fill( 'Supercalifragilisticexpialidocious' ).join( ' ' );
 
 		const href = await page.evaluate( ( text ) => {
 			const name = document.querySelector( '.bl-sp-schedule td.data-away .bl-sp-team-name' );
@@ -306,5 +377,38 @@ test.describe( 'schedule team names on a phone', () => {
 		// Second tap on the same name follows the link.
 		await link.tap();
 		await page.waitForURL( ( url ) => href.endsWith( url.pathname ) || url.href === href );
+	} );
+} );
+
+test.describe( 'schedule team-name bubble and keyboard focus', () => {
+	test.beforeEach( async ( { page } ) => {
+		// Table layout, narrower than the table's minimum width, so it scrolls.
+		await page.setViewportSize( { width: 640, height: 900 } );
+		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+	} );
+
+	test( 'focusing a clamped away team keeps its bubble up while focus scrolls to it', async ( { page } ) => {
+		const longName = Array( 4 ).fill( 'Supercalifragilisticexpialidocious' ).join( ' ' );
+
+		// The last row, below the fold, so focusing it has to scroll.
+		await page.evaluate( ( text ) => {
+			[ ...document.querySelectorAll( '.bl-sp-schedule td.data-away .bl-sp-team-name' ) ].pop().textContent = text;
+			window.dispatchEvent( new Event( 'resize' ) );
+		}, longName );
+
+		const link = page.locator( '.bl-sp-schedule td.data-away a[data-bl-clipped]' ).first();
+		const tip = page.locator( '#bl-sp-team-tip' );
+
+		await expect( link ).toHaveAttribute( 'data-bl-clipped', '' );
+		await link.focus();
+
+		// The bubble used to hide on the scroll the focus itself caused.
+		await expect( tip ).toBeVisible();
+		await expect( tip ).toHaveText( longName );
+
+		// And it sits under its link, not where the link was before the scroll.
+		const [ linkBox, tipBox ] = await Promise.all( [ link.boundingBox(), tip.boundingBox() ] );
+		expect( tipBox.y ).toBeGreaterThanOrEqual( linkBox.y + linkBox.height - 1 );
+		expect( tipBox.y - ( linkBox.y + linkBox.height ) ).toBeLessThanOrEqual( 12 );
 	} );
 } );
