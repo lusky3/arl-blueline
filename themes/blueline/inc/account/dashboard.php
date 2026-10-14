@@ -682,9 +682,11 @@ function blueline_account_render_team_calendar( int $team_id, string $label ) {
 	if ( ! $team_calendar ) {
 		return;
 	}
+
+	$label_id = wp_unique_id( 'bl-calendar-label-' );
 	?>
-	<div class="bl-account-calendar" data-calendar-links>
-		<span class="bl-account-calendar__label"><?php echo esc_html( $label ); ?></span>
+	<div class="bl-account-calendar" data-calendar-links<?php echo blueline_calendar_group_attrs( $label_id, true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built and escaped by blueline_calendar_group_attrs(). ?>>
+		<span class="bl-account-calendar__label" id="<?php echo esc_attr( $label_id ); ?>"><?php echo esc_html( $label ); ?></span>
 		<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
 			<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
 		</a>
@@ -720,6 +722,26 @@ function blueline_account_event_when( array $event ): string {
 		$date,
 		get_the_time( get_option( 'time_format' ), $event['event_id'] )
 	);
+}
+
+/**
+ * The compact form of blueline_account_event_when(), for the floating
+ * widget's phone bar: "Fri 9:45 pm", or "Fri · Time TBD" for a game whose
+ * time is not settled.
+ *
+ * @param array{event_id:int, status:string} $event A blueline_player_event_summary() row.
+ * @return string
+ */
+function blueline_account_event_when_short( array $event ): string {
+	if ( 'tbd' === ( $event['status'] ?? '' ) ) {
+		return sprintf(
+			/* translators: %s: abbreviated weekday, e.g. "Fri". */
+			__( '%s · Time TBD', 'blueline' ),
+			get_the_date( 'D', $event['event_id'] )
+		);
+	}
+
+	return (string) get_the_time( 'D g:i a', $event['event_id'] );
 }
 
 /**
@@ -927,6 +949,10 @@ function blueline_account_render_schedule( int $player_id ) {
  * the explicit empty state here, not a placeholder needing a second
  * leaf-mark treatment on top of it.
  *
+ * A player on two current teams gets one block per team, each titled with its
+ * team's name (see blueline_player_season_stat_blocks() for when the leagues
+ * cannot tell the teams apart and one combined block is printed instead).
+ *
  * @param int $player_id sp_player post ID.
  */
 function blueline_account_render_season_stats( int $player_id ) {
@@ -934,33 +960,47 @@ function blueline_account_render_season_stats( int $player_id ) {
 		return;
 	}
 
-	$stats = blueline_get_player_season_stats( $player_id );
+	$blocks  = blueline_player_season_stat_blocks( $player_id );
+	$several = count( $blocks ) > 1;
 
-	blueline_account_module_start( 'season-stats', __( 'My season', 'blueline' ) );
-	?>
-	<dl class="bl-account-stats">
-		<div class="bl-account-stats__item">
-			<dt><?php esc_html_e( 'GP', 'blueline' ); ?></dt>
-			<dd><?php echo esc_html( (string) $stats['gp'] ); ?></dd>
-		</div>
-		<div class="bl-account-stats__item">
-			<dt><?php esc_html_e( 'G', 'blueline' ); ?></dt>
-			<dd><?php echo esc_html( (string) $stats['g'] ); ?></dd>
-		</div>
-		<div class="bl-account-stats__item">
-			<dt><?php esc_html_e( 'A', 'blueline' ); ?></dt>
-			<dd><?php echo esc_html( (string) $stats['a'] ); ?></dd>
-		</div>
-		<div class="bl-account-stats__item">
-			<dt><?php esc_html_e( 'PIM', 'blueline' ); ?></dt>
-			<dd><?php echo esc_html( (string) $stats['pim'] ); ?></dd>
-		</div>
-	</dl>
-	<?php if ( ! array_filter( $stats ) ) : ?>
-		<p class="bl-account-stats__hint"><?php echo esc_html( blueline_settings( 'account_empty_stats' ) ); ?></p>
-	<?php endif; ?>
-	<?php
-	blueline_account_module_end();
+	foreach ( $blocks as $index => $block ) {
+		$stats = $block['stats'];
+
+		blueline_account_module_start(
+			0 === $index ? 'season-stats' : 'season-stats-' . $block['team']['team_id'],
+			$several
+				? sprintf(
+					/* translators: %s: team name. */
+					__( 'My season: %s', 'blueline' ),
+					$block['team']['name']
+				)
+				: __( 'My season', 'blueline' )
+		);
+		?>
+		<dl class="bl-account-stats">
+			<div class="bl-account-stats__item">
+				<dt><?php esc_html_e( 'GP', 'blueline' ); ?></dt>
+				<dd><?php echo esc_html( (string) $stats['gp'] ); ?></dd>
+			</div>
+			<div class="bl-account-stats__item">
+				<dt><?php esc_html_e( 'G', 'blueline' ); ?></dt>
+				<dd><?php echo esc_html( (string) $stats['g'] ); ?></dd>
+			</div>
+			<div class="bl-account-stats__item">
+				<dt><?php esc_html_e( 'A', 'blueline' ); ?></dt>
+				<dd><?php echo esc_html( (string) $stats['a'] ); ?></dd>
+			</div>
+			<div class="bl-account-stats__item">
+				<dt><?php esc_html_e( 'PIM', 'blueline' ); ?></dt>
+				<dd><?php echo esc_html( (string) $stats['pim'] ); ?></dd>
+			</div>
+		</dl>
+		<?php if ( ! array_filter( $stats ) ) : ?>
+			<p class="bl-account-stats__hint"><?php echo esc_html( blueline_settings( 'account_empty_stats' ) ); ?></p>
+		<?php endif; ?>
+		<?php
+		blueline_account_module_end();
+	}
 }
 
 /**

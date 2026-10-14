@@ -479,6 +479,22 @@ function blueline_team_calendar_urls( $team_id ) {
 }
 
 /**
+ * The attributes that name a pair of add-to-calendar links as one group, so a
+ * screen reader announces what "Apple / Outlook" and "Google" are for. Names
+ * the group from a visible label on the page when there is one ($label is that
+ * element's id), else from text of its own.
+ *
+ * @param string $label    The label's element id, or the label text.
+ * @param bool   $is_id    Whether $label is an element id.
+ * @return string Attribute string with a leading space; already escaped.
+ */
+function blueline_calendar_group_attrs( string $label, bool $is_id = false ): string {
+	return $is_id
+		? ' role="group" aria-labelledby="' . esc_attr( $label ) . '"'
+		: ' role="group" aria-label="' . esc_attr( $label ) . '"';
+}
+
+/**
  * Print a team's "subscribe to this season" calendar links -- Apple/Outlook
  * (webcal) and Google -- or nothing at all when the team has no published
  * calendar (blueline_team_calendar_urls() itself returns null).
@@ -511,9 +527,11 @@ function blueline_render_team_calendar_links( $team_id ) {
 	if ( ! $team_calendar ) {
 		return;
 	}
+
+	$label_id = wp_unique_id( 'bl-calendar-label-' );
 	?>
-	<div class="bl-sp-team-calendar" data-calendar-links>
-		<span class="bl-sp-team-calendar__label"><?php esc_html_e( 'Take your schedule with you:', 'blueline' ); ?></span>
+	<div class="bl-sp-team-calendar" data-calendar-links<?php echo blueline_calendar_group_attrs( $label_id, true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built and escaped by blueline_calendar_group_attrs(). ?>>
+		<span class="bl-sp-team-calendar__label" id="<?php echo esc_attr( $label_id ); ?>"><?php esc_html_e( 'Take your schedule with you:', 'blueline' ); ?></span>
 		<a class="bl-btn bl-btn--secondary" data-calendar="apple" href="<?php echo esc_url( $team_calendar['webcal'], array( 'webcal', 'http', 'https' ) ); ?>">
 			<span class="bl-skew"><span><?php esc_html_e( 'Apple / Outlook', 'blueline' ); ?></span></span>
 		</a>

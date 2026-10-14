@@ -454,8 +454,11 @@ function blueline_social_meta_data() {
 		);
 	}
 
-	// get_pagenum_link( 1 ) is the current archive/search query's own URL without a page-2+ suffix.
-	return blueline_core_seo_site_identity( get_pagenum_link( 1 ), blueline_core_seo_archive_description() );
+	// An archive page is named by the address its canonical prints, page number included. Search
+	// results have no canonical, so they keep get_pagenum_link( 1 ): the query's own URL without a page-2+ suffix.
+	$archive_url = blueline_core_seo_archive_canonical_url();
+
+	return blueline_core_seo_site_identity( '' !== $archive_url ? $archive_url : get_pagenum_link( 1 ), blueline_core_seo_archive_description() );
 }
 
 /**
