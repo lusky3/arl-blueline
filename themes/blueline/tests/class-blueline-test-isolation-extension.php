@@ -3,7 +3,7 @@
  * PHPUnit extension that keeps the theme suite's tests independent of the
  * order they run in. Registered in phpunit.xml.
  *
- * The suite runs in random order (phpunit.xml's executionOrder), and two
+ * The suite runs in random order (phpunit.xml's executionOrder), and three
  * things in the stub environment are only safe in file order:
  *
  * - The hook baseline blueline_test_reset_hooks() restores to was captured
@@ -14,10 +14,15 @@
  *   was only cleared by the tests that knew to clear the exact keys they had
  *   set, so a later test could see an earlier one's import POST or admin
  *   context.
+ * - The fake-WordPress state (posts, post meta, terms) and the option,
+ *   transient and cache stores were only reset by tests that asked, so a
+ *   test that forgot one could render posts another test registered.
  *
  * This captures the hook baseline once, after every test file has loaded
- * and before the first test runs, and resets request state before every
- * test, so neither depends on which test came first.
+ * and before the first test runs, and resets every store (request state
+ * included) before every test, so no test depends on which test came
+ * first. Tests still call the reset helpers from their own setUp(); that
+ * remains correct and documents what each test relies on.
  *
  * @package blueline
  */
@@ -63,13 +68,15 @@ final class Blueline_Test_Isolation_Extension implements Extension {
 		$facade->registerSubscriber(
 			new class() implements PreparationStartedSubscriber {
 				/**
-				 * Runs before each test's setUp().
+				 * Runs before each test's setUp(): every store back to empty
+				 * (hooks back to the production baseline).
 				 *
 				 * @param PreparationStarted $event Event (unused).
 				 * @return void
 				 */
 				public function notify( PreparationStarted $event ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature fixed by the subscriber interface.
-					blueline_test_reset_request();
+					blueline_test_reset();
+					blueline_test_reset_state();
 				}
 			}
 		);
