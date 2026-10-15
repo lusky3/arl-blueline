@@ -128,8 +128,22 @@
  */
 
 const { test, expect } = require( '@playwright/test' );
+const { checkPanelMarkerPresent } = require( './global-setup.js' );
 
 test.describe.configure( { mode: 'serial' } );
+
+// Fail fast, with the setup guidance, when this target cannot serve the
+// logged-in panel at all (no automatic-login, theme not active).
+test.beforeAll( async ( { playwright }, testInfo ) => {
+	const { baseURL } = testInfo.project.use;
+	const ctx = await playwright.request.newContext( { baseURL, ignoreHTTPSErrors: true } );
+
+	try {
+		await checkPanelMarkerPresent( ctx, baseURL );
+	} finally {
+		await ctx.dispose();
+	}
+} );
 
 const PANEL_PATH = '/wp-admin/themes.php?page=blueline&tab=content';
 const EMAIL_FIELD_SELECTOR = '#blueline-field-contact_email';
@@ -454,15 +468,14 @@ async function assertHazardIsLive( page ) {
  * Capabilities Pro's own admin-notices removal, and this page's own focus
  * script (see blueline_settings_focus_summary_script()'s docblock), both
  * run from a jQuery `ready()`/`setTimeout(fn, 0)` chain rather than
- * synchronously during page load. This waits a fixed, generous beat for
- * both to have had their turn before this file reads the DOM, consistent
- * with this being an on-demand, manually-invoked check (like
- * scripts/smoke-staging.sh), not a latency-sensitive CI gate.
+ * synchronously during page load. Waiting for the network to go quiet (no
+ * request for 500ms) gives both their turn, and waits longer on a slow run
+ * instead of reading the DOM too early, which a fixed sleep cannot do.
  *
  * @param {import('@playwright/test').Page} page
  */
 async function settleAfterClientSideScripts( page ) {
-	await page.waitForTimeout( 400 );
+	await page.waitForLoadState( 'networkidle' );
 }
 
 /**

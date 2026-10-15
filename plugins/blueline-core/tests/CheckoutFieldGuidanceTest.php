@@ -322,6 +322,29 @@ final class CheckoutFieldGuidanceTest extends TestCase {
 	}
 
 	/**
+	 * The same holds for the `move` fields on the real path: the checkout-fields filter rewrites
+	 * the field first, then the form-field-args filter sees the result at render time. The caveat
+	 * must be appended once, not once per filter.
+	 */
+	public function test_moved_caveat_survives_both_filters_exactly_once(): void {
+		$fields = array(
+			'player_profile' => array(
+				'arl_request' => array(
+					'placeholder' => 'Please enter only 1 name... Do not use this field for captains or team names.',
+					'description' => 'Who you would like to play with.',
+				),
+			),
+		);
+
+		$stored   = blueline_wc_checkout_field_guidance( $fields )['player_profile']['arl_request'];
+		$rendered = apply_filters( 'woocommerce_form_field_args', $stored, 'arl_request', null );
+
+		$this->assertSame( $stored, $rendered );
+		$this->assertSame( 1, substr_count( $rendered['description'], 'Enter only 1 name' ) );
+		$this->assertStringStartsWith( 'Who you would like to play with.', $rendered['description'] );
+	}
+
+	/**
 	 * The `blueline_core_checkout_field_guidance` filter can add a field and change copy.
 	 */
 	public function test_guidance_map_is_filterable(): void {
