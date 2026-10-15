@@ -3,16 +3,16 @@
 @import "./layout.css";
 @import "./blocks.css";
 @import "./header.css";
-@import "./announcement.css";
-@import "./floating-next-game.css";
+@import "./onesignal.css";
 @import "./team-flyout.css";
 @import "./nav.css";
 @import "./footer.css";
-@import "./sponsors-page.css";
-@import "./sportspress.css";
+@import "./sportspress-chrome.css";
 
 /*
- * Built as their own entries (webpack.config.js) and enqueued only where they
- * can match (inc/enqueue.php), in this order after the core bundle:
- * occasions, homepage, woocommerce, forms, account.
+ * The core bundle: what every page needs. The rest are their own entries
+ * (webpack.config.js), enqueued only where they can match
+ * (blueline_template_style_bundles(), inc/enqueue.php), in this order after
+ * the core bundle: announcement, floating-next-game, sponsors-page,
+ * sportspress, occasions, homepage, woocommerce, forms, account.
  */

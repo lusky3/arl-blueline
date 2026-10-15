@@ -1,27 +1,17 @@
+/*
+ * The core bundle: the chrome every page has (navigation, sticky header,
+ * footer theme toggle, team flyout, sidebar, wide tables, logo link names,
+ * calendar buttons). Feature scripts are their own webpack entries
+ * (webpack.config.js), enqueued only where their markup can render
+ * (blueline_theme_bundles(), inc/enqueue.php).
+ */
 import '../css/index.css';
 import './navigation.js';
 import './sticky-header.js';
-import './venue-map.js';
 import './table-scroll.js';
 import './calendar-links.js';
-import './account.js';
-import './player-selector.js';
-import './sponsors.js';
-import './announcement.js';
-import './woocommerce-account-form-errors.js';
-import './woocommerce.js';
-import './contact-form-fields.js';
-import './rules-modal.js';
-import './standings-tabs.js';
-import './floating-next-game.js';
-import './account-next-game.js';
 import './footer-theme-toggle.js';
-import './preferences-widget-reset.js';
 import './team-flyout.js';
-import './occasion-effects-toggle.js';
-import './player-photo-upload.js';
 import './sidebar-jump-nav.js';
 import './sidebar-scroll-cues.js';
-import './quotes-llama-alt.js';
 import './team-logo-links.js';
-import './team-name-tooltip.js';
