@@ -749,7 +749,7 @@ function blueline_brand_color_override_declarations(): string {
 /**
  * Emit every admin-overridden brand-palette colour as an inline override
  * on the blueline-tokens handle (inc/enqueue.php), same handle/hook/
- * priority as blueline_occasion_front_end_styles() (inc/occasions.php) —
+ * priority as blueline_occasion_front_end_styles() (inc/occasions/render.php) —
  * both append to the same handle safely, since wp_add_inline_style()
  * appends rather than replaces.
  *

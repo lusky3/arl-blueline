@@ -136,7 +136,7 @@ function blueline_comments_nav(): void {
  * Live-review finding: this used to call a function named
  * "blueline_homepage_registration_offer", singular -- which is not, and
  * has never been, defined anywhere in this theme; the real function is
- * blueline_homepage_registration_offers() (plural, inc/homepage-modules.php),
+ * blueline_homepage_registration_offers() (plural, inc/homepage/registration-offers.php),
  * returning every live offer rather than one. function_exists() on the
  * misspelled name is always false, so `&&` short-circuited before the call
  * and $show_register was always false -- the header CTA showed "Schedule"
@@ -560,7 +560,7 @@ function blueline_site_header() {
 					<?php
 					// The header CTA is where the occasion accent's ribbon-fill
 					// consumer lives (header.css's .bl-btn--primary .bl-skew --
-					// inc/occasions.php's blueline_occasion_front_end_styles()
+					// inc/occasions/render.php's blueline_occasion_front_end_styles()
 					// docblock), so the motif (design spec §7.2's third named
 					// consumer) rides along here too, and only while this CTA
 					// is genuinely the primary Register button -- a motif next

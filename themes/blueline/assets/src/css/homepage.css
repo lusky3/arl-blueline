@@ -703,7 +703,7 @@ a.bl-next-games__venue:focus-visible {
  * pair" with no id matching needed. The panels are outside the fieldset, so
  * the wrapper's :has() reaches them where `~` cannot. 12 pairs is well above
  * this site's own historical maximum (7 lettered groups, one winter season).
- * inc/homepage-modules.php's BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS caps how
+ * inc/homepage/standings.php's BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS caps how
  * many tabs/panels are ever rendered at exactly this number -- there is no
  * 13th pair below to match, so a season that somehow exceeds it simply never
  * offers a tab for the extra divisions (still reachable on /standings)

@@ -36,7 +36,7 @@ final class OccasionsCronTest extends TestCase {
 	 * directly to blueline_occasion_next_boundary_timestamp() (it never
 	 * looks at 'id' at all). A fixture that instead goes through
 	 * update_option( BLUELINE_SETTINGS_OPTION, ... ) is revalidated by
-	 * blueline_sanitize_occasions() (inc/occasions.php), which DOES
+	 * blueline_sanitize_occasions() (inc/occasions/model.php), which DOES
 	 * require 'id' to match the value's own map key -- callers that store
 	 * this under a key other than 'test-occasion' must pass that key here
 	 * too, or the entry is silently dropped and the test asserts against

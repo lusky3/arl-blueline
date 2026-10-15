@@ -61,7 +61,7 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * default" rather than "point at this specific post/term"). A `term_id`
  * field additionally carries `taxonomy` when it should render as a real term
  * picker (wp_dropdown_categories()) rather than a raw number box — see
- * inc/settings/page.php's blueline_settings_render_field() and
+ * inc/settings/page-fields.php's blueline_settings_render_field() and
  * inc/settings/commerce.php's blueline_resolve_registration_term(), which
  * reads this same key to know which taxonomy to validate the stored/fallback
  * ID against.
@@ -483,7 +483,7 @@ function blueline_settings_schema(): array {
 			'fallback' => 91,
 			// `taxonomy` is what makes this a term PICKER (a dropdown of real
 			// product_cat terms, rendered via wp_dropdown_categories() -- see
-			// inc/settings/page.php's blueline_settings_render_field()) rather
+			// inc/settings/page-fields.php's blueline_settings_render_field()) rather
 			// than a raw number box an admin has to already know the ID for.
 			// A future `term_id` field that genuinely has no taxonomy to pick
 			// from would simply omit this key and fall back to the number

@@ -284,7 +284,7 @@ add_action( 'woocommerce_before_checkout_form', 'blueline_checkout_reassurance' 
 /**
  * A short reassurance note above the checkout form -- the same nervous
  * first-timer persona the homepage's 'new_here' module exists to calm (see
- * blueline_homepage_module_new_here() in inc/homepage-modules.php), except
+ * blueline_homepage_module_new_here() in inc/homepage/new-here.php), except
  * here they are one field away from actually paying, which was previously
  * the one place in the whole registration flow with zero brand-voice copy
  * anywhere on the page (see this file's own docblock on woocommerce/ being

@@ -10,7 +10,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The five season states blueline_decide_season_state() can return. There is
  * no sixth: the break-glass override below refuses anything outside this
- * list, and blueline_render_hero() (inc/homepage-modules.php) falls back to
+ * list, and blueline_render_hero() (inc/homepage/hero.php) falls back to
  * 'offseason' for anything outside it (blueline_known_season_state()).
  *
  * The order here is presentation order -- roughly the arc of a season -- and

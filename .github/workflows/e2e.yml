@@ -210,8 +210,8 @@ jobs:
         # and every test here only ever exercises its empty-state branch,
         # never the actual tab-strip markup.
         #
-        # blueline_homepage_current_standings_tables() (inc/homepage-
-        # modules.php) matches sp_table posts by TITLE, searching for the
+        # blueline_homepage_current_standings_tables() (inc/homepage/
+        # standings.php) matches sp_table posts by TITLE, searching for the
         # active season's own resolved label as a substring -- it never
         # reads the sp_season taxonomy off the table posts themselves. Only
         # the sp_event resolves "which season is active" in the first

@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || exit;
  * in either of those functions.
  *
  * The four `module_*` entries carry a `help` string the other groups
- * don't: blueline_homepage_module_order() (inc/homepage-modules.php) never
+ * don't: blueline_homepage_module_order() (inc/homepage/modules.php) never
  * lets unticking every one of them empty the homepage -- it keeps the
  * first module of that state's order regardless (the floor; WCAG 2.4.5
  * needs two ways to find content). That is genuinely surprising if an

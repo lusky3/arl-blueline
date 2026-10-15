@@ -6,7 +6,7 @@
  *
  * Split out of inc/settings/page.php, which otherwise mixed this repeater's
  * markup in among routing, sanitisation and every other settings-tab concern.
- * blueline_settings_render_page() (inc/settings/page.php) still owns dispatching
+ * blueline_settings_render_page() (inc/settings/page-render.php) still owns dispatching
  * to blueline_settings_render_occasions_tab() for the Occasions tab, the same
  * way it dispatches to the generic per-field loop for every other tab.
  *
@@ -43,7 +43,7 @@ defined( 'ABSPATH' ) || exit;
  * silently a no-op.
  *
  * The marker's own row never survives processing:
- * blueline_occasions_assign_unique_ids() (inc/occasions.php) drops any
+ * blueline_occasions_assign_unique_ids() (inc/occasions/model.php) drops any
  * row whose label yields an empty `sanitize_title()`, so this row is
  * gone before blueline_sanitize_occasions() ever sees it. Its only job
  * is to make the `occasions` key PRESENT, so the branch runs, computes
