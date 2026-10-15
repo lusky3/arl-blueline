@@ -117,6 +117,16 @@ final class CspPolicyTest extends TestCase {
 	}
 
 	/**
+	 * Chrome fetches Google Pay's payment-method manifest from https://google.com/pay, which redirects to
+	 * www.google.com; a redirected fetch is checked against the target's origin, so commerce pages allow it
+	 * in connect-src. Content pages never fetch it (www.google.com stays a frame source there only).
+	 */
+	public function test_commerce_connect_src_allows_the_google_pay_manifest_redirect(): void {
+		$this->assertContains( 'https://www.google.com', blueline_core_csp_directives( true )['connect-src'] );
+		$this->assertNotContains( 'https://www.google.com', blueline_core_csp_directives( false )['connect-src'] );
+	}
+
+	/**
 	 * The policy string ends with both report directives pointing at the endpoint.
 	 */
 	public function test_policy_string(): void {

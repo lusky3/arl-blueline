@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../includes/headers/headers.php';
 require_once __DIR__ . '/../includes/privacy/privacy.php';
+// Stand-ins for the WordPress page lookups (the theme's domain-router test stubs, driven by globals).
+require_once dirname( __DIR__, 3 ) . '/themes/blueline/tests/domain-router-stubs.php';
 
 /**
  * Covers validation, size and content-type limits, the per-visitor rate limit, aggregation, eviction,
@@ -28,13 +30,23 @@ final class CspReportTest extends TestCase {
 		blueline_test_reset_state();
 		$_SERVER['REMOTE_ADDR'] = self::IP;
 		unset( $GLOBALS['bl_core_test_rest_routes'] );
+
+		// The site's real pages: only reports from these (or other paths that resolve) are counted.
+		$GLOBALS['arl_dr_test_post_ids']   = array(
+			'https://example.test/schedule'      => 10,
+			'https://example.test/team/mustangs' => 11,
+			'https://example.test/player/x'      => 12,
+		);
+		$GLOBALS['arl_dr_test_pages']      = array();
+		$GLOBALS['arl_dr_test_taxonomies'] = array();
+		$GLOBALS['arl_dr_test_terms']      = array();
 	}
 
 	/**
-	 * Remove the visitor address.
+	 * Remove the visitor address and the registered pages.
 	 */
 	protected function tearDown(): void {
-		unset( $_SERVER['REMOTE_ADDR'], $GLOBALS['bl_core_test_rest_routes'] );
+		unset( $_SERVER['REMOTE_ADDR'], $GLOBALS['bl_core_test_rest_routes'], $GLOBALS['arl_dr_test_post_ids'], $GLOBALS['arl_dr_test_pages'], $GLOBALS['arl_dr_test_taxonomies'], $GLOBALS['arl_dr_test_terms'] );
 	}
 
 	/**
@@ -434,6 +446,178 @@ final class CspReportTest extends TestCase {
 		$this->assertSame( 204, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) ) ) );
 
 		$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_LIMIT + 2, blueline_core_csp_store()['total'] );
+	}
+
+	/**
+	 * The window is fixed: it starts with the visitor's first request and ends 10 minutes later however
+	 * many requests arrive in it, so a steady trickle of reports is not locked out for good. The counter's
+	 * lifetime is what is left of the window, never a fresh 10 minutes.
+	 */
+	public function test_rate_limit_window_is_fixed(): void {
+		$start = gmmktime( 12, 0, 0, 10, 15, 2026 );
+		$key   = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-15' ), 0, 24 );
+
+		for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_RATE_LIMIT; $i++ ) {
+			$now = $start + $i * 15;
+			$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $now ), "request $i" );
+			$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_WINDOW - $i * 15, $GLOBALS['bl_test_transient_ttl'][ $key ], "ttl after request $i" );
+		}
+
+		$this->assertFalse( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $start + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW - 1 ) );
+		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $start + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW ) );
+		$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_WINDOW, $GLOBALS['bl_test_transient_ttl'][ $key ] );
+	}
+
+	/**
+	 * A counter left over from the old format (a bare integer) or one whose window is somehow in the
+	 * future starts a fresh window rather than locking the visitor out.
+	 */
+	public function test_rate_limit_ignores_damaged_counters(): void {
+		$now = gmmktime( 12, 0, 0, 10, 15, 2026 );
+		$key = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-15' ), 0, 24 );
+
+		set_transient( $key, 999, 600 );
+		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $now ) );
+		$this->assertSame(
+			array(
+				'count' => 1,
+				'start' => $now,
+			),
+			get_transient( $key )
+		);
+
+		set_transient(
+			$key,
+			array(
+				'count' => 999,
+				'start' => $now + 5000,
+			),
+			600
+		);
+		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $now ) );
+	}
+
+	/**
+	 * Only paths shaped like the site's own pages are considered: a handful of short slug segments.
+	 *
+	 * @return array<string, array{0: string, 1: bool}>
+	 */
+	public static function path_shapes(): array {
+		return array(
+			'home'             => array( '/', true ),
+			'page'             => array( '/schedule/', true ),
+			'nested page'      => array( '/arl-league-info/rules', true ),
+			'account endpoint' => array( '/account/edit-address/billing', true ),
+			'paged archive'    => array( '/category/news/page/2/', true ),
+			'encoded slug'     => array( '/team/caf%C3%A9-crew', true ),
+			'dated post'       => array( '/2026/08/winter-season-registration-update/', true ),
+			'too deep'         => array( '/a/b/c/d/e/f/g', false ),
+			'segment too long' => array( '/' . str_repeat( 'a', 101 ), false ),
+			'empty segment'    => array( '/team//mustangs', false ),
+			'odd characters'   => array( '/team/<script>', false ),
+			'quote'            => array( "/team/o'neil", false ),
+			'dot segment'      => array( '/team/../wp-config.php', false ),
+			'no leading slash' => array( 'schedule', false ),
+		);
+	}
+
+	/**
+	 * See path_shapes().
+	 *
+	 * @param string $path     Path.
+	 * @param bool   $expected Whether it is a plausible page path.
+	 */
+	#[DataProvider( 'path_shapes' )]
+	public function test_path_shape( string $path, bool $expected ): void {
+		$this->assertSame( $expected, blueline_core_csp_path_is_plausible( $path ) );
+	}
+
+	/**
+	 * A path resolves when it is the front page, a post or page (url_to_postid(), which also covers the
+	 * account endpoints), a published page WordPress lists other things on, or a taxonomy term archive;
+	 * page 2+ of a list resolves when page 1 does.
+	 */
+	public function test_path_resolves(): void {
+		$GLOBALS['arl_dr_test_post_ids']['https://example.test/account/payment-methods'] = 20;
+		$GLOBALS['arl_dr_test_pages']['news']       = (object) array( 'post_status' => 'publish' );
+		$GLOBALS['arl_dr_test_pages']['draft-page'] = (object) array( 'post_status' => 'draft' );
+		$GLOBALS['arl_dr_test_taxonomies']          = array(
+			(object) array(
+				'name'    => 'sp_venue',
+				'rewrite' => array( 'slug' => 'venue' ),
+			),
+		);
+		$GLOBALS['arl_dr_test_terms']['sp_venue']   = array( 'red' );
+
+		foreach ( array( '/', '/schedule/', '/account/payment-methods', '/news/', '/news/page/3/', '/venue/red/', '/team/mustangs' ) as $path ) {
+			$this->assertTrue( blueline_core_csp_path_resolves( $path ), $path );
+		}
+
+		foreach ( array( '/verify4-ratelimit', '/draft-page', '/venue/blue', '/nothing/red', '/team/mustangs/extra' ) as $path ) {
+			$this->assertFalse( blueline_core_csp_path_resolves( $path ), $path );
+		}
+	}
+
+	/**
+	 * The `blueline_core_csp_report_path_resolves` filter can accept or refuse a path.
+	 */
+	public function test_path_resolves_filter(): void {
+		add_filter(
+			'blueline_core_csp_report_path_resolves',
+			static function ( $resolves, $path ) {
+				return '/special' === $path ? true : $resolves;
+			},
+			10,
+			2
+		);
+
+		$this->assertTrue( blueline_core_csp_path_resolves( '/special' ) );
+		$this->assertFalse( blueline_core_csp_path_resolves( '/other' ) );
+	}
+
+	/**
+	 * Reports from a page that is not one of the site's (made-up paths, odd shapes) are not counted, so
+	 * junk cannot fill the 200-entry store and push out real rows.
+	 */
+	public function test_reports_from_unknown_pages_are_not_counted(): void {
+		foreach ( array( 'https://example.test/verify4-ratelimit', 'https://example.test/a/b/c/d/e/f/g/h', 'https://example.test/team/%3Cscript%3E%22' ) as $url ) {
+			$result = blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body( array( 'document-uri' => $url ) ) ) );
+			$this->assertSame( 400, $this->http_status( $result ), $url );
+		}
+
+		$batch  = (string) wp_json_encode(
+			array(
+				$this->api_report( 'img-src', 'https://junk.test/x.png', 'https://example.test/junk-1' ),
+				$this->api_report( 'img-src', 'https://real.test/x.png', 'https://example.test/team/mustangs' ),
+			)
+		);
+		$result = blueline_core_csp_report_handle( $this->request( 'application/reports+json', $batch ) );
+
+		$this->assertSame( 204, $this->http_status( $result ) );
+		$this->assertSame( array( array( 'img-src', 'https://real.test', '/team/mustangs', 1 ) ), $this->entries() );
+		$this->assertSame( 1, blueline_core_csp_store()['total'] );
+	}
+
+	/**
+	 * A violation already in the store is counted again without looking its page up (the lookup costs
+	 * queries, and the page was real when it was first stored).
+	 */
+	public function test_known_entries_skip_the_page_lookup(): void {
+		$lookups = 0;
+		add_filter(
+			'blueline_core_csp_report_path_resolves',
+			static function ( $resolves ) use ( &$lookups ) {
+				++$lookups;
+				return $resolves;
+			}
+		);
+
+		blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) );
+		blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) );
+		blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) );
+
+		$this->assertSame( 1, $lookups );
+		$this->assertSame( 3, $this->entries()[0][3] );
 	}
 
 	/**
