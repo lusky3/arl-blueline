@@ -358,3 +358,24 @@
 		height: 48px;
 	}
 }
+
+/*
+ * Short viewports (a phone on its side, a laptop at 400% zoom): the fixed
+ * tab sat over the left edge of whatever was being read on every screen.
+ * Like the header (header.css), it stays at the top of the page instead and
+ * scrolls away with it, over the first screen only. The panel centres in
+ * that screen, since the header no longer covers its top.
+ */
+@media (max-height: 420px) {
+
+	.bl-team-flyout {
+		position: absolute;
+		inset-block: 0 auto;
+		height: 100vh;
+	}
+
+	.bl-team-flyout__panel {
+		top: 50%;
+		max-height: calc(100vh - (var(--bl-space-4) * 2));
+	}
+}

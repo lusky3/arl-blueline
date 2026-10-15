@@ -26,12 +26,20 @@ if ( is_user_logged_in() ) {
 	return;
 }
 
+// Always show the form after a login attempt.
+$show_form = isset( $_POST['login'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+/*
+ * Blueline: the toggle is a disclosure, so it says so (role and state);
+ * assets/src/js/checkout-login-toggle.js points it at the form and keeps
+ * aria-expanded in step as WooCommerce slides the form open and shut.
+ */
 if ( $login_reminder_at_checkout ) : ?>
 	<div class="woocommerce-form-login-toggle">
 		<?php
 		wc_print_notice(
 			apply_filters( 'woocommerce_checkout_login_message', esc_html__( 'Returning player?', 'blueline' ) ) . // phpcs:ignore WooCommerce.Commenting.CommentHooks.MissingHookComment
-			' <a href="#" class="showlogin">' . esc_html__( 'Click here to login', 'woocommerce' ) . '</a>',
+			' <a href="#" class="showlogin" role="button" aria-expanded="' . ( $show_form ? 'true' : 'false' ) . '">' . esc_html__( 'Click here to login', 'woocommerce' ) . '</a>',
 			'notice'
 		);
 		?>
@@ -40,9 +48,6 @@ if ( $login_reminder_at_checkout ) : ?>
 endif;
 
 if ( $registration_at_checkout || $login_reminder_at_checkout ) :
-
-	// Always show the form after a login attempt.
-	$show_form = isset( $_POST['login'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
 	woocommerce_login_form(
 		array(

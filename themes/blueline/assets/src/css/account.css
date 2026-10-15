@@ -226,10 +226,18 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 }
 /* stylelint-enable no-descending-specificity */
 
+/* Ice on the white panel is 1.94:1 (WCAG 1.4.11); the inset ink ring is
+   what marks the current page, along with the weight. */
 .bl-account-nav__billing-panel li.is-active a {
 	background: var(--bl-ice);
 	color: var(--bl-ink);
 	font-weight: 600;
+	box-shadow: inset 0 0 0 2px var(--bl-ink);
+}
+
+/* Keep base.css's focus halo alongside the ring. */
+.bl-account-nav__billing-panel li.is-active a:focus-visible {
+	box-shadow: inset 0 0 0 2px var(--bl-ink), var(--bl-focus-ring);
 }
 
 /* ---------------------------------------------------------------------
@@ -712,13 +720,23 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	background: var(--bl-surface-sunken);
 }
 
+/* On a white card the ice fill alone is 1.94:1 (WCAG 1.4.11): an inset ink
+   ring marks the pressed option at 14.9:1 without resizing it. */
 .bl-main .bl-theme-toggle__option[aria-pressed="true"] {
 	background: var(--bl-ice);
 	color: var(--bl-ink);
+	box-shadow: inset 0 0 0 2px var(--bl-ink);
 }
 
-.bl-preferences-widget__confirmation[hidden] {
-	display: none;
+/* Keep base.css's focus halo alongside the ring. */
+.bl-main .bl-theme-toggle__option[aria-pressed="true"]:focus-visible {
+	box-shadow: inset 0 0 0 2px var(--bl-ink), var(--bl-focus-ring);
+}
+
+/* The live region stays in the page, empty until the button is pressed
+   (preferences-widget-reset.js); empty, it takes no room. */
+.bl-preferences-widget__confirmation:empty {
+	margin: 0;
 }
 
 @media (max-width: 480px) {

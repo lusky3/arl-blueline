@@ -241,6 +241,16 @@ function blueline_render_announcement(): void {
 	>
 		<div class="bl-container bl-announce__inner">
 			<p class="bl-announce__text">
+				<?php
+				/*
+				 * Urgency in words as well as in the warning colours, which a
+				 * screen reader never conveys and not everyone can tell apart.
+				 * Outside the link, so the link's name stays the text alone.
+				 */
+				?>
+				<?php if ( 'urgent' === $severity ) : ?>
+					<strong class="bl-announce__severity"><?php esc_html_e( 'Urgent:', 'blueline' ); ?></strong>
+				<?php endif; ?>
 				<?php if ( '' !== $url ) : ?>
 					<a class="bl-announce__link" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $text ); ?></a>
 				<?php else : ?>

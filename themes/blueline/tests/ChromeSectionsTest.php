@@ -195,6 +195,19 @@ final class ChromeSectionsTest extends TestCase {
 	}
 
 	/**
+	 * The utility nav's landmark name differs from My Account's own
+	 * "Account" nav, so the two are told apart in a landmark list on the
+	 * account pages, where both render.
+	 */
+	public function test_the_utility_nav_has_its_own_landmark_name(): void {
+		$GLOBALS['bl_test_nav_menu_locations'] = array( 'utility' );
+
+		$html = $this->render_header();
+
+		$this->assertStringContainsString( '<nav class="bl-utility-nav" aria-label="Account links">', $html );
+	}
+
+	/**
 	 * The existing has_nav_menu( 'utility' ) check is untouched: with no
 	 * menu assigned to that location at all, the nav still renders nothing,
 	 * regardless of the toggle.

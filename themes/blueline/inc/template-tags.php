@@ -496,7 +496,7 @@ function blueline_site_header() {
 
 				<div class="bl-header__actions">
 					<?php if ( has_nav_menu( 'utility' ) && blueline_section_enabled( 'chrome_utility_nav' ) ) : ?>
-						<nav class="bl-utility-nav" aria-label="<?php esc_attr_e( 'Account', 'blueline' ); ?>">
+						<nav class="bl-utility-nav" aria-label="<?php esc_attr_e( 'Account links', 'blueline' ); ?>">
 							<?php
 							wp_nav_menu(
 								array(

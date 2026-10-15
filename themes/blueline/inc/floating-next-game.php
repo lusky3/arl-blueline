@@ -117,14 +117,14 @@ function blueline_render_floating_next_game(): void {
 	>
 		<p class="bl-floating-next-game__kicker" id="bl-next-game-label"><?php esc_html_e( 'Your next game', 'blueline' ); ?></p>
 		<span class="bl-floating-next-game__updated" data-bl-next-game-updated hidden>
-			<?php esc_html_e( 'Updated', 'blueline' ); ?>
+			<?php esc_html_e( 'Updated', 'blueline' ); ?><span class="screen-reader-text"><?php esc_html_e( ': the details of this game changed', 'blueline' ); ?></span>
 		</span>
 		<p class="bl-floating-next-game__date">
 			<span class="bl-floating-next-game__date-full"><?php echo esc_html( blueline_account_event_when( $event ) ); ?></span>
 			<span class="bl-floating-next-game__date-short"><?php echo esc_html( blueline_account_event_when_short( $event ) ); ?></span>
 		</p>
 		<a class="bl-floating-next-game__matchup" href="<?php echo esc_url( get_permalink( $event['event_id'] ) ); ?>">
-			<?php echo esc_html( blueline_account_event_matchup( $event ) ); ?>
+			<?php echo blueline_account_event_matchup_html( $event ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in blueline_account_event_matchup_html(). ?>
 		</a>
 		<?php if ( $event['venue'] ) : ?>
 			<p class="bl-floating-next-game__venue">

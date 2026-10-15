@@ -17,7 +17,8 @@ defined( 'ABSPATH' ) || exit;
  * Items with children get a sibling <button> (aria-expanded/aria-controls)
  * so submenus can be opened by click/tap in addition to the CSS-only
  * hover/:focus-within mechanism, which matters for touch devices that
- * have no hover state at all.
+ * have no hover state at all. A parent whose URL is "#" has nowhere to go,
+ * so its label itself is that disclosure button.
  */
 class Blueline_Nav_Walker extends Walker_Nav_Menu {
 
@@ -245,19 +246,7 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 		$link_attrs          = (array) apply_filters( 'nav_menu_link_attributes', $link_attrs, $item, $args, $depth );
 		$link_attrs['class'] = self::with_required_class_token( $link_attrs['class'] ?? '', 'bl-nav__link' );
 
-		$attributes = '';
-		foreach ( $link_attrs as $attr => $value ) {
-			// Empty, false and non-scalar values are skipped, as in core's build_atts().
-			if ( false === $value || '' === $value || ! is_scalar( $value ) ) {
-				continue;
-			}
-			// Mirrors Walker_Nav_Menu::start_el() in WordPress core: href is a
-			// URL and must be validated/escaped with esc_url(), not merely
-			// HTML-entity-encoded with esc_attr() (which would let a
-			// javascript: URL through unchanged).
-			$escaped     = ( 'href' === $attr ) ? esc_url( $value ) : esc_attr( $value );
-			$attributes .= ' ' . $attr . '="' . $escaped . '"';
-		}
+		$attributes = self::html_attributes( $link_attrs );
 
 		$title = apply_filters( 'the_title', $item->title, $item->ID );
 		/** This filter is documented in wp-includes/class-walker-nav-menu.php */
@@ -267,19 +256,44 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 			? '<span class="bl-skew"><span>' . $title . '</span></span>'
 			: '<span>' . $title . '</span>';
 
+		$chevron = '<svg class="bl-nav__chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+		/*
+		 * A parent whose URL is "#" ("League Info") goes nowhere: it exists to
+		 * open its submenu, so it is a disclosure button, not a link that
+		 * navigation.js quietly turns into one. Its chevron stays as a pointer
+		 * target, hidden from assistive tech and the tab order, since the
+		 * label button already is the control.
+		 */
+		if ( $has_children && ( empty( $item->url ) || '#' === $item->url ) ) {
+			$button_attributes = ' type="button"' . self::html_attributes( array_diff_key( $link_attrs, array_flip( array( 'href', 'target', 'rel' ) ) ) )
+				. ' aria-expanded="false" aria-controls="' . esc_attr( $submenu_id ) . '"';
+
+			/** This filter is documented in wp-includes/class-walker-nav-menu.php */
+			$output .= apply_filters( 'walker_nav_menu_start_el', '<button' . $button_attributes . '>' . $label . '</button>', $item, $depth, $args );
+			$output .= '<button type="button" class="bl-nav__toggle-sub" aria-expanded="false" aria-controls="' . esc_attr( $submenu_id ) . '" tabindex="-1" aria-hidden="true">' . $chevron . '</button>';
+			return;
+		}
+
+		// A new tab is said, not only done (assets/src/js/new-tab-links.js
+		// skips a link that already carries this hint).
+		if ( '_blank' === strtolower( (string) ( $link_attrs['target'] ?? '' ) ) ) {
+			$label .= '<span class="screen-reader-text bl-new-tab-hint"> ' . esc_html__( '(opens in a new tab)', 'blueline' ) . '</span>';
+		}
+
 		/** This filter is documented in wp-includes/class-walker-nav-menu.php */
 		$output .= apply_filters( 'walker_nav_menu_start_el', '<a' . $attributes . '>' . $label . '</a>', $item, $depth, $args );
 
 		if ( $has_children ) {
 			$toggle_label = sprintf(
 				/* translators: %s: menu item label. */
-				__( 'Show submenu for %s', 'blueline' ),
+				__( '%s submenu', 'blueline' ),
 				wp_strip_all_tags( $title )
 			);
 
 			$output .= '<button type="button" class="bl-nav__toggle-sub" aria-expanded="false" aria-controls="' . esc_attr( $submenu_id ) . '">'
 				. '<span class="screen-reader-text">' . esc_html( $toggle_label ) . '</span>'
-				. '<svg class="bl-nav__chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+				. $chevron
 				. '</button>';
 		}
 	}
@@ -297,6 +311,30 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 			return;
 		}
 		$output .= "</li>\n";
+	}
+
+	/**
+	 * Attribute markup for an item's link (or button), escaped.
+	 *
+	 * @param array $attrs Attribute => value, after nav_menu_link_attributes.
+	 * @return string Leading-space attribute list.
+	 */
+	protected static function html_attributes( array $attrs ): string {
+		$html = '';
+		foreach ( $attrs as $attr => $value ) {
+			// Empty, false and non-scalar values are skipped, as in core's build_atts().
+			if ( false === $value || '' === $value || ! is_scalar( $value ) ) {
+				continue;
+			}
+			// Mirrors Walker_Nav_Menu::start_el() in WordPress core: href is a
+			// URL and must be validated/escaped with esc_url(), not merely
+			// HTML-entity-encoded with esc_attr() (which would let a
+			// javascript: URL through unchanged).
+			$escaped = ( 'href' === $attr ) ? esc_url( $value ) : esc_attr( $value );
+			$html   .= ' ' . $attr . '="' . $escaped . '"';
+		}
+
+		return $html;
 	}
 
 	/**

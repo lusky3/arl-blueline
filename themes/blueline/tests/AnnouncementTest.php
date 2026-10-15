@@ -479,6 +479,48 @@ final class AnnouncementTest extends TestCase {
 	}
 
 	/**
+	 * An urgent banner says so in words, before its text, not only in its
+	 * warning colours; a quiet one adds nothing.
+	 */
+	public function test_urgent_severity_is_spoken_and_shown_not_only_coloured(): void {
+		$this->set_announcement(
+			array(
+				'announcement_text'     => 'Ice is out Friday',
+				'announcement_severity' => 'urgent',
+			)
+		);
+
+		$this->assertMatchesRegularExpression(
+			'#<p class="bl-announce__text">\s*<strong class="bl-announce__severity">Urgent:</strong>\s*Ice is out Friday#',
+			$this->render()
+		);
+
+		$this->set_announcement( array( 'announcement_text' => 'Ice is out Friday' ) );
+
+		$this->assertStringNotContainsString( 'bl-announce__severity', $this->render() );
+	}
+
+	/**
+	 * The urgent prefix sits outside the link, so the link's name stays the
+	 * announcement text alone.
+	 */
+	public function test_urgent_prefix_is_outside_the_link(): void {
+		blueline_test_register_post( 77, 'publish', 'https://example.test/ice-out' );
+		$this->set_announcement(
+			array(
+				'announcement_text'     => 'Ice is out Friday',
+				'announcement_severity' => 'urgent',
+				'announcement_link'     => 77,
+			)
+		);
+
+		$this->assertMatchesRegularExpression(
+			'#<strong class="bl-announce__severity">Urgent:</strong>\s*<a class="bl-announce__link"#',
+			$this->render()
+		);
+	}
+
+	/**
 	 * The text is escaped at the point of echo, not trusted.
 	 */
 	public function test_the_text_is_escaped(): void {

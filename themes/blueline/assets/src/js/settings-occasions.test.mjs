@@ -190,3 +190,47 @@ test( 'blOccasionApplyRowKey: two added rows share no id, and each label points 
 		'the placeholder must not survive the rewrite'
 	);
 } );
+
+test( 'blOccasionApplyRowKey: the Remove button keeps naming its own row', () => {
+	const attrs = {
+		'aria-labelledby':
+			'bl-occasion-__TEMPLATE__-remove bl-occasion-__TEMPLATE__-legend',
+	};
+	const remove = {
+		id: 'bl-occasion-__TEMPLATE__-remove',
+		getAttribute: ( key ) => attrs[ key ],
+		setAttribute: ( key, value ) => {
+			attrs[ key ] = value;
+		},
+	};
+	const row = {
+		querySelectorAll: ( selector ) =>
+			'[aria-labelledby]' === selector || '[id]' === selector
+				? [ remove ]
+				: [],
+	};
+
+	blOccasionApplyRowKey( row, '__new_3' );
+
+	assert.equal( remove.id, 'bl-occasion-__new_3-remove' );
+	assert.equal(
+		attrs[ 'aria-labelledby' ],
+		'bl-occasion-__new_3-remove bl-occasion-__new_3-legend'
+	);
+} );
+
+test( 'blOccasionLegendText: a row is named by its label, or as a new occasion', () => {
+	const { blOccasionLegendText } = require( './settings-occasions.js' );
+
+	assert.equal( blOccasionLegendText( '  Canada Day ' ), 'Canada Day' );
+	assert.equal( blOccasionLegendText( '   ' ), 'New occasion' );
+} );
+
+test( 'blOccasionNeighbour: focus goes to the next row, else the previous, else nowhere', () => {
+	const { blOccasionNeighbour } = require( './settings-occasions.js' );
+	const rows = [ 'a', 'b', 'c' ];
+
+	assert.equal( blOccasionNeighbour( rows, 'a' ), 'b' );
+	assert.equal( blOccasionNeighbour( rows, 'c' ), 'b' );
+	assert.equal( blOccasionNeighbour( [ 'only' ], 'only' ), null );
+} );

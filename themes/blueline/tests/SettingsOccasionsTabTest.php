@@ -109,6 +109,34 @@ final class SettingsOccasionsTabTest extends TestCase {
 	}
 
 	/**
+	 * Each row is a fieldset named by its occasion, so its repeated
+	 * "Label"/"Type"/"Remove" controls say which occasion they belong to,
+	 * and its Remove button names the occasion it removes.
+	 */
+	public function test_each_row_is_a_named_group_with_a_named_remove_button(): void {
+		ob_start();
+		blueline_settings_render_occasion_row( 'blueline_settings[occasions]', 'canada-day', $this->occasion(), 'test-hash', array() );
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '#<fieldset class="bl-occasions__fieldset">\s*<legend class="screen-reader-text" id="bl-occasion-canada-day-legend" data-bl-occasion-legend>Canada Day</legend>#', $html );
+		$this->assertStringContainsString( 'id="bl-occasion-canada-day-remove" aria-labelledby="bl-occasion-canada-day-remove bl-occasion-canada-day-legend"', $html );
+		$this->assertMatchesRegularExpression( '#</button>\s*</fieldset>\s*</li>#', $html );
+	}
+
+	/**
+	 * A blank row (the template, or an occasion saved without a label) is
+	 * still named.
+	 */
+	public function test_an_unlabelled_row_is_a_new_occasion(): void {
+		ob_start();
+		blueline_settings_render_occasion_row( 'blueline_settings[occasions]', '__TEMPLATE__', $this->occasion( array( 'label' => '' ) ), 'test-hash', array() );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'data-bl-occasion-legend>New occasion</legend>', $html );
+		$this->assertStringContainsString( 'aria-labelledby="bl-occasion-__TEMPLATE__-remove bl-occasion-__TEMPLATE__-legend"', $html );
+	}
+
+	/**
 	 * A passing accent hides the AA-override notice section entirely.
 	 */
 	public function test_a_passing_accent_hides_the_aa_override_notice(): void {

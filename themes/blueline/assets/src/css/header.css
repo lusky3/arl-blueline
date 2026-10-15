@@ -822,3 +822,21 @@ button.bl-btn {
 		flex-wrap: nowrap;
 	}
 }
+
+/*
+ * Short viewports: a phone turned on its side, or a laptop at 400% zoom
+ * (1280x1024 becomes 320x256), where the fixed bar took over a third of the
+ * height on every screen. Below 420px of height it scrolls away with the
+ * page instead (WCAG 1.4.10); the spacer still reserves its resting height,
+ * so nothing moves, and anchored content no longer needs clearing beneath it.
+ */
+@media (max-height: 420px) {
+
+	.bl-header {
+		position: absolute;
+	}
+
+	html {
+		scroll-padding-top: var(--bl-space-3);
+	}
+}
