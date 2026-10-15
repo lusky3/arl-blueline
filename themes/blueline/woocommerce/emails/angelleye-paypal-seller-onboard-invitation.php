@@ -15,6 +15,9 @@
  * site's mail. Added for consistency; every hook/variable is otherwise
  * unchanged from stock.
  *
+ * Copied from PayPal for WooCommerce 4.6.15: paypal-for-woocommerce/template/emails/angelleye-paypal-seller-onboard-invitation.php
+ * The original has no @version, so the check script compares the plugin version.
+ *
  * @package blueline
  */
 

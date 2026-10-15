@@ -43,6 +43,19 @@ final class ThemeVersionTest extends TestCase {
 	}
 
 	/**
+	 * The npm manifest (and its lockfile root) carries the theme's version too, so tooling that reads it is not stale.
+	 */
+	public function test_package_json_version_matches_style_header(): void {
+		$style = $this->style_version();
+		$pkg   = json_decode( $this->theme_file( 'package.json' ), true );
+		$lock  = json_decode( $this->theme_file( 'package-lock.json' ), true );
+
+		$this->assertSame( $style, $pkg['version'] ?? null );
+		$this->assertSame( $style, $lock['version'] ?? null );
+		$this->assertSame( $style, $lock['packages']['']['version'] ?? null );
+	}
+
+	/**
 	 * The header that routes update checks to GitHub (and away from wordpress.org).
 	 */
 	public function test_style_header_declares_update_uri(): void {

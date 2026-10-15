@@ -37,6 +37,9 @@
  *     `{coupon_code}` -- a real coupon should never be silently only
  *     describable in prose the admin might not have written to include it.
  *
+ * Copied from YITH Advanced Refund System 1.1.5: yith-advanced-refund-system-for-woocommerce/templates/emails/ywcars-email-for-user.php
+ * The original has no @version, so the check script compares the plugin version.
+ *
  * @package blueline
  */
 
@@ -51,7 +54,7 @@ $email_improvements_enabled = FeaturesUtil::feature_is_enabled( 'email_improveme
 $body       = ! empty( $email->email_body ) ? $email->email_body : '';
 $request_id = ! empty( $email->request_id ) ? $email->request_id : '';
 $request    = new YITH_Refund_Request( $request_id );
-$order      = wc_get_order( $request->order_id );
+$order      = wc_get_order( $request->order_id ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- local to wc_get_template()'s include scope, the same name the plugin's original uses.
 
 $order_link   = '<a href="' . esc_url( $order->get_view_order_url() ) . '">#' . absint( $request->order_id ) . '</a>';
 $request_link = '<a href="' . esc_url( $request->get_view_request_url() ) . '">#' . absint( $request_id ) . '</a>';

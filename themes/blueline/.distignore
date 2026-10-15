@@ -4,16 +4,43 @@
 # rsync syntax; whole-line comments only (no inline "#"). A leading slash anchors
 # to the theme root; an unanchored name matches at any depth.
 #
-# tools/ is intentionally NOT excluded. It looks like a build-only directory,
-# but inc/team-colors.php reads tools/contrast-rules.json at RUNTIME on every
+# tools/*.json must ship. tools/ looks like a build-only directory, but
+# inc/team-colors.php reads tools/contrast-rules.json at RUNTIME on every
 # front-end team page (blueline_contrast_threshold()) to derive each team's
-# readable foreground colour. Excluding it would not fail loudly: the PHP falls
-# back to hard-coded 4.5/3.0 AA thresholds and logs the fact (see
+# readable foreground colour, and inc/settings/tokens.php reads
+# tools/tokens.json. Excluding them would not fail loudly: the PHP falls back
+# to hard-coded thresholds / an empty manifest and logs the fact (see
 # blueline_contrast_rules_read_failure()), silently degrading every team page.
+# Only the node scripts beside them (tools/*.mjs, tools/lib/) are dev tooling.
 #
-# assets/src/js/ must ship too: inc/settings/admin-assets.php enqueues
-# settings-{photos,brand-colors,occasions}.js straight from source. Only
-# assets/src/css/ (compiled into assets/dist/) is build-only.
+# assets/src/js/settings-{photos,brand-colors,occasions}.js must ship:
+# inc/settings/admin-assets.php enqueues them straight from source. Every other
+# assets/src/js file is bundled into assets/dist/index.js or editor.js, so it
+# stays out (tests/DistIgnoreTest.php fails if an excluded file is not
+# reachable from those entry points). A new script enqueued from source needs
+# its own "+" line here. rsync applies the first matching rule, so each "+"
+# line must come before the "-" line it carves out of.
+#
+# assets/fonts/*.woff2 are the webpack inputs; the compiled CSS and the
+# preload links use the copies in assets/dist/fonts/. The OFL licence texts
+# in assets/fonts/ still ship.
+#
+# The assets/dist/*.js files listed below are the empty JavaScript stubs that
+# @wordpress/scripts writes for CSS-only entries; nothing enqueues them
+# (DistIgnoreTest checks they are still empty).
++ /assets/src/js/settings-photos.js
++ /assets/src/js/settings-brand-colors.js
++ /assets/src/js/settings-occasions.js
+- /assets/src/js/*
+/tools/*.mjs
+/tools/lib
+/assets/fonts/*.woff2
+/assets/dist/account.js
+/assets/dist/editor.js
+/assets/dist/forms.js
+/assets/dist/homepage.js
+/assets/dist/occasions.js
+/assets/dist/woocommerce.js
 node_modules
 vendor
 tests

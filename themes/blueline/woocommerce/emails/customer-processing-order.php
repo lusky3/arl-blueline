@@ -2,17 +2,16 @@
 /**
  * Customer processing order email
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/emails/customer-processing-order.php.
+ * Blueline override: the stock template with registration wording, and an intro that says the registration needs a manual review (e-Transfer payments land here).
+ * Every edited string uses the blueline text domain; the rest is the
+ * original. When WooCommerce bumps @version, re-copy the original and
+ * re-apply those strings (scripts/check-template-versions.sh).
  *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/customer-processing-order.php
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates\Emails
- * @version 9.8.0
+ * @version 10.4.0
  */
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
@@ -40,16 +39,15 @@ if ( ! empty( $order->get_billing_first_name() ) ) {
 ?>
 </p>
 <?php if ( $email_improvements_enabled ) : ?>
-	<p><?php esc_html_e( 'We’ve received your registration and it requires manual review (perhaps an e-Transfer is due?).', 'woocommerce' ); ?></p>
-	<p><?php esc_html_e( 'For reference, here is a summary of your registration:', 'woocommerce' ); ?></p>
+	<p><?php esc_html_e( 'We’ve received your registration and it requires manual review (perhaps an e-Transfer is due?).', 'blueline' ); ?></p>
+	<p><?php esc_html_e( 'For reference, here is a summary of your registration:', 'blueline' ); ?></p>
 <?php else : ?>
 	<?php /* translators: %s: Order number */ ?>
-	<p><?php printf( esc_html__( 'Just to let you know &mdash; we\'ve received your registration #%s, and it requires manual review:', 'woocommerce' ), esc_html( $order->get_order_number() ) ); ?></p>
+	<p><?php printf( esc_html__( 'Just to let you know &mdash; we\'ve received your registration #%s, and it requires manual review:', 'blueline' ), esc_html( $order->get_order_number() ) ); ?></p>
 <?php endif; ?>
 <?php echo $email_improvements_enabled ? '</div>' : ''; ?>
 
 <?php
-
 /*
  * @hooked WC_Emails::order_details() Shows the order details table.
  * @hooked WC_Structured_Data::generate_order_data() Generates structured data.
@@ -73,7 +71,7 @@ do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_
  * Show user-defined additional content - this is set in each email's settings.
  */
 if ( $additional_content ) {
-	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td class="email-additional-content">' : '';
+	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation"><tr><td class="email-additional-content">' : '';
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 	echo $email_improvements_enabled ? '</td></tr></table>' : '';
 }

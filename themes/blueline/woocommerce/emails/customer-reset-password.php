@@ -2,17 +2,16 @@
 /**
  * Customer Reset Password email
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/emails/customer-reset-password.php.
+ * Blueline override: the stock template with a plainer "if this wasn't you" line.
+ * Every edited string uses the blueline text domain; the rest is the
+ * original. When WooCommerce bumps @version, re-copy the original and
+ * re-apply those strings (scripts/check-template-versions.sh).
  *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/customer-reset-password.php
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates\Emails
- * @version 9.8.0
+ * @version 10.9.0
  */
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
@@ -31,17 +30,17 @@ $email_improvements_enabled = FeaturesUtil::feature_is_enabled( 'email_improveme
 <?php /* translators: %s: Customer first name, or username if name is not available */ ?>
 <p><?php printf( esc_html__( 'Hi %s,', 'woocommerce' ), esc_html( $user_display_name ) ); ?></p>
 <?php /* translators: %s: Store name */ ?>
-<p><?php printf( esc_html__( 'Someone requested a password reset for the following account on %s:', 'woocommerce' ), esc_html( $blogname ) ); ?></p>
+<p><?php printf( esc_html__( 'Someone requested a password reset for the following account on %s:', 'blueline' ), esc_html( $blogname ) ); ?></p>
 <?php if ( $email_improvements_enabled ) : ?>
 	<div class="hr hr-top"></div>
 	<?php /* translators: %s: Username */ ?>
 	<p><?php echo wp_kses( sprintf( __( 'Username: <b>%s</b>', 'woocommerce' ), esc_html( $user_login ) ), array( 'b' => array() ) ); ?></p>
 	<div class="hr hr-bottom"></div>
-	<p><?php esc_html_e( 'If this wasn\'t you, no action is needed and your password will stay the same. Otherwise, reset your password using the link below:', 'woocommerce' ); ?></p>
+	<p><?php esc_html_e( 'If this wasn\'t you, no action is needed and your password will stay the same. Otherwise, reset your password using the link below:', 'blueline' ); ?></p>
 <?php else : ?>
 	<?php /* translators: %s: Customer username */ ?>
 	<p><?php printf( esc_html__( 'Username: %s', 'woocommerce' ), esc_html( $user_login ) ); ?></p>
-	<p><?php esc_html_e( 'If this wasn\'t you, no action is needed and your password will stay the same. Otherwise, reset your password:', 'woocommerce' ); ?></p>
+	<p><?php esc_html_e( 'If this wasn\'t you, no action is needed and your password will stay the same. Otherwise, reset your password:', 'blueline' ); ?></p>
 <?php endif; ?>
 <p>
 	<a class="link" href="<?php echo esc_url( add_query_arg( array( 'key' => $reset_key, 'id' => $user_id, 'login' => rawurlencode( $user_login ) ), wc_get_endpoint_url( 'lost-password', '', wc_get_page_permalink( 'myaccount' ) ) ) ); ?>"><?php // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound ?>

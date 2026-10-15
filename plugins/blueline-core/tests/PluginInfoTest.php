@@ -38,8 +38,8 @@ final class PluginInfoTest extends TestCase {
 		$this->assertSame( 'https://github.com/lusky3/arl-blueline', $info->homepage );
 		$this->assertStringContainsString( 'Adult Recreational League', $info->author );
 		// The author links to the Author URI, not the Plugin URI.
-		$this->assertStringContainsString( '<a href="https://www.rookiehockey.ca">', $info->author );
-		$this->assertSame( 'https://www.rookiehockey.ca', $info->author_profile );
+		$this->assertStringContainsString( '<a href="https://arlhockey.ca">', $info->author );
+		$this->assertSame( 'https://arlhockey.ca', $info->author_profile );
 		$this->assertSame( '', $info->download_link );
 		$this->assertObjectNotHasProperty( 'last_updated', $info );
 		$this->assertSame( array( 'description', 'installation', 'changelog' ), array_keys( $info->sections ) );

@@ -27,6 +27,7 @@
  * SportsPress Pro 2.7.29; re-check this override when that version changes.
  *
  * @package blueline
+ * @version 2.5 (copied from SportsPress Pro 2.7.29: sportspress-pro/includes/sportspress/templates/player-statistics-league.php)
  */
 
 defined( 'ABSPATH' ) || exit;

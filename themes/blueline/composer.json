@@ -19,7 +19,7 @@
   },
   "scripts-descriptions": {
     "test:oracle": "Like `test`, but points WpCoreContractTest's optional oracle job at a local snapshot of staging's WordPress core instead of letting it skip. Fetch that snapshot first with ../../scripts/fetch-wp-core-oracle.sh (from the repo root) -- this script does not fetch it itself, so a stale or missing .wp-core-oracle/ fails loudly rather than silently comparing against nothing.",
-    "lint": "WordPress Coding Standards over the whole theme, tests included, using phpcs.xml.dist: the text domain (blueline), the global prefix (blueline) and the minimum WordPress version are enforced, and each exclusion (vendor templates under woocommerce/, the plugin template overrides, test stand-ins) is listed there with its reason."
+    "lint": "WordPress Coding Standards over the whole theme, tests included, using phpcs.xml.dist: the text domain (blueline), the global prefix (blueline) and the minimum WordPress version are enforced, and each exclusion (vendor templates under woocommerce/, the plugin template overrides, test stand-ins) is listed there with its reason. The edited email and Store Credit overrides under woocommerce/ are linted like theme code; scripts/check-template-versions.sh (repo root) reports when an override's original has moved on."
   },
   "config": { "allow-plugins": { "dealerdirect/phpcodesniffer-composer-installer": true } }
 }

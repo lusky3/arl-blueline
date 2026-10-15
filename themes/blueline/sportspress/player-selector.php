@@ -37,6 +37,7 @@
  * SportsPress Pro 2.7.29; re-check this override when that version changes.
  *
  * @package blueline
+ * @version 2.7.11 (copied from SportsPress Pro 2.7.29: sportspress-pro/includes/sportspress/templates/player-selector.php)
  */
 
 defined( 'ABSPATH' ) || exit;
