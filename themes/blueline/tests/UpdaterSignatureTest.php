@@ -8,6 +8,7 @@
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/stubs/no-release-keys.php';
 require_once __DIR__ . '/../inc/updater-rules.php';
 require_once __DIR__ . '/../inc/updater-client.php';
 require_once __DIR__ . '/../inc/updater.php';
@@ -203,10 +204,16 @@ final class UpdaterSignatureTest extends TestCase {
 	 * every update into "signature invalid" on every site.
 	 */
 	public function test_every_shipped_public_key_is_a_valid_key(): void {
-		$keys = blueline_updater_public_keys();
-
 		$this->assertIsArray( BLUELINE_RELEASE_PUBLIC_KEYS, 'a list, so keys can be rotated' );
-		$this->assertCount( count( $keys ), blueline_updater_decode_public_keys( $keys ) );
+
+		// The suite runs with an empty list (tests/stubs/no-release-keys.php), so read the shipped one from the source.
+		$source = (string) file_get_contents( __DIR__ . '/../inc/updater-rules.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+		$this->assertSame( 1, preg_match( "#define\(\s*'BLUELINE_RELEASE_PUBLIC_KEYS',\s*array\((.*?)\)\s*\);#s", $source, $block ), 'the shipped key list is found in updater-rules.php' );
+		preg_match_all( "#'([A-Za-z0-9+/]{43}=)'#", $block[1], $found );
+		$keys = $found[1];
+
+		$this->assertNotEmpty( $keys, 'release signing is on: at least one public key ships' );
+		$this->assertCount( count( $keys ), blueline_updater_decode_public_keys( $keys ), 'every shipped key is a valid 32-byte ed25519 public key' );
 		$this->assertSame( count( $keys ), count( array_unique( $keys ) ), 'no duplicate keys' );
 	}
 

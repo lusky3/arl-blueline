@@ -29,6 +29,7 @@ require_once __DIR__ . '/../inc/settings/links.php';
 require_once __DIR__ . '/../inc/settings/page.php';
 require_once __DIR__ . '/../inc/sportspress/core.php'; // BLUELINE_SP_CACHE_GEN_OPTION and blueline_sp_cache_key().
 require_once __DIR__ . '/../inc/occasions.php'; // The boundary-purge cron hook and its unscheduler.
+require_once __DIR__ . '/stubs/no-release-keys.php';
 require_once __DIR__ . '/../inc/updater-rules.php';
 require_once __DIR__ . '/../inc/updater-client.php'; // BLUELINE_UPDATER_CACHE_KEY.
 
