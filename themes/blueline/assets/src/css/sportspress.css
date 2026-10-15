@@ -370,6 +370,81 @@ table.bl-table-self-scroll {
 	font-variant-numeric: tabular-nums;
 }
 
+/* "2-0-0-1" lines up row to row like the other figures. */
+.sp-league-table td.data-record {
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0;
+}
+
+/* Header abbreviations (GP, PTS...) carry a title and a spoken expansion;
+   the browser's dotted underline would mark nearly every header. */
+.sp-league-table thead abbr[title] {
+	text-decoration: none;
+	cursor: help;
+}
+
+/*
+ * Phones: the default Pos / Team / Record / Points view fits the column
+ * without scrolling, so the record is never cut off behind the scroll fade.
+ * The figures drop to the small text size, the position column narrows, the
+ * record takes only what its text needs, and a long team name wraps instead
+ * of pushing the table wider. "Show full
+ * stats" still scrolls sideways (its nowrap figures set the minimum width).
+ */
+@media (max-width: 600px) {
+
+	.sp-league-table {
+		min-width: 0;
+		font-size: var(--bl-text-sm);
+	}
+
+	.sp-league-table :is(th, td) {
+		padding-inline: var(--bl-space-2);
+	}
+
+	.sp-league-table :is(th, td):not(.data-name) {
+		width: 2.75rem;
+	}
+
+	.sp-league-table :is(th, td).data-rank {
+		width: 2.25rem;
+	}
+
+	.sp-league-table :is(th, td):is(.data-rank, .data-pts) {
+		padding-inline: var(--bl-space-1);
+	}
+
+	/* The link's own gap already spaces crest from name. */
+	.sp-league-table td.data-name .team-logo img {
+		margin-inline-end: 0;
+	}
+
+	.sp-league-table:has(td.data-name.has-logo) td.data-name:not(.has-logo) {
+		padding-inline-start: calc(2 * var(--bl-space-2) + 24px);
+	}
+
+	.sp-league-table :is(th, td).data-record {
+		width: auto;
+	}
+
+	.sp-league-table td.data-name,
+	.sp-league-table td.data-name.has-logo {
+		white-space: normal;
+	}
+
+	/* A wrapping name must not squeeze the crest out of line with the others,
+	   and the crest must count toward the column's minimum width: base.css's
+	   img { max-width: 100% } resolves to 0 there, letting a one-word name
+	   spill over the record beside it. */
+	.sp-league-table td.data-name .team-logo {
+		flex: none;
+	}
+
+	.sp-league-table td.data-name .team-logo img {
+		max-width: none;
+	}
+}
+
 /* ---- Event blocks / event calendar: card treatment ---- */
 
 .sp-event-blocks,
@@ -2430,6 +2505,17 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 }
 
 .bl-sp-standings-toggle-input:checked ~ .sp-table-wrapper .bl-sp-col-record {
+	display: none;
+}
+
+/* What the Record column's "W-L-T-OTL" means; gone with the column itself. */
+.bl-sp-standings-legend {
+	margin-block: calc(-1 * var(--bl-space-2)) var(--bl-space-4);
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-xs);
+}
+
+.bl-sp-standings-toggle-input:checked ~ .bl-sp-standings-legend {
 	display: none;
 }
 

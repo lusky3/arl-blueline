@@ -1,7 +1,6 @@
 <?php
 /**
- * Venue Map: override of SportsPress's templates/venue-map.php (SportsPress
- * 2.7.18 template version).
+ * Venue Map: override of SportsPress's templates/venue-map.php.
  *
  * On a single event the map is a click-to-load placeholder
  * (blueline_render_venue_map_placeholder(), inc/sportspress/venues.php): the
@@ -9,6 +8,7 @@
  * including the venue's own page, this is SportsPress's template unchanged.
  *
  * @package blueline
+ * @version 2.7.18 (copied from SportsPress Pro 2.7.29: sportspress-pro/includes/sportspress/templates/venue-map.php)
  */
 
 defined( 'ABSPATH' ) || exit;

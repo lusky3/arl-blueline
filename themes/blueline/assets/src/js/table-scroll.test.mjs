@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { CONTAINERS, update, attach, attachWithin, scrollLabel } = require( './table-scroll.js' );
+const { CONTAINERS, update, attach, attachWithin, scrollLabel, containerFor } = require( './table-scroll.js' );
 
 /**
  * Minimal fake scroll-container element: just enough surface for update()/
@@ -123,6 +123,43 @@ test( 'attach: the same element is never wired up twice', () => {
 	attach( el, null, seen );
 
 	assert.equal( listenerCount, 1, 'a second attach() call for an already-seen element must be a no-op' );
+} );
+
+/*
+ * A table that widens inside a container that keeps its own width (the
+ * standings "Show full stats" toggle) changes the container's scrollWidth
+ * without resizing it, so the container alone never reports a resize.
+ */
+test( 'attach: also observes the table inside a wrapper, and its resize re-measures the wrapper', () => {
+	const wrapper = fakeElement( { scrollWidth: 300, clientWidth: 300 } );
+	wrapper.matches = () => true;
+	const table = fakeElement();
+	table.tagName = 'TABLE';
+	wrapper.querySelector = ( selector ) => ( 'table' === selector ? table : null );
+	table.closest = () => wrapper;
+
+	const observed = [];
+	attach( wrapper, { observe: ( el ) => observed.push( el ) }, new WeakSet() );
+
+	assert.deepEqual( observed, [ wrapper, table ] );
+	assert.equal( containerFor( table ), wrapper );
+	assert.equal( containerFor( wrapper ), wrapper, 'a container maps to itself' );
+
+	wrapper.scrollWidth = 600;
+	update( containerFor( table ) );
+	assert.equal( wrapper.getAttribute( 'tabindex' ), '0', 'the now-overflowing wrapper becomes keyboard-scrollable' );
+} );
+
+test( 'attach: a self-scrolling table is observed once, as itself', () => {
+	const table = fakeElement( { scrollWidth: 300, clientWidth: 300 } );
+	table.tagName = 'TABLE';
+	table.matches = () => true;
+
+	const observed = [];
+	attach( table, { observe: ( el ) => observed.push( el ) }, new WeakSet() );
+
+	assert.deepEqual( observed, [ table ] );
+	assert.equal( containerFor( table ), table );
 } );
 
 /*

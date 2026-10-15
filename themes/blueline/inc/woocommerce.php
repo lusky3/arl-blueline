@@ -814,7 +814,7 @@ function blueline_wc_render_included_block(): void {
 	$short = trim( (string) $product->get_short_description() );
 
 	if ( '' !== $short ) {
-		$body = apply_filters( 'woocommerce_short_description', $short );
+		$body = apply_filters( 'woocommerce_short_description', $short ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce core filter, applied so shortcodes and formatting in the short description render as on the stock product page.
 	} elseif ( (float) $product->get_price() > 0 ) {
 		$body = '<p>' . esc_html__( 'One payment covers the whole season: jersey, socks, officials and ice time.', 'blueline' ) . '</p>';
 	} else {
