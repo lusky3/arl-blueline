@@ -653,10 +653,10 @@ final class OccasionsResolverTest extends TestCase {
 	 * preset catalog has no bearing on what is actually live.
 	 */
 	public function test_resolver_source_never_reads_the_preset_catalog(): void {
-		$source = file_get_contents( __DIR__ . '/../inc/occasions.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+		$source = file_get_contents( __DIR__ . '/../inc/occasions/resolver.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
 
 		if ( ! preg_match( '/function blueline_resolve_active_occasion\([^)]*\)\s*:\s*\?array\s*\{/', $source, $start, PREG_OFFSET_CAPTURE ) ) {
-			$this->fail( 'could not locate blueline_resolve_active_occasion()\'s definition in inc/occasions.php' );
+			$this->fail( 'could not locate blueline_resolve_active_occasion()\'s definition in inc/occasions/resolver.php' );
 		}
 
 		$offset = $start[0][1];

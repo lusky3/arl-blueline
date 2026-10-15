@@ -47,7 +47,7 @@ test.describe( 'Homepage, against a clean WordPress + WooCommerce + SportsPress 
 } );
 
 /**
- * Covers blueline_homepage_standings_tabs() (inc/homepage-modules.php)
+ * Covers blueline_homepage_standings_tabs() (inc/homepage/standings.php)
  * against real sp_table posts -- .github/workflows/e2e.yml's own seeding
  * step creates two divisions for one season, specifically so this suite's
  * axe-core scan (see the describe block above) exercises the actual

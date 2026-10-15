@@ -24,7 +24,7 @@ require_once __DIR__ . '/../inc/template-tags.php';
  * CTA (blueline_header_cta()) called a function named
  * "blueline_homepage_registration_offer", singular -- which has never been
  * defined anywhere in this theme; the real function is
- * blueline_homepage_registration_offers() (plural, inc/homepage-modules.php).
+ * blueline_homepage_registration_offers() (plural, inc/homepage/registration-offers.php).
  * function_exists() on the misspelled name is always false, so `&&`
  * short-circuited before ever calling it, and $show_register was always
  * false -- the header CTA showed "Schedule" in every season state,

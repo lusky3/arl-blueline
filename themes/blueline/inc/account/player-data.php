@@ -443,7 +443,7 @@ function blueline_get_player_team( int $player_id ): ?array {
  * recently played one.
  *
  * Deliberately its own copy rather than reusing
- * blueline_homepage_active_event_season_term_id() (inc/homepage-modules.php,
+ * blueline_homepage_active_event_season_term_id() (inc/homepage/standings.php,
  * Task 7): that function is scoped to -- and may evolve for reasons
  * specific to -- the homepage hero/standings snippet. Coupling "My season"
  * stats to it would mean a future homepage-only change could silently

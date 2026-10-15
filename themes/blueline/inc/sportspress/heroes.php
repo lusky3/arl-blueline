@@ -96,7 +96,7 @@ function blueline_sp_event_team_ids( int $event_id ): array {
  * blueline_social_meta_data_for_event() (inc/social-meta.php), and
  * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
  * verbatim.
- * blueline_homepage_next_event_line() (inc/homepage-modules.php) used a
+ * blueline_homepage_next_event_line() (inc/homepage/hero.php) used a
  * wp_get_object_terms() variant of the same lookup (functionally
  * identical for a single post's own terms), and now calls this one
  * canonical version instead.

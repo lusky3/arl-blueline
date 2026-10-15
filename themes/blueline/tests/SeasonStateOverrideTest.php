@@ -199,7 +199,7 @@ final class SeasonStateOverrideTest extends TestCase {
 	/**
 	 * A state outside the five known ones is ignored -- this theme never
 	 * invents a sixth (the hero's own whitelist,
-	 * inc/homepage-modules.php's blueline_render_hero(), says the same).
+	 * inc/homepage/hero.php's blueline_render_hero(), says the same).
 	 *
 	 * Seeded past the sanitizer on purpose. An off-list value CANNOT be
 	 * stored through update_option() any more -- the `choices` guard added
@@ -292,8 +292,13 @@ final class SeasonStateOverrideTest extends TestCase {
 	 * offseason on the homepage.
 	 */
 	public function test_the_hero_does_not_keep_its_own_list_of_states(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../inc/homepage-modules.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+		// The whole homepage: its loader and every part it loads.
+		$src = '';
+		foreach ( array_merge( array( __DIR__ . '/../inc/homepage-modules.php' ), (array) glob( __DIR__ . '/../inc/homepage/*.php' ) ) as $file ) {
+			$src .= (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+		}
 
+		$this->assertGreaterThan( 1, substr_count( $src, '@package blueline' ), 'premise: the homepage parts were found' );
 		$this->assertStringContainsString( 'blueline_known_season_state( $state )', $src );
 		$this->assertStringNotContainsString( "array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' )", $src );
 	}

@@ -179,7 +179,7 @@ final class NoticeDivGuardTest extends TestCase {
 			'cart_totals',
 			// Renders 'content-area-left-sidebar' / '-right-' / '-no-'.
 			'woocommerce-shop-content',
-			// blueline_render_occasion_effects() (inc/occasions.php): $motif
+			// blueline_render_occasion_effects() (inc/occasions/render.php): $motif
 			// is always one of the 4 literal values blueline_render_occasion_
 			// motif() itself dispatches on -- 'snowflake', 'poppy', 'sparkle',
 			// 'maple-leaf' -- none matching a forbidden substring.

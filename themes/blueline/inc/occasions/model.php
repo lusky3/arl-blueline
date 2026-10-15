@@ -1,0 +1,697 @@
+<?php
+/**
+ * Occasions: the data model. The accent defaults read from style.css, the
+ * closed enumerations (types, motifs, activation modes), the `MM-DD` shape
+ * check, blueline_sanitize_occasions(), the read-only preset catalog, and
+ * the save-time id assignment and AA-acknowledgement bookkeeping the
+ * Occasions tab runs.
+ *
+ * Loaded by inc/occasions.php.
+ *
+ * @package blueline
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Log, at most once per call site, that style.css's :root block could not
+ * be read to resolve --bl-occasion-accent's default. Mirrors
+ * inc/team-colors.php's blueline_contrast_rules_read_failure(): never a
+ * fatal, never a _doing_it_wrong() notice a visitor could see, just a
+ * server-log trace of a silently degraded fallback.
+ *
+ * @param string $path   The stylesheet path that could not be used; it is
+ *                        passed through by the caller, which accepts a
+ *                        $path_override, so the log names whichever file
+ *                        was actually being read rather than always
+ *                        "style.css".
+ * @param string $reason Human-readable reason, for the log line.
+ * @return void
+ */
+function blueline_occasion_accent_default_read_failure( string $path, string $reason ): void {
+	static $logged = false;
+
+	if ( $logged ) {
+		return;
+	}
+	$logged = true;
+
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- deliberate: mirrors inc/team-colors.php's blueline_contrast_rules_read_failure(); see that function's own docblock for why a silent fallback should still leave a server-log trace.
+	error_log(
+		sprintf( "Blueline: could not resolve --bl-occasion-accent's default from %s (%s).", $path, $reason )
+	);
+}
+
+/**
+ * Resolve --bl-occasion-accent's own declared default to a literal hex
+ * value, by reading style.css's :root block directly.
+ *
+ * Style.css declares `--bl-occasion-accent: var(--bl-ice);`, one var()
+ * hop to a token that is itself a plain hex literal. This follows exactly
+ * that one hop and no more: it does not resolve clamp(), rgba(), or a
+ * chain of more than one var(). Never fatal: a missing file, a missing
+ * :root rule, a --bl-occasion-accent declaration that is not a single
+ * var(--bl-*) reference, or a referenced token that is not itself a plain
+ * 6-digit hex literal all log (via
+ * blueline_occasion_accent_default_read_failure()) and return ''.
+ *
+ * @param string|null $path_override Explicit path to a stylesheet, for
+ *                                    tests. Defaults to the real
+ *                                    style.css next to this theme.
+ * @return string Lowercase `#rrggbb`, or '' if it could not be resolved.
+ */
+function blueline_occasion_accent_default( ?string $path_override = null ): string {
+	$path = $path_override ?? ( ( defined( 'BLUELINE_DIR' ) ? BLUELINE_DIR : dirname( __DIR__ ) ) . '/style.css' );
+
+	if ( ! is_readable( $path ) ) {
+		blueline_occasion_accent_default_read_failure( $path, 'stylesheet is missing or unreadable' );
+		return '';
+	}
+
+	$css = (string) file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- this is a local repo file, not a remote URL.
+
+	// Strip comments first so a mention inside one cannot be mistaken for
+	// a real declaration.
+	$css = (string) preg_replace( '#/\*.*?\*/#s', '', $css );
+
+	if ( ! preg_match( '/:root\s*\{(.*?)\}/s', $css, $root_match ) ) {
+		blueline_occasion_accent_default_read_failure( $path, 'no :root rule found' );
+		return '';
+	}
+
+	$root_block = $root_match[1];
+
+	if ( ! preg_match( '/--bl-occasion-accent\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)\s*;/i', $root_block, $ref_match ) ) {
+		blueline_occasion_accent_default_read_failure( $path, '--bl-occasion-accent is not declared as a single var(--bl-*) reference' );
+		return '';
+	}
+
+	$referenced = $ref_match[1];
+
+	if ( ! preg_match( '/' . preg_quote( $referenced, '/' ) . '\s*:\s*(#[0-9a-fA-F]{6})\s*;/', $root_block, $hex_match ) ) {
+		blueline_occasion_accent_default_read_failure( $path, "referenced token {$referenced} is not declared as a plain hex literal" );
+		return '';
+	}
+
+	$default_hex = strtolower( $hex_match[1] );
+
+	// $referenced (e.g. '--bl-ice') is only style.css's OWN literal default
+	// for that token -- it has no idea the brand-colors settings feature
+	// (inc/team-colors.php) can admin-override it. Resolving through the
+	// live brand-color system keeps this default in sync with whatever is
+	// actually rendered, instead of silently reverting to the pre-override
+	// value the moment a blank-`accent` occasion activates. Skipped when
+	// $path_override is explicitly passed: that means a test is exercising
+	// this function's own parsing logic against a synthetic stylesheet
+	// fixture, and the live resolver must not interfere with that.
+	if ( null === $path_override ) {
+		$resolved = blueline_hex_for_css_var( $referenced );
+		if ( '' !== $resolved ) {
+			// Lowercased for the same reason $default_hex above is: this
+			// function's own docblock promises a lowercase `#rrggbb`, and
+			// blueline_resolved_brand_color()'s un-overridden fallback
+			// returns a token's default_hex constant verbatim (whatever
+			// case style.css's own literal happens to use), not
+			// necessarily lowercase.
+			return strtolower( $resolved );
+		}
+	}
+
+	return $default_hex;
+}
+
+/**
+ * A themed fallback accent for occasions whose generic default (the
+ * ice-blue blueline_occasion_accent_default() above resolves) reads as
+ * visibly wrong for what the occasion actually is -- first-round
+ * feedback on this whole feature: Remembrance Day's poppies rendered
+ * blue, and Canada Day asked for "an a11y-friendly Canada Red as the
+ * default accent" by name. Only used when the candidate's OWN stored
+ * `accent` is empty (blueline_resolve_active_occasion() below still
+ * checks that first); an admin-picked accent always wins over this.
+ *
+ * Both hex values were chosen empirically, not eyeballed: each clears
+ * blueline_contrast_threshold( 'body' ) (4.5:1) against
+ * blueline_resolved_brand_color( 'ink' ) on this site's stock palette
+ * with real margin (canada-day: ratio 5.005; remembrance-day: ratio
+ * 5.142 -- verified via blueline_contrast_ratio() directly), so neither
+ * ever needs an `aa_acknowledgements` entry the way this site's own
+ * Christmas accent (#ef0b0b, ratio 3.5) does. That is the whole point of
+ * "a11y-friendly": it passes on its own, unlike a literal flag/poppy red
+ * (e.g. #ff0000 against this site's ink is only ~3.9:1).
+ *
+ * @param string $id An occasion id, e.g. from $candidate['id'].
+ * @return string Lowercase `#rrggbb`, or '' for any id with no themed
+ *                override (falls through to the generic default).
+ */
+function blueline_occasion_themed_accent_default( string $id ): string {
+	switch ( $id ) {
+		case 'canada-day':
+			return '#ff5757';
+		case 'remembrance-day':
+			return '#ff5c5c';
+		default:
+			return '';
+	}
+}
+
+/**
+ * The two occasion types the model recognises (design spec §5/§7.1).
+ * `commemorative` is validated separately by its own rules elsewhere
+ * (Task 5's announcement-severity suppression, and the panel-side "only
+ * the poppy motif" restriction 2.1b will add); this enumeration is only
+ * the shape check.
+ *
+ * @return string[]
+ */
+function blueline_occasion_types(): array {
+	return array( 'decorative', 'commemorative' );
+}
+
+/**
+ * The shipped, enumerated motif set (design spec §5/§7.7). It is never
+ * uploadable, so this list is exhaustive and closed.
+ *
+ * @return string[]
+ */
+function blueline_occasion_motifs(): array {
+	return array( 'none', 'maple-leaf', 'poppy', 'snowflake', 'sparkle' );
+}
+
+/**
+ * The three activation modes (design spec §5/§7.5): `auto` (window-
+ * driven), `force_on` (always eligible, regardless of window:
+ * "preview it now"), `force_off` (never eligible, regardless of window:
+ * "pull it now").
+ *
+ * @return string[]
+ */
+function blueline_occasion_modes(): array {
+	return array( 'auto', 'force_on', 'force_off' );
+}
+
+/**
+ * Whether $value is a well-formed, annually-recurring `MM-DD` calendar
+ * date.
+ *
+ * Validated against 2024 (a leap year) deliberately: an occasion window
+ * is a RECURRING annual date, not a single instant, so `02-29` must be
+ * accepted as a real recurring day even though it does not exist every
+ * year; Task 3's resolver and Task 6's cron boundary calculation are
+ * both what actually decide what happens to a `02-29` window in a
+ * non-leap target year, not this shape check.
+ *
+ * @param mixed $value Candidate value.
+ * @return bool
+ */
+function blueline_occasion_valid_md( $value ): bool {
+	if ( ! is_string( $value ) || ! preg_match( '/^(\d{2})-(\d{2})$/', $value, $matches ) ) {
+		return false;
+	}
+
+	return checkdate( (int) $matches[1], (int) $matches[2], 2024 );
+}
+
+/**
+ * Validate and repair a stored `occasions` value.
+ *
+ * Called from inc/settings/page.php's blueline_settings_sanitize_callback()
+ * reserved-key branch, the same choke point `_schema`/`aa_acknowledgements`
+ * already go through, so this runs on every write that actually reaches
+ * update_option() for this option (WP-CLI, a direct update_option() call,
+ * a future 2.1b panel save), not only ones that pass through wp-admin.
+ *
+ * A map keyed by occasion id (design spec §5/§7.1: "stored flat inside
+ * blueline_settings['occasions'], a map keyed by `id`"). Never fatal
+ * and, like blueline_sanitize_band_photos() and
+ * blueline_sanitize_acknowledgements() before it, drops a malformed
+ * entry rather than corrupting the whole map over one bad row: a
+ * non-array input, a row that is not itself an array, a row missing any
+ * required key, an `id` that disagrees with its own map key, an empty
+ * label, an unrecognised `type`/`motif`/`mode`, a structurally invalid
+ * (or calendar-invalid) window bound, a non-empty `accent` that is not a
+ * real hex colour, or a `line` containing a literal `%` are all dropped
+ * individually.
+ *
+ * @param mixed $value Raw value to validate.
+ * @return array<string, array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string}>
+ */
+function blueline_sanitize_occasions( $value ): array {
+	if ( ! is_array( $value ) ) {
+		return array();
+	}
+
+	$clean = array();
+
+	foreach ( $value as $id => $entry ) {
+		if ( ! is_string( $id ) || '' === $id || ! is_array( $entry ) ) {
+			continue;
+		}
+
+		if ( ! isset( $entry['id'], $entry['label'], $entry['type'], $entry['window'], $entry['accent'], $entry['motif'], $entry['mode'] ) ) {
+			continue;
+		}
+
+		if ( ! is_string( $entry['id'] ) || $entry['id'] !== $id ) {
+			continue;
+		}
+
+		$label = is_string( $entry['label'] ) ? sanitize_text_field( $entry['label'] ) : '';
+		if ( '' === $label ) {
+			continue;
+		}
+
+		if ( ! is_string( $entry['type'] ) || ! in_array( $entry['type'], blueline_occasion_types(), true ) ) {
+			continue;
+		}
+
+		if ( ! is_array( $entry['window'] )
+			|| ! isset( $entry['window']['start_md'], $entry['window']['end_md'] )
+			|| ! blueline_occasion_valid_md( $entry['window']['start_md'] )
+			|| ! blueline_occasion_valid_md( $entry['window']['end_md'] )
+		) {
+			continue;
+		}
+
+		if ( ! is_string( $entry['accent'] ) ) {
+			continue;
+		}
+
+		$accent = '';
+		if ( '' !== $entry['accent'] ) {
+			$accent = blueline_sanitize_hex_color( $entry['accent'] );
+			if ( '' === $accent ) {
+				// Non-empty but not a real hex colour: reject the whole
+				// entry rather than silently coercing it to the default,
+				// matching blueline_sanitize_band_photos()'s "reject, don't
+				// repair" posture for a value the admin actually typed.
+				continue;
+			}
+		}
+
+		if ( ! is_string( $entry['motif'] ) || ! in_array( $entry['motif'], blueline_occasion_motifs(), true ) ) {
+			continue;
+		}
+
+		if ( ! is_string( $entry['mode'] ) || ! in_array( $entry['mode'], blueline_occasion_modes(), true ) ) {
+			continue;
+		}
+
+		$line = '';
+		if ( isset( $entry['line'] ) ) {
+			if ( ! is_string( $entry['line'] ) ) {
+				continue;
+			}
+
+			$line = sanitize_text_field( $entry['line'] );
+
+			if ( false !== strpos( $line, '%' ) ) {
+				// No placeholders permitted at all (design spec §5/§7.1):
+				// this value is never passed through sprintf(), so there
+				// is no legitimate conversion spec for it to carry, unlike
+				// the panel's sprintf()-fed content fields
+				// (inc/settings/sanitize.php).
+				continue;
+			}
+		}
+
+		$clean[ $id ] = array(
+			'id'     => $id,
+			'label'  => $label,
+			'type'   => $entry['type'],
+			'window' => array(
+				'start_md' => $entry['window']['start_md'],
+				'end_md'   => $entry['window']['end_md'],
+			),
+			'accent' => $accent,
+			'motif'  => $entry['motif'],
+			'line'   => $line,
+			'mode'   => $entry['mode'],
+		);
+	}
+
+	return $clean;
+}
+
+/**
+ * The four shipped occasion templates, per design spec §5's second ruling:
+ * a READ-ONLY catalog for a future admin UI's "add from preset"
+ * affordance (2.1b), never pre-populated into the real stored
+ * `occasions` array. blueline_resolve_active_occasion() (Task 3) never
+ * calls this function; nothing here is "live" until something else (a
+ * future panel save, or `wp blueline settings occasions` in Phase 2.2)
+ * copies one of these into blueline_settings( 'occasions' )'s real
+ * stored value.
+ *
+ * Every preset ships `mode => 'auto'`, deliberately: there is no
+ * `enabled` field in the model at all (an `auto` entry sitting in the
+ * REAL stored array during its calendar window would activate whether
+ * or not an admin ever opened the panel, because the model has no separate
+ * on/off switch by design), so "shipped but inert" is achieved entirely
+ * by these presets living here instead of in the real stored array, not
+ * by any flag on the entries themselves.
+ *
+ * Every `accent` is '' (use the resolved default): 2.1a ships no
+ * contrast-vetted festive palette, and an admin choosing one is exactly
+ * 2.1b's job.
+ *
+ * @return array<string, array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string}>
+ */
+function blueline_occasion_presets(): array {
+	return array(
+		'canada-day'      => array(
+			'id'     => 'canada-day',
+			'label'  => __( 'Canada Day', 'blueline' ),
+			'type'   => 'decorative',
+			'window' => array(
+				'start_md' => '07-01',
+				'end_md'   => '07-01',
+			),
+			'accent' => '',
+			'motif'  => 'maple-leaf',
+			'line'   => '',
+			'mode'   => 'auto',
+		),
+		'remembrance-day' => array(
+			'id'     => 'remembrance-day',
+			'label'  => __( 'Remembrance Day', 'blueline' ),
+			'type'   => 'commemorative',
+			'window' => array(
+				'start_md' => '11-11',
+				'end_md'   => '11-11',
+			),
+			'accent' => '',
+			'motif'  => 'poppy',
+			'line'   => __( 'Lest we forget.', 'blueline' ),
+			'mode'   => 'auto',
+		),
+		'christmas'       => array(
+			'id'     => 'christmas',
+			'label'  => __( 'Christmas', 'blueline' ),
+			'type'   => 'decorative',
+			'window' => array(
+				'start_md' => '12-01',
+				'end_md'   => '12-26',
+			),
+			'accent' => '',
+			'motif'  => 'snowflake',
+			'line'   => '',
+			'mode'   => 'auto',
+		),
+		// Crosses the year boundary (start_md > end_md) by design; see
+		// Task 3's blueline_occasion_window_contains() and Task 6's
+		// blueline_occasion_next_occurrence_timestamp() for the two places
+		// that must, and do, handle this correctly.
+		'new-year'        => array(
+			'id'     => 'new-year',
+			'label'  => __( 'New Year', 'blueline' ),
+			'type'   => 'decorative',
+			'window' => array(
+				'start_md' => '12-27',
+				'end_md'   => '01-02',
+			),
+			'accent' => '',
+			'motif'  => 'sparkle',
+			'line'   => '',
+			'mode'   => 'auto',
+		),
+	);
+}
+
+/**
+ * Assign each submitted occasions row a server-derived, de-duplicated
+ * `id`, per design spec §5.1's first ruling: the admin never types an id
+ * directly.
+ *
+ * A row keeps its own existing id when its derived slug is unchanged
+ * from `_original_id`. A row whose derived slug differs from
+ * `_original_id` (a brand-new row, where `_original_id` is '', or an
+ * existing row whose label edit changed the derived slug, i.e. a rename)
+ * is checked for a collision against both the rest of THIS batch and
+ * the currently-stored array, EXCLUDING the row's own original slot,
+ * and bumped with an incrementing numeric suffix on collision, the
+ * same shape wp_unique_post_slug() already uses for post slugs.
+ *
+ * Deliberately does not call blueline_sanitize_occasions() itself, and
+ * does not validate anything beyond having a usable label: the caller
+ * (inc/settings/page.php's sanitize-callback carve-out) runs the
+ * result through that unchanged validator immediately afterwards. Any
+ * OTHER key a row carries (e.g. a save-time override checkbox a later
+ * task reads) is copied through untouched, because this function only ever
+ * reads `_original_id`/`label` and writes `id`.
+ *
+ * A stored slot whose owning row (the row in THIS batch carrying that
+ * `_original_id`) is itself renaming away from it is being vacated by
+ * this very save, so it must not count as "still occupied" against a
+ * different row that wants to move into it. Two rows trading ids
+ * (A's old slot to B, B's old slot to A) would otherwise each see the
+ * other's not-yet-vacated slot as a collision and both get bumped with
+ * an unnecessary `-2` suffix, silently shifting their AA-acknowledgement
+ * scopes (`occasion:{id}`) along with it. This is precomputed as one
+ * full pass over $submitted before the main assignment loop, so the
+ * result does not depend on which row happens to be processed first.
+ *
+ * @param mixed                               $submitted Raw submitted rows, keyed by an opaque per-request row identifier.
+ * @param array<string, array<string, mixed>> $stored    Currently stored `occasions` map, read BEFORE this save.
+ * @return array<string, array<string, mixed>> The same rows, re-keyed by their final, unique, derived id.
+ */
+function blueline_occasions_assign_unique_ids( $submitted, array $stored ): array {
+	if ( ! is_array( $submitted ) ) {
+		return array();
+	}
+
+	$vacated = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$row_original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$row_base        = sanitize_title( is_string( $row['label'] ?? null ) ? $row['label'] : '' );
+
+		if ( '' !== $row_original_id && '' !== $row_base && $row_base !== $row_original_id ) {
+			$vacated[ $row_original_id ] = true;
+		}
+	}
+
+	$taken  = array();
+	$result = array();
+
+	foreach ( $submitted as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$original_id = is_string( $row['_original_id'] ?? null ) ? $row['_original_id'] : '';
+		$label       = is_string( $row['label'] ?? null ) ? $row['label'] : '';
+		$base        = sanitize_title( $label );
+
+		if ( '' === $base ) {
+			// No usable label at all. blueline_sanitize_occasions()
+			// will reject this row for its own empty-label reason
+			// regardless, so there is no id worth manufacturing for it.
+			continue;
+		}
+
+		$final_id = $base;
+		$suffix   = 2;
+
+		while (
+			isset( $taken[ $final_id ] )
+			|| ( isset( $stored[ $final_id ] ) && $final_id !== $original_id && ! isset( $vacated[ $final_id ] ) )
+		) {
+			$final_id = $base . '-' . $suffix;
+			++$suffix;
+		}
+
+		$taken[ $final_id ] = true;
+
+		$row['id'] = $final_id;
+		unset( $row['_original_id'] );
+
+		$result[ $final_id ] = $row;
+	}
+
+	return $result;
+}
+
+/**
+ * Compute the new `aa_acknowledgements` map after an Occasions-tab save,
+ * per design spec §5.1's fifth ruling: per-occasion, symmetric
+ * record/remove, plus orphan cleanup.
+ *
+ * For every occasion in $sanitized (already run through
+ * blueline_sanitize_occasions(), so this function trusts it is
+ * well-formed), resolves its effective accent (its own `accent`, or
+ * blueline_occasion_accent_default() when empty), checks contrast
+ * against BLUELINE_TOKEN_INK, and either records or removes its
+ * acknowledgement accordingly. Then removes every acknowledgement
+ * scoped `occasion:*` whose id is not present in $sanitized at all,
+ * because deleting or renaming an occasion must not leave its acknowledgement
+ * behind forever.
+ *
+ * Pure: takes the current map and returns a new one; never calls
+ * update_option() itself, matching blueline_record_acknowledgement()/
+ * blueline_remove_acknowledgement()'s own contract.
+ *
+ * $ack_context bundles the three values that travel together at every call
+ * site of this function (see inc/settings/page.php's own call, and
+ * blueline_record_acknowledgement()'s own call shape, which takes the same
+ * hash/user_id pair): `acknowledgements`, `inputs_hash`, and `user_id`,
+ * keyed exactly as named here.
+ *
+ * @param array<string, array<string, mixed>>                                                             $sanitized     This save's new `occasions` value (post blueline_sanitize_occasions()).
+ * @param array<string, bool>                                                                             $raw_overrides Map of occasion id => whether ITS override checkbox was checked in this submission.
+ * @param array{acknowledgements: array<string, array<string, mixed>>, inputs_hash: string, user_id: int} $ack_context Currently stored `aa_acknowledgements`, plus the inputs hash and saving user id every acknowledgement recorded during this call is stamped with.
+ * @return array<string, array<string, mixed>> The updated map, to be stored under `aa_acknowledgements`.
+ */
+function blueline_occasions_apply_aa_overrides(
+	array $sanitized,
+	array $raw_overrides,
+	array $ack_context
+): array {
+	$acknowledgements = is_array( $ack_context['acknowledgements'] ?? null ) ? $ack_context['acknowledgements'] : array();
+	$inputs_hash      = (string) ( $ack_context['inputs_hash'] ?? '' );
+	$user_id          = (int) ( $ack_context['user_id'] ?? 0 );
+
+	foreach ( $sanitized as $id => $occasion ) {
+		$scope = 'occasion:' . $id;
+
+		$raw_accent = '' !== ( $occasion['accent'] ?? '' )
+			? $occasion['accent']
+			: blueline_occasion_accent_default();
+
+		$accent = blueline_sanitize_hex_color( $raw_accent );
+
+		if ( '' === $accent ) {
+			// Unresolvable accent, so there is nothing to acknowledge either way;
+			// do not leave a stale acknowledgement behind for a value
+			// that no longer means anything.
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+			continue;
+		}
+
+		$ratio  = blueline_contrast_ratio( blueline_resolved_brand_color( 'ink' ), $accent );
+		$passes = $ratio >= blueline_contrast_threshold( 'body' );
+
+		if ( ! $passes && ! empty( $raw_overrides[ $id ] ) ) {
+			$acknowledgements = blueline_record_acknowledgement(
+				$acknowledgements,
+				$scope,
+				'ink-on-occasion-accent',
+				$accent,
+				$ratio,
+				$inputs_hash,
+				$user_id
+			);
+		} else {
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+		}
+	}
+
+	// Orphan cleanup: an acknowledgement scoped to an occasion id no
+	// longer present in this save's own occasions map at all (deleted,
+	// or renamed away from) has nothing left to cover.
+	foreach ( array_keys( $acknowledgements ) as $scope ) {
+		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
+			continue; // Not this mechanism's business, e.g. a future non-occasion scope.
+		}
+
+		$id = substr( $scope, strlen( 'occasion:' ) );
+
+		if ( ! isset( $sanitized[ $id ] ) ) {
+			$acknowledgements = blueline_remove_acknowledgement( $acknowledgements, $scope );
+		}
+	}
+
+	return $acknowledgements;
+}
+
+/**
+ * Classify every `occasion:*`-scoped entry in `aa_acknowledgements` as
+ * still-`valid`, `orphaned`, or `stale` against CURRENT reality, per design
+ * spec §6.5's ruling that this is the SOLE function both the deploy-drift
+ * notice (inc/settings/validation.php's
+ * blueline_occasions_maybe_revalidate_on_drift()) and Site Health
+ * (inc/settings/site-health.php) read from, so the two surfaces can never
+ * independently drift on what counts as stale.
+ *
+ * For each `occasion:{id}` acknowledgement:
+ *
+ * - `{id}` absent from blueline_settings( 'occasions' ) entirely ->
+ *   `orphaned` (the occasion was deleted or renamed since the
+ *   acknowledgement was recorded).
+ * - Otherwise, resolve that occasion's CURRENT effective accent (its own
+ *   `accent`, or blueline_occasion_accent_default() when empty), sanitize
+ *   it exactly as blueline_resolve_active_occasion() does, and check
+ *   blueline_acknowledgement_covers() against it with the CURRENT
+ *   blueline_settings_inputs_hash(): `stale` on a `false` result (the
+ *   accent value changed, or style.css/contrast-rules.json moved since
+ *   the acknowledgement was recorded), `valid` otherwise. An unresolvable
+ *   current accent (blueline_sanitize_hex_color() returns '') can never
+ *   be covered by anything, so it classifies `stale` too.
+ *
+ * A scope outside the `occasion:` namespace is not this function's
+ * business at all and is skipped entirely, not merely left `valid`,
+ * so the returned map's own keys are exactly this function's domain.
+ *
+ * Pure and read-only: never calls blueline_record_acknowledgement() or
+ * blueline_remove_acknowledgement(). A stale or orphaned acknowledgement
+ * is REPORTED, never deleted; blueline_remove_acknowledgement()'s own
+ * docblock already establishes that a stale hash is not a valid reason
+ * to call it, and drift discovery is not a stronger reason than
+ * staleness itself (design spec §6.5).
+ *
+ * @return array<string, string> Map of acknowledgement scope => 'valid' | 'orphaned' | 'stale'.
+ */
+function blueline_occasions_classify_acknowledgements(): array {
+	$acknowledgements = blueline_stored_acknowledgements();
+
+	$occasions = blueline_settings( 'occasions' );
+	$occasions = is_array( $occasions ) ? $occasions : array();
+
+	$inputs_hash = blueline_settings_inputs_hash();
+
+	$classifications = array();
+
+	foreach ( $acknowledgements as $scope => $entry ) {
+		if ( 0 !== strpos( $scope, 'occasion:' ) ) {
+			continue; // Not this mechanism's business, e.g. a future non-occasion scope.
+		}
+
+		$id = substr( $scope, strlen( 'occasion:' ) );
+
+		if ( ! isset( $occasions[ $id ] ) || ! is_array( $occasions[ $id ] ) ) {
+			$classifications[ $scope ] = 'orphaned';
+			continue;
+		}
+
+		$occasion = $occasions[ $id ];
+
+		$raw_accent = '' !== ( $occasion['accent'] ?? '' )
+			? $occasion['accent']
+			: blueline_occasion_accent_default();
+
+		$accent = is_string( $raw_accent ) ? blueline_sanitize_hex_color( $raw_accent ) : '';
+
+		if ( '' === $accent ) {
+			// Unresolvable current accent, so nothing can cover this; it gets the
+			// same treatment as a value that plainly changed.
+			$classifications[ $scope ] = 'stale';
+			continue;
+		}
+
+		$covers = blueline_acknowledgement_covers(
+			$acknowledgements,
+			$scope,
+			'ink-on-occasion-accent',
+			$accent,
+			$inputs_hash
+		);
+
+		$classifications[ $scope ] = $covers ? 'valid' : 'stale';
+	}
+
+	return $classifications;
+}

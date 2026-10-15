@@ -5,7 +5,7 @@
  * the render order, but never ALL of them -- WCAG 2.4.5 requires two ways to
  * find content, so an empty homepage is not a configuration a volunteer is
  * allowed to reach by unticking boxes. See the floor comment inline in
- * blueline_homepage_module_order() itself (inc/homepage-modules.php) for the
+ * blueline_homepage_module_order() itself (inc/homepage/modules.php) for the
  * mechanism.
  *
  * @package blueline

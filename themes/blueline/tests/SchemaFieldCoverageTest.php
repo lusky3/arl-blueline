@@ -50,7 +50,7 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  * blueline_section_enabled() with its own literal key), so all eight are
  * removed below. Only the four `module_*` keys remain, and unlike the other
  * eight they are exempt PERMANENTLY, not pending a task: their consumer
- * blueline_homepage_module_order() (inc/homepage-modules.php) has landed and
+ * blueline_homepage_module_order() (inc/homepage/modules.php) has landed and
  * does read all four -- but through a key it BUILDS at runtime
  * (`'module_' . $module`), not a literal
  * `blueline_section_enabled( 'module_next_games' )` this regex-based guard

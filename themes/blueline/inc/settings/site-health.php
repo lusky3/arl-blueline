@@ -34,7 +34,7 @@
  *   the two facts that file's own docblock says are otherwise easy to lose
  *   track of on a volunteer-run site.
  * - Which occasion is active right now, read from the SAME resolver the
- *   front end uses (blueline_resolve_active_occasion(), inc/occasions.php)
+ *   front end uses (blueline_resolve_active_occasion(), inc/occasions/resolver.php)
  *   -- so it can never disagree with what the site is actually showing.
  *   "Why is the site suddenly wearing Canada Day colours?" (or refusing
  *   to) is answerable from a support paste alone, without reconstructing
@@ -196,7 +196,7 @@ function blueline_site_health_link_field( string $key, array $field, array $curr
 /**
  * The currently-active occasion's own label, or "None" -- design spec
  * §6.3/§6.9's Site Health requirement, reading the SAME resolver the
- * front end uses (blueline_resolve_active_occasion(), inc/occasions.php,
+ * front end uses (blueline_resolve_active_occasion(), inc/occasions/resolver.php,
  * unchanged), so this can never disagree with what the site is actually
  * showing right now.
  *

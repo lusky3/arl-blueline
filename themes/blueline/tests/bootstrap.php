@@ -3590,7 +3590,7 @@ if ( ! function_exists( 'wp_dropdown_categories' ) ) {
 	 * enough for a test to assert the selected option and that term names
 	 * (not raw IDs) are what an admin sees. Deliberately the same shape as
 	 * the wp_dropdown_pages() stub immediately above, since
-	 * blueline_settings_render_field() (inc/settings/page.php) uses both the
+	 * blueline_settings_render_field() (inc/settings/page-fields.php) uses both the
 	 * same way for their respective field types.
 	 *
 	 * @param array $args Same shape as core's own args; 'taxonomy', 'name',

@@ -141,7 +141,7 @@ function blueline_validated_against(): string {
  * request (design spec §6.5's ruling that the notice is a one-time,
  * same-request surface, never a persisted, recurring one), so a
  * module-level static is all this needs -- the identical pattern
- * blueline_settings_page_hook() (inc/settings/page.php) already uses for
+ * blueline_settings_page_hook() (inc/settings/page-registration.php) already uses for
  * an unrelated same-request handoff.
  *
  * Split into this getter and blueline_set_occasions_drift_notice_payload()

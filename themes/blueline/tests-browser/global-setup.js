@@ -59,7 +59,7 @@ const PANEL_PATH = '/wp-admin/themes.php?page=blueline&tab=content';
 
 /**
  * A string that only ever appears in the rendered HTML of
- * inc/settings/page.php's own `blueline_settings_render_page()` wrap --
+ * inc/settings/page-render.php's own `blueline_settings_render_page()` wrap --
  * see that function's `<div class="wrap bl-settings">`. Used here purely
  * as a reachability/identity check, not as this suite's actual assertion
  * (the spec file does its own, much more careful, extraction).
