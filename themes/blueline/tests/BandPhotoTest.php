@@ -289,6 +289,58 @@ final class BandPhotoTest extends TestCase {
 	}
 
 	/**
+	 * Render the band's head markup.
+	 *
+	 * @return string
+	 */
+	private function render_band_head(): string {
+		ob_start();
+		blueline_render_band_photo_head();
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The band prints a resting photograph and, with rotation on, a script
+	 * carrying every source: the script is core's inline-script tag, so a CSP
+	 * plugin's attributes reach it, and its payload is the real source list.
+	 */
+	public function test_band_head_prints_resting_style_and_a_rotation_script_core_can_tag(): void {
+		add_filter(
+			'wp_inline_script_attributes',
+			static function ( $attributes ) {
+				$attributes['nonce'] = 'abc123';
+
+				return $attributes;
+			}
+		);
+
+		$html = $this->render_band_head();
+
+		$this->assertSame( 1, preg_match( '#<style id="bl-band-photo">:root\{--bl-band-photo:url\("([^"]+)"\);--bl-band-photo-position:([^}]+)\}</style>#', $html, $style ) );
+		$this->assertStringContainsString( '/assets/images/bands/', $style[1] );
+
+		$this->assertSame( 1, preg_match( '#<script id="bl-band-photo-rotate" nonce="abc123">\s*\(function\(\)\{try\{var s=(\[.*?\]),p=#s', $html, $script ) );
+		$payload = json_decode( $script[1], true );
+		$this->assertCount( count( blueline_band_shots() ), $payload );
+		$this->assertSame( blueline_band_photo_sources(), $payload );
+		$this->assertContains( $style[1], array_column( $payload, 'url' ), 'The resting photograph is one of the rotation set.' );
+	}
+
+	/**
+	 * With rotation switched off the band keeps its resting photograph and
+	 * prints no script at all.
+	 */
+	public function test_band_head_prints_no_script_when_rotation_is_off(): void {
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'hero_photo_rotate' => false ) );
+
+		$html = $this->render_band_head();
+
+		$this->assertStringContainsString( '<style id="bl-band-photo">', $html );
+		$this->assertStringNotContainsString( '<script', $html );
+	}
+
+	/**
 	 * Register $id as an image attachment for the sanitizer to accept.
 	 *
 	 * @param int $id Attachment ID.

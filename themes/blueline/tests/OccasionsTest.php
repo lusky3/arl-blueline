@@ -1200,4 +1200,27 @@ final class OccasionsTest extends TestCase {
 			blueline_occasions_classify_acknowledgements()
 		);
 	}
+
+	/**
+	 * A preset's name and its commemorative line are visitor-facing copy, so
+	 * they are translatable; the ids, windows and motifs are data and are not.
+	 */
+	public function test_preset_names_and_lines_are_translatable_but_ids_are_not(): void {
+		add_filter(
+			'gettext',
+			static function ( $translation, $text, $domain ) {
+				return 'blueline' === $domain ? 'fr:' . $translation : $translation;
+			},
+			10,
+			3
+		);
+
+		$presets = blueline_occasion_presets();
+
+		$this->assertSame( 'fr:Remembrance Day', $presets['remembrance-day']['label'] );
+		$this->assertSame( 'fr:Lest we forget.', $presets['remembrance-day']['line'] );
+		$this->assertSame( '', $presets['canada-day']['line'], 'An empty line stays empty rather than becoming a translation of nothing.' );
+		$this->assertSame( 'remembrance-day', $presets['remembrance-day']['id'] );
+		$this->assertSame( 'poppy', $presets['remembrance-day']['motif'] );
+	}
 }

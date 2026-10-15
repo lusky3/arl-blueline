@@ -22,6 +22,16 @@ const BLUELINE_CORE_LEGACY_SENTINEL = 'blueline_get_linked_player_id';
 const BLUELINE_CORE_REGISTER_FIX_MU_PLUGIN = 'rh-royal-mcp-register-fix.php';
 
 /**
+ * Load the plugin's translations from languages/ (the `Domain Path` header). A site can also drop a
+ * file in wp-content/languages/plugins/, which WordPress checks first.
+ *
+ * @return void
+ */
+function blueline_core_load_textdomain(): void {
+	load_plugin_textdomain( 'blueline-core', false, dirname( plugin_basename( BLUELINE_CORE_FILE ) ) . '/languages' );
+}
+
+/**
  * Boot the plugin on `after_setup_theme` priority 1: load modules, or stay idle beside a legacy theme.
  *
  * @return void
@@ -212,6 +222,9 @@ function &blueline_core_loaded_modules(): array {
 
 /**
  * Whether a module was loaded in this request.
+ *
+ * Public API with no caller inside the plugin: the README documents it for other code, and
+ * docs/OPERATIONS.md uses it to confirm a deploy loaded every module.
  *
  * @param string $slug Module slug, as listed in includes/modules.php.
  * @return bool

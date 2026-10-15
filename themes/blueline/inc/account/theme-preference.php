@@ -253,21 +253,28 @@ function blueline_render_guest_theme_bootstrap_script(): void {
 	if ( is_user_logged_in() ) {
 		return;
 	}
-	?>
-	<script>
-	( function () {
-		try {
-			var stored = window.localStorage.getItem( 'blueline:theme-preference' );
-			if ( 'light' === stored || 'dark' === stored ) {
-				document.documentElement.setAttribute( 'data-theme', stored );
-			}
-		} catch ( e ) {
-			// Storage disabled or unavailable -- fall through to
-			// style.css's own prefers-color-scheme block, the same
-			// degrade-silently convention every localStorage access in
-			// this theme follows (see assets/src/js/announcement.js).
+
+	/*
+	 * Printed with wp_print_inline_script_tag(), not hand-written markup, so a
+	 * CSP nonce/hash plugin can tag it through `wp_inline_script_attributes`.
+	 * It cannot be an enqueued script instead: wp_add_inline_script() runs
+	 * after its handle prints, and an enqueued file is fetched, deferred or
+	 * not, after the stylesheets it must beat.
+	 *
+	 * A storage failure falls through to style.css's own prefers-color-scheme
+	 * block, the degrade-silently convention every localStorage access in
+	 * this theme follows (see assets/src/js/announcement.js).
+	 */
+	wp_print_inline_script_tag(
+		<<<'JS'
+( function () {
+	try {
+		var stored = window.localStorage.getItem( 'blueline:theme-preference' );
+		if ( 'light' === stored || 'dark' === stored ) {
+			document.documentElement.setAttribute( 'data-theme', stored );
 		}
-	} )();
-	</script>
-	<?php
+	} catch ( e ) {}
+} )();
+JS
+	);
 }

@@ -545,27 +545,40 @@ function blueline_settings_schema(): array {
  * currently hardcodes, so installing the panel changes no rendered output
  * until an admin actually edits a field.
  *
+ * The visitor-facing copy is wrapped in __() so a translation can supply it.
+ * That is why this is a function, not a constant: it is read after the text
+ * domain loads, and wherever a default is written back to the option (the
+ * schema migration, `settings reset`) the stored copy is the one in the
+ * language active at that moment.
+ *
  * @return array<string, mixed>
  */
 function blueline_settings_defaults(): array {
 	$defaults = array(
 		'contact_email'                  => 'play@rookiehockey.ca',
-		'footer_heading'                 => 'The League',
-		'footer_location'                => 'Burlington, Ontario',
-		'hero_offseason_cta'             => 'Join the mailing list',
-		'module_new_here_heading'        => 'Never played? Perfect.',
-		'module_new_here_cta'            => 'Read the FAQs',
-		'account_empty_next_game'        => 'No upcoming game on your schedule yet.',
-		'account_empty_stats'            => 'Stats update after each game is scored.',
-		'hero_registration_headline'     => 'Burlington’s %s league.',
-		'hero_registration_highlight'    => 'beginner',
-		'hero_registration_eyebrow'      => '%s · Registration open',
-		'hero_registration_cta'          => 'Register — %s',
-		'hero_preseason_headline'        => 'Puck drops %s.',
-		'hero_in_season_headline'        => '%1$s %2$s this week.',
-		'hero_playoffs_eyebrow'          => '%s · Playoffs',
-		'hero_offseason_headline'        => 'Back on the ice %s.',
-		'hero_offseason_highlight'       => 'soon',
+		'footer_heading'                 => __( 'The League', 'blueline' ),
+		'footer_location'                => __( 'Burlington, Ontario', 'blueline' ),
+		'hero_offseason_cta'             => __( 'Join the mailing list', 'blueline' ),
+		'module_new_here_heading'        => __( 'Never played? Perfect.', 'blueline' ),
+		'module_new_here_cta'            => __( 'Read the FAQs', 'blueline' ),
+		'account_empty_next_game'        => __( 'No upcoming game on your schedule yet.', 'blueline' ),
+		'account_empty_stats'            => __( 'Stats update after each game is scored.', 'blueline' ),
+		/* translators: %s: the highlighted word of the headline, e.g. "beginner". */
+		'hero_registration_headline'     => __( 'Burlington’s %s league.', 'blueline' ),
+		'hero_registration_highlight'    => __( 'beginner', 'blueline' ),
+		/* translators: %s: current season label, e.g. "Winter 2026-27". */
+		'hero_registration_eyebrow'      => __( '%s · Registration open', 'blueline' ),
+		/* translators: %s: formatted price, e.g. "$550.00". */
+		'hero_registration_cta'          => __( 'Register — %s', 'blueline' ),
+		/* translators: %s: highlighted season-start date, e.g. "September 6". */
+		'hero_preseason_headline'        => __( 'Puck drops %s.', 'blueline' ),
+		/* translators: 1: highlighted game count, 2: "game" or "games". */
+		'hero_in_season_headline'        => __( '%1$s %2$s this week.', 'blueline' ),
+		/* translators: %s: current season label. */
+		'hero_playoffs_eyebrow'          => __( '%s · Playoffs', 'blueline' ),
+		/* translators: %s: the highlighted word of the headline, e.g. "soon". */
+		'hero_offseason_headline'        => __( 'Back on the ice %s.', 'blueline' ),
+		'hero_offseason_highlight'       => __( 'soon', 'blueline' ),
 		// The banner ships off: no text, no window, quiet tone. Installing
 		// this release must not put a strip of copy above every page.
 		'announcement_text'              => '',

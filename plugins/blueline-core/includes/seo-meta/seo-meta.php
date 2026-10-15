@@ -673,7 +673,8 @@ function blueline_render_structured_data() {
 		return;
 	}
 
-	printf( '<script type="application/ld+json">%s</script>' . "\n", $json ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON built by wp_json_encode() with HEX_TAG/HEX_AMP.
+	// A data block, not code, so it needs no enqueue timing; the core helper lets a CSP plugin tag it.
+	wp_print_inline_script_tag( $json, array( 'type' => 'application/ld+json' ) );
 }
 
 /**

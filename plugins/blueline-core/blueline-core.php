@@ -11,6 +11,7 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       blueline-core
+ * Domain Path:       /languages
  * Update URI:        false
  *
  * @package blueline-core
@@ -26,6 +27,9 @@ require_once BLUELINE_CORE_DIR . '/includes/boot.php';
 
 register_activation_hook( BLUELINE_CORE_FILE, 'blueline_core_activate' );
 register_deactivation_hook( BLUELINE_CORE_FILE, 'blueline_core_deactivate' );
+
+// `init`, not earlier: translation files are only looked up once WordPress is ready for them.
+add_action( 'init', 'blueline_core_load_textdomain', 1 );
 
 // Priority 1: the theme's functions.php has run, so legacy-theme detection is reliable.
 add_action( 'after_setup_theme', 'blueline_core_boot', 1 );

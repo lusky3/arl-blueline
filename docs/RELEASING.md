@@ -162,6 +162,23 @@ uninstalling removes its options. Staging takes a plugin build with
 verifies the plugin is active, at the header's version, with every module loaded;
 `--verify` re-runs only that check, `--skip-tests` skips the local test run).
 
+## Translations
+
+Both packages are translatable (text domains `blueline` and `blueline-core`) but no
+translation ships yet, so neither has a `languages/` folder or a `.pot` template checked
+in. The theme loads `languages/` through `load_theme_textdomain()` and the plugin through
+`load_plugin_textdomain()` (its `Domain Path` header), and a site can also put files in
+`wp-content/languages/themes/` or `wp-content/languages/plugins/`. When a translation is
+wanted, generate the template with WP-CLI's i18n package (`wp package install
+wp-cli/i18n-command`):
+
+    wp i18n make-pot themes/blueline themes/blueline/languages/blueline.pot --domain=blueline --exclude=node_modules,vendor,tests,tests-e2e,tests-browser,assets/dist
+    wp i18n make-pot plugins/blueline-core plugins/blueline-core/languages/blueline-core.pot --domain=blueline-core --exclude=vendor,tests
+
+Translators work from those files; compile with `wp i18n make-mo`. The theme's
+WooCommerce and SportsPress template overrides deliberately keep those plugins' own text
+domains for the strings they did not change, so the plugins' translations still apply.
+
 ## Owner steps (never automated)
 
 Claude and CI never create, request or handle the token.
