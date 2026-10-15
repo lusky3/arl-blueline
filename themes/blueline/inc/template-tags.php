@@ -209,6 +209,66 @@ function blueline_utility_normalize_path( $url ) {
 	return rtrim( strtolower( $path ), '/' );
 }
 
+add_filter( 'page_link', 'blueline_canonical_page_link', 30 );
+add_filter( 'post_link', 'blueline_canonical_page_link', 30 );
+add_filter( 'post_type_link', 'blueline_canonical_page_link', 30 );
+/**
+ * A permalink with the trailing slash dropped when this site does not use
+ * one, so the nav, the XML sitemap and every other generated link name the
+ * address that is actually served.
+ *
+ * Core redirects /standings/ to /standings on a slashless-permalink site, but
+ * the Page Links To plugin (priority 20 on these hooks) replaces a page's link
+ * with whatever address the editor stored -- often the slash form -- so those
+ * links cost a 301 on every click and sit in the sitemap as redirecting URLs.
+ * Runs after it. Only this site's own addresses (and bare paths) are touched,
+ * and the site root, other hosts and non-URLs are left exactly as they are.
+ *
+ * @param string $link A permalink.
+ * @return string
+ */
+function blueline_canonical_page_link( $link ) {
+	$link = (string) $link;
+
+	// Plain permalinks, or a structure that ends in a slash, serve the slash form.
+	$structure = (string) get_option( 'permalink_structure' );
+
+	if ( '' === $structure || '/' === substr( $structure, -1 ) ) {
+		return $link;
+	}
+
+	if ( ! preg_match( '/^([^?#]*)([?#].*)?$/s', $link, $parts ) ) {
+		return $link;
+	}
+
+	$base = $parts[1];
+	$tail = $parts[2] ?? '';
+
+	if ( '/' !== substr( $base, -1 ) || '/' === $base ) {
+		return $link;
+	}
+
+	$host = wp_parse_url( $base, PHP_URL_HOST );
+
+	// A relative path has no host; an absolute one must be this site's.
+	if ( $host ) {
+		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+
+		if ( ! $home_host || 0 !== strcasecmp( (string) $host, (string) $home_host ) ) {
+			return $link;
+		}
+	} elseif ( '/' !== substr( $base, 0, 1 ) ) {
+		return $link;
+	}
+
+	// A site root with a scheme and host ("https://example.test/") is the home page, not a slash to drop.
+	if ( '' === (string) wp_parse_url( $base, PHP_URL_PATH ) || '/' === wp_parse_url( $base, PHP_URL_PATH ) ) {
+		return $link;
+	}
+
+	return rtrim( $base, '/' ) . $tail;
+}
+
 add_filter( 'wp_nav_menu_objects', 'blueline_utility_nav_auth_state', 10, 2 );
 /**
  * Makes the header's utility nav (account links) -- and, more simply, the

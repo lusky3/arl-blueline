@@ -1739,6 +1739,20 @@ if ( ! function_exists( 'get_permalink' ) ) {
 		return $state['posts'][ $id ]['permalink'] ?? false;
 	}
 }
+if ( ! function_exists( 'get_post_permalink' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_post_permalink(): the permalink a
+	 * test registered for the post, like the get_permalink() stand-in above.
+	 *
+	 * @param int|object $post      Post ID (only the int form is exercised by this suite).
+	 * @param bool       $leavename Unused; kept for signature parity with core.
+	 * @param bool       $sample    Unused; kept for signature parity with core.
+	 * @return string|false
+	 */
+	function get_post_permalink( $post = 0, $leavename = false, $sample = false ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
+		return get_permalink( $post );
+	}
+}
 if ( ! function_exists( 'get_term' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_term(): a term a test explicitly

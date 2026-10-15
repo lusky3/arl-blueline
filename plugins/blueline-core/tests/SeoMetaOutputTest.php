@@ -377,6 +377,51 @@ final class SeoMetaOutputTest extends TestCase {
 	}
 
 	/**
+	 * A paginated archive page is its own page: og:url is that page's address,
+	 * the same one its canonical names, not page 1's.
+	 */
+	public function test_paginated_archive_og_url_is_the_pages_own_url(): void {
+		$state                     = &blueline_test_state();
+		$state['request']['home']  = true;
+		$state['request']['paged'] = 2;
+
+		$html = $this->render_head();
+
+		$this->assertStringContainsString( '<meta property="og:url" content="https://example.test/archive/page/2/">', $html );
+		$this->assertSame( blueline_core_seo_archive_canonical_url(), 'https://example.test/archive/page/2/' );
+	}
+
+	/**
+	 * On a pretty-permalink site og:url drops tracking arguments, as the
+	 * canonical does, so the two never name different addresses.
+	 */
+	public function test_archive_og_url_matches_the_canonical_when_arguments_are_dropped(): void {
+		$GLOBALS['bl_test_options']['permalink_structure'] = '/%postname%/';
+		$state                     = &blueline_test_state();
+		$state['request']['tax']   = 'sp_venue';
+		$state['request']['paged'] = 3;
+		$state['request']['query'] = 'utm_source=chat';
+
+		$html = $this->render_head();
+
+		$this->assertStringContainsString( '<meta property="og:url" content="https://example.test/archive/page/3/">', $html );
+		$this->assertStringNotContainsString( 'utm_source', $html );
+	}
+
+	/**
+	 * Search results have no canonical of their own, so og:url stays the
+	 * search's address without a page suffix.
+	 */
+	public function test_search_og_url_keeps_the_unpaged_address(): void {
+		$state                       = &blueline_test_state();
+		$state['request']['search']  = true;
+		$state['request']['archive'] = true;
+		$state['request']['paged']   = 2;
+
+		$this->assertStringContainsString( '<meta property="og:url" content="https://example.test/archive/">', $this->render_head() );
+	}
+
+	/**
 	 * With another SEO plugin active nothing is printed.
 	 */
 	public function test_nothing_prints_when_an_seo_plugin_is_active(): void {

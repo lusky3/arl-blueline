@@ -863,11 +863,7 @@ function blueline_band_shots(): array {
  * @return string The effective state actually rendered.
  */
 function blueline_render_hero( string $state ): string {
-	$known_states = array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' );
-
-	if ( ! in_array( $state, $known_states, true ) ) {
-		$state = 'offseason';
-	}
+	$state = blueline_known_season_state( $state );
 
 	$state_data      = blueline_season_state_data();
 	$content         = blueline_homepage_hero_content( $state, $state_data );
