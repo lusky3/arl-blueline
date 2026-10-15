@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../../scripts/release/lib.php';
+require_once __DIR__ . '/stubs/no-release-keys.php';
 require_once __DIR__ . '/../inc/updater-rules.php';
 
 /**
