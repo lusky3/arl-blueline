@@ -740,27 +740,55 @@ function blueline_account_event_when_short( array $event ): string {
  * @return string
  */
 function blueline_account_event_matchup( array $event ): string {
+	$versus = $event['is_home'] ? __( 'vs', 'blueline' ) : __( '@', 'blueline' );
+
+	return blueline_account_event_matchup_compose( $event, $versus, 'strval' );
+}
+
+/**
+ * The same matchup as markup, for the floating next-game widget: an away
+ * game's "@" is shown but read as "at", since some screen-reader voices say
+ * "at sign".
+ *
+ * @param array{team_id:int, opponent_team_id:?int, is_home:bool} $event A blueline_player_event_summary() row.
+ * @return string Escaped markup.
+ */
+function blueline_account_event_matchup_html( array $event ): string {
+	$versus = $event['is_home']
+		? esc_html__( 'vs', 'blueline' )
+		: '<span aria-hidden="true">' . esc_html__( '@', 'blueline' ) . '</span><span class="screen-reader-text">' . esc_html__( 'at', 'blueline' ) . '</span>';
+
+	return blueline_account_event_matchup_compose( $event, $versus, 'esc_html' );
+}
+
+/**
+ * Join the matchup's parts around an already-prepared "vs"/"@".
+ *
+ * @param array{team_id:int, opponent_team_id:?int, is_home:bool} $event  A blueline_player_event_summary() row.
+ * @param string                                                  $versus "vs" or "@", ready for output.
+ * @param callable                                                $escape Applied to every other part (strval for text, esc_html for markup).
+ * @return string
+ */
+function blueline_account_event_matchup_compose( array $event, string $versus, callable $escape ): string {
 	$opponent_name = $event['opponent_team_id']
 		? blueline_sp_title( $event['opponent_team_id'] )
 		: __( 'TBD', 'blueline' );
 
-	$versus = $event['is_home'] ? __( 'vs', 'blueline' ) : __( '@', 'blueline' );
-
 	if ( empty( $event['team_id'] ) ) {
 		return sprintf(
 			/* translators: 1: "vs" (home) or "@" (away), 2: opponent team name. */
-			__( '%1$s %2$s', 'blueline' ),
+			$escape( __( '%1$s %2$s', 'blueline' ) ),
 			$versus,
-			$opponent_name
+			$escape( $opponent_name )
 		);
 	}
 
 	return sprintf(
 		/* translators: 1: the player's own team name, 2: "vs" (home) or "@" (away), 3: opponent team name. */
-		__( '%1$s %2$s %3$s', 'blueline' ),
-		blueline_sp_title( $event['team_id'] ),
+		$escape( __( '%1$s %2$s %3$s', 'blueline' ) ),
+		$escape( blueline_sp_title( $event['team_id'] ) ),
 		$versus,
-		$opponent_name
+		$escape( $opponent_name )
 	);
 }
 

@@ -250,18 +250,38 @@ add_filter( 'the_content', 'blueline_sp_content_caption_levels', 21 );
  * @return string
  */
 function blueline_sp_content_caption_levels( $content ) {
-	if ( false === strpos( (string) $content, 'sp-table-caption' ) ) {
+	$content = blueline_sp_event_results_as_text( (string) $content );
+
+	if ( false === strpos( $content, 'sp-table-caption' ) ) {
 		return $content;
 	}
 
 	$page_title = is_singular( array( 'sp_table', 'sp_calendar', 'sp_list' ) ) ? get_the_title( get_queried_object_id() ) : '';
 
-	return blueline_sp_retag_captions( (string) $content, blueline_sp_caption_heading_level(), (string) $page_title );
+	return blueline_sp_retag_captions( $content, blueline_sp_caption_heading_level(), (string) $page_title );
+}
+
+/**
+ * Event blocks print each game's score or kick-off time as an h5 above the
+ * game's own h4 title. A time or a score is not a heading, and printed before
+ * its title, a level deeper, it skipped a heading level in every block. It
+ * becomes a paragraph with the same class (sportspress.css styles it).
+ *
+ * @param string $content HTML.
+ * @return string
+ */
+function blueline_sp_event_results_as_text( string $content ): string {
+	if ( false === strpos( $content, 'sp-event-results' ) ) {
+		return $content;
+	}
+
+	return (string) preg_replace( '#<h([2-6]) class="sp-event-results"([^>]*)>(.*?)</h\1>#s', '<p class="sp-event-results"$2>$3</p>', $content );
 }
 
 /**
  * Retag stock SportsPress headings under captions of $level: captions (h4) to
- * $level, event-block titles (h4) one below, their scores (h5) two below.
+ * $level and event-block titles (h4) one below; an event block's score or
+ * time stops being a heading (blueline_sp_event_results_as_text()).
  * A caption equal to $page_title is removed.
  *
  * @param string $content    HTML.
@@ -277,11 +297,11 @@ function blueline_sp_retag_captions( string $content, int $level, string $page_t
 	$stock     = array(
 		'sp-table-caption' => array( '4', 0 ),
 		'sp-event-title'   => array( '4', 1 ),
-		'sp-event-results' => array( '5', 2 ),
 	);
+	$content   = blueline_sp_event_results_as_text( $content );
 
 	return (string) preg_replace_callback(
-		'#<h([2-5]) class="(sp-table-caption|sp-event-title|sp-event-results)"([^>]*)>(.*?)</h\1>#s',
+		'#<h([2-5]) class="(sp-table-caption|sp-event-title)"([^>]*)>(.*?)</h\1>#s',
 		static function ( array $m ) use ( $level, $title, $normalise, $stock ): string {
 			if ( 'sp-table-caption' === $m[2] && '' !== $title && $normalise( $m[4] ) === $title ) {
 				return '';
@@ -409,11 +429,16 @@ function blueline_sp_sponsor_tags( $sponsor ): array {
 		$sponsor_id
 	);
 
-	if ( 'yes' === get_option( 'sportspress_sponsor_site_target_blank', 'no' ) ) {
-		$open .= ' target="_blank"';
+	if ( 'yes' !== get_option( 'sportspress_sponsor_site_target_blank', 'no' ) ) {
+		return array( $open . '>', '</a>' );
 	}
 
-	return array( $open . '>', '</a>' );
+	// A new tab is said, not only done (assets/src/js/new-tab-links.js skips
+	// a link that already carries this hint).
+	return array(
+		$open . ' target="_blank">',
+		'<span class="screen-reader-text bl-new-tab-hint"> ' . esc_html__( '(opens in a new tab)', 'blueline' ) . '</span></a>',
+	);
 }
 
 add_filter( 'wp_get_attachment_image_attributes', 'blueline_sp_sponsor_logo_alt' );

@@ -15,6 +15,11 @@
  * Vanilla ES2017+, no dependencies.
  */
 import { rafThrottle } from './raf-throttle.js';
+import {
+	submenuTriggers,
+	focusableTrigger,
+	labelToggles,
+} from './nav-disclosure.js';
 
 ( function () {
 	'use strict';
@@ -46,7 +51,12 @@ import { rafThrottle } from './raf-throttle.js';
 		return Array.prototype.slice
 			.call( container.querySelectorAll( FOCUSABLE_SELECTOR ) )
 			.filter( function ( el ) {
-				return el.offsetParent !== null;
+				// A "#" parent's chevron is a pointer-only duplicate of its
+				// label button (tabindex="-1"); it is not a Tab stop.
+				return (
+					el.offsetParent !== null &&
+					'-1' !== el.getAttribute( 'tabindex' )
+				);
 			} );
 	}
 
@@ -159,23 +169,22 @@ import { rafThrottle } from './raf-throttle.js';
 	 *
 	 * Each menu item with children (Blueline_Nav_Walker) has a sibling
 	 * <button class="bl-nav__toggle-sub" aria-expanded aria-controls>.
-	 * A parent link whose href is a bare "#" (e.g. "League Info", which
-	 * exists only to hold a submenu) has nowhere to navigate to, so
-	 * clicking/tapping the label itself toggles the submenu too.
+	 * A parent whose URL is "#" (e.g. "League Info", which exists only to
+	 * hold a submenu) is rendered as a disclosure <button> itself, so
+	 * clicking/tapping the label toggles the submenu too
+	 * (nav-disclosure.js).
 	 *
 	 * @param {Element} item The `.bl-nav__item--parent` <li>.
 	 * @param {boolean} open Whether the submenu should be open.
 	 */
 	function setSubmenuOpen( item, open ) {
-		const subButton = item.querySelector( ':scope > .bl-nav__toggle-sub' );
-
 		item.setAttribute( 'data-open', open ? 'true' : 'false' );
 		if ( open ) {
 			item.removeAttribute( 'data-dismissed' );
 		}
-		if ( subButton ) {
-			subButton.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
-		}
+		submenuTriggers( item ).forEach( function ( trigger ) {
+			trigger.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		} );
 		syncExpanded();
 	}
 
@@ -196,15 +205,11 @@ import { rafThrottle } from './raf-throttle.js';
 		Array.prototype.forEach.call(
 			nav.querySelectorAll( '.bl-nav__item--parent' ),
 			function ( item ) {
-				const subButton = item.querySelector(
-					':scope > .bl-nav__toggle-sub'
-				);
-				if ( subButton ) {
-					subButton.setAttribute(
-						'aria-expanded',
-						isSubmenuShown( item ) ? 'true' : 'false'
-					);
-				}
+				const shown = isSubmenuShown( item ) ? 'true' : 'false';
+
+				submenuTriggers( item ).forEach( function ( trigger ) {
+					trigger.setAttribute( 'aria-expanded', shown );
+				} );
 			}
 		);
 	} );
@@ -263,7 +268,7 @@ import { rafThrottle } from './raf-throttle.js';
 			} );
 		}
 
-		if ( link && '#' === link.getAttribute( 'href' ) ) {
+		if ( labelToggles( link ) ) {
 			link.addEventListener( 'click', function ( event ) {
 				event.preventDefault();
 				setSubmenuOpen(
@@ -311,12 +316,10 @@ import { rafThrottle } from './raf-throttle.js';
 		 * see the dismissal below).
 		 */
 		if ( focusedItem ) {
-			const subButton = focusedItem.querySelector(
-				':scope > .bl-nav__toggle-sub'
-			);
+			const trigger = focusableTrigger( focusedItem );
 
-			if ( subButton ) {
-				subButton.focus();
+			if ( trigger ) {
+				trigger.focus();
 			}
 		}
 
@@ -347,9 +350,7 @@ import { rafThrottle } from './raf-throttle.js';
 		topItem.setAttribute( 'data-dismissed', '' );
 		syncExpanded();
 
-		const topButton = topItem.querySelector(
-			':scope > .bl-nav__toggle-sub'
-		);
+		const topButton = focusableTrigger( topItem );
 
 		if ( topButton ) {
 			topButton.focus();

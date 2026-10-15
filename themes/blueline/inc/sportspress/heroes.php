@@ -373,6 +373,18 @@ function blueline_sp_player_hero( $player_id ) {
 			<div class="bl-sp-hero__identity">
 				<h1 class="bl-sp-hero__title"><?php echo esc_html( blueline_sp_title( $player_id ) ); ?></h1>
 				<p class="bl-sp-hero__meta">
+					<?php
+					/*
+					 * The big numeral above is decoration, hidden from assistive
+					 * tech because a bare "12" before the name says nothing. The
+					 * number is spoken here instead, after the name, with what
+					 * it is.
+					 */
+					?>
+					<?php if ( '' !== $number && null !== $number ) : ?>
+						<?php /* translators: %s: the player's jersey number. */ ?>
+						<span class="screen-reader-text"><?php echo esc_html( sprintf( __( 'Jersey number %s', 'blueline' ), $number ) ); ?></span>
+					<?php endif; ?>
 					<?php if ( $position_names ) : ?>
 						<span class="bl-sp-hero__position"><?php echo esc_html( implode( ', ', $position_names ) ); ?></span>
 					<?php endif; ?>

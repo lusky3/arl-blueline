@@ -67,6 +67,21 @@
 	}
 
 	/**
+	 * The item focus moves to once $item is removed: the next one, else the
+	 * previous one, else none (the caller falls back to the Add button), so
+	 * focus never drops to the top of the page.
+	 *
+	 * @param {Array}  items Items in order, $item included.
+	 * @param {Object} item  The item being removed.
+	 * @return {Object|null} Neighbour item.
+	 */
+	function blPhotoNeighbour( items, item ) {
+		const index = items.indexOf( item );
+
+		return items[ index + 1 ] || items[ index - 1 ] || null;
+	}
+
+	/**
 	 * Append a row for one chosen attachment.
 	 *
 	 * @param {Element} root       The field wrapper.
@@ -99,6 +114,20 @@
 			id.value = attachment.id;
 		}
 
+		// "Remove" and "Alignment" name the photograph they act on, as the
+		// server-rendered rows do.
+		const title = attachment.title || attachment.filename || '';
+		const removeName = row.querySelector( '[data-bl-photos-remove-name]' );
+		const alignName = row.querySelector( '[data-bl-photos-align-name]' );
+
+		if ( removeName && title ) {
+			removeName.textContent = ` ${ title }`;
+		}
+
+		if ( alignName && title ) {
+			alignName.textContent = `Alignment for ${ title }`;
+		}
+
 		if ( img ) {
 			// wp.media hands back every generated size; the thumbnail is the one
 			// this row is sized for, and full-size here would pull a multi-megabyte
@@ -112,6 +141,8 @@
 
 		list.appendChild( row );
 		renumber( root );
+
+		return row;
 	}
 
 	function initPhotoField( root ) {
@@ -132,11 +163,30 @@
 					button: { text: add.textContent.trim() },
 				} );
 
+				let added = null;
+
 				frame.on( 'select', () => {
 					frame
 						.state()
 						.get( 'selection' )
-						.forEach( ( model ) => addRow( root, model.toJSON() ) );
+						.forEach( ( model ) => {
+							added = addRow( root, model.toJSON() ) || added;
+						} );
+				} );
+
+				// The media modal hands focus back to its opener as it closes;
+				// after that, move it to the first new row's alignment, the one
+				// thing left to set.
+				frame.on( 'close', () => {
+					const select = added
+						? added.querySelector( '[data-bl-photos-align]' )
+						: null;
+
+					added = null;
+
+					if ( select ) {
+						window.setTimeout( () => select.focus(), 0 );
+					}
 				} );
 			}
 
@@ -152,9 +202,25 @@
 
 			const item = remove.closest( '[data-bl-photos-item]' );
 
-			if ( item ) {
-				item.remove();
-				renumber( root );
+			if ( ! item ) {
+				return;
+			}
+
+			const neighbour = blPhotoNeighbour(
+				Array.from( root.querySelectorAll( '[data-bl-photos-item]' ) ),
+				item
+			);
+
+			item.remove();
+			renumber( root );
+
+			// Removing the focused button would drop focus to <body>.
+			const target = neighbour
+				? neighbour.querySelector( '[data-bl-photos-remove]' )
+				: add;
+
+			if ( target ) {
+				target.focus();
 			}
 		} );
 
@@ -165,9 +231,15 @@
 		document.querySelectorAll( ROOT ).forEach( initPhotoField );
 	}
 
-	if ( 'loading' === document.readyState ) {
-		document.addEventListener( 'DOMContentLoaded', init );
-	} else {
-		init();
+	if ( 'undefined' !== typeof document ) {
+		if ( 'loading' === document.readyState ) {
+			document.addEventListener( 'DOMContentLoaded', init );
+		} else {
+			init();
+		}
+	}
+
+	if ( 'undefined' !== typeof module && module.exports ) {
+		module.exports = { blPhotoNeighbour };
 	}
 } )();

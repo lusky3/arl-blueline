@@ -43,16 +43,32 @@ final class SportspressCaptionRetagTest extends TestCase {
 	}
 
 	/**
-	 * Event-block titles and scores (Past Meetings, Fixtures) follow one and two levels below.
+	 * Event-block titles (Past Meetings, Fixtures) follow one level below the
+	 * caption. The score or kick-off time printed above each title is not a
+	 * heading at all: as one it came before its own title, a level deeper,
+	 * so every block skipped a level (h2, then h4, then h3).
 	 */
 	public function test_event_block_headings_follow_the_caption(): void {
-		$html = '<h4 class="sp-table-caption">Fixtures</h4><h4 class="sp-event-title" itemprop="name">A vs B</h4><h5 class="sp-event-results">2 - 4</h5>';
+		$html = '<h4 class="sp-table-caption">Fixtures</h4><h5 class="sp-event-results">2 - 4</h5><h4 class="sp-event-title" itemprop="name">A vs B</h4>';
 
 		$this->assertSame(
-			'<h2 class="sp-table-caption">Fixtures</h2><h3 class="sp-event-title" itemprop="name">A vs B</h3><h4 class="sp-event-results">2 - 4</h4>',
+			'<h2 class="sp-table-caption">Fixtures</h2><p class="sp-event-results">2 - 4</p><h3 class="sp-event-title" itemprop="name">A vs B</h3>',
 			blueline_sp_retag_captions( $html, 2 )
 		);
 		$this->assertStringContainsString( '<h5 class="sp-event-title">', blueline_sp_retag_captions( '<h4 class="sp-table-caption">X</h4><h5 class="sp-event-title">Y</h5>', 3 ) );
+	}
+
+	/**
+	 * Scores and times stop being headings even where no caption leads the
+	 * blocks (a team page's own fixtures, no "show title").
+	 */
+	public function test_event_results_are_never_headings(): void {
+		$html = '<h5 class="sp-event-results">' . "\n" . '<a href="/event/1"><span class="sp-result">7:45 pm</span></a>' . "\n" . '</h5><h4 class="sp-event-title" itemprop="name">A vs B</h4>';
+
+		$this->assertSame(
+			'<p class="sp-event-results">' . "\n" . '<a href="/event/1"><span class="sp-result">7:45 pm</span></a>' . "\n" . '</p><h4 class="sp-event-title" itemprop="name">A vs B</h4>',
+			blueline_sp_content_caption_levels( $html )
+		);
 	}
 
 	/**

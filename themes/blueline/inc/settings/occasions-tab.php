@@ -197,6 +197,15 @@ function blueline_settings_render_occasion_row( string $name, string $row_key, a
 	$row_uid = 'bl-occasion-' . sanitize_html_class( '' !== $row_key ? $row_key : 'row' );
 	?>
 	<li class="bl-occasions__row" data-bl-occasion-row>
+		<?php
+		/*
+		 * A fieldset named by the occasion, so every row's repeated
+		 * "Label", "Type" and "Remove" say which occasion they belong to.
+		 * settings-occasions.js keeps the legend in step with the Label field.
+		 */
+		?>
+		<fieldset class="bl-occasions__fieldset">
+		<legend class="screen-reader-text" id="<?php echo esc_attr( $row_uid . '-legend' ); ?>" data-bl-occasion-legend><?php echo esc_html( '' !== $label ? $label : __( 'New occasion', 'blueline' ) ); ?></legend>
 		<input
 			type="hidden"
 			name="<?php echo esc_attr( $base . '[_original_id]' ); ?>" value="<?php echo esc_attr( $id ); ?>"
@@ -333,9 +342,10 @@ function blueline_settings_render_occasion_row( string $name, string $row_key, a
 			</select>
 		</p>
 
-		<button type="button" class="button-link bl-occasions__remove" data-bl-occasion-remove>
+		<button type="button" class="button-link bl-occasions__remove" data-bl-occasion-remove id="<?php echo esc_attr( $row_uid . '-remove' ); ?>" aria-labelledby="<?php echo esc_attr( $row_uid . '-remove ' . $row_uid . '-legend' ); ?>">
 			<?php esc_html_e( 'Remove', 'blueline' ); ?>
 		</button>
+		</fieldset>
 	</li>
 	<?php
 }

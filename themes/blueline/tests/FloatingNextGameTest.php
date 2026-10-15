@@ -253,7 +253,27 @@ final class FloatingNextGameTest extends TestCase {
 		$state['posts'][32] = array( 'title' => 'Ducks' );
 		$html               = $this->render();
 
-		$this->assertMatchesRegularExpression( '#__matchup"[^>]*>\s*Kings @ Ducks\s*</a>#', $html );
+		// "@" is shown, and "at" is what a screen reader says (some voices
+		// read the glyph as "at sign").
+		$this->assertMatchesRegularExpression(
+			'#__matchup"[^>]*>\s*Kings <span aria-hidden="true">@</span><span class="screen-reader-text">at</span> Ducks\s*</a>#',
+			$html
+		);
+	}
+
+	/**
+	 * The "Updated" badge says what changed, for anyone who cannot infer it
+	 * from where it sits.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_the_updated_badge_explains_itself(): void {
+		$this->arrange();
+
+		$this->assertMatchesRegularExpression(
+			'#data-bl-next-game-updated hidden>\s*Updated<span class="screen-reader-text">: the details of this game changed</span>\s*</span>#',
+			$this->render()
+		);
 	}
 
 	/**

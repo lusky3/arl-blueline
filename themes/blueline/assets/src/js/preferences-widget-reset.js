@@ -36,26 +36,46 @@ function resetDismissedWidget() {
 	}
 }
 
+/**
+ * Put $message in a polite live region so it is announced.
+ *
+ * The region is rendered empty and stays in the page: text that appears
+ * together with its container (the old `hidden` paragraph) is ignored by
+ * many screen readers. It is cleared first and filled on the next tick, so
+ * pressing the button again re-announces the same words.
+ *
+ * @param {Element}                          region   role="status" element.
+ * @param {string}                           message  What to say.
+ * @param {function(function(): void): void} schedule Runs a callback later (window.setTimeout in the page).
+ * @return {void}
+ */
+function announce( region, message, schedule ) {
+	region.textContent = '';
+	schedule( () => {
+		region.textContent = message;
+	} );
+}
+
 if ( typeof document !== 'undefined' ) {
 	const button = document.querySelector( '[data-bl-widget-reset]' );
 
 	if ( button ) {
 		button.addEventListener( 'click', () => {
-			const succeeded = resetDismissedWidget();
+			const confirmation = document.querySelector(
+				'[data-bl-widget-reset-confirmation]'
+			);
 
-			if ( succeeded ) {
-				const confirmation = document.querySelector(
-					'[data-bl-widget-reset-confirmation]'
+			if ( confirmation && resetDismissedWidget() ) {
+				announce(
+					confirmation,
+					confirmation.getAttribute( 'data-bl-message' ) || '',
+					( fn ) => window.setTimeout( fn, 100 )
 				);
-
-				if ( confirmation ) {
-					confirmation.hidden = false;
-				}
 			}
 		} );
 	}
 }
 
 if ( typeof module !== 'undefined' && module.exports ) {
-	module.exports = { WIDGET_DISMISSED_KEY, resetDismissedWidget };
+	module.exports = { WIDGET_DISMISSED_KEY, resetDismissedWidget, announce };
 }

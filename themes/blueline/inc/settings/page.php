@@ -1106,7 +1106,7 @@ function blueline_settings_render_page(): void {
 			</section>
 		<?php endif; ?>
 
-		<h2 class="nav-tab-wrapper">
+		<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Blueline settings', 'blueline' ); ?>">
 			<?php foreach ( $tabs as $tab_slug ) : ?>
 				<a
 					href="<?php echo esc_url( blueline_settings_tab_url( $tab_slug ) ); ?>"
@@ -1119,7 +1119,7 @@ function blueline_settings_render_page(): void {
 					<?php echo esc_html( blueline_settings_tab_label( $tab_slug ) ); ?>
 				</a>
 			<?php endforeach; ?>
-		</h2>
+		</nav>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
 			<?php settings_fields( BLUELINE_SETTINGS_OPTION_GROUP ); ?>
@@ -1171,21 +1171,52 @@ function blueline_settings_render_page(): void {
 }
 
 /**
- * Echo `aria-invalid`/`aria-describedby` for a field's input, when (and only
- * when) that field failed the last save. This is the exact markup
- * blueline_settings_render_field() and its per-type renderers each need
- * wherever their control can carry a validation error, extracted once
- * rather than repeated at every one of those sites.
+ * Echo `aria-invalid`/`aria-describedby` for a field's input: invalid when
+ * (and only when) that field failed the last save, and described by that
+ * error first, then by the field's own help text. This is the exact markup
+ * blueline_settings_render_field() and its per-type renderers each need,
+ * extracted once rather than repeated at every one of those sites.
  *
- * @param bool   $has_error Whether this field failed the last save.
- * @param string $error_id  The id of the `<p>` that error's text is
- *                           rendered into.
+ * @param bool   $has_error    Whether this field failed the last save.
+ * @param string $error_id     The id of the `<p>` that error's text is
+ *                              rendered into.
+ * @param string $described_by Ids of the field's help paragraphs, space-separated ('' for none).
  * @return void
  */
-function blueline_settings_render_field_aria_attrs( bool $has_error, string $error_id ): void {
+function blueline_settings_render_field_aria_attrs( bool $has_error, string $error_id, string $described_by = '' ): void {
+	$ids = trim( ( $has_error ? $error_id : '' ) . ' ' . $described_by );
+
 	if ( $has_error ) {
-		echo 'aria-invalid="true" aria-describedby="' . esc_attr( $error_id ) . '"';
+		echo 'aria-invalid="true" ';
 	}
+
+	if ( '' !== $ids ) {
+		echo 'aria-describedby="' . esc_attr( $ids ) . '"';
+	}
+}
+
+/**
+ * Ids of the help paragraphs blueline_settings_render_field() prints for a
+ * field, for its input's aria-describedby: the `help` text, then a section
+ * toggle's widget warning.
+ *
+ * @param string $input_id       The field's input id.
+ * @param array  $field          Schema entry.
+ * @param string $widget_warning blueline_section_widget_warning() for this field, or ''.
+ * @return string Space-separated ids, '' for none.
+ */
+function blueline_settings_field_described_by( string $input_id, array $field, string $widget_warning ): string {
+	$ids = array();
+
+	if ( ! empty( $field['help'] ) ) {
+		$ids[] = $input_id . '-description';
+	}
+
+	if ( '' !== $widget_warning ) {
+		$ids[] = $input_id . '-warning';
+	}
+
+	return implode( ' ', $ids );
 }
 
 /**
@@ -1236,14 +1267,27 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 	$error_id  = $input_id . '-error';
 	$name      = BLUELINE_SETTINGS_OPTION . '[' . $field_key . ']';
 	$has_error = null !== $error_message;
+
+	/*
+	 * Task 5 (P1b-panel-completion): a `section` field mapped to a
+	 * populated widget area (today, the four `chrome_footer_widgets_N`
+	 * keys; see blueline_section_widget_warning()'s own docblock
+	 * for the real per-area mapping) gets a second, distinct notice
+	 * naming the live widget count, so switching it off doesn't read
+	 * as "delete my widgets" to whoever's holding the mouse. '' for
+	 * every non-`section` field, and for any `section` field with no
+	 * widget area behind it or an empty one.
+	 */
+	$widget_warning = 'section' === $type ? blueline_section_widget_warning( $field_key ) : '';
+	$described_by   = blueline_settings_field_described_by( $input_id, $field, $widget_warning );
 	?>
 	<tr class="bl-settings-field<?php echo esc_attr( $has_error ? ' bl-settings-field--error' : '' ); ?>">
 		<th scope="row">
-			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<label for="<?php echo esc_attr( $input_id ); ?>"<?php echo 'band_photos' === $type ? ' id="' . esc_attr( $input_id . '-label' ) . '"' : ''; ?>><?php echo esc_html( $label ); ?></label>
 		</th>
 		<td>
 			<?php if ( 'band_photos' === $type ) : ?>
-				<?php blueline_settings_render_band_photos( $field_key, $field, $name, $input_id, (array) $value ); ?>
+				<?php blueline_settings_render_band_photos( $field_key, $field, $name, $input_id, (array) $value, $described_by ); ?>
 			<?php elseif ( ! empty( $field['choices'] ) ) : ?>
 				<?php
 				/*
@@ -1275,7 +1319,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 				<select
 					id="<?php echo esc_attr( $input_id ); ?>"
 					name="<?php echo esc_attr( $name ); ?>"
-					<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
+					<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id, $described_by ); ?>
 				>
 					<?php foreach ( (array) $field['choices'] as $choice_value => $choice_label ) : ?>
 						<option
@@ -1316,13 +1360,14 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					name="<?php echo esc_attr( $name ); ?>"
 					value="1"
 					<?php checked( (bool) $value ); ?>
+					<?php blueline_settings_render_field_aria_attrs( false, '', $described_by ); ?>
 				>
 			<?php elseif ( 'page_id' === $type ) : ?>
-				<?php blueline_settings_render_page_id_field( $field_key, $field, $name, $input_id, $value ); ?>
+				<?php blueline_settings_render_page_id_field( $field_key, $field, $name, $input_id, $value, $described_by ); ?>
 			<?php elseif ( 'term_id' === $type && ! empty( $field['taxonomy'] ) ) : ?>
-				<?php blueline_settings_render_term_id_field( $field_key, $field, $name, $input_id, $value ); ?>
+				<?php blueline_settings_render_term_id_field( $field_key, $field, $name, $input_id, $value, $described_by ); ?>
 			<?php elseif ( 'date' === $type ) : ?>
-				<?php blueline_settings_render_date_field( $field_key, $field, $name, $input_id, $value, $has_error, $error_id ); ?>
+				<?php blueline_settings_render_date_field( $field_key, $field, $name, $input_id, $value, $has_error, $error_id, $described_by ); ?>
 			<?php elseif ( 'term_id' === $type ) : ?>
 				<input
 					type="number"
@@ -1332,9 +1377,10 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					name="<?php echo esc_attr( $name ); ?>"
 					value="<?php echo esc_attr( (string) $value ); ?>"
 					class="small-text"
+					<?php blueline_settings_render_field_aria_attrs( false, '', $described_by ); ?>
 				>
 			<?php elseif ( 'color' === $type ) : ?>
-				<?php blueline_settings_render_color_field( $field_key, $field, $name, $input_id, (string) $value, $has_error, $error_id ); ?>
+				<?php blueline_settings_render_color_field( $field_key, $field, $name, $input_id, (string) $value, $has_error, $error_id, $described_by ); ?>
 			<?php else : ?>
 				<input
 					type="<?php echo esc_attr( 'email' === $type ? 'email' : 'text' ); ?>"
@@ -1342,7 +1388,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 					name="<?php echo esc_attr( $name ); ?>"
 					value="<?php echo esc_attr( (string) $value ); ?>"
 					class="regular-text"
-					<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
+					<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id, $described_by ); ?>
 				>
 			<?php endif; ?>
 
@@ -1359,24 +1405,11 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 			 */
 			?>
 			<?php if ( ! empty( $field['help'] ) ) : ?>
-				<p class="description"><?php echo esc_html( (string) $field['help'] ); ?></p>
+				<p class="description" id="<?php echo esc_attr( $input_id . '-description' ); ?>"><?php echo esc_html( (string) $field['help'] ); ?></p>
 			<?php endif; ?>
 
-			<?php
-			/*
-			 * Task 5 (P1b-panel-completion): a `section` field mapped to a
-			 * populated widget area (today, the four `chrome_footer_widgets_N`
-			 * keys; see blueline_section_widget_warning()'s own docblock
-			 * for the real per-area mapping) gets a second, distinct notice
-			 * naming the live widget count, so switching it off doesn't read
-			 * as "delete my widgets" to whoever's holding the mouse. '' for
-			 * every non-`section` field, and for any `section` field with no
-			 * widget area behind it or an empty one.
-			 */
-			$widget_warning = 'section' === $type ? blueline_section_widget_warning( $field_key ) : '';
-			?>
 			<?php if ( '' !== $widget_warning ) : ?>
-				<p class="description"><?php echo esc_html( $widget_warning ); ?></p>
+				<p class="description" id="<?php echo esc_attr( $input_id . '-warning' ); ?>"><?php echo esc_html( $widget_warning ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( $has_error ) : ?>
@@ -1401,18 +1434,38 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
  * @param string $name      The `name` attribute for this field's control.
  * @param string $input_id  The field's input id.
  * @param mixed  $value     The currently stored (or posted-back) value.
+ * @param string $described_by Ids of the field's help paragraphs, '' for none.
  * @return void
  */
-function blueline_settings_render_page_id_field( string $field_key, array $field, string $name, string $input_id, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key and $field are unused here but kept for call-shape parity with this file's other per-type field renderers (blueline_settings_render_band_photos(), blueline_settings_render_term_id_field(), blueline_settings_render_date_field()).
-	wp_dropdown_pages(
+function blueline_settings_render_page_id_field( string $field_key, array $field, string $name, string $input_id, $value, string $described_by = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $field_key and $field are unused here but kept for call-shape parity with this file's other per-type field renderers (blueline_settings_render_band_photos(), blueline_settings_render_term_id_field(), blueline_settings_render_date_field()).
+	$select = wp_dropdown_pages(
 		array(
 			'name'              => esc_attr( $name ),
 			'id'                => esc_attr( $input_id ),
 			'selected'          => (int) $value,
 			'show_option_none'  => esc_html__( '— Use built-in page —', 'blueline' ),
 			'option_none_value' => 0,
+			'echo'              => 0,
 		)
 	);
+
+	echo blueline_settings_select_described_by( (string) $select, $described_by ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core-built <select>, plus an esc_attr()'d attribute.
+}
+
+/**
+ * Add aria-describedby to a <select> core built (wp_dropdown_pages(),
+ * wp_dropdown_categories()), which take no attribute arguments of their own.
+ *
+ * @param string $select       The <select> markup.
+ * @param string $described_by Space-separated ids, '' for none.
+ * @return string
+ */
+function blueline_settings_select_described_by( string $select, string $described_by ): string {
+	if ( '' === $described_by ) {
+		return $select;
+	}
+
+	return (string) preg_replace( '/<select\b/', '<select aria-describedby="' . esc_attr( $described_by ) . '"', $select, 1 );
 }
 
 /**
@@ -1428,10 +1481,11 @@ function blueline_settings_render_page_id_field( string $field_key, array $field
  * @param string $name      The `name` attribute for this field's control.
  * @param string $input_id  The field's input id.
  * @param mixed  $value     The currently stored (or posted-back) value.
+ * @param string $described_by Ids of the field's help paragraphs, '' for none.
  * @return void
  */
-function blueline_settings_render_term_id_field( string $field_key, array $field, string $name, string $input_id, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key is unused here but kept for call-shape parity, as above.
-	wp_dropdown_categories(
+function blueline_settings_render_term_id_field( string $field_key, array $field, string $name, string $input_id, $value, string $described_by = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $field_key is unused here but kept for call-shape parity, as above.
+	$select = wp_dropdown_categories(
 		array(
 			'taxonomy'          => $field['taxonomy'],
 			'name'              => esc_attr( $name ),
@@ -1440,8 +1494,11 @@ function blueline_settings_render_term_id_field( string $field_key, array $field
 			'show_option_none'  => esc_html__( '— Use built-in category —', 'blueline' ),
 			'option_none_value' => 0,
 			'hide_empty'        => false,
+			'echo'              => 0,
 		)
 	);
+
+	echo blueline_settings_select_described_by( (string) $select, $described_by ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core-built <select>, plus an esc_attr()'d attribute.
 }
 
 /**
@@ -1469,16 +1526,17 @@ function blueline_settings_render_term_id_field( string $field_key, array $field
  *                           found a validation error for this field.
  * @param string $error_id  The id of the `<p>` that error's text is
  *                           rendered into, for aria-describedby.
+ * @param string $described_by Ids of the field's help paragraphs, '' for none.
  * @return void
  */
-function blueline_settings_render_date_field( string $field_key, array $field, string $name, string $input_id, $value, bool $has_error, string $error_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key and $field are unused here but kept for call-shape parity, as above.
+function blueline_settings_render_date_field( string $field_key, array $field, string $name, string $input_id, $value, bool $has_error, string $error_id, string $described_by = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $field_key and $field are unused here but kept for call-shape parity, as above.
 	?>
 	<input
 		type="date"
 		id="<?php echo esc_attr( $input_id ); ?>"
 		name="<?php echo esc_attr( $name ); ?>"
 		value="<?php echo esc_attr( (string) $value ); ?>"
-		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
+		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id, $described_by ); ?>
 	>
 	<?php
 }
@@ -1498,9 +1556,10 @@ function blueline_settings_render_date_field( string $field_key, array $field, s
  * @param string $value     Current stored value ('' if unset).
  * @param bool   $has_error True if this field failed the last save.
  * @param string $error_id  The id attribute for the error message element.
+ * @param string $described_by Ids of the field's help paragraphs, '' for none.
  * @return void
  */
-function blueline_settings_render_color_field( string $field_key, array $field, string $name, string $input_id, $value, bool $has_error, string $error_id ): void {
+function blueline_settings_render_color_field( string $field_key, array $field, string $name, string $input_id, $value, bool $has_error, string $error_id, string $described_by = '' ): void {
 	$token_key = (string) ( $field['token_key'] ?? '' );
 	$tokens    = blueline_brand_color_tokens();
 	$default   = $tokens[ $token_key ]['default_hex'] ?? '';
@@ -1523,9 +1582,15 @@ function blueline_settings_render_color_field( string $field_key, array $field, 
 		placeholder="<?php echo esc_attr( $default ); ?>"
 		data-bl-brand-color-hex
 		data-bl-brand-color-token="<?php echo esc_attr( $token_key ); ?>"
-		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id ); ?>
+		<?php blueline_settings_render_field_aria_attrs( $has_error, $error_id, trim( $input_id . '-contrast ' . $described_by ) ); ?>
 	>
-	<p class="description" data-bl-brand-color-contrast data-bl-brand-color-contrast-for="<?php echo esc_attr( $token_key ); ?>">
+	<?php
+	/*
+	 * Polite live region, like the Occasions readout: settings-brand-colors.js
+	 * rewrites it as the admin types, and it describes the hex input it reports on.
+	 */
+	?>
+	<p class="description" id="<?php echo esc_attr( $input_id . '-contrast' ); ?>" data-bl-brand-color-contrast data-bl-brand-color-contrast-for="<?php echo esc_attr( $token_key ); ?>" aria-live="polite">
 		<?php foreach ( blueline_brand_color_contrast_report( $token_key, $candidate ) as $row ) : ?>
 			<span class="<?php echo esc_attr( $row['passes'] ? 'bl-contrast-pass' : 'bl-contrast-fail' ); ?>">
 				<?php
@@ -1563,15 +1628,24 @@ function blueline_settings_render_color_field( string $field_key, array $field, 
  * @param string $name      The `name` attribute base for this field.
  * @param string $input_id  The field's input id.
  * @param array  $rows      Stored rows: each { id, align }.
+ * @param string $described_by Ids of the field's help paragraphs, '' for none.
  * @return void
  */
-function blueline_settings_render_band_photos( string $field_key, array $field, string $name, string $input_id, array $rows ): void {
+function blueline_settings_render_band_photos( string $field_key, array $field, string $name, string $input_id, array $rows, string $described_by = '' ): void {
 	$alignments = blueline_band_photo_alignments();
 	$max        = (int) ( $field['max'] ?? 12 );
+
+	/*
+	 * A named group: the row's <label for> points at this <div>, which a
+	 * label cannot name, so the group takes its name from that label by id.
+	 */
 	?>
 	<div
 		class="bl-photos"
 		id="<?php echo esc_attr( $input_id ); ?>"
+		role="group"
+		aria-labelledby="<?php echo esc_attr( $input_id . '-label' ); ?>"
+		<?php blueline_settings_render_field_aria_attrs( false, '', $described_by ); ?>
 		data-bl-photos
 		data-bl-photos-name="<?php echo esc_attr( $name ); ?>"
 		data-bl-photos-max="<?php echo esc_attr( (string) $max ); ?>"
@@ -1587,6 +1661,7 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 
 				$align = (string) ( $row['align'] ?? 'center-center' );
 				?>
+				<?php $photo_title = (string) get_the_title( $photo_id ); ?>
 				<li class="bl-photos__item" data-bl-photos-item>
 					<img
 						class="bl-photos__thumb"
@@ -1607,7 +1682,7 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 							printf(
 								/* translators: %s: the photograph's file name. */
 								esc_html__( 'Alignment for %s', 'blueline' ),
-								esc_html( (string) get_the_title( $photo_id ) )
+								esc_html( $photo_title )
 							);
 							?>
 						</span>
@@ -1620,7 +1695,7 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 						</select>
 					</label>
 					<button type="button" class="button-link bl-photos__remove" data-bl-photos-remove>
-						<?php esc_html_e( 'Remove', 'blueline' ); ?>
+						<?php esc_html_e( 'Remove', 'blueline' ); ?><span class="screen-reader-text"> <?php echo esc_html( $photo_title ); ?></span>
 					</button>
 				</li>
 			<?php endforeach; ?>
@@ -1649,7 +1724,7 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 				<img class="bl-photos__thumb" src="" alt="" width="60" height="60">
 				<input type="hidden" name="" value="" data-bl-photos-id>
 				<label class="bl-photos__align">
-					<span class="screen-reader-text"><?php esc_html_e( 'Alignment', 'blueline' ); ?></span>
+					<span class="screen-reader-text" data-bl-photos-align-name><?php esc_html_e( 'Alignment', 'blueline' ); ?></span>
 					<select name="" data-bl-photos-align>
 						<?php foreach ( $alignments as $key => $unused ) : ?>
 							<option value="<?php echo esc_attr( $key ); ?>" <?php selected( 'center-center', $key ); ?>>
@@ -1659,7 +1734,7 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 					</select>
 				</label>
 				<button type="button" class="button-link bl-photos__remove" data-bl-photos-remove>
-					<?php esc_html_e( 'Remove', 'blueline' ); ?>
+					<?php esc_html_e( 'Remove', 'blueline' ); ?><span class="screen-reader-text" data-bl-photos-remove-name></span>
 				</button>
 			</li>
 		</template>

@@ -83,10 +83,13 @@ final class SponsorLinkTest extends TestCase {
 		$this->meta( 2104, 'sp_url', 'https://example.org/' );
 		update_option( 'sportspress_sponsor_site_target_blank', 'yes' );
 
-		list( $open ) = blueline_sp_sponsor_tags( $this->sponsor( 2104, 'Arcturus' ) );
+		list( $open, $close ) = blueline_sp_sponsor_tags( $this->sponsor( 2104, 'Arcturus' ) );
 
 		$this->assertStringContainsString( ' href="https://example.org/"', $open );
 		$this->assertStringEndsWith( ' target="_blank">', $open );
+
+		// Said, not only done: the link's name ends "(opens in a new tab)".
+		$this->assertSame( '<span class="screen-reader-text bl-new-tab-hint"> (opens in a new tab)</span></a>', $close );
 	}
 
 	/**
