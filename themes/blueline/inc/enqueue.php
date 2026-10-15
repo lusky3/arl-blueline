@@ -352,13 +352,17 @@ function blueline_is_sportspress_view(): bool {
 /**
  * Shortcode openers and block names that print SportsPress data: every
  * SportsPress and SportsPress Pro shortcode family (event_*, league_*,
- * player_*, staff_*, team_*, tournament_*, countdown) and the league add-ons'
- * [arl_schedule]/[arl_standings], which load SportsPress tables.
+ * player_*, staff and staff_*, team_*, tournament_*, countdown), the older
+ * hyphenated aliases SportsPress still registers for the same callbacks
+ * ([events-calendar], [events-list], [league-table], [player-list],
+ * [player-gallery]), the WordPay registration forms ([wpay-register-*]) and
+ * the league add-ons' [arl_schedule]/[arl_standings], which load SportsPress
+ * tables. [sponsors] is not here: its styles are in the core bundle.
  *
  * @return string[]
  */
 function blueline_sportspress_content_needles(): array {
-	return array( '[event_', '[league_', '[player_', '[staff_', '[team_', '[tournament_', '[countdown', '[arl_', 'wp:sportspress/' );
+	return array( '[event_', '[events-', '[league_', '[league-table', '[player_', '[player-list', '[player-gallery', '[staff', '[team_', '[tournament_', '[countdown', '[wpay-', '[arl_', 'wp:sportspress/' );
 }
 
 /**

@@ -246,6 +246,7 @@ final class AccessTest extends TestCase {
 	 */
 	public function test_the_gate_and_the_trim_are_hooked(): void {
 		$this->assertSame( 1, has_action( 'admin_init', 'blueline_core_block_wp_admin' ) );
+		$this->assertSame( 1, has_action( 'admin_page_access_denied', 'blueline_core_block_wp_admin' ) );
 		$this->assertNotFalse( has_filter( 'user_has_cap', 'blueline_core_trim_member_caps' ) );
 		$this->assertNotFalse( has_filter( 'login_redirect', 'blueline_core_member_login_redirect' ) );
 	}
@@ -284,6 +285,81 @@ final class AccessTest extends TestCase {
 		$this->log_in( $this->user( $roles ) );
 
 		$this->assertNull( $this->gate_target() );
+	}
+
+	/**
+	 * Fire core's admin_page_access_denied action (wp-admin/includes/menu.php runs it, before
+	 * admin_init and just before its own 403 page, for a screen the user lacks the cap for);
+	 * return the redirect target or null when nothing redirected.
+	 *
+	 * @return string|null
+	 */
+	private function denied_target(): ?string {
+		try {
+			do_action( 'admin_page_access_denied' );
+		} catch ( Blueline_Test_Redirect_Exception $e ) {
+			return $e->location;
+		}
+
+		return null;
+	}
+
+	/**
+	 * The screens a trimmed member lacks the cap for. Core refuses them in menu.php before
+	 * admin_init fires, so the gate must also run on the denial path.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public static function denied_screens(): array {
+		$screens = array();
+		foreach ( array( 'post-new.php', 'media-new.php', 'upload.php', 'edit.php', 'options-general.php', 'tools.php' ) as $screen ) {
+			$screens[ $screen ] = array( $screen );
+		}
+
+		return $screens;
+	}
+
+	/**
+	 * A member denied a screen by core is sent to the account page, not core's 403 page.
+	 *
+	 * @param string $screen The wp-admin screen.
+	 */
+	#[DataProvider( 'denied_screens' )]
+	public function test_a_member_denied_a_screen_is_redirected_to_the_account_page( string $screen ): void {
+		$GLOBALS['pagenow'] = $screen;
+
+		foreach ( self::restricted_role_sets() as $label => $set ) {
+			$this->log_in( $this->user( $set[0] ) );
+			$this->assertSame( self::ACCOUNT_URL, $this->denied_target(), $label );
+		}
+	}
+
+	/**
+	 * Staff and mixed-role users denied a screen keep core's own answer (no redirect), and the
+	 * handler endpoints and non-screen requests are never redirected on the denial path either.
+	 */
+	public function test_the_denial_path_leaves_staff_and_non_screen_requests_alone(): void {
+		$GLOBALS['pagenow'] = 'options-general.php';
+
+		foreach ( self::staff_role_sets() as $label => $set ) {
+			$this->log_in( $this->user( $set[0] ) );
+			$this->assertNull( $this->denied_target(), $label );
+		}
+
+		$this->log_in( $this->user( array( 'sp_player' ) ) );
+
+		foreach ( array( 'admin-post.php', 'admin-ajax.php' ) as $endpoint ) {
+			$GLOBALS['pagenow'] = $endpoint;
+			$this->assertNull( $this->denied_target(), $endpoint );
+		}
+
+		$GLOBALS['pagenow']                   = 'upload.php';
+		$GLOBALS['bl_core_test_rest_request'] = true;
+		$this->assertNull( $this->denied_target(), 'REST' );
+
+		unset( $GLOBALS['bl_core_test_rest_request'] );
+		$GLOBALS['bl_core_test_doing_cron'] = true;
+		$this->assertNull( $this->denied_target(), 'cron' );
 	}
 
 	/**

@@ -163,6 +163,63 @@ final class ThemeBundlesTest extends TestCase {
 	}
 
 	/**
+	 * Every tag SportsPress Pro registers that prints league data matches a
+	 * needle, the legacy hyphenated aliases and the WordPay registration forms
+	 * included (taken from the plugin's add_shortcode() calls and the live
+	 * $shortcode_tags on staging). [sponsors] is left out on purpose: its
+	 * styles are in the core bundle.
+	 */
+	public function test_needles_cover_every_registered_sportspress_tag(): void {
+		$tags = array(
+			// The core set, registered by SP_Shortcodes.
+			'event_results',
+			'event_details',
+			'event_performance',
+			'event_venue',
+			'event_officials',
+			'event_teams',
+			'event_full',
+			'countdown',
+			'player_details',
+			'player_statistics',
+			'staff',
+			'staff_profile',
+			'event_calendar',
+			'event_list',
+			'event_blocks',
+			'league_table',
+			'team_standings',
+			'team_gallery',
+			'player_list',
+			'player_gallery',
+			// Legacy aliases of the same callbacks.
+			'events-calendar',
+			'events-list',
+			'league-table',
+			'player-list',
+			'player-gallery',
+			// Pro modules.
+			'event_matrix',
+			'event_scoreboard',
+			'staff_list',
+			'staff_gallery',
+			'tournament_bracket',
+			'tournament_winner',
+			'wpay-register-player',
+			'wpay-register-team',
+		);
+
+		foreach ( $tags as $tag ) {
+			$content = 'Intro [' . $tag . ' id="12"] outro';
+			$found   = false;
+			foreach ( blueline_sportspress_content_needles() as $needle ) {
+				$found = $found || false !== stripos( $content, $needle );
+			}
+			$this->assertTrue( $found, $tag );
+		}
+	}
+
+	/**
 	 * SportsPress post types, taxonomies and archives all start with sp_.
 	 */
 	#[RunInSeparateProcess]
@@ -208,6 +265,9 @@ final class ThemeBundlesTest extends TestCase {
 
 		$GLOBALS['bl_test_queried'] = new WP_Post( 'page', 'Plain text' );
 		$this->assertFalse( blueline_request_needs_sportspress() );
+
+		$GLOBALS['bl_test_queried'] = new WP_Post( 'page', 'Old content: [league-table 5] and [events-list 7]' );
+		$this->assertTrue( blueline_request_needs_sportspress(), 'A legacy alias loads the bundle up front.' );
 
 		$GLOBALS['bl_test_queried']   = null;
 		$GLOBALS['wp_query']          = new WP_Query();

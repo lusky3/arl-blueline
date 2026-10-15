@@ -91,6 +91,10 @@ function blueline_core_account_url(): string {
 }
 
 add_action( 'admin_init', 'blueline_core_block_wp_admin', 1 );
+// wp-admin/admin.php builds the menu before admin_init, and menu.php refuses a screen the user
+// lacks the cap for (post-new.php, upload.php, edit.php, ... once the trim below removes those
+// caps) with a bare 403 page. It fires this action just before, so the same redirect runs there.
+add_action( 'admin_page_access_denied', 'blueline_core_block_wp_admin', 1 );
 /**
  * Send a member who opens any wp-admin screen to the account page.
  *
