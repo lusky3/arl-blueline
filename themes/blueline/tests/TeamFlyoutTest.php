@@ -5,8 +5,6 @@
  * @package blueline
  */
 
-use PHPUnit\Framework\Attributes\PreserveGlobalState;
-use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
@@ -148,16 +146,19 @@ final class TeamFlyoutTest extends TestCase {
 	}
 
 	/**
-	 * A team WITH a featured image does not fall back to the leaf mark --
-	 * proves the branch is conditional, not unconditional. (The crest
-	 * <img> itself is not asserted here: get_the_post_thumbnail() has no
-	 * stub in tests/bootstrap.php, the same limitation
-	 * blueline_footer_team_directory()'s own tests already work around --
-	 * this codebase's convention is to verify the real-photo path live,
-	 * covered in Task 4.)
+	 * A team WITH a featured image shows its crest and does not fall back to
+	 * the leaf mark -- proves the branch is conditional, not unconditional.
 	 */
 	public function test_a_team_with_a_crest_does_not_get_the_leaf_mark_fallback(): void {
-		$this->markTestSkipped( 'get_the_post_thumbnail() has no test stub -- see this test\'s own docblock.' );
+		$this->team( 115100, 'Mammoth', true );
+		$GLOBALS['bl_test_options']['sportspress_league_menu_teams'] = array( '115100' );
+
+		ob_start();
+		blueline_render_team_flyout();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'src="https://example.test/thumb-124100.jpg"', $html );
+		$this->assertStringNotContainsString( 'bl-leaf-mark', $html );
 	}
 
 	/**
@@ -181,15 +182,8 @@ final class TeamFlyoutTest extends TestCase {
 	 * Crests load eagerly at low priority: lazy images inside a panel that is
 	 * hidden never start loading until it opens, which showed blank circles.
 	 */
-	#[RunInSeparateProcess]
-	#[PreserveGlobalState( false )]
 	public function test_crests_load_eagerly_at_low_priority(): void {
-		eval( 'function get_the_post_thumbnail( $id, $size, $attr ) { $GLOBALS["bl_test_thumb_attr"] = $attr; return "<img>"; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- get_the_post_thumbnail() has no shared stub (see test_a_team_with_a_crest_does_not_get_the_leaf_mark_fallback); this one records the attributes it is given.
-		blueline_test_reset_state();
-		blueline_test_reset_options();
-		blueline_test_reset_hooks();
-		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_team_directory_position' => 'flyout' ) );
-		add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_option' );
+		$GLOBALS['bl_test_thumbnail_calls'] = array();
 		$this->team( 115100, 'Mammoth', true );
 		$GLOBALS['bl_test_options']['sportspress_league_menu_teams'] = array( '115100' );
 
@@ -197,7 +191,8 @@ final class TeamFlyoutTest extends TestCase {
 		blueline_render_team_flyout();
 		ob_end_clean();
 
-		$attr = $GLOBALS['bl_test_thumb_attr'];
+		$this->assertCount( 1, $GLOBALS['bl_test_thumbnail_calls'] );
+		$attr = $GLOBALS['bl_test_thumbnail_calls'][0]['attr'];
 		$this->assertSame( 'eager', $attr['loading'] );
 		$this->assertSame( 'low', $attr['fetchpriority'] );
 		$this->assertSame( '', $attr['alt'] );

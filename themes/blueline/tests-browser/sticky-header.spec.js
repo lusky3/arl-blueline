@@ -12,8 +12,8 @@
  * markup, not a hand-assembled page.
  */
 
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const { SITE } = require( './helpers/site.js' );
+const { test, expect } = require( '@playwright/test' );
+const { settleAnimations } = require( './helpers/settle.js' );
 
 const REST_LOGO = 80;
 const STUCK_LOGO = 48;
@@ -50,7 +50,7 @@ async function measure( page, selector ) {
 test.describe( 'sticky header', () => {
 	test.beforeEach( async ( { page } ) => {
 		await page.setViewportSize( { width: 1440, height: 900 } );
-		await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 	} );
 
 	test( 'header is fixed and the logo rests at its full size', async ( { page } ) => {
@@ -80,12 +80,9 @@ test.describe( 'sticky header', () => {
 
 	test( 'the header stays pinned to the top of the viewport while scrolled', async ( { page } ) => {
 		await page.evaluate( () => window.scrollTo( 0, 1200 ) );
-		await page.waitForTimeout( 400 );
-
-		const header = await measure( page, '.bl-header' );
 
 		// Logged out there is no admin bar, so the header sits flush at 0.
-		expect( header.top ).toBe( 0 );
+		await expect.poll( async () => ( await measure( page, '.bl-header' ) ).top ).toBe( 0 );
 	} );
 
 	/*
@@ -111,7 +108,9 @@ test.describe( 'sticky header', () => {
 			} );
 
 		await page.evaluate( () => window.scrollTo( 0, 0 ) );
-		await page.waitForTimeout( 400 );
+		await expect
+			.poll( async () => ( await measure( page, '.bl-header__brand img' ) ).height )
+			.toBe( REST_LOGO );
 
 		const expandedOffset = await documentTopOfMain();
 		const spacerAtRest = await measure( page, '.bl-header__spacer' );
@@ -151,7 +150,7 @@ test.describe( 'sticky header', () => {
 	for ( const width of [ 1680, 1440, 1280, 1100, 1024 ] ) {
 		test( `the primary menu stays on one line at ${ width }px`, async ( { page } ) => {
 			await page.setViewportSize( { width, height: 800 } );
-			await page.waitForTimeout( 250 );
+			await settleAnimations( page );
 
 			const rows = await page.evaluate( () => {
 				const menu = document.querySelector( '.bl-nav__menu' );
@@ -197,16 +196,15 @@ test.describe( 'sticky header', () => {
 
 	test( 'the sponsor slot is hidden once the nav becomes a drawer', async ( { page } ) => {
 		await page.setViewportSize( { width: 800, height: 900 } );
-		await page.waitForTimeout( 200 );
 
-		const sponsors = await measure( page, '.bl-header__sponsors' );
-
-		expect( sponsors.display ).toBe( 'none' );
+		await expect
+			.poll( async () => ( await measure( page, '.bl-header__sponsors' ) ).display )
+			.toBe( 'none' );
 	} );
 
 	test( 'the page never scrolls horizontally at 360px', async ( { page } ) => {
 		await page.setViewportSize( { width: 360, height: 780 } );
-		await page.waitForTimeout( 200 );
+		await settleAnimations( page );
 
 		const overflows = await page.evaluate(
 			() => document.documentElement.scrollWidth > document.documentElement.clientWidth
@@ -218,7 +216,15 @@ test.describe( 'sticky header', () => {
 
 test.describe( 'footer team directory', () => {
 	test( 'renders the configured teams as labelled links', async ( { page } ) => {
-		await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
+
+		// The directory is either in the footer or in the header flyout
+		// (Appearance > Blueline > Chrome); this checks the footer one.
+		test.skip(
+			0 === ( await page.locator( 'nav.bl-footer__teams' ).count() ) &&
+				( await page.locator( '.bl-team-flyout' ).count() ) > 0,
+			'this site shows the team directory in the header flyout, not the footer'
+		);
 
 		const nav = page.locator( 'nav.bl-footer__teams' );
 		await expect( nav ).toHaveAttribute( 'aria-label', 'Teams' );
