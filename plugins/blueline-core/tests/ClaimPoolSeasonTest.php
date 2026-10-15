@@ -24,12 +24,17 @@ final class ClaimPoolSeasonTest extends TestCase {
 	private $previous_model;
 
 	/**
-	 * Fresh state, plus a get_posts() model that also answers sp_event lookups.
+	 * Fresh state at a fixed "now" (the staging verification day), plus a get_posts() model that
+	 * also answers sp_event lookups, honouring post_status (one or several) and a post_date
+	 * date_query's after/before bounds the way WP_Query does.
 	 */
 	protected function setUp(): void {
 		parent::setUp();
 		blueline_test_reset();
 		blueline_test_reset_state();
+
+		$state        = &blueline_test_state();
+		$state['now'] = ( new DateTimeImmutable( '2026-10-14 12:00:00', wp_timezone() ) )->getTimestamp();
 
 		$this->previous_model               = $GLOBALS['bl_test_get_posts_model'] ?? null;
 		$GLOBALS['bl_test_get_posts_model'] = static function ( array $args ) {
@@ -37,12 +42,26 @@ final class ClaimPoolSeasonTest extends TestCase {
 				return blueline_core_test_claim_pool_model( $args );
 			}
 
-			$state  = &blueline_test_state();
-			$events = array();
+			$state    = &blueline_test_state();
+			$statuses = (array) $args['post_status'];
+			$events   = array();
 			foreach ( $state['posts'] as $post_id => $post ) {
-				if ( 'sp_event' === ( $post['type'] ?? '' ) && ( $post['status'] ?? '' ) === $args['post_status'] ) {
-					$events[ (int) $post_id ] = (string) $post['date'];
+				if ( 'sp_event' !== ( $post['type'] ?? '' ) || ! in_array( $post['status'] ?? '', $statuses, true ) ) {
+					continue;
 				}
+
+				$date = (string) $post['date'];
+				foreach ( $args['date_query'] ?? array() as $clause ) {
+					$inclusive = ! empty( $clause['inclusive'] );
+					if ( isset( $clause['after'] ) && ( $inclusive ? $date < $clause['after'] : $date <= $clause['after'] ) ) {
+						continue 2;
+					}
+					if ( isset( $clause['before'] ) && ( $inclusive ? $date > $clause['before'] : $date >= $clause['before'] ) ) {
+						continue 2;
+					}
+				}
+
+				$events[ (int) $post_id ] = $date;
 			}
 
 			'DESC' === $args['order'] ? arsort( $events ) : asort( $events );
@@ -140,6 +159,61 @@ final class ClaimPoolSeasonTest extends TestCase {
 		$this->event( 901, 'publish', '2026-08-30 19:00:00', array( 666 ) );
 
 		$this->assertSame( array( 666 ), blueline_claim_pool_active_season_term_ids() );
+	}
+
+	/**
+	 * The staging repro: two "TEST S2099" events stuck in 'future' (a missed schedule: never
+	 * published, dated Oct 2 and Oct 9, already past) must not stand in for the next game. The
+	 * next game really scheduled is W2026-27's.
+	 */
+	public function test_past_dated_unpublished_events_are_not_the_next_game(): void {
+		$this->seed_staging_seasons();
+		$this->event( 117630, 'future', '2026-10-02 19:00:00', array( 682 ) );
+		$this->event( 117631, 'future', '2026-10-09 19:00:00', array( 682 ) );
+		$this->event( 117500, 'publish', '2026-10-09 21:00:00', array( 674 ) );
+		$this->event( 117518, 'future', '2026-10-16 18:45:00', array( 674 ) );
+
+		$this->assertSame( array( 674 ), blueline_claim_pool_active_season_term_ids() );
+		$this->assertSame( array( 674 ), blueline_compute_claim_pool_season_term_ids( $this->staging_counts() ) );
+	}
+
+	/**
+	 * Between seasons, an unpublished event of another season dated in the past (or a draft) is
+	 * not "the last game played": only a published one is.
+	 */
+	public function test_between_seasons_unpublished_events_are_ignored(): void {
+		$this->seed_staging_seasons();
+		$this->event( 900, 'publish', '2026-08-30 19:00:00', array( 666 ) );
+		$this->event( 117630, 'future', '2026-10-02 19:00:00', array( 682 ) );
+		$this->event( 117632, 'draft', '2026-10-10 19:00:00', array( 682 ) );
+
+		$this->assertSame( array( 666 ), blueline_claim_pool_active_season_term_ids() );
+	}
+
+	/**
+	 * A game published ahead of its date still counts as scheduled, and the earliest scheduled
+	 * game wins whichever of the two statuses it has.
+	 */
+	public function test_a_published_future_game_is_the_next_game(): void {
+		$this->seed_staging_seasons();
+		$this->event( 900, 'publish', '2026-10-09 19:00:00', array( 666 ) );
+		$this->event( 901, 'publish', '2026-10-20 19:00:00', array( 674 ) );
+		$this->event( 902, 'future', '2026-11-01 19:00:00', array( 682 ) );
+
+		$this->assertSame( array( 674 ), blueline_claim_pool_active_season_term_ids() );
+	}
+
+	/**
+	 * With nothing scheduled from now on, the most recent game played (published, dated up to now)
+	 * decides, not a published game that is still ahead of the stray ones.
+	 */
+	public function test_no_upcoming_games_falls_back_to_the_last_played_season(): void {
+		$this->seed_staging_seasons();
+		$this->event( 900, 'publish', '2026-03-01 19:00:00', array( 654 ) );
+		$this->event( 901, 'publish', '2026-10-13 19:00:00', array( 674 ) );
+		$this->event( 117631, 'future', '2026-10-09 19:00:00', array( 682 ) );
+
+		$this->assertSame( array( 674 ), blueline_claim_pool_active_season_term_ids() );
 	}
 
 	/**

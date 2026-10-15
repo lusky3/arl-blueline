@@ -99,6 +99,12 @@ function blueline_render_player_profile_registration_section( int $user_id ): vo
  * user. This control reads the SAME already-correct $player_id this page
  * already resolves, so it has no way to inherit that bug.
  *
+ * The form names its admin-post action in the URL as well as in a hidden
+ * field: a photo over PHP's post_max_size makes PHP discard every POST field,
+ * and with no action left admin-post.php runs no handler and shows a blank
+ * page. From the URL the upload handler still runs and sends the member back
+ * with the "too large" notice (that is what JavaScript-off uploads rely on).
+ *
  * @param int  $player_id      sp_player post ID.
  * @param bool $can_edit_photo Whether to render the photo-change control
  *                             (verified owners only, see
@@ -117,7 +123,7 @@ function blueline_render_player_profile_bio_section( int $player_id, bool $can_e
 				</span>
 			<?php endif; ?>
 			<?php if ( $can_edit_photo ) : ?>
-			<form class="bl-player-profile__photo-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+			<form class="bl-player-profile__photo-form" method="post" action="<?php echo esc_url( add_query_arg( 'action', 'blueline_upload_player_photo', admin_url( 'admin-post.php' ) ) ); ?>" enctype="multipart/form-data">
 				<?php wp_nonce_field( 'blueline_upload_player_photo' ); ?>
 				<input type="hidden" name="action" value="blueline_upload_player_photo">
 				<input type="file" id="bl-player-photo-input" name="player_photo" accept="image/*" class="bl-player-profile__photo-input">

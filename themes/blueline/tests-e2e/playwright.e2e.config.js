@@ -29,40 +29,27 @@ const baseURL = process.env.BLUELINE_E2E_BASE_URL || 'http://localhost:8082';
 
 module.exports = defineConfig( {
 	testDir: __dirname,
-	// 30s wasn't enough on GitHub's standard 2 vCPU/7GB runner: a real run
-	// hit page.goto()'s navigation timeout outright on /shop/, sharing that
-	// CPU budget with the container's own PHP-FPM + MariaDB and this job's
-	// Chromium. .github/workflows/e2e.yml also runs an untimed warm-up pass
-	// (opcache compile, query-plan cache) before this suite starts, but the
-	// extra headroom here stays regardless.
-	timeout: 60_000,
-	// The target is one resource-constrained, all-in-one (nginx + PHP-FPM +
-	// MariaDB in a single container) instance, not a horizontally-scalable
-	// service -- fullyParallel workers genuinely starved each other out
-	// under load (verified directly: a run that failed at 7 workers passed
-	// cleanly at 1). tests-browser/'s config made the same call for the
-	// same reason.
+	// Pages in this sandbox render in about a second once
+	// .github/workflows/e2e.yml's warm-up pass has compiled them. 30s is
+	// generous headroom on a shared runner while keeping the worst case
+	// (every test failing twice) inside that job's timeout-minutes.
+	timeout: 30_000,
+	// The target is one all-in-one container (nginx + PHP-FPM + MariaDB),
+	// not a horizontally-scalable service: parallel workers starved each
+	// other out under load. tests-browser/'s config made the same call.
 	fullyParallel: false,
 	workers: 1,
-	// Even single-worker, a `page.goto()` against this container stalls
-	// intermittently for the full test timeout -- verified NOT to be a
-	// logic bug: the exact same page in isolation, or paired with its
-	// neighbour, is consistently fast (400-900ms); only a full-suite run
-	// occasionally stalls, and not on a fixed page -- it rotated across
-	// homepage, shop, and cart across different runs. `waitUntil:
-	// 'domcontentloaded'` (see the goto() calls in tests-e2e/*.spec.js)
-	// ruled out a hanging subresource fetch: it made no difference. The
-	// remaining explanation is generalised contention: this container runs
-	// nginx + PHP-FPM + MariaDB under supervisord, and GitHub's standard
-	// runner gives the whole job (that stack, plus Node, plus this
-	// suite's own Chromium) only 2 vCPUs -- an occasional multi-second
-	// stall under that squeeze, on whichever process the OS scheduler
-	// starves that moment, is expected, not a defect in this theme, this
-	// suite, or the sandbox image. A single retry was observed to still
-	// hit the same stall back-to-back on a real run, so this allows two;
-	// a run that fails all three attempts is a different, real signal.
-	retries: process.env.CI ? 2 : 0,
-	reporter: [ [ 'list' ] ],
+	// The intermittent 60s `page.goto()` stalls this suite used to retry
+	// past were not runner contention. nginx in the sandbox image could not
+	// write its FastCGI temp directory, so any response large enough to be
+	// buffered to disk (the debug toolbars made most pages 0.6-1MB) was cut
+	// off mid-body and the browser waited for the rest until it timed out.
+	// e2e.yml now fixes that directory's ownership and verifies it. One
+	// retry stays as insurance for a genuinely transient runner hiccup; a
+	// test that needed it is reported as flaky (the `github` reporter
+	// annotates it), so a returning pattern is visible rather than absorbed.
+	retries: process.env.CI ? 1 : 0,
+	reporter: process.env.CI ? [ [ 'list' ], [ 'github' ] ] : [ [ 'list' ] ],
 	outputDir: path.join( __dirname, '..', 'artifacts', 'e2e-test-results' ),
 	use: {
 		baseURL,

@@ -7,8 +7,7 @@
  * whether the two ever show at once -- all of which are cascade outcomes.
  */
 
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const { SITE } = require( './helpers/site.js' );
+const { test, expect } = require( '@playwright/test' );
 
 /**
  * Read the hero's photo layer and its fallback rings.
@@ -40,7 +39,7 @@ async function heroTextures( page ) {
 test.describe( 'hero band photography', () => {
 	test( 'the photograph paints on a desktop hero', async ( { page } ) => {
 		await page.setViewportSize( { width: 1440, height: 800 } );
-		await page.goto( SITE, { waitUntil: 'networkidle' } );
+		await page.goto( '/', { waitUntil: 'networkidle' } );
 
 		const t = await heroTextures( page );
 
@@ -53,8 +52,7 @@ test.describe( 'hero band photography', () => {
 	test( 'the photograph and the rings are never both visible', async ( { page } ) => {
 		for ( const width of [ 1440, 1024, 800, 599, 390 ] ) {
 			await page.setViewportSize( { width, height: 800 } );
-			await page.goto( SITE, { waitUntil: 'networkidle' } );
-			await page.waitForTimeout( 200 );
+			await page.goto( '/', { waitUntil: 'networkidle' } );
 
 			const t = await heroTextures( page );
 
@@ -73,7 +71,7 @@ test.describe( 'hero band photography', () => {
 
 	test( 'a phone gets the rings, not the photograph', async ( { page } ) => {
 		await page.setViewportSize( { width: 390, height: 780 } );
-		await page.goto( SITE, { waitUntil: 'networkidle' } );
+		await page.goto( '/', { waitUntil: 'networkidle' } );
 
 		const t = await heroTextures( page );
 
@@ -83,7 +81,7 @@ test.describe( 'hero band photography', () => {
 
 	test( 'the opacity on the page matches the audited ceiling', async ( { page } ) => {
 		await page.setViewportSize( { width: 1440, height: 800 } );
-		await page.goto( SITE, { waitUntil: 'networkidle' } );
+		await page.goto( '/', { waitUntil: 'networkidle' } );
 
 		const t = await heroTextures( page );
 
@@ -102,8 +100,11 @@ test.describe( 'hero band photography', () => {
 		} );
 
 		await page.setViewportSize( { width: 1440, height: 800 } );
-		await page.goto( SITE, { waitUntil: 'networkidle' } );
-		await page.waitForTimeout( 800 );
+		const firstPhoto = page.waitForResponse( ( r ) =>
+			r.url().includes( '/assets/images/bands/' )
+		);
+		await page.goto( '/', { waitUntil: 'networkidle' } );
+		await firstPhoto;
 
 		expect( responses.length ).toBeGreaterThan( 0 );
 
@@ -128,7 +129,7 @@ test.describe( 'hero band photography', () => {
 
 		for ( let i = 0; i < 12; i++ ) {
 			await page.setViewportSize( { width: 1440, height: 800 } );
-			await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+			await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
 			const image = await page.evaluate(
 				() =>
@@ -155,7 +156,7 @@ test.describe( 'hero band photography', () => {
 	 * reported "no image", which was the test failing, not the page.
 	 */
 	test( 'a real photograph is set without JavaScript', async ( { page } ) => {
-		const response = await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		const response = await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 		const html = await response.text();
 
 		expect( html ).toContain( '<style id="bl-band-photo">' );
@@ -164,7 +165,7 @@ test.describe( 'hero band photography', () => {
 	} );
 
 	test( 'the photographer is credited in the footer', async ( { page } ) => {
-		await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
 		await expect( page.locator( '.bl-footer__credit' ) ).toContainText(
 			'Michael Durrant'

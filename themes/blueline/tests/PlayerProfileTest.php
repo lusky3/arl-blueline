@@ -7,12 +7,36 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../inc/template-tags.php';
+require_once __DIR__ . '/../inc/account/player-data.php';
+require_once __DIR__ . '/../inc/account/dashboard.php';
 require_once __DIR__ . '/../inc/account/player-profile.php';
 
 /**
- * Covers Player Profile's pure per-field display logic.
+ * Covers Player Profile's pure per-field display logic and the photo form.
  */
 final class PlayerProfileTest extends TestCase {
+
+	/**
+	 * When a body exceeds post_max_size PHP discards every POST field, the hidden action
+	 * included, and admin-post.php then fires no handler at all: a blank page. The action
+	 * must also travel in the form's URL so the upload handler still runs and can send the
+	 * member back with the too-large notice.
+	 */
+	public function test_photo_form_names_its_action_in_the_url_and_the_body(): void {
+		blueline_test_reset();
+		blueline_test_reset_state();
+
+		ob_start();
+		blueline_render_player_profile_bio_section( 100, true );
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression(
+			'#<form class="bl-player-profile__photo-form" method="post" action="https://example\.test/wp-admin/admin-post\.php\?action=blueline_upload_player_photo"#',
+			$html
+		);
+		$this->assertStringContainsString( '<input type="hidden" name="action" value="blueline_upload_player_photo">', $html );
+	}
 
 	/**
 	 * An empty stored value (get_user_meta()'s own "not set" return) must

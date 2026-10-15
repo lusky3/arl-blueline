@@ -7,16 +7,48 @@
  * actually computes rather than on state the script believes it set.
  */
 
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const { SITE } = require( './helpers/site.js' );
+const { test, expect } = require( '@playwright/test' );
 const { PHONE } = require( './helpers/viewports.js' );
+const { settleAnimations } = require( './helpers/settle.js' );
+const { teamPaths } = require( './helpers/site-data.js' );
+
+const TABLE_SCROLLERS =
+	'.bl-table-scroll, .sp-scrollable-table-wrapper, table.bl-table-self-scroll';
+
+/**
+ * Opens each team page in turn until one has a table wider than its
+ * scroller at the current viewport -- the premise of the fade tests.
+ *
+ * @param {import('@playwright/test').Page}              page    Page under test.
+ * @param {import('@playwright/test').APIRequestContext} request Request fixture.
+ * @return {Promise<string|null>} The team path left open, or null.
+ */
+async function openTeamWithOverflowingTable( page, request ) {
+	for ( const path of await teamPaths( request ) ) {
+		await page.goto( path, { waitUntil: 'networkidle' } );
+
+		const overflowing = await page.evaluate(
+			( s ) =>
+				[ ...document.querySelectorAll( s ) ].some(
+					( e ) => e.scrollWidth - e.clientWidth > 10
+				),
+			TABLE_SCROLLERS
+		);
+
+		if ( overflowing ) {
+			return path;
+		}
+	}
+
+	return null;
+}
 
 test.describe( 'mobile submenu', () => {
 	test.beforeEach( async ( { page } ) => {
 		await page.setViewportSize( PHONE );
-		await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 		await page.click( '.bl-nav__toggle' );
-		await page.waitForTimeout( 300 );
+		await settleAnimations( page );
 	} );
 
 	const read = ( page ) =>
@@ -37,18 +69,16 @@ test.describe( 'mobile submenu', () => {
 		expect( ( await read( page ) ).display ).toBe( 'none' );
 
 		await page.click( chevron );
-		await page.waitForTimeout( 250 );
-		expect( ( await read( page ) ).display ).toBe( 'block' );
+		await expect.poll( async () => ( await read( page ) ).display ).toBe( 'block' );
 
 		await page.click( chevron );
-		await page.waitForTimeout( 250 );
-
-		const after = await read( page );
 
 		// Was 'block' while aria said false: :focus-within kept the submenu
 		// open because the button it was toggled with still held focus.
-		expect( after.display ).toBe( 'none' );
-		expect( after.expanded ).toBe( 'false' );
+		await expect.poll( async () => read( page ) ).toEqual( {
+			display: 'none',
+			expanded: 'false',
+		} );
 	} );
 
 	test( 'what is announced matches what is shown', async ( { page } ) => {
@@ -56,7 +86,7 @@ test.describe( 'mobile submenu', () => {
 
 		for ( const _ of [ 1, 2, 3 ] ) {
 			await page.click( chevron );
-			await page.waitForTimeout( 250 );
+			await settleAnimations( page );
 
 			const s = await read( page );
 			const shown = 'none' !== s.display;
@@ -68,7 +98,12 @@ test.describe( 'mobile submenu', () => {
 
 test( 'the homepage fixture row stacks on a phone', async ( { page } ) => {
 	await page.setViewportSize( PHONE );
-	await page.goto( SITE, { waitUntil: 'networkidle' } );
+	await page.goto( '/', { waitUntil: 'networkidle' } );
+
+	test.skip(
+		0 === ( await page.locator( '.bl-next-games__item' ).count() ),
+		'the homepage lists no upcoming games on this site right now'
+	);
 
 	const geo = await page.evaluate( () => {
 		const row = document.querySelector( '.bl-next-games__item' );
@@ -90,23 +125,29 @@ test( 'the homepage fixture row stacks on a phone', async ( { page } ) => {
 } );
 
 test.describe( 'table edge fade', () => {
-	test( 'fades only the side with hidden content', async ( { page } ) => {
+	test( 'fades only the side with hidden content', async ( { page, request } ) => {
 		await page.setViewportSize( PHONE );
-		await page.goto( `${ SITE }/team/mammoth`, { waitUntil: 'networkidle' } );
-		await page.waitForTimeout( 900 );
-
-		const sel =
-			'.bl-table-scroll, .sp-scrollable-table-wrapper, table.bl-table-self-scroll';
-
-		const overflow = await page.evaluate( ( s ) => {
-			const el = [ ...document.querySelectorAll( s ) ].find(
-				( e ) => e.scrollWidth - e.clientWidth > 2
-			);
-			return el ? el.scrollWidth - el.clientWidth : 0;
-		}, sel );
 
 		// Premise: without an overflowing table this asserts nothing.
-		expect( overflow ).toBeGreaterThan( 10 );
+		test.skip(
+			null === ( await openTeamWithOverflowingTable( page, request ) ),
+			'no team page on this site has a table wider than a phone'
+		);
+
+		const sel = TABLE_SCROLLERS;
+
+		// The fade script marks the scroller once it has measured it; wait for
+		// that rather than for a fixed beat.
+		await expect
+			.poll( () =>
+				page.evaluate( ( s ) => {
+					const el = [ ...document.querySelectorAll( s ) ].find(
+						( e ) => e.scrollWidth - e.clientWidth > 2
+					);
+					return !! el && el.hasAttribute( 'data-fade-end' );
+				}, sel )
+			)
+			.toBe( true );
 
 		const at = async ( position ) =>
 			page.evaluate(
@@ -138,22 +179,26 @@ test.describe( 'table edge fade', () => {
 		expect( end.end ).toBe( false ); // nothing hidden to the right
 	} );
 
-	test( 'a table that fits is not faded at all', async ( { page } ) => {
+	test( 'a table that fits is not faded at all', async ( { page, request } ) => {
 		await page.setViewportSize( { width: 1400, height: 900 } );
-		await page.goto( `${ SITE }/team/mammoth`, { waitUntil: 'networkidle' } );
-		await page.waitForTimeout( 900 );
 
-		const masked = await page.evaluate( () =>
-			[
-				...document.querySelectorAll(
-					'.bl-table-scroll, .sp-scrollable-table-wrapper, table.bl-table-self-scroll'
-				),
-			]
-				.filter( ( el ) => el.scrollWidth - el.clientWidth <= 2 )
-				.map( ( el ) => window.getComputedStyle( el ).maskImage )
-		);
+		const [ team ] = await teamPaths( request );
+		test.skip( ! team, 'this site has no teams' );
 
-		expect( masked.length ).toBeGreaterThan( 0 );
+		await page.goto( team, { waitUntil: 'networkidle' } );
+		await settleAnimations( page );
+
+		const fitting = () =>
+			page.evaluate( ( s ) =>
+				[ ...document.querySelectorAll( s ) ]
+					.filter( ( el ) => el.scrollWidth - el.clientWidth <= 2 )
+					.map( ( el ) => window.getComputedStyle( el ).maskImage ),
+			TABLE_SCROLLERS
+			);
+
+		await expect.poll( async () => ( await fitting() ).length ).toBeGreaterThan( 0 );
+
+		const masked = await fitting();
 
 		for ( const mask of masked ) {
 			expect( mask ).toBe( 'none' );
@@ -163,7 +208,7 @@ test.describe( 'table edge fade', () => {
 
 test( 'the schedule has one time column and a result column', async ( { page } ) => {
 	await page.setViewportSize( { width: 1200, height: 900 } );
-	await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+	await page.goto( '/schedule', { waitUntil: 'networkidle' } );
 
 	const headers = await page.evaluate( () =>
 		[ ...document.querySelectorAll( '.sp-event-list thead th' ) ].map( ( th ) =>

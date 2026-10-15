@@ -9,3 +9,11 @@
 # Real staging/production SSH hosts + port -- private infra, not for a
 # public repo. Copy scripts/lib/hosts.env.example to set this up locally.
 scripts/lib/hosts.env
+
+# Local working material that must never reach this public repo: design
+# critique scratch (.impeccable/), tool logs, and one-off review screenshots
+# saved at the repo root. Root-level PNGs only -- theme and docs images live
+# in subdirectories and stay tracked.
+.impeccable/
+/logs/
+/*.png
