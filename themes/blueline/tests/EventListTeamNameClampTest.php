@@ -121,9 +121,10 @@ final class EventListTeamNameClampTest extends TestCase {
 	}
 
 	/**
-	 * The behaviour module must be loaded by the theme's entry point.
+	 * The behaviour module must be built into the SportsPress bundle, which
+	 * loads wherever a schedule table can render.
 	 */
-	public function test_tooltip_module_is_imported_by_the_entry_point(): void {
-		$this->assertStringContainsString( "import './team-name-tooltip.js';", $this->theme_file( 'assets/src/js/index.js' ) );
+	public function test_tooltip_module_is_part_of_the_sportspress_bundle(): void {
+		$this->assertMatchesRegularExpression( "/\\bsportspress: \\[[^\\]]*js\\( 'team-name-tooltip' \\)/", $this->theme_file( 'webpack.config.js' ) );
 	}
 }

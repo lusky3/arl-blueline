@@ -1,0 +1,16 @@
+/*
+ * The OneSignal push-notification plugin injects a fixed bell
+ * (`#onesignal-bell-container`) at a z-index far above this theme's scale, so
+ * it sat over the open mobile drawer, the rules modal and the footer theme
+ * toggle. Pulled back below the drawer (and everything above it), clear of a
+ * phone's home indicator, and hidden while the drawer is open. Scoped by id:
+ * a no-op when the plugin is inactive.
+ */
+#onesignal-bell-container {
+	z-index: var(--bl-z-nav-submenu) !important;
+	bottom: calc(var(--bl-space-4) + env(safe-area-inset-bottom)) !important;
+}
+
+body.bl-nav-open #onesignal-bell-container {
+	display: none !important;
+}

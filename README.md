@@ -46,6 +46,12 @@ composer install
 composer test && composer lint
 ```
 
+The theme's CSS and JS build into a core bundle (`assets/src/js/index.js` and `assets/src/css/index.css`: the
+chrome every page has) plus feature bundles (SportsPress, homepage, WooCommerce, forms, account, occasions,
+announcement, floating next game, sponsors), each a webpack entry in `webpack.config.js` that
+`inc/enqueue.php` (`blueline_theme_bundles()`) loads only where its markup can render. New CSS or JS for one
+feature goes into that feature's bundle, not the core one.
+
 `assets/dist` is committed, so run `npm run build` and commit its output with any CSS or JS change. The
 repository's Git hook runs the theme gate before any commit that stages theme files (enable it with
 `git config core.hooksPath .githooks`); run the plugin gate yourself.

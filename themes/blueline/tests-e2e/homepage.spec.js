@@ -84,14 +84,15 @@ test.describe( 'Homepage standings module, with more than one division seeded', 
 		page,
 	} ) => {
 		// The visibility swap is pure CSS (blueline_homepage_standings_tabs()'s
-		// own docblock): assets/src/js/standings-tabs.js is bundled into the
-		// same single assets/dist/index.js every other entry file shares
-		// (webpack.config.js), so there is no separate file to block just
-		// for it -- blocking the whole bundle instead proves the tab strip's
-		// core interaction needs none of this theme's own JS at all.
-		// Registered before goto(), not after -- the script would already
-		// have run otherwise.
-		await page.route( '**/assets/dist/index.js', ( route ) => route.abort() );
+		// own docblock): blocking every one of this theme's own bundles
+		// (assets/src/js/standings-tabs.js is in assets/dist/homepage.js,
+		// webpack.config.js) proves the tab strip's core interaction needs
+		// none of this theme's JS at all. Registered before goto(), not
+		// after -- the scripts would already have run otherwise.
+		await page.route(
+			/\/themes\/blueline\/assets\/dist\/[^/?]+\.js(\?|$)/,
+			( route ) => route.abort()
+		);
 
 		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
