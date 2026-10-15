@@ -129,12 +129,109 @@ function blueline_updater_on_force_check(): void {
  * @return array<string, mixed>
  */
 function blueline_updater_register_health_test( $tests ) {
-	$tests['direct']['blueline_updater'] = array(
+	$tests['direct']['blueline_updater']         = array(
 		'label' => __( 'Blueline theme updates', 'blueline' ),
 		'test'  => 'blueline_updater_run_health_test',
 	);
+	$tests['direct']['blueline_release_signing'] = array(
+		'label' => __( 'Blueline release signing', 'blueline' ),
+		'test'  => 'blueline_updater_run_signing_health_test',
+	);
 
 	return $tests;
+}
+
+/**
+ * Run the release-signing test: configuration only, no network.
+ *
+ * @return array<string, mixed>
+ */
+function blueline_updater_run_signing_health_test(): array {
+	return blueline_updater_signing_health_result( blueline_updater_public_keys(), function_exists( 'sodium_crypto_sign_verify_detached' ) );
+}
+
+/**
+ * Whether theme updates are signature-checked, as a Site Health result. Pure.
+ *
+ * @param array<int, mixed> $keys             blueline_updater_public_keys().
+ * @param bool              $crypto_available Whether ed25519 verification is available.
+ * @return array<string, mixed>
+ */
+function blueline_updater_signing_health_result( array $keys, bool $crypto_available ): array {
+	$usable = count( blueline_updater_decode_public_keys( $keys ) );
+	$level  = 'good';
+	$color  = 'blue';
+	$label  = __( 'Blueline theme updates are signed and verified', 'blueline' );
+
+	if ( array() === $keys ) {
+		$level   = 'recommended';
+		$color   = 'orange';
+		$label   = __( 'Release signing is not enabled', 'blueline' );
+		$message = __( 'Blueline theme updates are checked for integrity but not signed, so anyone able to publish a release in the theme\'s GitHub repository could ship an update that this site would offer. To turn signing on, follow "Release signing" in docs/RELEASING.md: generate a key, keep the private half in Bitwarden or Doppler and in GitHub Actions, and add the public key to BLUELINE_RELEASE_PUBLIC_KEYS in inc/updater-rules.php.', 'blueline' );
+	} elseif ( ! $crypto_available ) {
+		$level   = 'critical';
+		$color   = 'red';
+		$label   = __( 'Blueline cannot verify theme update signatures', 'blueline' );
+		$message = __( 'This theme requires signed updates, but this server cannot check ed25519 signatures (neither the PHP sodium extension nor WordPress\'s sodium_compat is loaded), so no theme update will be offered. Ask your host to enable the sodium extension.', 'blueline' );
+	} elseif ( 0 === $usable ) {
+		$level   = 'critical';
+		$color   = 'red';
+		$label   = __( 'Blueline release signing keys are invalid', 'blueline' );
+		$message = __( 'This theme requires signed updates, but none of the keys in BLUELINE_RELEASE_PUBLIC_KEYS is a valid ed25519 public key (44 characters of base64), so no theme update will be offered. Ask whoever maintains the theme releases to fix the key list.', 'blueline' );
+	} elseif ( $usable < count( $keys ) ) {
+		$level   = 'recommended';
+		$color   = 'orange';
+		$label   = __( 'A Blueline release signing key is invalid', 'blueline' );
+		$message = sprintf(
+			/* translators: 1: number of unusable keys, 2: number of configured keys. */
+			__( '%1$d of the %2$d keys in BLUELINE_RELEASE_PUBLIC_KEYS is not a valid ed25519 public key and is ignored. Updates signed by the remaining keys are still verified and offered.', 'blueline' ),
+			count( $keys ) - $usable,
+			count( $keys )
+		);
+	} else {
+		$message = sprintf(
+			/* translators: %d: number of trusted release signing keys. */
+			_n(
+				'Theme updates are offered only when their manifest carries a valid signature by the %d trusted release key.',
+				'Theme updates are offered only when their manifest carries a valid signature by one of the %d trusted release keys.',
+				$usable,
+				'blueline'
+			),
+			$usable
+		);
+	}
+
+	return array(
+		'label'       => $label,
+		'status'      => $level,
+		'badge'       => array(
+			'label' => __( 'Security', 'blueline' ),
+			'color' => $color,
+		),
+		'description' => '<p>' . esc_html( $message ) . '</p>',
+		'actions'     => '',
+		'test'        => 'blueline_release_signing',
+	);
+}
+
+/**
+ * The Site Health message for a release refused over its signature.
+ *
+ * @param string $reason `signature_missing`, `signature_invalid` or `signature_unsupported`.
+ * @return string A sprintf template taking the release's version.
+ */
+function blueline_updater_signature_rejection_template( string $reason ): string {
+	switch ( $reason ) {
+		case 'signature_missing':
+			/* translators: %s: version number of the release that is not offered. */
+			return __( 'Blueline %s has been published without a release signature (manifest.json.sig), and this site only accepts signed updates, so it is not being offered. Do not install it by hand: ask whoever maintains the theme releases to confirm they published it and to re-run the release with the signing key.', 'blueline' );
+		case 'signature_unsupported':
+			/* translators: %s: version number of the release that is not offered. */
+			return __( 'Blueline %s cannot be offered because this server cannot verify release signatures (no sodium extension and no sodium_compat). Ask your host to enable the PHP sodium extension.', 'blueline' );
+		default:
+			/* translators: %s: version number of the release that is not offered. */
+			return __( 'The release signature of Blueline %s does not match any release key this theme trusts, so it is not being offered. The release may have been tampered with or signed with the wrong key. Do not install it by hand: tell whoever maintains the theme releases.', 'blueline' );
+	}
 }
 
 /**
@@ -179,6 +276,19 @@ function blueline_updater_health_result( array $state ): array {
 			$message = __( 'GitHub could not find the Blueline theme repository, so updates cannot be checked. It may have been renamed, deleted or made private. This is not a token problem; ask whoever maintains the theme releases. (A token that cannot see a private repository is reported this way too.)', 'blueline' );
 			break;
 		case 'ok':
+			if ( null !== $reject && 0 === strpos( (string) ( $reject['reason'] ?? '' ), 'signature_' ) ) {
+				$level   = 'critical';
+				$color   = 'red';
+				$message = sprintf( blueline_updater_signature_rejection_template( (string) $reject['reason'] ), (string) ( $reject['version'] ?? '' ) );
+				if ( '' !== $latest ) {
+					$message .= ' ' . sprintf(
+						/* translators: %s: older version that is still available. */
+						__( 'Blueline %s is correctly signed and still available from Dashboard > Updates.', 'blueline' ),
+						$latest
+					);
+				}
+				break;
+			}
 			if ( null !== $reject ) {
 				$level = 'recommended';
 				$color = 'orange';

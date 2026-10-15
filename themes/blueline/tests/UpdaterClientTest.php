@@ -193,6 +193,25 @@ final class UpdaterClientTest extends TestCase {
 	}
 
 	/**
+	 * With no release keys (the shipped default) an unsigned release is offered
+	 * as before and no signature is even requested.
+	 */
+	#[RunInSeparateProcess]
+	public function test_without_release_keys_unsigned_release_is_offered_without_a_signature_request(): void {
+		$this->expect_list( array( $this->release( '1.2.0', 2 ) ) );
+		$this->expect_asset( $this->asset_url( 2, true ), $this->manifest_json( '1.2.0', 'zip-1.2.0' ) );
+
+		$state = blueline_updater_state();
+
+		$this->assertSame( array(), blueline_updater_public_keys() );
+		$this->assertSame( 'off', $state['signing'] );
+		$this->assertSame( '', $state['keys'] );
+		$this->assertSame( '1.2.0', $state['candidate']['version'] );
+		$this->assertSame( 'not_required', $state['candidate']['signature'] );
+		$this->assertCount( 3, $GLOBALS['bl_test_http_log'], 'the list and the manifest (two hops), nothing else' );
+	}
+
+	/**
 	 * A manifest that fails validation falls through to the next-older release.
 	 */
 	#[RunInSeparateProcess]

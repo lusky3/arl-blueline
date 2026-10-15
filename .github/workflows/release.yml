@@ -1,10 +1,11 @@
 name: Release
 
 # Push a tag vX.Y.Z (final) or vX.Y.Z-rc.N (pre-release) to publish a Blueline
-# release: guard -> build -> publish. The release carries blueline-X.Y.Z.zip
-# (a clean blueline/ theme folder) and manifest.json (sha256 + requirements),
-# which the theme's own updater (inc/updater.php) reads. Procedure and owner
-# steps: docs/RELEASING.md.
+# release: guard -> build -> sign -> publish. The release carries
+# blueline-X.Y.Z.zip (a clean blueline/ theme folder), manifest.json (sha256 +
+# requirements) and, once the RELEASE_SIGNING_KEY secret is set,
+# manifest.json.sig (ed25519 over manifest.json), which the theme's own
+# updater (inc/updater.php) reads. Procedure and owner steps: docs/RELEASING.md.
 #
 # The release also carries blueline-core-<plugin version>.zip (+ .sha256), the
 # companion plugin built by scripts/release/package-plugin.sh. The plugin has
@@ -122,8 +123,65 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  publish:
+  # Signs manifest.json (ed25519, manifest.json.sig) and proves the pair
+  # verifies with the theme's own check and BLUELINE_RELEASE_PUBLIC_KEYS before
+  # anything is published. Its own job so the signing key never shares a runner
+  # with npm/composer installs or the build. No dependencies are installed here.
+  # The key comes from the RELEASE_SIGNING_KEY secret (docs/RELEASING.md,
+  # "Release signing"); while it is unset the release is published unsigned
+  # with a warning, unless the theme already trusts a key, in which case
+  # verify-manifest.php fails the run instead.
+  sign:
     needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # Secrets cannot be read in `if:`; this exposes only whether one is set.
+      HAS_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: "8.3"
+          extensions: sodium
+          tools: none
+          coverage: none
+
+      - name: Download release files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-dist
+          path: dist
+
+      # The key reaches this one step only, through its environment; the
+      # script never takes it as an argument and never prints it.
+      - name: Sign the manifest
+        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: php scripts/release/sign-manifest.php dist/manifest.json
+
+      # Uses themes/blueline/inc/updater-rules.php itself: the same function and
+      # key list every site runs. Fails if the theme trusts a key and the pair
+      # does not verify (or there is no signature); otherwise annotates the run
+      # with a ::warning:: when the release goes out unsigned.
+      - name: Verify the signature with the theme's keys
+        run: php scripts/release/verify-manifest.php dist/manifest.json
+
+      - name: Upload signed release files
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-signed
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: sign
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -131,7 +189,7 @@ jobs:
       - name: Download release files
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-dist
+          name: release-signed
           path: dist
 
       # A tag with a "-" suffix (v1.2.0-rc.1) is a pre-release: the beta
@@ -146,6 +204,10 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             flags+=(--prerelease)
           fi
+          signature=()
+          if [[ -f dist/manifest.json.sig ]]; then
+            signature+=(dist/manifest.json.sig)
+          fi
           gh release create "$GITHUB_REF_NAME" \
             "${flags[@]}" \
             --verify-tag \
@@ -153,5 +215,6 @@ jobs:
             --notes-file dist/notes.md \
             "dist/blueline-${GITHUB_REF_NAME#v}.zip" \
             dist/manifest.json \
+            "${signature[@]}" \
             dist/blueline-core-*.zip \
             dist/blueline-core-*.zip.sha256

@@ -329,8 +329,9 @@ final class UpdaterReleaseSelectionTest extends TestCase {
 	public function test_asset_names(): void {
 		$this->assertSame(
 			array(
-				'zip'      => 'blueline-1.2.0-rc.1.zip',
-				'manifest' => 'manifest.json',
+				'zip'       => 'blueline-1.2.0-rc.1.zip',
+				'manifest'  => 'manifest.json',
+				'signature' => 'manifest.json.sig',
 			),
 			blueline_updater_asset_names( '1.2.0-rc.1' )
 		);
