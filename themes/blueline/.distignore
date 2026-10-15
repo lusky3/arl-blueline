@@ -15,9 +15,9 @@
 #
 # assets/src/js/settings-{photos,brand-colors,occasions}.js must ship:
 # inc/settings/admin-assets.php enqueues them straight from source. Every other
-# assets/src/js file is bundled into assets/dist/index.js or editor.js, so it
-# stays out (tests/DistIgnoreTest.php fails if an excluded file is not
-# reachable from those entry points). A new script enqueued from source needs
+# assets/src/js file is bundled into one of the webpack entries
+# (webpack.config.js), so it stays out (tests/DistIgnoreTest.php fails if an
+# excluded file is not reachable from an entry). A new script enqueued from source needs
 # its own "+" line here. rsync applies the first matching rule, so each "+"
 # line must come before the "-" line it carves out of.
 #
@@ -35,12 +35,8 @@
 /tools/*.mjs
 /tools/lib
 /assets/fonts/*.woff2
-/assets/dist/account.js
 /assets/dist/editor.js
-/assets/dist/forms.js
-/assets/dist/homepage.js
-/assets/dist/occasions.js
-/assets/dist/woocommerce.js
+/assets/dist/sponsors-page.js
 node_modules
 vendor
 tests

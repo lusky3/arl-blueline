@@ -35,6 +35,28 @@ function blueline_dist_version( $handle ) {
 }
 
 /**
+ * Script dependencies webpack recorded for a built bundle, read from the
+ * same `{$handle}.asset.php` as blueline_dist_version(). It lists the
+ * WordPress packages the bundle imports, so a future `@wordpress/*` import
+ * is declared without anyone editing this file.
+ *
+ * @param string $handle Asset basename without extension, e.g. 'index'.
+ * @return string[]
+ */
+function blueline_dist_dependencies( $handle ): array {
+	$asset_file = BLUELINE_DIR . '/assets/dist/' . $handle . '.asset.php';
+
+	if ( file_exists( $asset_file ) ) {
+		$asset = include $asset_file;
+		if ( is_array( $asset ) && isset( $asset['dependencies'] ) && is_array( $asset['dependencies'] ) ) {
+			return array_values( array_map( 'strval', $asset['dependencies'] ) );
+		}
+	}
+
+	return array();
+}
+
+/**
  * Cache-busting version for style.css: it's hand-edited outside the
  * webpack build (it's the theme's only source of the :root --bl-* design
  * tokens — see blueline_enqueue_assets() below), so it has no *.asset.php
@@ -85,8 +107,27 @@ function blueline_enqueue_assets() {
 	// swap -- see wp_style_add_data()'s 'rtl' key in wp-includes/functions.wp-styles.php.
 	wp_style_add_data( 'blueline', 'rtl', 'replace' );
 
-	foreach ( blueline_template_style_bundles() as $bundle ) {
-		wp_enqueue_style(
+	// Core bundle: what every page runs. Each feature bundle below is its own
+	// script, so nothing here needs jQuery.
+	wp_enqueue_script(
+		'blueline',
+		BLUELINE_URI . '/assets/dist/index.js',
+		blueline_dist_dependencies( 'index' ),
+		blueline_dist_version( 'index' ),
+		array(
+			'in_footer' => true,
+			'strategy'  => 'defer',
+		)
+	);
+
+	// Every feature bundle is registered, so code that prints a feature's
+	// markup later in the page can still enqueue it (see
+	// blueline_sportspress_template_assets()); the ones this request needs are
+	// enqueued now.
+	$bundles = blueline_theme_bundles( blueline_theme_asset_context() );
+
+	foreach ( blueline_style_bundle_names() as $bundle ) {
+		wp_register_style(
 			'blueline-' . $bundle,
 			BLUELINE_URI . '/assets/dist/' . $bundle . '.css',
 			array( 'blueline' ),
@@ -95,22 +136,26 @@ function blueline_enqueue_assets() {
 		wp_style_add_data( 'blueline-' . $bundle, 'rtl', 'replace' );
 	}
 
-	wp_enqueue_script(
-		'blueline',
-		BLUELINE_URI . '/assets/dist/index.js',
-		// jquery: assets/src/js/sponsors.js listens for jQuery's own global
-		// ajaxComplete event to know when SportsPress's sponsor-loader AJAX
-		// call has settled. `defer` already guarantees this script runs
-		// after any classic (non-deferred) script -- which is how
-		// SportsPress enqueues jQuery -- so this dependency is declared for
-		// correctness rather than to fix an observed ordering bug.
-		array( 'jquery' ),
-		blueline_dist_version( 'index' ),
-		array(
-			'in_footer' => true,
-			'strategy'  => 'defer',
-		)
-	);
+	foreach ( blueline_script_bundle_names() as $bundle ) {
+		wp_register_script(
+			'blueline-' . $bundle,
+			BLUELINE_URI . '/assets/dist/' . $bundle . '.js',
+			array_values( array_unique( array_merge( blueline_dist_dependencies( $bundle ), blueline_script_bundle_extra_dependencies( $bundle ) ) ) ),
+			blueline_dist_version( $bundle ),
+			array(
+				'in_footer' => true,
+				'strategy'  => 'defer',
+			)
+		);
+	}
+
+	foreach ( $bundles['styles'] as $bundle ) {
+		wp_enqueue_style( 'blueline-' . $bundle );
+	}
+
+	foreach ( $bundles['scripts'] as $bundle ) {
+		wp_enqueue_script( 'blueline-' . $bundle );
+	}
 
 	if ( is_singular() && comments_open() && get_option( 'thread_comments' ) ) {
 		wp_enqueue_script( 'comment-reply' );
@@ -118,11 +163,53 @@ function blueline_enqueue_assets() {
 }
 
 /**
- * PERF-10: the per-template stylesheets (webpack entries split out of
- * index.css) this request needs, in their former import order so the cascade
- * between them is unchanged. Each gate mirrors the only code that can emit
- * that partial's selectors:
+ * Every feature stylesheet, in cascade order after the core bundle. Each was
+ * once a partial of index.css; the order keeps every rule's place relative
+ * to the others wherever two of them load together.
  *
+ * @return string[] Bundle basenames under assets/dist/.
+ */
+function blueline_style_bundle_names(): array {
+	return array( 'announcement', 'floating-next-game', 'sponsors-page', 'sportspress', 'occasions', 'homepage', 'woocommerce', 'forms', 'account' );
+}
+
+/**
+ * Every feature script, in the order their modules ran inside the old single
+ * bundle. quotes-llama-alt is enqueued by blueline_note_quotes_llama_widget()
+ * when the widget renders.
+ *
+ * @return string[] Bundle basenames under assets/dist/.
+ */
+function blueline_script_bundle_names(): array {
+	return array( 'sportspress', 'woocommerce', 'sponsors', 'announcement', 'forms', 'homepage', 'floating-next-game', 'account', 'occasions', 'quotes-llama-alt' );
+}
+
+/**
+ * Dependencies a bundle has that webpack cannot see. sponsors.js reads
+ * jQuery's global ajaxComplete event, the only signal that SportsPress's
+ * sponsor-loader request (sent with $.post()) has settled, so it needs
+ * jQuery loaded first.
+ *
+ * @param string $bundle Bundle basename.
+ * @return string[]
+ */
+function blueline_script_bundle_extra_dependencies( string $bundle ): array {
+	return 'sponsors' === $bundle ? array( 'jquery' ) : array();
+}
+
+/**
+ * The feature stylesheets and scripts this request needs, in cascade/run
+ * order. Kept pure so the rules can be tested without WordPress; each gate
+ * mirrors the only code that can print that feature's markup:
+ *
+ * - announcement: blueline_render_announcement() prints only while one is visible.
+ * - floating-next-game: the floating widget renders only for a signed-in,
+ *   claimed player, never on account, cart or checkout.
+ * - sponsors-page: sponsors-page.css only styles the Sponsors page.
+ * - sportspress: SportsPress data (tables, schedules, heroes) renders on its
+ *   own post types and taxonomies, the homepage modules, its shortcodes and
+ *   its widgets; see blueline_request_needs_sportspress().
+ * - sponsors (script only): the header and footer sponsor slots.
  * - occasions: blueline_render_occasion_effects() prints nothing without an
  *   active occasion.
  * - homepage: template-homepage.php's hero/modules.
@@ -131,18 +218,250 @@ function blueline_enqueue_assets() {
  * - forms: Contact Form 7 markup, the same gate as CF7's own assets.
  * - account: My Account endpoints (body.woocommerce-account).
  *
+ * @param array<string, bool> $context From blueline_theme_asset_context().
+ * @return array{styles: string[], scripts: string[]}
+ */
+function blueline_theme_bundles( array $context ): array {
+	$on    = static function ( string $key ) use ( $context ): bool {
+		return ! empty( $context[ $key ] );
+	};
+	$gates = array(
+		'announcement'       => $on( 'announcement' ),
+		'floating-next-game' => $on( 'floating_next_game' ),
+		'sponsors-page'      => $on( 'sponsors_page' ),
+		'sportspress'        => $on( 'sportspress' ) || $on( 'homepage' ),
+		'sponsors'           => $on( 'sponsor_slots' ),
+		'occasions'          => $on( 'occasion' ),
+		'homepage'           => $on( 'homepage' ),
+		'woocommerce'        => $on( 'commerce' ),
+		'forms'              => $on( 'cf7' ),
+		'account'            => $on( 'account' ),
+	);
+	$pick  = static function ( array $names ) use ( $gates ): array {
+		return array_values(
+			array_filter(
+				$names,
+				static function ( $name ) use ( $gates ) {
+					return ! empty( $gates[ $name ] );
+				}
+			)
+		);
+	};
+
+	return array(
+		'styles'  => $pick( blueline_style_bundle_names() ),
+		'scripts' => $pick( blueline_script_bundle_names() ),
+	);
+}
+
+/**
+ * What the current request renders, as far as blueline_theme_bundles() cares.
+ *
+ * @return array<string, bool>
+ */
+function blueline_theme_asset_context(): array {
+	return array(
+		'announcement'       => blueline_announcement_visible(),
+		'floating_next_game' => blueline_floating_next_game_may_render(),
+		'sponsors_page'      => blueline_is_sponsors_page(),
+		'sportspress'        => blueline_request_needs_sportspress(),
+		'sponsor_slots'      => blueline_section_enabled( 'chrome_sponsors' ) || class_exists( 'SportsPress_Sponsors' ),
+		'occasion'           => null !== blueline_resolve_active_occasion(),
+		'homepage'           => is_front_page() || is_page_template( 'template-homepage.php' ),
+		'commerce'           => function_exists( 'blueline_is_commerce_request' ) && blueline_is_commerce_request(),
+		'cf7'                => blueline_request_needs_cf7(),
+		'account'            => function_exists( 'is_account_page' ) && is_account_page(),
+	);
+}
+
+/**
+ * PERF-10: the per-template stylesheets this request needs, in cascade order.
+ *
  * @return string[] Bundle basenames under assets/dist/.
  */
 function blueline_template_style_bundles(): array {
-	$gates = array(
-		'occasions'   => null !== blueline_resolve_active_occasion(),
-		'homepage'    => is_front_page() || is_page_template( 'template-homepage.php' ),
-		'woocommerce' => function_exists( 'blueline_is_commerce_request' ) && blueline_is_commerce_request(),
-		'forms'       => blueline_request_needs_cf7(),
-		'account'     => function_exists( 'is_account_page' ) && is_account_page(),
-	);
+	return blueline_theme_bundles( blueline_theme_asset_context() )['styles'];
+}
 
-	return array_keys( array_filter( $gates ) );
+/**
+ * The feature scripts this request needs, in run order.
+ *
+ * @return string[] Bundle basenames under assets/dist/.
+ */
+function blueline_template_script_bundles(): array {
+	return blueline_theme_bundles( blueline_theme_asset_context() )['scripts'];
+}
+
+/**
+ * Whether this is the Sponsors page: sponsors-page.css scopes every rule to
+ * `body.page-id-154`, so this matches exactly the page those rules can style.
+ *
+ * @return bool
+ */
+function blueline_is_sponsors_page(): bool {
+	return is_page( 154 );
+}
+
+/**
+ * Whether SportsPress data can render on this request, so sportspress.css and
+ * its scripts are needed: a SportsPress post, term or archive; a SportsPress
+ * (or league add-on) shortcode or block in the queried post, the posts of
+ * the main query or a text/block widget; or a SportsPress widget in any
+ * widget area. When in doubt it says yes: a page that needs the bundle and
+ * misses it would render unstyled, while an extra stylesheet only costs
+ * bytes. Filter `blueline_load_sportspress_assets` to force either answer.
+ *
+ * The sponsor slots and the Countdown widget need nothing from this bundle:
+ * their rules are in the core bundle (sportspress-chrome.css).
+ *
+ * @return bool
+ */
+function blueline_request_needs_sportspress(): bool {
+	$needs = blueline_is_sportspress_view()
+		|| blueline_request_posts_contain( blueline_sportspress_content_needles() )
+		|| blueline_sportspress_widget_active();
+
+	return (bool) apply_filters( 'blueline_load_sportspress_assets', $needs );
+}
+
+/**
+ * Whether the queried object is a SportsPress post (event, team, player,
+ * staff, calendar, table, list, sponsor...), term (venue, league, season,
+ * position) or post type archive. SportsPress prefixes every one with `sp_`.
+ *
+ * @return bool
+ */
+function blueline_is_sportspress_view(): bool {
+	$queried = get_queried_object();
+
+	if ( $queried instanceof WP_Post ) {
+		return 0 === strpos( (string) $queried->post_type, 'sp_' );
+	}
+
+	if ( $queried instanceof WP_Term ) {
+		return 0 === strpos( (string) $queried->taxonomy, 'sp_' );
+	}
+
+	if ( $queried instanceof WP_Post_Type ) {
+		return 0 === strpos( (string) $queried->name, 'sp_' );
+	}
+
+	return false;
+}
+
+/**
+ * Shortcode openers and block names that print SportsPress data: every
+ * SportsPress and SportsPress Pro shortcode family (event_*, league_*,
+ * player_*, staff_*, team_*, tournament_*, countdown) and the league add-ons'
+ * [arl_schedule]/[arl_standings], which load SportsPress tables.
+ *
+ * @return string[]
+ */
+function blueline_sportspress_content_needles(): array {
+	return array( '[event_', '[league_', '[player_', '[staff_', '[team_', '[tournament_', '[countdown', '[arl_', 'wp:sportspress/' );
+}
+
+/**
+ * Like blueline_request_content_contains(), but also searches every post of
+ * the main query, so an archive or blog index whose posts print in full is
+ * covered too.
+ *
+ * @param string[] $needles Literal substrings.
+ * @return bool
+ */
+function blueline_request_posts_contain( array $needles ): bool {
+	if ( blueline_request_content_contains( $needles ) ) {
+		return true;
+	}
+
+	global $wp_query;
+
+	if ( ! $wp_query instanceof WP_Query ) {
+		return false;
+	}
+
+	foreach ( (array) $wp_query->posts as $post ) {
+		if ( ! $post instanceof WP_Post || '' === (string) $post->post_content ) {
+			continue;
+		}
+
+		foreach ( $needles as $needle ) {
+			if ( false !== stripos( (string) $post->post_content, $needle ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Whether any widget area holds a SportsPress widget whose output needs
+ * sportspress.css. The Countdown and Sponsors widgets are styled by the core
+ * bundle. Any widget area counts, not just the ones this page shows: a
+ * sidebar's visibility is only settled while the template renders.
+ *
+ * @return bool
+ */
+function blueline_sportspress_widget_active(): bool {
+	return blueline_sidebars_hold_sportspress_widget( wp_get_sidebars_widgets() );
+}
+
+/**
+ * The rule behind blueline_sportspress_widget_active(), on a
+ * wp_get_sidebars_widgets()-shaped map.
+ *
+ * @param array<string, mixed> $sidebars_widgets Sidebar id => widget ids.
+ * @return bool
+ */
+function blueline_sidebars_hold_sportspress_widget( array $sidebars_widgets ): bool {
+	$styled_by_core = array( 'sportspress-countdown', 'sportspress-sponsors' );
+
+	foreach ( $sidebars_widgets as $sidebar => $widget_ids ) {
+		if ( 'wp_inactive_widgets' === $sidebar || ! is_array( $widget_ids ) ) {
+			continue;
+		}
+
+		foreach ( $widget_ids as $widget_id ) {
+			$id_base = preg_replace( '/-\d+$/', '', (string) $widget_id );
+
+			if ( 0 === strpos( $id_base, 'sportspress-' ) && ! in_array( $id_base, $styled_by_core, true ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+add_action( 'sportspress_before_template', 'blueline_sportspress_template_assets' );
+/**
+ * Safety net for blueline_request_needs_sportspress(): if a SportsPress
+ * template renders on a request that did not load the SportsPress bundle
+ * (output from code the gate does not know about), enqueue it then.
+ * WordPress prints a stylesheet enqueued after the head in the footer, so
+ * such a page can briefly show that block unstyled, never permanently.
+ *
+ * @param string $template_name Template file, e.g. 'event-list.php'.
+ * @return void
+ */
+function blueline_sportspress_template_assets( $template_name ): void {
+	if ( is_admin() || in_array( basename( (string) $template_name ), blueline_sportspress_core_templates(), true ) ) {
+		return;
+	}
+
+	wp_enqueue_style( 'blueline-sportspress' );
+	wp_enqueue_script( 'blueline-sportspress' );
+}
+
+/**
+ * SportsPress templates whose output the core bundle already styles: the
+ * sponsor slots and the Countdown widget (sportspress-chrome.css).
+ *
+ * @return string[]
+ */
+function blueline_sportspress_core_templates(): array {
+	return array( 'countdown.php', 'sponsors.php', 'sponsors-content.php' );
 }
 
 /**
@@ -445,6 +764,8 @@ function blueline_note_quotes_llama_widget( $widget ): void {
 
 	blueline_quotes_llama_widget_rendered( true );
 	wp_enqueue_style( 'quotes-llama-css-style' );
+	// Scripts print in the footer, after every widget has rendered.
+	wp_enqueue_script( 'blueline-quotes-llama-alt' );
 }
 
 /**

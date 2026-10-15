@@ -1,17 +1,49 @@
 const defaults = require( '@wordpress/scripts/config/webpack.config' );
 const path = require( 'path' );
 
+const css = ( name ) =>
+	path.resolve( __dirname, `assets/src/css/${ name }.css` );
+const js = ( name ) => path.resolve( __dirname, `assets/src/js/${ name }.js` );
+
 module.exports = {
 	...defaults,
 	entry: {
+		// The core bundle: what every page needs (assets/src/js/index.js).
 		index: path.resolve( __dirname, 'assets/src/js/index.js' ),
 		editor: path.resolve( __dirname, 'assets/src/js/editor.js' ),
-		// PERF-10: per-template stylesheets, enqueued only where their selectors can match (inc/enqueue.php).
-		occasions: path.resolve( __dirname, 'assets/src/css/occasions.css' ),
-		homepage: path.resolve( __dirname, 'assets/src/css/homepage.css' ),
-		woocommerce: path.resolve( __dirname, 'assets/src/css/woocommerce.css' ),
-		forms: path.resolve( __dirname, 'assets/src/css/forms.css' ),
-		account: path.resolve( __dirname, 'assets/src/css/account.css' ),
+		// Feature bundles, each enqueued only where its markup can render
+		// (blueline_theme_bundles(), inc/enqueue.php). A bundle's stylesheet
+		// and script share one entry, so one *.asset.php versions both.
+		announcement: [ css( 'announcement' ), js( 'announcement' ) ],
+		'floating-next-game': [
+			css( 'floating-next-game' ),
+			js( 'floating-next-game' ),
+		],
+		'sponsors-page': css( 'sponsors-page' ),
+		sportspress: [
+			css( 'sportspress' ),
+			js( 'venue-map' ),
+			js( 'player-selector' ),
+			js( 'team-name-tooltip' ),
+		],
+		sponsors: js( 'sponsors' ),
+		occasions: [ css( 'occasions' ), js( 'occasion-effects-toggle' ) ],
+		homepage: [ css( 'homepage' ), js( 'standings-tabs' ) ],
+		woocommerce: [
+			css( 'woocommerce' ),
+			js( 'account' ),
+			js( 'woocommerce-account-form-errors' ),
+			js( 'woocommerce' ),
+			js( 'rules-modal' ),
+		],
+		forms: [ css( 'forms' ), js( 'contact-form-fields' ) ],
+		account: [
+			css( 'account' ),
+			js( 'account-next-game' ),
+			js( 'preferences-widget-reset' ),
+			js( 'player-photo-upload' ),
+		],
+		'quotes-llama-alt': js( 'quotes-llama-alt' ),
 	},
 	output: {
 		...defaults.output,

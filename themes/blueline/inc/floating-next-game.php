@@ -24,6 +24,38 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
+ * Whether the floating next-game widget can render on this request: the
+ * section is on, and a signed-in visitor with a claimed player is on a page
+ * other than account, cart or checkout. Only the upcoming-game lookup is
+ * left for blueline_render_floating_next_game(), so the head can decide
+ * cheaply whether to load the widget's stylesheet and script.
+ *
+ * @return bool
+ */
+function blueline_floating_next_game_may_render(): bool {
+	if ( ! blueline_section_enabled( 'floating_next_game' ) ) {
+		return false;
+	}
+
+	if ( ! is_user_logged_in() ) {
+		return false;
+	}
+
+	// The WooCommerce conditional tags only exist while it is active.
+	if (
+		( function_exists( 'is_account_page' ) && is_account_page() )
+		|| ( function_exists( 'is_cart' ) && is_cart() )
+		|| ( function_exists( 'is_checkout' ) && is_checkout() )
+	) {
+		return false;
+	}
+
+	$player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
+
+	return (bool) $player_id;
+}
+
+/**
  * Print the floating next-game widget, or nothing at all.
  *
  * Renders only for a logged-in, claimed visitor with a real upcoming game --
@@ -65,30 +97,11 @@ defined( 'ABSPATH' ) || exit;
  * @return void
  */
 function blueline_render_floating_next_game(): void {
-	if ( ! blueline_section_enabled( 'floating_next_game' ) ) {
+	if ( ! blueline_floating_next_game_may_render() ) {
 		return;
 	}
 
-	if ( ! is_user_logged_in() ) {
-		return;
-	}
-
-	// The WooCommerce conditional tags only exist while it is active.
-	if (
-		( function_exists( 'is_account_page' ) && is_account_page() )
-		|| ( function_exists( 'is_cart' ) && is_cart() )
-		|| ( function_exists( 'is_checkout' ) && is_checkout() )
-	) {
-		return;
-	}
-
-	$player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
-
-	if ( ! $player_id ) {
-		return;
-	}
-
-	$event = blueline_get_player_next_event( $player_id );
+	$event = blueline_get_player_next_event( (int) blueline_current_user_player_id() );
 
 	if ( ! $event ) {
 		return;
