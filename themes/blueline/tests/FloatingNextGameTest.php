@@ -105,6 +105,35 @@ final class FloatingNextGameTest extends TestCase {
 	}
 
 	/**
+	 * The head loads the widget's stylesheet and script on the same pages the
+	 * widget can render on, before the upcoming-game lookup.
+	 *
+	 * @param string $tag The WooCommerce conditional tag that answers true.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	#[DataProvider( 'woo_pages' )]
+	public function test_may_render_is_false_on_account_cart_and_checkout( string $tag ): void {
+		$this->arrange( array( $tag => true ) );
+
+		$this->assertFalse( blueline_floating_next_game_may_render() );
+	}
+
+	/**
+	 * A signed-in, claimed visitor on an ordinary page; nobody signed out.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_may_render_needs_a_signed_in_claimed_visitor(): void {
+		$this->arrange();
+		$this->assertTrue( blueline_floating_next_game_may_render() );
+
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 0;
+		$this->assertFalse( blueline_floating_next_game_may_render() );
+	}
+
+	/**
 	 * The WooCommerce pages the widget stays off.
 	 *
 	 * @return array<string, array{string}>

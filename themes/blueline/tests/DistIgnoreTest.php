@@ -79,7 +79,11 @@ final class DistIgnoreTest extends TestCase {
 			'assets/dist/index.js',
 			'assets/dist/index.css',
 			'assets/dist/account.css',
+			'assets/dist/account.js',
 			'assets/dist/account.asset.php',
+			'assets/dist/sportspress.css',
+			'assets/dist/sportspress.js',
+			'assets/dist/sponsors.js',
 			'assets/dist/fonts/inter-variable.woff2',
 			'assets/fonts/OFL-Inter.txt',
 			'assets/fonts/OFL-BarlowCondensed.txt',
@@ -116,8 +120,8 @@ final class DistIgnoreTest extends TestCase {
 			'assets/src/js/index.js',
 			'assets/src/js/navigation.js',
 			'assets/fonts/inter-variable.woff2',
-			'assets/dist/account.js',
 			'assets/dist/editor.js',
+			'assets/dist/sponsors-page.js',
 		);
 		foreach ( $absent as $path ) {
 			$this->assertFileDoesNotExist( $this->out . '/' . $path );
@@ -135,7 +139,7 @@ final class DistIgnoreTest extends TestCase {
 		$src      = dirname( __DIR__ ) . '/assets/src/js/';
 		$shipped  = array( 'settings-photos.js', 'settings-brand-colors.js', 'settings-occasions.js' );
 		$bundled  = array();
-		$frontier = array( 'index.js', 'editor.js' );
+		$frontier = self::webpack_entry_scripts();
 		while ( $frontier ) {
 			$file = array_pop( $frontier );
 			if ( isset( $bundled[ $file ] ) || ! is_file( $src . $file ) ) {
@@ -152,8 +156,25 @@ final class DistIgnoreTest extends TestCase {
 			if ( in_array( $file, $shipped, true ) ) {
 				continue;
 			}
-			$this->assertArrayHasKey( $file, $bundled, "assets/src/js/$file is excluded from the package but not imported by index.js or editor.js: give it a + line in .distignore or import it" );
+			$this->assertArrayHasKey( $file, $bundled, "assets/src/js/$file is excluded from the package but not reachable from a webpack entry: give it a + line in .distignore or bundle it" );
 		}
+	}
+
+	/**
+	 * The assets/src/js files webpack.config.js names as entries (or parts of one).
+	 *
+	 * @return string[] Basenames.
+	 */
+	private static function webpack_entry_scripts(): array {
+		$config = (string) file_get_contents( dirname( __DIR__ ) . '/webpack.config.js' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local source file in a unit test.
+		preg_match_all( "/js\(\s*'([\w.-]+)'\s*\)|assets\/src\/js\/([\w.-]+\.js)/", $config, $m );
+
+		$files = array();
+		foreach ( $m[1] as $i => $short ) {
+			$files[] = '' !== $short ? $short . '.js' : $m[2][ $i ];
+		}
+
+		return array_values( array_unique( $files ) );
 	}
 
 	/**

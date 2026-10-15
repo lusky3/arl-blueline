@@ -201,6 +201,7 @@ final class RenderBlockingAssetsTest extends TestCase {
 		$this->define_request_stubs();
 		blueline_test_reset_state();
 		eval( 'function wp_enqueue_style( $h ) { $GLOBALS["bl_test_enqueued"][] = $h; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- records enqueues.
+		eval( 'function wp_enqueue_script( $h ) { $GLOBALS["bl_test_enqueued_scripts"][] = $h; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- records enqueues.
 
 		blueline_dequeue_unused_plugin_assets();
 		$this->assertContains( 'quotes-llama-css-style', $GLOBALS['bl_test_dequeued']['styles'] );
@@ -214,6 +215,7 @@ final class RenderBlockingAssetsTest extends TestCase {
 
 		blueline_note_quotes_llama_widget( array( 'callback' => array( $quotes, 'display_callback' ) ) );
 		$this->assertSame( array( 'quotes-llama-css-style' ), $GLOBALS['bl_test_enqueued'] );
+		$this->assertSame( array( 'blueline-quotes-llama-alt' ), $GLOBALS['bl_test_enqueued_scripts'], 'the widget\'s alt-text script loads only where it renders' );
 
 		$GLOBALS['bl_test_dequeued'] = array(
 			'scripts' => array(),
