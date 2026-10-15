@@ -48,6 +48,27 @@
  * declares it as a dependency -- but this still degrades harmlessly if it
  * is ever missing.
  *
+ * The header and footer loaders send identical requests, so a response
+ * cannot be matched to its loader. A loader with content is settled at once;
+ * an empty one is only called empty after every request has answered, since
+ * until then it may simply be the one still waiting (marking it empty when
+ * the other slot's response arrived first collapsed the header strip for a
+ * moment and shifted the whole page by 64px).
+ */
+
+/**
+ * Whether a sponsor loader should collapse as empty.
+ *
+ * @param {boolean} hasContent Whether it holds anything now.
+ * @param {number}  answered   How many sponsor requests have completed.
+ * @param {number}  expected   How many were sent (one per loader).
+ * @return {boolean} Empty.
+ */
+function loaderIsEmpty( hasContent, answered, expected ) {
+	return ! hasContent && answered >= expected;
+}
+
+/**
  * @param {Function|undefined} $ jQuery, if loaded.
  */
 ( function ( $ ) {
@@ -81,20 +102,25 @@
 	 *
 	 * @param {Element} loader A `.sp-sponsors-loader` element.
 	 */
-	function reconcile( loader ) {
-		const hasContent =
-			loader.children.length > 0 || '' !== loader.textContent.trim();
+	let answered = 0;
 
-		loader.classList.toggle( EMPTY_CLASS, ! hasContent );
+	function reconcile( loader ) {
+		const empty = loaderIsEmpty(
+			loader.children.length > 0 || '' !== loader.textContent.trim(),
+			answered,
+			loaders.length
+		);
+
+		loader.classList.toggle( EMPTY_CLASS, empty );
 
 		const wrapper = loader.closest( '.sp-sponsors' );
 		if ( wrapper ) {
-			wrapper.classList.toggle( EMPTY_CLASS, ! hasContent );
+			wrapper.classList.toggle( EMPTY_CLASS, empty );
 		}
 
 		const footerBand = loader.closest( '.sp-footer-sponsors' );
 		if ( footerBand ) {
-			footerBand.classList.toggle( EMPTY_CLASS, ! hasContent );
+			footerBand.classList.toggle( EMPTY_CLASS, empty );
 		}
 
 		if (
@@ -102,7 +128,7 @@
 			headerSponsors &&
 			headerSponsors.contains( loader )
 		) {
-			headerBox.classList.toggle( EMPTY_CLASS, ! hasContent );
+			headerBox.classList.toggle( EMPTY_CLASS, empty );
 		}
 	}
 
@@ -123,6 +149,11 @@
 			return;
 		}
 
+		answered++;
 		Array.prototype.forEach.call( loaders, reconcile );
 	} );
-} )( window.jQuery );
+} )( 'undefined' !== typeof window ? window.jQuery : undefined );
+
+if ( typeof module !== 'undefined' && module.exports ) {
+	module.exports = { loaderIsEmpty };
+}

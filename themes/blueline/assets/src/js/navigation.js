@@ -19,6 +19,7 @@ import {
 	submenuTriggers,
 	focusableTrigger,
 	labelToggles,
+	disclosureNextOpen,
 } from './nav-disclosure.js';
 
 ( function () {
@@ -174,13 +175,18 @@ import {
 	 * clicking/tapping the label toggles the submenu too
 	 * (nav-disclosure.js).
 	 *
-	 * @param {Element} item The `.bl-nav__item--parent` <li>.
-	 * @param {boolean} open Whether the submenu should be open.
+	 * @param {Element} item      The `.bl-nav__item--parent` <li>.
+	 * @param {boolean} open      Whether the submenu should be open.
+	 * @param {boolean} [dismiss] When closing, also hide a dropdown that
+	 *                            :hover or :focus-within would keep showing
+	 *                            (desktop), as Escape does.
 	 */
-	function setSubmenuOpen( item, open ) {
+	function setSubmenuOpen( item, open, dismiss ) {
 		item.setAttribute( 'data-open', open ? 'true' : 'false' );
 		if ( open ) {
 			item.removeAttribute( 'data-dismissed' );
+		} else if ( dismiss ) {
+			item.setAttribute( 'data-dismissed', '' );
 		}
 		submenuTriggers( item ).forEach( function ( trigger ) {
 			trigger.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
@@ -199,9 +205,9 @@ import {
 
 	/*
 	 * Desktop dropdowns also open on :hover/:focus-within (nav.css), which
-	 * data-open never sees; mirror what is actually shown (A11Y-06).
+	 * data-open never sees; mirror what is actually shown.
 	 */
-	const syncExpanded = rafThrottle( function () {
+	function syncExpandedNow() {
 		Array.prototype.forEach.call(
 			nav.querySelectorAll( '.bl-nav__item--parent' ),
 			function ( item ) {
@@ -212,13 +218,39 @@ import {
 				} );
 			}
 		);
+	}
+
+	const syncExpanded = rafThrottle( syncExpandedNow );
+
+	// Focus moves are rare and a screen reader announces the newly focused
+	// control at once, so its state must be right before the next frame:
+	// synced in the capture phase of `focus`, ahead of anything listening on
+	// the control itself.
+	nav.addEventListener( 'focus', syncExpandedNow, true );
+	[ 'focusout', 'mouseover', 'mouseout' ].forEach( function ( type ) {
+		nav.addEventListener( type, syncExpanded );
 	} );
 
-	[ 'focusin', 'focusout', 'mouseover', 'mouseout' ].forEach(
-		function ( type ) {
-			nav.addEventListener( type, syncExpanded );
-		}
-	);
+	/**
+	 * Toggle an item's submenu from one of its controls.
+	 *
+	 * @param {Element} item  The `.bl-nav__item--parent` <li>.
+	 * @param {Event}   event The click (detail is 0 for Enter/Space).
+	 */
+	function toggleSubmenu( item, event ) {
+		const desktop = desktopQuery.matches;
+
+		setSubmenuOpen(
+			item,
+			disclosureNextOpen( {
+				shown: isSubmenuShown( item ),
+				pinned: 'true' === item.getAttribute( 'data-open' ),
+				pointerOver:
+					desktop && event.detail > 0 && item.matches( ':hover' ),
+			} ),
+			desktop
+		);
+	}
 
 	/**
 	 * Close every currently open top-level submenu.
@@ -260,21 +292,15 @@ import {
 		} );
 
 		if ( subButton ) {
-			subButton.addEventListener( 'click', function () {
-				setSubmenuOpen(
-					item,
-					'true' !== item.getAttribute( 'data-open' )
-				);
+			subButton.addEventListener( 'click', function ( event ) {
+				toggleSubmenu( item, event );
 			} );
 		}
 
 		if ( labelToggles( link ) ) {
 			link.addEventListener( 'click', function ( event ) {
 				event.preventDefault();
-				setSubmenuOpen(
-					item,
-					'true' !== item.getAttribute( 'data-open' )
-				);
+				toggleSubmenu( item, event );
 			} );
 		}
 	} );

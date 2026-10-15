@@ -71,6 +71,25 @@ test( 'links that open in place, or already say so, are left alone', () => {
 	assert.equal( label.getAttribute( 'aria-label' ), 'Map, opens in new tab' );
 } );
 
+test( 'a Page Links To "#new_tab" link is left to the plugin until the page has loaded', () => {
+	const loading = { ...doc, readyState: 'interactive' };
+	const link = el( 'a', { href: 'https://www.flickr.com/groups/arl_photos/pool/#new_tab', target: '_blank' }, 'Photos' );
+
+	// The plugin builds its aria-label from the link's text on DOMContentLoaded:
+	// a hint added first would be read twice.
+	assert.equal( hintLink( link, loading ), false );
+	assert.equal( link.children.length, 0 );
+
+	// After load the marker is still there only when the plugin is not active.
+	assert.equal( hintLink( link, { ...doc, readyState: 'complete' } ), true );
+	assert.equal( link.textContent, 'Photos (opens in a new tab)' );
+
+	// With the plugin active it has named the link by then.
+	const named = el( 'a', { href: 'https://www.flickr.com/groups/arl_photos/pool/', target: '_blank', 'aria-label': 'Photos (opens in a new tab)' }, 'Photos' );
+	assert.equal( hintLink( named, { ...doc, readyState: 'complete' } ), false );
+	assert.equal( named.getAttribute( 'aria-label' ), 'Photos (opens in a new tab)' );
+} );
+
 test( 'an image-only link named by its alt (a sponsor logo) gets the hint', () => {
 	const link = el( 'a', { target: '_blank' }, '', [ el( 'img', { alt: 'Arcturus' } ) ] );
 

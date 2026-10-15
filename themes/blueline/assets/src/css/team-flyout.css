@@ -366,7 +366,7 @@
  * scrolls away with it, over the first screen only. The panel centres in
  * that screen, since the header no longer covers its top.
  */
-@media (max-height: 420px) {
+@media (max-height: 419.98px) {
 
 	.bl-team-flyout {
 		position: absolute;

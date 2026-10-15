@@ -145,6 +145,42 @@
 		return row;
 	}
 
+	/**
+	 * Add a row per chosen photograph when the media frame reports its
+	 * selection, then move focus to the first new row's alignment, the one
+	 * thing left to set.
+	 *
+	 * WordPress closes the frame (and the modal hands focus back to the Add
+	 * button) before it fires `select`, so the move is made here, deferred
+	 * past that hand-back, not in a `close` handler.
+	 *
+	 * @param {Object}   frame         wp.media frame.
+	 * @param {Function} addAttachment Adds a row for attachment attributes;
+	 *                                 returns it, or nothing for a duplicate.
+	 * @param {Function} defer         Runs a function after the current task.
+	 * @return {void}
+	 */
+	function blPhotoBindFrame( frame, addAttachment, defer ) {
+		frame.on( 'select', () => {
+			let first = null;
+
+			frame
+				.state()
+				.get( 'selection' )
+				.forEach( ( model ) => {
+					first = first || addAttachment( model.toJSON() ) || null;
+				} );
+
+			const select = first
+				? first.querySelector( '[data-bl-photos-align]' )
+				: null;
+
+			if ( select ) {
+				defer( () => select.focus() );
+			}
+		} );
+	}
+
 	function initPhotoField( root ) {
 		const add = root.querySelector( '[data-bl-photos-add]' );
 
@@ -163,31 +199,11 @@
 					button: { text: add.textContent.trim() },
 				} );
 
-				let added = null;
-
-				frame.on( 'select', () => {
-					frame
-						.state()
-						.get( 'selection' )
-						.forEach( ( model ) => {
-							added = addRow( root, model.toJSON() ) || added;
-						} );
-				} );
-
-				// The media modal hands focus back to its opener as it closes;
-				// after that, move it to the first new row's alignment, the one
-				// thing left to set.
-				frame.on( 'close', () => {
-					const select = added
-						? added.querySelector( '[data-bl-photos-align]' )
-						: null;
-
-					added = null;
-
-					if ( select ) {
-						window.setTimeout( () => select.focus(), 0 );
-					}
-				} );
+				blPhotoBindFrame(
+					frame,
+					( attachment ) => addRow( root, attachment ),
+					( fn ) => window.setTimeout( fn, 0 )
+				);
 			}
 
 			frame.open();
@@ -240,6 +256,6 @@
 	}
 
 	if ( 'undefined' !== typeof module && module.exports ) {
-		module.exports = { blPhotoNeighbour };
+		module.exports = { blPhotoNeighbour, blPhotoBindFrame };
 	}
 } )();

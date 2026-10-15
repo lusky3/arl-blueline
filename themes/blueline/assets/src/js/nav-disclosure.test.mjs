@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { submenuTriggers, focusableTrigger, labelToggles } = require(
-	'./nav-disclosure.js'
-);
+const {
+	submenuTriggers,
+	focusableTrigger,
+	labelToggles,
+	disclosureNextOpen,
+} = require( './nav-disclosure.js' );
 
 // Fake elements (house rule: no jsdom): an <li> answering the two
 // `:scope > …` queries navigation.js makes.
@@ -56,4 +59,23 @@ test( 'an item with no chevron at all still has its label button', () => {
 
 	assert.deepEqual( submenuTriggers( item( label, null ) ), [ label ] );
 	assert.equal( focusableTrigger( item( null, null ) ), null );
+} );
+
+test( 'Enter or Space on a shown dropdown closes it, wherever it was opened from', () => {
+	// Desktop: tabbing onto "League Info" shows it through :focus-within,
+	// with data-open never set. The control still has to close it.
+	assert.equal( disclosureNextOpen( { shown: true, pinned: false, pointerOver: false } ), false );
+	assert.equal( disclosureNextOpen( { shown: true, pinned: true, pointerOver: false } ), false );
+} );
+
+test( 'a closed or dismissed dropdown opens', () => {
+	assert.equal( disclosureNextOpen( { shown: false, pinned: false, pointerOver: false } ), true );
+	assert.equal( disclosureNextOpen( { shown: false, pinned: false, pointerOver: true } ), true );
+} );
+
+test( 'a click on a dropdown the pointer has just opened by hover pins it rather than closing it', () => {
+	assert.equal( disclosureNextOpen( { shown: true, pinned: false, pointerOver: true } ), true );
+
+	// The next click on the pinned dropdown closes it.
+	assert.equal( disclosureNextOpen( { shown: true, pinned: true, pointerOver: true } ), false );
 } );

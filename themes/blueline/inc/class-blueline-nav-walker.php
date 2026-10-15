@@ -276,8 +276,15 @@ class Blueline_Nav_Walker extends Walker_Nav_Menu {
 		}
 
 		// A new tab is said, not only done (assets/src/js/new-tab-links.js
-		// skips a link that already carries this hint).
-		if ( '_blank' === strtolower( (string) ( $link_attrs['target'] ?? '' ) ) ) {
+		// skips a link that already carries this hint). Not when something
+		// else says it: Page Links To names its "#new_tab" links with an
+		// aria-label built from their text, hint included, and a label that
+		// mentions the new tab already would only repeat it.
+		if (
+			'_blank' === strtolower( (string) ( $link_attrs['target'] ?? '' ) )
+			&& false === strpos( (string) ( $link_attrs['href'] ?? '' ), '#new_tab' )
+			&& ! preg_match( '/new (tab|window)/i', wp_strip_all_tags( (string) $title ) )
+		) {
 			$label .= '<span class="screen-reader-text bl-new-tab-hint"> ' . esc_html__( '(opens in a new tab)', 'blueline' ) . '</span>';
 		}
 

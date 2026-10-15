@@ -830,7 +830,7 @@ button.bl-btn {
  * page instead (WCAG 1.4.10); the spacer still reserves its resting height,
  * so nothing moves, and anchored content no longer needs clearing beneath it.
  */
-@media (max-height: 420px) {
+@media (max-height: 419.98px) {
 
 	.bl-header {
 		position: absolute;

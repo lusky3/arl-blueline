@@ -135,8 +135,12 @@ Update URI: https://github.com/lusky3/arl-blueline
 	 */
 	--bl-team-flyout-width: 34px;
 
-	/* Prose reading column (blocks.css): rem, so every text block shares one box width. */
-	--bl-measure: 44rem;
+	/*
+	 * Prose reading column (blocks.css): rem, so every text block shares one
+	 * box width. 38rem is about 76 characters of body text a line; 44rem ran
+	 * FAQ answers, rules and posts to about 88-91.
+	 */
+	--bl-measure: 38rem;
 
 	/*
 	 * Stacking order. Header/nav is the only part of the design system with

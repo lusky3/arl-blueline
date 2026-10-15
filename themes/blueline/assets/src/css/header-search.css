@@ -145,6 +145,37 @@
 		width: 18px;
 		height: 18px;
 	}
+
+	/*
+	 * Even small, the button and its gap cost the menu 32px, which put a
+	 * signed-in member's menu (My ARL Account and Log Out) on two rows at
+	 * 1000-1028 and 1128-1156px. The menu gives that width back: tighter
+	 * gaps between items, and the active item's chip bleeds 4px less past
+	 * its label, so it sits as far from its neighbours as before.
+	 */
+	.bl-header__inner:has(.bl-search-toggle:not([hidden])) .bl-nav__menu > .bl-nav__item > .bl-nav__link .bl-skew {
+		padding-inline: var(--bl-space-2) calc(var(--bl-space-2) + 0.18em);
+		margin-inline: calc(var(--bl-space-2) * -1) calc((var(--bl-space-2) + 0.18em) * -1);
+	}
+
+	.bl-header__inner:has(.bl-search-toggle:not([hidden])) .bl-nav__menu > .bl-nav__item > .bl-nav__link[aria-current="page"] + .bl-nav__toggle-sub {
+		margin-inline-start: calc(var(--bl-space-2) + 0.18em);
+	}
+
+	.bl-header__inner:has(.bl-search-toggle:not([hidden])) .bl-nav__menu > .bl-nav__item:last-child:has(> .bl-nav__link[aria-current="page"]) {
+		margin-inline-end: calc(var(--bl-space-2) + 0.18em);
+	}
+
+	.bl-header__inner:has(.bl-search-toggle:not([hidden])) .bl-nav__menu {
+		gap: var(--bl-space-3);
+	}
+}
+
+@media (min-width: 960px) and (max-width: 1099.98px) {
+
+	.bl-header__inner:has(.bl-search-toggle:not([hidden])) .bl-nav__menu {
+		gap: var(--bl-space-2);
+	}
 }
 
 @media (max-width: 959.98px) {

@@ -11,7 +11,8 @@
  * Theme-rendered links (the primary menu, sponsor slots) already print the
  * hint server-side with the same class, so they work without JavaScript; this
  * covers everything else, including the sponsor slots SportsPress loads over
- * AJAX after the page, and links Page Links To retargets at runtime.
+ * AJAX after the page, and links Page Links To retargets at runtime (once
+ * it has named them itself, its label already says so).
  */
 
 const HINT_CLASS = 'bl-new-tab-hint';
@@ -19,6 +20,11 @@ const HINT_TEXT = '(opens in a new tab)';
 
 // Already says so in its own words, in a language the hint would only repeat.
 const SAYS_SO = /new (tab|window)/i;
+
+// Page Links To's marker. On DOMContentLoaded the plugin removes it and names
+// the link with an aria-label built from the link's text, so a hint added
+// before then would be read twice.
+const PAGE_LINKS_TO_MARKER = '#new_tab';
 
 /**
  * Add the hint to one link, if it opens a new tab and does not say so yet.
@@ -33,6 +39,16 @@ function hintLink( link, doc ) {
 	}
 
 	if ( link.querySelector( `.${ HINT_CLASS }` ) ) {
+		return false;
+	}
+
+	// Left to the plugin until the page has loaded; a marker still there
+	// after that means the plugin is not active.
+	if (
+		doc.readyState &&
+		'complete' !== doc.readyState &&
+		( link.getAttribute( 'href' ) || '' ).includes( PAGE_LINKS_TO_MARKER )
+	) {
 		return false;
 	}
 
