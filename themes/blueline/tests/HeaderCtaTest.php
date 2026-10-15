@@ -134,12 +134,12 @@ final class HeaderCtaTest extends TestCase {
 	}
 
 	/**
-	 * Every non-registration_open state must show the Schedule CTA, with
+	 * In season, preseason and playoffs show the Schedule CTA, with
 	 * is_schedule true and is_register false -- the flags
 	 * blueline_site_header() reads to drive the nav walker's de-dup.
 	 */
-	public function test_offseason_shows_schedule_cta_with_correct_flags(): void {
-		add_filter( 'blueline_season_state', static fn() => 'offseason' );
+	public function test_in_season_shows_schedule_cta_with_correct_flags(): void {
+		add_filter( 'blueline_season_state', static fn() => 'in_season' );
 
 		$cta = blueline_header_cta();
 
@@ -150,11 +150,29 @@ final class HeaderCtaTest extends TestCase {
 	}
 
 	/**
-	 * The is_register and is_schedule flags are always mutually exclusive -- exactly
-	 * one CTA is ever showing.
+	 * Between seasons there are no games to schedule: the header makes the
+	 * off-season hero's own offer (its label setting, the contact page),
+	 * and neither de-dup flag is set, so the menu keeps every item.
+	 */
+	public function test_offseason_shows_the_mailing_list_offer(): void {
+		add_filter( 'blueline_season_state', static fn() => 'offseason' );
+
+		$cta = blueline_header_cta();
+
+		$this->assertSame( blueline_settings( 'hero_offseason_cta' ), $cta['label'] );
+		$this->assertSame( 'Join the mailing list', $cta['label'] );
+		$this->assertSame( blueline_contact_url(), $cta['url'] );
+		$this->assertSame( 'bl-btn--secondary', $cta['class'] );
+		$this->assertFalse( $cta['is_register'] );
+		$this->assertFalse( $cta['is_schedule'] );
+	}
+
+	/**
+	 * The is_register and is_schedule flags are mutually exclusive in every
+	 * state that has games -- exactly one of those two CTAs is showing.
 	 */
 	public function test_is_register_and_is_schedule_are_mutually_exclusive(): void {
-		foreach ( array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' ) as $state ) {
+		foreach ( array( 'registration_open', 'preseason', 'in_season', 'playoffs' ) as $state ) {
 			add_filter( 'blueline_season_state', static fn() => $state );
 
 			$cta = blueline_header_cta();

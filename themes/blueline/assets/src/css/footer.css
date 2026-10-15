@@ -359,3 +359,21 @@
 	color: var(--bl-ink);
 	font-weight: 600;
 }
+
+/*
+ * Touch screens: the footer's stacked text links were 20px tall with an 8px
+ * gap -- easy to hit the one above or below. Each link's own box grows to a
+ * 44px row instead (the list's gap folds into it), so the column only grows
+ * by the difference.
+ */
+@media (pointer: coarse) {
+
+	.bl-footer__column li {
+		margin-block-end: 0;
+	}
+
+	.bl-footer__column li > a {
+		display: inline-block;
+		padding-block: var(--bl-space-3);
+	}
+}

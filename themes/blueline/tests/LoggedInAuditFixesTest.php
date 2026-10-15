@@ -55,6 +55,34 @@ final class LoggedInAuditFixesTest extends TestCase {
 	}
 
 	/**
+	 * Log out is the last item, after the billing dropdown and set apart by its
+	 * own class, never between the pills; the dropdown's summary carries a
+	 * chevron that marks it as one.
+	 */
+	#[RunInSeparateProcess]
+	public function test_log_out_comes_last_and_the_dropdown_has_an_indicator(): void {
+		$html = $this->render_account_nav( 'dashboard' );
+
+		$this->assertSame( 1, substr_count( $html, '/account/customer-logout/' ) );
+		$this->assertGreaterThan( strpos( $html, '</details>' ), strpos( $html, '/account/customer-logout/' ) );
+		$this->assertMatchesRegularExpression( '#<li class="[^"]*\bbl-account-nav__logout\b[^"]*">\s*<a href="https://example.test/account/customer-logout/">\s*Log out\s*</a>\s*</li>\s*</ul>#', $html );
+		$this->assertMatchesRegularExpression( '#<summary>\s*Account &amp; Billing\s*<svg class="bl-account-nav__chevron"[^>]*aria-hidden="true"#', $html );
+	}
+
+	/**
+	 * A page's heading uses the label of the tab that leads to it, whatever
+	 * the tab was renamed to; an endpoint with no tab keeps its own title.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_page_heading_matches_its_tab_label(): void {
+		require_once __DIR__ . '/fixtures/account-nav-stubs.php';
+
+		$this->assertSame( 'Orders', blueline_account_endpoint_title_from_nav( 'My Registrations', 'orders' ) );
+		$this->assertSame( 'Refund requests', blueline_account_endpoint_title_from_nav( 'Refunds', 'refund-requests' ) );
+		$this->assertSame( 'View order', blueline_account_endpoint_title_from_nav( 'View order', 'view-order' ) );
+	}
+
+	/**
 	 * On a billing page the collapsed dropdown still says it holds the current page.
 	 */
 	#[RunInSeparateProcess]

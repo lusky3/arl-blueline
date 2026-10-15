@@ -268,6 +268,11 @@ table.bl-table-self-scroll {
 	margin-inline: auto;
 	padding-inline: var(--bl-space-5);
 
+	/* SportsPress's own sponsors stylesheet pads this 80px top and bottom,
+	   on top of the band's own padding above: 157px of empty band before
+	   the heading at every width. The band's padding is the spacing. */
+	padding-block: 0;
+
 	/* Finding 6: every other heading on the site is left-aligned;
 	   .sp-sponsors's own base rule (above) centres itself and everything
 	   that inherits from it, which is correct for the SMALL header slot but
@@ -381,6 +386,19 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	aspect-ratio: auto;
 }
 
+/*
+ * On a phone the band sits far below the fold, so its load-time shift
+ * costs nothing a reader sees; reserving one logo's height (the 96px cap
+ * above, at the same 2:1) instead of 128px trims the blank box shown
+ * while the logos load, or left over when fewer arrive.
+ */
+@media (max-width: 600px) {
+
+	.sp-footer-sponsors .sp-sponsors-loader:empty {
+		max-width: 192px;
+	}
+}
+
 /* ---- Countdown widget (finding 4) ----
  *
  * sidebar-1 renders on all seven sportspress/*.php templates, and the
@@ -434,6 +452,16 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 
 .sp-tab-menu-item-active a:focus-visible {
 	box-shadow: var(--bl-focus-ring), inset 0 -3px 0 var(--bl-steel);
+}
+
+/* Touch screens: the Box Score / Past Meetings tabs were 27px tall. */
+@media (pointer: coarse) {
+
+	.sp-tab-menu-item a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
 }
 
 /* C-23: both crests flush with the card edges, the same gap to the text. */

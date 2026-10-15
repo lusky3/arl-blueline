@@ -473,7 +473,7 @@ function blueline_homepage_next_event_line( int $event_id ): string {
 		return '';
 	}
 
-	$date = get_the_date( 'D, M j \a\t g:ia', $event_id );
+	$date = blueline_event_when( $event_id );
 
 	$venue_label = blueline_sp_event_venue_label( $event_id );
 
@@ -638,7 +638,7 @@ function blueline_homepage_hero_in_season_content( array $state_data, ?int $now 
 		$headline_html = blueline_hero_headline(
 			/* translators: %s: the next game's date, e.g. "Fri, Oct 23". */
 			__( 'Next game: %s', 'blueline' ),
-			get_the_date( 'D, M j', $event_id )
+			blueline_event_date( $event_id )
 		);
 	} else {
 		// The brief's table highlights only {n} ("**{n}** games this week."),
@@ -1154,7 +1154,7 @@ function blueline_homepage_module_next_games() {
 				?>
 				<li class="bl-next-games__item">
 					<span class="bl-next-games__date">
-						<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event ) ); ?>
+						<?php echo esc_html( blueline_event_when( $event ) ); ?>
 					</span>
 					<?php if ( $event_permalink ) : ?>
 						<a class="bl-next-games__title bl-next-games__title--link" href="<?php echo esc_url( $event_permalink ); ?>"><?php echo esc_html( get_the_title( $event ) ); ?></a>
@@ -1702,8 +1702,59 @@ function blueline_homepage_module_new_here() {
 		blueline_homepage_new_here_qa_slot( 'bl-homepage-new-here-q3', 'blueline_homepage_new_here_q3_default' );
 		?>
 	</dl>
+	<?php $cta = blueline_homepage_new_here_cta(); ?>
+	<p class="bl-new-here__cta">
+		<a class="bl-btn bl-btn--<?php echo esc_attr( $cta['variant'] ); ?>" href="<?php echo esc_url( $cta['url'] ); ?>">
+			<span class="bl-skew"><span><?php echo esc_html( $cta['label'] ); ?></span></span>
+		</a>
+	</p>
 	<?php
 	blueline_homepage_module_end();
+}
+
+/**
+ * The "Never played? Perfect." module's closing button: the one step a
+ * newcomer can take today. That module is where a nervous first-timer decides,
+ * and it used to end on a link to more reading. Registration while it is open
+ * (the same live check as the header's Register button), the waitlist while
+ * only that is on offer, otherwise the off-season hero's mailing-list offer.
+ *
+ * @param bool|null $register_open Whether a paid registration is on offer;
+ *                                 read live when null.
+ * @param bool|null $waitlist_open Whether a $0 waitlist is on offer; read
+ *                                 from the season state when null.
+ * @return array{label: string, url: string, variant: string}
+ */
+function blueline_homepage_new_here_cta( ?bool $register_open = null, ?bool $waitlist_open = null ): array {
+	if ( null === $register_open ) {
+		$register_open = blueline_header_cta()['is_register'];
+	}
+
+	if ( $register_open ) {
+		return array(
+			'label'   => __( 'Register now', 'blueline' ),
+			'url'     => blueline_resolve_link( 'page_register' ),
+			'variant' => 'primary',
+		);
+	}
+
+	if ( null === $waitlist_open ) {
+		$waitlist_open = ! empty( blueline_season_state_data()['is_waitlist_open'] );
+	}
+
+	if ( $waitlist_open ) {
+		return array(
+			'label'   => __( 'Join the waitlist', 'blueline' ),
+			'url'     => blueline_resolve_link( 'page_register' ),
+			'variant' => 'primary',
+		);
+	}
+
+	return array(
+		'label'   => blueline_settings( 'hero_offseason_cta' ),
+		'url'     => blueline_contact_url(),
+		'variant' => 'secondary',
+	);
 }
 
 /**

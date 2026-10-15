@@ -173,6 +173,38 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	display: none;
 }
 
+/* The dropdown's indicator: the same chevron as the site menu's submenus. */
+.bl-account-nav__chevron {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-inline-start: var(--bl-space-1);
+	vertical-align: middle;
+}
+
+.bl-motion-ok .bl-account-nav__chevron {
+	transition: transform 0.15s ease;
+}
+
+.bl-account-nav__billing[open] .bl-account-nav__chevron {
+	transform: rotate(180deg);
+}
+
+/*
+ * Log out: last, pushed to the end of its row and set off by a rule, as a
+ * quiet link rather than one more tab.
+ */
+.bl-account-nav__pills .bl-account-nav__logout {
+	margin-inline-start: auto;
+	padding-inline-start: var(--bl-space-2);
+	border-inline-start: 1px solid var(--bl-content-border);
+}
+
+.bl-account-nav__pills .bl-account-nav__logout a {
+	font-size: var(--bl-text-sm);
+	text-decoration: underline;
+}
+
 .bl-account-nav__billing summary:hover,
 .bl-account-nav__billing summary:focus-visible {
 	border-bottom-color: var(--bl-content-border-strong);
@@ -353,7 +385,9 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--bl-space-5);
-		align-items: start;
+
+		/* Side-by-side cards share one height, rather than one ending short. */
+		align-items: stretch;
 		margin-block-end: var(--bl-space-5);
 	}
 
@@ -503,7 +537,9 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 
 .bl-account-calendar__label {
 
-	/* Never reordered: the JS only moves the buttons, after this label. */
+	/* Never reordered: the JS only moves the buttons, after this label. Its
+	   own row, so the two buttons wrap together, never one alone. */
+	flex-basis: 100%;
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
@@ -811,6 +847,7 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 }
 
 .bl-player-profile__photo-edit {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -821,6 +858,14 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	color: var(--bl-ink);
 	border: 2px solid var(--bl-content-surface);
 	cursor: pointer;
+}
+
+/* The badge stays 28px over the photo's corner; its hit area is 44px. */
+.bl-player-profile__photo-edit::before {
+	content: "";
+	position: absolute;
+	inset: -10px;
+	border-radius: 50%;
 }
 
 .bl-player-profile__photo-edit:hover,

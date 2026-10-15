@@ -22,23 +22,7 @@ get_header();
 				<?php esc_html_e( 'We couldn’t find the page you were looking for. Here are a few places to start instead.', 'blueline' ); ?>
 			</p>
 
-			<ul class="bl-empty-state__links">
-				<li>
-					<a class="bl-btn bl-btn--secondary" href="<?php echo esc_url( blueline_resolve_link( 'page_schedule' ) ); ?>">
-						<span class="bl-skew"><span><?php esc_html_e( 'Schedule', 'blueline' ); ?></span></span>
-					</a>
-				</li>
-				<li>
-					<a class="bl-btn bl-btn--secondary" href="<?php echo esc_url( blueline_resolve_link( 'page_standings' ) ); ?>">
-						<span class="bl-skew"><span><?php esc_html_e( 'Standings', 'blueline' ); ?></span></span>
-					</a>
-				</li>
-				<li>
-					<a class="bl-btn bl-btn--primary" href="<?php echo esc_url( blueline_resolve_link( 'page_register' ) ); ?>">
-						<span class="bl-skew"><span><?php esc_html_e( 'Register to Play', 'blueline' ); ?></span></span>
-					</a>
-				</li>
-			</ul>
+			<?php blueline_empty_state_links(); ?>
 
 			<?php get_search_form(); ?>
 		</section>

@@ -64,3 +64,91 @@
 	font-display: swap;
 	src: url(../../fonts/barlow-condensed-800italic.woff2) format("woff2");
 }
+
+/*
+ * Metric-matched fallbacks: a local face scaled to the webfont's average
+ * advance width and given its vertical metrics, listed right after the
+ * webfont in --bl-font-body/--bl-font-display (style.css). Text set in the
+ * fallback while the webfont downloads then wraps on the same lines, so
+ * the swap no longer reflows the page on a slow connection.
+ *
+ * Numbers: size-adjust is the ratio of the two faces' average advance
+ * width over this site's own FAQ copy (headings uppercased, as displayed);
+ * the overrides are the webfont's hhea ascent/descent/line gap divided by
+ * that ratio -- the same arithmetic Capsize and Next.js use. Measured
+ * against Liberation Sans / Liberation Sans Narrow, which share Arial's
+ * and Arial Narrow's advance widths and vertical metrics by design. Each
+ * face uses the weight the theme sets most in its range: Inter 400, the
+ * midpoint of Inter 600 and 700, Barlow 800 italic (headings), Barlow 700
+ * upright.
+ *
+ * Arial is on Windows, macOS and iOS; Arial Narrow on Windows and macOS.
+ * Where a local face is missing (Android, Linux) the stack falls through
+ * to the system font unadjusted, exactly as before.
+ */
+@font-face {
+	font-family: "Inter Fallback";
+	font-style: normal;
+	font-weight: 100 500;
+	src: local("Arial"), local("ArialMT");
+	size-adjust: 106.9%;
+	ascent-override: 90.63%;
+	descent-override: 22.57%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Inter Fallback";
+	font-style: normal;
+	font-weight: 600 900;
+	src: local("Arial Bold"), local("Arial-BoldMT");
+	size-adjust: 101.7%;
+	ascent-override: 95.27%;
+	descent-override: 23.73%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Barlow Condensed Fallback";
+	font-style: italic;
+	font-weight: 600 900;
+	src: local("Arial Narrow Bold Italic"), local("ArialNarrow-BoldItalic");
+	size-adjust: 82.76%;
+	ascent-override: 120.83%;
+	descent-override: 24.17%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Barlow Condensed Fallback";
+	font-style: normal;
+	font-weight: 600 900;
+	src: local("Arial Narrow Bold"), local("ArialNarrow-Bold");
+	size-adjust: 83.56%;
+	ascent-override: 119.67%;
+	descent-override: 23.93%;
+	line-gap-override: 0%;
+}
+
+/* iOS has Arial but not Arial Narrow: a narrower-scaled Arial stands in. */
+@font-face {
+	font-family: "Barlow Condensed Fallback Arial";
+	font-style: italic;
+	font-weight: 600 900;
+	src: local("Arial Bold Italic"), local("Arial-BoldItalicMT");
+	size-adjust: 67.86%;
+	ascent-override: 147.37%;
+	descent-override: 29.47%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Barlow Condensed Fallback Arial";
+	font-style: normal;
+	font-weight: 600 900;
+	src: local("Arial Bold"), local("Arial-BoldMT");
+	size-adjust: 68.5%;
+	ascent-override: 146%;
+	descent-override: 29.2%;
+	line-gap-override: 0%;
+}

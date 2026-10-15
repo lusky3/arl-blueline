@@ -48,15 +48,6 @@ final class EventHeroStatusTest extends TestCase {
 	}
 
 	/**
-	 * The hero date carries the year only when it is not this year.
-	 */
-	public function test_hero_date_format_adds_the_year_for_other_years(): void {
-		$this->assertSame( 'D, M j', blueline_sp_event_hero_date_format( 2026, 2026 ) );
-		$this->assertSame( 'D, M j, Y', blueline_sp_event_hero_date_format( 2020, 2026 ) );
-		$this->assertSame( 'D, M j, Y', blueline_sp_event_hero_date_format( 2027, 2026 ) );
-	}
-
-	/**
 	 * A recorded score shows for played, postponed and cancelled games, never for a game still to come.
 	 */
 	public function test_scores_show_for_played_postponed_and_cancelled_only(): void {

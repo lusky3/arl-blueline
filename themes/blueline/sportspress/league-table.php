@@ -153,12 +153,19 @@ foreach ( $data as $bl_probe_row ) {
 	}
 }
 
+$bl_is_playoffs     = (bool) $title && false !== stripos( (string) $title, 'playoff' );
 $bl_zero_games_note = blueline_sp_zero_games_note(
 	$bl_has_progress_signal,
 	$bl_progress_figures,
 	! empty( $data ),
-	(bool) $title && false !== stripos( (string) $title, 'playoff' )
+	$bl_is_playoffs
 );
+
+// A playoff round nobody has played yet is a table of zeros with every team
+// at position 0, which reads as broken data: it shows the empty state alone.
+// A regular season that has not started keeps its table, which still lists
+// the division's teams.
+$bl_playoffs_pending = '' !== $bl_zero_games_note && $bl_is_playoffs;
 
 // The viewer's own current team(s) -- possibly more than one, since a
 // player can be rostered onto several current teams across divisions
@@ -346,21 +353,27 @@ $output .= '</tbody>';
 		printf( '<h%1$d class="sp-table-caption" id="%3$s">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ), esc_attr( $bl_heading_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
 	<?php endif; ?>
-	<?php if ( $bl_zero_games_note ) : ?>
+	<?php if ( $bl_playoffs_pending ) : ?>
+		<div class="bl-sp-empty">
+			<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>
+			<p class="bl-sp-empty__text"><?php echo esc_html( $bl_zero_games_note ); ?></p>
+		</div>
+	<?php else : ?>
+		<?php if ( $bl_zero_games_note ) : ?>
 		<p class="bl-sp-table-empty-note"><?php echo esc_html( $bl_zero_games_note ); ?></p>
 	<?php endif; ?>
-	<?php if ( $bl_show_toggle ) : ?>
-		<?php
-		/*
-		 * The disclosure's INITIAL state, from the panel's
-		 * `standings_extra_stats_default` setting (Appearance tab). Both
-		 * states stay reachable by the reader regardless -- the extra
-		 * columns are rendered either way and the label below toggles them
-		 * with no JavaScript -- which is exactly why that setting is a
-		 * plain `bool` and not one of inc/settings/sections.php's presence
-		 * toggles; see blueline_settings_schema()'s own comment on the key.
-		 */
-		?>
+		<?php if ( $bl_show_toggle ) : ?>
+			<?php
+			/*
+			* The disclosure's INITIAL state, from the panel's
+			* `standings_extra_stats_default` setting (Appearance tab). Both
+			* states stay reachable by the reader regardless -- the extra
+			* columns are rendered either way and the label below toggles them
+			* with no JavaScript -- which is exactly why that setting is a
+			* plain `bool` and not one of inc/settings/sections.php's presence
+			* toggles; see blueline_settings_schema()'s own comment on the key.
+			*/
+			?>
 		<input type="checkbox" id="bl-sp-full-<?php echo esc_attr( $identifier ); ?>" class="bl-sp-standings-toggle-input"<?php checked( blueline_settings( 'standings_extra_stats_default' ) ); ?>>
 		<label class="bl-sp-standings-toggle-label" for="bl-sp-full-<?php echo esc_attr( $identifier ); ?>">
 			<?php esc_html_e( 'Show full stats', 'blueline' ); ?>
@@ -374,10 +387,11 @@ $output .= '</tbody>';
 			<?php echo wp_kses( $output, $bl_kses_allowed ); ?>
 		</table>
 	</div>
-	<?php if ( $bl_has_record ) : ?>
+		<?php if ( $bl_has_record ) : ?>
 		<p class="bl-sp-standings-legend" id="<?php echo esc_attr( $bl_legend_id ); ?>"><?php echo esc_html( blueline_sp_standings_record_legend( $bl_record_keys ) ); ?></p>
 	<?php endif; ?>
-	<?php if ( $show_full_table_link ) : ?>
+		<?php if ( $show_full_table_link ) : ?>
 		<div class="sp-league-table-link sp-view-all-link"><a href="<?php echo esc_url( get_permalink( $id ) ); ?>"><?php esc_html_e( 'View full table', 'sportspress' ); ?></a></div>
+	<?php endif; ?>
 	<?php endif; ?>
 </div>

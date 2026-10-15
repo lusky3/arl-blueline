@@ -27,3 +27,4 @@ require_once __DIR__ . '/sportspress/heroes.php';
 require_once __DIR__ . '/sportspress/venues.php';
 require_once __DIR__ . '/sportspress/default-team-logo.php';
 require_once __DIR__ . '/sportspress/player-list.php';
+require_once __DIR__ . '/sportspress/player-stats.php';

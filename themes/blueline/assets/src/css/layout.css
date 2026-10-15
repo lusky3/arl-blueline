@@ -29,12 +29,18 @@
  * cascade runs, so var() isn't usable inside one -- the 1800px/1799.98px
  * pair below has to stay two literal, matching numbers instead.)
  *
- * NARROWER than 1800px -- side-by-side (original approach): the sidebar
- * reserves a real 300px grid track, and .bl-container widens to 1400px
- * to give the content column back what that track took from it. There
- * simply is not enough spare width below the breakpoint for a floating
- * panel to sit clear of the content, so this is the same grid-plus-
- * sticky layout the theme always used here.
+ * NARROWER than 1800px -- side-by-side: the sidebar is a real 300px grid
+ * track INSIDE the shared 1200px .bl-container, so the content column
+ * starts on the same left edge as the logo and the footer, and the rail
+ * ends on the header's right edge. (It used to widen the container to
+ * 1400px and push the rail further out with a translate, which put the
+ * page heading 90px left of the logo at 1440px and the rail past the
+ * header's edge -- one page type's grid jumping away from every other.)
+ * There simply is not enough spare width below the breakpoint for a
+ * floating panel to sit clear of the content, so this is the same
+ * grid-plus-sticky layout the theme always used here. The gap is one step
+ * smaller than a no-sidebar layout's because the rail carries its own
+ * 20px inner padding (below), which already reads as part of the gutter.
  *
  * AT OR ABOVE 1800px -- edge-to-edge (per explicit request): the content
  * column stops reserving anything for the sidebar at all --
@@ -67,10 +73,7 @@
 	.bl-content-layout--has-sidebar {
 		grid-template-columns: minmax(0, 1fr) 300px;
 		align-items: start;
-	}
-
-	.bl-container:has(> .bl-content-layout--has-sidebar) {
-		max-width: 1400px;
+		gap: var(--bl-space-6);
 	}
 
 	/* The two-column layout's rail only; WooCommerce prints its
@@ -81,10 +84,6 @@
 		max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - var(--bl-space-8));
 		overflow-y: auto;
 		width: 300px;
-
-		/* 100vw includes a classic scrollbar; the 1.25rem
-		   allowance keeps the rail inside the viewport. */
-		translate: calc(max(0px, (100vw - 1400px - 1.25rem) / 2) + var(--bl-space-5)) 0;
 
 		/*
 		 * Reported live: each widget card's own box-shadow (added for the
@@ -117,9 +116,7 @@
 		 * budget, immaterial against the generous headroom max-height
 		 * already leaves for a couple of small widgets. padding-inline-
 		 * start is new (this element had none); padding-inline-end already
-		 * comfortably exceeds the 20px now needed, so it's left as-is
-		 * rather than risking the translate bleed math above, which was
-		 * tuned against its current value.
+		 * comfortably exceeds the 20px now needed, so it's left as-is.
 		 *
 		 * 30px, not 14px/26px: the scroll-cue badges below (.bl-sidebar__
 		 * scroll-cue) need more room than the shadow alone did -- each is a
@@ -197,39 +194,21 @@
  * position puts a line of text in its vertically-centered band) gets its
  * leading character(s) clipped. Confirmed live, 2026-09-04 UX audit:
  * "This page" rendered as "his page", "Final score coming soon" as
- * "inal score coming soon". Scoped to the primary content column, not
- * .bl-container itself, so header/footer chrome -- which never showed
- * this symptom -- doesn't also shift.
+ * "inal score coming soon".
  *
- * .bl-hero__inner and .bl-module__inner (added later, 2026 homepage
- * critique): the homepage template never used .bl-content-layout__primary
- * at all -- <main class="bl-main bl-main--homepage"> wraps the hero and
- * every module directly -- so this fix never reached it, and the exact
- * same clipping reappeared there: "tryouts" as "ryouts" in the "Never
- * played? Perfect." reassurance copy, "Player" as "layer" in the hero's
- * own price line. Both wrappers already carry .bl-container alongside
- * their own class (`<div class="bl-container bl-hero__inner">`, `<div
- * class="bl-container bl-module__inner">`), the same two-class shape
- * .bl-content-layout__primary itself is not -- listed here instead of
- * widening the selector to bare .bl-container, for the identical
- * header/footer-chrome reason above.
+ * Every band takes the same inset -- header, page content, hero, modules,
+ * the footer sponsor band and the footer -- so they keep sharing one left
+ * edge. Insetting only the content column left the body starting 10px
+ * further in than the logo, the sponsors and the footer on every phone.
+ * Only while the flyout is actually on the page: the footer directory
+ * position has no tab to clear.
  */
 @media (max-width: 1264px) {
 
-	/* FE-02: also no-primary-column templates (WC product, 404, full-width). */
-	.bl-main > .bl-container:not(:has(> .bl-content-layout)),
-	.bl-hero__inner,
-	.bl-module__inner,
-	.bl-sp-hero__inner,
-	.bl-container--wc-sidebar {
+	body:has(.bl-team-flyout) .bl-container,
+	body:has(.bl-team-flyout) .sp-footer-sponsors .sp-sponsors {
 		padding-inline-start: var(--bl-team-flyout-width);
 	}
-
-	/* Already inside the container's own gutter: top it up to the same edge. */
-	.bl-content-layout__primary {
-		padding-inline-start: calc(var(--bl-team-flyout-width) - var(--bl-space-5));
-	}
-
 }
 
 /*
@@ -238,55 +217,8 @@
  */
 @media (min-width: 600px) and (max-width: 1264px) {
 
-	.bl-empty-state {
+	body:has(.bl-team-flyout) .bl-empty-state {
 		translate: calc((var(--bl-space-5) - var(--bl-team-flyout-width)) / 2) 0;
-	}
-}
-
-/* The stacked sidebar starts on the same edge as the article above it. */
-@media (max-width: 959.98px) {
-
-	.bl-content-layout > .bl-sidebar {
-		padding-inline-start: calc(var(--bl-team-flyout-width) - var(--bl-space-5));
-	}
-}
-
-/*
- * Reported live: the same clipping ("Oilvers v Lumberjacks" starting
- * mid-word) on a page WITH a sidebar, well above the 1264px threshold
- * above. Root cause: a has-sidebar page widens .bl-container to 1400px,
- * not the plain --bl-container (1200px) the math above was solved
- * against (this file's own sidebar-breakpoint comment, further up, has
- * the "give the content column back what the sidebar's grid track took
- * from it" reasoning) -- so its auto-margin runs out at a noticeably
- * wider viewport than a no-sidebar page's does. Confirmed live: clipping
- * recurs up to ~1435px on a has-sidebar page; 1480px matches this file's
- * own convention of a modest safety margin over the exact math rather
- * than sitting at the edge case itself. Scoped to has-sidebar pages and
- * to the same 960px floor as the widened container itself -- below that,
- * .bl-container reverts to its plain max-width and the rule above already
- * covers it unaided.
- */
-@media (min-width: 960px) and (max-width: 1480px) {
-
-	.bl-content-layout--has-sidebar .bl-content-layout__primary {
-		padding-inline-start: calc(var(--bl-team-flyout-width) - var(--bl-space-5));
-	}
-
-	.bl-content-layout--has-sidebar .bl-empty-state {
-		translate: calc((var(--bl-space-5) - var(--bl-team-flyout-width)) / 2) 0;
-	}
-
-	.bl-main--sp:has(.bl-content-layout--has-sidebar) .bl-sp-hero__inner {
-		padding-inline-start: var(--bl-team-flyout-width);
-	}
-}
-
-/* A team/player hero spans the same widened container as its sidebar layout. */
-@media (min-width: 960px) and (max-width: 1799.98px) {
-
-	.bl-main--sp:has(.bl-content-layout--has-sidebar) .bl-sp-hero__inner {
-		max-width: 1400px;
 	}
 }
 
@@ -979,6 +911,19 @@
 .bl-jump-nav__item--sub > a {
 	padding-inline-start: var(--bl-space-5);
 	font-size: var(--bl-text-sm);
+}
+
+/*
+ * Touch screens: the rail's rows were 30px tall with no gap between them,
+ * so a tap meant for one question often opened the next.
+ */
+@media (pointer: coarse) {
+
+	.bl-jump-nav__list a {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+	}
 }
 
 /* Entry chrome (single post/page/entity) */

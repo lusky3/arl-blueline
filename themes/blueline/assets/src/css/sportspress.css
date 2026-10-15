@@ -809,6 +809,9 @@ table.sp-event-venue :is(th, td) {
 	flex: 0 0 auto;
 	border-radius: 50%;
 	overflow: hidden;
+
+	/* A plain disc while the photo loads, or if it never does. */
+	background: var(--bl-surface-sunken);
 }
 
 /* stylelint-disable-next-line no-descending-specificity -- img thumb */
@@ -1379,7 +1382,10 @@ table.sp-event-statistics.sp-data-table {
 	margin-block: var(--bl-space-6);
 }
 
+/* Its own row, so the two buttons share the next one rather than "Google"
+   wrapping alone under the label and its partner. */
 .bl-sp-team-calendar__label {
+	flex-basis: 100%;
 	color: var(--bl-content-text-secondary);
 	font-size: var(--bl-text-sm);
 }
@@ -2690,4 +2696,33 @@ table.sp-event-statistics.sp-data-table {
 
 .bl-sp-team-tip[hidden] {
 	display: none;
+}
+
+/*
+ * Touch screens: links that sat 15-32px tall in dense rows. Table links
+ * fill their row's height instead of their text's; the hero's team names
+ * keep their size and get a taller invisible hit area, since they are
+ * display type inside the matchup heading.
+ */
+@media (pointer: coarse) {
+
+	.sp-view-all-link a,
+	.sp-event-venue th a,
+	.sp-league-table td.data-name > a,
+	.bl-sp-roster__name,
+	.bl-sp-standings-toggle-label {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+
+	.sp-scoreboard__team-link {
+		position: relative;
+	}
+
+	.sp-scoreboard__team-link::after {
+		content: "";
+		position: absolute;
+		inset: -13px -4px;
+	}
 }

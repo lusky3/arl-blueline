@@ -26,7 +26,7 @@ final class ZeroGamesNoteTest extends TestCase {
 	public function test_all_zero_playoff_table_gets_playoffs_copy(): void {
 		$note = blueline_sp_zero_games_note( true, array( 0, 0, 0, 0 ), true, true );
 
-		$this->assertSame( 'Playoffs have not started yet.', $note );
+		$this->assertSame( 'Playoffs start after the regular season.', $note );
 	}
 
 	/**

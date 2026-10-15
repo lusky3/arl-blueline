@@ -27,8 +27,8 @@
 }
 
 /*
- * Prose measure for templates WITHOUT a sidebar: a narrow reading column,
- * centred on wide pages (sidebar pages fill their column instead, below).
+ * Prose measure: a narrow reading column, centred on wide pages without a
+ * sidebar (sidebar pages keep it flush left instead, below).
  * --bl-measure is rem-based, not ch, so every text block gets the SAME box
  * width whatever its own font size, and centred boxes of one width share one
  * left edge (70ch made each heading level start at a different x). The entry
@@ -53,14 +53,14 @@
 }
 
 /*
- * A page with a sidebar has a column the sidebar already sized, so prose fills
- * it flush left on the same edge as the tables and forms around it (owner,
- * twice: a capped or centred column reads as "not using the space" and gave
- * text pages a different heading edge than data pages). The cap above only
- * ever applies on templates without a sidebar.
+ * A page with a sidebar keeps prose flush left, on the same edge as the
+ * tables and forms around it (owner: a centred column gave text pages a
+ * different heading edge than data pages). It keeps the measure's width cap,
+ * though: filling the whole column ran FAQ answers to ~105 characters a line
+ * at desktop widths, well past a comfortable 60-75. Tables, images and other
+ * blocks are not capped, so they still use the full column.
  */
 .bl-content-layout--has-sidebar {
-	--bl-measure: none;
 	--bl-measure-inline: 0;
 }
 

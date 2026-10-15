@@ -126,8 +126,9 @@ function blueline_comments_nav(): void {
  * with the ice fill only while a real registration is open AND its product
  * is purchasable right now, re-checked live rather than trusting a possibly
  * up-to-15-minutes-stale cached state alone -- a Register button must never
- * point at a product that has since sold out or been unpublished. Every
- * other state shows "Schedule" with the ice fill dropped. Mirrors the same
+ * point at a product that has since sold out or been unpublished. The
+ * offseason shows the off-season hero's own mailing-list offer; every other
+ * state shows "Schedule" with the ice fill dropped. Mirrors the same
  * live re-check inc/homepage-modules.php uses for the homepage hero's own
  * Register CTA, for the same reason -- and MUST call the exact same
  * function that hero logic does.
@@ -157,7 +158,8 @@ function blueline_comments_nav(): void {
  * @return array{label: string, url: string, class: string, is_register: bool, is_schedule: bool}
  */
 function blueline_header_cta(): array {
-	$show_register = 'registration_open' === blueline_season_state()
+	$state         = blueline_season_state();
+	$show_register = 'registration_open' === $state
 		&& ! empty( blueline_homepage_registration_offers() );
 
 	if ( $show_register ) {
@@ -166,6 +168,18 @@ function blueline_header_cta(): array {
 			'url'         => blueline_resolve_link( 'page_register' ),
 			'class'       => 'bl-btn--primary',
 			'is_register' => true,
+			'is_schedule' => false,
+		);
+	}
+
+	// Between seasons there are no games, so "Schedule" led to an empty page;
+	// the header makes the same offer the off-season hero does instead.
+	if ( 'offseason' === $state ) {
+		return array(
+			'label'       => blueline_settings( 'hero_offseason_cta' ),
+			'url'         => blueline_contact_url(),
+			'class'       => 'bl-btn--secondary',
+			'is_register' => false,
 			'is_schedule' => false,
 		);
 	}
@@ -286,7 +300,8 @@ add_filter( 'wp_nav_menu_objects', 'blueline_utility_nav_auth_state', 10, 2 );
  * (general site navigation -- Home, Standings, Register, etc., NOT an
  * account-links menu the way 'utility' is) ALSO had an admin-added "Log
  * Out" item shown unconditionally. 'primary' gets the simpler half of this
- * fix only: the dead logout link is dropped, but nothing is appended in
+ * fix (plus the account item reading "Log In", below): the dead logout link
+ * is dropped, but nothing is appended in
  * its place -- injecting a "Log In" item into general site navigation
  * doesn't fit its purpose the way it fits 'utility', which is already the
  * one dedicated home for account-state-aware links. A logged-out visitor
@@ -336,15 +351,28 @@ function blueline_utility_nav_auth_state( $items, $args ) {
 		$filtered[] = $item;
 	}
 
-	if ( 'primary' === $location ) {
-		// General site navigation, not an account-links menu -- drop the
-		// dead logout link and stop there; see this function's own
-		// docblock for why nothing is appended here the way 'utility' does.
-		return $filtered;
-	}
-
 	$login_url  = blueline_utility_login_url();
 	$login_path = blueline_utility_normalize_path( $login_url );
+
+	if ( 'primary' === $location ) {
+		// General site navigation, not an account-links menu: nothing is
+		// appended here the way 'utility' does (see this function's own
+		// docblock). The item that leads to the account page ("My ARL
+		// Account") shows a logged-out visitor a login form, so it says
+		// "Log In" -- keyed on where it points, not on its title, so the
+		// owner's menu content stays as written. A copy is relabelled, so a
+		// second render of the same menu objects is not affected.
+		foreach ( $filtered as $index => $item ) {
+			$url = isset( $item->url ) ? (string) $item->url : '';
+
+			if ( '' !== $login_path && empty( $item->menu_item_parent ) && blueline_utility_normalize_path( $url ) === $login_path ) {
+				$filtered[ $index ]        = clone $item;
+				$filtered[ $index ]->title = __( 'Log In', 'blueline' );
+			}
+		}
+
+		return $filtered;
+	}
 
 	$has_login_link = false;
 
@@ -489,6 +517,10 @@ function blueline_site_header() {
 							'menu_class'     => 'bl-nav__menu',
 							'walker'         => new Blueline_Nav_Walker( $register_duplicate_url, $schedule_duplicate_url ),
 							'fallback_cb'    => false,
+							// The drawer's own search form, as its last row
+							// (blueline_header_search_form(); hidden on desktop,
+							// where the header's search button opens the panel).
+							'items_wrap'     => '<ul id="%1$s" class="%2$s">%3$s' . str_replace( '%', '%%', blueline_nav_search_item() ) . '</ul>',
 						)
 					);
 					?>
@@ -511,6 +543,19 @@ function blueline_site_header() {
 							?>
 						</nav>
 					<?php endif; ?>
+
+					<?php
+					/*
+					 * Desktop search: opens the search panel below the bar
+					 * (assets/src/js/header-search.js). Printed hidden and
+					 * revealed by that script, since without it the button
+					 * could open nothing; the drawer carries its own form.
+					 */
+					?>
+					<button type="button" class="bl-search-toggle" aria-expanded="false" aria-controls="bl-header-search" hidden>
+						<?php blueline_search_icon( 'bl-search-toggle__icon' ); ?>
+						<span class="screen-reader-text"><?php esc_html_e( 'Search', 'blueline' ); ?></span>
+					</button>
 
 					<?php
 					// The header CTA is where the occasion accent's ribbon-fill
@@ -596,6 +641,12 @@ function blueline_site_header() {
 
 		<div class="bl-band" aria-hidden="true"></div>
 		<div class="bl-band--ink" aria-hidden="true"></div>
+
+		<div class="bl-header__search" id="bl-header-search" hidden>
+			<div class="bl-container">
+				<?php blueline_header_search_form(); ?>
+			</div>
+		</div>
 	</header>
 	<?php
 	/*
@@ -949,6 +1000,73 @@ function blueline_entry_meta() {
 }
 
 /**
+ * The search form the header's search panel and the mobile drawer show: the
+ * site's own search form, as a named search landmark.
+ *
+ * @return void
+ */
+function blueline_header_search_form(): void {
+	get_search_form(
+		array(
+			'aria_label' => __( 'Site', 'blueline' ),
+		)
+	);
+}
+
+/**
+ * The drawer's search row, appended to the primary menu's list
+ * (blueline_site_header()). Hidden on desktop by nav.css's search rules.
+ *
+ * @return string HTML.
+ */
+function blueline_nav_search_item(): string {
+	ob_start();
+	?>
+	<li class="bl-nav__item bl-nav__search"><?php blueline_header_search_form(); ?></li>
+	<?php
+	return trim( (string) ob_get_clean() );
+}
+
+/**
+ * A magnifier in the theme's icon style (2px round-capped stroke, like the
+ * nav chevrons), decorative: the control carrying it is named in text.
+ *
+ * @param string $extra_class Class for the <svg>.
+ * @return void
+ */
+function blueline_search_icon( string $extra_class = '' ): void {
+	printf(
+		'<svg class="%s" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+		esc_attr( $extra_class )
+	);
+}
+
+/**
+ * The three places to go next from a dead end -- Schedule, Standings and
+ * Register -- as the 404 page and the no-results and nothing-here empty
+ * states (content-none.php) show them. An empty state ends on a next step,
+ * not on a search box alone.
+ */
+function blueline_empty_state_links(): void {
+	$links = array(
+		array( 'page_schedule', __( 'Schedule', 'blueline' ), 'secondary' ),
+		array( 'page_standings', __( 'Standings', 'blueline' ), 'secondary' ),
+		array( 'page_register', __( 'Register to Play', 'blueline' ), 'primary' ),
+	);
+	?>
+	<ul class="bl-empty-state__links">
+		<?php foreach ( $links as list( $key, $label, $variant ) ) : ?>
+			<li>
+				<a class="bl-btn bl-btn--<?php echo esc_attr( $variant ); ?>" href="<?php echo esc_url( blueline_resolve_link( $key ) ); ?>">
+					<span class="bl-skew"><span><?php echo esc_html( $label ); ?></span></span>
+				</a>
+			</li>
+		<?php endforeach; ?>
+	</ul>
+	<?php
+}
+
+/**
  * Output numbered pagination for an archive/search/blog-index query.
  * Real <a> links (not JS-only) inside a labelled <nav>, per WCAG 2.2 AA.
  */
@@ -969,4 +1087,93 @@ function blueline_pagination() {
 		<?php echo wp_kses_post( $links ); ?>
 	</nav>
 	<?php
+}
+
+/*
+ * One formatter for a game's date, time and score, used by the hero, the
+ * homepage, the next-game widget, My Account and the game teaser. They had
+ * drifted apart: "6:45pm" from a hard-coded format beside the site's own
+ * "6:45 pm", and a teaser for a game three seasons old with no year.
+ */
+
+/**
+ * Date format for a game: "Fri, Oct 16", with the year added once the game
+ * is not in the current year ("Sun, Mar 8, 2024").
+ *
+ * @param int $event_year   Year the game is dated.
+ * @param int $current_year Current year, site time.
+ * @return string Date format.
+ */
+function blueline_event_date_format( int $event_year, int $current_year ): string {
+	return $event_year === $current_year ? 'D, M j' : 'D, M j, Y';
+}
+
+/**
+ * A game's date, e.g. "Fri, Oct 16" (blueline_event_date_format()).
+ *
+ * @param int|WP_Post $event sp_event post or ID.
+ * @return string
+ */
+function blueline_event_date( $event ): string {
+	$format = blueline_event_date_format( (int) get_the_date( 'Y', $event ), (int) current_time( 'Y' ) );
+
+	return (string) get_the_date( $format, $event );
+}
+
+/**
+ * A game's start time in the site's own time format (Settings > General),
+ * e.g. "6:45 pm".
+ *
+ * @param int|WP_Post $event sp_event post or ID.
+ * @return string
+ */
+function blueline_event_time( $event ): string {
+	return (string) get_the_time( (string) get_option( 'time_format', 'g:i a' ), $event );
+}
+
+/**
+ * A date and time joined into one phrase: "Fri, Oct 16 at 6:45 pm", or
+ * "Fri, Oct 16 · Time TBD" when the time is not settled.
+ *
+ * @param string $date Date, as blueline_event_date() gives it.
+ * @param string $time Time, as blueline_event_time() gives it.
+ * @param bool   $tbd  Whether the game's time is still to be decided.
+ * @return string
+ */
+function blueline_event_when_text( string $date, string $time, bool $tbd = false ): string {
+	if ( $tbd || '' === $time ) {
+		/* translators: %s: game date, e.g. "Fri, Oct 16". */
+		return sprintf( __( '%s · Time TBD', 'blueline' ), $date );
+	}
+
+	/* translators: 1: game date, e.g. "Fri, Oct 16", 2: start time, e.g. "6:45 pm". */
+	return sprintf( __( '%1$s at %2$s', 'blueline' ), $date, $time );
+}
+
+/**
+ * A game's date and time as one phrase (blueline_event_when_text()). TBD is
+ * read from the game's own status unless the caller already knows it.
+ *
+ * @param int|WP_Post $event sp_event post or ID.
+ * @param bool|null   $tbd   Whether the time is still to be decided; read from
+ *                           the game when null.
+ * @return string
+ */
+function blueline_event_when( $event, ?bool $tbd = null ): string {
+	if ( null === $tbd ) {
+		$event_id = is_object( $event ) ? (int) $event->ID : (int) $event;
+		$tbd      = blueline_sp_event_time_is_tbd( $event_id );
+	}
+
+	return blueline_event_when_text( blueline_event_date( $event ), $tbd ? '' : blueline_event_time( $event ), $tbd );
+}
+
+/**
+ * Scores joined for display, with an en dash: "3–0".
+ *
+ * @param array<int|string, int|string> $scores Each side's score, in display order.
+ * @return string
+ */
+function blueline_score_line( array $scores ): string {
+	return implode( '–', array_map( 'strval', $scores ) );
 }

@@ -155,3 +155,13 @@
 .page-id-154 .bl-sponsor-card__links a:hover {
 	background: color-mix(in srgb, var(--bl-content-link) 10%, transparent);
 }
+
+/*
+ * The card grid spans the whole container, so the heading and intro sit on
+ * its left edge (and the logo's) rather than centred in the narrow prose
+ * column, where they floated over the middle of the grid -- the same rule
+ * blocks.css applies to every page built around a table or a form.
+ */
+.page-id-154 .bl-entry {
+	--bl-measure-inline: 0;
+}

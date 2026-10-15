@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { markDecorativeImages, WIDGET_SELECTOR } = require( './quotes-llama-alt.js' );
+const {
+	markDecorativeImages,
+	tidyQuoteText,
+	tidyQuotes,
+	WIDGET_SELECTOR,
+} = require( './quotes-llama-alt.js' );
 
 /**
  * Minimal fake img: attributes in a plain object, matching the other
@@ -60,4 +65,79 @@ test( 'markDecorativeImages is null-safe', () => {
 
 test( 'WIDGET_SELECTOR targets the Quotes Llama widget wrapper', () => {
 	assert.equal( WIDGET_SELECTOR, '.widget_widgetquotesllama' );
+} );
+
+test( 'tidyQuoteText drops a wrapping pair of straight or curly quotes', () => {
+	assert.equal( tidyQuoteText( '"Skate hard."' ), 'Skate hard.' );
+	assert.equal( tidyQuoteText( '“Skate hard.”' ), 'Skate hard.' );
+	assert.equal( tidyQuoteText( '  "Skate hard." ' ), 'Skate hard.' );
+} );
+
+test( 'tidyQuoteText curls the marks inside a quote', () => {
+	assert.equal(
+		tidyQuoteText( 'I\'m happiest when the coach says "go".' ),
+		'I’m happiest when the coach says “go”.'
+	);
+} );
+
+test( 'tidyQuoteText leaves a quote that only starts with a quoted word', () => {
+	assert.equal(
+		tidyQuoteText( '"Go" is the only word I need on the bench.' ),
+		'“Go” is the only word I need on the bench.'
+	);
+	assert.equal(
+		tidyQuoteText( '"Go" is what I "need"' ),
+		'“Go” is what I “need”'
+	);
+} );
+
+/**
+ * Fake text node.
+ *
+ * @param {string} value Text.
+ * @return {object} A fake text node.
+ */
+function fakeText( value ) {
+	return { nodeType: 3, nodeValue: value };
+}
+
+/**
+ * Fake container holding quote spans with the given child nodes.
+ *
+ * @param {object[][]} quotes Child nodes of each quote span.
+ * @return {object} A fake widget element.
+ */
+function fakeWidget( quotes ) {
+	return {
+		querySelectorAll( selector ) {
+			assert.equal( selector, '.quotes-llama-widget-next-more' );
+			return quotes.map( ( childNodes ) => ( { childNodes } ) );
+		},
+	};
+}
+
+test( 'tidyQuotes rewrites a plain-text quote in place', () => {
+	const text = fakeText( '"Never played? Perfect."' );
+
+	assert.equal( tidyQuotes( fakeWidget( [ [ text ] ] ) ), 1 );
+	assert.equal( text.nodeValue, 'Never played? Perfect.' );
+} );
+
+test( 'tidyQuotes keeps markup and only trims the outer edges', () => {
+	const head = fakeText( '"Keep your ' );
+	const em = { nodeType: 1, nodeValue: null };
+	const tail = fakeText( ' up, it\'s a game."' );
+
+	tidyQuotes( fakeWidget( [ [ head, em, tail ] ] ) );
+
+	assert.equal( head.nodeValue, 'Keep your ' );
+	assert.equal( tail.nodeValue, ' up, it’s a game.' );
+} );
+
+test( 'tidyQuotes reports nothing changed for an already tidy quote', () => {
+	assert.equal(
+		tidyQuotes( fakeWidget( [ [ fakeText( 'Skate hard.' ) ] ] ) ),
+		0
+	);
+	assert.equal( tidyQuotes( null ), 0 );
 } );

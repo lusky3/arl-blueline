@@ -44,6 +44,27 @@ function blueline_sp_title( $post_id ) {
 }
 
 /**
+ * A team name as a schedule cell shows it: without the "(Retired) " prefix
+ * and the trailing season codes the league adds to a team it has archived.
+ * "(Retired) Woodchester Nissan (Rogues) (W2015-16)" wrapped to five lines in
+ * a phone's schedule column; "Woodchester Nissan (Rogues)" is the name a
+ * reader knows. The team's own page keeps its full title.
+ *
+ * @param string $name Team name, as SportsPress resolved it.
+ * @return string
+ */
+function blueline_sp_table_team_name( string $name ): string {
+	$season = '[A-Z]\d{4}(?:-\d{2,4})?';
+	$short  = preg_replace(
+		array( '/^\s*\(retired\)\s*/i', '/\s*\(' . $season . '(?:\s*,\s*' . $season . ')*\)\s*$/' ),
+		'',
+		$name
+	);
+
+	return '' === trim( (string) $short ) ? $name : (string) $short;
+}
+
+/**
  * Whether SportsPress templates should reserve a sidebar column. Mirrors the
  * is_active_sidebar('sidebar-1') check page.php/archive.php already use,
  * promoted to a named, filterable function because all seven sportspress/
@@ -507,6 +528,52 @@ function blueline_render_roster_stats( int $player_id, ?array $stats = null ) {
 }
 
 /**
+ * Whether a player's photo can be shown at $size: the player has a featured
+ * image and, when the image lives in this site's own uploads folder, the
+ * file for that size is really there.
+ *
+ * Roster rows printed an <img> for every player with a featured image, so a
+ * photo whose file had gone missing (an old import, a regenerated size) drew
+ * the browser's broken-image glyph -- and, because one row had a photo, every
+ * name on the roster shifted right to line up with it. Media stored anywhere
+ * other than the uploads folder (an offload plugin's own paths) is trusted as
+ * is; `blueline_player_photo_available` can overrule the answer either way.
+ *
+ * @param int    $player_id sp_player post ID.
+ * @param string $size      Registered image size the template prints.
+ * @return bool
+ */
+function blueline_player_photo_available( int $player_id, string $size = 'thumbnail' ): bool {
+	$available = false;
+
+	if ( $player_id > 0 && has_post_thumbnail( $player_id ) ) {
+		$available     = true;
+		$attachment_id = (int) get_post_thumbnail_id( $player_id );
+		$file          = $attachment_id ? (string) get_attached_file( $attachment_id ) : '';
+		$uploads       = wp_get_upload_dir();
+		$basedir       = is_array( $uploads ) && ! empty( $uploads['basedir'] ) ? wp_normalize_path( (string) $uploads['basedir'] ) : '';
+
+		if ( '' !== $file && '' !== $basedir && 0 === strpos( wp_normalize_path( $file ), trailingslashit( $basedir ) ) ) {
+			$meta = wp_get_attachment_metadata( $attachment_id );
+			$path = is_array( $meta ) && ! empty( $meta['sizes'][ $size ]['file'] )
+				? dirname( $file ) . '/' . $meta['sizes'][ $size ]['file']
+				: $file;
+
+			$available = file_exists( $path );
+		}
+	}
+
+	/**
+	 * Filters whether a player's photo is shown on rosters and the player page.
+	 *
+	 * @param bool   $available Whether the photo's file was found.
+	 * @param int    $player_id sp_player post ID.
+	 * @param string $size      Image size being printed.
+	 */
+	return (bool) apply_filters( 'blueline_player_photo_available', $available, $player_id, $size );
+}
+
+/**
  * Option holding the generation number every theme-side SportsPress data
  * cache key embeds (rosters, league tables). Bumping it retires them all.
  */
@@ -744,7 +811,7 @@ function blueline_sp_schedule_status_label( string $status ): string {
 function blueline_sp_schedule_result_html( array $main_results, $sp_status, string $state, bool $still_expected ): string {
 	$status = blueline_sp_schedule_status( $sp_status );
 	$score  = $main_results
-		? '<span class="bl-sp-schedule__score">' . wp_kses_post( implode( ' - ', $main_results ) ) . '</span>'
+		? '<span class="bl-sp-schedule__score">' . wp_kses_post( blueline_score_line( $main_results ) ) . '</span>'
 		: '';
 
 	if ( 'tbd' === $status ) {

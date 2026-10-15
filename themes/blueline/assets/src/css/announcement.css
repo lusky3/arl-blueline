@@ -62,6 +62,14 @@
 	overflow-wrap: anywhere;
 }
 
+/* On a phone the announcement was smaller than the body copy under it. */
+@media (max-width: 600px) {
+
+	.bl-announce__text {
+		font-size: var(--bl-text-base);
+	}
+}
+
 .bl-announce--urgent .bl-announce__text {
 	font-weight: 600;
 }

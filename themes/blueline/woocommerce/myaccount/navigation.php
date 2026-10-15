@@ -48,6 +48,14 @@ do_action( 'woocommerce_before_account_navigation' );
 
 $blueline_nav_items = blueline_account_nav_items( wc_get_account_menu_items() );
 
+/*
+ * Log out is pulled out of the pills and printed last, after the billing
+ * dropdown and set apart from it: a destructive action sitting mid-list,
+ * between "Change My Details" and the dropdown, was one mis-tap from the tab
+ * the reader wanted.
+ */
+$blueline_logout_items  = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'customer-logout' === $item['endpoint'] ) );
+$blueline_nav_items     = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'customer-logout' !== $item['endpoint'] ) );
 $blueline_pill_items    = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' !== $item['group'] ) );
 $blueline_billing_items = array_values( array_filter( $blueline_nav_items, static fn( $item ) => 'billing' === $item['group'] ) );
 
@@ -81,7 +89,10 @@ $blueline_billing_active = (bool) array_filter(
 		<?php if ( $blueline_billing_items ) : ?>
 			<li class="bl-account-nav__billing-item">
 				<details class="bl-account-nav__billing<?php echo $blueline_billing_active ? ' is-active' : ''; ?>">
-					<summary<?php echo $blueline_billing_active ? ' aria-current="true"' : ''; ?>><?php esc_html_e( 'Account & Billing', 'blueline' ); ?></summary>
+					<summary<?php echo $blueline_billing_active ? ' aria-current="true"' : ''; ?>>
+						<?php esc_html_e( 'Account & Billing', 'blueline' ); ?>
+						<svg class="bl-account-nav__chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					</summary>
 					<ul class="bl-account-nav__billing-panel">
 						<?php foreach ( $blueline_billing_items as $blueline_nav_item ) : ?>
 							<?php $blueline_item_classes = wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ); ?>
@@ -95,6 +106,14 @@ $blueline_billing_active = (bool) array_filter(
 				</details>
 			</li>
 		<?php endif; ?>
+
+		<?php foreach ( $blueline_logout_items as $blueline_nav_item ) : ?>
+			<li class="<?php echo esc_attr( wc_get_account_menu_item_classes( $blueline_nav_item['endpoint'] ) ); ?> bl-account-nav__logout">
+				<a href="<?php echo esc_url( wc_get_account_endpoint_url( $blueline_nav_item['endpoint'] ) ); ?>">
+					<?php echo esc_html( $blueline_nav_item['label'] ); ?>
+				</a>
+			</li>
+		<?php endforeach; ?>
 	</ul>
 </nav>
 <?php

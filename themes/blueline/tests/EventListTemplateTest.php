@@ -187,7 +187,7 @@ final class EventListTemplateTest extends TestCase {
 		$this->assertStringContainsString( 'bl-sp-schedule__none', $this->row( $html, 602 ) );
 		$this->assertStringNotContainsString( 'coming soon', $this->row( $html, 602 ) );
 		$this->assertStringContainsString( 'bl-sp-schedule__none', $this->row( $html, 603 ) );
-		$this->assertStringContainsString( '<span class="bl-sp-schedule__score">3 - 1</span>', $this->row( $html, 604 ) );
+		$this->assertStringContainsString( '<span class="bl-sp-schedule__score">3–1</span>', $this->row( $html, 604 ) );
 		$this->assertSame( 1, substr_count( $html, 'Final score coming soon' ) );
 	}
 
@@ -214,7 +214,7 @@ final class EventListTemplateTest extends TestCase {
 
 		$postponed = $this->row( $html, 601 );
 		$this->assertStringContainsString( 'bl-sp-schedule__row--postponed', $postponed );
-		$this->assertStringContainsString( '<span class="bl-sp-schedule__status bl-sp-schedule__status--postponed">Postponed</span> <span class="bl-sp-schedule__score">0 - 0</span>', $postponed );
+		$this->assertStringContainsString( '<span class="bl-sp-schedule__status bl-sp-schedule__status--postponed">Postponed</span> <span class="bl-sp-schedule__score">0–0</span>', $postponed );
 		// The hidden context sits inside the time link, after the visible time, and names the game.
 		$this->assertMatchesRegularExpression( '#<a href="https://example.test/event/601/" itemprop="url">\s*<time[^>]*>[^<]+</time>\s*<span class="screen-reader-text">, Kings vs Hammers, [^<]+, Postponed</span>\s*</a>#', $postponed );
 

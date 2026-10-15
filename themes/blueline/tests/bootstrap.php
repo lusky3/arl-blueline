@@ -1375,14 +1375,23 @@ if ( ! function_exists( 'get_bloginfo' ) ) {
 }
 if ( ! function_exists( 'get_the_date' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' get_the_date() -- returns a fixed,
+	 * Minimal stand-in for WordPress' get_the_date(): a post registered with
+	 * a site-local `post_date` gets it formatted as asked (what the game date
+	 * formatter needs to read a real year); anything else gets a fixed,
 	 * recognisable string so tests can assert it was actually used.
 	 *
-	 * @param string $format Date format (unused, kept for signature parity).
-	 * @param mixed  $post   Post (unused, kept for signature parity).
+	 * @param string $format Date format.
+	 * @param mixed  $post   Post ID (only the int form reads a post_date).
 	 * @return string
 	 */
-	function get_the_date( $format = '', $post = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- fixed stub value; no test needs real date formatting.
+	function get_the_date( $format = '', $post = null ) {
+		$state = &blueline_test_state();
+		$date  = is_numeric( $post ) ? ( $state['posts'][ (int) $post ]['post_date'] ?? '' ) : '';
+
+		if ( '' !== $date && '' !== $format ) {
+			return ( new DateTimeImmutable( $date ) )->format( $format );
+		}
+
 		return 'Aug 20';
 	}
 }
@@ -1641,6 +1650,123 @@ if ( ! function_exists( 'wp_get_attachment_image_url' ) ) {
 		}
 
 		return 'https://example.test/uploads/photo-' . $id . '-' . (string) $size . '.jpg';
+	}
+}
+if ( ! function_exists( 'tag_escape' ) ) {
+	/**
+	 * Core's tag_escape(): lower-case, letters, digits, _ : and - only.
+	 *
+	 * @param string $tag_name Tag name.
+	 * @return string
+	 */
+	function tag_escape( $tag_name ) {
+		return strtolower( (string) preg_replace( '/[^a-zA-Z0-9-_:]/', '', (string) $tag_name ) );
+	}
+}
+if ( ! function_exists( 'is_search' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' is_search(): true while a test sets
+	 * $GLOBALS['bl_test_is_search'] or the shared request state's `search`
+	 * flag (the blueline-core tests set the latter, and load this file first).
+	 *
+	 * @return bool
+	 */
+	function is_search() {
+		return ! empty( $GLOBALS['bl_test_is_search'] ) || ! empty( blueline_test_state()['request']['search'] );
+	}
+}
+if ( ! function_exists( 'get_attached_file' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_attached_file(): an attachment's
+	 * `file` entry in the in-memory store, '' when it has none.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return string
+	 */
+	function get_attached_file( $attachment_id ) {
+		$state = &blueline_test_state();
+
+		return (string) ( $state['posts'][ (int) $attachment_id ]['file'] ?? '' );
+	}
+}
+if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_attachment_metadata(): an
+	 * attachment's `meta` entry in the in-memory store, or (the shape the
+	 * blueline-core tests use, which load this file first) its full-size
+	 * `width`/`height` plus an optional `sizes` map; false when it has none.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return array|false
+	 */
+	function wp_get_attachment_metadata( $attachment_id = 0 ) {
+		$state = &blueline_test_state();
+		$post  = $state['posts'][ (int) $attachment_id ] ?? array();
+
+		if ( isset( $post['meta'] ) ) {
+			return $post['meta'];
+		}
+
+		if ( empty( $post['width'] ) ) {
+			return false;
+		}
+
+		return array(
+			'width'  => (int) $post['width'],
+			'height' => (int) ( $post['height'] ?? 0 ),
+			'sizes'  => (array) ( $post['sizes'] ?? array() ),
+		);
+	}
+}
+if ( ! function_exists( 'wp_get_upload_dir' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_upload_dir(): the uploads folder
+	 * a test sets in $GLOBALS['bl_test_upload_basedir'] (default: none).
+	 *
+	 * @return array{basedir: string, baseurl: string}
+	 */
+	function wp_get_upload_dir() {
+		return array(
+			'basedir' => (string) ( $GLOBALS['bl_test_upload_basedir'] ?? '' ),
+			'baseurl' => 'https://example.test/wp-content/uploads',
+		);
+	}
+}
+if ( ! function_exists( 'wp_normalize_path' ) ) {
+	/**
+	 * Core's wp_normalize_path(), minus the Windows drive-letter case.
+	 *
+	 * @param string $path Path.
+	 * @return string
+	 */
+	function wp_normalize_path( $path ) {
+		return (string) preg_replace( '|(?<=.)/+|', '/', str_replace( '\\', '/', (string) $path ) );
+	}
+}
+if ( ! function_exists( 'trailingslashit' ) ) {
+	/**
+	 * Core's trailingslashit().
+	 *
+	 * @param string $value Path.
+	 * @return string
+	 */
+	function trailingslashit( $value ) {
+		return rtrim( $value, '/\\' ) . '/';
+	}
+}
+if ( ! function_exists( 'get_search_form' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_search_form(): prints a search
+	 * landmark named by the 'aria_label' argument, the shape core's HTML5
+	 * form has.
+	 *
+	 * @param array $args Arguments ('aria_label').
+	 * @return void
+	 */
+	function get_search_form( $args = array() ) {
+		$label = isset( $args['aria_label'] ) ? ' aria-label="' . esc_attr( $args['aria_label'] ) . '"' : '';
+
+		echo '<form role="search"' . $label . ' method="get" class="search-form" action="https://example.test/"><label><span class="screen-reader-text">Search for:</span><input type="search" class="search-field" name="s" value=""></label><input type="submit" class="search-submit" value="Search"></form>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fixed test markup, $label escaped above.
 	}
 }
 if ( ! function_exists( 'has_post_thumbnail' ) ) {

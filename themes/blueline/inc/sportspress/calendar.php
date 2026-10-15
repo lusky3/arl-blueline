@@ -272,7 +272,7 @@ function blueline_sp_zero_games_note( bool $has_progress_signal, array $progress
 	}
 
 	return $is_playoffs
-		? __( 'Playoffs have not started yet.', 'blueline' )
+		? __( 'Playoffs start after the regular season.', 'blueline' )
 		: __( 'No games have been played yet this season.', 'blueline' );
 }
 

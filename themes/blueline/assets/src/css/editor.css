@@ -67,8 +67,8 @@
 	--bl-surface-sunken: var(--bl-content-bg);
 	--bl-border: #dbe7f0;
 	--bl-border-strong: #7c93a8;
-	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-	--bl-font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--bl-font-display: "Barlow Condensed", "Barlow Condensed Fallback", "Barlow Condensed Fallback Arial", "Arial Narrow", system-ui, sans-serif;
+	--bl-font-body: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
 	--bl-text-xs: 0.75rem;
 	--bl-text-sm: 0.875rem;
 	--bl-text-base: 1rem;

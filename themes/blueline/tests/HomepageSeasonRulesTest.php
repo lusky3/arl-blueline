@@ -122,7 +122,7 @@ final class HomepageSeasonRulesTest extends TestCase {
 			'Winter 2026-27'
 		);
 
-		$this->assertSame( array( 'Next game: Aug 20' ), $content['subcopy_lines'] );
+		$this->assertSame( array( 'Next game: Aug 20 at 7:00 PM' ), $content['subcopy_lines'] );
 	}
 
 	/**
