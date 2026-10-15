@@ -188,6 +188,33 @@ function blueline_sp_event_hero_date_format( int $event_year, int $current_year 
 }
 
 /**
+ * Attributes for the event hero's two team crests. `sizes` is the crest's
+ * drawn width (sportspress.css: a 64px plate with 4px padding); without it
+ * WordPress assumed 150px and phones fetched the 300px PNG for a 56px image.
+ *
+ * @return array<string, string>
+ */
+function blueline_sp_scoreboard_crest_attributes(): array {
+	return array(
+		'alt'   => '',
+		'sizes' => '56px',
+	);
+}
+
+/**
+ * Attributes for the team or staff masthead image: the first thing on those
+ * pages and, on a team page, the largest paint, so it is fetched first and
+ * never lazy-loaded. `sizes` is its drawn width in sportspress.css: a 96px
+ * box, less the team plate's 8px padding and 2px border.
+ *
+ * @param string $kind 'team' or 'staff'.
+ * @return array<string, string>
+ */
+function blueline_sp_hero_crest_attributes( string $kind ): array {
+	return array( 'alt' => '' ) + blueline_hero_image_attributes( 'team' === $kind ? '76px' : '96px' );
+}
+
+/**
  * The event masthead: teams, "vs", venue (via blueline_venue_label(),
  * P0 finding 10, so this reads "Mr. Lube and Tires Arena — Red" rather
  * than just the pad name), and either an add-to-calendar link (game has not
@@ -239,9 +266,9 @@ function blueline_sp_event_hero( $event_id ) {
 							<span class="sp-scoreboard__logo">
 								<?php if ( $team_url ) : ?>
 									<?php // The name link is the real one; this duplicate is only a bigger click target. ?>
-									<a class="sp-scoreboard__team-link" href="<?php echo esc_url( $team_url ); ?>" tabindex="-1" aria-hidden="true"><?php echo get_the_post_thumbnail( $team_id, 'thumbnail', array( 'alt' => '' ) ); ?></a>
+									<a class="sp-scoreboard__team-link" href="<?php echo esc_url( $team_url ); ?>" tabindex="-1" aria-hidden="true"><?php echo get_the_post_thumbnail( $team_id, 'thumbnail', blueline_sp_scoreboard_crest_attributes() ); ?></a>
 								<?php else : ?>
-									<?php echo get_the_post_thumbnail( $team_id, 'thumbnail', array( 'alt' => '' ) ); ?>
+									<?php echo get_the_post_thumbnail( $team_id, 'thumbnail', blueline_sp_scoreboard_crest_attributes() ); ?>
 								<?php endif; ?>
 							</span>
 						<?php endif; ?>
@@ -482,7 +509,7 @@ function blueline_sp_team_hero( $team_id ) {
 	<header class="bl-sp-hero bl-sp-hero--team"<?php echo $team_color_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blueline_team_color_style_attr() returns a complete, esc_attr()'d style attribute built only from hex values it validated itself. ?>>
 		<div class="bl-container bl-sp-hero__inner">
 			<?php if ( has_post_thumbnail( $team_id ) ) : ?>
-				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $team_id, 'medium', array( 'alt' => '' ) ); ?></div>
+				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $team_id, 'medium', blueline_sp_hero_crest_attributes( 'team' ) ); ?></div>
 			<?php else : ?>
 				<div class="bl-sp-hero__crest bl-sp-hero__crest--fallback">
 					<?php blueline_leaf_mark( 'bl-sp-hero__crest-mark' ); ?>
@@ -524,7 +551,7 @@ function blueline_sp_staff_hero( $staff_id ) {
 	<header class="bl-sp-hero bl-sp-hero--staff">
 		<div class="bl-container bl-sp-hero__inner">
 			<?php if ( has_post_thumbnail( $staff_id ) ) : ?>
-				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $staff_id, 'thumbnail', array( 'alt' => '' ) ); ?></div>
+				<div class="bl-sp-hero__crest"><?php echo get_the_post_thumbnail( $staff_id, 'thumbnail', blueline_sp_hero_crest_attributes( 'staff' ) ); ?></div>
 			<?php endif; ?>
 
 			<div class="bl-sp-hero__identity">

@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 	<?php if ( has_post_thumbnail() ) : ?>
 		<div class="bl-entry__thumbnail">
-			<?php the_post_thumbnail( 'large' ); ?>
+			<?php the_post_thumbnail( 'large', blueline_entry_thumbnail_attributes() ); ?>
 		</div>
 	<?php endif; ?>
 

@@ -23,11 +23,14 @@ defined( 'ABSPATH' ) || exit;
  * toggle's own design spec (docs/superpowers/specs/2026-08-22-blueline-
  * theme-toggle-design.md §2); a value that changed with the toggle would
  * desync from the fixed header the instant a reader scrolled to it.
- * #0D1729 is --bl-ink-deep, the header/footer's own background -- see
- * style.css's :root block for that token's own definition.
+ * It is --bl-ink-deep, the header/footer's own background, read through
+ * the brand colour settings so it follows an admin's override of that
+ * token. This is the page's only theme-color tag:
+ * blueline_unhook_plugin_theme_color() (inc/enqueue.php) drops the
+ * Browser Theme Color plugin's.
  */
 ?>
-<meta name="theme-color" content="#0D1729">
+<meta name="theme-color" content="<?php echo esc_attr( blueline_resolved_brand_color( 'ink_deep' ) ); ?>">
 <link rel="profile" href="https://gmpg.org/xfn/11">
 <?php
 /*
