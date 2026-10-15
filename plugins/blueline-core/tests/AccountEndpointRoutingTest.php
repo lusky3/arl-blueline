@@ -5,6 +5,7 @@
  * @package blueline-core
  */
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../includes/account-endpoints/account-endpoints.php';
@@ -169,6 +170,53 @@ final class AccountEndpointRoutingTest extends TestCase {
 	}
 
 	/**
+	 * Without WooCommerce Subscriptions nothing renders /account/subscriptions/, so there is no Installments tab.
+	 */
+	public function test_installments_is_omitted_without_woocommerce_subscriptions(): void {
+		$this->assertFalse( class_exists( 'WCS_Subscription', false ), 'this test assumes WooCommerce Subscriptions is not loaded' );
+
+		$this->assertFalse( blueline_account_endpoint_is_active( 'subscriptions' ) );
+		$this->assertArrayNotHasKey( 'subscriptions', $this->menu() );
+	}
+
+	/**
+	 * With WooCommerce Subscriptions active the tab is listed straight after My Registrations, in the league's words.
+	 */
+	#[RunInSeparateProcess]
+	public function test_installments_follows_registrations_when_woocommerce_subscriptions_is_active(): void {
+		require_once __DIR__ . '/fixtures/class-wcs-subscription.php';
+
+		$items = $this->menu();
+		$keys  = array_keys( $items );
+
+		$this->assertTrue( blueline_account_endpoint_is_active( 'subscriptions' ) );
+		$this->assertSame( 'My Installments', $items['subscriptions'] );
+		$this->assertSame( array_search( 'orders', $keys, true ) + 1, array_search( 'subscriptions', $keys, true ) );
+	}
+
+	/**
+	 * WooCommerce Subscriptions inserts its own "Subscriptions" tab on the same filter, possibly after ours; the
+	 * relabel pass that runs later puts the league's word back and adds nothing that is not already there.
+	 */
+	public function test_tabs_another_plugin_inserts_get_the_leagues_label(): void {
+		$this->assertSame(
+			array(
+				'orders'          => 'Something else',
+				'subscriptions'   => 'My Installments',
+				'customer-logout' => 'Log out',
+			),
+			blueline_account_relabel_plugin_tabs(
+				array(
+					'orders'          => 'Something else',
+					'subscriptions'   => 'Subscriptions',
+					'customer-logout' => 'Log out',
+				)
+			)
+		);
+		$this->assertSame( array( 'orders' => 'Orders' ), blueline_account_relabel_plugin_tabs( array( 'orders' => 'Orders' ) ) );
+	}
+
+	/**
 	 * The orders -> registrations slug remap does not depend on any renderer or filter.
 	 */
 	public function test_registrations_remap_is_unconditional(): void {
@@ -222,6 +270,7 @@ final class AccountEndpointRoutingTest extends TestCase {
 		$this->assertSame( 10, has_action( 'init', 'blueline_register_account_endpoint_title_filters' ) );
 		$this->assertSame( 20, has_filter( 'woocommerce_get_query_vars', 'blueline_remap_account_query_vars' ) );
 		$this->assertSame( 10, has_filter( 'woocommerce_account_menu_items', 'blueline_account_menu_items' ) );
+		$this->assertSame( 20, has_filter( 'woocommerce_account_menu_items', 'blueline_account_relabel_plugin_tabs' ) );
 		$this->assertSame( 10, has_action( 'template_redirect', 'blueline_redirect_legacy_account_endpoints' ) );
 	}
 

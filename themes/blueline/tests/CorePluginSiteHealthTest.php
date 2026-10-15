@@ -68,9 +68,20 @@ final class CorePluginSiteHealthTest extends TestCase {
 	 */
 	public function test_outdated_check_compares_versions_numerically(): void {
 		$this->assertTrue( blueline_core_plugin_is_outdated( '0.1.0' ) );
+		$this->assertTrue( blueline_core_plugin_is_outdated( '0.1.1' ) );
+		$this->assertFalse( blueline_core_plugin_is_outdated( '0.1.2' ) );
 		$this->assertFalse( blueline_core_plugin_is_outdated( BLUELINE_CORE_MIN_VERSION ) );
 		$this->assertFalse( blueline_core_plugin_is_outdated( '0.1.10' ) );
 		$this->assertFalse( blueline_core_plugin_is_outdated( '' ) );
+	}
+
+	/**
+	 * The theme now needs Blueline Core 0.1.2: the My Account tab labels moved
+	 * into the plugin there, so an older plugin would show the old wording.
+	 */
+	public function test_the_minimum_is_0_1_2(): void {
+		$this->assertSame( '0.1.2', BLUELINE_CORE_MIN_VERSION );
+		$this->assertStringContainsString( '0.1.2', blueline_site_health_core_plugin_result( true, '0.1.1' )['description'] );
 	}
 
 	/**

@@ -83,6 +83,57 @@ final class LoggedInAuditFixesTest extends TestCase {
 	}
 
 	/**
+	 * The My Account page's own heading (`the_title` on the account page) is the
+	 * tab label too, even when something earlier on `the_title` (the site's old
+	 * tab-renaming Code Snippet, WooCommerce Subscriptions) rewrote it. Other
+	 * posts, the bare dashboard and tab-less endpoints keep their title.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_account_page_heading_is_the_tab_label_whatever_rewrote_it(): void {
+		require_once __DIR__ . '/fixtures/account-nav-stubs.php';
+
+		$this->assertSame( 'Orders', blueline_account_page_heading( 'Registrations', 42, 42, 'orders' ) );
+		$this->assertSame( 'Addresses', blueline_account_page_heading( 'My Address', 42, 42, 'edit-address' ) );
+		$this->assertSame( 'Registrations', blueline_account_page_heading( 'Registrations', 7, 42, 'orders' ) );
+		$this->assertSame( 'My account', blueline_account_page_heading( 'My account', 42, 42, '' ) );
+		$this->assertSame( 'Order #12', blueline_account_page_heading( 'Order #12', 42, 42, 'view-order' ) );
+		$this->assertSame( 'Untitled', blueline_account_page_heading( 'Untitled', 0, 0, 'orders' ) );
+	}
+
+	/**
+	 * On a signed-in My Account page the heading filter runs on `the_title`
+	 * after priority 10/11 (where the snippet and WooCommerce Subscriptions
+	 * rewrite it), and only in the main loop.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_heading_filter_is_registered_late_on_account_pages_only(): void {
+		require_once __DIR__ . '/fixtures/account-nav-stubs.php';
+		require_once __DIR__ . '/fixtures/account-heading-stubs.php';
+
+		blueline_account_titles_follow_nav();
+		$this->assertFalse( has_filter( 'the_title', 'blueline_account_heading_follows_nav' ), 'not on a non-account page' );
+
+		$GLOBALS['bl_test_is_account_page'] = true;
+
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 5;
+		blueline_account_titles_follow_nav();
+		$this->assertSame( 20, has_filter( 'the_title', 'blueline_account_heading_follows_nav' ) );
+		$this->assertSame( 20, has_filter( 'woocommerce_endpoint_orders_title', 'blueline_account_endpoint_title_from_nav' ) );
+
+		$GLOBALS['bl_test_account_heading'] = array(
+			'in_loop'    => true,
+			'main_query' => true,
+			'page_id'    => 42,
+			'endpoint'   => 'orders',
+		);
+		$this->assertSame( 'Orders', blueline_account_heading_follows_nav( 'Registrations', 42 ) );
+
+		$GLOBALS['bl_test_account_heading']['in_loop'] = false;
+		$this->assertSame( 'Registrations', blueline_account_heading_follows_nav( 'Registrations', 42 ) );
+	}
+
+	/**
 	 * On a billing page the collapsed dropdown still says it holds the current page.
 	 */
 	#[RunInSeparateProcess]

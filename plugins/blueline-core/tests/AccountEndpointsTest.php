@@ -102,11 +102,35 @@ final class AccountEndpointsTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_dead_endpoints_are_absent(): void {
-		$e = blueline_account_endpoints();
-		// No subscriptions plugin is active; the Installments endpoint cannot render.
-		$this->assertArrayNotHasKey( 'subscriptions', $e );
 		// Downloads was already disabled in YITH.
-		$this->assertArrayNotHasKey( 'downloads', $e );
+		$this->assertArrayNotHasKey( 'downloads', blueline_account_endpoints() );
+	}
+
+	/**
+	 * The tab labels are the league's own wording, the same words the site's old
+	 * "My Account Tab Modifications" Code Snippet wrote over WooCommerce's, so
+	 * switching that snippet off changes nothing a member sees in the menu.
+	 */
+	public function test_labels_use_the_leagues_wording(): void {
+		$e = blueline_account_endpoints();
+
+		$this->assertSame( 'My Registrations', $e['registrations']['label'] );
+		$this->assertSame( 'My Address', $e['edit-address']['label'] );
+		$this->assertSame( 'Change My Details', $e['edit-account']['label'] );
+		$this->assertSame( 'My Installments', $e['subscriptions']['label'] );
+	}
+
+	/**
+	 * Installments is a billing tab listed straight after My Registrations, under
+	 * WooCommerce Subscriptions' own slug so its URL stays /account/subscriptions/.
+	 */
+	public function test_installments_sits_after_registrations_in_billing(): void {
+		$e = blueline_account_endpoints();
+
+		$this->assertSame( 'billing', $e['subscriptions']['group'] );
+		$this->assertSame( 'subscriptions', blueline_account_slug_query_var( 'subscriptions' ) );
+		$this->assertGreaterThan( $e['registrations']['order'], $e['subscriptions']['order'] );
+		$this->assertLessThan( $e['store-credit']['order'], $e['subscriptions']['order'] );
 	}
 
 	/**
@@ -302,15 +326,14 @@ final class AccountEndpointsTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_endpoint_titles_match_this_themes_own_copy_not_woocommerces_defaults(): void {
-		// WooCommerce's own hard-coded
-		// defaults are "Addresses" and "Account details" (lowercase d) --
-		// our copy is "Addresses" (same, coincidentally) and
-		// "Account Details" (capital D). Both must resolve to THIS theme's
-		// copy, not silently fall back to WooCommerce's.
+		// WooCommerce's own hard-coded defaults are "Addresses", "Account
+		// details" and "Orders"; each must resolve to the league's copy instead.
 		$titles = blueline_account_endpoint_titles();
 
-		$this->assertSame( 'Addresses', $titles['edit-address'] );
-		$this->assertSame( 'Account Details', $titles['edit-account'] );
+		$this->assertSame( 'My Address', $titles['edit-address'] );
+		$this->assertSame( 'Change My Details', $titles['edit-account'] );
+		$this->assertSame( 'My Registrations', $titles['orders'] );
+		$this->assertSame( 'My Installments', $titles['subscriptions'] );
 	}
 
 	/**

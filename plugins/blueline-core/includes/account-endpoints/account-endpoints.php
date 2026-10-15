@@ -18,8 +18,16 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The My Account endpoint map: slug => label/group/order. League content sorts before billing.
  *
- * 'subscriptions' (YITH "Installments") and 'downloads' are deliberately absent: no
- * subscriptions plugin is active, and downloads were already disabled in YITH.
+ * This is the one place the tab labels are worded. They are the league's own words ("My
+ * Registrations", "My Installments", "My Address", "Change My Details"), the same ones a site
+ * Code Snippet used to write over WooCommerce's defaults, so that snippet can be switched off
+ * without any visible change. The theme heads each page with its tab's label, so the two never
+ * disagree. A site can still rename a tab on `woocommerce_account_menu_items` after priority 20;
+ * the page heading follows.
+ *
+ * 'subscriptions' (Installments) belongs to WooCommerce Subscriptions and is only listed while
+ * that plugin is active (blueline_account_plugin_endpoint_classes()). 'downloads' is
+ * deliberately absent: downloads were already disabled in YITH.
  *
  * @return array<string, array{label: string, group: string, order: int}>
  */
@@ -50,6 +58,11 @@ function blueline_account_endpoints(): array {
 			'group' => 'billing',
 			'order' => 50,
 		),
+		'subscriptions'   => array( // LIVE URL, owned by WooCommerce Subscriptions.
+			'label' => __( 'My Installments', 'blueline-core' ),
+			'group' => 'billing',
+			'order' => 55,
+		),
 		'store-credit'    => array( // LIVE URL.
 			'label' => __( 'Credits', 'blueline-core' ),
 			'group' => 'billing',
@@ -66,12 +79,12 @@ function blueline_account_endpoints(): array {
 			'order' => 80,
 		),
 		'edit-address'    => array(
-			'label' => __( 'Addresses', 'blueline-core' ),
+			'label' => __( 'My Address', 'blueline-core' ),
 			'group' => 'billing',
 			'order' => 90,
 		),
 		'edit-account'    => array(
-			'label' => __( 'Account Details', 'blueline-core' ),
+			'label' => __( 'Change My Details', 'blueline-core' ),
 			'group' => 'account',
 			'order' => 100,
 		),
@@ -88,16 +101,35 @@ function blueline_account_league_endpoint_slugs(): array {
 }
 
 /**
+ * Endpoints another plugin registers and renders: slug => the class that plugin declares.
+ *
+ * @return array<string, string>
+ */
+function blueline_account_plugin_endpoint_classes(): array {
+	return array(
+		'subscriptions' => 'WCS_Subscription',
+	);
+}
+
+/**
  * Whether an endpoint from blueline_account_endpoints() belongs in the menu.
  *
- * Billing and account slugs always do. A league slug needs a content callback on
- * `woocommerce_account_{$slug}_endpoint` and the `blueline_core_account_endpoint_enabled`
- * filter's approval, so a theme without those renderers never gets tabs that render nothing.
+ * Billing and account slugs always do, except one another plugin owns
+ * (blueline_account_plugin_endpoint_classes()), which needs that plugin loaded. A league slug
+ * needs a content callback on `woocommerce_account_{$slug}_endpoint` and the
+ * `blueline_core_account_endpoint_enabled` filter's approval, so a theme without those
+ * renderers never gets tabs that render nothing.
  *
  * @param string $slug A key from blueline_account_endpoints().
  * @return bool
  */
 function blueline_account_endpoint_is_active( string $slug ): bool {
+	$owner_classes = blueline_account_plugin_endpoint_classes();
+	if ( isset( $owner_classes[ $slug ] ) ) {
+		// Autoloading allowed: WooCommerce Subscriptions loads this class on demand.
+		return class_exists( $owner_classes[ $slug ] );
+	}
+
 	if ( ! in_array( $slug, blueline_account_league_endpoint_slugs(), true ) ) {
 		return true;
 	}
@@ -168,9 +200,8 @@ function blueline_account_slug_query_var( string $slug ): string {
  *
  * WooCommerce hard-codes English defaults ("Orders", "Addresses", "Account details") for that
  * hook, and the same value drives both the document `<title>` and the on-page `<h1>`.
- * Filtering it gives every endpoint our own label in the tab title. The `<h1>` of 'orders',
- * 'edit-address' and 'edit-account' can still be overridden by a separate Code Snippet that
- * hooks `the_title` directly (a site-configuration matter, not fought here).
+ * Filtering it gives every endpoint our own label in the tab title. Anything that rewrites the
+ * `<h1>` later on `the_title` is overruled by the theme, which heads the page with the tab label.
  *
  * Pure: no WordPress calls, so it stays unit testable and sits above the WooCommerce guard.
  *
@@ -355,9 +386,9 @@ function blueline_register_account_endpoint_title_filters(): void {
 add_filter( 'woocommerce_account_menu_items', 'blueline_account_menu_items' );
 /**
  * Reorder and relabel the My Account nav to the league-first, grouped list from
- * blueline_account_endpoints(), dropping endpoints that map omits (the dead 'subscriptions' and
- * 'downloads' tabs) and league endpoints blueline_account_endpoint_is_active() rejects, while
- * preserving 'dashboard' and 'customer-logout'.
+ * blueline_account_endpoints(), dropping endpoints that map omits (the dead 'downloads' tab) and
+ * endpoints blueline_account_endpoint_is_active() rejects, while preserving 'dashboard' and
+ * 'customer-logout'.
  *
  * Every key written into $ordered must be a real query-var key, because the theme's nav feeds
  * them straight to wc_get_account_endpoint_url() and wc_get_account_menu_item_classes();
@@ -388,6 +419,30 @@ function blueline_account_menu_items( array $items ): array {
 	}
 
 	return $ordered;
+}
+
+add_filter( 'woocommerce_account_menu_items', 'blueline_account_relabel_plugin_tabs', 20 );
+/**
+ * Put the league's label back on tabs another plugin inserts itself.
+ *
+ * WooCommerce Subscriptions adds its "Subscriptions" tab on the same filter at the same
+ * priority as blueline_account_menu_items(), so whichever runs second wins; this later pass
+ * makes it "My Installments" either way. It only relabels tabs already in the menu.
+ *
+ * @param array<string, string> $items Menu items.
+ * @return array<string, string>
+ */
+function blueline_account_relabel_plugin_tabs( array $items ): array {
+	$endpoints = blueline_account_endpoints();
+
+	foreach ( array_keys( blueline_account_plugin_endpoint_classes() ) as $slug ) {
+		$query_var = blueline_account_slug_query_var( $slug );
+		if ( isset( $items[ $query_var ], $endpoints[ $slug ] ) ) {
+			$items[ $query_var ] = $endpoints[ $slug ]['label'];
+		}
+	}
+
+	return $items;
 }
 
 add_action( 'template_redirect', 'blueline_redirect_legacy_account_endpoints' );

@@ -282,7 +282,7 @@ function blueline_site_health_format_acknowledgements( array $acknowledgements, 
  * lose a feature without a word. Raise this in the same release that needs the
  * newer plugin; Site Health and an admin notice then ask for the upgrade.
  */
-const BLUELINE_CORE_MIN_VERSION = '0.1.1';
+const BLUELINE_CORE_MIN_VERSION = '0.1.2';
 
 /**
  * Whether a loaded Blueline Core plugin is older than this theme needs.

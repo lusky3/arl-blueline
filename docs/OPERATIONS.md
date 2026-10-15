@@ -283,6 +283,10 @@ header is added by the server's nginx configuration, not WordPress, so it can on
   change the photo or see registration details. See which linked players don't qualify:
   `wp blueline-core ownership report`. Fix individual players: `wp blueline-core ownership apply --ids=<player ids>`
   (dry run; add `--yes` to write). Never bulk-copy `sp_user` into `post_author`: that would promote name-claimed links to owners.
+- [ ] **My Account tab wording.** blueline-core 0.1.2+ names the tabs "My Registrations", "My Installments" (only with
+  WooCommerce Subscriptions active), "My Address" and "Change My Details", and the theme heads each page with its tab's
+  label. Deactivate the Code Snippet "My Account Tab Modifications" (Snippets > All Snippets), then confirm the menu reads
+  the same and each tab's page heading matches its tab (e.g. My Registrations opens "My Registrations", not "Registrations").
 - [ ] **Avatars.** `wp blueline-core migrate-yith-avatars` lists what would move from YITH; `--apply` writes it.
 - [ ] **Contact Us email.** On staging the page's email script lost its backslashes in a database import (fixed on staging). Open
   `/arl-league-info/contact-us/` on production and confirm it shows the address, not `u0070u006c...`.
