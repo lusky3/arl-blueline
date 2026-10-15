@@ -78,11 +78,37 @@ function labelToggles( label ) {
 	);
 }
 
+/**
+ * Whether a click on an item's disclosure control (or Enter/Space on it)
+ * leaves the submenu open.
+ *
+ * It toggles what is shown, not the data-open flag: on desktop a dropdown also
+ * shows through :hover and :focus-within, so a keyboard user who tabbed onto
+ * "League Info" sees it open with data-open never set, and Enter must close
+ * it. The exception is a pointer resting on a dropdown that hover opened and
+ * no click has pinned: a click there pins it open rather than closing what the
+ * user just watched appear.
+ *
+ * @param {Object}  state             Current state.
+ * @param {boolean} state.shown       The submenu is visible now.
+ * @param {boolean} state.pinned      data-open is "true".
+ * @param {boolean} state.pointerOver A pointer click on a desktop item the pointer is over.
+ * @return {boolean} Open afterwards.
+ */
+function disclosureNextOpen( { shown, pinned, pointerOver } ) {
+	if ( pointerOver && ! pinned ) {
+		return true;
+	}
+
+	return ! shown;
+}
+
 if ( typeof module !== 'undefined' && module.exports ) {
 	module.exports = {
 		itemControls,
 		submenuTriggers,
 		focusableTrigger,
 		labelToggles,
+		disclosureNextOpen,
 	};
 }

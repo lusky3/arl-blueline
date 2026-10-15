@@ -2028,6 +2028,7 @@ $GLOBALS['bl_test_hooks']                = array();
 $GLOBALS['bl_test_options']              = array();
 $GLOBALS['bl_test_option_autoload']      = array();
 $GLOBALS['bl_test_transients']           = array();
+$GLOBALS['bl_test_transient_ttl']        = array();
 $GLOBALS['bl_test_cache']                = array();
 $GLOBALS['bl_test_nav_menu_locations']   = array();
 $GLOBALS['bl_test_nav_menu_assignments'] = array();
@@ -2101,6 +2102,7 @@ function blueline_test_option_autoload_args( string $option ): array {
  */
 function blueline_test_reset_transients(): void {
 	$GLOBALS['bl_test_transients']         = array();
+	$GLOBALS['bl_test_transient_ttl']      = array();
 	$GLOBALS['bl_test_site_transients']    = array();
 	$GLOBALS['bl_test_site_transient_ttl'] = array();
 	$GLOBALS['bl_test_http']               = array();
@@ -2707,11 +2709,14 @@ if ( ! function_exists( 'set_transient' ) ) {
 	 *
 	 * @param string $transient  Transient name.
 	 * @param mixed  $value      Value to store.
-	 * @param int    $expiration Expiration in seconds (unused; this stub models no elapsed time).
+	 * @param int    $expiration Expiration in seconds. Nothing expires (the stub models no elapsed time),
+	 *                           but the value is kept in $GLOBALS['bl_test_transient_ttl'] for tests that
+	 *                           check the lifetime a caller asked for.
 	 * @return true
 	 */
-	function set_transient( $transient, $value, $expiration = 0 ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; this stub has no notion of elapsed time to expire against.
-		$GLOBALS['bl_test_transients'][ $transient ] = $value;
+	function set_transient( $transient, $value, $expiration = 0 ) {
+		$GLOBALS['bl_test_transients'][ $transient ]    = $value;
+		$GLOBALS['bl_test_transient_ttl'][ $transient ] = (int) $expiration;
 		return true;
 	}
 }

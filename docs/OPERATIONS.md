@@ -151,7 +151,7 @@ report-uri https://<site>/wp-json/blueline/v1/csp-report; report-to blueline-csp
 
 Cart, checkout and every My Account page (the "commerce" pages) add: `form-action https://*.paypal.com`;
 `script-src https://*.paypal.com https://*.paypalobjects.com https://pay.google.com https://applepay.cdn-apple.com https://maps.googleapis.com`;
-`style-src https://ajax.googleapis.com`; `connect-src https://*.paypal.com https://pay.google.com https://google.com/pay https://maps.googleapis.com https://places.googleapis.com`;
+`style-src https://ajax.googleapis.com`; `connect-src https://*.paypal.com https://pay.google.com https://google.com/pay https://www.google.com https://maps.googleapis.com https://places.googleapis.com`;
 `frame-src https://*.paypal.com https://pay.google.com`.
 
 Checked on 2026-10-15 by loading each page in headless Chromium with exactly this policy injected: 0 violations on
@@ -179,6 +179,7 @@ HTML plus every request the rendered page made):
 | `blob:` | worker (emoji feature test) | all | WordPress core emoji loader |
 | `https://www.paypal.com` (`*.paypal.com`), `https://www.paypalobjects.com` | script (SDK), connect, frame (buttons, card fields), form-action, image | cart, checkout, account payment methods (live today also /register and product pages, until the theme's payment-script change ships) | PayPal for WooCommerce (Angell EYE) |
 | `https://pay.google.com`, `https://google.com/pay` | script, frame, connect | same as PayPal | PayPal for WooCommerce (Google Pay) |
+| `https://www.google.com` | connect (Google Pay's payment-method manifest: Chrome fetches `https://google.com/pay`, which redirects here, and after a redirect only the target's origin is matched; the report still names `https://google.com`) | same as PayPal | PayPal for WooCommerce (Google Pay) |
 | `https://applepay.cdn-apple.com` | script | same as PayPal | PayPal for WooCommerce (Apple Pay) |
 | `https://maps.googleapis.com`, `https://places.googleapis.com`, `https://maps.gstatic.com` | script, connect, image (address autocomplete) | checkout, account details | Checkout Field Editor Pro |
 | `https://ajax.googleapis.com` | style (jQuery UI theme for the date picker) | account details | Checkout Field Editor Pro |
@@ -218,10 +219,17 @@ to clear it after printing. Tools > Site Health shows the number of distinct vio
 inline script, style or `style=` attribute (only reported once `'unsafe-inline'` is removed); `eval` is `eval()` or
 `new Function()`; `data`/`blob` are those URL schemes; `chrome-extension` and the like are the visitor's browser
 extensions and can be ignored. Only counts are stored: no IP address, user agent, full URL or query string. The
-store keeps the 200 most-seen entries and evicts the least-seen first. Each browser may send 30 report requests per
-10 minutes (counted against a daily-rotating hash of address and user agent, kept in a 10-minute transient);
-bodies over 16 KB and content types other than `application/csp-report`, `application/reports+json` and
-`application/json` are refused.
+store keeps 200 entries; when it is full, a new one replaces the least-seen entry (the one seen longest ago among
+equally rare ones). Anyone can post to the endpoint, so a report only starts a new entry when its page is one the
+site really serves: a path of at most six short slug-like segments that resolves to the front page, a post, page or
+account tab, a page that lists other content (news, shop) or a taxonomy term archive (a venue, a news category);
+page 2+ of a list counts when page 1 does. Reports from a 404 page or a made-up path are refused (400) and never
+counted, so junk cannot push real rows out. A row already in the store is counted again without the lookup. To
+accept another kind of page, use the `blueline_core_csp_report_path_resolves` filter (`bool $resolves, string $path`).
+Each browser may send 30 report requests per fixed 10-minute window (the window opens with its first request and
+closes 10 minutes later however many arrive; counted against a daily-rotating hash of address and user agent, kept
+in a transient that lives only for the rest of the window); bodies over 16 KB and content types other than
+`application/csp-report`, `application/reports+json` and `application/json` are refused.
 
 A row is worth acting on when it repeats across days or pages. For each origin that the site really needs, add it
 with the `blueline_core_csp_policy` filter (or in `csp.php`, with a line in the inventory above); for one it does not

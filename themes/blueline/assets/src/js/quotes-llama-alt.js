@@ -39,9 +39,11 @@ function markDecorativeImages( root ) {
 }
 
 /**
- * Curl straight quote marks: a double quote opens at the start of the text or
- * after a space or opening bracket/dash and closes everywhere else; a straight
- * apostrophe becomes ’.
+ * Curl straight quote marks. A double or single quote opens at the start of
+ * the text or after a space, an opening bracket, a dash or an opening double
+ * mark (when a word follows it), and closes everywhere else, so apostrophes
+ * (don't, players') become ’. A single quote before a decade ('90s) is an
+ * apostrophe too.
  *
  * @param {string} text Quote text.
  * @return {string} The text with typographic marks.
@@ -50,6 +52,8 @@ function curlQuotes( text ) {
 	return text
 		.replace( /(^|[\s([{—–-])"/g, '$1“' )
 		.replace( /"/g, '”' )
+		.replace( /'(?=\d\ds\b)/g, '’' )
+		.replace( /(^|[\s([{“—–-])'(?=\S)/g, '$1‘' )
 		.replace( /'/g, '’' );
 }
 

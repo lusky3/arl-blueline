@@ -1,6 +1,7 @@
 /**
- * Mobile submenu toggling, the homepage fixture row on a phone, the table edge
- * fade, and the schedule's column headers.
+ * Mobile submenu toggling, the desktop disclosure button's keyboard toggle, the
+ * homepage fixture row on a phone, the table edge fade, and the schedule's
+ * column headers.
  *
  * The submenu and the fade are both cases where the JS was already correct and
  * the CSS silently overrode it, so both are asserted on what the browser
@@ -93,6 +94,83 @@ test.describe( 'mobile submenu', () => {
 
 			expect( shown ).toBe( 'true' === s.expanded );
 		}
+	} );
+} );
+
+test.describe( 'desktop disclosure button', () => {
+	// A "#" parent ("League Info") is rendered as a <button>; on desktop it
+	// also shows through :focus-within, which data-open never sees.
+	const BUTTON = '.bl-nav__menu > .bl-nav__item--parent > button.bl-nav__link';
+
+	const read = ( page ) =>
+		page.evaluate( ( selector ) => {
+			const button = document.querySelector( selector );
+			const sub = button.parentElement.querySelector(
+				':scope > .bl-nav__submenu'
+			);
+
+			return {
+				display: window.getComputedStyle( sub ).display,
+				expanded: button.getAttribute( 'aria-expanded' ),
+			};
+		}, BUTTON );
+
+	test.beforeEach( async ( { page } ) => {
+		await page.setViewportSize( { width: 1440, height: 900 } );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
+		await page.mouse.move( 0, 899 );
+	} );
+
+	test( 'aria-expanded is already true when focus lands on a dropdown it shows', async ( { page } ) => {
+		test.skip( ! ( await page.locator( BUTTON ).count() ), 'no "#" parent in the menu' );
+
+		// Read inside the focus event itself: no frame has passed yet.
+		const atFocus = await page.evaluate( ( selector ) => {
+			const button = document.querySelector( selector );
+			let seen = null;
+
+			button.addEventListener(
+				'focus',
+				() => {
+					seen = button.getAttribute( 'aria-expanded' );
+				},
+				{ once: true }
+			);
+			button.focus();
+
+			return seen;
+		}, BUTTON );
+
+		expect( atFocus ).toBe( 'true' );
+		expect( ( await read( page ) ).display ).toBe( 'block' );
+	} );
+
+	test( 'Enter and Space close and reopen it, and what is announced matches what is shown', async ( { page } ) => {
+		test.skip( ! ( await page.locator( BUTTON ).count() ), 'no "#" parent in the menu' );
+
+		await page.focus( BUTTON );
+
+		for ( const [ key, display, expanded ] of [
+			[ 'Enter', 'none', 'false' ],
+			[ 'Enter', 'block', 'true' ],
+			[ 'Space', 'none', 'false' ],
+			[ 'Space', 'block', 'true' ],
+		] ) {
+			await page.keyboard.press( key );
+			await expect.poll( async () => read( page ) ).toEqual( { display, expanded } );
+		}
+
+		// Escape still closes it and keeps focus on the button.
+		await page.keyboard.press( 'Escape' );
+		await expect.poll( async () => read( page ) ).toEqual( { display: 'none', expanded: 'false' } );
+		await expect( page.locator( BUTTON ) ).toBeFocused();
+	} );
+
+	test( 'hover still opens it', async ( { page } ) => {
+		test.skip( ! ( await page.locator( BUTTON ).count() ), 'no "#" parent in the menu' );
+
+		await page.hover( BUTTON );
+		await expect.poll( async () => read( page ) ).toEqual( { display: 'block', expanded: 'true' } );
 	} );
 } );
 

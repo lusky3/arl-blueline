@@ -77,12 +77,14 @@ function blueline_core_csp_directives( bool $commerce ): array {
 
 	if ( $commerce ) {
 		// PayPal (all its hosts), Google Pay, Apple Pay, and the Google Places address lookup and jQuery UI
-		// stylesheet the checkout field editor loads on checkout and account forms.
+		// stylesheet the checkout field editor loads on checkout and account forms. Google Pay's
+		// PaymentRequest makes Chrome fetch its payment-method manifest from https://google.com/pay, which
+		// redirects to www.google.com; after a redirect only the target's origin is matched.
 		$extra = array(
 			'form-action' => array( 'https://*.paypal.com' ),
 			'script-src'  => array( 'https://*.paypal.com', 'https://*.paypalobjects.com', 'https://pay.google.com', 'https://applepay.cdn-apple.com', 'https://maps.googleapis.com' ),
 			'style-src'   => array( 'https://ajax.googleapis.com' ),
-			'connect-src' => array( 'https://*.paypal.com', 'https://pay.google.com', 'https://google.com/pay', 'https://maps.googleapis.com', 'https://places.googleapis.com' ),
+			'connect-src' => array( 'https://*.paypal.com', 'https://pay.google.com', 'https://google.com/pay', 'https://www.google.com', 'https://maps.googleapis.com', 'https://places.googleapis.com' ),
 			'frame-src'   => array( 'https://*.paypal.com', 'https://pay.google.com' ),
 		);
 

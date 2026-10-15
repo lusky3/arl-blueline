@@ -165,3 +165,12 @@
 .page-id-154 .bl-entry {
 	--bl-measure-inline: 0;
 }
+
+/*
+ * The intro heading is centred in its block settings, which centred it in the
+ * prose-width box on the grid's left edge: off-centre over the grid, and not
+ * on the edge the page title and cards share either.
+ */
+.page-id-154 .entry-content > :where(h2, h3).has-text-align-center {
+	text-align: start;
+}

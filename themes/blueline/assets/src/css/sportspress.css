@@ -377,6 +377,36 @@
 	}
 }
 
+/*
+ * The smallest phones (360px): a one-word name ("Replacements",
+ * "TrebleMakers") cannot wrap, and beside a long record it pushed two
+ * divisions 2-5px wider than the column. A narrower crest gap and end
+ * padding give the name that room without breaking it.
+ */
+@media (max-width: 374.98px) {
+
+	.sp-league-table td.data-name > a {
+		gap: var(--bl-space-1);
+	}
+
+	.sp-league-table td.data-name {
+		padding-inline-end: var(--bl-space-1);
+	}
+
+	.sp-league-table:has(td.data-name.has-logo) td.data-name:not(.has-logo) {
+		padding-inline-start: calc(var(--bl-space-2) + var(--bl-space-1) + 24px);
+	}
+}
+
+/* Narrower still (320px, or a longer name), breaking the name beats a table
+   that scrolls sideways for one word. */
+@media (max-width: 359.98px) {
+
+	.sp-league-table td.data-name > a {
+		overflow-wrap: anywhere;
+	}
+}
+
 /* ---- Event blocks / event calendar: card treatment ---- */
 
 .sp-event-blocks,
@@ -2333,6 +2363,19 @@ table.sp-event-statistics.sp-data-table {
 	--bl-sched-season: 5.75;
 }
 
+/*
+ * A calendar with both League and Season (/calendar/current-season) came to
+ * 52.25rem, 836px, but a sidebar page's content column stops at 820px, so it
+ * showed cards at every desktop width. Its Result column only ever holds a
+ * score ("10–4") and gives up the slack it had; Season ("W2026-27", never
+ * wraps) takes a little of it, being slightly short: 51rem, which fits the
+ * column from about 1270px.
+ */
+.sp-table-wrapper:has(.bl-sp-schedule thead th.data-league):has(.bl-sp-schedule thead th.data-season) {
+	--bl-sched-time: 4;
+	--bl-sched-season: 6.25;
+}
+
 .sp-table-wrapper:has(.bl-sp-schedule thead th.data-article) {
 	--bl-sched-article: 4.25;
 }
@@ -2532,7 +2575,7 @@ table.sp-event-statistics.sp-data-table {
  * to about 1100px, the space it was given was narrower than that, so it sat in
  * a state of scrolling a little with the Arena column cut off. 41em here is
  * that minimum for any column set (a calendar with League and Season is
- * 52.25rem): the wrapper's font size carries the scale, see above. Keep 41
+ * 51rem): the wrapper's font size carries the scale, see above. Keep 41
  * equal to the default --bl-sched-total.
  */
 @container bl-sched (width < 41em) {

@@ -80,6 +80,28 @@ test( 'tidyQuoteText curls the marks inside a quote', () => {
 	);
 } );
 
+test( 'tidyQuoteText opens single quotes after a space, bracket or dash', () => {
+	assert.equal(
+		tidyQuoteText(
+			"People would say, 'Girls don't play hockey. Girls don't skate.' I would say, 'Watch this'."
+		),
+		'People would say, ‘Girls don’t play hockey. Girls don’t skate.’ I would say, ‘Watch this’.'
+	);
+	assert.equal( tidyQuoteText( "'Skate' (or 'glide')" ), '‘Skate’ (or ‘glide’)' );
+	assert.equal(
+		tidyQuoteText( 'She said "\'Go\' means go."' ),
+		'She said “‘Go’ means go.”'
+	);
+} );
+
+test( 'tidyQuoteText keeps apostrophes and decades as closing marks', () => {
+	assert.equal(
+		tidyQuoteText( "We've played since the '90s." ),
+		'We’ve played since the ’90s.'
+	);
+	assert.equal( tidyQuoteText( "Players' bench ' alone" ), 'Players’ bench ’ alone' );
+} );
+
 test( 'tidyQuoteText leaves a quote that only starts with a quoted word', () => {
 	assert.equal(
 		tidyQuoteText( '"Go" is the only word I need on the bench.' ),

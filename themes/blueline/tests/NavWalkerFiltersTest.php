@@ -122,6 +122,24 @@ final class NavWalkerFiltersTest extends TestCase {
 	}
 
 	/**
+	 * No hidden new-tab hint when something else already says it: Page Links To's "#new_tab" links get an
+	 * aria-label built from the link's text (which would then repeat the hint), and a label that already
+	 * mentions a new tab or window would only say it twice.
+	 */
+	public function test_no_new_tab_hint_when_the_link_already_says_so(): void {
+		$plt = $this->render( $this->item( array( 'url' => 'https://www.flickr.com/groups/arl_photos/pool/#new_tab' ) ) );
+		$this->assertStringContainsString( 'href="https://www.flickr.com/groups/arl_photos/pool/#new_tab"', $plt );
+		$this->assertStringContainsString( 'target="_blank"', $plt );
+		$this->assertStringNotContainsString( 'bl-new-tab-hint', $plt );
+
+		foreach ( array( 'Photos (opens in a new tab)', 'Photos (new window)' ) as $title ) {
+			$this->assertStringNotContainsString( 'bl-new-tab-hint', $this->render( $this->item( array( 'title' => $title ) ) ), $title );
+		}
+
+		$this->assertStringContainsString( 'bl-new-tab-hint', $this->render( $this->item( array( 'url' => 'https://www.flickr.com/groups/arl_photos/pool/#new' ) ) ) );
+	}
+
+	/**
 	 * A parent with a real destination stays a link; its separate toggle is
 	 * named "{Label} submenu", a name that stays true whether it is open or
 	 * shut (aria-expanded carries that).

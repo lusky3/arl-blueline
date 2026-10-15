@@ -7,9 +7,11 @@
  * visitor is rate-limited, and every report is validated and reduced before anything is stored.
  *
  * What is stored: one non-autoloaded option of counts per (directive, blocked origin or keyword, page path),
- * capped at BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES, least-seen evicted first. Never a full URL, a query
- * string, an IP address or a user agent. The rate limiter keys a short-lived transient on a keyed hash of
- * address + user agent + today's date, so the key cannot be reversed or linked across days.
+ * capped at BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES, least-seen (then oldest) evicted first. A new entry is only
+ * added for a page the site really serves, so made-up paths cannot crowd out real rows. Never a full URL, a
+ * query string, an IP address or a user agent. The rate limiter (a fixed window per visitor) keys a
+ * short-lived transient on a keyed hash of address + user agent + today's date, so the key cannot be
+ * reversed or linked across days.
  *
  * Read the result with `wp blueline-core csp report`, or the top five in Tools > Site Health.
  *
@@ -27,6 +29,8 @@ const BLUELINE_CORE_CSP_REPORT_MAX_PER_BATCH = 20;
 const BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES   = 200;
 const BLUELINE_CORE_CSP_REPORT_RATE_LIMIT    = 30;
 const BLUELINE_CORE_CSP_REPORT_RATE_WINDOW   = 600;
+// The site's deepest pages are dated posts and paged term archives (`/category/news/page/2/`): four segments.
+const BLUELINE_CORE_CSP_REPORT_MAX_SEGMENTS = 6;
 
 /**
  * The directives a report may name. Anything else is not a CSP report.
@@ -106,7 +110,9 @@ function blueline_core_csp_report_handle( $request ) {
 		return new WP_Error( 'blueline_csp_invalid_report', __( 'No valid CSP report.', 'blueline-core' ), array( 'status' => 400 ) );
 	}
 
-	blueline_core_csp_record( $reports );
+	if ( ! blueline_core_csp_record( $reports ) ) {
+		return new WP_Error( 'blueline_csp_invalid_report', __( 'No valid CSP report.', 'blueline-core' ), array( 'status' => 400 ) );
+	}
 
 	return new WP_REST_Response( null, 204 );
 }
@@ -114,19 +120,39 @@ function blueline_core_csp_report_handle( $request ) {
 /**
  * Count one request against the visitor's allowance.
  *
- * @param string $ip         Remote address (never stored).
- * @param string $user_agent User agent (never stored).
+ * The window is fixed: it opens with the visitor's first request and closes BLUELINE_CORE_CSP_REPORT_RATE_WINDOW
+ * seconds later, and the counter only lives for what is left of it. Refreshing the lifetime on every request
+ * would make it a sliding window, which locks out a browser that keeps reporting at a steady trickle.
+ *
+ * @param string   $ip         Remote address (never stored).
+ * @param string   $user_agent User agent (never stored).
+ * @param int|null $now        Unix time; null for now.
  * @return bool False once the visitor has sent BLUELINE_CORE_CSP_REPORT_RATE_LIMIT requests in the window.
  */
-function blueline_core_csp_report_allow_visitor( string $ip, string $user_agent ): bool {
-	$key   = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( $ip, $user_agent, gmdate( 'Y-m-d' ) ), 0, 24 );
-	$count = (int) get_transient( $key );
+function blueline_core_csp_report_allow_visitor( string $ip, string $user_agent, ?int $now = null ): bool {
+	$now    = $now ?? time();
+	$key    = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( $ip, $user_agent, gmdate( 'Y-m-d', $now ) ), 0, 24 );
+	$stored = get_transient( $key );
+	$window = array(
+		'count' => 0,
+		'start' => $now,
+	);
 
-	if ( $count >= BLUELINE_CORE_CSP_REPORT_RATE_LIMIT ) {
+	// Anything else (an expired window the cache has not dropped yet, the old bare-integer counter, a start
+	// in the future) opens a new window.
+	if ( is_array( $stored ) && isset( $stored['count'], $stored['start'] ) && $stored['start'] <= $now && $now < $stored['start'] + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW ) {
+		$window = array(
+			'count' => max( 0, (int) $stored['count'] ),
+			'start' => (int) $stored['start'],
+		);
+	}
+
+	if ( $window['count'] >= BLUELINE_CORE_CSP_REPORT_RATE_LIMIT ) {
 		return false;
 	}
 
-	set_transient( $key, $count + 1, BLUELINE_CORE_CSP_REPORT_RATE_WINDOW );
+	++$window['count'];
+	set_transient( $key, $window, $window['start'] + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW - $now );
 
 	return true;
 }
@@ -216,7 +242,7 @@ function blueline_core_csp_normalize_report( array $report, string $site_host ):
 	$blocked = blueline_core_csp_blocked_label( $field( 'blocked-uri', 'blockedURL' ) );
 	$path    = blueline_core_csp_document_path( $field( 'document-uri', 'documentURL' ), $site_host );
 
-	if ( '' === $blocked || '' === $path ) {
+	if ( '' === $blocked || '' === $path || ! blueline_core_csp_path_is_plausible( $path ) ) {
 		return null;
 	}
 
@@ -310,6 +336,77 @@ function blueline_core_csp_document_path( string $url, string $site_host ): stri
 }
 
 /**
+ * Whether a path is shaped like one of the site's pages: at most BLUELINE_CORE_CSP_REPORT_MAX_SEGMENTS
+ * slug-like segments of at most 100 characters each. A cheap first filter before the lookup in
+ * blueline_core_csp_path_resolves().
+ *
+ * @param string $path A path from blueline_core_csp_document_path().
+ * @return bool
+ */
+function blueline_core_csp_path_is_plausible( string $path ): bool {
+	if ( '/' === $path ) {
+		return true;
+	}
+
+	if ( '/' !== substr( $path, 0, 1 ) ) {
+		return false;
+	}
+
+	$segments = explode( '/', trim( $path, '/' ) );
+	if ( count( $segments ) > BLUELINE_CORE_CSP_REPORT_MAX_SEGMENTS ) {
+		return false;
+	}
+
+	foreach ( $segments as $segment ) {
+		// Slug characters and percent-encoding, with at least one letter or digit (so never `..`).
+		if ( strlen( $segment ) > 100 || ! preg_match( '/^[A-Za-z0-9._~%+-]+$/', $segment ) || ! preg_match( '/[A-Za-z0-9]/', $segment ) ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
+ * Whether a path is a page this site really serves: the front page, a post, page or account endpoint
+ * (url_to_postid()), a published page that lists other content (the posts page, the shop), or a taxonomy
+ * term archive; page 2+ of a list counts when page 1 does. Anyone can post a report naming a made-up
+ * path, so only these are counted.
+ *
+ * @param string $path A plausible path (blueline_core_csp_path_is_plausible()).
+ * @return bool
+ */
+function blueline_core_csp_path_resolves( string $path ): bool {
+	$trimmed  = trim( (string) preg_replace( '~/page/\d+/?$~i', '', '/' . trim( $path, '/' ) ), '/' );
+	$resolves = '' === $trimmed || url_to_postid( home_url( '/' . $trimmed ) ) > 0;
+
+	if ( ! $resolves ) {
+		$page     = get_page_by_path( rawurldecode( $trimmed ) );
+		$resolves = is_object( $page ) && 'publish' === ( $page->post_status ?? '' );
+	}
+
+	$segments = explode( '/', $trimmed );
+	if ( ! $resolves && 2 === count( $segments ) ) {
+		foreach ( (array) get_taxonomies( array( 'public' => true ), 'objects' ) as $taxonomy ) {
+			$rewrite = is_object( $taxonomy ) && isset( $taxonomy->rewrite ) && is_array( $taxonomy->rewrite ) ? $taxonomy->rewrite : array();
+			$base    = trim( (string) ( $rewrite['slug'] ?? '' ), '/' );
+			if ( '' !== $base && strtolower( $base ) === strtolower( rawurldecode( $segments[0] ) ) && term_exists( rawurldecode( $segments[1] ), (string) $taxonomy->name ) ) {
+				$resolves = true;
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Filters whether a reported page path is one of the site's pages (and so may be counted).
+	 *
+	 * @param bool   $resolves Whether the path resolved.
+	 * @param string $path     The reported path, without query string.
+	 */
+	return (bool) apply_filters( 'blueline_core_csp_report_path_resolves', $resolves, $path );
+}
+
+/**
  * An empty store.
  *
  * @return array{since: string, total: int, entries: array<string, array>}
@@ -356,6 +453,16 @@ function blueline_core_csp_store(): array {
 }
 
 /**
+ * A store entry's key: one entry per (directive, blocked label, page path).
+ *
+ * @param array{directive: string, blocked: string, path: string} $report One normalised report.
+ * @return string
+ */
+function blueline_core_csp_entry_key( array $report ): string {
+	return $report['directive'] . ' ' . $report['blocked'] . ' ' . $report['path'];
+}
+
+/**
  * Add one report to a store. Pure. When the store is full, the least-seen entry (the oldest of equally
  * rare ones) makes room.
  *
@@ -366,7 +473,7 @@ function blueline_core_csp_store(): array {
  * @return array The updated store.
  */
 function blueline_core_csp_add_to_store( array $store, array $report, string $day, int $max ): array {
-	$key = $report['directive'] . ' ' . $report['blocked'] . ' ' . $report['path'];
+	$key = blueline_core_csp_entry_key( $report );
 
 	if ( ! isset( $store['entries'][ $key ] ) ) {
 		$excess = count( $store['entries'] ) - max( 1, $max ) + 1;
@@ -407,25 +514,41 @@ function blueline_core_csp_least_seen_key( array $entries ): string {
 }
 
 /**
- * Count reports in the stored option. Two simultaneous requests can each miss the other's count; for a
- * report of what is broken, that loss does not matter, and it avoids locking on a public endpoint.
+ * Count reports in the stored option. A report that would add a new entry is only counted when its page
+ * is one of the site's (blueline_core_csp_path_resolves()); one already in the store was checked when it
+ * was added. Two simultaneous requests can each miss the other's count; for a report of what is broken,
+ * that loss does not matter, and it avoids locking on a public endpoint.
  *
  * @param array<int, array{directive: string, blocked: string, path: string}> $reports Normalised reports.
- * @return void
+ * @return int How many reports were counted.
  */
-function blueline_core_csp_record( array $reports ): void {
-	$store = blueline_core_csp_store();
-	$now   = time();
-
-	if ( '' === $store['since'] ) {
-		$store['since'] = gmdate( 'Y-m-d H:i', $now );
-	}
+function blueline_core_csp_record( array $reports ): int {
+	$store    = blueline_core_csp_store();
+	$now      = time();
+	$resolved = array();
+	$counted  = 0;
 
 	foreach ( $reports as $report ) {
+		if ( ! isset( $store['entries'][ blueline_core_csp_entry_key( $report ) ] ) ) {
+			$resolved[ $report['path'] ] ??= blueline_core_csp_path_resolves( $report['path'] );
+			if ( ! $resolved[ $report['path'] ] ) {
+				continue;
+			}
+		}
+
 		$store = blueline_core_csp_add_to_store( $store, $report, gmdate( 'Y-m-d', $now ), BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES );
+		++$counted;
 	}
 
-	update_option( BLUELINE_CORE_CSP_REPORT_OPTION, $store, false );
+	if ( $counted ) {
+		if ( '' === $store['since'] ) {
+			$store['since'] = gmdate( 'Y-m-d H:i', $now );
+		}
+
+		update_option( BLUELINE_CORE_CSP_REPORT_OPTION, $store, false );
+	}
+
+	return $counted;
 }
 
 /**
