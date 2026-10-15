@@ -191,5 +191,7 @@ function blueline_settings_maybe_enqueue_occasions_script( string $hook_suffix )
  * @return string
  */
 function blueline_settings_occasions_styles(): string {
-	return '.bl-occasions__help summary{cursor:pointer;min-height:24px;padding-block:4px;box-sizing:border-box;}';
+	// Each row's fieldset only groups and names it; it draws nothing.
+	return '.bl-occasions__help summary{cursor:pointer;min-height:24px;padding-block:4px;box-sizing:border-box;}'
+		. '.bl-occasions__fieldset{margin:0;padding:0;border:0;min-width:0;}';
 }

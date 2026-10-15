@@ -81,4 +81,27 @@ final class AccountPreferencesTest extends TestCase {
 		$this->assertStringNotContainsString( 'next page view', $text );
 		$this->assertStringContainsString( 'don’t have an upcoming game', $text );
 	}
+
+	/**
+	 * The confirmation is an empty, always-present polite live region that
+	 * carries its words for the script to write in: text that appears along
+	 * with its container (the old `hidden` paragraph) is not announced by
+	 * many screen readers.
+	 */
+	public function test_confirmation_region_is_an_empty_live_region_carrying_its_message(): void {
+		$html = blueline_preferences_widget_confirmation_region( true );
+
+		$this->assertStringContainsString( 'role="status"', $html );
+		$this->assertStringContainsString( 'data-bl-widget-reset-confirmation', $html );
+		$this->assertStringNotContainsString( ' hidden', $html );
+		$this->assertMatchesRegularExpression( '#<p [^>]*></p>#', $html, 'rendered empty' );
+		$this->assertStringContainsString(
+			'data-bl-message="' . esc_attr( blueline_preferences_widget_confirmation_text( true ) ) . '"',
+			$html
+		);
+		$this->assertStringContainsString(
+			esc_attr( blueline_preferences_widget_confirmation_text( false ) ),
+			blueline_preferences_widget_confirmation_region( false )
+		);
+	}
 }

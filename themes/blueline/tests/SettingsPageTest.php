@@ -882,7 +882,7 @@ final class SettingsPageTest extends TestCase {
 		);
 		$html = ob_get_clean();
 
-		$this->assertStringContainsString( '<p class="description">', $html );
+		$this->assertStringContainsString( '<p class="description" id="blueline-field-module_latest_news-description">', $html );
 		$this->assertStringContainsString( 'At least one homepage module always shows', $html );
 	}
 
@@ -1150,6 +1150,124 @@ final class SettingsPageTest extends TestCase {
 		$html = $this->render_page();
 
 		$this->assertStringNotContainsString( 'blueline-settings-error-summary', $html );
+	}
+
+	/**
+	 * The tab links are navigation, not a heading: inside an <h2> the
+	 * heading's name was every tab name run together.
+	 */
+	public function test_the_tab_links_are_a_labelled_nav(): void {
+		$_GET['tab'] = 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
+
+		$html = $this->render_page();
+
+		$this->assertStringContainsString( '<nav class="nav-tab-wrapper" aria-label="Blueline settings">', $html );
+		$this->assertStringNotContainsString( '<h2 class="nav-tab-wrapper"', $html );
+	}
+
+	/**
+	 * A field's help text is its description: the input points at it, so
+	 * it is read with the field, not only seen near it.
+	 */
+	public function test_help_text_describes_its_input(): void {
+		foreach ( array( 'announcement_text', 'announcement_from', 'announcement_severity', 'module_latest_news' ) as $field_key ) {
+			ob_start();
+			blueline_settings_render_field( $field_key, blueline_settings_schema()[ $field_key ], null );
+			$html = (string) ob_get_clean();
+
+			$input_id = blueline_settings_field_input_id( $field_key );
+
+			$this->assertStringContainsString( '<p class="description" id="' . $input_id . '-description">', $html, $field_key );
+			$this->assertMatchesRegularExpression( '#id="' . preg_quote( $input_id, '#' ) . '"[^>]*aria-describedby="' . preg_quote( $input_id, '#' ) . '-description"#', $html, $field_key );
+		}
+	}
+
+	/**
+	 * A page picker carries the same description link, though core builds
+	 * its <select>.
+	 */
+	public function test_a_page_picker_is_described_by_its_help(): void {
+		ob_start();
+		blueline_settings_render_field( 'announcement_link', blueline_settings_schema()['announcement_link'], null );
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '#<select aria-describedby="blueline-field-announcement_link-description" name=#', $html );
+	}
+
+	/**
+	 * With an error, the error is read first, then the help.
+	 */
+	public function test_an_errored_field_is_described_by_its_error_then_its_help(): void {
+		ob_start();
+		blueline_settings_render_field( 'announcement_to', blueline_settings_schema()['announcement_to'], 'Not a date.' );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'aria-describedby="blueline-field-announcement_to-error blueline-field-announcement_to-description"', $html );
+	}
+
+	/**
+	 * A field without help, and without an error, points at nothing.
+	 */
+	public function test_a_field_without_help_has_no_description_link(): void {
+		ob_start();
+		blueline_settings_render_field( 'footer_heading', blueline_settings_schema()['footer_heading'], null );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringNotContainsString( 'aria-describedby', $html );
+	}
+
+	/**
+	 * The photograph repeater is a named group: its row label used to point
+	 * `for` at a <div>, which labels nothing.
+	 */
+	public function test_the_photo_repeater_is_a_named_group(): void {
+		ob_start();
+		blueline_settings_render_field( 'hero_photos', blueline_settings_schema()['hero_photos'], null );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'id="blueline-field-hero_photos-label"', $html );
+		$this->assertMatchesRegularExpression( '#<div\s+class="bl-photos"\s+id="blueline-field-hero_photos"\s+role="group"\s+aria-labelledby="blueline-field-hero_photos-label"\s+aria-describedby="blueline-field-hero_photos-description"#', $html );
+	}
+
+	/**
+	 * Each photograph's Remove button names the photograph it removes.
+	 */
+	public function test_each_photo_remove_button_names_its_photo(): void {
+		blueline_test_register_page_with_title( 501, 'inherit', 'rink-at-dusk.jpg' );
+		$state                           = &blueline_test_state();
+		$state['posts'][501]['is_image'] = true;
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'hero_photos' => array(
+					array(
+						'id'    => 501,
+						'align' => 'center-center',
+					),
+				),
+			)
+		);
+
+		ob_start();
+		blueline_settings_render_field( 'hero_photos', blueline_settings_schema()['hero_photos'], null );
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '#data-bl-photos-remove>\s*Remove<span class="screen-reader-text"> rink-at-dusk\.jpg</span>\s*</button>#', $html );
+	}
+
+	/**
+	 * The brand-colour contrast readout is a polite live region, like the
+	 * Occasions one: it changes as the admin types.
+	 */
+	public function test_the_brand_contrast_readout_is_live(): void {
+		$field = blueline_settings_schema()['brand_color_ice'];
+
+		ob_start();
+		blueline_settings_render_color_field( 'brand_color_ice', $field, 'blueline_settings[brand_color_ice]', 'brand_color_ice', '', false, '' );
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '#<p class="description" id="brand_color_ice-contrast" data-bl-brand-color-contrast[^>]*aria-live="polite"#', $html );
+		$this->assertMatchesRegularExpression( '#data-bl-brand-color-hex[^>]*aria-describedby="brand_color_ice-contrast"#', $html, 'the readout describes the input it reports on' );
 	}
 
 	/**

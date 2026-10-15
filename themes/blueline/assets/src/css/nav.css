@@ -61,6 +61,23 @@
 }
 
 /*
+ * A parent whose URL is "#" is a disclosure <button> (Blueline_Nav_Walker),
+ * and looks exactly like its link siblings: the browser's button chrome,
+ * font size, line height and centred text are put back to the link's.
+ */
+button.bl-nav__link {
+	margin: 0;
+	border-width: 0 0 3px;
+	border-style: solid;
+	border-color: transparent;
+	background: none;
+	font-size: inherit;
+	line-height: inherit;
+	text-align: inherit;
+	cursor: pointer;
+}
+
+/*
  * The skewed label wrapper must not contribute layout width, or nav items
  * sit at different widths depending on whether their background happens to
  * be showing, and the row reads as unevenly spaced.

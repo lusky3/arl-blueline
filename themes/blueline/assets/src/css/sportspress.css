@@ -346,12 +346,19 @@
 	white-space: normal;
 }
 
+/*
+ * A paragraph now, no longer a heading (blueline_sp_event_results_as_text()),
+ * so it restates the display-heading treatment it used to get from base.css.
+ */
 .sp-event-blocks .sp-event-results {
 	margin: var(--bl-space-1) 0 0;
 	font-family: var(--bl-font-display);
 	font-weight: 800;
 	font-style: italic;
 	font-size: var(--bl-text-lg);
+	text-transform: uppercase;
+	line-height: 0.92;
+	text-wrap: balance;
 }
 
 .sp-event-blocks .sp-event-status {
@@ -501,6 +508,50 @@ table.sp-event-venue :is(th, td) {
 	min-width: 2.75rem;
 	min-height: 2.75rem;
 	padding-inline: var(--bl-space-2);
+}
+
+/*
+ * SportsPress hides the disabled control ("Previous" on page 1) with
+ * opacity:0, which leaves it clickable, focusable and announced while
+ * invisible; visibility:hidden takes it out of all three and keeps its
+ * space. sp-data-tables.js also marks it aria-disabled.
+ */
+.sp-table-wrapper .dataTables_paginate .paginate_button.disabled {
+	visibility: hidden;
+}
+
+/*
+ * The current page was SportsPress's opacity:0.5, which halved the
+ * number's contrast. It keeps full contrast and is marked by an underline
+ * and weight instead (aria-current="page" says it to assistive tech).
+ */
+.sp-table-wrapper .dataTables_paginate .paginate_button.current {
+	opacity: 1;
+	font-weight: 700;
+	text-decoration: underline;
+	text-decoration-thickness: 2px;
+	text-underline-offset: 0.25em;
+}
+
+/*
+ * The sort control sp-data-tables.js puts in each sortable header: a real
+ * button that looks like the header text it holds. The header keeps its
+ * click target and SportsPress's sort arrow.
+ */
+.sp-data-table thead .bl-sort-button {
+
+	/* Room for the inset focus ring around the text, given back by the
+	   margin so the header lays out exactly as its bare text did. */
+	margin: -0.2em -0.35em;
+	padding: 0.2em 0.35em;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	text-align: inherit;
+	text-transform: inherit;
+	cursor: pointer;
 }
 
 .sp-event-calendar .sp-previous-month,
@@ -1923,9 +1974,26 @@ table.sp-event-statistics.sp-data-table {
 	border-color: var(--bl-steel);
 }
 
+/*
+ * Checked: the ice fill alone is 1.94:1 against the light page (WCAG
+ * 1.4.11), so the box also takes a tick in ink, 7.7:1 on the ice in either
+ * theme, which says "on" without relying on colour at all.
+ */
 .bl-sp-standings-toggle-input:checked ~ .bl-sp-standings-toggle-label::before {
+	content: "\2713";
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+
+	/* The same 0.9em box as unchecked, restated at the tick's smaller size. */
+	width: 1.2em;
+	height: 1.2em;
 	background: var(--bl-ice);
 	border-color: var(--bl-steel);
+	color: var(--bl-ink);
+	font-size: 0.75em;
+	font-weight: 800;
+	line-height: 1;
 }
 
 .bl-sp-standings-toggle-input:focus-visible ~ .bl-sp-standings-toggle-label {
@@ -1937,6 +2005,13 @@ table.sp-event-statistics.sp-data-table {
 /* C-02: sortable headers sit in an overflow-x scroll wrapper that clips an
    outward ring, so draw it inside the cell instead. */
 .sp-data-table thead th:focus-visible {
+	outline-offset: calc(var(--bl-focus-width) * -1);
+	box-shadow: var(--bl-focus-ring-inset);
+}
+
+/* The header's sort button (sp-data-tables.js): same inward ring, for the
+   same clipping reason. */
+.sp-data-table thead .bl-sort-button:focus-visible {
 	outline-offset: calc(var(--bl-focus-width) * -1);
 	box-shadow: var(--bl-focus-ring-inset);
 }

@@ -335,6 +335,26 @@ function blueline_checkout_reassurance() {
  * title and thumbnail, which is what this shortcode is actually being used
  * to imitate here, rather than a real single-product view.
  */
+/**
+ * Suffix for a product's tab ids (woocommerce/single-product/tabs/tabs.php):
+ * '' on the product's own page, where WooCommerce's stock ids (and its
+ * #tab-reviews links) belong, and "-{id}" wherever the product is embedded in
+ * another page, which can embed several (/register embeds two), so their tabs
+ * and panels never share an id.
+ *
+ * @param mixed $product The global WC_Product, or anything else.
+ * @return string
+ */
+function blueline_wc_product_tab_id_suffix( $product ): string {
+	if ( ! is_object( $product ) || ! method_exists( $product, 'get_id' ) ) {
+		return '';
+	}
+
+	$product_id = (int) $product->get_id();
+
+	return ( $product_id > 0 && get_queried_object_id() !== $product_id ) ? '-' . $product_id : '';
+}
+
 add_action( 'woocommerce_single_product_summary', 'blueline_wc_product_page_shortcode_title_link_open', 4 );
 add_action( 'woocommerce_single_product_summary', 'blueline_wc_product_page_shortcode_title_link_close', 6 );
 add_filter( 'woocommerce_single_product_image_thumbnail_html', 'blueline_wc_product_page_shortcode_thumbnail_link', 20, 2 );

@@ -654,8 +654,16 @@ a.bl-next-games__venue:focus-visible {
 .bl-standings-tabs__input:nth-of-type(11):checked ~ .bl-standings-tabs__label:nth-of-type(11) .bl-skew,
 .bl-standings-tabs__input:nth-of-type(12):checked ~ .bl-standings-tabs__label:nth-of-type(12) .bl-skew {
 	background: var(--bl-ice);
-	border-color: var(--bl-ice);
 	color: var(--bl-ink);
+
+	/*
+	 * The ice fill alone is 1.94:1 against the light page, too faint to
+	 * mark the selected division by itself (WCAG 1.4.11). A 2px ink edge
+	 * (border plus a 1px inset ring, so the chip does not grow) is 14.9:1
+	 * there and twice the unselected chips' 1px grey one.
+	 */
+	border-color: var(--bl-ink);
+	box-shadow: inset 0 0 0 1px var(--bl-ink);
 }
 
 /* :nth-of-type pairing again -- see the checked-chip rule above; without

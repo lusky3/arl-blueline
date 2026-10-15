@@ -176,6 +176,47 @@
 				label.getAttribute( 'for' ).replace( '__TEMPLATE__', rowKey )
 			);
 		} );
+
+		// The Remove button is named by itself and the row's legend, by id.
+		row.querySelectorAll( '[aria-labelledby]' ).forEach( ( control ) => {
+			const ids = control.getAttribute( 'aria-labelledby' );
+
+			if ( ids ) {
+				control.setAttribute(
+					'aria-labelledby',
+					ids.split( '__TEMPLATE__' ).join( rowKey )
+				);
+			}
+		} );
+	}
+
+	/**
+	 * The name a row's fieldset legend carries: its occasion's label, or
+	 * "New occasion" until it has one. Mirrors
+	 * blueline_settings_render_occasion_row()'s own legend.
+	 *
+	 * @param {string} label The row's Label field value.
+	 * @return {string} Legend text.
+	 */
+	function blOccasionLegendText( label ) {
+		const trimmed = String( label || '' ).trim();
+
+		return '' !== trimmed ? trimmed : 'New occasion';
+	}
+
+	/**
+	 * The row focus moves to once $row is removed: the next one, else the
+	 * previous one, else none (the caller falls back to the Add button), so
+	 * focus never drops to the top of the page.
+	 *
+	 * @param {Array}  rows Rows in order, $row included.
+	 * @param {Object} row  The row being removed.
+	 * @return {Object|null} Neighbour row.
+	 */
+	function blOccasionNeighbour( rows, row ) {
+		const index = rows.indexOf( row );
+
+		return rows[ index + 1 ] || rows[ index - 1 ] || null;
 	}
 
 	/**
@@ -266,6 +307,30 @@
 
 		const data = window.blOccasionsData || DEFAULT_OCCASIONS_DATA;
 		updateRow( row, data.inkHex, data.threshold );
+		syncLegend( row );
+
+		// The new row is what the admin came to fill in.
+		const first = row.querySelector( '[data-bl-occasion-label]' );
+
+		if ( first ) {
+			first.focus();
+		}
+	}
+
+	/**
+	 * Keep a row's legend (and so its Remove button's name) in step with
+	 * its Label field.
+	 *
+	 * @param {Element} row A [data-bl-occasion-row] element.
+	 * @return {void}
+	 */
+	function syncLegend( row ) {
+		const legend = row.querySelector( '[data-bl-occasion-legend]' );
+		const label = row.querySelector( '[data-bl-occasion-label]' );
+
+		if ( legend && label ) {
+			legend.textContent = blOccasionLegendText( label.value );
+		}
 	}
 
 	/**
@@ -283,8 +348,26 @@
 		}
 
 		const row = remove.closest( '[data-bl-occasion-row]' );
-		if ( row ) {
-			row.remove();
+
+		if ( ! row ) {
+			return;
+		}
+
+		const neighbour = blOccasionNeighbour(
+			Array.from( root.querySelectorAll( '[data-bl-occasion-row]' ) ),
+			row
+		);
+
+		row.remove();
+
+		// Removing the focused button would drop focus to <body>: move it to
+		// the neighbouring row's Remove button, or to the Add button.
+		const target = neighbour
+			? neighbour.querySelector( '[data-bl-occasion-remove]' )
+			: root.querySelector( '[data-bl-occasions-add-blank]' );
+
+		if ( target ) {
+			target.focus();
 		}
 	}
 
@@ -341,6 +424,10 @@
 			if ( row && event.target.matches( '[data-bl-occasion-accent]' ) ) {
 				updateRow( row, data.inkHex, data.threshold );
 			}
+
+			if ( row && event.target.matches( '[data-bl-occasion-label]' ) ) {
+				syncLegend( row );
+			}
 		} );
 
 		root.addEventListener( 'change', ( event ) => {
@@ -391,6 +478,8 @@
 			blOccasionContrastRatio,
 			blOccasionIsHex,
 			blOccasionApplyRowKey,
+			blOccasionLegendText,
+			blOccasionNeighbour,
 		};
 	}
 } )();

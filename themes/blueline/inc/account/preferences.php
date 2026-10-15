@@ -73,6 +73,23 @@ function blueline_preferences_widget_confirmation_text( bool $has_upcoming_event
 }
 
 /**
+ * The live region the "Show next game widget again" confirmation is written
+ * into: rendered empty and always present, carrying its words in
+ * data-bl-message for assets/src/js/preferences-widget-reset.js to write in
+ * on click. Text that appears together with its container (a `hidden`
+ * paragraph revealed on click) is skipped by many screen readers, and a
+ * second click would change nothing at all.
+ *
+ * @param bool $has_upcoming_event Whether the linked player currently has an upcoming event.
+ * @return string Escaped markup.
+ */
+function blueline_preferences_widget_confirmation_region( bool $has_upcoming_event ): string {
+	return '<p class="bl-preferences-widget__confirmation" role="status" data-bl-widget-reset-confirmation data-bl-message="'
+		. esc_attr( blueline_preferences_widget_confirmation_text( $has_upcoming_event ) )
+		. '"></p>';
+}
+
+/**
  * The linked-team section: read-only summary, or an unclaimed/rosterless
  * message with a contact-the-league link.
  */
@@ -132,9 +149,8 @@ function blueline_account_preferences_endpoint(): void {
 	<button type="button" class="bl-btn bl-btn--secondary" data-bl-widget-reset>
 		<span class="bl-skew"><span><?php esc_html_e( 'Show next game widget again', 'blueline' ); ?></span></span>
 	</button>
-	<p class="bl-preferences-widget__confirmation" data-bl-widget-reset-confirmation hidden role="status">
-		<?php echo esc_html( blueline_preferences_widget_confirmation_text( $preferences_widget_has_event ) ); ?>
-	</p>
 	<?php
+	echo blueline_preferences_widget_confirmation_region( (bool) $preferences_widget_has_event ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in blueline_preferences_widget_confirmation_region().
+
 	blueline_account_module_end();
 }

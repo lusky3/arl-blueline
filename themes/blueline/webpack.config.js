@@ -25,6 +25,7 @@ module.exports = {
 			js( 'venue-map' ),
 			js( 'player-selector' ),
 			js( 'team-name-tooltip' ),
+			js( 'sp-data-tables' ),
 		],
 		sponsors: js( 'sponsors' ),
 		occasions: [ css( 'occasions' ), js( 'occasion-effects-toggle' ) ],
@@ -35,6 +36,7 @@ module.exports = {
 			js( 'woocommerce-account-form-errors' ),
 			js( 'woocommerce' ),
 			js( 'rules-modal' ),
+			js( 'checkout-login-toggle' ),
 		],
 		forms: [ css( 'forms' ), js( 'contact-form-fields' ) ],
 		account: [

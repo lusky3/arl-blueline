@@ -73,17 +73,18 @@ final class NavWalkerFiltersTest extends TestCase {
 	}
 
 	/**
-	 * With nothing hooked, output is exactly what the walker emitted before
-	 * the filters were added (captured from the pre-change walker).
+	 * With nothing hooked, output is exactly what the walker emits: a link
+	 * (with a spoken new-tab warning when it opens one), and a "#" parent as
+	 * a disclosure button, its chevron a pointer-only duplicate.
 	 */
 	public function test_default_output_is_unchanged(): void {
 		$this->assertSame(
-			'<li class="menu-item current-menu-item bl-nav__item"><a class="bl-nav__link" href="https://example.test/faq" title="Read the rules" target="_blank" rel="nofollow" aria-current="page"><span class="bl-skew"><span>Rules & FAQ</span></span></a></li>' . "\n",
+			'<li class="menu-item current-menu-item bl-nav__item"><a class="bl-nav__link" href="https://example.test/faq" title="Read the rules" target="_blank" rel="nofollow" aria-current="page"><span class="bl-skew"><span>Rules & FAQ</span></span><span class="screen-reader-text bl-new-tab-hint"> (opens in a new tab)</span></a></li>' . "\n",
 			$this->render( $this->item() )
 		);
 
 		$this->assertSame(
-			'<li class="menu-item menu-item-has-children bl-nav__item bl-nav__item--parent"><a class="bl-nav__link" href="#"><span class="bl-skew"><span>League</span></span></a><button type="button" class="bl-nav__toggle-sub" aria-expanded="false" aria-controls="bl-submenu-9"><span class="screen-reader-text">Show submenu for League</span><svg class="bl-nav__chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' . "\n\t<ul id=\"bl-submenu-9\" class=\"sub-menu bl-nav__submenu\">\n\t</ul>\n</li>\n",
+			'<li class="menu-item menu-item-has-children bl-nav__item bl-nav__item--parent"><button type="button" class="bl-nav__link" aria-expanded="false" aria-controls="bl-submenu-9"><span class="bl-skew"><span>League</span></span></button><button type="button" class="bl-nav__toggle-sub" aria-expanded="false" aria-controls="bl-submenu-9" tabindex="-1" aria-hidden="true"><svg class="bl-nav__chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' . "\n\t<ul id=\"bl-submenu-9\" class=\"sub-menu bl-nav__submenu\">\n\t</ul>\n</li>\n",
 			$this->render(
 				$this->item(
 					array(
@@ -118,6 +119,88 @@ final class NavWalkerFiltersTest extends TestCase {
 				1
 			)
 		);
+	}
+
+	/**
+	 * A parent with a real destination stays a link; its separate toggle is
+	 * named "{Label} submenu", a name that stays true whether it is open or
+	 * shut (aria-expanded carries that).
+	 */
+	public function test_a_parent_with_a_destination_keeps_its_link_and_a_named_toggle(): void {
+		$html = $this->render(
+			$this->item(
+				array(
+					'ID'         => 11,
+					'title'      => 'Rosters / Stats',
+					'url'        => 'https://example.test/rosters',
+					'classes'    => array( 'menu-item-has-children' ),
+					'attr_title' => '',
+					'target'     => '',
+					'xfn'        => '',
+				)
+			),
+			0,
+			true
+		);
+
+		$this->assertStringContainsString( '<a class="bl-nav__link" href="https://example.test/rosters"><span class="bl-skew"><span>Rosters / Stats</span></span></a>', $html );
+		$this->assertStringContainsString( '<button type="button" class="bl-nav__toggle-sub" aria-expanded="false" aria-controls="bl-submenu-11"><span class="screen-reader-text">Rosters / Stats submenu</span>', $html );
+		$this->assertStringNotContainsString( 'tabindex', $html );
+	}
+
+	/**
+	 * A "#" parent at depth 1 (Past Rosters) is a disclosure button too, and
+	 * a "#" item with no children stays the link it was.
+	 */
+	public function test_hash_parents_at_any_depth_are_buttons_and_childless_hash_items_are_not(): void {
+		$parent = $this->item(
+			array(
+				'ID'         => 12,
+				'title'      => 'Past Rosters',
+				'url'        => '#',
+				'classes'    => array( 'menu-item-has-children' ),
+				'attr_title' => '',
+				'target'     => '',
+				'xfn'        => '',
+			)
+		);
+
+		$this->assertStringContainsString( '<button type="button" class="bl-nav__link" aria-expanded="false" aria-controls="bl-submenu-12"><span>Past Rosters</span></button>', $this->render( $parent, 1, true ) );
+		$parent->classes = array( 'menu-item' );
+		$this->assertStringContainsString( '<a class="bl-nav__link" href="#">', $this->render( $parent, 1, false ) );
+	}
+
+	/**
+	 * Link-only attributes a callback adds do not land on the button, other
+	 * attributes do.
+	 */
+	public function test_a_hash_parent_button_drops_link_only_attributes(): void {
+		add_filter(
+			'nav_menu_link_attributes',
+			static function ( $atts ) {
+				$atts['target']     = '_blank';
+				$atts['data-track'] = 'league';
+				return $atts;
+			}
+		);
+
+		$html = $this->render(
+			$this->item(
+				array(
+					'url'     => '#',
+					'classes' => array( 'menu-item-has-children' ),
+					'xfn'     => 'nofollow',
+				)
+			),
+			0,
+			true
+		);
+
+		$this->assertStringContainsString( 'data-track="league"', $html );
+		$this->assertStringNotContainsString( 'href=', $html );
+		$this->assertStringNotContainsString( 'target=', $html );
+		$this->assertStringNotContainsString( 'rel=', $html );
+		$this->assertStringNotContainsString( 'new-tab', $html );
 	}
 
 	/**
