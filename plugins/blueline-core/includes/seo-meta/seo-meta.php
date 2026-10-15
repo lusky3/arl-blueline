@@ -1173,17 +1173,12 @@ function blueline_core_seo_team_division( int $team_id ): string {
 }
 
 /**
- * The name of the season currently being played, as the theme resolves it; '' when unknown.
+ * The current SportsPress season's name (blueline_core_current_season_term()); '' when unknown.
  *
  * @return string
  */
 function blueline_core_seo_current_season_name(): string {
-	if ( ! function_exists( 'blueline_current_sp_season_term_id' ) ) {
-		return '';
-	}
-
-	$term_id = (int) blueline_current_sp_season_term_id();
-	$term    = $term_id ? get_term( $term_id, 'sp_season' ) : null;
+	$term = function_exists( 'blueline_core_current_season_term' ) ? blueline_core_current_season_term() : null;
 
 	return is_object( $term ) && ! empty( $term->name ) ? blueline_core_seo_plain_text( $term->name ) : '';
 }

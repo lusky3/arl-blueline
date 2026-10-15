@@ -58,6 +58,38 @@ Exit 1 means at least one needs work:
 It is a manual check, not CI: CI cannot see staging's plugins. WooCommerce's own WooCommerce > Status > System
 status ("Templates") flags outdated WooCommerce and Subscriptions overrides too, but not SportsPress, PayPal or YITH.
 
+## Current season: the board flips it when the new season starts playing
+
+Every season-scoped part of the site reads one setting: **SportsPress > Settings > General > Current Season**
+(option `sportspress_season`). Change it on the day the new season's **first game is played**, not when its
+registration opens. Registration is a separate thing: the hero, the Register page and the offers follow the
+registration products (the next season) on their own, whatever this setting says.
+
+| Surface | Before the flip (old season set) | After the flip (new season set) |
+| --- | --- | --- |
+| Homepage standings snippet | Old season's division tables (its Playoffs tables while its playoff games are on the schedule) | New season's division tables |
+| Team pages: Upcoming Games / Results | Old season's games, playoffs included | New season's games |
+| Team rosters: GP/G/A/PIM columns | Old season's figures | New season's figures (0 until games are scored) |
+| My Account: My Team record and division, My Season stats | Old season's table and figures | New season's table and figures |
+| Find-my-player (claim) pool | Old season's players (plus the newest season once it has players, as before) | New season's players |
+| Team and player page descriptions (SEO) | Old season's name | New season's name |
+| Hero, Next games, floating next-game widget, countdown | Unaffected: they follow the next game on the schedule | Unaffected |
+| Hero registration eyebrow, Register page, offers | Unaffected: they follow the registration products | Unaffected |
+
+How the setting is read (`blueline_core_current_season_id()`, blueline-core `includes/season/season.php`; the theme
+carries a byte-identical copy in `inc/current-season-core.php` for when the plugin is missing):
+
+- A **Playoffs** term counts as its season: setting "W2026-27 Playoffs" means W2026-27. Do not switch the setting to
+  the Playoffs term for the playoffs; the homepage standings already change to the playoff tables while the season's
+  playoff games are the ones on the schedule.
+- **Unset, 0, or a deleted term**: the site falls back to the season of the next game going ahead (postponed and
+  cancelled games skipped), or, with nothing scheduled, of the most recent game played. That is what every page did
+  before the setting was read, so the site keeps working, but the setting is the source of truth.
+- Check it: `wp eval 'echo blueline_core_current_season_id(), " ", get_option("sportspress_season"), "\n";'`. The
+  theme's own answer is cached for the request only and its SportsPress data caches move on with the setting, so a
+  change takes effect on the next page load. Pages already in the page cache can still show the old season: purge it
+  (Nginx Helper > Purge Entire Cache) after the flip.
+
 ## XML sitemap: which seasons count as current
 
 blueline-core's `indexing` module leaves SportsPress pages from past seasons (events, players, teams, staff, tables,
@@ -276,7 +308,7 @@ header is added by the server's nginx configuration, not WordPress, so it can on
 
 ## Production cutover checklist (owner steps; nothing here is automated)
 
-- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","access","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
+- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["season","player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","access","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
 - [ ] **Team page section order** is a database setting, not code. SportsPress > Settings > Teams > Layout: drag "Add to
   Calendar" and "Upcoming Games" where you want them (or `wp option update sportspress_team_template_order '["calendar","schedule","logo","excerpt","content","link","details","staff","lists","tables","events"]' --format=json`). A database refresh can revert it.
 - [ ] **Player ownership (SEC-01).** Only a Player-role account that is also the `post_author` of its linked player can

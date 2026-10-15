@@ -41,6 +41,7 @@ final class ThemeFunctionGuardTest extends TestCase {
 		'blueline_is_commerce_request'    => 'Defined in inc/woocommerce.php after its no-WooCommerce early return.',
 		'blueline_wc_page_has_no_sidebar' => 'Defined in inc/woocommerce.php after its no-WooCommerce early return; sidebar.php runs without WooCommerce too.',
 		'blueline_get_sidebar_setting'    => 'Pluggable definition in inc/woocommerce.php (if ! function_exists), not a call guard.',
+		'blueline_core_current_season_id' => 'Pluggable: inc/current-season-core.php is a byte-identical copy of blueline-core\'s season module, loaded by inc/current-season.php only when the plugin has not defined it.',
 	);
 
 	/**

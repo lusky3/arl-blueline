@@ -11,50 +11,19 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The sp_season term id attached to the sp_event currently driving the
- * schedule: the next upcoming game if there is one, otherwise the most
- * recently played game. Used to find the matching sp_table for the
- * standings snippet, independent of which hero/registration season is
- * being sold, since the games being played can be a different season
- * (e.g. a running summer league while next winter's registration is open).
+ * The sp_season term the standings snippet shows: the current SportsPress
+ * season, or its Playoffs term while the season's playoff games are the
+ * ones on the schedule (blueline_current_season_phase_term_id(),
+ * inc/current-season.php). Independent of which hero/registration season is
+ * being sold, since the games being played can be a different season (e.g.
+ * a running summer league while next winter's registration is open).
  *
  * @return int|null
  */
 function blueline_homepage_active_event_season_term_id() {
-	if ( ! post_type_exists( 'sp_event' ) || ! taxonomy_exists( 'sp_season' ) ) {
-		return null;
-	}
+	$term_id = blueline_current_season_phase_term_id();
 
-	$state_data = blueline_season_state_data();
-	$event_id   = ! empty( $state_data['next_event_id'] ) ? (int) $state_data['next_event_id'] : 0;
-
-	if ( ! $event_id ) {
-		$recent = get_posts(
-			array(
-				'post_type'      => 'sp_event',
-				'post_status'    => 'publish',
-				'posts_per_page' => 1,
-				'orderby'        => 'date',
-				'order'          => 'DESC',
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-			)
-		);
-
-		$event_id = ! empty( $recent ) ? (int) $recent[0] : 0;
-	}
-
-	if ( ! $event_id ) {
-		return null;
-	}
-
-	$terms = wp_get_object_terms( $event_id, 'sp_season', array( 'fields' => 'ids' ) );
-
-	if ( is_wp_error( $terms ) || empty( $terms ) ) {
-		return null;
-	}
-
-	return (int) $terms[0];
+	return $term_id > 0 ? $term_id : null;
 }
 
 /**

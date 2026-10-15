@@ -23,6 +23,7 @@ require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/season-state.php';
 require_once __DIR__ . '/../inc/sportspress.php';
+require_once __DIR__ . '/../inc/current-season.php';
 require_once __DIR__ . '/../inc/account/player-data.php';
 require_once __DIR__ . '/../inc/account/dashboard.php';
 require_once __DIR__ . '/../inc/account/endpoint-toggles.php';
@@ -59,9 +60,10 @@ final class PlayerSeasonStatsTest extends TestCase {
 		// Defined here, not in the shared fixture: theme code branches on class_exists( 'SP_Player' ).
 		eval( 'class SP_Player { public function __construct( public $id = 0 ) {} public function data( $league_id = 0 ) { return $GLOBALS["bl_test_sp_player_data"][ (int) $league_id ] ?? array(); } }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- separate-process stand-in for SportsPress's SP_Player.
 
-		$state                              = &blueline_test_state();
-		$state['post_types']                = array( 'sp_player', 'sp_team', 'sp_event' );
-		$state['taxonomies']                = array( 'sp_season' );
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_player', 'sp_team', 'sp_event' );
+		$state['taxonomies'] = array( 'sp_season' );
+		blueline_test_register_term( self::SEASON, 'sp_season', 'W2026-27' ); // The next game's season must be a real term.
 		$state['post_meta'][ self::PLAYER ] = array(
 			'sp_current_team' => new Blueline_Test_Meta_Rows( array( '0', (string) self::KINGS, (string) self::ICE_BEARS ) ),
 			'sp_leagues'      => $leagues,

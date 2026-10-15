@@ -596,6 +596,7 @@ final class SettingsDeleteDataTest extends TestCase {
 		$exempt = array(
 			"'settings_errors'"                  => 'WordPress core\'s own 30-second admin-notice transient, not ours',
 			'BLUELINE_THEME_PREFERENCE_META_KEY' => 'a member\'s own light/dark choice, kept on purpose and stated in the panel copy',
+			"'sportspress_season'"               => 'SportsPress\'s own Current Season setting, written only by the CI-only E2E seed script (tests-e2e/), never by the theme on a site',
 		);
 
 		$root  = realpath( __DIR__ . '/..' );

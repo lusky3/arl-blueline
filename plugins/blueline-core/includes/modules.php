@@ -7,7 +7,8 @@
  *
  * Order: modules load top to bottom. mail reads seo-meta's blueline_social_logo_url() behind
  * function_exists(), so seo-meta stays above mail (BootTest pins it); without it the email
- * header logo is simply empty.
+ * header logo is simply empty. season (the current SportsPress season) loads first: player-link's
+ * claim pool and seo-meta read it, behind function_exists().
  *
  * @package blueline-core
  */
@@ -15,6 +16,7 @@
 defined( 'ABSPATH' ) || exit;
 
 return array(
+	'season'            => 'season/season.php',
 	'player-link'       => 'player-link/player-link.php',
 	'player-photo'      => 'player-photo/player-photo.php',
 	'avatars'           => 'avatars/avatars.php',
