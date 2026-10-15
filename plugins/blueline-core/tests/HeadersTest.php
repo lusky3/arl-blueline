@@ -22,8 +22,9 @@ final class HeadersTest extends TestCase {
 	}
 
 	/**
-	 * The default set is a Permissions-Policy that turns off camera, microphone and geolocation; HSTS and
-	 * a CSP are server decisions and are deliberately not sent from PHP.
+	 * The default set is a Permissions-Policy that turns off camera, microphone and geolocation. HSTS is a
+	 * server decision and is deliberately not sent from PHP; the CSP is sent separately, per page type
+	 * (CspPolicyTest).
 	 */
 	public function test_default_headers(): void {
 		$headers = blueline_core_security_headers();

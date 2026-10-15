@@ -12,6 +12,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 // One option per line, so modules can add theirs without merge conflicts.
 $blueline_core_options = array(
+	'blueline_core_csp_violations',
 	'blueline_core_flush_rewrite_rules',
 	'blueline_core_version',
 );

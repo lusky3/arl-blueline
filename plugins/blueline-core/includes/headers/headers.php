@@ -4,15 +4,24 @@
  *
  * Only headers that cannot break the site belong here. The site never asks for the camera, the
  * microphone or the visitor's location, so a Permissions-Policy that switches those off costs nothing
- * and stops an injected or third-party script from asking. Strict-Transport-Security and a
- * Content-Security-Policy are deliberately NOT sent from PHP: they bind the whole domain (and, for
- * HSTS, every browser that has seen it for a year), so they are set where the domain is configured,
- * at Cloudflare or in nginx (see docs/OPERATIONS.md).
+ * and stops an injected or third-party script from asking. Strict-Transport-Security is deliberately
+ * NOT sent from PHP: it binds the whole domain for every browser that has seen it for a year, so it is
+ * set where the domain is configured, at Cloudflare (see docs/OPERATIONS.md).
+ *
+ * The Content-Security-Policy (csp.php) is sent in report-only mode, which reports and blocks nothing,
+ * and its reports are collected by csp-report.php.
  *
  * @package blueline-core
  */
 
 defined( 'ABSPATH' ) || exit;
+
+require_once __DIR__ . '/csp.php';
+require_once __DIR__ . '/csp-report.php';
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once __DIR__ . '/class-blueline-core-csp-command.php';
+}
 
 /**
  * The headers to send, name => value, after the `blueline_core_security_headers` filter. Entries whose
