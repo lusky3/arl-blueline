@@ -12,6 +12,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// A single product and the cart carry no sidebar (see inc/woocommerce.php): that
+// also keeps the page jump-nav rail off them.
+if ( function_exists( 'blueline_wc_page_has_no_sidebar' ) && blueline_wc_page_has_no_sidebar() ) {
+	return;
+}
+
 $blueline_has_jump_nav = blueline_page_needs_jump_nav();
 $blueline_has_widgets  = is_active_sidebar( 'sidebar-1' );
 
