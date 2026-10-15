@@ -88,9 +88,7 @@ final class UpdaterWiringTest extends TestCase {
 	 * Boot is wired to after_setup_theme at file scope.
 	 */
 	public function test_boot_is_hooked_on_after_setup_theme(): void {
-		$source = (string) file_get_contents( __DIR__ . '/../inc/updater.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test; wp_remote_get() is for HTTP.
-
-		$this->assertMatchesRegularExpression( "/^add_action\\( 'after_setup_theme', 'blueline_updater_boot' \\);/m", $source );
+		$this->assertNotFalse( has_action( 'after_setup_theme', 'blueline_updater_boot' ) );
 	}
 
 	/**

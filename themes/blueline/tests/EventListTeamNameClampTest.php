@@ -6,9 +6,9 @@
  * Home/Away cells set `overflow-wrap: anywhere`. The fix gives the visible name
  * its own element so a name too long for its column wraps, is clamped past two
  * lines and offered in full (assets/src/js/team-name-tooltip.js, unit-tested in
- * team-name-tooltip.test.mjs). The template cannot be rendered by this suite
- * (see EventListPendingResultTest.php's docblock), so this source-scans the two
- * files the behaviour depends on.
+ * team-name-tooltip.test.mjs). The template's half (the name in its own element)
+ * is rendered in EventListTemplateTest; this source-scans the stylesheet, which
+ * no unit test can execute.
  *
  * @package blueline
  */
@@ -28,21 +28,6 @@ final class EventListTeamNameClampTest extends TestCase {
 	 */
 	private function theme_file( string $relative ): string {
 		return (string) file_get_contents( __DIR__ . '/../' . $relative ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
-	}
-
-	/**
-	 * The visible name needs its own element, or there is nothing to clamp or
-	 * measure; the schema.org name meta must stay alongside it.
-	 */
-	public function test_template_wraps_the_visible_team_name_in_its_own_element(): void {
-		$src = $this->theme_file( 'sportspress/event-list.php' );
-
-		$this->assertStringContainsString( '<span class="bl-sp-team-name">', $src );
-		$this->assertMatchesRegularExpression(
-			'/itemprop="name" content="[^;]*<span class="bl-sp-team-name">/s',
-			$src,
-			'the itemprop name meta must stay in front of the wrapped visible name'
-		);
 	}
 
 	/**

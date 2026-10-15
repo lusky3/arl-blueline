@@ -5,9 +5,11 @@
  * @package blueline
  */
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/admin-assets.php';
+require_once __DIR__ . '/../inc/account/dashboard.php';
 
 /**
  * Regressions from the logged-in audit that a unit test can pin.
@@ -15,14 +17,57 @@ require_once __DIR__ . '/../inc/settings/admin-assets.php';
 final class LoggedInAuditFixesTest extends TestCase {
 
 	/**
-	 * The Account & Billing dropdown is an absolutely positioned panel: opening it by default on a
-	 * billing page floated it over the page's own table. The template must not render `open`.
+	 * Render the My Account navigation template on one endpoint.
+	 *
+	 * @param string $current Endpoint the visitor is on.
+	 * @return string
 	 */
-	public function test_the_billing_dropdown_is_never_rendered_open(): void {
-		$source = (string) file_get_contents( __DIR__ . '/../woocommerce/myaccount/navigation.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local theme file in a unit test.
+	private function render_account_nav( string $current ): string {
+		require_once __DIR__ . '/fixtures/account-nav-stubs.php';
+		$GLOBALS['bl_test_account_nav_current'] = $current;
 
-		$this->assertDoesNotMatchRegularExpression( "/<details[^>]*<\\?php[^>]*' open'/", $source );
-		$this->assertStringContainsString( 'bl-account-nav__billing', $source );
+		ob_start();
+		include __DIR__ . '/../woocommerce/myaccount/navigation.php';
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The Account & Billing dropdown is an absolutely positioned panel: opening it by default on a
+	 * billing page floated it over the page's own table. It renders collapsed on every endpoint,
+	 * including a billing one, and holds exactly the billing tabs.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_billing_dropdown_is_never_rendered_open(): void {
+		foreach ( array( 'dashboard', 'orders', 'edit-address' ) as $current ) {
+			$html = $this->render_account_nav( $current );
+
+			$this->assertSame( 1, preg_match( '#<details\b([^>]*)>(.*?)</details>#s', $html, $details ), "$current: the dropdown is rendered" );
+			$this->assertDoesNotMatchRegularExpression( '/\bopen\b/', $details[1], "$current: the <details> tag carries no open attribute" );
+			$this->assertStringContainsString( 'Account &amp; Billing', $details[2] );
+
+			foreach ( array( 'orders', 'edit-address', 'refund-requests' ) as $endpoint ) {
+				$this->assertStringContainsString( '/account/' . $endpoint . '/', $details[2], "$current: $endpoint is inside the dropdown" );
+			}
+			$this->assertStringNotContainsString( '/account/my-team/', $details[2] );
+			$this->assertStringContainsString( '/account/my-team/', $html );
+		}
+	}
+
+	/**
+	 * On a billing page the collapsed dropdown still says it holds the current page.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_collapsed_dropdown_marks_itself_current_on_a_billing_page(): void {
+		$html = $this->render_account_nav( 'edit-address' );
+
+		$this->assertStringContainsString( '<details class="bl-account-nav__billing is-active">', $html );
+		$this->assertStringContainsString( '<summary aria-current="true">', $html );
+
+		$html = $this->render_account_nav( 'my-team' );
+
+		$this->assertStringContainsString( '<details class="bl-account-nav__billing">', $html );
+		$this->assertStringNotContainsString( 'aria-current="true"', $html );
 	}
 
 	/**

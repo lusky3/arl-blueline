@@ -91,10 +91,28 @@ final class EmailTemplateOverridesTest extends TestCase {
 	 * The failed-order sentence is theme copy, translated in the theme's own text domain.
 	 */
 	public function test_failed_order_copy_uses_the_blueline_text_domain(): void {
-		$source = (string) file_get_contents( __DIR__ . '/../woocommerce/emails/customer-failed-order.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local theme file in a unit test.
+		add_filter(
+			'gettext',
+			static function ( $translation, $text, $domain ) {
+				return 'blueline' === $domain ? 'T:' . $translation : $translation;
+			},
+			10,
+			3
+		);
 
-		$this->assertMatchesRegularExpression( "/continue with your registration.+'blueline' \\)/s", $source );
-		$this->assertStringNotContainsString( 'https://', preg_replace( '#@see https://\S+#', '', $source ) );
+		foreach ( array( true, false ) as $improvements ) {
+			FeaturesUtil::$email_improvements = $improvements;
+
+			$html = $this->render( 'customer-failed-order.php', array( 'order' => $this->order() ) );
+
+			// Each theme-written sentence is translatable in the theme's domain...
+			$this->assertStringContainsString( 'T:Unfortunately', $html );
+			$this->assertStringContainsString( 'T:If you', $html );
+			$this->assertStringContainsString( 'T:Your registration details are as follows:', $html );
+			// ...and the greeting WooCommerce wrote stays in WooCommerce's, so its translations keep applying.
+			$this->assertStringContainsString( 'Hi Sam,', $html );
+			$this->assertStringNotContainsString( 'T:Hi', $html );
+		}
 	}
 
 	/**

@@ -22,26 +22,13 @@
  * test_is_not_a_section_toggle() below pins that decision so a later edit
  * cannot quietly move it.
  *
- * ## What the template-side test here does and does not prove
+ * ## Where the template side is tested
  *
- * sportspress/league-table.php cannot be rendered by this suite: it
- * instantiates SP_League_Table and calls sp_get_post_mode()/sp_array_value(),
- * none of which exist without a real SportsPress install, and stubbing them
- * would mean asserting against a fake table rather than the real template.
- * So test_template_renders_the_toggle_checked_from_this_setting() asserts
- * two things instead, and claims nothing beyond them:
- *
- * 1. The template's own source pairs the `bl-sp-standings-toggle-input`
- *    checkbox with a `checked()` call reading this exact key -- a source
- *    scan, the same technique tests/SchemaFieldCoverageTest.php and
- *    tests/NoticeDivGuardTest.php already use for source-level guarantees.
- * 2. That expression, evaluated here against the same checked() the
- *    template would call, actually produces the attribute for a stored
- *    `true` and nothing for a stored `false`.
- *
- * Together those cover the wiring and the value, not "a real standings
- * table came back expanded in a browser" -- which no test in this suite can
- * currently claim.
+ * That the disclosure's checkbox actually takes its starting state from this
+ * setting is asserted against the rendered template, in
+ * StandingsViewerRowsTest::test_the_full_stats_disclosure_starts_open_only_when_the_setting_is_on():
+ * sportspress/league-table.php needs SP_League_Table, so that test runs in a
+ * separate process with the standings fixture.
  *
  * @package blueline
  */
@@ -112,33 +99,5 @@ final class StandingsExtraStatsDefaultTest extends TestCase {
 		);
 
 		$this->assertFalse( blueline_settings( 'standings_extra_stats_default' ) );
-	}
-
-	/**
-	 * The template's disclosure checkbox is actually wired to this setting,
-	 * and the expression it uses produces the attribute for a stored `true`
-	 * and nothing for a stored `false`. See this file's own docblock for
-	 * the two halves this covers and the one it does not.
-	 */
-	public function test_template_renders_the_toggle_checked_from_this_setting(): void {
-		$source = (string) file_get_contents( dirname( __DIR__ ) . '/sportspress/league-table.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test, not an HTTP fetch.
-
-		$this->assertMatchesRegularExpression(
-			'/bl-sp-standings-toggle-input[^>]*checked\(\s*blueline_settings\(\s*\'standings_extra_stats_default\'\s*\)\s*\)/s',
-			$source,
-			'the standings disclosure checkbox must take its initial state from this setting'
-		);
-
-		update_option( BLUELINE_SETTINGS_OPTION, array( 'standings_extra_stats_default' => true ) );
-		$this->assertSame(
-			' checked="checked"',
-			checked( blueline_settings( 'standings_extra_stats_default' ), true, false )
-		);
-
-		update_option( BLUELINE_SETTINGS_OPTION, array( 'standings_extra_stats_default' => false ) );
-		$this->assertSame(
-			'',
-			checked( blueline_settings( 'standings_extra_stats_default' ), true, false )
-		);
 	}
 }

@@ -31,12 +31,25 @@ final class SponsorSingleLogoTest extends TestCase {
 	}
 
 	/**
-	 * Hooked before the single-sponsor sections, with a decorative alt (the h1 names it).
+	 * A sponsor with a logo gets a figure around a decorative image: the h1
+	 * right above it already names the sponsor, so the image's alt is empty.
 	 */
-	public function test_hook_and_markup(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../inc/sportspress/core.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+	public function test_a_logo_is_a_figure_around_a_decorative_image(): void {
+		$state                = &blueline_test_state();
+		$state['posts'][2104] = array( 'thumbnail_id' => 77 );
 
-		$this->assertStringContainsString( "add_action( 'sportspress_before_single_sponsor', 'blueline_sp_sponsor_single_logo' );", $src );
-		$this->assertStringContainsString( "'<figure class=\"bl-sp-sponsor-logo\">' . get_the_post_thumbnail( \$sponsor_id, 'medium', array( 'alt' => '' ) )", $src );
+		$this->assertSame(
+			'<figure class="bl-sp-sponsor-logo"><img class="wp-post-image" src="https://example.test/thumb-77.jpg" alt=""></figure>',
+			blueline_sp_sponsor_logo_figure( 2104 )
+		);
+		$calls = $GLOBALS['bl_test_thumbnail_calls'];
+		$this->assertSame( 'medium', end( $calls )['size'] );
+	}
+
+	/**
+	 * The logo prints before SportsPress's own single-sponsor sections.
+	 */
+	public function test_the_logo_is_printed_before_the_single_sponsor_sections(): void {
+		$this->assertNotFalse( has_action( 'sportspress_before_single_sponsor', 'blueline_sp_sponsor_single_logo' ) );
 	}
 }
