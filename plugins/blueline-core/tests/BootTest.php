@@ -136,6 +136,24 @@ final class BootTest extends TestCase {
 	}
 
 	/**
+	 * Translations load on `init` from the languages/ folder the `Domain Path` header names.
+	 */
+	public function test_translations_load_on_init_from_the_domain_path_folder(): void {
+		$GLOBALS['blueline_core_test_textdomains'] = array();
+		$header                                    = (string) file_get_contents( BLUELINE_CORE_FILE ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local plugin source in a unit test.
+
+		$this->assertSame( 1, has_action( 'init', 'blueline_core_load_textdomain' ) );
+		$this->assertMatchesRegularExpression( '/^ \* Domain Path:\s+\/languages$/m', $header );
+
+		blueline_core_load_textdomain();
+
+		$this->assertSame(
+			array( array( 'blueline-core', false, 'blueline-core/languages' ) ),
+			$GLOBALS['blueline_core_test_textdomains']
+		);
+	}
+
+	/**
 	 * BLUELINE_CORE_VERSION agrees with the plugin header.
 	 */
 	public function test_version_constant_matches_plugin_header(): void {

@@ -1828,6 +1828,24 @@ function blueline_band_photo_sources(): array {
 }
 
 /**
+ * The declarations that set the hero band's resting photograph on :root.
+ *
+ * Its own function so the CSS has one author whichever way it reaches the page:
+ * printed beside the band today, or handed to wp_add_inline_style() once the
+ * homepage stylesheet's enqueue can say whether a band renders.
+ *
+ * @param array{url: string, position: string} $source One entry of blueline_band_photo_sources().
+ * @return string CSS, already escaped for a <style> context.
+ */
+function blueline_band_photo_resting_css( array $source ): string {
+	return sprintf(
+		':root{--bl-band-photo:url("%1$s");--bl-band-photo-position:%2$s}',
+		esc_url( $source['url'] ),
+		esc_html( $source['position'] )
+	);
+}
+
+/**
  * Print the hero band's photograph, and the rotation that picks it.
  *
  * WHY THIS IS INLINE AND WHY IT IS HERE. The site sits behind an nginx srcache
@@ -1847,6 +1865,15 @@ function blueline_band_photo_sources(): array {
  * With JavaScript unavailable the <style> alone is a complete answer: a real
  * photograph, correctly aligned, chosen deterministically.
  *
+ * Why neither block uses the enqueue APIs: the <script> must run before the
+ * band paints, and an enqueued or wp_add_inline_script() script runs after
+ * its handle, which is after first paint when deferred. The <script> goes
+ * through wp_print_inline_script_tag() so CSP nonce plugins still see it.
+ * WordPress has no print equivalent for a <style>, and
+ * wp_add_inline_style() only reaches a handle that has not printed yet, so
+ * the <style> stays a literal tag until the stylesheet enqueue can decide
+ * early whether a band will render (see blueline_band_photo_resting_css()).
+ *
  * @return void
  */
 function blueline_render_band_photo_head(): void {
@@ -1862,11 +1889,7 @@ function blueline_render_band_photo_head(): void {
 	// a no-JS visitor and a cache fill do not both always land on the same one.
 	$resting = $sources[ crc32( 'hero' ) % count( $sources ) ];
 
-	printf(
-		'<style id="bl-band-photo">:root{--bl-band-photo:url("%1$s");--bl-band-photo-position:%2$s}</style>',
-		esc_url( $resting['url'] ),
-		esc_html( $resting['position'] )
-	);
+	echo '<style id="bl-band-photo">' . blueline_band_photo_resting_css( $resting ) . '</style>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside blueline_band_photo_resting_css().
 
 	if ( ! $rotate || count( $sources ) < 2 ) {
 		return;
@@ -1884,8 +1907,8 @@ function blueline_render_band_photo_head(): void {
 		return;
 	}
 
-	printf(
-		'<script id="bl-band-photo-rotate">(function(){try{var s=%1$s,p=s[Math.floor(Math.random()*s.length)],r=document.documentElement.style;r.setProperty("--bl-band-photo","url(\'"+p.url+"\')");r.setProperty("--bl-band-photo-position",p.position);}catch(e){}})();</script>',
-		$payload // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode() output IS the escaping for a JS string literal context; esc_* would corrupt it.
+	wp_print_inline_script_tag(
+		'(function(){try{var s=' . $payload . ',p=s[Math.floor(Math.random()*s.length)],r=document.documentElement.style;r.setProperty("--bl-band-photo","url(\'"+p.url+"\')");r.setProperty("--bl-band-photo-position",p.position);}catch(e){}})();',
+		array( 'id' => 'bl-band-photo-rotate' )
 	);
 }

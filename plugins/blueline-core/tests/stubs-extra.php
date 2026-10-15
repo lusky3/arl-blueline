@@ -28,6 +28,22 @@ if ( ! function_exists( 'register_activation_hook' ) ) {
 	}
 }
 
+if ( ! function_exists( 'load_plugin_textdomain' ) ) {
+	/**
+	 * Stand-in for load_plugin_textdomain(): records each call so a test can assert the arguments.
+	 *
+	 * @param string       $domain          Text domain.
+	 * @param string|false $deprecated      Unused.
+	 * @param string|false $plugin_rel_path Path to the translations, relative to the plugins directory.
+	 * @return bool
+	 */
+	function load_plugin_textdomain( $domain, $deprecated = false, $plugin_rel_path = false ) {
+		$GLOBALS['blueline_core_test_textdomains'][] = array( $domain, $deprecated, $plugin_rel_path );
+
+		return false;
+	}
+}
+
 if ( ! function_exists( 'register_deactivation_hook' ) ) {
 	/**
 	 * Stand-in for register_deactivation_hook(): records the callback per plugin file.
@@ -38,30 +54,6 @@ if ( ! function_exists( 'register_deactivation_hook' ) ) {
 	 */
 	function register_deactivation_hook( $file, $callback ) {
 		$GLOBALS['blueline_core_test_deactivation_hooks'][ $file ] = $callback;
-	}
-}
-
-if ( ! function_exists( 'has_filter' ) ) {
-	/**
-	 * Stand-in for has_filter() over the shared hook store.
-	 *
-	 * @param string        $tag      Hook name.
-	 * @param callable|bool $callback Callback to look for, or false for "any".
-	 * @return bool|int Priority when a callback is given, else whether any callback exists.
-	 */
-	function has_filter( $tag, $callback = false ) {
-		foreach ( $GLOBALS['bl_test_hooks'][ $tag ] ?? array() as $priority => $bucket ) {
-			foreach ( $bucket as $hook ) {
-				if ( false === $callback ) {
-					return true;
-				}
-				if ( $hook['cb'] === $callback ) {
-					return $priority;
-				}
-			}
-		}
-
-		return false;
 	}
 }
 
@@ -84,18 +76,5 @@ if ( ! function_exists( '__return_false' ) ) {
 	 */
 	function __return_false() { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.FunctionDoubleUnderscore -- WP core name.
 		return false;
-	}
-}
-
-if ( ! function_exists( 'has_action' ) ) {
-	/**
-	 * Stand-in for has_action(); actions and filters share one store.
-	 *
-	 * @param string        $tag      Hook name.
-	 * @param callable|bool $callback Callback to look for, or false for "any".
-	 * @return bool|int
-	 */
-	function has_action( $tag, $callback = false ) {
-		return has_filter( $tag, $callback );
 	}
 }

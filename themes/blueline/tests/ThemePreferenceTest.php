@@ -242,6 +242,31 @@ final class ThemePreferenceTest extends TestCase {
 	}
 
 	/**
+	 * The bootstrap is core's inline-script tag, so a CSP plugin's attributes
+	 * reach it, and what it does is exactly: read the stored choice, apply it
+	 * to <html> only when it is light or dark.
+	 */
+	public function test_bootstrap_script_takes_core_script_attributes_and_applies_only_a_known_choice(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 0;
+		add_filter(
+			'wp_inline_script_attributes',
+			static function ( $attributes ) {
+				$attributes['nonce'] = 'abc123';
+
+				return $attributes;
+			}
+		);
+
+		$html = $this->render( 'blueline_render_guest_theme_bootstrap_script' );
+
+		$this->assertStringContainsString( '<script nonce="abc123">', $html );
+		$this->assertStringContainsString( "window.localStorage.getItem( 'blueline:theme-preference' )", $html );
+		$this->assertStringContainsString( "'light' === stored || 'dark' === stored", $html );
+		$this->assertStringContainsString( "document.documentElement.setAttribute( 'data-theme', stored )", $html );
+	}
+
+	/**
 	 * Test case.
 	 */
 	public function test_bootstrap_script_renders_nothing_for_a_logged_in_visitor(): void {

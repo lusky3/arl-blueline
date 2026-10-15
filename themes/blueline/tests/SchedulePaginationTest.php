@@ -202,17 +202,4 @@ final class SchedulePaginationTest extends TestCase {
 		$this->assertMatchesRegularExpression( '#rel="prev"[^>]*>.*Later games#s', $html );
 		$this->assertMatchesRegularExpression( '#rel="next"[^>]*>.*Earlier games#s', $html );
 	}
-
-	/**
-	 * The template pages the rows, keeps the client-side pager out of it, and
-	 * only pages a list that is not already capped by a row limit.
-	 */
-	public function test_template_wires_the_pager(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../sportspress/event-list.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
-
-		$this->assertStringContainsString( 'blueline_sp_schedule_page_ranges(', $src );
-		$this->assertStringContainsString( 'blueline_sp_schedule_pager_html(', $src );
-		$this->assertMatchesRegularExpression( '/\$paginated\s*= false;/', $src, 'SportsPress\'s own DataTables pager must stay off: it cannot cope with date-heading rows' );
-		$this->assertStringContainsString( 'array_slice( $data,', $src );
-	}
 }

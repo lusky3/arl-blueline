@@ -231,4 +231,33 @@ final class SettingsDefaultsTest extends TestCase {
 			$this->addToAssertionCount( 1 );
 		}
 	}
+
+	/**
+	 * The visitor-facing default copy is translatable: it goes through
+	 * __() with the theme's text domain, so a translation replaces it and a
+	 * placeholder-bearing default keeps working with its translator's text.
+	 */
+	public function test_visitor_facing_defaults_are_translatable(): void {
+		$domains = array();
+		add_filter(
+			'gettext',
+			static function ( $translation, $text, $domain ) use ( &$domains ) {
+				$domains[ $text ] = $domain;
+
+				return 'fr:' . $translation;
+			},
+			10,
+			3
+		);
+
+		$defaults = blueline_settings_defaults();
+
+		foreach ( array( 'footer_heading', 'hero_offseason_cta', 'module_new_here_heading', 'account_empty_next_game', 'hero_registration_headline', 'hero_in_season_headline', 'hero_offseason_highlight' ) as $key ) {
+			$this->assertStringStartsWith( 'fr:', $defaults[ $key ], "$key is not run through __()" );
+		}
+		$this->assertSame( 'fr:Puck drops %s.', $defaults['hero_preseason_headline'] );
+		$this->assertSame( 'blueline', $domains['Puck drops %s.'] );
+		$this->assertSame( 'blueline', $domains['The League'] );
+		$this->assertSame( 'play@rookiehockey.ca', $defaults['contact_email'], 'An address is data, not copy.' );
+	}
 }

@@ -386,7 +386,7 @@ function blueline_occasion_presets(): array {
 	return array(
 		'canada-day'      => array(
 			'id'     => 'canada-day',
-			'label'  => 'Canada Day',
+			'label'  => __( 'Canada Day', 'blueline' ),
 			'type'   => 'decorative',
 			'window' => array(
 				'start_md' => '07-01',
@@ -399,7 +399,7 @@ function blueline_occasion_presets(): array {
 		),
 		'remembrance-day' => array(
 			'id'     => 'remembrance-day',
-			'label'  => 'Remembrance Day',
+			'label'  => __( 'Remembrance Day', 'blueline' ),
 			'type'   => 'commemorative',
 			'window' => array(
 				'start_md' => '11-11',
@@ -407,12 +407,12 @@ function blueline_occasion_presets(): array {
 			),
 			'accent' => '',
 			'motif'  => 'poppy',
-			'line'   => 'Lest we forget.',
+			'line'   => __( 'Lest we forget.', 'blueline' ),
 			'mode'   => 'auto',
 		),
 		'christmas'       => array(
 			'id'     => 'christmas',
-			'label'  => 'Christmas',
+			'label'  => __( 'Christmas', 'blueline' ),
 			'type'   => 'decorative',
 			'window' => array(
 				'start_md' => '12-01',
@@ -429,7 +429,7 @@ function blueline_occasion_presets(): array {
 		// that must, and do, handle this correctly.
 		'new-year'        => array(
 			'id'     => 'new-year',
-			'label'  => 'New Year',
+			'label'  => __( 'New Year', 'blueline' ),
 			'type'   => 'decorative',
 			'window' => array(
 				'start_md' => '12-27',

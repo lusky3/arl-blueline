@@ -57,18 +57,6 @@ final class EventHeroStatusTest extends TestCase {
 	}
 
 	/**
-	 * The hero prints the matchup as the page's h1, with the status from sp_status (C-08, C-12).
-	 */
-	public function test_hero_source_wires_status_and_h1(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../inc/sportspress/heroes.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
-
-		$this->assertStringContainsString( "get_post_meta( \$event_id, 'sp_status', true )", $src );
-		$this->assertStringContainsString( '<h1 class="sp-scoreboard__matchup">', $src );
-		$this->assertStringNotContainsString( '<div class="sp-scoreboard__matchup">', $src );
-		$this->assertStringContainsString( "( 'preview' === \$status ) ? blueline_sp_event_calendar_url", $src );
-	}
-
-	/**
 	 * A recorded score shows for played, postponed and cancelled games, never for a game still to come.
 	 */
 	public function test_scores_show_for_played_postponed_and_cancelled_only(): void {

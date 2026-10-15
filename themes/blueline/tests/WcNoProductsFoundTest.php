@@ -44,12 +44,16 @@ final class WcNoProductsFoundTest extends TestCase {
 	}
 
 	/**
-	 * Core's notice callback is swapped for the theme's.
+	 * When WooCommerce fires its empty-archive action, what prints is the
+	 * theme's empty state, and core's own notice is not hooked beside it.
 	 */
-	public function test_hooks(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../inc/woocommerce.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+	public function test_the_empty_archive_action_prints_the_themes_empty_state(): void {
+		ob_start();
+		do_action( 'woocommerce_no_products_found' );
+		$html = (string) ob_get_clean();
 
-		$this->assertStringContainsString( "remove_action( 'woocommerce_no_products_found', 'wc_no_products_found' );", $src );
-		$this->assertStringContainsString( "add_action( 'woocommerce_no_products_found', 'blueline_wc_no_products_found' );", $src );
+		$this->assertStringContainsString( 'class="bl-empty-state bl-empty-state--shop"', $html );
+		$this->assertStringNotContainsString( 'No products were found', $html );
+		$this->assertFalse( has_action( 'woocommerce_no_products_found', 'wc_no_products_found' ) );
 	}
 }

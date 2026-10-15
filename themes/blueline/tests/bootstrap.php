@@ -313,15 +313,16 @@ if ( ! function_exists( 'has_custom_logo' ) ) {
 }
 if ( ! function_exists( '__' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' __() -- text domain is irrelevant to
-	 * unit tests, which never load translations.
+	 * Minimal stand-in for WordPress' __() -- no translation files are ever
+	 * loaded, but the string still passes through the `gettext` filter, as in
+	 * core, so a test can stand in for a translation by adding one.
 	 *
 	 * @param string $t Text to (not) translate.
-	 * @param string $d Text domain (unused, kept for signature parity).
+	 * @param string $d Text domain.
 	 * @return string
 	 */
-	function __( $t, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations.
-		return $t;
+	function __( $t, $d = null ) {
+		return apply_filters( 'gettext', $t, $t, (string) $d );
 	}
 }
 if ( ! function_exists( '_n' ) ) {
@@ -1250,7 +1251,7 @@ if ( ! function_exists( 'wp_timezone' ) ) {
 }
 if ( ! function_exists( 'current_time' ) ) {
 	/**
-	 * Stand-in for WordPress' current_time(), covering only the 'mysql' type
+	 * Stand-in for WordPress' current_time(), covering the 'mysql' type
 	 * this theme actually asks for: the current time as a site-local
 	 * `Y-m-d H:i:s` wall-clock string. That local-not-UTC shape is the whole
 	 * reason blueline_season_state_data() (inc/season-state.php) compares it
@@ -1263,19 +1264,20 @@ if ( ! function_exists( 'current_time' ) ) {
 	 * to the same moment and assert they agree. null (the default) means the
 	 * real clock.
 	 *
-	 * Any other $type, and the $gmt flag, are deliberately unimplemented
-	 * rather than guessed at: no theme code asks for either, and there is no
-	 * core checkout here to check a guess against.
+	 * Any other $type is a date format, as in core (`current_time( 'Y' )`),
+	 * rendered in the same site-local time. 'timestamp' and the $gmt flag are
+	 * deliberately unimplemented rather than guessed at: no theme code asks
+	 * for either, and there is no core checkout here to check a guess against.
 	 *
-	 * @param string $type Only 'mysql' is supported.
+	 * @param string $type 'mysql', or a date format.
 	 * @param int    $gmt  Unsupported; a truthy value throws rather than
 	 *                     silently handing back local time.
-	 * @return string Site-local `Y-m-d H:i:s`.
-	 * @throws InvalidArgumentException If $type is not 'mysql', or $gmt is truthy.
+	 * @return string Site-local `Y-m-d H:i:s`, or the time in the format given.
+	 * @throws InvalidArgumentException If $type is 'timestamp', or $gmt is truthy.
 	 */
 	function current_time( $type, $gmt = 0 ) {
-		if ( 'mysql' !== $type || $gmt ) {
-			throw new InvalidArgumentException( "the current_time() test stub only implements current_time( 'mysql' )" );
+		if ( 'timestamp' === $type || $gmt ) {
+			throw new InvalidArgumentException( "the current_time() test stub implements neither 'timestamp' nor the GMT flag" );
 		}
 
 		$state   = blueline_test_state();
@@ -1283,7 +1285,7 @@ if ( ! function_exists( 'current_time' ) ) {
 
 		return ( new DateTimeImmutable( null === $instant ? 'now' : '@' . $instant ) )
 			->setTimezone( wp_timezone() )
-			->format( 'Y-m-d H:i:s' );
+			->format( 'mysql' === $type ? 'Y-m-d H:i:s' : $type );
 	}
 }
 if ( ! function_exists( 'wp_get_sidebars_widgets' ) ) {
@@ -2191,6 +2193,43 @@ if ( ! function_exists( 'remove_action' ) ) {
 	}
 }
 
+if ( ! function_exists( 'has_filter' ) ) {
+	/**
+	 * Stand-in for has_filter() over the shared hook store.
+	 *
+	 * @param string        $tag      Hook name.
+	 * @param callable|bool $callback Callback to look for, or false for "any".
+	 * @return bool|int Priority when a callback is given, else whether any callback exists.
+	 */
+	function has_filter( $tag, $callback = false ) {
+		foreach ( $GLOBALS['bl_test_hooks'][ $tag ] ?? array() as $priority => $bucket ) {
+			foreach ( $bucket as $hook ) {
+				if ( false === $callback ) {
+					return true;
+				}
+				if ( $hook['cb'] === $callback ) {
+					return $priority;
+				}
+			}
+		}
+
+		return false;
+	}
+}
+
+if ( ! function_exists( 'has_action' ) ) {
+	/**
+	 * Stand-in for has_action(); actions and filters share one store.
+	 *
+	 * @param string        $tag      Hook name.
+	 * @param callable|bool $callback Callback to look for, or false for "any".
+	 * @return bool|int
+	 */
+	function has_action( $tag, $callback = false ) {
+		return has_filter( $tag, $callback );
+	}
+}
+
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' apply_filters(): actually dispatches to
@@ -2789,27 +2828,31 @@ if ( ! function_exists( 'number_format_i18n' ) ) {
 
 if ( ! function_exists( 'esc_html__' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' esc_html__().
+	 * Minimal stand-in for WordPress' esc_html__(): no translation files are
+	 * loaded, but the text still passes through the `gettext` filter (as in
+	 * core), so a test can stand in for a translation by adding one. It does
+	 * not delegate to __(): a translation call with a non-literal argument is
+	 * exactly what WordPress.WP.I18n flags in real code.
 	 *
-	 * @param string $text Text to translate (not) and escape.
-	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @param string $text Text to translate and escape.
+	 * @param string $d    Text domain.
 	 * @return string
 	 */
-	function esc_html__( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to __() (its own definition just returns $t unchanged anyway -- see above -- and calling it here would be a translation-function call site with a non-literal argument, which is exactly the pattern WordPress.WP.I18n exists to flag in REAL plugin code; delegating adds no behaviour a direct return doesn't already have in this stub environment).
-		return esc_html( (string) $text );
+	function esc_html__( $text, $d = null ) {
+		return esc_html( (string) apply_filters( 'gettext', $text, $text, (string) $d ) );
 	}
 }
 
 if ( ! function_exists( 'esc_html_e' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' esc_html_e().
+	 * Minimal stand-in for WordPress' esc_html_e(): see esc_html__() above.
 	 *
-	 * @param string $text Text to translate (not), escape, and echo.
-	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @param string $text Text to translate, escape, and echo.
+	 * @param string $d    Text domain.
 	 * @return void
 	 */
-	function esc_html_e( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to esc_html__() -- calling a same-named-pattern i18n function with a variable argument from inside another stub's body is exactly what WordPress.WP.I18n exists to flag in real plugin code, so this escapes directly instead.
-		echo esc_html( (string) $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for esc_html_e(); esc_html() directly above already escapes.
+	function esc_html_e( $text, $d = null ) {
+		echo esc_html( (string) apply_filters( 'gettext', $text, $text, (string) $d ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- this IS the stand-in for esc_html_e(); esc_html() directly above already escapes.
 	}
 }
 
@@ -2891,14 +2934,14 @@ if ( ! function_exists( 'wp_add_inline_style' ) ) {
 
 if ( ! function_exists( 'esc_attr__' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' esc_attr__().
+	 * Minimal stand-in for WordPress' esc_attr__(): see esc_html__() above.
 	 *
-	 * @param string $text Text to translate (not) and escape.
-	 * @param string $d    Text domain (unused, kept for signature parity).
+	 * @param string $text Text to translate and escape.
+	 * @param string $d    Text domain.
 	 * @return string
 	 */
-	function esc_attr__( $text, $d = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core; no test loads translations, so this stub does not delegate to __() -- see esc_html__()'s own comment above for why.
-		return esc_attr( (string) $text );
+	function esc_attr__( $text, $d = null ) {
+		return esc_attr( (string) apply_filters( 'gettext', $text, $text, (string) $d ) );
 	}
 }
 
@@ -3503,6 +3546,46 @@ if ( ! function_exists( 'wp_add_inline_script' ) ) {
 			'position' => $position,
 		);
 		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_get_inline_script_tag' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_get_inline_script_tag(): the same
+	 * shape core returns (body on its own lines, attributes after the
+	 * `wp_inline_script_attributes` filter) and, like core since 7.0, an
+	 * empty string for data that could end the tag early.
+	 *
+	 * @param string                     $data       The script body.
+	 * @param array<string, string|bool> $attributes Tag attributes.
+	 * @return string
+	 */
+	function wp_get_inline_script_tag( $data, $attributes = array() ) {
+		$data = "\n" . trim( $data, "\n\r " ) . "\n";
+		if ( preg_match( '/<(\/?script|!--)/i', $data ) ) {
+			return '';
+		}
+
+		$attributes = apply_filters( 'wp_inline_script_attributes', $attributes, $data );
+		$html       = '';
+		foreach ( $attributes as $name => $value ) {
+			$html .= true === $value ? ' ' . $name : ' ' . $name . '="' . esc_attr( (string) $value ) . '"';
+		}
+
+		return '<script' . $html . '>' . $data . "</script>\n";
+	}
+}
+
+if ( ! function_exists( 'wp_print_inline_script_tag' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_print_inline_script_tag().
+	 *
+	 * @param string                     $data       The script body.
+	 * @param array<string, string|bool> $attributes Tag attributes.
+	 * @return void
+	 */
+	function wp_print_inline_script_tag( $data, $attributes = array() ) {
+		echo wp_get_inline_script_tag( $data, $attributes ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a test stand-in for core's own output function.
 	}
 }
 

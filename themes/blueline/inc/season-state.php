@@ -775,17 +775,11 @@ function blueline_bust_season_state_cache() {
 	delete_transient( BLUELINE_SEASON_STATE_TRANSIENT );
 }
 
-// Guarded so this file stays safe to require_once directly, the way
-// tests/SeasonStateTest.php does -- the guard predates the test bootstrap
-// growing its own add_action() stub and is kept because a bare require of an
-// inc/ file must not depend on which WordPress functions happen to exist.
-if ( function_exists( 'add_action' ) ) {
-	add_action( 'save_post_product', 'blueline_bust_season_state_cache' );
-	add_action( 'save_post_sp_event', 'blueline_bust_season_state_cache' );
-	add_action( 'woocommerce_update_product', 'blueline_bust_season_state_cache' );
-	// A sale changes stock without saving the product, so neither hook
-	// above fires when the last spot sells.
-	add_action( 'woocommerce_product_set_stock', 'blueline_bust_season_state_cache' );
-	add_action( 'woocommerce_product_set_stock_status', 'blueline_bust_season_state_cache' );
-	add_action( 'admin_notices', 'blueline_render_season_state_override_notice' );
-}
+add_action( 'save_post_product', 'blueline_bust_season_state_cache' );
+add_action( 'save_post_sp_event', 'blueline_bust_season_state_cache' );
+add_action( 'woocommerce_update_product', 'blueline_bust_season_state_cache' );
+// A sale changes stock without saving the product, so neither hook
+// above fires when the last spot sells.
+add_action( 'woocommerce_product_set_stock', 'blueline_bust_season_state_cache' );
+add_action( 'woocommerce_product_set_stock_status', 'blueline_bust_season_state_cache' );
+add_action( 'admin_notices', 'blueline_render_season_state_override_notice' );

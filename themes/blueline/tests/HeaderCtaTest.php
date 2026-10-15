@@ -5,13 +5,17 @@
  * @package blueline
  */
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/settings/links.php';
+require_once __DIR__ . '/../inc/settings/commerce.php';
+require_once __DIR__ . '/../inc/announcement.php'; // blueline_site_timestamp(), which the override's expiry is resolved through.
 require_once __DIR__ . '/../inc/season-state.php';
+require_once __DIR__ . '/../inc/sportspress.php';
 require_once __DIR__ . '/../inc/homepage-modules.php';
 require_once __DIR__ . '/../inc/template-tags.php';
 
@@ -28,19 +32,12 @@ require_once __DIR__ . '/../inc/template-tags.php';
  * was showing "REGISTRATION OPEN" with real pricing and a working
  * "Register Now" link. Confirmed live on staging.
  *
- * The function blueline_homepage_registration_offers() itself needs
- * wc_get_product(), which is not defined in this stub environment (see
- * tests/bootstrap.php and HeroEffectiveStateTest.php's identical note) --
- * so it always returns an empty array here, and every test below that asks for
- * 'registration_open' still observes the CTA fall back to "Schedule". That
- * fallback is the CORRECT behaviour for "no live offers", not the bug --
- * the bug was calling a name that could never resolve to true regardless of
- * season state or catalogue. The source-scan test is what actually pins
- * the fix: it fails immediately if the misspelled singular name is ever
- * reintroduced, which no behavioural assertion here could otherwise catch
- * without a real WC_Product (out of scope, per HeroEffectiveStateTest.php's
- * own precedent -- that path is covered by the staging smoke pass and
- * RegistrationPricingTest.php's pure-logic coverage instead).
+ * The offers list needs wc_get_product(), which only the scripted stubs in
+ * tests/fixtures/season-state-signal-stubs.php define. They cannot load into
+ * the shared process (the season-state and homepage code branch on
+ * function_exists()), so the tests that need a live offer run in their own
+ * process; everywhere else the list is empty and the CTA falls back to
+ * "Schedule", which is the right answer for "nothing to register for".
  */
 final class HeaderCtaTest extends TestCase {
 
@@ -61,33 +58,68 @@ final class HeaderCtaTest extends TestCase {
 	}
 
 	/**
-	 * The exact regression, pinned at the source level: blueline_header_cta()
-	 * must call the real, PLURAL blueline_homepage_registration_offers(),
-	 * and must never call a function named blueline_homepage_registration_offer
-	 * (singular) -- which does not exist and never has. A behavioural
-	 * assertion cannot distinguish "calls the real function, which returned
-	 * no offers" from "calls a nonexistent function, which could never
-	 * return offers" without a real WC_Product (see this file's own
-	 * docblock), so this reads the actual source instead.
+	 * Seed a registration season with one product tagged Featured, the tag the
+	 * hero and this CTA sell from.
+	 *
+	 * @param array<int, array<int, mixed>> $products Product seeds, keyed by ID (see season-state-signal-stubs.php).
 	 */
-	public function test_header_cta_calls_the_real_plural_offers_function(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../inc/template-tags.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+	private function seed_featured_offers( array $products ): void {
+		require_once __DIR__ . '/fixtures/season-state-signal-stubs.php';
 
-		$this->assertStringContainsString(
-			'blueline_homepage_registration_offers(',
-			$src,
-			'blueline_header_cta() must call the real, plural offers() function'
+		blueline_test_register_term( 91, 'product_cat', 'Registration' );
+		blueline_test_register_term( 300, 'product_cat', 'Fall 2026', 91 );
+		blueline_test_register_term( 400, 'product_tag', 'Featured' );
+		// Forced open (rather than computed) so the catalogue and schedule queries behind the state stay out of the way.
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'registration_term'           => 91,
+				'season_state_override'       => 'registration_open',
+				'season_state_override_until' => '2036-12-31',
+			)
 		);
-		$this->assertStringNotContainsString(
-			'blueline_homepage_registration_offer(',
-			$src,
-			'the misspelled singular function name must never reappear -- it has never been defined, so function_exists() on it is always false and silently disables the Register CTA in every state'
-		);
+
+		foreach ( array_keys( $products ) as $product_id ) {
+			blueline_test_set_post_terms( $product_id, 'product_tag', array( 400 ) );
+		}
+		$GLOBALS['bl_test_wp_query_results'] = array( array_keys( $products ) );
+		$GLOBALS['bl_test_wc_products']      = $products;
 	}
 
 	/**
-	 * With no live offers (the only reachable case in this stub environment
-	 * -- see the file docblock), 'registration_open' still falls back to the
+	 * The regression this file exists for: the CTA once called a function that
+	 * does not exist, so it said "Schedule" in every state, including while the
+	 * hero was advertising registration with real prices. With a paid Featured
+	 * product on sale and registration open, it offers registration.
+	 */
+	#[RunInSeparateProcess]
+	public function test_registration_open_with_a_live_offer_shows_the_register_cta(): void {
+		$this->seed_featured_offers( array( 21 => array( true, true, 'visible', '170' ) ) );
+
+		$cta = blueline_header_cta();
+
+		$this->assertSame( 'Register to Play', $cta['label'] );
+		$this->assertSame( 'bl-btn--primary', $cta['class'] );
+		$this->assertTrue( $cta['is_register'] );
+		$this->assertFalse( $cta['is_schedule'] );
+	}
+
+	/**
+	 * A Featured product the league has hidden from the catalogue is no offer,
+	 * so registration being "open" still shows Schedule.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_hidden_featured_product_does_not_make_the_register_cta(): void {
+		$this->seed_featured_offers( array( 21 => array( true, true, 'hidden', '170' ) ) );
+
+		$cta = blueline_header_cta();
+
+		$this->assertSame( 'Schedule', $cta['label'] );
+		$this->assertTrue( $cta['is_schedule'] );
+	}
+
+	/**
+	 * With no live offers (the default in this stub environment, see the file docblock), 'registration_open' still falls back to the
 	 * Schedule CTA, exactly like every other state. This is the CORRECT
 	 * "nothing purchasable" behaviour, not the bug.
 	 */

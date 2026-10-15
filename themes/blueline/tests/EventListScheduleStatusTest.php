@@ -7,8 +7,8 @@
  * SportsPress's `sp_status` flag; a cancelled game with no score fell through
  * to "Final score coming soon" or a bare dash, exactly like a game still on.
  * The cell's contents, the time link's accessible name and the Arena text are
- * built by pure helpers so they can be exercised here; the template itself
- * cannot be rendered by this suite (see EventListPendingResultTest.php).
+ * built by pure helpers so they can be exercised here; the template that wires
+ * them into each row is rendered in EventListTemplateTest.php.
  *
  * @package blueline
  */
@@ -200,24 +200,6 @@ final class EventListScheduleStatusTest extends TestCase {
 		$this->assertSame( ', March 1, 2027', blueline_sp_schedule_link_context( array(), 'March 1, 2027' ) );
 		$this->assertSame( '', blueline_sp_schedule_link_context( array(), '' ) );
 		$this->assertSame( ', Kings vs Hammers', blueline_sp_schedule_link_context( array( 'Kings', '', 'Hammers' ), '' ) );
-	}
-
-	/**
-	 * The template wires the helpers above into the row: the status from
-	 * sp_status, the hidden link context inside the time link, the Arena text.
-	 */
-	public function test_template_wires_the_helpers(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../sportspress/event-list.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
-
-		$this->assertStringContainsString( "get_post_meta( \$event->ID, 'sp_status', true )", $src );
-		$this->assertStringContainsString( 'blueline_sp_schedule_status( $status )', $src );
-		$this->assertMatchesRegularExpression(
-			'#blueline_sp_schedule_time_html\(.*<span class="screen-reader-text"><\?php echo esc_html\( blueline_sp_schedule_link_context\( \$bl_team_names, \$bl_date_label, \$bl_status_label \) \); \?></span>\s*</a>#s',
-			$src,
-			'the hidden context must sit inside the time link, after the visible time'
-		);
-		$this->assertStringContainsString( 'blueline_sp_schedule_venue_text( (string) blueline_venue_label(', $src );
-		$this->assertStringNotContainsString( 'Final score coming soon', $src, 'the Result cell copy lives in the helper only' );
 	}
 
 	/**

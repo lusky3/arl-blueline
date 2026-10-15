@@ -315,53 +315,10 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 
 		list( $file ) = $args;
 
-		if ( ! is_readable( $file ) ) {
-			WP_CLI::error( sprintf( 'Cannot read %s.', $file ) );
+		$prepared = $this->read_import_file( $file, ! $dry_run );
+
+		if ( null === $prepared ) {
 			return;
-		}
-
-		$raw     = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo/operator-supplied file, not a remote URL; wp_remote_get() is for HTTP requests.
-		$payload = blueline_settings_import_decode( $raw );
-
-		if ( is_wp_error( $payload ) ) {
-			WP_CLI::error( $payload->get_error_message() );
-			return;
-		}
-
-		$prepared = blueline_settings_import_prepare( $payload, BLUELINE_SETTINGS_SCHEMA_VERSION );
-
-		if ( is_wp_error( $prepared ) ) {
-			WP_CLI::error( $prepared->get_error_message() );
-			return;
-		}
-
-		// Which keys the schema will drop, computed BEFORE the write; see
-		// blueline_settings_import_dropped_keys()'s own docblock for why this
-		// lives here rather than inside the sanitize callback itself: that
-		// callback runs on ordinary wp-admin saves too and has no business
-		// emitting CLI-shaped output, so this command surfaces the drop
-		// itself instead of trusting the (silent) callback to have done so.
-		// A dropped key is reported as a warning, not an error, because it is
-		// not evidence the import went wrong, only that one key in the file
-		// wasn't recognised (most often a typo, or a field this version of
-		// the theme no longer declares); every OTHER recognised key still
-		// needs to be applied, and the schema-version guard above already
-		// catches the more serious "this file is from a newer theme"
-		// case. This intentionally does NOT make the command exit non-zero.
-		foreach ( blueline_settings_import_dropped_keys( $prepared, blueline_settings_schema() ) as $dropped_key ) {
-			WP_CLI::warning(
-				$dry_run
-					? sprintf(
-						/* translators: %s: the unrecognised key name. */
-						__( '"%s" is not a recognised Blueline setting and would not be imported.', 'blueline' ),
-						$dropped_key
-					)
-					: sprintf(
-						/* translators: %s: the unrecognised key name. */
-						__( '"%s" is not a recognised Blueline setting and was not imported.', 'blueline' ),
-						$dropped_key
-					)
-			);
 		}
 
 		if ( $dry_run ) {
@@ -383,6 +340,64 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 		}
 
 		WP_CLI::success( sprintf( 'Imported settings from %s.', $file ) );
+	}
+
+	/**
+	 * Read a settings file for `import` and `validate`: decode it, check its schema version, and warn
+	 * about each key this version of the theme does not declare.
+	 *
+	 * Which keys the schema will drop is computed BEFORE anything is written; see
+	 * blueline_settings_import_dropped_keys()'s own docblock for why this lives here rather than inside
+	 * the sanitize callback: that callback runs on ordinary wp-admin saves too and has no business emitting
+	 * CLI-shaped output, so the command surfaces the drop itself. A dropped key is a warning, not an
+	 * error: it is not evidence the import went wrong, only that one key in the file was not recognised
+	 * (most often a typo, or a field this version no longer declares), and every OTHER recognised key
+	 * still needs applying. The schema-version guard already catches the more serious "this file is from
+	 * a newer theme" case. It intentionally does NOT make the command exit non-zero.
+	 *
+	 * @param string $file    Path given on the command line.
+	 * @param bool   $applied Whether the keys are about to be written (the warning says "was not
+	 *                        imported"), or only previewed ("would not be imported").
+	 * @return array<string, mixed>|null The payload ready for the sanitizer, or null once an error has been reported.
+	 */
+	private function read_import_file( string $file, bool $applied ): ?array {
+		if ( ! is_readable( $file ) ) {
+			WP_CLI::error( sprintf( 'Cannot read %s.', $file ) );
+			return null;
+		}
+
+		$raw     = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo/operator-supplied file, not a remote URL; wp_remote_get() is for HTTP requests.
+		$payload = blueline_settings_import_decode( $raw );
+
+		if ( is_wp_error( $payload ) ) {
+			WP_CLI::error( $payload->get_error_message() );
+			return null;
+		}
+
+		$prepared = blueline_settings_import_prepare( $payload, BLUELINE_SETTINGS_SCHEMA_VERSION );
+
+		if ( is_wp_error( $prepared ) ) {
+			WP_CLI::error( $prepared->get_error_message() );
+			return null;
+		}
+
+		foreach ( blueline_settings_import_dropped_keys( $prepared, blueline_settings_schema() ) as $dropped_key ) {
+			WP_CLI::warning(
+				$applied
+					? sprintf(
+						/* translators: %s: the unrecognised key name. */
+						__( '"%s" is not a recognised Blueline setting and was not imported.', 'blueline' ),
+						$dropped_key
+					)
+					: sprintf(
+						/* translators: %s: the unrecognised key name. */
+						__( '"%s" is not a recognised Blueline setting and would not be imported.', 'blueline' ),
+						$dropped_key
+					)
+			);
+		}
+
+		return $prepared;
 	}
 
 	/**
@@ -455,38 +470,12 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	public function validate( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with WP_CLI_Command's dispatch contract; this subcommand takes no associative argument.
 		list( $file ) = $args;
 
-		if ( ! is_readable( $file ) ) {
-			WP_CLI::error( sprintf( 'Cannot read %s.', $file ) );
+		// `validate` is a preview of what `import` would do, so it must not stay silent about a key `import`
+		// itself warns about; read_import_file() surfaces the same dropped-key warning.
+		$prepared = $this->read_import_file( $file, false );
+
+		if ( null === $prepared ) {
 			return;
-		}
-
-		$raw     = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local repo/operator-supplied file, not a remote URL; wp_remote_get() is for HTTP requests.
-		$payload = blueline_settings_import_decode( $raw );
-
-		if ( is_wp_error( $payload ) ) {
-			WP_CLI::error( $payload->get_error_message() );
-			return;
-		}
-
-		$prepared = blueline_settings_import_prepare( $payload, BLUELINE_SETTINGS_SCHEMA_VERSION );
-
-		if ( is_wp_error( $prepared ) ) {
-			WP_CLI::error( $prepared->get_error_message() );
-			return;
-		}
-
-		// Same dropped-key warning `import` surfaces (see
-		// blueline_settings_import_dropped_keys()'s docblock): `validate` is
-		// a preview of what `import` would do, so it must not stay silent
-		// about something `import` itself now warns about.
-		foreach ( blueline_settings_import_dropped_keys( $prepared, blueline_settings_schema() ) as $dropped_key ) {
-			WP_CLI::warning(
-				sprintf(
-					/* translators: %s: the unrecognised key name. */
-					__( '"%s" is not a recognised Blueline setting and would not be imported.', 'blueline' ),
-					$dropped_key
-				)
-			);
 		}
 
 		$errors = blueline_settings_cli_validate_payload( $prepared, blueline_settings_schema() );

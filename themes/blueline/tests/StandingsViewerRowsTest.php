@@ -127,6 +127,25 @@ final class StandingsViewerRowsTest extends TestCase {
 	}
 
 	/**
+	 * The "show full stats" disclosure's checkbox takes its starting state from the
+	 * `standings_extra_stats_default` setting: closed as shipped, open when it is on.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_full_stats_disclosure_starts_open_only_when_the_setting_is_on(): void {
+		$this->load_fixture();
+
+		$this->assertMatchesRegularExpression( '/<input type="checkbox"[^>]*class="bl-sp-standings-toggle-input"(?![^>]*checked)[^>]*>/', $this->render_table(), 'ships off' );
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'standings_extra_stats_default' => true ) );
+
+		$this->assertMatchesRegularExpression( '/<input type="checkbox"[^>]*class="bl-sp-standings-toggle-input" checked="checked">/', $this->render_table() );
+
+		update_option( BLUELINE_SETTINGS_OPTION, array( 'standings_extra_stats_default' => false ) );
+
+		$this->assertDoesNotMatchRegularExpression( '/bl-sp-standings-toggle-input"[^>]*checked/', $this->render_table() );
+	}
+
+	/**
 	 * No title: a visually hidden caption names the table instead.
 	 */
 	#[RunInSeparateProcess]
