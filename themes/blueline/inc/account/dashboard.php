@@ -1115,10 +1115,10 @@ function blueline_account_nav_items( array $menu_items ): array {
 /**
  * A My Account page's heading in the words of the tab that leads to it.
  *
- * The tab labels can be renamed after the plugin sets them (this site renames
- * several, e.g. "Account Details" to "Change My Details"), while each page's
- * heading kept the plugin's own title, so "My Registrations" opened a page
- * headed "Registrations". The heading now takes whatever the tab says.
+ * The tab labels come from the Blueline Core plugin and can still be renamed
+ * later on `woocommerce_account_menu_items`; whatever the tab ends up saying,
+ * the page heading says the same, so "My Registrations" never opens a page
+ * headed "Registrations".
  *
  * @param mixed  $title    Endpoint title as WooCommerce resolved it.
  * @param string $endpoint Endpoint (query var) the title is for.
@@ -1135,10 +1135,52 @@ function blueline_account_endpoint_title_from_nav( $title, $endpoint = '' ) {
 	return '' !== $label ? $label : $title;
 }
 
+/**
+ * The My Account page's `the_title` while it shows an endpoint: the tab label.
+ *
+ * WooCommerce builds that heading from the endpoint title (which already
+ * follows the tab), but anything else on `the_title` can rewrite it again
+ * afterwards: the site's old "My Account Tab Modifications" Code Snippet at
+ * priority 10 turns "My Registrations" into "Registrations", and WooCommerce
+ * Subscriptions sets its own at 11. This runs later and restores the tab label.
+ *
+ * @param mixed  $title           Title so far.
+ * @param int    $post_id         Post the title belongs to.
+ * @param int    $account_page_id WooCommerce's My Account page ID.
+ * @param string $endpoint        Current account endpoint (query var), '' on the dashboard.
+ * @return mixed
+ */
+function blueline_account_page_heading( $title, int $post_id, int $account_page_id, string $endpoint ) {
+	if ( '' === $endpoint || $post_id <= 0 || $post_id !== $account_page_id ) {
+		return $title;
+	}
+
+	return blueline_account_endpoint_title_from_nav( $title, $endpoint );
+}
+
+/**
+ * `the_title` callback for blueline_account_page_heading(): only the main
+ * loop's title, the same scope WooCommerce gives its own endpoint heading, so
+ * menus and widgets naming the account page keep its plain title.
+ *
+ * @param mixed $title   Title so far.
+ * @param mixed $post_id Post the title belongs to.
+ * @return mixed
+ */
+function blueline_account_heading_follows_nav( $title, $post_id = 0 ) {
+	if ( ! in_the_loop() || ! is_main_query() || ! function_exists( 'wc_get_page_id' ) || ! function_exists( 'WC' ) || empty( WC()->query ) ) {
+		return $title;
+	}
+
+	return blueline_account_page_heading( $title, (int) $post_id, (int) wc_get_page_id( 'myaccount' ), (string) WC()->query->get_current_endpoint() );
+}
+
 add_action( 'template_redirect', 'blueline_account_titles_follow_nav' );
 /**
  * Hook blueline_account_endpoint_title_from_nav() onto every tab's title
- * filter, after the plugin's own (priority 10), on My Account pages only.
+ * filter, after the plugin's own (priority 10), and
+ * blueline_account_heading_follows_nav() onto `the_title`, after anything
+ * that rewrites the heading at 10 or 11; on My Account pages only.
  *
  * @return void
  */
@@ -1150,6 +1192,8 @@ function blueline_account_titles_follow_nav(): void {
 	foreach ( array_keys( wc_get_account_menu_items() ) as $endpoint ) {
 		add_filter( "woocommerce_endpoint_{$endpoint}_title", 'blueline_account_endpoint_title_from_nav', 20, 2 );
 	}
+
+	add_filter( 'the_title', 'blueline_account_heading_follows_nav', 20, 2 );
 }
 
 if ( ! class_exists( 'WooCommerce' ) ) {
