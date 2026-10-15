@@ -235,18 +235,14 @@ function blueline_active_widget_contents(): array {
 add_action( 'wp_enqueue_scripts', 'blueline_dequeue_unused_plugin_assets', 1000 );
 add_action( 'wp_print_footer_scripts', 'blueline_dequeue_unused_plugin_assets', 1 );
 /**
- * PERF-05: drop plugin assets on requests where their feature cannot render.
+ * Drop plugin assets on requests where their feature cannot render. Most of
+ * these load in <head> and block the first paint, so each one kept only where
+ * it is used is time back on every other page.
  *
- * - Contact Form 7 (+ Conditional Fields): only pages/widgets carrying a form
- *   shortcode or block keep it; account pages keep it too, since plugins
- *   render forms there outside post content.
- * - SportsPress Facebook SDK (pulls connect.facebook.net): only needed by the
- *   SportsPress Facebook widget, so it stays only while one is active.
- *
- * Deliberately left alone: dashicons (sportspress/event-list.php's video/
- * camera icons and the Quotes Llama widget use it logged-out), SportsPress's
- * own stylesheets (assets/src/css/sportspress.css builds on them), and
- * WooCommerce order attribution (must run on landing pages to attribute orders).
+ * Deliberately left alone: SportsPress's general and icon stylesheets
+ * (assets/src/css/sportspress.css builds on them), its sponsors stylesheet
+ * (the footer sponsor band), and WooCommerce order attribution (must run on
+ * landing pages to attribute orders).
  *
  * @return void
  */
@@ -255,19 +251,411 @@ function blueline_dequeue_unused_plugin_assets(): void {
 		return;
 	}
 
-	if ( ! blueline_request_needs_cf7() ) {
-		foreach ( array( 'contact-form-7', 'swv', 'wpcf7cf-scripts' ) as $handle ) {
-			wp_dequeue_script( $handle );
-		}
+	$drop = blueline_unused_plugin_asset_handles( blueline_plugin_asset_context() );
 
-		foreach ( array( 'contact-form-7', 'cf7cf-style' ) as $handle ) {
-			wp_dequeue_style( $handle );
+	foreach ( $drop['scripts'] as $handle ) {
+		wp_dequeue_script( $handle );
+	}
+
+	foreach ( $drop['styles'] as $handle ) {
+		wp_dequeue_style( $handle );
+	}
+}
+
+/**
+ * What the current request renders, as far as the plugin assets in
+ * blueline_unused_plugin_asset_handles() care.
+ *
+ * @return array<string, bool>
+ */
+function blueline_plugin_asset_context(): array {
+	$is_cart     = function_exists( 'is_cart' ) && is_cart();
+	$is_checkout = function_exists( 'is_checkout' ) && is_checkout();
+	$is_account  = function_exists( 'is_account_page' ) && is_account_page();
+
+	return array(
+		'cf7'                 => blueline_request_needs_cf7(),
+		'facebook_widget'     => (bool) is_active_widget( false, false, 'sportspress-facebook', true ),
+		'fue'                 => $is_account || $is_checkout || blueline_request_is_fue_endpoint()
+			|| blueline_request_content_contains( array( '[fue_subscribe', '[fue_followup_subscriptions', '[woocommerce_followup_optout' ) ),
+		'sp_event'            => is_singular( 'sp_event' )
+			|| blueline_request_content_contains( array( '[event_full', '[event_statistics' ) ),
+		'sp_matrix'           => is_singular( 'sp_calendar' ) || blueline_request_content_contains( array( '[event_matrix' ) ),
+		'sp_scoreboard'       => (bool) get_option( 'sportspress_scoreboard_limit', 0 )
+			|| (bool) is_active_widget( false, false, 'sportspress-event-scoreboard', true )
+			|| blueline_request_content_contains( array( '[event_scoreboard' ) ),
+		'sp_event_map'        => is_singular( 'sp_event' ) && blueline_venue_map_is_click_to_load(),
+		'quotes_widget'       => blueline_quotes_llama_widget_rendered(),
+		'logged_in'           => is_user_logged_in(),
+		'payment_page'        => $is_cart || $is_checkout
+			|| ( function_exists( 'is_add_payment_method_page' ) && is_add_payment_method_page() ),
+		'keep_payment_assets' => (bool) apply_filters( 'blueline_keep_payment_scripts', false ),
+	);
+}
+
+/**
+ * The plugin script and style handles a request with this context does not
+ * need. Pure, so the rules can be tested without WordPress.
+ *
+ * - Contact Form 7 (+ Conditional Fields): only pages/widgets carrying a form
+ *   shortcode or block keep it; account pages keep it too, since plugins
+ *   render forms there outside post content.
+ * - SportsPress Facebook SDK (pulls connect.facebook.net): only the
+ *   SportsPress Facebook widget needs it.
+ * - Follow-Up Emails: its subscription form script and message styles serve
+ *   My Account, checkout's opt-in, its own unsubscribe/preferences endpoints
+ *   and its shortcodes, nothing else.
+ * - SportsPress module stylesheets: the league menu never renders (its
+ *   options are blanked on the front end, inc/sportspress/nav-options.php);
+ *   the results matrix only renders on a calendar or its shortcode; match
+ *   statistics and user scores only on an event; the scoreboard stylesheet
+ *   (which also styles the theme's own `.sp-scoreboard` event hero) only on
+ *   an event or when SportsPress's own scoreboard is in use.
+ * - Leaflet: on a single event the venue map is click-to-load and fetches
+ *   Leaflet itself (blueline_render_venue_map_placeholder()); the venue page
+ *   keeps the live map.
+ * - Quotes Llama's base stylesheet: only where its widget actually rendered.
+ * - Dashicons: the admin bar needs it for signed-in visitors; every glyph a
+ *   logged-out visitor can see is drawn by the theme instead.
+ * - PayPal / Google Pay / Apple Pay scripts (which pull in the three payment
+ *   SDKs): only cart, checkout (which includes the order-pay page) and My
+ *   Account's add-payment-method page take a payment. The
+ *   `blueline_keep_payment_scripts` filter restores them everywhere. The
+ *   plugin's small stylesheet stays: it also sets the product page's
+ *   add-to-cart form spacing.
+ *
+ * @param array<string, bool> $context From blueline_plugin_asset_context().
+ * @return array{scripts: string[], styles: string[]}
+ */
+function blueline_unused_plugin_asset_handles( array $context ): array {
+	$on      = static function ( string $key ) use ( $context ): bool {
+		return ! empty( $context[ $key ] );
+	};
+	$scripts = array();
+	$styles  = array();
+
+	if ( ! $on( 'cf7' ) ) {
+		array_push( $scripts, 'contact-form-7', 'swv', 'wpcf7cf-scripts' );
+		array_push( $styles, 'contact-form-7', 'cf7cf-style' );
+	}
+
+	if ( ! $on( 'facebook_widget' ) ) {
+		$scripts[] = 'sportspress-facebook-sdk';
+	}
+
+	if ( ! $on( 'fue' ) ) {
+		$scripts[] = 'fue-account-subscriptions';
+		$styles[]  = 'follow-up-emails';
+	}
+
+	$styles[] = 'sportspress-league-menu';
+
+	if ( ! $on( 'sp_matrix' ) ) {
+		$styles[] = 'sportspress-results-matrix';
+	}
+
+	if ( ! $on( 'sp_event' ) ) {
+		array_push( $styles, 'sportspress-event-statistics', 'sportspress-user-scores' );
+	}
+
+	if ( ! $on( 'sp_event' ) && ! $on( 'sp_scoreboard' ) ) {
+		array_push( $styles, 'sportspress-scoreboard', 'sportspress-scoreboard-ltr' );
+	}
+
+	if ( $on( 'sp_event_map' ) ) {
+		$scripts[] = 'leaflet_js';
+		$styles[]  = 'leaflet_stylesheet';
+	}
+
+	if ( ! $on( 'quotes_widget' ) ) {
+		$styles[] = 'quotes-llama-css-style';
+	}
+
+	if ( ! $on( 'logged_in' ) ) {
+		$styles[] = 'dashicons';
+	}
+
+	if ( ! $on( 'payment_page' ) && ! $on( 'keep_payment_assets' ) ) {
+		array_push(
+			$scripts,
+			'angelleye_ppcp-common-functions',
+			'angelleye-paypal-checkout-sdk',
+			'angelleye_ppcp-apple-pay',
+			'angelleye_ppcp-google-pay',
+			'angelleye_ppcp',
+			'angelleye-pay-later-messaging'
+		);
+	}
+
+	return array(
+		'scripts' => $scripts,
+		'styles'  => $styles,
+	);
+}
+
+/**
+ * Whether this request is one of Follow-Up Emails' own endpoints
+ * (unsubscribe, email subscriptions, email preferences), which it serves on
+ * any URL from its query vars, outside My Account.
+ *
+ * @return bool
+ */
+function blueline_request_is_fue_endpoint(): bool {
+	global $wp;
+
+	if ( ! isset( $wp->query_vars ) || ! is_array( $wp->query_vars ) ) {
+		return false;
+	}
+
+	$subscriptions = (string) get_option( 'fue_email_subscriptions_endpoint', 'email-subscriptions' );
+	$endpoints     = array(
+		(string) get_option( 'fue_unsubscribe_endpoint', 'unsubscribe' ),
+		'email-unsubscribe',
+		$subscriptions,
+		'my-account/' . $subscriptions,
+		(string) get_option( 'fue_email_preferences_endpoint', 'email-preferences' ),
+	);
+
+	foreach ( $endpoints as $endpoint ) {
+		if ( '' !== $endpoint && isset( $wp->query_vars[ $endpoint ] ) ) {
+			return true;
 		}
 	}
 
-	if ( ! is_active_widget( false, false, 'sportspress-facebook', true ) ) {
-		wp_dequeue_script( 'sportspress-facebook-sdk' );
+	return false;
+}
+
+add_action( 'dynamic_sidebar', 'blueline_note_quotes_llama_widget' );
+/**
+ * Quotes Llama enqueues its base stylesheet on every page; keep it only where
+ * its widget renders. A widget rendered before the head prints (the theme
+ * renders the sidebar early to know whether the page has one) is seen by the
+ * dequeue pass and kept in <head>; one rendered later is enqueued here and
+ * WordPress prints it with the late styles.
+ *
+ * @param array $widget The registered widget about to render.
+ * @return void
+ */
+function blueline_note_quotes_llama_widget( $widget ): void {
+	$callback = is_array( $widget ) ? ( $widget['callback'][0] ?? null ) : null;
+
+	if ( ! is_object( $callback ) || 'widgetquotesllama' !== ( $callback->id_base ?? '' ) ) {
+		return;
 	}
+
+	blueline_quotes_llama_widget_rendered( true );
+	wp_enqueue_style( 'quotes-llama-css-style' );
+}
+
+/**
+ * Whether a Quotes Llama widget has rendered on this request.
+ *
+ * @param bool $mark Pass true to record that one has.
+ * @return bool
+ */
+function blueline_quotes_llama_widget_rendered( bool $mark = false ): bool {
+	static $rendered = false;
+
+	if ( $mark ) {
+		$rendered = true;
+	}
+
+	return $rendered;
+}
+
+add_action( 'wp_print_scripts', 'blueline_move_jquery_to_footer', 1000 );
+/**
+ * Move jQuery out of <head>, where it blocks the first paint, whenever no
+ * blocking head script needs it.
+ *
+ * Deferred and async head scripts run after the document is parsed wherever
+ * they sit, so they move to the footer group with it; WordPress then pulls
+ * jQuery (and anything else) back into <head> on its own if a blocking head
+ * script still depends on it, so a page that genuinely needs it early keeps
+ * it there. blueline_print_footer_jquery() prints it first thing in the
+ * footer, ahead of plugins' inline wp_footer scripts that call jQuery()
+ * directly. Filter `blueline_jquery_in_footer` to false to keep it in <head>.
+ *
+ * @return void
+ */
+function blueline_move_jquery_to_footer(): void {
+	// Theme templates only: wp-login.php and embeds print their head scripts
+	// without wp_head() and never call wp_footer().
+	if ( is_admin() || ! did_action( 'wp_head' ) || ! apply_filters( 'blueline_jquery_in_footer', true ) ) {
+		return;
+	}
+
+	$scripts = wp_scripts();
+
+	foreach ( blueline_script_dependency_closure( $scripts->registered, $scripts->queue ) as $handle ) {
+		if ( in_array( $scripts->get_data( $handle, 'strategy' ), array( 'defer', 'async' ), true )
+			&& ! $scripts->get_data( $handle, 'group' ) ) {
+			$scripts->add_data( $handle, 'group', 1 );
+		}
+	}
+
+	foreach ( array( 'jquery', 'jquery-core', 'jquery-migrate' ) as $handle ) {
+		$scripts->add_data( $handle, 'group', 1 );
+	}
+}
+
+/**
+ * Every handle in $queue plus everything they depend on, recursively.
+ *
+ * @param array<string, object> $registered Handle => object with a `deps` array (_WP_Dependency).
+ * @param string[]              $queue      Enqueued handles.
+ * @return string[]
+ */
+function blueline_script_dependency_closure( array $registered, array $queue ): array {
+	$seen  = array();
+	$stack = $queue;
+
+	while ( $stack ) {
+		$handle = array_pop( $stack );
+
+		if ( isset( $seen[ $handle ] ) || ! isset( $registered[ $handle ] ) ) {
+			continue;
+		}
+
+		$seen[ $handle ] = true;
+
+		foreach ( (array) $registered[ $handle ]->deps as $dep ) {
+			$stack[] = $dep;
+		}
+	}
+
+	return array_keys( $seen );
+}
+
+add_action( 'wp_footer', 'blueline_print_footer_jquery', 1 );
+/**
+ * Print jQuery at the very start of the footer when it was moved out of
+ * <head>: SportsPress's header-sponsor relocation is an inline
+ * `jQuery( document ).ready(...)` printed on wp_footer (priority 10), before
+ * WordPress prints the footer scripts at priority 20.
+ *
+ * @return void
+ */
+function blueline_print_footer_jquery(): void {
+	if ( is_admin() ) {
+		return;
+	}
+
+	$scripts = wp_scripts();
+
+	if ( ! $scripts->query( 'jquery', 'enqueued' ) || $scripts->query( 'jquery', 'done' ) ) {
+		return;
+	}
+
+	$scripts->do_items( array( 'jquery' ) );
+}
+
+add_action( 'init', 'blueline_disable_emoji_detection' );
+/**
+ * Skip WordPress's emoji detection script and its image styles on the front
+ * end: every browser this site supports draws emoji itself, and the
+ * fallback swapped some for unsized images from s.w.org.
+ *
+ * @return void
+ */
+function blueline_disable_emoji_detection(): void {
+	remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
+	remove_action( 'wp_print_styles', 'print_emoji_styles' );
+}
+
+add_action( 'wp', 'blueline_unhook_plugin_theme_color' );
+/**
+ * The theme prints the one `theme-color` meta tag (header.php), from the
+ * header's own brand colour. The Browser Theme Color plugin prints a second,
+ * fixed one; browsers use the first, so the plugin's setting did nothing but
+ * confuse. Its tags are dropped here rather than leaving two answers.
+ *
+ * @return void
+ */
+function blueline_unhook_plugin_theme_color(): void {
+	global $wp_filter;
+
+	if ( is_admin() || ! isset( $wp_filter['wp_head'] ) ) {
+		return;
+	}
+
+	foreach ( blueline_hooked_methods( $wp_filter['wp_head']->callbacks, 'Browser_Theme_Color', 'output_theme_color_meta' ) as $hooked ) {
+		remove_action( 'wp_head', $hooked['callback'], $hooked['priority'] );
+	}
+}
+
+/**
+ * The callbacks in a hook's priority => callbacks table that are $method on
+ * an instance of $class_name: how to unhook a plugin that never exposes its
+ * instance.
+ *
+ * @param array  $callbacks  WP_Hook::$callbacks shape: priority => id => array( 'function' => callable ).
+ * @param string $class_name Class the callback object must be an instance of.
+ * @param string $method     Method name.
+ * @return array<int, array{callback: array, priority: int}>
+ */
+function blueline_hooked_methods( array $callbacks, string $class_name, string $method ): array {
+	$found = array();
+
+	foreach ( $callbacks as $priority => $entries ) {
+		foreach ( (array) $entries as $entry ) {
+			$function = $entry['function'] ?? null;
+
+			if ( is_array( $function ) && isset( $function[0], $function[1] )
+				&& $function[0] instanceof $class_name && $method === $function[1] ) {
+				$found[] = array(
+					'callback' => $function,
+					'priority' => (int) $priority,
+				);
+			}
+		}
+	}
+
+	return $found;
+}
+
+add_filter( 'get_custom_logo_image_attributes', 'blueline_custom_logo_fetch_priority' );
+/**
+ * Stop the header logo claiming `fetchpriority="high"`. WordPress gives it to
+ * the first large image it sees, which is always the logo, and the logo is
+ * never the page's largest paint; without this the page's real hero image
+ * cannot get it.
+ *
+ * @param array $attr Custom logo <img> attributes.
+ * @return array
+ */
+function blueline_custom_logo_fetch_priority( $attr ) {
+	$attr                  = (array) $attr;
+	$attr['fetchpriority'] = false;
+
+	return $attr;
+}
+
+/**
+ * `<img>` attributes for the first, above-the-fold image of a singular
+ * template (featured image, team crest): fetched first and never lazy.
+ *
+ * @param string $sizes The `sizes` value matching the image's CSS box.
+ * @return array<string, string>
+ */
+function blueline_hero_image_attributes( string $sizes ): array {
+	return array(
+		'sizes'         => $sizes,
+		'fetchpriority' => 'high',
+		'loading'       => 'eager',
+	);
+}
+
+/**
+ * Attributes for a page's or post's featured image (content-page.php,
+ * content-single.php), which spans the content column: the viewport less
+ * .bl-container's 24px gutters, up to the 1200px container. WordPress's
+ * default assumed the full viewport, so phones fetched the 1024px file.
+ *
+ * @return array<string, string>
+ */
+function blueline_entry_thumbnail_attributes(): array {
+	return blueline_hero_image_attributes( '(max-width: 1200px) calc(100vw - 48px), 1152px' );
 }
 
 add_action( 'wp_head', 'blueline_preload_fonts', 1 );

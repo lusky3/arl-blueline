@@ -1,7 +1,8 @@
 <?php
 /**
  * SportsPress integration: venue archive query fix, arena names and
- * venue labels, and the venue archive title.
+ * venue labels, the venue archive title, and the event page's
+ * click-to-load venue map.
  *
  * Loaded by inc/sportspress.php; every SportsPress touchpoint is guarded
  * so the theme never fatals with SportsPress deactivated.
@@ -173,4 +174,183 @@ function blueline_sp_venue_archive_title( $title ) {
 	$label = blueline_venue_label( $term->term_id );
 
 	return '' !== $label ? esc_html( $label ) : $title;
+}
+
+/**
+ * Whether the single-event venue map is click-to-load: only when SportsPress
+ * draws venue maps with its OpenStreetMap (Leaflet) module, which is what the
+ * placeholder loads. With the Google Maps module, or maps switched off, the
+ * event page renders exactly what SportsPress does.
+ *
+ * @return bool
+ */
+function blueline_venue_map_is_click_to_load(): bool {
+	global $wp_filter;
+
+	if ( 'no' === get_option( 'sportspress_event_show_maps', 'yes' ) || ! isset( $wp_filter['sp_venue_show_map'] ) ) {
+		return false;
+	}
+
+	return array() !== blueline_hooked_methods( $wp_filter['sp_venue_show_map']->callbacks, 'SportsPress_OpenStreetMap', 'show_venue_map' );
+}
+
+/**
+ * Everything the click-to-load venue map needs, from a venue's SportsPress
+ * meta (`taxonomy_{$term_id}`): null when the venue has no coordinates, the
+ * same case in which SportsPress draws no map at all.
+ *
+ * @param array  $meta        Venue meta: sp_address, sp_latitude, sp_longitude.
+ * @param string $label       Venue label (blueline_venue_label()).
+ * @param string $zoom        sportspress_map_zoom option.
+ * @param string $maptype     sportspress_map_type option.
+ * @param string $leaflet_js  Leaflet script URL, '' when not registered.
+ * @param string $leaflet_css Leaflet stylesheet URL, '' when not registered.
+ * @return array{label: string, address: string, lat: string, lng: string, zoom: int, maptype: string, link: string, leaflet_js: string, leaflet_css: string}|null
+ */
+function blueline_venue_map_placeholder_data( array $meta, string $label, string $zoom, string $maptype, string $leaflet_js, string $leaflet_css ): ?array {
+	$lat = trim( (string) ( $meta['sp_latitude'] ?? '' ) );
+	$lng = trim( (string) ( $meta['sp_longitude'] ?? '' ) );
+
+	if ( ! is_numeric( $lat ) || ! is_numeric( $lng ) ) {
+		return null;
+	}
+
+	$zoom = (int) $zoom;
+
+	return array(
+		'label'       => $label,
+		'address'     => trim( (string) ( $meta['sp_address'] ?? '' ) ),
+		'lat'         => $lat,
+		'lng'         => $lng,
+		'zoom'        => ( $zoom >= 1 && $zoom <= 18 ) ? $zoom : 15,
+		'maptype'     => ( 'satellite' === strtolower( $maptype ) ) ? 'satellite' : 'roadmap',
+		'link'        => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode( $lat . ',' . $lng ),
+		'leaflet_js'  => $leaflet_js,
+		'leaflet_css' => $leaflet_css,
+	);
+}
+
+/**
+ * A registered script or style's URL with its version, or '' when the
+ * handle is not registered.
+ *
+ * @param WP_Dependencies $dependencies wp_scripts() or wp_styles().
+ * @param string          $handle       Handle.
+ * @return string
+ */
+function blueline_registered_asset_url( $dependencies, string $handle ): string {
+	$item = $dependencies->registered[ $handle ] ?? null;
+
+	if ( ! $item || ! is_string( $item->src ) || '' === $item->src ) {
+		return '';
+	}
+
+	return $item->ver ? add_query_arg( 'ver', $item->ver, $item->src ) : $item->src;
+}
+
+/**
+ * The label of the event venue whose SportsPress meta is $meta: the venue map
+ * template is handed only the meta, and an event can list more than one venue.
+ *
+ * @param int   $event_id sp_event post ID.
+ * @param array $meta     Venue meta passed to venue-map.php.
+ * @return string
+ */
+function blueline_event_venue_label_for_meta( int $event_id, array $meta ): string {
+	$terms = wp_get_post_terms( $event_id, 'sp_venue' );
+
+	if ( is_wp_error( $terms ) ) {
+		return '';
+	}
+
+	foreach ( $terms as $term ) {
+		if ( get_option( 'taxonomy_' . $term->term_id ) === $meta ) {
+			return blueline_venue_label( $term->term_id );
+		}
+	}
+
+	return '';
+}
+
+/**
+ * The single-event venue map as a fixed-height placeholder: venue, address,
+ * an "Open map" button that loads Leaflet and the tiles in place
+ * (assets/src/js/venue-map.js), and a Google Maps link, which is where the
+ * SportsPress map itself linked. The live map was the largest thing to load
+ * on an event page, and most visitors only need the address.
+ *
+ * @param array $meta Venue meta from SportsPress's venue-map.php.
+ * @return void
+ */
+function blueline_render_venue_map_placeholder( array $meta ): void {
+	$data = blueline_venue_map_placeholder_data(
+		$meta,
+		blueline_event_venue_label_for_meta( (int) get_the_ID(), $meta ),
+		(string) get_option( 'sportspress_map_zoom', 15 ),
+		(string) get_option( 'sportspress_map_type', 'roadmap' ),
+		blueline_registered_asset_url( wp_scripts(), 'leaflet_js' ),
+		blueline_registered_asset_url( wp_styles(), 'leaflet_stylesheet' )
+	);
+
+	if ( null === $data ) {
+		return;
+	}
+
+	echo blueline_venue_map_placeholder_html( $data ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped piece by piece in blueline_venue_map_placeholder_html().
+}
+
+/**
+ * The placeholder's markup for blueline_venue_map_placeholder_data()'s array.
+ * The button is only printed when Leaflet's URLs are known.
+ *
+ * @param array $data From blueline_venue_map_placeholder_data().
+ * @return string
+ */
+function blueline_venue_map_placeholder_html( array $data ): string {
+	$can_load = '' !== $data['leaflet_js'] && '' !== $data['leaflet_css'];
+	$attrs    = '';
+
+	if ( $can_load ) {
+		$place = '' !== $data['label'] ? $data['label'] : $data['address'];
+		$attrs = sprintf(
+			' data-bl-venue-map data-lat="%1$s" data-lng="%2$s" data-zoom="%3$s" data-maptype="%4$s" data-link="%5$s" data-map-label="%6$s" data-leaflet-js="%7$s" data-leaflet-css="%8$s"',
+			esc_attr( $data['lat'] ),
+			esc_attr( $data['lng'] ),
+			esc_attr( (string) $data['zoom'] ),
+			esc_attr( $data['maptype'] ),
+			esc_url( $data['link'] ),
+			esc_attr(
+				'' !== $place
+					/* translators: %s: venue name or address. */
+					? sprintf( __( 'Map of %s (opens Google Maps in a new tab)', 'blueline' ), $place )
+					: __( 'Map (opens Google Maps in a new tab)', 'blueline' )
+			),
+			esc_url( $data['leaflet_js'] ),
+			esc_url( $data['leaflet_css'] )
+		);
+	}
+
+	$html = '<div class="bl-venue-map"' . $attrs . '>';
+
+	if ( '' !== $data['label'] ) {
+		$html .= '<p class="bl-venue-map__name">' . esc_html( $data['label'] ) . '</p>';
+	}
+
+	if ( '' !== $data['address'] ) {
+		$html .= '<p class="bl-venue-map__address">' . esc_html( $data['address'] ) . '</p>';
+	}
+
+	$html .= '<p class="bl-venue-map__actions">';
+
+	if ( $can_load ) {
+		$html .= '<button type="button" class="bl-btn bl-btn--secondary bl-venue-map__open"><span class="bl-skew"><span>'
+			. esc_html__( 'Open map', 'blueline' )
+			. '</span></span></button>';
+	}
+
+	$html .= '<a class="bl-venue-map__link" href="' . esc_url( $data['link'] ) . '" target="_blank" rel="noopener">'
+		. esc_html__( 'Google Maps', 'blueline' )
+		. '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'blueline' ) . '</span></a>';
+
+	return $html . '</p></div>';
 }
