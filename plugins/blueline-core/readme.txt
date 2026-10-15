@@ -3,7 +3,7 @@ Contributors: lusky3
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.3
-Stable tag: 0.1.2
+Stable tag: 0.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,10 @@ Each feature is a module that can be switched off with the `blueline_core_module
 3. Against an older theme the plugin does nothing and shows an admin notice, because that theme still provides these features itself.
 
 == Changelog ==
+
+= 0.1.3 =
+* My Account tabs now carry the league's wording: My Registrations, My Address, Change My Details and, when WooCommerce Subscriptions is active, My Installments (right after My Registrations). The site Code Snippet "My Account Tab Modifications" is no longer needed and can be switched off. Page addresses are unchanged, and a site can still rename a tab with the `woocommerce_account_menu_items` filter.
+* New `season` module: one shared definition of the current season, read from SportsPress > Settings > General > Current Season. If that setting is empty or names a deleted season, the season of the next game on the schedule (or of the last game played) is used instead. The claim pool (the "find my player profile" list) and the search/preview season name now use it, so they no longer drift from the rest of the site. Change the setting on the day the new season starts playing.
 
 = 0.1.2 =
 * A profile photo larger than the server's request limit now returns to Player Profile with the "too large" message instead of ending on a blank page.
