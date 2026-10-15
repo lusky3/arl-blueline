@@ -80,6 +80,46 @@ if ( ! function_exists( 'wp_is_post_autosave' ) ) {
 	}
 }
 
+if ( ! function_exists( 'blueline_core_test_flagged_post_ids' ) ) {
+	/**
+	 * Model of the indexing module's flagged-posts query over the registered-posts and post-meta
+	 * stores, driven by the values it was prepared with: post type, status, the two meta keys, the
+	 * key whose mere presence counts, and the value the other key must hold.
+	 *
+	 * @param array $args prepare() arguments, in the query's order.
+	 * @return string[] Post IDs as wpdb returns them (strings), in ID order.
+	 */
+	function blueline_core_test_flagged_post_ids( array $args ): array {
+		list( $post_type, $status, $key_a, $key_b, $any_value_key, $value ) = array_map( 'strval', $args );
+
+		$state = &blueline_test_state();
+		$found = array();
+
+		foreach ( $state['posts'] as $post_id => $post ) {
+			if ( ( $post['type'] ?? '' ) !== $post_type || ( $post['status'] ?? '' ) !== $status ) {
+				continue;
+			}
+
+			foreach ( array( $key_a, $key_b ) as $key ) {
+				if ( ! array_key_exists( $key, $state['post_meta'][ $post_id ] ?? array() ) ) {
+					continue;
+				}
+
+				$stored = $state['post_meta'][ $post_id ][ $key ];
+				$rows   = array_map( 'strval', $stored instanceof Blueline_Test_Meta_Rows ? $stored->rows : array( $stored ) );
+
+				if ( $key === $any_value_key || in_array( $value, $rows, true ) ) {
+					$found[ $post_id ] = (string) $post_id;
+				}
+			}
+		}
+
+		ksort( $found );
+
+		return array_values( $found );
+	}
+}
+
 if ( ! function_exists( 'wp_sitemaps_get_server' ) ) {
 	/**
 	 * Stand-in for wp_sitemaps_get_server(): an object whose sitemaps_enabled() reports

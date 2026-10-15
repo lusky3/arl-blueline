@@ -48,6 +48,20 @@ if ( ! class_exists( 'Blueline_Core_Test_Wpdb' ) ) {
 		public $var_callback = null;
 
 		/**
+		 * Answers get_col(); receives the prepare() arguments of the last call.
+		 *
+		 * @var callable|null
+		 */
+		public $col_callback = null;
+
+		/**
+		 * Every query get_col() was asked to run.
+		 *
+		 * @var string[]
+		 */
+		public $col_queries = array();
+
+		/**
 		 * Arguments of the last prepare() call.
 		 *
 		 * @var array
@@ -84,6 +98,18 @@ if ( ! class_exists( 'Blueline_Core_Test_Wpdb' ) ) {
 		 */
 		public function get_var( $query ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with wpdb.
 			return $this->var_callback ? call_user_func( $this->var_callback, $this->prepared_args ) : null;
+		}
+
+		/**
+		 * The callback's answer for the last prepare() arguments (an empty column without one).
+		 *
+		 * @param string $query The query, recorded.
+		 * @return array
+		 */
+		public function get_col( $query ) {
+			$this->col_queries[] = (string) $query;
+
+			return $this->col_callback ? (array) call_user_func( $this->col_callback, $this->prepared_args ) : array();
 		}
 	}
 }

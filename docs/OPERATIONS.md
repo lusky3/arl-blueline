@@ -58,6 +58,25 @@ Exit 1 means at least one needs work:
 It is a manual check, not CI: CI cannot see staging's plugins. WooCommerce's own WooCommerce > Status > System
 status ("Templates") flags outdated WooCommerce and Subscriptions overrides too, but not SportsPress, PayPal or YITH.
 
+## XML sitemap: which seasons count as current
+
+blueline-core's `indexing` module leaves SportsPress pages from past seasons (events, players, teams, staff, tables,
+lists, calendars) out of the XML sitemap. They stay indexable and searchable; Tools > Site Health shows how many are
+left out and how many listed.
+
+- **Current** means the **2** seasons with the latest games (`blueline_core_archival_recent_seasons`; `0` turns the
+  exclusion off). A season's playoff terms (slug containing `playoff`, parent = the season) count as part of it.
+- A season needs at least **10** published or scheduled events (playoffs included) before it can count as current
+  (`blueline_core_archival_min_season_events`). Without that floor, a test season with a game or two dated after the
+  real ones would count as current and push a real season, with all its pages, out of the sitemap. Every season since
+  2020 has at least 10 games in its first week, and the schedule usually goes in weeks ahead (W2026-27 started with
+  58); a new season with fewer than 10 on the schedule counts as current once it reaches 10 (until then its pages are
+  simply not in the sitemap yet). Draft events never count.
+- The result is cached in the `blueline_archival_ids` transient (cleared on every event, player, team or season change;
+  six-hour backstop). After a bulk import by WP-CLI or SQL, `wp transient delete blueline_archival_ids`.
+- Pages flagged "Hide from search engines" and pages that redirect with Page Links To are also left out; that check is
+  one database lookup per sitemap and is not cached, so a change shows at once.
+
 ## Rolling back to the classic theme (rookie-child)
 
 The classic theme relied on the YITH "Customize My Account Page" plugin for the account URLs. To roll back:
@@ -110,7 +129,7 @@ header is added by the server's nginx configuration, not WordPress, so it can on
 
 ## Production cutover checklist (owner steps; nothing here is automated)
 
-- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
+- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","access","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
 - [ ] **Team page section order** is a database setting, not code. SportsPress > Settings > Teams > Layout: drag "Add to
   Calendar" and "Upcoming Games" where you want them (or `wp option update sportspress_team_template_order '["calendar","schedule","logo","excerpt","content","link","details","staff","lists","tables","events"]' --format=json`). A database refresh can revert it.
 - [ ] **Player ownership (SEC-01).** Only a Player-role account that is also the `post_author` of its linked player can
