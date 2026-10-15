@@ -8,99 +8,228 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.5]
+
+Ships with blueline-core plugin 0.1.2. Install the plugin first (see Upgrade notes).
+
 ### Added
 - `mu-plugins/arl-domain-router.php`: serves one WordPress under two faces by hostname (`arlhockey.ca` runs
   Blueline; `rookiehockey.ca/.com` keep the classic theme with a canonical tag pointing at the primary), redirects
   alias domains to the primary and sends admin, login, account and checkout from the old domains to it. See
-  `docs/DOMAINS.md`.
-### Fixed
-- Checkout no longer drops keyboard and screen-reader focus on the "Got a credit code?" or "Returning player?"
-  prompt when the page opens. Focus only moves to a real result message (an error, or a saved/applied
-  confirmation), and that message now shows a visible focus outline.
-- Edit Account and Addresses: the dropdowns and the multi-select (Returning Player, Level of Experience,
-  Preferred Division, Gender) now have names a screen reader announces and a visible focus outline, as on checkout.
-  The plugin's section titles ("Player Profile", "Emergency Contact Info") use the page text colour, so they are
-  readable in dark mode, and are announced as headings in order.
-- Edit Account and Addresses: a field the page reports as wrong ("First name is a required field.") is now
-  marked invalid and linked to its message, as on login. Starred Edit Account fields are marked required, so a
-  blank one is caught before the page reloads.
-- Contact form: the second name box ("Last") is announced as "Last name", and the name and email boxes now tell
-  the browser what they hold, so autofill works. Form fields on the account, checkout and contact pages are at
-  least 44px tall for touch.
-- Checkout: the street address lines no longer switch autofill off.
-- Checkout: the terms checkbox no longer shares an id with the heading of the Terms page.
-- Profile photo: the page now says the photo uploads as soon as you choose it, and the 2 MB limit, before you
-  pick one. It shows "Uploading photo..." while it works. A photo over 2 MB (most phone photos) is shrunk in
-  the browser and uploaded instead of refused; a file that cannot be shrunk is refused on the spot with the
-  too-large message. A photo over the server's request limit used to end on a blank page and now returns to Player
-  Profile with the same message.
-- Tables inside page content (the editor's Table block) that are wider than the screen can be scrolled with the
-  keyboard.
+  `docs/DOMAINS.md`. It is a must-use plugin, so the theme updater does not install it.
+- Registration: the Register page opens with a "Choose your registration" button that jumps to the first
+  registration card, and a price line ("Player $575.00 · Goalie $170.00") built from the same offers as the home
+  page hero. Product pages get a "What's included" block (the product's short description, or the one-payment
+  line used at checkout).
+- Registration and waitlist: a $0 waitlist product reads "Join the waitlist" and "Free" instead of "$0.00".
+  Paid product cards, product pages and the Register page now say up front that card, PayPal, Apple Pay and Google
+  Pay add a 3.5% + $0.30 processing fee and Interac e-Transfer has none (the e-Transfer sentence shows only while
+  that payment method is on).
+- The home page's waitlist-only state: between seasons, when only waitlists are on offer, the hero says
+  "Waitlist open" with a "Join the waitlist" button and no prices.
+- Schedule pages that cover a whole season open on the page holding the next game, with "Earlier games" and
+  "Later games" links under the table (the site's "paginated" and "rows" settings are honoured again, in whole game
+  days).
+- Search is easier to find: a magnifier button in the desktop header opens a search bar under it, and the phone
+  menu ends with a search field. The no-results search page ends on the same three next steps as the 404 page
+  (Schedule, Standings, Register to Play).
+- Settings: export and import now round-trip the Occasions settings (validated like a normal save, all-or-nothing).
+- Standings tables carry a one-line legend ("Record is W-L-T-OTL: wins, losses, ties, overtime losses.").
+- Signed update manifests: the theme can now require an ed25519 signature on every release, and Site Health has a
+  "Blueline release signing" test. See Upgrade notes: this stays dormant until the owner adds a public key.
+- A drift check for the template overrides (a header on every override names the plugin version it was copied
+  from) and a Site Health recommendation when the Blueline Core plugin is older than the theme needs.
+
 ### Changed
 - The "next game" reminder no longer appears on the My Account, cart or checkout pages, where it sat over the
   fields being filled in. On phones it is now a slim bar along the bottom of the screen ("Fri 6:45 pm · vs Ice
   Bears · Red") instead of a card, and the page leaves room for it so the footer and any focused field are
-  never hidden behind it. It is now labelled "Your next game" for screen readers and the desktop card.
+  never hidden behind it. It is labelled "Your next game" for screen readers and on the desktop card, and it
+  names the player's own team ("Kings vs Ducks") and says "Time TBD" for a game whose time is not settled.
 - The Teams tab now shows each team's name beside its crest (it used to be a crest alone, with the name only
   as a hover tooltip that never shows on a phone), and the crests load straight away instead of opening as
-  blank circles.
-- The Teams tab's attention pulse now stops after three pulses, and for good once you have opened it. The
-  crests no longer bob. The Teams panel now sits above the next-game reminder.
+  blank circles. Its attention pulse stops after three pulses, and for good once you have opened it. The crests
+  no longer bob. The Teams panel sits above the next-game reminder.
 - Seasonal effects (snow, poppies, fireworks) get a "Hide seasonal effects" button in the footer.
+- Schedule on phones: one card per game instead of a table you had to scroll sideways (the time and result, then
+  "Home vs Away" with both crests, then the arena and pad). Tablets and desktops keep the table, and the switch
+  happens exactly when the table would no longer fit, so there is no half-scrolling state in between. The
+  current-season calendar shows the table from 1270px wide.
+- Schedule tables say when a game is postponed, cancelled or has its time to be confirmed ("Time TBD"). The status
+  shows as a label in the Result column (beside any recorded score), and the kick-off time of a postponed or
+  cancelled game is struck through. The Arena column keeps the pad with the end of the arena name and never
+  starts a line with "— Red".
+- Team names in the schedule wrap onto a second line instead of being cut off when text is enlarged or spaced out.
+- Standings: nobody else's team is highlighted any more. The shared copy is neutral, and each signed-in player's
+  own team row is added for them alone ("(your team)" is also read out). Header labels are expanded for screen
+  readers (GP, W, L, OT, PTS...), and on phones the default view (Pos / Team / Record / Pts) fits from 360px up
+  with no sideways scrolling. The home page division tabs read "Div 1" to "Div 5".
+- Layout: pages with a sidebar sit on the same 1200px grid as the header and footer, every band shares the same
+  left edge on phones, long text is capped at a readable line length, and the Sponsors page heading is left-aligned
+  with its grid.
+- Empty states: a playoff round nobody has played yet says "Playoffs start after the regular season." instead of
+  a table of zeros, and a player with no stats anywhere gets one "No stats yet." message.
+- My Account: "Log out" is the last menu item, set apart by a divider; the Account & Billing dropdown has a
+  chevron; each page heading uses the label of the tab that leads to it. Logged-out visitors see "Log In" instead
+  of "My ARL Account" in the menu.
+- Touch screens: small targets (pad links, scoreboard team names, tabs, "View all games", standings and roster
+  links, footer links, the photo pencil and more) are now at least 44px tall.
+- Dates, times and scores use one format everywhere (game page, home page, next-game widget, My Account).
+- Product pages and the cart no longer show the sidebar (countdown, recent posts, quotes), as on checkout. The
+  checkout "Fee Applies" notes use the secondary text colour instead of red. "Register Now", "Join the waitlist",
+  "Proceed to checkout" and "Place order" use the same ice ribbon as the site's primary button, and the primary
+  button has hover and pressed states.
+- Order and account emails are rebuilt on the templates WooCommerce 11.0.1 (and Subscriptions and Store Credit)
+  actually ship, keeping the league's own wording, so they pick up WooCommerce's own fixes again. The store-credit
+  page shows its expiry date and "Use now" button again, and the store-credit email has the "Redeem now" button.
+- The release zip is smaller (build sources, developer tools and a second copy of the fonts are left out: 218
+  files and 1.43 MB down to 170 files and 1.17 MB) and is built from the tagged commit only, so building the same
+  tag twice gives the same file.
+- The updater reports a GitHub rate limit as "rate limited" (not the red token error) and a missing repository on
+  its own; a newer release whose zip or manifest is missing or invalid is reported in Site Health instead of "up to
+  date". Release tags are only `vX.Y.Z`, `-rc.N` or `-beta.N`.
+- Visitor-facing default wording (footer heading, hero headlines, "Never played? Perfect.", account empty states)
+  and the occasion presets' names can now be translated. English output is unchanged.
+- "Switch to Classic Site" keeps the page's query string.
+- Page-cache purge reports honestly (and says Cloudflare's edge cache is not purged by the theme).
+- The page's `theme-color` follows the "Ink, deep" brand colour, and the Browser Theme Color plugin's duplicate
+  tags are no longer printed.
+- Internal: the largest theme files (occasions, home page modules, settings page) are split into smaller files by
+  responsibility, stale task-history comments are removed, and `npm run tokens:check` now fails when a copy of a
+  design colour outside CSS drifts from `style.css`. No visible change.
 
 ### Fixed
-- Keyboard focus is no longer lost to the top of the page when you dismiss the announcement banner or the
-  next-game reminder.
-- The Teams panel closes when keyboard focus leaves it, instead of staying open over whatever you tabbed to.
-- The push-notification bell no longer sits on top of the mobile menu, and it tucks away while the phone
-  next-game bar is showing.
-### Fixed
-- Schedule tables now say when a game is postponed, cancelled or has its time still to be confirmed. A postponed
-  game with a 0-0 on file used to look like a final score, and a cancelled one looked like a game still on. The
-  status shows as a label in the Result column (beside any score that was recorded), and the kick-off time of a
-  postponed or cancelled game is struck through.
-- On phones, the schedule (the Schedule page, a team's Upcoming Games, any schedule table) shows one card per game
-  instead of a table you had to scroll sideways to find the opponent and the rink: the time and result, then
-  "Home vs Away" with both crests, then the arena and pad. Tablets and desktops keep the table.
-- Screen readers now hear each game's time link as the game ("6:45 pm, Lumberjacks vs Ice Bears, October 16,
-  2026"), not just "6:45 pm" repeated for every game in the same time slot.
-- Team names in the schedule wrap onto a second line instead of being cut off when text is enlarged or spaced
-  out, and the full-name bubble no longer disappears when moving to a team name with the keyboard scrolls the page.
-- The Arena column keeps the pad with the end of the arena name ("Mr. Lube and Tires / Arena — Red"), so a line
-  never starts with "— Red", and fits on two lines at tablet width instead of three.
-- Team pages show their division again, and My Team shows the team's record again, for the 2026-27 season.
-  The theme looked for a season's teams in a place SportsPress only fills when a standings table is edited
-  by hand, so every table created for the new season looked empty.
-- A player on two current teams now sees both. "My next game" is the earliest game across all of their
-  teams and says which team is playing ("Kings @ Ducks"), and My Team shows one card per team, each with its
-  own roster and its own "Add your season to" calendar buttons.
-- Postponed and cancelled games are no longer shown as a player's next game, on the account dashboard, on
-  My Schedule or in the "Next Puck Drop" countdown; the next game that is going ahead shows instead. A
-  game whose status changes now counts as "Updated since you last checked".
-- My Schedule lists the player's next few games (up to five after the next one, across all of their teams)
-  instead of a single game, with postponed and cancelled games labelled, and a calendar button per team.
-- Single-game "Add to calendar" links (Apple/Outlook and Google) give the arena, pad and street address
-  ("Mr. Lube and Tires Arena — Black, 1179 Northside Rd, …") instead of just the pad name, so maps apps can
-  find the rink.
-- Games whose time is still to be decided say "Time TBD" on the game page and the account pages, and offer
-  no "Add to calendar" link, instead of showing a placeholder time as if it were real.
+- Team pages show their division again, and My Team shows the team's record again, for the 2026-27 season. The
+  theme looked for a season's teams in a place SportsPress only fills when a standings table is edited by hand.
+  My Team also shows the regular-season record, not the newer empty Playoffs table, and keeps it once playoff
+  games are the next ones scheduled.
+- A player on two current teams now sees both. "My next game" is the earliest game across all of their teams and
+  says which team is playing ("Kings @ Ducks"), My Team shows one card per team with its own roster and "Add your
+  season to" calendar buttons, and My Season shows one block per team. The "Jump to a teammate" list on a player
+  page lists teammates of every current team.
+- Postponed and cancelled games are no longer shown as a player's next game (account dashboard, My Schedule,
+  the floating widget, the "Next Puck Drop" countdown), and no longer appear as the next game in the hero, the
+  home page's Next games list or the "games this week" count. A game whose status changes counts as "Updated
+  since you last checked". The "played in the last 30 days" check no longer counts cancelled or postponed games.
+- My Schedule lists the player's next few games (up to five after the next one, across all teams) with postponed
+  and cancelled games labelled, and a calendar button per team.
+- Single-game "Add to calendar" links give the arena, pad and street address instead of just the pad name. A game
+  whose time is still to be decided says "Time TBD" and offers no calendar link. The calendar file shows plain text
+  (no `&#8217;`), folds long lines without splitting accented letters and declares UTF-8.
 - Turning off "My next game" or "My team" in the theme settings now sends `/account/my-schedule/` and
   `/account/my-team/` to the account dashboard instead of showing a blank page.
-- The home page hero (and the header's Register button) no longer quotes prices for registrations the league
-  has hidden from the shop. A product with "Hidden" catalogue visibility is never offered, even when it is
-  tagged Featured and still in stock.
-- A $0 waitlist no longer counts as "registration open", so the site stops reading as open all year while a
-  waitlist is on sale. Between seasons, when only waitlists are on offer, the hero says "Waitlist open" with a
-  "Join the waitlist" button and no prices. While games are being played the hero stays the in-season one.
-- Postponed and cancelled games no longer appear as the next game in the hero, in the home page's Next games
-  list, or in the in-season "games this week" count. The next game that is going ahead shows instead, and a
-  cancelled game's date is no longer printed as the season start.
-- The in-season hero shows the real week of the season ("W2026-27 · Week 2"), counted from the season's first
-  game. It used to print the number of games in the next seven days as the week. In a week with no games the
-  headline now names the next game's date instead of "0 games this week".
+- The home page hero (and the header's Register button) no longer quotes prices for registrations the league has
+  hidden from the shop, and a $0 waitlist no longer counts as "registration open". The in-season hero shows the
+  real week of the season, counted from the season's first game (it used to print the number of games in the next
+  seven days), and in a week with no games it names the next game's date instead of "0 games this week".
 - The home page's season emphasis is no longer cached for 15 minutes when WooCommerce or SportsPress was
-  briefly unavailable (for example during a plugin update), and a sale that changes stock now refreshes it
-  straight away.
+  briefly unavailable, and a sale that changes stock refreshes it straight away.
+- Checkout no longer drops keyboard and screen-reader focus on the "Got a credit code?" or "Returning player?"
+  prompt when the page opens.
+- Edit Account and Addresses: the dropdowns and multi-selects have names a screen reader announces and a visible
+  focus outline, and a field the page reports as wrong is marked invalid and linked to its message. Starred
+  fields are marked required. The plugin's section titles use the page text colour (readable in dark mode) and are
+  announced as headings. The dropdowns' chosen value is readable in dark mode on checkout and Edit Account.
+- Contact form: the second name box is announced as "Last name", the name and email boxes tell the browser what
+  they hold (autofill works), and form fields on the account, checkout and contact pages are at least 44px tall.
+- Checkout: the street address lines no longer switch autofill off, and the terms checkbox no longer shares an id
+  with the heading of the Terms page.
+- Profile photo: the page says the photo uploads as soon as you choose it, and the 2 MB limit, before you pick one,
+  and shows "Uploading photo..." while it works. A photo over 2 MB (most phone photos) is shrunk in the browser and
+  uploaded instead of refused. A photo over the server's request limit used to end on a blank page, also with
+  JavaScript off, and now returns to Player Profile with the "too large" message.
+- Tables inside page content that are wider than the screen can be scrolled with the keyboard.
+- Keyboard focus is no longer lost to the top of the page when you dismiss the announcement banner or the
+  next-game reminder. The Teams panel closes when keyboard focus leaves it.
+- The push-notification bell no longer sits on top of the mobile menu, and it tucks away while the phone
+  next-game bar is showing.
+- The header sponsor strip no longer jumps the page by 64px about half a second after load (the footer's response
+  was marking the still-waiting header slot as empty).
+- The signed-in header no longer wraps to two rows at some widths between 1000 and 1156px.
+- Sort arrows show again on standings, rosters and player stats for visitors who are not signed in, and phone
+  standings no longer scroll a few pixels sideways.
+- The footer theme toggle no longer makes the page scroll sideways at 320px with the text-spacing overrides.
+- Nav and sitemap links that Page Links To stored with a trailing slash (`/standings/`, `/rosters/`) now print the
+  slashless address the site serves, so they no longer cost a redirect.
+- The failed-payment email linked to `www.rookiehockey.ca` on every site; it now links to the Registrations page of
+  whichever site sent it. Mail links built outside a web request use the primary host when the stored address is a
+  legacy alias.
+- "Delete all Blueline data" now removes everything the theme created (the SportsPress cache generation, roster and
+  league-table cache entries, the update-check result and the scheduled occasion refresh), keeping members' own
+  light/dark choice.
+- Opening quotes in the Quotes widget are now curled the right way round.
+- The "Photos (opens in a new tab) (opens in a new tab)" menu link names itself once.
+
+### Security
+- Release signing (ed25519) for update manifests, dormant until a key is added. The signature is checked on the raw
+  manifest bytes before any field is read, an unsigned or badly signed release is never offered once a key is
+  listed, and the zip's sha256 is still checked on download.
+- The page head and feeds no longer advertise the WordPress, WooCommerce and SportsPress versions, and core asset
+  URLs carry a salted token instead of the WordPress version (blueline-core).
+- Sponsor logos with a website are real, escaped links with `rel="sponsored noopener"`; a sponsor without one is
+  plain text.
+- Member accounts are kept out of wp-admin and out of the member directory, login and lost-password answers are
+  generic, and a report-only Content Security Policy is sent (all in blueline-core 0.1.2; see its changelog).
+
+### Performance
+- Pages load only the theme code they render: a small core bundle plus feature bundles. News, FAQ, archives and the
+  404 page load about 40% less theme CSS (15.0 to 9.1 KB gzip) and about half the theme JS (11.2 to 5.5 KB gzip);
+  registration, product and cart pages and My Account also shrink. jQuery is no longer needed by the theme's own
+  code except for one small sponsor script.
+- Plugin stylesheets and scripts that blocked the first paint now load only where used (Follow-Up Emails,
+  SportsPress add-ons, Quotes Llama, Dashicons for signed-in visitors only). PayPal, Google Pay and Apple Pay
+  scripts (about 700 KB) load only on cart, checkout and My Account > Add payment method; the
+  `blueline_keep_payment_scripts` filter puts them back. jQuery loads in the footer when nothing in the head needs
+  it. WordPress's emoji script is gone.
+- The arena map on game pages is a same-height box with an "Open map" button that loads the map in place (the
+  Leaflet library no longer loads on game pages; the venue page keeps its live map).
+- Team crests and page featured images load first, the header logo does not, and product and scoreboard images use
+  correct `sizes`; new product images are generated at 640px and 320px instead of 200px.
+
+### Accessibility
+- Selected and checked controls (the division chip, the pressed Light/Dark/Auto option, the current Billing menu
+  page, "Show full stats") no longer rely on colour alone.
+- Sortable tables no longer claim to be an interactive grid; each sortable column heading is a real sort button,
+  and Enter and Space both sort. Table headers are real column headers and each table is named by its heading.
+- Table pagination: the invisible "Previous" is no longer a Tab stop, buttons and the current page are announced as
+  such, and focus stays on the pagination after choosing "Previous".
+- "League Info" (a parent item that only opens a submenu) is a real expand/collapse button in the desktop bar and the
+  phone drawer; Enter and Space open and close it.
+- Checkout "Click here to login" is announced as an expandable button; "Show next game widget again" is announced;
+  urgent announcements start with "Urgent:".
+- The theme settings panel: labelled tab navigation, help text read with each field, a live contrast readout, named
+  Occasion groups and Remove buttons, and focus moves to new rows.
+- Screen readers hear each game's time link as the game ("6:45 pm, Lumberjacks vs Ice Bears, October 16, 2026"),
+  the jersey number after a player's name, "at Pylons" for "@ Pylons", and which links open a new tab.
+- Calendar link pairs are named groups; game scores and kick-off times in game blocks are no longer headings (no
+  more skipped heading levels); the utility menu is labelled "Account links"; the two registration products'
+  Description tabs no longer share ids.
+- Wide tables that scroll or stack into cards keep their table structure in Safari and VoiceOver.
+- On very short or zoomed screens (below 420px high) the header and Teams tab scroll away with the page instead of
+  covering over a third of it.
+
+### Upgrade notes
+- **Install the blueline-core plugin 0.1.2 by hand first, or together with this theme.** The plugin has no updater:
+  download `blueline-core-0.1.2.zip` and its `.sha256` from the release, verify, and upload it over the old one
+  (Plugins > Add New > Upload, "Replace current with uploaded"; do not delete the plugin first, uninstalling removes
+  its options). Then update the theme. The theme works without the new plugin but lacks its fixes. See
+  `docs/RELEASING.md` (Plugin) and `docs/OPERATIONS.md` (Deploy order).
+- **A Content-Security-Policy is sent in report-only mode by default** (blueline-core). Nothing is blocked. Browsers
+  report violations to `POST /wp-json/blueline/v1/csp-report`, which stores counts only; read them with
+  `wp blueline-core csp report` or in Tools > Site Health. Enforcing is a filter (`blueline_core_csp_mode`, values
+  `report-only`, `enforce`, `off`); see "Content Security Policy" in `docs/OPERATIONS.md` before turning it on.
+- **Signed update manifests are dormant** until the owner adds a public key to `BLUELINE_RELEASE_PUBLIC_KEYS`
+  (`inc/updater-rules.php`) after the key ceremony in `docs/RELEASING.md` ("Release signing"). Until then updates
+  work as before and Site Health shows the recommendation "Release signing is not enabled". Once a key is listed,
+  every release must be signed.
+- **New blueline-core modules: `access`, `headers` and `indexing`.** `access` keeps players, customers and subscribers
+  out of wp-admin and gives generic login answers; `headers` sends the Permissions-Policy and CSP headers and
+  removes version strings; `indexing` adds the "Hide from search engines" checkbox and sitemap clean-up. The go-live
+  check in `docs/OPERATIONS.md` lists all 14 modules; each should report `LOADED`.
+- The domain router is a must-use plugin and is not shipped by the updater or the deploy scripts: copy
+  `mu-plugins/arl-domain-router.php` into `wp-content/mu-plugins/` by hand (`docs/DOMAINS.md`).
+- After updating, flush rewrite rules (the plugin does it once by itself when the `rh-royal-mcp-register-fix`
+  mu-plugin is present) and purge the Cloudflare cache.
 
 ## [1.1.4]
 
