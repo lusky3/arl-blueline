@@ -54,6 +54,7 @@ final class UpdaterWiringTest extends TestCase {
 				'sha256'       => hash( 'sha256', 'ZIP' ),
 				'changelog'    => '',
 			),
+			'signature'   => 'not_required',
 		);
 
 		set_site_transient(
@@ -62,6 +63,8 @@ final class UpdaterWiringTest extends TestCase {
 				'status'    => 'ok',
 				'channel'   => 'stable',
 				'installed' => BLUELINE_VERSION,
+				'signing'   => 'off',
+				'keys'      => '',
 				'checked'   => time(),
 				'candidate' => $candidate,
 			),

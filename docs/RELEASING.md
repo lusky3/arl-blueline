@@ -12,7 +12,9 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
 
 - `.github/workflows/release.yml` runs on a `v*` tag: **guard** (tag = `style.css`
   `Version` = `BLUELINE_VERSION` = `package.json` `version`, and `CHANGELOG.md` has a section for it) ->
-  **build** (`npm run build`, `npm run check`, zip, `manifest.json`) -> **publish**
+  **build** (`npm run build`, `npm run check`, zip, `manifest.json`) -> **sign**
+  (`manifest.json.sig` when the `RELEASE_SIGNING_KEY` secret is set, then a check with
+  the theme's own keys; see [Release signing](#release-signing)) -> **publish**
   (`gh release create`; `--prerelease` when the tag has a `-` suffix).
 - `themes/blueline/.distignore` is the one list of files that never ship. The rsync
   deploy and the release zip both read it. Besides tests and build config it drops
@@ -27,8 +29,9 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
   (`SOURCE_DATE_EPOCH`, default: the tagged commit's time): the same tag gives the
   same bytes.
 - `themes/blueline/inc/updater.php` (+ `updater-rules.php`, `updater-client.php`)
-  checks GitHub, verifies the zip's sha256 against the manifest, and hands WordPress
-  the package. Updates never touch `blueline_settings`, user/post meta or uploads.
+  checks GitHub, verifies the manifest's signature (once a release key is configured),
+  verifies the zip's sha256 against the manifest, and hands WordPress the package.
+  Updates never touch `blueline_settings`, user/post meta or uploads.
 - Channels: `stable` offers final releases only; `beta` also offers `-rc` pre-releases.
   A site running `1.1.0` is never offered `1.1.0-rc.1` (final sorts above rc), so a
   site must run an older version to be offered an rc.
@@ -64,6 +67,124 @@ Without a local tag, package the working tree instead:
     BLUELINE_PACKAGE_FROM_WORKTREE=1 scripts/release/package.sh v1.0.1 /tmp/rel
     unzip -Z1 /tmp/rel/blueline-1.0.1.zip
     php scripts/release/build-manifest.php v1.0.1 /tmp/rel/blueline-1.0.1.zip /tmp/rel
+
+## Release signing
+
+Without signing, the updater checks integrity only: `manifest.json` (with the zip's sha256)
+and the zip are assets of the same GitHub release, so anyone who can publish a release in
+the repository (a stolen token, a compromised account) can publish a matching pair, and
+every site would offer it. With signing, a release is offered only when `manifest.json`
+carries a signature by a key whose private half lives in the owner's password manager.
+
+### How it works
+
+- **Algorithm:** ed25519 detached signatures (libsodium). Sites verify with
+  `sodium_crypto_sign_verify_detached()`, from PHP's sodium extension or, when that is
+  missing, the sodium_compat copy WordPress bundles.
+- **Public keys:** `BLUELINE_RELEASE_PUBLIC_KEYS` in `themes/blueline/inc/updater-rules.php`,
+  a list (so keys can be rotated) of 32-byte public keys in **standard base64**
+  (44 characters ending in `=`). Safe to publish. A malformed entry fails the theme's tests.
+- **Private key:** libsodium's 64-byte secret key in standard base64 (88 characters ending
+  in `==`). It exists only in Bitwarden or Doppler and as the `RELEASE_SIGNING_KEY` Actions
+  secret. Never in the repository, a chat, an email or a ticket.
+- **Signature:** the release asset `manifest.json.sig`, the base64 detached signature over the
+  exact bytes of `manifest.json` (not its parsed contents: re-serialised JSON does not verify).
+- **On a site, while the key list is empty** (the state until the owner adds a key): updates
+  work as before (sha256 integrity only), and Tools > Site Health shows the recommendation
+  "Release signing is not enabled".
+- **On a site, once a key is listed:** every release must carry a `manifest.json.sig` that
+  verifies against ANY listed key. The signature is checked before any field of the manifest
+  (version, sha256) is read, and the zip's sha256 is still checked on download. A release with
+  a missing or invalid signature is **not offered** (an older, correctly signed release still
+  can be) and Site Health turns **critical**, naming the version. There is no fallback to
+  unsigned. The cached update check is keyed to the key list, so a key change takes effect on
+  the next check. A second Site Health test ("Blueline release signing") reports the key
+  configuration itself.
+- **In the workflow** (`sign` job, which installs nothing and is the only job that sees the
+  secret): `scripts/release/sign-manifest.php` signs (key from the environment only, never
+  printed), then `scripts/release/verify-manifest.php` checks the pair with the theme's own
+  `updater-rules.php` before `publish` runs:
+
+  | `RELEASE_SIGNING_KEY` secret | Keys in the theme | Result |
+  |---|---|---|
+  | not set | none | published **unsigned**, with a `::warning::` |
+  | set | none | signed, with a `::warning::` (sites ignore the signature until a key is listed) |
+  | set | listed, and the secret matches one | signed, verified, published |
+  | set | listed, but the secret matches none | run fails, nothing published |
+  | not set | listed | run fails, nothing published (every updated site would refuse it) |
+
+- **Sites on older theme versions** (before signing support, or with an empty key list) keep the
+  integrity-only check until they install a release that lists a key. That first update is
+  accepted on its sha256 alone; every update after it must be signed.
+
+### Key ceremony (owner, once, on your own machine)
+
+Claude and CI never generate, see or handle the private key.
+
+1. From a checkout of the repository (PHP 8.3 with sodium):
+
+       php scripts/release/generate-signing-key.php ~/blueline-release-key.txt
+
+   The private key goes to that file (created with mode 0600; the script never overwrites an
+   existing file). Stdout prints only the public key, in a block marked "put this in
+   updater-rules.php". Without a path, the private key is printed once to stderr instead.
+2. Save the private key in **Bitwarden** (a secure note "Blueline release signing key") or
+   **Doppler** (a secret named `RELEASE_SIGNING_KEY`), with the public key and today's date.
+3. Give it to GitHub Actions:
+
+       gh secret set RELEASE_SIGNING_KEY --repo lusky3/arl-blueline < ~/blueline-release-key.txt
+
+   or paste it at Settings > Secrets and variables > Actions > New repository secret.
+4. Delete the local copy (`shred -u ~/blueline-release-key.txt`, or `rm`) and clear the
+   terminal scrollback.
+5. Open a PR adding the public key to `BLUELINE_RELEASE_PUBLIC_KEYS`:
+
+       define( 'BLUELINE_RELEASE_PUBLIC_KEYS', array( '<the 44-character public key>' ) );
+
+   Merge it with the next release's version bump (or before it).
+6. Cut a release as usual. The `sign` job shows `manifest.json.sig verifies against a key in
+   BLUELINE_RELEASE_PUBLIC_KEYS`, and the release lists `manifest.json.sig`.
+7. On staging, then production: install that release (Dashboard > Updates), then check
+   Tools > Site Health: "Blueline theme updates are signed and verified", and Check again
+   still reports updates normally.
+
+Optional hardening (repository settings, no code change): protect `v*` tags with a tag ruleset
+limited to the owner; move the secret into a GitHub Environment (for example `release`) with a
+required reviewer and a `v*`-tags-only deployment rule, then add `environment: release` to the
+`sign` job in `release.yml`.
+
+### Rotating the key (planned)
+
+Sites only trust keys they already have, so the new key must reach them inside a release
+signed by the old one.
+
+1. Generate a new pair (ceremony steps 1-2, 4). Do **not** replace the secret yet.
+2. PR: **add** the new public key to the list, keeping the old one. Release it; it is signed by
+   the old key (the secret is unchanged), so every site accepts it and now trusts both keys.
+3. Replace the secret with the new key (`gh secret set RELEASE_SIGNING_KEY ...`). The next
+   release is signed by the new key. A site that skipped step 2's release is offered that
+   release first (it falls back to the newest release it can verify), then this one.
+4. PR: **remove** the old public key; ship it in a later release. Mark the old key retired in
+   the password manager (or delete it).
+
+### If the private key leaks (incident)
+
+1. Delete the secret at once (`gh secret delete RELEASE_SIGNING_KEY --repo lusky3/arl-blueline`),
+   review who has write access, revoke tokens, and delete any release you did not publish.
+2. Generate a new pair (ceremony steps 1-4).
+3. PR: **remove** the leaked public key and add the new one. Release it, signed by the new key.
+4. Sites still running a theme that trusts the leaked key **cannot** take that release
+   automatically (it is signed by a key they do not know, so they refuse it and Site Health is
+   critical), and they would accept a release signed with the leaked key. **Update every site
+   manually** to the new release: download its zip, `manifest.json` and `manifest.json.sig`,
+   check them with `php scripts/release/verify-manifest.php manifest.json` from a checkout
+   that has the new key and with `sha256sum blueline-X.Y.Z.zip` against the manifest's
+   `sha256`, then upload it at Appearance > Themes > Add New > Upload Theme (replace current),
+   or use `scripts/deploy-theme.sh`.
+5. Note the incident and the affected versions in the CHANGELOG.
+
+Never empty the key list to get a release out: that switches every updated site back to
+integrity-only checks.
 
 ## Plugin (blueline-core)
 
@@ -164,7 +285,8 @@ verifies the plugin is active, at the header's version, with every module loaded
 
 ## Owner steps (never automated)
 
-Claude and CI never create, request or handle the token.
+Claude and CI never create, request or handle the token. (The release signing key has its
+own owner-only ceremony: [Release signing](#release-signing).)
 
 **The token is optional.** The repository is public, so a site checks for updates
 anonymously with no configuration (GitHub allows 60 requests an hour per address; a
@@ -220,3 +342,8 @@ starts seeing updates.
      throwaway release and tag afterwards.
    - Remove the token: no offer, Site Health "recommended", nothing in the PHP error
      log. Use a wrong token: Site Health "critical".
+   - Signature (once a key is listed): on a throwaway release, replace `manifest.json.sig`
+     with one made by another key (`gh release upload vX.Y.Z-rc.N manifest.json.sig --clobber`),
+     or delete it. Check again: the release is not offered and Site Health is critical
+     ("does not match any release key" / "without a release signature"). Delete the throwaway
+     release and tag afterwards.

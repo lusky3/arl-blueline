@@ -35,6 +35,23 @@ if ( ! defined( 'BLUELINE_UPDATER_STORAGE_HOSTS' ) ) {
 	);
 }
 
+/*
+ * Release signing keys: the ed25519 PUBLIC keys whose signature on a release's
+ * manifest.json this theme accepts. Each entry is the 32-byte public key in
+ * standard base64 (44 characters, ending in `=`), exactly as
+ * scripts/release/generate-signing-key.php prints it.
+ *
+ * Empty: releases are checked for integrity only (the zip's sha256 from the
+ * manifest), and Site Health recommends turning signing on. Not empty: every
+ * release must carry manifest.json.sig, a valid signature by ANY key listed
+ * here, or it is not offered at all. A list (not one key) so a new key can be
+ * added before the old one is retired; see docs/RELEASING.md, "Release signing".
+ * Never put a private key here.
+ */
+if ( ! defined( 'BLUELINE_RELEASE_PUBLIC_KEYS' ) ) {
+	define( 'BLUELINE_RELEASE_PUBLIC_KEYS', array() );
+}
+
 /**
  * Whether a URL is on this repo's GitHub API, the only place the token may go.
  *
@@ -201,12 +218,13 @@ function blueline_updater_resolve_channel( $configured ): string {
  * the manifest, so a manifest cannot choose which file gets installed.
  *
  * @param string $version Version without the `v`.
- * @return array{zip: string, manifest: string}
+ * @return array{zip: string, manifest: string, signature: string}
  */
 function blueline_updater_asset_names( string $version ): array {
 	return array(
-		'zip'      => 'blueline-' . $version . '.zip',
-		'manifest' => 'manifest.json',
+		'zip'       => 'blueline-' . $version . '.zip',
+		'manifest'  => 'manifest.json',
+		'signature' => 'manifest.json.sig',
 	);
 }
 
@@ -274,30 +292,33 @@ function blueline_updater_newer_releases( array $releases, string $installed, st
 }
 
 /**
- * A release's zip and manifest assets, or null for either one it lacks.
+ * A release's zip, manifest and signature assets, or null for each one it lacks.
  *
  * @param array<string, mixed> $release Release.
  * @param string               $version Version the tag names.
- * @return array{zip: array<string, mixed>|null, manifest: array<string, mixed>|null}
+ * @return array{zip: array<string, mixed>|null, manifest: array<string, mixed>|null, signature: array<string, mixed>|null}
  */
 function blueline_updater_release_assets( array $release, string $version ): array {
 	$assets = is_array( $release['assets'] ?? null ) ? $release['assets'] : array();
 	$names  = blueline_updater_asset_names( $version );
 
 	return array(
-		'zip'      => blueline_updater_find_asset( $assets, $names['zip'] ),
-		'manifest' => blueline_updater_find_asset( $assets, $names['manifest'] ),
+		'zip'       => blueline_updater_find_asset( $assets, $names['zip'] ),
+		'manifest'  => blueline_updater_find_asset( $assets, $names['manifest'] ),
+		'signature' => blueline_updater_find_asset( $assets, $names['signature'] ),
 	);
 }
 
 /**
  * Releases this site may be offered, newest first: the newer releases
- * (blueline_updater_newer_releases()) that carry both assets.
+ * (blueline_updater_newer_releases()) that carry both a zip and a manifest.
+ * The signature asset rides along (null when absent); whether it is required
+ * is the client's decision, made per site from BLUELINE_RELEASE_PUBLIC_KEYS.
  *
  * @param array<int, mixed> $releases  Decoded GitHub releases list.
  * @param string            $installed Installed theme version.
  * @param string            $channel   `stable` or `beta`.
- * @return array<int, array{version: string, release: array<string, mixed>, zip_asset: array<string, mixed>, manifest_asset: array<string, mixed>}>
+ * @return array<int, array{version: string, release: array<string, mixed>, zip_asset: array<string, mixed>, manifest_asset: array<string, mixed>, signature_asset: array<string, mixed>|null}>
  */
 function blueline_updater_eligible_releases( array $releases, string $installed, string $channel ): array {
 	$eligible = array();
@@ -310,10 +331,11 @@ function blueline_updater_eligible_releases( array $releases, string $installed,
 		}
 
 		$eligible[] = array(
-			'version'        => $entry['version'],
-			'release'        => $entry['release'],
-			'zip_asset'      => $assets['zip'],
-			'manifest_asset' => $assets['manifest'],
+			'version'         => $entry['version'],
+			'release'         => $entry['release'],
+			'zip_asset'       => $assets['zip'],
+			'manifest_asset'  => $assets['manifest'],
+			'signature_asset' => $assets['signature'],
 		);
 	}
 
@@ -378,4 +400,134 @@ function blueline_updater_validate_manifest( $manifest, string $version ): ?arra
 	}
 
 	return $clean;
+}
+
+/**
+ * The configured release public keys as a list (BLUELINE_RELEASE_PUBLIC_KEYS).
+ *
+ * A value that is not an array counts as one entry, so a mistyped constant
+ * (a bare string, say) still demands a signature instead of switching signing off.
+ *
+ * @return array<int, mixed>
+ */
+function blueline_updater_public_keys(): array {
+	$keys = BLUELINE_RELEASE_PUBLIC_KEYS;
+
+	return is_array( $keys ) ? array_values( $keys ) : array( $keys );
+}
+
+/**
+ * The usable keys among the configured entries, as 32-byte binary ed25519
+ * public keys. An entry that is not exactly one base64-encoded public key
+ * (44 characters) is skipped; it never makes the list count as empty.
+ *
+ * @param array<int, mixed> $keys blueline_updater_public_keys().
+ * @return string[]
+ */
+function blueline_updater_decode_public_keys( array $keys ): array {
+	$decoded = array();
+
+	foreach ( $keys as $key ) {
+		if ( ! is_string( $key ) || 1 !== preg_match( '#^[A-Za-z0-9+/]{43}=$#', trim( $key ) ) ) {
+			continue;
+		}
+		$decoded[] = (string) base64_decode( trim( $key ), true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- a public key the theme ships, checked against the base64 alphabet above.
+	}
+
+	return $decoded;
+}
+
+/**
+ * Check a release's manifest signature, before anything in the manifest is trusted.
+ *
+ * Outcomes:
+ * - `not_required`: no keys configured; the integrity-only behaviour.
+ * - `verified`: one of the configured keys signed these exact bytes.
+ * - `missing`: keys are configured and the release has no manifest.json.sig.
+ * - `invalid`: the signature is malformed or no configured key made it (also
+ *   when none of the configured entries is a usable key).
+ * - `unsupported`: this PHP cannot verify ed25519 signatures. WordPress loads
+ *   sodium_compat when the sodium extension is missing, so this is unexpected.
+ * Only `not_required` and `verified` let a release through.
+ *
+ * @param string            $manifest  The manifest's bytes exactly as downloaded (never re-encoded).
+ * @param string|null       $signature The manifest.json.sig contents (base64), null when the release has none.
+ * @param array<int, mixed> $keys      blueline_updater_public_keys().
+ * @return string
+ */
+function blueline_updater_check_manifest_signature( string $manifest, ?string $signature, array $keys ): string {
+	if ( array() === $keys ) {
+		return 'not_required';
+	}
+	if ( null === $signature ) {
+		return 'missing';
+	}
+	if ( ! function_exists( 'sodium_crypto_sign_verify_detached' ) ) {
+		return 'unsupported';
+	}
+
+	$signature = trim( $signature );
+	if ( 1 !== preg_match( '#^[A-Za-z0-9+/]{86}==$#', $signature ) ) {
+		return 'invalid';
+	}
+	$raw = (string) base64_decode( $signature, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- a detached signature, checked against the base64 alphabet above.
+
+	foreach ( blueline_updater_decode_public_keys( $keys ) as $key ) {
+		try {
+			if ( sodium_crypto_sign_verify_detached( $raw, $manifest, $key ) ) {
+				return 'verified';
+			}
+		} catch ( Throwable ) {
+			continue;
+		}
+	}
+
+	return 'invalid';
+}
+
+/**
+ * A short fingerprint of the configured keys, stored with the cached update
+ * state so a changed key list is never answered from a check made under the
+ * old one. '' when no keys are configured.
+ *
+ * @param array<int, mixed> $keys blueline_updater_public_keys().
+ * @return string
+ */
+function blueline_updater_keys_fingerprint( array $keys ): string {
+	if ( array() === $keys ) {
+		return '';
+	}
+
+	$parts = array();
+	foreach ( $keys as $key ) {
+		$parts[] = is_scalar( $key ) ? (string) $key : gettype( $key );
+	}
+
+	return hash( 'sha256', implode( "\n", $parts ) );
+}
+
+/**
+ * Which of two "newer release that cannot be installed" records to report.
+ *
+ * A signature failure outranks a missing file or a broken manifest whatever
+ * the versions, because it can mean someone other than the maintainers
+ * published the release; otherwise the newer release wins.
+ *
+ * @param array{version: string, reason: string}|null $current Reported so far.
+ * @param array{version: string, reason: string}      $found   Just found.
+ * @return array{version: string, reason: string}
+ */
+function blueline_updater_pick_rejected( ?array $current, array $found ): array {
+	if ( null === $current ) {
+		return $found;
+	}
+
+	$current_signature = 0 === strpos( $current['reason'], 'signature_' );
+	$found_signature   = 0 === strpos( $found['reason'], 'signature_' );
+
+	if ( $current_signature !== $found_signature ) {
+		return $found_signature ? $found : $current;
+	}
+
+	return version_compare( $found['version'], $current['version'], '>' ) ? $found : $current;
 }
