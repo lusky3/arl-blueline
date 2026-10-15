@@ -352,6 +352,49 @@ function blueline_sp_sponsor_logo_figure( int $sponsor_id ): string {
 	return '<figure class="bl-sp-sponsor-logo">' . get_the_post_thumbnail( $sponsor_id, 'medium', array( 'alt' => '' ) ) . '</figure>';
 }
 
+/**
+ * Opening and closing tags around one sponsor in the [sponsors] list (sportspress/sponsors-content.php).
+ *
+ * Stock SportsPress prints `<a class="sponsor sp-sponsor" target="_blank">` with no href for a sponsor
+ * that has no website: crawlers cannot follow it and the keyboard cannot reach it. Such a sponsor is now
+ * a plain <span>. A sponsor with a website gets a real href marked rel="sponsored" (paid placement, so
+ * search engines should not count it as an endorsement) and keeps SportsPress's click-count attributes.
+ * A sponsor with page content links to its own page, as stock does.
+ *
+ * @param object $sponsor sp_sponsor post (ID, post_content).
+ * @return array{0: string, 1: string} Opening tag, closing tag.
+ */
+function blueline_sp_sponsor_tags( $sponsor ): array {
+	$sponsor_id = (int) ( $sponsor->ID ?? 0 );
+
+	if ( '' !== (string) ( $sponsor->post_content ?? '' ) ) {
+		$page = (string) get_post_permalink( $sponsor_id );
+		if ( '' !== $page ) {
+			return array( '<a class="sponsor sp-sponsor" href="' . esc_url( $page ) . '">', '</a>' );
+		}
+	}
+
+	$url = esc_url( trim( (string) get_post_meta( $sponsor_id, 'sp_url', true ) ) );
+
+	if ( '' === $url ) {
+		return array( '<span class="sponsor sp-sponsor">', '</span>' );
+	}
+
+	$open = sprintf(
+		'<a class="sponsor sp-sponsor" href="%1$s" rel="sponsored noopener" data-nonce="%2$s" data-ajaxurl="%3$s" data-post="%4$d"',
+		$url,
+		esc_attr( wp_create_nonce( 'sp_clicks_' . $sponsor_id ) ),
+		esc_url( admin_url( 'admin-ajax.php' ) ),
+		$sponsor_id
+	);
+
+	if ( 'yes' === get_option( 'sportspress_sponsor_site_target_blank', 'no' ) ) {
+		$open .= ' target="_blank"';
+	}
+
+	return array( $open . '>', '</a>' );
+}
+
 add_filter( 'wp_get_attachment_image_attributes', 'blueline_sp_sponsor_logo_alt' );
 /**
  * Name a sponsor logo link: an alt-less logo gets the sponsor's title (A11Y-04).
