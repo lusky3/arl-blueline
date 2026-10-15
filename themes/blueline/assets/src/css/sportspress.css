@@ -102,6 +102,52 @@
 	border-bottom: 2px solid var(--bl-content-border-strong);
 }
 
+/*
+ * Sort-direction arrows on sortable tables (standings, rosters). SportsPress
+ * draws them with the Dashicons font, which is not loaded for logged-out
+ * visitors, so they are drawn here: Dashicons' own arrow-up and arrow-down
+ * triangles at the size the font drew them (0.4em of the header text) in the
+ * header's colour. Nothing is drawn at rest (SportsPress's resting glyph was
+ * transparent). The arrow trails the label, or leads it in a right-aligned
+ * figures column (--bl-sort-arrow-lead below): trailing a right-aligned label
+ * it hung past the cell, and on the last column of a phone standings table
+ * that made the table scroll sideways a few pixels. aria-sort, set by the
+ * sorting script, still carries the state.
+ */
+.sp-data-table thead :is(.sorting, .sorting_asc, .sorting_desc)::before,
+.sp-data-table thead :is(.sorting, .sorting_asc, .sorting_desc)::after {
+	content: none;
+}
+
+.sp-data-table thead .sorting_asc {
+	--bl-sort-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='7 7 8 7'%3E%3Cpath d='M11 7l-4 6h8z'/%3E%3C/svg%3E");
+}
+
+.sp-data-table thead .sorting_desc {
+	--bl-sort-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='7 7 8 7'%3E%3Cpath d='M15 8l-4.03 6L7 8h8z'/%3E%3C/svg%3E");
+}
+
+.sp-data-table thead :is(.sorting_asc, .sorting_desc)::before {
+	content: var(--bl-sort-arrow-lead, none);
+	margin-inline: -0.55em 0;
+}
+
+.sp-data-table thead :is(.sorting_asc, .sorting_desc)::after {
+	content: var(--bl-sort-arrow-trail, "");
+	margin-inline: 0.15em 0;
+}
+
+.sp-data-table thead :is(.sorting_asc, .sorting_desc)::before,
+.sp-data-table thead :is(.sorting_asc, .sorting_desc)::after {
+	position: absolute;
+	inset-block: 0;
+	width: 0.4em;
+	font-family: inherit;
+	background-color: currentcolor;
+	mask: var(--bl-sort-arrow) center / 0.4em 0.35em no-repeat;
+	forced-color-adjust: none;
+}
+
 /* Zebra rows: SP's own row classes, .odd/.even. */
 .sp-data-table tbody tr.odd {
 	background: var(--bl-content-surface);
@@ -250,6 +296,8 @@
 .sp-league-table :is(th, td):not(.data-rank, .data-name, .data-record, .data-lten, .data-strk),
 .sp-event-performance :is(th, td):not(.data-number, .data-name, .data-position),
 .sp-player-statistics :is(th, td):not(.data-name, .data-team) {
+	--bl-sort-arrow-lead: "";
+	--bl-sort-arrow-trail: none;
 	text-align: end;
 	font-variant-numeric: tabular-nums;
 }
@@ -545,6 +593,8 @@ table.sp-event-venue :is(th, td) {
 
 	/* QA C-18: stat columns right-aligned. */
 	.sp-player-list :is(th, td):not(.data-rank, .data-number, .data-name, .data-team, .data-position) {
+		--bl-sort-arrow-lead: "";
+		--bl-sort-arrow-trail: none;
 		text-align: end;
 		font-variant-numeric: tabular-nums;
 	}
@@ -773,6 +823,8 @@ table.sp-event-venue :is(th, td) {
  * align under the same rule.
  */
 .bl-sp-roster__stat {
+	--bl-sort-arrow-lead: "";
+	--bl-sort-arrow-trail: none;
 	font-variant-numeric: tabular-nums;
 	text-align: end;
 }
@@ -2115,24 +2167,30 @@ table.sp-event-statistics.sp-data-table {
  */
 
 /*
- * The schedule is the container that its own narrow layout (the @container
- * rule below) measures, so the table and the cards switch at the table's
- * minimum width whatever the viewport or sidebar. Inline-size containment
- * only: the block still fills its parent.
- */
-.sp-template-event-list:has(.bl-sp-schedule) {
-	container: bl-sched / inline-size;
-}
-
-/*
  * QA C-01: calendars add League/Season/Article/Match Day columns, and fixed
  * percentages that already summed to 100% left those at 0 -- with
  * min-width: max-content the table went 1,000,000px wide. Each column now has
  * a weight (its minimum width in rem); a column's share is weight / total of
  * the columns actually present (detected with :has()), and the table never
  * shrinks below that total, so any column mix fits or scrolls sanely.
+ *
+ * The weights live on the table's wrapper, which is also the container its
+ * narrow layout (the @container rule below) measures, so the table and the
+ * cards switch at the table's own minimum width, whatever the viewport,
+ * sidebar or column set. Inline-size containment only: the block still fills
+ * its parent.
  */
-.sp-event-list.bl-sp-schedule {
+
+/*
+ * The schedule block was the queried container before the wrapper; it stays a
+ * (now unnamed) one because its containment keeps its children's margins
+ * inside it, which the page's spacing below each schedule was built on.
+ */
+.sp-template-event-list:has(.bl-sp-schedule) {
+	container-type: inline-size;
+}
+
+.sp-table-wrapper:has(.bl-sp-schedule) {
 	--bl-sched-date: 5.25;
 
 	/*
@@ -2155,37 +2213,55 @@ table.sp-event-statistics.sp-data-table {
 	--bl-sched-article: 0;
 	--bl-sched-day: 0;
 	--bl-sched-total: calc(var(--bl-sched-date) + var(--bl-sched-home) + var(--bl-sched-time) + var(--bl-sched-away) + var(--bl-sched-league) + var(--bl-sched-season) + var(--bl-sched-venue) + var(--bl-sched-article) + var(--bl-sched-day));
+	container: bl-sched / inline-size;
+
+	/*
+	 * A size query cannot read a custom property, but its em is the
+	 * container's own font size. Scaling that by total / 41 puts the query's
+	 * fixed 41em at exactly --bl-sched-total of the inherited size, i.e. at
+	 * the table's minimum width for whatever columns it shows (41 is the
+	 * default columns' total, where the scale is 1 and nothing changes). The
+	 * wrapper's children undo the scale, so no text changes size.
+	 */
+	font-size: calc(1em * var(--bl-sched-total) / 41);
+}
+
+.sp-table-wrapper:has(.bl-sp-schedule) > * {
+	font-size: calc(1em * 41 / var(--bl-sched-total));
+}
+
+.sp-event-list.bl-sp-schedule {
 	table-layout: fixed;
 	min-width: calc(var(--bl-sched-total) * 1rem);
 }
 
-.sp-event-list.bl-sp-schedule:not(:has(thead th.data-home)) {
+.sp-table-wrapper:has(.bl-sp-schedule):not(:has(.bl-sp-schedule thead th.data-home)) {
 	--bl-sched-home: 0;
 	--bl-sched-away: 0;
 }
 
-.sp-event-list.bl-sp-schedule:not(:has(thead th.data-time)) {
+.sp-table-wrapper:has(.bl-sp-schedule):not(:has(.bl-sp-schedule thead th.data-time)) {
 	--bl-sched-time: 0;
 }
 
-.sp-event-list.bl-sp-schedule:has(thead th.data-league) {
+.sp-table-wrapper:has(.bl-sp-schedule thead th.data-league) {
 	--bl-sched-league: 5.5;
 }
 
-.sp-event-list.bl-sp-schedule:has(thead th.data-season) {
+.sp-table-wrapper:has(.bl-sp-schedule thead th.data-season) {
 	--bl-sched-season: 5.75;
 }
 
-.sp-event-list.bl-sp-schedule:has(thead th.data-article) {
+.sp-table-wrapper:has(.bl-sp-schedule thead th.data-article) {
 	--bl-sched-article: 4.25;
 }
 
-.sp-event-list.bl-sp-schedule:has(thead th.data-day) {
+.sp-table-wrapper:has(.bl-sp-schedule thead th.data-day) {
 	--bl-sched-day: 4.5;
 }
 
 /* event-list.php prints a display:none Arena header when the column is off. */
-.sp-event-list.bl-sp-schedule:has(thead th.data-venue[style*="none"]) {
+.sp-table-wrapper:has(.bl-sp-schedule thead th.data-venue[style*="none"]) {
 	--bl-sched-venue: 0;
 }
 
@@ -2370,13 +2446,15 @@ table.sp-event-statistics.sp-data-table {
  * for its minimum width, the table and its mirrored crest lockup are unchanged.
  *
  * The switch follows the schedule's own width, not the viewport's: the table's
- * minimum is 41rem (--bl-sched-total with the default columns, above), and
+ * minimum is --bl-sched-total rem (41rem with the default columns, above), and
  * between 601px and about 720px of viewport, or with the sidebar beside it up
  * to about 1100px, the space it was given was narrower than that, so it sat in
- * a state of scrolling a little with the Arena column cut off. Keep this
- * threshold equal to the default --bl-sched-total.
+ * a state of scrolling a little with the Arena column cut off. 41em here is
+ * that minimum for any column set (a calendar with League and Season is
+ * 52.25rem): the wrapper's font size carries the scale, see above. Keep 41
+ * equal to the default --bl-sched-total.
  */
-@container bl-sched (width < 41rem) {
+@container bl-sched (width < 41em) {
 
 	.sp-event-list.bl-sp-schedule,
 	.sp-event-list.bl-sp-schedule tbody {
