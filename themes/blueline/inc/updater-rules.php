@@ -49,7 +49,12 @@ if ( ! defined( 'BLUELINE_UPDATER_STORAGE_HOSTS' ) ) {
  * Never put a private key here.
  */
 if ( ! defined( 'BLUELINE_RELEASE_PUBLIC_KEYS' ) ) {
-	define( 'BLUELINE_RELEASE_PUBLIC_KEYS', array() );
+	define(
+		'BLUELINE_RELEASE_PUBLIC_KEYS',
+		array(
+			'l1Jb134ZYUSlzWXiyb8CAl0+lISJjREiz4sXhyo/+jk=', // Release key generated 2026-10-15; the private half is in the owner's password manager and the RELEASE_SIGNING_KEY Actions secret.
+		)
+	);
 }
 
 /**

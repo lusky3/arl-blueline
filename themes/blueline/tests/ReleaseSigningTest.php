@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../../scripts/release/lib.php';
+require_once __DIR__ . '/stubs/no-release-keys.php';
 require_once __DIR__ . '/../inc/updater-rules.php';
 
 /**
@@ -231,7 +232,9 @@ final class ReleaseSigningTest extends TestCase {
 	 * either way, with a warning annotation.
 	 */
 	public function test_verify_manifest_cli_warns_while_the_theme_trusts_no_key(): void {
-		if ( array() !== blueline_updater_public_keys() ) {
+		// The CLI runs against the shipped updater-rules.php, not this process's (empty) key list.
+		$shipped = (string) file_get_contents( __DIR__ . '/../inc/updater-rules.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+		if ( 1 === preg_match( "#'[A-Za-z0-9+/]{43}=',#", $shipped ) ) {
 			$this->markTestSkipped( 'The theme now ships a release key; the keyed policy is covered by test_signature_verdict_policy.' );
 		}
 		list( $secret ) = $this->keypair();

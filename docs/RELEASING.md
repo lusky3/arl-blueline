@@ -119,6 +119,10 @@ carries a signature by a key whose private half lives in the owner's password ma
 
 ### Key ceremony (owner, once, on your own machine)
 
+Status: done 2026-10-15. The first public key is listed in `BLUELINE_RELEASE_PUBLIC_KEYS`, so every
+release from the one that carries it must be signed (the `RELEASE_SIGNING_KEY` secret is set).
+The steps below stay for rotation and for a new site or repository.
+
 Claude and CI never generate, see or handle the private key.
 
 1. From a checkout of the repository (PHP 8.3 with sodium):
