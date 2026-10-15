@@ -40,10 +40,30 @@ final class IndexingArchivalTest extends TestCase {
 		$this->previous_model               = $GLOBALS['bl_test_get_posts_model'] ?? null;
 		$GLOBALS['bl_test_get_posts_model'] = array( $this, 'model_get_posts' );
 		$GLOBALS['wpdb']                    = new Blueline_Core_Test_Archival_Wpdb();
+		$GLOBALS['wpdb']->col_callback      = 'blueline_core_test_flagged_post_ids'; // The noindex exclusion's query.
 
 		$state                 = &blueline_test_state();
 		$state['post_types'][] = 'sp_event';
 		$state['taxonomies'][] = 'sp_season';
+
+		$this->allow_small_seasons();
+	}
+
+	/**
+	 * Let a season of one game rank. The fixture league plays a game or two per season, far below
+	 * the real default minimum; the minimum has tests of its own that remove this.
+	 */
+	private function allow_small_seasons(): void {
+		add_filter( 'blueline_core_archival_min_season_events', array( $this, 'one_event' ) );
+	}
+
+	/**
+	 * Filter callback: a minimum of one event.
+	 *
+	 * @return int
+	 */
+	public function one_event(): int {
+		return 1;
 	}
 
 	/**
@@ -56,8 +76,7 @@ final class IndexingArchivalTest extends TestCase {
 
 	/**
 	 * Model of the get_posts() shapes the module uses: post_type, post_status, one sp_season
-	 * tax_query clause (IN or NOT EXISTS), a post_date date_query and the noindex meta_query of the
-	 * existing sitemap exclusion.
+	 * tax_query clause (IN or NOT EXISTS) and a post_date date_query.
 	 *
 	 * @param array $args get_posts() args.
 	 * @return int[]
@@ -82,10 +101,6 @@ final class IndexingArchivalTest extends TestCase {
 			}
 
 			if ( $clause && 'IN' === $clause['operator'] && ! array_intersect( $post_terms, $clause['terms'] ) ) {
-				continue;
-			}
-
-			if ( isset( $args['meta_query'] ) && ! blueline_core_test_meta_clause_matches( $args['meta_query'], $state['post_meta'][ $post_id ] ?? array() ) ) {
 				continue;
 			}
 
@@ -296,6 +311,87 @@ final class IndexingArchivalTest extends TestCase {
 			),
 			blueline_archival_pick_recent( $families, $ranges, 0 )
 		);
+	}
+
+	/**
+	 * A season with fewer events than the minimum never ranks, however late its games: a stray
+	 * test season cannot push a real one out. A playoff term's events count toward its season.
+	 */
+	public function test_seasons_below_the_event_minimum_do_not_rank(): void {
+		$families = array(
+			5 => 5,
+			8 => 5,
+			6 => 6,
+			9 => 9,
+		);
+		$ranges   = array(
+			5 => array(
+				'first_date' => '2026-04-24 18:00:00',
+				'last_date'  => '2026-07-31 23:00:00',
+				'events'     => 7,
+			),
+			8 => array(
+				'first_date' => '2026-08-07 18:00:00',
+				'last_date'  => '2026-08-28 23:00:00',
+				'events'     => 4,
+			),
+			6 => array(
+				'first_date' => '2026-09-25 18:45:00',
+				'last_date'  => '2026-10-18 21:00:00',
+				'events'     => 58,
+			),
+			9 => array(
+				'first_date' => '2026-10-02 19:00:00',
+				'last_date'  => '2026-10-29 19:00:00', // The latest games of all, but only two of them.
+				'events'     => 2,
+			),
+		);
+
+		$this->assertSame( array( 6, 5 ), blueline_archival_pick_recent( $families, $ranges, 2, 10 )['terms'], 'Season 5 has 7 + 4 events with its playoffs.' );
+		$this->assertSame( array( 9, 6 ), blueline_archival_pick_recent( $families, $ranges, 2, 0 )['terms'], 'No minimum: ranked by date alone.' );
+		$this->assertSame( array( 6 ), blueline_archival_pick_recent( $families, $ranges, 2, 12 )['terms'] );
+		$this->assertSame( array(), blueline_archival_pick_recent( $families, $ranges, 2, 59 )['terms'] );
+	}
+
+	/**
+	 * Through the real computation with the default minimum: a stray two-game test season dated
+	 * after everything else is ignored and the real seasons stay current.
+	 */
+	public function test_a_stray_test_season_does_not_displace_a_real_one(): void {
+		remove_filter( 'blueline_core_archival_min_season_events', array( $this, 'one_event' ) );
+		$this->assertSame( 10, blueline_archival_min_season_events() );
+
+		$this->season( 5, 's2026' );
+		$this->season( 6, 'w2026-27' );
+		$this->season( 9, 's2099' );
+
+		for ( $i = 0; $i < 10; $i++ ) {
+			$this->event( 100 + $i, array( 5 ), sprintf( '2026-07-%02d 20:00:00', 10 + $i ) );
+			$this->event( 200 + $i, array( 6 ), sprintf( '2026-10-%02d 20:00:00', 1 + $i ) );
+		}
+		$this->event( 300, array( 9 ), '2026-10-20 19:00:00' );
+		$this->event( 301, array( 9 ), '2026-10-27 19:00:00' );
+
+		$data = blueline_archival_compute();
+
+		$this->assertSame( array( 6, 5 ), $data['recent_terms'] );
+		$this->assertSame( 10, $data['min_events'] );
+		$this->assertSame( array( 300, 301 ), $data['archival']['sp_event'], 'The stray season is the one left out.' );
+	}
+
+	/**
+	 * The minimum is filterable and clamped at 0 (0 ranks every season with events).
+	 */
+	public function test_season_event_minimum_filter_is_clamped(): void {
+		remove_filter( 'blueline_core_archival_min_season_events', array( $this, 'one_event' ) );
+		add_filter(
+			'blueline_core_archival_min_season_events',
+			static function () {
+				return -3;
+			}
+		);
+
+		$this->assertSame( 0, blueline_archival_min_season_events() );
 	}
 
 	// -- Classification --------------------------------------------------------------------------
@@ -578,7 +674,21 @@ final class IndexingArchivalTest extends TestCase {
 		$this->assertSame( array( 6, 5, 3 ), blueline_archival_data()['recent_terms'] );
 		$this->assertGreaterThan( $computed, $this->queries );
 
+		// A changed event minimum is a changed setting too.
+		$computed = $this->queries;
+		add_filter(
+			'blueline_core_archival_min_season_events',
+			static function () {
+				return 2;
+			},
+			20
+		);
+		wp_cache_flush();
+		$this->assertSame( 2, blueline_archival_data()['min_events'] );
+		$this->assertGreaterThan( $computed, $this->queries );
+
 		blueline_test_reset_hooks();
+		$this->allow_small_seasons();
 		wp_cache_flush();
 		set_transient(
 			BLUELINE_ARCHIVAL_TRANSIENT,

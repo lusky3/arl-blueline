@@ -59,7 +59,7 @@ final class EventListTeamNameClampTest extends TestCase {
 	public function test_stylesheet_stacks_rows_as_cards_on_phones(): void {
 		$css = $this->theme_file( 'assets/src/css/sportspress.css' );
 
-		$this->assertSame( 1, preg_match( '/@container bl-sched \(width < 41rem\) \{\s*\.sp-event-list\.bl-sp-schedule,.*?\n\}/s', $css, $block ) );
+		$this->assertSame( 1, preg_match( '/@container bl-sched \(width < 41em\) \{\s*\.sp-event-list\.bl-sp-schedule,.*?\n\}/s', $css, $block ) );
 		$this->assertMatchesRegularExpression( '/min-width:\s*0;/', $block[0] );
 		$this->assertMatchesRegularExpression( '/tbody tr\.sp-row \{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s', $block[0] );
 		$this->assertMatchesRegularExpression( '/td\.data-time \{[^}]*order:\s*2;[^}]*text-align:\s*end;/s', $block[0] );
@@ -75,7 +75,7 @@ final class EventListTeamNameClampTest extends TestCase {
 		$css  = $this->theme_file( 'assets/src/css/sportspress.css' );
 		$vars = array();
 
-		$this->assertSame( 1, preg_match( '/\.sp-event-list\.bl-sp-schedule \{\s*--bl-sched-date:(.*?)table-layout: fixed;/s', $css, $block ) );
+		$this->assertSame( 1, preg_match( '/\n\.sp-table-wrapper:has\(\.bl-sp-schedule\) \{\s*--bl-sched-date:(.*?)\n\}/s', $css, $block ) );
 		preg_match_all( '/--bl-sched-(date|home|time|away|league|season|venue|article|day):\s*(\d+(?:\.\d+)?);/', $block[1], $found, PREG_SET_ORDER );
 
 		foreach ( $found as $row ) {
@@ -84,8 +84,34 @@ final class EventListTeamNameClampTest extends TestCase {
 		$vars['date'] = 5.25;
 
 		$this->assertSame( 41.0, array_sum( $vars ), 'default column weights, in rem' );
-		$this->assertStringContainsString( '.sp-template-event-list:has(.bl-sp-schedule) {', $css );
-		$this->assertMatchesRegularExpression( '/\.sp-template-event-list:has\(\.bl-sp-schedule\) \{\s*container:\s*bl-sched \/ inline-size;/', $css );
+		$this->assertMatchesRegularExpression( '/container:\s*bl-sched \/ inline-size;/', $block[1] );
+		$this->assertMatchesRegularExpression( '/\.sp-event-list\.bl-sp-schedule \{\s*table-layout: fixed;\s*min-width: calc\(var\(--bl-sched-total\) \* 1rem\);/', $css );
+	}
+
+	/**
+	 * A calendar showing League and Season (7 columns, 52.25rem) must switch to
+	 * cards at its own minimum width, not the default columns' 41rem: between
+	 * the two it scrolled up to 178px sideways with Season and Arena cut off.
+	 * A size query cannot read the column total, so the wrapper's font size
+	 * carries it: the query's 41em is total / 41 x 41 = total of the inherited
+	 * size, and the wrapper's children undo the scale so no text changes.
+	 */
+	public function test_card_threshold_follows_the_columns_actually_shown(): void {
+		$css = $this->theme_file( 'assets/src/css/sportspress.css' );
+
+		$this->assertSame( 1, preg_match( '/\n\.sp-table-wrapper:has\(\.bl-sp-schedule\) \{(.*?)\n\}/s', $css, $wrapper ) );
+		$this->assertMatchesRegularExpression( '/font-size:\s*calc\(1em \* var\(--bl-sched-total\) \/ 41\);/', $wrapper[1] );
+		$this->assertMatchesRegularExpression( '/\.sp-table-wrapper:has\(\.bl-sp-schedule\) > \* \{\s*font-size:\s*calc\(1em \* 41 \/ var\(--bl-sched-total\)\);/', $css );
+		$this->assertSame( 1, preg_match_all( '/@container bl-sched \(width < 41em\)/', $css ) );
+		$this->assertDoesNotMatchRegularExpression( '/@container bl-sched \([^)]*rem\)/', $css, 'a rem threshold ignores the column set' );
+
+		// Each optional column's weight is set where the container can see it.
+		$weights = array();
+		foreach ( array( 'league', 'season', 'article', 'day' ) as $column ) {
+			$this->assertSame( 1, preg_match( '/\.sp-table-wrapper:has\(\.bl-sp-schedule thead th\.data-' . $column . '\) \{\s*--bl-sched-' . $column . ':\s*(\d+(?:\.\d+)?);/', $css, $m ), $column );
+			$weights[ $column ] = (float) $m[1];
+		}
+		$this->assertSame( 52.25, 41.0 + $weights['league'] + $weights['season'], 'the current-season calendar' );
 	}
 
 	/**

@@ -33,6 +33,9 @@ final class IndexingTest extends TestCase {
 
 		$this->previous_model               = $GLOBALS['bl_test_get_posts_model'] ?? null;
 		$GLOBALS['bl_test_get_posts_model'] = array( $this, 'model_get_posts' );
+
+		$GLOBALS['wpdb']               = new Blueline_Core_Test_Wpdb();
+		$GLOBALS['wpdb']->col_callback = 'blueline_core_test_flagged_post_ids';
 	}
 
 	/**
@@ -40,27 +43,26 @@ final class IndexingTest extends TestCase {
 	 */
 	protected function tearDown(): void {
 		$GLOBALS['bl_test_get_posts_model'] = $this->previous_model;
-		unset( $GLOBALS['bl_core_test_wc_page_ids'], $GLOBALS['bl_core_test_meta_boxes'], $GLOBALS['bl_core_test_revision_ids'], $GLOBALS['bl_core_test_sitemaps_enabled'] );
+		unset( $GLOBALS['bl_core_test_wc_page_ids'], $GLOBALS['bl_core_test_meta_boxes'], $GLOBALS['bl_core_test_revision_ids'], $GLOBALS['bl_core_test_sitemaps_enabled'], $GLOBALS['wpdb'] );
 		$_POST = array();
 	}
 
 	/**
-	 * Model of the module's two get_posts() shapes over the registered-posts and post-meta stores:
-	 * a meta_query (noindex flag or Page Links To) and a post_name__in lookup.
+	 * Model of the module's one get_posts() shape over the registered-posts store: the utility
+	 * pages' post_name__in lookup. The flag lookup must not come through here: a meta_query that
+	 * ORs two postmeta joins took over 5 s on the league's 1.2 million meta rows.
 	 *
 	 * @param array $args get_posts() args.
 	 * @return int[]
 	 */
 	public function model_get_posts( array $args ): array {
+		$this->assertArrayNotHasKey( 'meta_query', $args, 'The flag lookup is one direct postmeta query, not a meta_query.' );
+
 		$state = &blueline_test_state();
 		$found = array();
 
 		foreach ( $state['posts'] as $post_id => $post ) {
 			if ( ( $post['type'] ?? '' ) !== $args['post_type'] || ( $post['status'] ?? '' ) !== $args['post_status'] ) {
-				continue;
-			}
-
-			if ( isset( $args['meta_query'] ) && ! blueline_core_test_meta_clause_matches( $args['meta_query'], $state['post_meta'][ $post_id ] ?? array() ) ) {
 				continue;
 			}
 
@@ -238,6 +240,55 @@ final class IndexingTest extends TestCase {
 
 		$this->assertSame( array( 'post_type' => 'sp_team' ), blueline_indexing_sitemap_query_args( array( 'post_type' => 'sp_team' ), 'sp_team' ) );
 		$this->assertFalse( blueline_indexing_sitemap_query_args( false, 'page' ) );
+	}
+
+	/**
+	 * Exactly the old meta_query's posts: a noindex flag counts only when it is '1', a Page Links To
+	 * target counts whatever it holds (even empty), several meta rows never list a post twice, and
+	 * drafts and other post types are not returned.
+	 */
+	public function test_flagged_ids_match_the_noindex_and_page_links_to_rules(): void {
+		$this->post( 50, 'sp_event', 'game-1' );
+		update_post_meta( 50, BLUELINE_NOINDEX_META, '1' );
+		update_post_meta( 50, BLUELINE_LINKS_TO_META, '/schedule' );
+		$this->post( 51, 'sp_event', 'game-2' );
+		update_post_meta( 51, BLUELINE_LINKS_TO_META, '' );
+		$this->post( 52, 'sp_event', 'game-3' );
+		update_post_meta( 52, BLUELINE_NOINDEX_META, 'yes' );
+		$this->post( 53, 'sp_event', 'game-4' );
+		update_post_meta( 53, BLUELINE_NOINDEX_META, new Blueline_Test_Meta_Rows( array( '0', '1' ) ) );
+		$this->post( 54, 'sp_event', 'game-5', 'draft' );
+		update_post_meta( 54, BLUELINE_NOINDEX_META, '1' );
+		$this->post( 55, 'sp_player', 'someone' );
+		update_post_meta( 55, BLUELINE_NOINDEX_META, '1' );
+		$this->post( 56, 'sp_event', 'game-6' );
+		update_post_meta( 56, 'sp_status', '1' );
+
+		$this->assertSame( array( 50, 51, 53 ), blueline_indexing_sitemap_excluded_ids( 'sp_event' ) );
+		$this->assertSame( array( 'sp_event', 'publish', BLUELINE_NOINDEX_META, BLUELINE_LINKS_TO_META, BLUELINE_LINKS_TO_META, '1' ), $GLOBALS['wpdb']->prepared_args );
+	}
+
+	/**
+	 * One query per sitemap build, never a cached answer: a flag set or cleared between two builds
+	 * shows in the next one at once, so there is nothing to invalidate.
+	 */
+	public function test_each_build_runs_one_query_and_sees_flag_changes_at_once(): void {
+		$this->post( 60, 'post', 'news-1' );
+		$this->post( 61, 'post', 'news-2' );
+
+		$this->assertSame( array(), blueline_indexing_sitemap_excluded_ids( 'post' ) );
+		$this->assertCount( 1, $GLOBALS['wpdb']->col_queries );
+
+		update_post_meta( 61, BLUELINE_NOINDEX_META, '1' );
+		$this->assertSame( array( 61 ), blueline_indexing_sitemap_query_args( array(), 'post' )['post__not_in'] );
+
+		update_post_meta( 60, BLUELINE_LINKS_TO_META, 'https://example.org/' );
+		$this->assertSame( array( 60, 61 ), blueline_indexing_sitemap_excluded_ids( 'post' ) );
+
+		blueline_test_reset_state();
+		$this->post( 60, 'post', 'news-1' );
+		$this->assertSame( array(), blueline_indexing_sitemap_excluded_ids( 'post' ) );
+		$this->assertCount( 4, $GLOBALS['wpdb']->col_queries );
 	}
 
 	/**

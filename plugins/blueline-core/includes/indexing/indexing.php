@@ -118,6 +118,44 @@ function blueline_indexing_woocommerce_page_ids(): array {
 }
 
 /**
+ * Published posts of $post_type flagged noindex ('1') or carrying a Page Links To target (any
+ * value).
+ *
+ * One pass over the postmeta meta_key index, which holds a few dozen rows for these two keys. The
+ * equivalent WP_Query meta_query (an OR across two postmeta joins) makes the database pair every
+ * meta row of every post of the type: on the league's 1.2 million meta rows it took over 5 s for
+ * the event sitemap, on every sitemap request. This takes under a millisecond, so it is not cached
+ * and a flag change shows in the next sitemap at once.
+ *
+ * @param string $post_type Post type.
+ * @return int[] Post IDs, ascending.
+ */
+function blueline_indexing_flagged_post_ids( string $post_type ): array {
+	global $wpdb;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- see the docblock: the meta_query form is the slow path; this is fast enough to run uncached.
+	$ids = $wpdb->get_col(
+		$wpdb->prepare(
+			"SELECT DISTINCT pm.post_id
+			FROM {$wpdb->postmeta} pm
+			INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+			WHERE p.post_type = %s AND p.post_status = %s
+				AND pm.meta_key IN ( %s, %s )
+				AND ( pm.meta_key = %s OR pm.meta_value = %s )
+			ORDER BY pm.post_id",
+			$post_type,
+			'publish',
+			BLUELINE_NOINDEX_META,
+			BLUELINE_LINKS_TO_META,
+			BLUELINE_LINKS_TO_META,
+			'1'
+		)
+	);
+
+	return is_array( $ids ) ? array_map( 'intval', $ids ) : array();
+}
+
+/**
  * Published posts of $post_type that must not be in the sitemap: flagged noindex, redirected by
  * Page Links To, and (for pages) the WooCommerce and utility pages.
  *
@@ -125,39 +163,25 @@ function blueline_indexing_woocommerce_page_ids(): array {
  * @return int[] Post IDs, ascending.
  */
 function blueline_indexing_sitemap_excluded_ids( string $post_type ): array {
-	$base = array(
-		'post_type'      => $post_type,
-		'post_status'    => 'publish',
-		'posts_per_page' => -1,
-		'fields'         => 'ids',
-		'no_found_rows'  => true,
-		'orderby'        => 'ID',
-		'order'          => 'ASC',
-	);
-
-	$ids = get_posts(
-		$base + array(
-			'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- runs only while a sitemap page is built.
-				'relation' => 'OR',
-				array(
-					'key'   => BLUELINE_NOINDEX_META,
-					'value' => '1',
-				),
-				array(
-					'key'     => BLUELINE_LINKS_TO_META,
-					'compare' => 'EXISTS',
-				),
-			),
-		)
-	);
-	$ids = is_array( $ids ) ? $ids : array();
+	$ids = blueline_indexing_flagged_post_ids( $post_type );
 
 	if ( 'page' === $post_type ) {
 		$ids = array_merge( $ids, blueline_indexing_woocommerce_page_ids() );
 
 		$slugs = blueline_indexing_utility_page_slugs();
 		if ( $slugs ) {
-			$utility = get_posts( $base + array( 'post_name__in' => $slugs ) );
+			$utility = get_posts(
+				array(
+					'post_type'      => $post_type,
+					'post_status'    => 'publish',
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+					'no_found_rows'  => true,
+					'orderby'        => 'ID',
+					'order'          => 'ASC',
+					'post_name__in'  => $slugs,
+				)
+			);
 			$ids     = array_merge( $ids, is_array( $utility ) ? $utility : array() );
 		}
 	}

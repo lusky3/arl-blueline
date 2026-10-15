@@ -438,6 +438,26 @@ html .woocommerce form .form-row textarea {
 	color: var(--bl-content-text);
 }
 
+/*
+ * The chosen value ("No, thank you." in Captain) and what is typed into a
+ * multi-select kept select2's fixed #444 and the browser's field text, which
+ * on the dark field were 1.61:1. The placeholder below keeps its own colour.
+ */
+.woocommerce .select2-container .select2-selection .select2-selection__rendered,
+.woocommerce .select2-container .select2-search__field {
+	color: var(--bl-content-text);
+}
+
+/* A chosen tag's remove button: select2's #999 was 2.73:1 on the light chip,
+   and its #333 hover 1.41:1 on the dark one. */
+.woocommerce .select2-container .select2-selection .select2-selection__choice__remove {
+	color: var(--bl-content-text-secondary);
+}
+
+.woocommerce .select2-container .select2-selection .select2-selection__choice__remove:hover {
+	color: var(--bl-content-text);
+}
+
 /* D-06: select2's #444 placeholder was 1.61:1 on the dark field; native
    placeholders were ~3.4:1. */
 .woocommerce .select2-container .select2-selection .select2-selection__placeholder,

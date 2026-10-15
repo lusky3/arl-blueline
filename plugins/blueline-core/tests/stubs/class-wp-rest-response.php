@@ -26,12 +26,30 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
 		private $links = array();
 
 		/**
+		 * HTTP status.
+		 *
+		 * @var int
+		 */
+		private $status;
+
+		/**
 		 * Build a response.
 		 *
-		 * @param mixed $data Response data.
+		 * @param mixed $data   Response data.
+		 * @param int   $status HTTP status.
 		 */
-		public function __construct( $data = null ) {
-			$this->data = $data;
+		public function __construct( $data = null, $status = 200 ) {
+			$this->data   = $data;
+			$this->status = (int) $status;
+		}
+
+		/**
+		 * The HTTP status.
+		 *
+		 * @return int
+		 */
+		public function get_status() {
+			return $this->status;
 		}
 
 		/**

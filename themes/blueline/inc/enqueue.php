@@ -352,13 +352,17 @@ function blueline_is_sportspress_view(): bool {
 /**
  * Shortcode openers and block names that print SportsPress data: every
  * SportsPress and SportsPress Pro shortcode family (event_*, league_*,
- * player_*, staff_*, team_*, tournament_*, countdown) and the league add-ons'
- * [arl_schedule]/[arl_standings], which load SportsPress tables.
+ * player_*, staff and staff_*, team_*, tournament_*, countdown), the older
+ * hyphenated aliases SportsPress still registers for the same callbacks
+ * ([events-calendar], [events-list], [league-table], [player-list],
+ * [player-gallery]), the WordPay registration forms ([wpay-register-*]) and
+ * the league add-ons' [arl_schedule]/[arl_standings], which load SportsPress
+ * tables. [sponsors] is not here: its styles are in the core bundle.
  *
  * @return string[]
  */
 function blueline_sportspress_content_needles(): array {
-	return array( '[event_', '[league_', '[player_', '[staff_', '[team_', '[tournament_', '[countdown', '[arl_', 'wp:sportspress/' );
+	return array( '[event_', '[events-', '[league_', '[league-table', '[player_', '[player-list', '[player-gallery', '[staff', '[team_', '[tournament_', '[countdown', '[wpay-', '[arl_', 'wp:sportspress/' );
 }
 
 /**
@@ -551,8 +555,21 @@ function blueline_active_widget_contents(): array {
 	return $contents;
 }
 
-add_action( 'wp_enqueue_scripts', 'blueline_dequeue_unused_plugin_assets', 1000 );
-add_action( 'wp_print_footer_scripts', 'blueline_dequeue_unused_plugin_assets', 1 );
+/*
+ * Plugins keep enqueueing after wp_enqueue_scripts, so the pass runs three
+ * times. WooCommerce's block payment registry runs PayPal's enqueue helper on
+ * wp_print_scripts priority 1, while the head is printing, so the scripts
+ * printed wherever PayPal had registered them (/register, product and account
+ * pages); PayPal's product button runs it again on wp_head 100, after the head
+ * scripts printed, so those print with the footer scripts. The head pass runs
+ * before blueline_move_jquery_to_footer() (1000), so jQuery can leave <head>
+ * once nothing there needs it; the footer pass runs just before WordPress
+ * prints the footer scripts (priority 10).
+ */
+add_action( 'wp_enqueue_scripts', 'blueline_dequeue_unused_plugin_assets', PHP_INT_MAX );
+add_action( 'wp_print_scripts', 'blueline_dequeue_plugin_assets_before_head_scripts', 999 );
+add_action( 'wp_print_footer_scripts', 'blueline_dequeue_unused_plugin_assets', 9 );
+add_filter( 'script_loader_tag', 'blueline_drop_unused_payment_script_tag', 10, 2 );
 /**
  * Drop plugin assets on requests where their feature cannot render. Most of
  * these load in <head> and block the first paint, so each one kept only where
@@ -582,33 +599,105 @@ function blueline_dequeue_unused_plugin_assets(): void {
 }
 
 /**
+ * The head-printing pass of blueline_dequeue_unused_plugin_assets(), on theme
+ * templates only: wp-login.php prints its head scripts without wp_head().
+ *
+ * @return void
+ */
+function blueline_dequeue_plugin_assets_before_head_scripts(): void {
+	if ( ! did_action( 'wp_head' ) ) {
+		return;
+	}
+
+	blueline_dequeue_unused_plugin_assets();
+}
+
+/**
+ * Last resort for the payment scripts: a dequeued script still prints when
+ * something left in the queue depends on it, so off payment pages their tags
+ * are dropped as they print. Every other script is untouched.
+ *
+ * @param string $tag    The script tag.
+ * @param string $handle Its handle.
+ * @return string
+ */
+function blueline_drop_unused_payment_script_tag( $tag, $handle ) {
+	if ( is_admin() || ! in_array( $handle, blueline_payment_script_handles(), true ) ) {
+		return $tag;
+	}
+
+	return blueline_payment_assets_needed( blueline_payment_asset_context() ) ? $tag : '';
+}
+
+/**
+ * The PayPal / Google Pay / Apple Pay scripts: what PayPal for WooCommerce's
+ * angelleye_ppcp_add_css_js() enqueues, the helper all of its callers use,
+ * less jquery-blockui (WooCommerce's own scripts share it). Between them they
+ * pull in the PayPal, Google Pay and Apple Pay SDKs.
+ *
+ * @return string[]
+ */
+function blueline_payment_script_handles(): array {
+	return array(
+		'angelleye_ppcp-common-functions',
+		'angelleye-paypal-checkout-sdk',
+		'angelleye_ppcp-apple-pay',
+		'angelleye_ppcp-google-pay',
+		'angelleye_ppcp',
+		'angelleye-pay-later-messaging',
+	);
+}
+
+/**
+ * Whether this request takes a payment: cart, checkout (which includes the
+ * order-pay page) and My Account's add-payment-method page. The
+ * `blueline_keep_payment_scripts` filter keeps the payment scripts everywhere.
+ *
+ * @return array<string, bool>
+ */
+function blueline_payment_asset_context(): array {
+	return array(
+		'payment_page'        => ( function_exists( 'is_cart' ) && is_cart() )
+			|| ( function_exists( 'is_checkout' ) && is_checkout() )
+			|| ( function_exists( 'is_add_payment_method_page' ) && is_add_payment_method_page() ),
+		'keep_payment_assets' => (bool) apply_filters( 'blueline_keep_payment_scripts', false ),
+	);
+}
+
+/**
+ * Whether a request with this context keeps the payment scripts.
+ *
+ * @param array<string, bool> $context From blueline_payment_asset_context().
+ * @return bool
+ */
+function blueline_payment_assets_needed( array $context ): bool {
+	return ! empty( $context['payment_page'] ) || ! empty( $context['keep_payment_assets'] );
+}
+
+/**
  * What the current request renders, as far as the plugin assets in
  * blueline_unused_plugin_asset_handles() care.
  *
  * @return array<string, bool>
  */
 function blueline_plugin_asset_context(): array {
-	$is_cart     = function_exists( 'is_cart' ) && is_cart();
 	$is_checkout = function_exists( 'is_checkout' ) && is_checkout();
 	$is_account  = function_exists( 'is_account_page' ) && is_account_page();
 
-	return array(
-		'cf7'                 => blueline_request_needs_cf7(),
-		'facebook_widget'     => (bool) is_active_widget( false, false, 'sportspress-facebook', true ),
-		'fue'                 => $is_account || $is_checkout || blueline_request_is_fue_endpoint()
+	return blueline_payment_asset_context() + array(
+		'cf7'             => blueline_request_needs_cf7(),
+		'facebook_widget' => (bool) is_active_widget( false, false, 'sportspress-facebook', true ),
+		'fue'             => $is_account || $is_checkout || blueline_request_is_fue_endpoint()
 			|| blueline_request_content_contains( array( '[fue_subscribe', '[fue_followup_subscriptions', '[woocommerce_followup_optout' ) ),
-		'sp_event'            => is_singular( 'sp_event' )
+		'sp_event'        => is_singular( 'sp_event' )
 			|| blueline_request_content_contains( array( '[event_full', '[event_statistics' ) ),
-		'sp_matrix'           => is_singular( 'sp_calendar' ) || blueline_request_content_contains( array( '[event_matrix' ) ),
-		'sp_scoreboard'       => (bool) get_option( 'sportspress_scoreboard_limit', 0 )
+		'sp_matrix'       => is_singular( 'sp_calendar' ) || blueline_request_content_contains( array( '[event_matrix' ) ),
+		'sp_scoreboard'   => (bool) get_option( 'sportspress_scoreboard_limit', 0 )
 			|| (bool) is_active_widget( false, false, 'sportspress-event-scoreboard', true )
 			|| blueline_request_content_contains( array( '[event_scoreboard' ) ),
-		'sp_event_map'        => is_singular( 'sp_event' ) && blueline_venue_map_is_click_to_load(),
-		'quotes_widget'       => blueline_quotes_llama_widget_rendered(),
-		'logged_in'           => is_user_logged_in(),
-		'payment_page'        => $is_cart || $is_checkout
-			|| ( function_exists( 'is_add_payment_method_page' ) && is_add_payment_method_page() ),
-		'keep_payment_assets' => (bool) apply_filters( 'blueline_keep_payment_scripts', false ),
+		'sp_event_map'    => is_singular( 'sp_event' ) && blueline_venue_map_is_click_to_load(),
+		'quotes_widget'   => blueline_quotes_llama_widget_rendered(),
+		'logged_in'       => is_user_logged_in(),
 	);
 }
 
@@ -636,12 +725,10 @@ function blueline_plugin_asset_context(): array {
  * - Quotes Llama's base stylesheet: only where its widget actually rendered.
  * - Dashicons: the admin bar needs it for signed-in visitors; every glyph a
  *   logged-out visitor can see is drawn by the theme instead.
- * - PayPal / Google Pay / Apple Pay scripts (which pull in the three payment
- *   SDKs): only cart, checkout (which includes the order-pay page) and My
- *   Account's add-payment-method page take a payment. The
- *   `blueline_keep_payment_scripts` filter restores them everywhere. The
- *   plugin's small stylesheet stays: it also sets the product page's
- *   add-to-cart form spacing.
+ * - PayPal / Google Pay / Apple Pay scripts (blueline_payment_script_handles()):
+ *   only a page that takes a payment keeps them
+ *   (blueline_payment_assets_needed()). The plugin's small stylesheet stays:
+ *   it also sets the product page's add-to-cart form spacing.
  *
  * @param array<string, bool> $context From blueline_plugin_asset_context().
  * @return array{scripts: string[], styles: string[]}
@@ -694,16 +781,8 @@ function blueline_unused_plugin_asset_handles( array $context ): array {
 		$styles[] = 'dashicons';
 	}
 
-	if ( ! $on( 'payment_page' ) && ! $on( 'keep_payment_assets' ) ) {
-		array_push(
-			$scripts,
-			'angelleye_ppcp-common-functions',
-			'angelleye-paypal-checkout-sdk',
-			'angelleye_ppcp-apple-pay',
-			'angelleye_ppcp-google-pay',
-			'angelleye_ppcp',
-			'angelleye-pay-later-messaging'
-		);
+	if ( ! blueline_payment_assets_needed( $context ) ) {
+		array_push( $scripts, ...blueline_payment_script_handles() );
 	}
 
 	return array(

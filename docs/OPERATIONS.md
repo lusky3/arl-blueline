@@ -58,6 +58,25 @@ Exit 1 means at least one needs work:
 It is a manual check, not CI: CI cannot see staging's plugins. WooCommerce's own WooCommerce > Status > System
 status ("Templates") flags outdated WooCommerce and Subscriptions overrides too, but not SportsPress, PayPal or YITH.
 
+## XML sitemap: which seasons count as current
+
+blueline-core's `indexing` module leaves SportsPress pages from past seasons (events, players, teams, staff, tables,
+lists, calendars) out of the XML sitemap. They stay indexable and searchable; Tools > Site Health shows how many are
+left out and how many listed.
+
+- **Current** means the **2** seasons with the latest games (`blueline_core_archival_recent_seasons`; `0` turns the
+  exclusion off). A season's playoff terms (slug containing `playoff`, parent = the season) count as part of it.
+- A season needs at least **10** published or scheduled events (playoffs included) before it can count as current
+  (`blueline_core_archival_min_season_events`). Without that floor, a test season with a game or two dated after the
+  real ones would count as current and push a real season, with all its pages, out of the sitemap. Every season since
+  2020 has at least 10 games in its first week, and the schedule usually goes in weeks ahead (W2026-27 started with
+  58); a new season with fewer than 10 on the schedule counts as current once it reaches 10 (until then its pages are
+  simply not in the sitemap yet). Draft events never count.
+- The result is cached in the `blueline_archival_ids` transient (cleared on every event, player, team or season change;
+  six-hour backstop). After a bulk import by WP-CLI or SQL, `wp transient delete blueline_archival_ids`.
+- Pages flagged "Hide from search engines" and pages that redirect with Page Links To are also left out; that check is
+  one database lookup per sitemap and is not cached, so a change shows at once.
+
 ## Rolling back to the classic theme (rookie-child)
 
 The classic theme relied on the YITH "Customize My Account Page" plugin for the account URLs. To roll back:
@@ -87,21 +106,160 @@ of them can take a site down on a different host; each one degrades as described
 | `plugins/blueline-core/includes/boot.php`, `blueline_core_rewrite_flush_safe()` | Rewrite rules are flushed automatically (activation, upgrade) only when the `rh-royal-mcp-register-fix.php` mu-plugin exists, because a flush without it once let the Royal MCP plugin take over `/register` (405). | Without that mu-plugin the plugin never flushes and shows an admin notice instead. If Royal MCP is not installed there, allow it with `add_filter( 'blueline_core_rewrite_flush_safe', '__return_true' );` in a mu-plugin, or run `wp rewrite flush` by hand and check `/register` loads. |
 | `themes/blueline/inc/sportspress/core.php`, the cache-generation hooks (`blueline_sp_cache_on_post_change()` and friends) | The theme's own SportsPress data caches are invalidated on the same events the `sportspress-cache-purge` mu-plugin uses to purge the nginx-helper page cache. | The theme's caches keep working anywhere (they are plain options and transients). What is lost without that mu-plugin is the page-cache purge itself: standings, schedules and event pages can stay stale until the new host's page cache expires. Install an equivalent purge, or give SportsPress pages a short cache lifetime. |
 | `mu-plugins/arl-domain-router.php` (and `plugins/blueline-core/includes/mail/mail.php`, which asks it for the primary host) | The host names in `arl_dr_defaults()`; production's `arl-domain-router-config.php` override. See `docs/DOMAINS.md`. | Unknown hosts are left untouched, so a new host simply serves one face. Update the host lists before pointing domains at it. |
-| `robots.txt`, HSTS, Content-Security-Policy | Set outside WordPress: a static `robots.txt` in production's web root, and response headers at Cloudflare/nginx. | Re-create them on the new host (below). |
+| `robots.txt`, HSTS | Set outside WordPress: a static `robots.txt` in production's web root, and the HSTS header at Cloudflare. | Re-create them on the new host (below). |
+| `plugins/blueline-core/includes/headers/csp.php`, the Content-Security-Policy origin lists | The third parties this site's plugins load today (OneSignal, Cloudflare Web Analytics and Turnstile, PayPal, Google Pay, Apple Pay); see "Content Security Policy" below. | A host that injects its own scripts (a different CDN's analytics or bot check) shows up as new violations in `wp blueline-core csp report`; add its origin with the `blueline_core_csp_policy` filter. Harmless while the policy is report-only. |
 
 ### Security headers
 
 blueline-core's `headers` module sends `Permissions-Policy: camera=(), microphone=(), geolocation=()` with every
-front-end page (change or remove it with the `blueline_core_security_headers` filter). It deliberately does not
-send the two headers that bind the whole domain:
+front-end page (change or remove it with the `blueline_core_security_headers` filter), and a report-only
+Content-Security-Policy (next section). It deliberately does not send the header that binds the whole domain:
 
 - **Strict-Transport-Security.** Set at Cloudflare (SSL/TLS > Edge Certificates > HTTP Strict Transport Security).
   The 2026-10-13 audit found `arlhockey.ca` without it; by 2026-10-14 it sent
   `max-age=31536000; includeSubDomains; preload`, like the `rookiehockey.ca` zone. Every zone that serves pages needs it
   (on a new host or zone: Cloudflare, or `add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;`
   in nginx).
-- **Content-Security-Policy.** Start with `Content-Security-Policy-Report-Only: frame-ancestors 'self'; object-src 'none'; base-uri 'self'`
-  at Cloudflare or nginx. A `script-src` needs an inventory of the inline scripts the theme and plugins print first.
+
+### Content Security Policy
+
+blueline-core sends a `Content-Security-Policy-Report-Only` header with every front-end page (not wp-admin,
+admin-ajax, REST, feeds, sitemaps, robots.txt, oEmbed embeds or wc-ajax; `wp-login.php` never runs the hook either).
+Report-only means the browser blocks nothing: it only reports what the policy would block. The reports go to
+`POST /wp-json/blueline/v1/csp-report` (named in both `report-uri` and `report-to`, with a `Reporting-Endpoints`
+header), which keeps only counts. Code: `plugins/blueline-core/includes/headers/csp.php` (policy) and
+`csp-report.php` (endpoint, store, Site Health).
+
+**Filters** (in a mu-plugin or a code snippet):
+
+- `blueline_core_csp_mode`: `'report-only'` (default), `'enforce'` or `'off'`. Any other value means report-only.
+- `blueline_core_csp_policy`: the directive map (`directive => sources[]`, `report-uri`/`report-to` included) and a
+  context `array( 'commerce' => bool )`. Example: `$d['frame-src'][] = 'https://www.youtube-nocookie.com';`.
+- The theme's `blueline_keep_payment_scripts` (true loads the payment scripts on every page) also gives every page
+  the payment origins.
+
+**The starter policy.** Content pages:
+
+```
+default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self';
+script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://api.onesignal.com https://onesignal.com https://static.cloudflareinsights.com https://challenges.cloudflare.com;
+style-src 'self' 'unsafe-inline' https://onesignal.com; img-src 'self' data: https:; font-src 'self' data:;
+connect-src 'self' https://*.onesignal.com https://onesignal.com https://cloudflareinsights.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com;
+frame-src 'self' https://challenges.cloudflare.com https://maps.google.com https://www.google.com; worker-src 'self' blob:;
+report-uri https://<site>/wp-json/blueline/v1/csp-report; report-to blueline-csp
+```
+
+Cart, checkout and every My Account page (the "commerce" pages) add: `form-action https://*.paypal.com`;
+`script-src https://*.paypal.com https://*.paypalobjects.com https://pay.google.com https://applepay.cdn-apple.com https://maps.googleapis.com`;
+`style-src https://ajax.googleapis.com`; `connect-src https://*.paypal.com https://pay.google.com https://google.com/pay https://maps.googleapis.com https://places.googleapis.com`;
+`frame-src https://*.paypal.com https://pay.google.com`.
+
+Checked on 2026-10-15 by loading each page in headless Chromium with exactly this policy injected: 0 violations on
+14 public live pages (home, schedule, standings, team, player, event, venue, sponsors, news post, FAQ, 404, search,
+Contact Us, Arena Maps) and on 10 signed-in staging pages (home, My Account, registrations, account details, payment
+methods, add payment method, a product, /register, cart, checkout with a product in the cart and the PayPal, Google Pay
+and Apple Pay buttons rendered).
+
+**Inventory** (2026-10-15; live `arlhockey.ca` for public pages, staging for signed-in, cart and checkout pages; server
+HTML plus every request the rendered page made):
+
+| Origin | Used for (directive) | Pages | Comes from |
+|---|---|---|---|
+| the site itself | scripts, styles, fonts, images, AJAX (admin-ajax, wc-ajax), REST (Contact Form 7), the OneSignal service worker, Cloudflare's `/cdn-cgi/` scripts (email protection, bot challenge) and its hidden challenge iframe | all | theme, plugins, Cloudflare |
+| `https://cdn.onesignal.com`, `https://api.onesignal.com` | script (SDK; a JSONP sync script from `api.`), connect | all | OneSignal plugin |
+| `https://onesignal.com` | style (prompt stylesheet), connect | all | OneSignal plugin |
+| `https://static.cloudflareinsights.com` | script (`beacon.min.js`) | all | Cloudflare Web Analytics (added at the edge) |
+| `https://cloudflareinsights.com` | connect (beacon, when not sent to `/cdn-cgi/rum`) | all | Cloudflare Web Analytics |
+| `https://www.google-analytics.com` (`*.google-analytics.com`, `*.analytics.google.com`) | connect (GA4 hits, `G-WJRM9M1RQV`) | all | Flying Analytics plugin (self-hosted `gtag.js`) |
+| `https://www.googletagmanager.com` | image (pixel), connect | some | Flying Analytics `gtag.js` |
+| `https://challenges.cloudflare.com` | script, frame (Turnstile) | Contact Us, `wp-login.php` | Simple Cloudflare Turnstile plugin |
+| `https://maps.google.com`, `https://www.google.com` | frame (Google Maps embeds) | Arena Maps | page content |
+| `https://tile.openstreetmap.org` | image (map tiles; Leaflet itself is served by the site) | venue pages; event pages (after "Open map" once the click-to-load map is live) | SportsPress, theme |
+| `data:` | image, font (data URIs in stylesheets) | all | WordPress core, theme, plugins |
+| `blob:` | worker (emoji feature test) | all | WordPress core emoji loader |
+| `https://www.paypal.com` (`*.paypal.com`), `https://www.paypalobjects.com` | script (SDK), connect, frame (buttons, card fields), form-action, image | cart, checkout, account payment methods (live today also /register and product pages, until the theme's payment-script change ships) | PayPal for WooCommerce (Angell EYE) |
+| `https://pay.google.com`, `https://google.com/pay` | script, frame, connect | same as PayPal | PayPal for WooCommerce (Google Pay) |
+| `https://applepay.cdn-apple.com` | script | same as PayPal | PayPal for WooCommerce (Apple Pay) |
+| `https://maps.googleapis.com`, `https://places.googleapis.com`, `https://maps.gstatic.com` | script, connect, image (address autocomplete) | checkout, account details | Checkout Field Editor Pro |
+| `https://ajax.googleapis.com` | style (jQuery UI theme for the date picker) | account details | Checkout Field Editor Pro |
+
+Not seen anywhere: Google Fonts, YouTube or Vimeo embeds, Gravatar, sponsor images from other hosts (all are in the
+media library), the SportsPress Facebook SDK (only loads with its Facebook widget, which is not used). `img-src https:`
+covers any image host; a new embed or script host shows up in the report.
+
+Inline code (no page printed an inline event handler such as `onclick=` or a `javascript:` URL; 2 to 4 `style=`
+attributes per page):
+
+| Inline `<script>` / `<style>` | Comes from |
+|---|---|
+| theme-preference bootstrap (head), `bl-band-photo` style and `bl-band-photo-rotate` script (home) | theme |
+| JSON-LD (`application/ld+json`, not executed, so CSP does not apply) | blueline-core `seo-meta` |
+| `wp-emoji-settings` + emoji loader module, `speculationrules`, `*-js-extra` (localized data), `*-js-translations`, `wp-i18n-js-after`, `wp-data-js-after`, `jquery-ui-*-js-before/after`, block and global styles (`wp-block-*-inline-css`, `global-styles-inline-css`, `classic-theme-styles-inline-css`, `core-block-supports-inline-css`, `wp-img-auto-sizes-contain-inline-css`, `dashicons-inline-css`) | WordPress core |
+| `woocommerce-no-js` body-class script, `woocommerce-js-extra`, `wc-order-attribution-js-extra`, the cart/checkout/address/password `wc-*-js-extra` data, `woocommerce-inline-inline-css`, the gallery `<noscript>` style | WooCommerce |
+| three `jQuery(document).ready(...)` snippets that move the league menu, scoreboard and header sponsors (into `.bl-header__sponsors`), `sportspress-js-extra`, "SportsPress Custom CSS", `.sp-footer-sponsors` style | SportsPress Pro |
+| `spt-captain-inline-css` | SportsPress Player Tools |
+| `OneSignalDeferred.push(...)` init | OneSignal |
+| `window.GA_ID=...` and the `gtag('config', ...)` call | Flying Analytics |
+| `window.__CF$cv$params=...` challenge loader, challenge iframe script | Cloudflare (added at the edge) |
+| `fue-*-js-extra` | Follow-Up Emails |
+| `contact-form-7-js-before`, `contact-form-7-js-translations`, `wpcf7cf-scripts-js-extra` | Contact Form 7, Conditional Fields |
+| `cfturnstile-*` | Simple Cloudflare Turnstile |
+| `angelleye-paypal-checkout-sdk-js-extra` | PayPal for WooCommerce |
+| `thwcfe-public-*-js-extra` | Checkout Field Editor Pro |
+| `ywcars-frontend-js-extra` | YITH Advanced Refund System |
+| `wc-social-login-frontend-inline-css` | WooCommerce Social Login |
+| registration rules modal script and style (`#arl-rules-modal`), "Fee Applies" label style | Code Snippets (site snippets) |
+| `document.write('p...')` email address on Contact Us | page content |
+
+**Reading the report.** `wp blueline-core csp report` lists each (directive, blocked origin, page path) with its count
+and the last day (UTC) it was reported, most frequent first; `--format=csv` or `--format=json` for export, `--reset`
+to clear it after printing. Tools > Site Health shows the number of distinct violations and the top five. In the
+`blocked` column, an origin (`https://cdn.example.com`) is a third party the policy does not list; `inline` is an
+inline script, style or `style=` attribute (only reported once `'unsafe-inline'` is removed); `eval` is `eval()` or
+`new Function()`; `data`/`blob` are those URL schemes; `chrome-extension` and the like are the visitor's browser
+extensions and can be ignored. Only counts are stored: no IP address, user agent, full URL or query string. The
+store keeps the 200 most-seen entries and evicts the least-seen first. Each browser may send 30 report requests per
+10 minutes (counted against a daily-rotating hash of address and user agent, kept in a 10-minute transient);
+bodies over 16 KB and content types other than `application/csp-report`, `application/reports+json` and
+`application/json` are refused.
+
+A row is worth acting on when it repeats across days or pages. For each origin that the site really needs, add it
+with the `blueline_core_csp_policy` filter (or in `csp.php`, with a line in the inventory above); for one it does not
+need (a plugin feature nobody uses), turn that feature off. Then `--reset` and watch for a week.
+
+**What must be fixed before enforcing without `'unsafe-inline'`.** Enforcing the starter policy as it is would block
+nothing that was seen, but it keeps `'unsafe-inline'` for scripts and styles, which is most of the protection a CSP
+gives. To drop it:
+
+1. Scripts printed through WordPress's script API (`wp_add_inline_script`, `wp_localize_script`,
+   `wp_print_inline_script_tag`: everything with an `id="*-js-extra|before|after|translations"`, the theme's own
+   inline scripts, the emoji loader) can carry a nonce from the `wp_inline_script_attributes` filter.
+2. Scripts plugins echo as raw `<script>` cannot: the SportsPress jQuery snippets, OneSignal's init, Flying
+   Analytics' `GA_ID`/`gtag` lines, the `woocommerce-no-js` script, the registration rules modal snippet. Each needs a
+   hash (they are static per site, except Flying Analytics' if its ID changes), a nonce-aware replacement, or moving
+   into an enqueued file.
+3. Cloudflare's injected `__CF$cv$params` script (its bot "JavaScript Detections") changes on every request and is
+   added after WordPress has sent the page. Check Cloudflare's current guidance for CSP nonces with that feature, or
+   turn the feature off, before dropping `'unsafe-inline'`; the first report after the change will show it.
+4. Inline styles (WordPress block styles, plugin `*-inline-css`) and `style=` attributes: keep `'unsafe-inline'` in
+   `style-src`; style injection is a far smaller risk, and nonces on core block styles are not practical yet.
+5. The Contact Us email `document.write` in page content: replace it with a plain `mailto:` link or a block that does
+   not need script.
+
+**Moving to enforce** (only after at least two weeks of reports with nothing new):
+
+1. Run `wp blueline-core csp report`. Every remaining row must be an origin you have added, a browser extension, or
+   understood and accepted.
+2. On staging, add `add_filter( 'blueline_core_csp_mode', fn() => 'enforce' );` in a mu-plugin, purge the page cache,
+   and walk through: home, schedule, a team, a player, an event (open the map), a venue, Contact Us (send a test
+   message), Arena Maps, sign in, My Account (each tab), add a product to the cart, checkout with PayPal, Google Pay
+   and a card in sandbox. Check the browser console for "Refused to" messages.
+3. Do the same on production, purge Cloudflare's and nginx's page cache (cached pages keep the old header until
+   purged), then watch `wp blueline-core csp report` and the console for a day. Real blocks now show up in the
+   report too.
+
+**Rollback**: delete the mu-plugin line (or set the mode filter to `'report-only'`, or `'off'` to send nothing), then
+purge the page caches. No other state changes.
 
 Version strings: blueline-core removes the WordPress, WooCommerce and SportsPress generator tags (page head and
 feeds) and replaces the WordPress version in core asset URLs (`?ver=7.1.3`) with a salted token that still changes on
@@ -110,7 +268,7 @@ header is added by the server's nginx configuration, not WordPress, so it can on
 
 ## Production cutover checklist (owner steps; nothing here is automated)
 
-- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
+- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","access","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
 - [ ] **Team page section order** is a database setting, not code. SportsPress > Settings > Teams > Layout: drag "Add to
   Calendar" and "Upcoming Games" where you want them (or `wp option update sportspress_team_template_order '["calendar","schedule","logo","excerpt","content","link","details","staff","lists","tables","events"]' --format=json`). A database refresh can revert it.
 - [ ] **Player ownership (SEC-01).** Only a Player-role account that is also the `post_author` of its linked player can

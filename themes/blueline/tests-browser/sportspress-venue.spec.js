@@ -20,8 +20,10 @@ test.describe( 'event page', () => {
 	let eventPath = null;
 
 	test.beforeAll( async ( { playwright }, testInfo ) => {
+		// The event-page map is click-to-load: the page carries a placeholder
+		// (data-bl-venue-map) and fetches Leaflet only when "Open map" is pressed.
 		eventPath = await withRequest( playwright, testInfo, ( request ) =>
-			findEventPath( request, [ 'data-sp-tab="past_meetings"', 'leaflet' ] )
+			findEventPath( request, [ 'data-sp-tab="past_meetings"', 'data-bl-venue-map' ] )
 		);
 	} );
 
@@ -69,6 +71,14 @@ test.describe( 'event page', () => {
 	} );
 
 	test( 'the venue map paints its whole container', async ( { page } ) => {
+		// Before the click: the placeholder, and no map or Leaflet on the page.
+		const placeholder = page.locator( '[data-bl-venue-map]' );
+		const open = placeholder.getByRole( 'button', { name: 'Open map' } );
+		await expect( open ).toBeVisible();
+		await expect( page.locator( '.leaflet-container' ) ).toHaveCount( 0 );
+		expect( await page.evaluate( () => typeof window.L ) ).toBe( 'undefined' );
+
+		await open.click();
 		await page.waitForSelector( '.leaflet-container img.leaflet-tile' );
 
 		// Leaflet keeps adding tiles as it lays the map out; poll the shortfall

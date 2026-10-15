@@ -1,12 +1,15 @@
 <?php
 /**
  * Checkout field fixes for Checkout Field Editor Pro: autofill tokens, division/team/partner
- * guidance copy, and the required-checkbox a11y patch.
+ * guidance copy, the required-checkbox a11y patch, and (address-country.php) the country the
+ * My Account address form needs to save.
  *
  * @package blueline-core
  */
 
 defined( 'ABSPATH' ) || exit;
+
+require_once __DIR__ . '/address-country.php';
 
 /*
  * Checkout field guidance for the "WooCommerce Checkout Field Editor Pro" (WCFE) fields
