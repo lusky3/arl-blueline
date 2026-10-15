@@ -125,6 +125,11 @@ function blueline_token_manifest( ?string $path_override = null ): array {
  * unavailable, both answer false -- the same fail-closed default every
  * declared token already carries unless explicitly marked otherwise.
  *
+ * Nothing at runtime asks this question: the brand-colour settings read their
+ * own palette (inc/team-colors.php). It is the PHP side's view of the
+ * manifest, and SettingsTokensTest uses it to prove that palette and the
+ * manifest's tunable list agree.
+ *
  * @param string $token_name Token name, e.g. '--bl-occasion-accent'.
  * @return bool
  */

@@ -34,12 +34,10 @@ defined( 'ABSPATH' ) || exit;
  *
  * These duplicate the brand-palette tokens in style.css because contrast
  * has to be computed server-side, and CSS custom properties are not readable
- * from PHP. tools/check-contrast.mjs asserts these constants still match
- * style.css for INK and PAPER, the same way it already guards editor.css's
- * duplicated tokens -- so drift fails the build rather than silently
- * producing wrong maths. A future consistency-check expansion to cover all
- * twelve is not part of this task (YAGNI: nothing in this feature depends
- * on that script also checking the other ten).
+ * from PHP. tools/check-contrast.mjs (`npm run tokens:check`) asserts every
+ * constant here, and blueline_static_token_hex()'s map below, still matches
+ * style.css -- the same way it already guards editor.css's duplicated tokens --
+ * so drift fails the build rather than silently producing wrong maths.
  */
 const BLUELINE_TOKEN_INK         = '#132343';
 const BLUELINE_TOKEN_INK_DEEP    = '#0D1729';

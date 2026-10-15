@@ -4,6 +4,8 @@ import { dirname, relative, resolve } from 'node:path';
 import { extractRootTokens, extractTokensForSelector, extractRuleBlock, resolveColorToken, normalizeValue } from './lib/css-tokens.mjs';
 import { contrastRatio, evaluateRule } from './lib/contrast.mjs';
 import { findFocusRingProblems } from './lib/focus-rings.mjs';
+import { findTokenMirrorDrift } from './lib/token-mirrors.mjs';
+import { readSourceByName } from './lib/find-source.mjs';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
 
@@ -126,50 +128,34 @@ function checkEditorTokenParity( styleTokens ) {
 }
 
 /**
- * The same drift problem, one more place: inc/team-colors.php has to compute
- * WCAG contrast server-side to derive a readable foreground for each team's
- * own colour, and PHP cannot read a CSS custom property. So it mirrors two
- * tokens as constants. If style.css changes and those constants do not, every
- * team page silently derives its foregrounds against the wrong ground -- the
- * failure would be invisible until someone noticed unreadable text on a team
- * page, which is exactly what that module exists to prevent.
+ * The same drift problem, in the places that repeat a token's value outside
+ * CSS: inc/team-colors.php (twelve brand constants, plus the closed map of
+ * four non-brand tokens, because PHP cannot read a custom property and the
+ * contrast maths needs the hex), the occasions admin script's fallback ink,
+ * and the contrast report's pass and fail colours. If style.css changes and a
+ * mirror does not, team pages derive foregrounds against the wrong ground and
+ * the admin report shows the wrong colour -- invisible until someone notices.
+ * The comparison itself lives in tools/lib/token-mirrors.mjs, with its own
+ * tests.
  *
  * @param {Map<string,string>} styleTokens style.css's `:root` tokens.
- * @return {number} Number of failing constants.
+ * @return {number} Number of drifted mirrors.
  */
-function checkTeamColorsParity( styleTokens ) {
-	const teamColorsPath = resolve( here, '../inc/team-colors.php' );
-	const teamColorsSrc  = readFileSync( teamColorsPath, 'utf8' );
+function checkTokenMirrors( styleTokens ) {
+	const read = ( rel ) => readFileSync( resolve( here, '..', rel ), 'utf8' );
+	const problems = findTokenMirrorDrift( styleTokens, {
+		teamColorsPhp: read( 'inc/team-colors.php' ),
+		occasionsJs: readSourceByName( resolve( here, '../assets/src' ), 'settings-occasions.js' ),
+		adminAssetsPhp: read( 'inc/settings/admin-assets.php' ),
+	} );
 
-	const phpConstant = ( name ) => {
-		const m = teamColorsSrc.match(
-			new RegExp( `const\\s+${ name }\\s*=\\s*'(#[0-9a-fA-F]{6})'` )
-		);
-		if ( ! m ) {
-			throw new Error( `${ name } not found in inc/team-colors.php` );
-		}
-		return m[ 1 ].toLowerCase();
-	};
-
-	const MIRRORED = [
-		[ 'BLUELINE_TOKEN_INK', '--bl-ink' ],
-		[ 'BLUELINE_TOKEN_PAPER', '--bl-paper' ],
-	];
-
-	let failed = 0;
-	for ( const [ constName, tokenName ] of MIRRORED ) {
-		const cssValue = normalizeValue( styleTokens.get( tokenName ) || '' ).toLowerCase();
-		const phpValue = phpConstant( constName );
-		if ( cssValue !== phpValue ) {
-			report( false, `${ constName } is ${ phpValue }, but style.css's ${ tokenName } is ${ cssValue }` );
-			failed++;
-		}
+	for ( const problem of problems ) {
+		report( false, problem );
 	}
-
-	if ( ! failed ) {
-		report( true, `team-colors.php's ${ MIRRORED.length } mirrored tokens match style.css` );
+	if ( ! problems.length ) {
+		report( true, "team-colors.php's 12 brand constants and 4 static tokens, the occasions script's fallback ink and the contrast report's colours match style.css" );
 	}
-	return failed;
+	return problems.length;
 }
 
 /**
@@ -438,7 +424,7 @@ function main() {
 	failed += checkLightContrast( styleTokens, rules );
 	failed += checkDarkContrast( styleTokens, css, rules );
 	failed += checkEditorTokenParity( styleTokens );
-	failed += checkTeamColorsParity( styleTokens );
+	failed += checkTokenMirrors( styleTokens );
 	failed += checkSportsPressFixture( styleTokens );
 	failed += checkHighlightStreakFix( styleTokens );
 	failed += checkNoLiteralRgba( styleTokens );

@@ -123,9 +123,17 @@ final class SettingsTokensTest extends TestCase {
 		// 12 brand palette tokens + 1 occasion-accent = 13 total.
 		$this->assertCount( 13, $tunable );
 		$this->assertArrayHasKey( '--bl-occasion-accent', $tunable );
+		$palette = array();
 		foreach ( blueline_brand_color_tokens() as $token ) {
 			$this->assertArrayHasKey( $token['css_var'], $tunable );
+			$this->assertTrue( blueline_token_is_tunable( $token['css_var'] ), $token['css_var'] . ' is in the palette but not tunable in the manifest' );
+			$palette[] = $token['css_var'];
 		}
+
+		// And nothing else is tunable: a token the manifest allows but the
+		// palette (and so the settings page) never offers, is drift.
+		$extra = array_diff( array_keys( $tunable ), $palette, array( '--bl-occasion-accent' ) );
+		$this->assertSame( array(), array_values( $extra ), 'The manifest marks tokens tunable that the brand palette does not expose.' );
 	}
 
 	/**
