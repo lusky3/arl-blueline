@@ -12,9 +12,16 @@
  *  - a PRIMARY host: serves the primary theme, builds URLs on that host, rewrites legacy-host URLs found in
  *    stored content to the primary host, and silences the legacy-only Simple CSS plugin output.
  *  - a LEGACY host: serves the legacy theme, builds URLs on that host, rewrites primary-host URLs back to it,
- *    points rel=canonical at the primary host, and sends admin, login, account, cart and checkout to the
- *    primary host (so payments, webhooks and logins live in one place).
+ *    points rel=canonical and og:url at the primary host, and sends admin, login, account, cart and checkout
+ *    to the primary host (so payments, webhooks and logins live in one place). Its sitemaps redirect to the
+ *    primary host's and its robots.txt names only the primary sitemap, so crawlers are never handed a list of
+ *    URLs whose canonical is somewhere else. Legacy aliases (rookiehockey.com) 301 to the same path on the
+ *    legacy canonical host.
  *  - an ALIAS host (old brand names, www variants): 301 to the same path on the primary host.
+ *
+ * On the primary and legacy hosts, /new (the old preview address of the new site) 301s to the primary home
+ * page. /new/<path> 301s to <path> on the primary host when WordPress can tell that <path> exists; otherwise
+ * it is a plain 404, without WordPress's "closest matching post" guess.
  *
  * Override anything with define( 'ARL_DOMAIN_ROUTER', array( ... ) ) or the 'arl_domain_router_config' filter.
  *
@@ -34,6 +41,9 @@ function arl_dr_defaults(): array {
 		'primary_theme'          => array( 'blueline', 'blueline' ),
 		'legacy_hosts'           => array( 'rookiehockey.ca', 'www.rookiehockey.ca', 'rookiehockey.com', 'www.rookiehockey.com' ),
 		'legacy_canonical'       => 'www.rookiehockey.ca',
+		// Legacy hosts that only forward: a 301 to the same path and query on legacy_canonical. They stay in
+		// legacy_hosts so their URLs in stored content are still normalised.
+		'legacy_aliases'         => array( 'rookiehockey.com', 'www.rookiehockey.com' ),
 		// Set false to leave the legacy hosts completely untouched (they are still recognised for URL rewriting on
 		// the primary face). Used to stage the primary face behind a preview before the old domains change.
 		'legacy_enabled'         => true,
@@ -185,20 +195,170 @@ function arl_dr_redirect_for( string $host, string $uri, array $cfg ): ?array {
 	}
 	$rest = array(
 		'primary' => arl_dr_strip_prefix( $uri, (string) $cfg['to_legacy_prefix'] ),
-		'legacy'  => arl_dr_strip_prefix( $uri, (string) $cfg['to_primary_prefix'] ),
+		'new'     => arl_dr_strip_prefix( $uri, (string) $cfg['to_primary_prefix'] ),
 	);
+	// /new itself always means "the new site's home page", wherever it is asked for. A deeper /new/<path> is
+	// decided later by arl_dr_new_path_rest(), once WordPress can say whether <path> exists.
+	if ( null !== $rest['new'] && '/' === arl_dr_uri_path( $rest['new'] ) && in_array( $family, array( 'primary', 'legacy' ), true ) ) {
+		return array( $primary . $rest['new'], 301 );
+	}
 	if ( 'primary' === $family && null !== $rest['primary'] ) {
 		return array( 'https://' . arl_dr_normalise_host( (string) $cfg['legacy_canonical'] ) . $rest['primary'], 302 );
 	}
 	if ( 'legacy' === $family ) {
-		if ( null !== $rest['legacy'] ) {
-			return array( $primary . $rest['legacy'], 302 );
+		if ( arl_dr_is_sitemap_path( arl_dr_uri_path( $uri ) ) ) {
+			return array( $primary . $uri, 301 );
 		}
 		if ( arl_dr_path_goes_to_primary( arl_dr_uri_path( $uri ), $cfg ) ) {
 			return array( $primary . $uri, 302 );
 		}
+		if ( arl_dr_host_in( $host, (array) ( $cfg['legacy_aliases'] ?? array() ) ) ) {
+			return array( 'https://' . arl_dr_normalise_host( (string) $cfg['legacy_canonical'] ) . $uri, 301 );
+		}
 	}
 	return null;
+}
+
+/**
+ * Whether a host is one of a list of hosts.
+ *
+ * @param string            $host  Host header.
+ * @param array<int, mixed> $hosts Hosts to compare with.
+ * @return bool
+ */
+function arl_dr_host_in( string $host, array $hosts ): bool {
+	return in_array( arl_dr_normalise_host( $host ), array_map( 'arl_dr_normalise_host', array_map( 'strval', $hosts ) ), true );
+}
+
+/**
+ * Whether a path is a sitemap address: core's index, provider pages and stylesheets, or the common
+ * sitemap.xml / sitemap_index.xml aliases.
+ *
+ * @param string $path Request path (no query).
+ * @return bool
+ */
+function arl_dr_is_sitemap_path( string $path ): bool {
+	return 1 === preg_match( '~^/(?:wp-sitemap(?:-[a-z0-9_-]+)?\.(?:xml|xsl)|sitemap(?:_index)?\.xml)$~i', $path );
+}
+
+/**
+ * The rest of a /new/<path> request that must wait for WordPress (rewrite rules, posts, terms) to say
+ * whether <path> exists on the primary host.
+ *
+ * @param string               $host Host header.
+ * @param string               $uri  Request URI including any query string.
+ * @param array<string, mixed> $cfg  Configuration.
+ * @return string|null The URI after the prefix, query included, or null when this request is not one.
+ */
+function arl_dr_new_path_rest( string $host, string $uri, array $cfg ): ?string {
+	$family = arl_dr_family( $host, $cfg );
+	if ( 'primary' !== $family && 'legacy' !== $family ) {
+		return null;
+	}
+	if ( null !== arl_dr_redirect_for( $host, $uri, $cfg ) ) {
+		return null;
+	}
+	$rest = arl_dr_strip_prefix( $uri, (string) $cfg['to_primary_prefix'] );
+	return ( null === $rest || '/' === arl_dr_uri_path( $rest ) ) ? null : $rest;
+}
+
+/**
+ * Redirect for a deferred /new/<path> request: permanent when WordPress found <path>, none otherwise.
+ *
+ * @param string               $rest     URI after the /new prefix, query included.
+ * @param bool                 $resolves Whether <path> exists (arl_dr_path_resolves()).
+ * @param array<string, mixed> $cfg      Configuration.
+ * @return array{0: string, 1: int}|null
+ */
+function arl_dr_new_path_redirect( string $rest, bool $resolves, array $cfg ): ?array {
+	if ( ! $resolves ) {
+		return null;
+	}
+	return array( 'https://' . arl_dr_normalise_host( (string) $cfg['primary'] ) . $rest, 301 );
+}
+
+/**
+ * Whether WordPress has something at a path: the home page, a single post, page or other post type
+ * (url_to_postid()), a published page that lists other posts (the posts page, the shop), or a public
+ * taxonomy's term archive (/<taxonomy base>/<term slug>), each with or without a /page/N suffix. Both faces share
+ * one database, so a path that exists here exists on the primary host too. Needs rewrite rules and
+ * registered taxonomies, so call it on wp_loaded or later.
+ *
+ * @param string $path Request path (no query).
+ * @return bool
+ */
+function arl_dr_path_resolves( string $path ): bool {
+	// Page 2+ of a list exists when page 1 does (an empty page is WordPress's own 404 to give).
+	$path = trim( (string) preg_replace( '~/page/\d+/?$~i', '', '/' . trim( $path, '/' ) ), '/' );
+	if ( '' === $path ) {
+		return true;
+	}
+	if ( function_exists( 'url_to_postid' ) && url_to_postid( home_url( '/' . $path ) ) > 0 ) {
+		return true;
+	}
+	// The posts page and the shop page are pages that url_to_postid() reports as 0 (they list other posts).
+	if ( function_exists( 'get_page_by_path' ) ) {
+		$page = get_page_by_path( rawurldecode( $path ) );
+		if ( is_object( $page ) && 'publish' === ( $page->post_status ?? '' ) ) {
+			return true;
+		}
+	}
+	$segments = explode( '/', $path );
+	if ( 2 !== count( $segments ) || ! function_exists( 'get_taxonomies' ) || ! function_exists( 'term_exists' ) ) {
+		return false;
+	}
+	foreach ( (array) get_taxonomies( array( 'public' => true ), 'objects' ) as $taxonomy ) {
+		$rewrite = is_object( $taxonomy ) && isset( $taxonomy->rewrite ) && is_array( $taxonomy->rewrite ) ? $taxonomy->rewrite : array();
+		$base    = trim( (string) ( $rewrite['slug'] ?? '' ), '/' );
+		if ( '' !== $base && strtolower( $base ) === strtolower( rawurldecode( $segments[0] ) ) && term_exists( rawurldecode( $segments[1] ), (string) $taxonomy->name ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * The legacy hosts' robots.txt: every rule as WordPress and plugins wrote it, but the only sitemap named is
+ * the primary host's (core's own Sitemap line would name the legacy host). A site that asks not to be indexed
+ * names no sitemap at all, as core does.
+ *
+ * @param string               $output    robots.txt body.
+ * @param bool                 $is_public Whether the site is public (blog_public).
+ * @param array<string, mixed> $cfg       Configuration.
+ * @return string
+ */
+function arl_dr_legacy_robots_txt( string $output, bool $is_public, array $cfg ): string {
+	$lines = preg_split( '/\r\n|\n|\r/', $output );
+	$kept  = array();
+	foreach ( is_array( $lines ) ? $lines : array() as $line ) {
+		if ( 0 !== stripos( ltrim( $line ), 'sitemap:' ) ) {
+			$kept[] = $line;
+		}
+	}
+	$body = rtrim( implode( "\n", $kept ) ) . "\n";
+	if ( ! $is_public ) {
+		return $body;
+	}
+	return $body . "\nSitemap: https://" . arl_dr_normalise_host( (string) $cfg['primary'] ) . "/wp-sitemap.xml\n";
+}
+
+/**
+ * Point an Open Graph og:url tag at a URL (the primary host's canonical), so a share from a legacy page
+ * names the same address as its rel=canonical.
+ *
+ * @param string $body HTML.
+ * @param string $url  URL to use.
+ * @return string
+ */
+function arl_dr_point_og_url( string $body, string $url ): string {
+	$out = preg_replace_callback(
+		'~(<meta\s+property=(["\'])og:url\2\s+content=(["\']))[^"\']*(\3)~i',
+		static function ( array $m ) use ( $url ): string {
+			return $m[1] . htmlspecialchars( $url, ENT_QUOTES, 'UTF-8' ) . $m[4];
+		},
+		$body
+	);
+	return is_string( $out ) ? $out : $body;
 }
 
 /**
@@ -303,6 +463,9 @@ const ARL_DR_CANONICAL_TOKEN = '__ARL_DR_CANONICAL__';
  */
 function arl_dr_process_body( string $body, string $target_host, string $canonical, array $cfg ): string {
 	$body = arl_dr_rewrite_urls( $body, $target_host, $cfg );
+	if ( 'legacy' === arl_dr_family( $target_host, $cfg ) ) {
+		$body = arl_dr_point_og_url( $body, $canonical );
+	}
 	return str_replace( ARL_DR_CANONICAL_TOKEN, $canonical, $body );
 }
 
@@ -350,6 +513,18 @@ function arl_dr_request_uri(): string {
 }
 
 /**
+ * Send a redirect and stop (never returns). Non-GET requests keep their method (arl_dr_redirect_status()).
+ *
+ * @param array{0: string, 1: int} $redirect Target URL and base status.
+ * @return void
+ */
+function arl_dr_send_redirect( array $redirect ): void {
+	$method = isset( $_SERVER['REQUEST_METHOD'] ) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- compared against a fixed list in arl_dr_redirect_status().
+	header( 'Location: ' . $redirect[0], true, arl_dr_redirect_status( $redirect[1], $method ) );
+	exit;
+}
+
+/**
  * Wire everything for the current request. Runs once, after every mu-plugin has loaded so a config file
  * in any mu-plugin can still add the 'arl_domain_router_config' filter.
  *
@@ -368,9 +543,22 @@ function arl_dr_boot(): void {
 
 	$redirect = arl_dr_redirect_for( $host, arl_dr_request_uri(), $cfg );
 	if ( null !== $redirect ) {
-		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- compared against a fixed list in arl_dr_redirect_status().
-		header( 'Location: ' . $redirect[0], true, arl_dr_redirect_status( $redirect[1], $method ) );
-		exit;
+		arl_dr_send_redirect( $redirect );
+	}
+
+	$new_rest = arl_dr_new_path_rest( $host, arl_dr_request_uri(), $cfg );
+	if ( null !== $new_rest ) {
+		add_action(
+			'wp_loaded',
+			static function () use ( $new_rest, $cfg ) {
+				$redirect = arl_dr_new_path_redirect( $new_rest, arl_dr_path_resolves( arl_dr_uri_path( $new_rest ) ), $cfg );
+				if ( null !== $redirect ) {
+					arl_dr_send_redirect( $redirect );
+				}
+				// Nothing here: answer with a 404 rather than WordPress's guess at a similarly named post.
+				add_filter( 'do_redirect_guess_404_permalink', '__return_false' );
+			}
+		);
 	}
 
 	$theme = arl_dr_theme_for( $family, $cfg );
@@ -464,7 +652,20 @@ function arl_dr_boot(): void {
 			'init',
 			static function () {
 				remove_action( 'wp_head', 'rel_canonical' );
+				// blueline-core's archive canonical would name this host; the tag below names the primary one.
+				remove_action( 'wp_head', 'blueline_render_archive_canonical', 1 );
 			}
+		);
+		// Sitemap requests are redirected to the primary host above; switching core's off here as well stops
+		// it adding a legacy-host Sitemap line to robots.txt.
+		add_filter( 'wp_sitemaps_enabled', '__return_false' );
+		add_filter(
+			'robots_txt',
+			static function ( $output, $is_public ) use ( $cfg ) {
+				return arl_dr_legacy_robots_txt( (string) $output, (bool) $is_public, $cfg );
+			},
+			100,
+			2
 		);
 		add_action(
 			'wp_head',

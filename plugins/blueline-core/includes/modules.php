@@ -26,6 +26,7 @@ return array(
 	'access'            => 'access/access.php',
 	'search'            => 'search/search.php',
 	'privacy'           => 'privacy/privacy.php',
+	'headers'           => 'headers/headers.php',
 	'indexing'          => 'indexing/indexing.php',
 	'plugin-info'       => 'plugin-info/plugin-info.php',
 );

@@ -8,6 +8,10 @@
  * and the REST `author` field would map every player to the account that owns it.
  * This hardening ends when the plugin is deactivated.
  *
+ * Also: stop the site advertising the exact WordPress, WooCommerce and SportsPress versions it runs
+ * (generator tags, and the core version in core asset URLs), which makes matching it to known
+ * vulnerabilities a one-request job.
+ *
  * Second half: the personal-data exporters and erasers (Tools > Export / Erase Personal Data)
  * for what this plugin stores about a user: the custom avatar (user meta `blueline_avatar_id`
  * and its media file) and the player link (`sp_user` on the sp_player post, plus a flagged
@@ -195,6 +199,53 @@ function blueline_strip_oembed_author( $data ) {
 	unset( $data['author_name'], $data['author_url'] );
 
 	return $data;
+}
+
+blueline_core_hide_generator_tags();
+/**
+ * Remove core's generator tag from the page head. Called once at load: the module loads on
+ * after_setup_theme, long after core registered the action.
+ *
+ * @return void
+ */
+function blueline_core_hide_generator_tags(): void {
+	remove_action( 'wp_head', 'wp_generator' );
+}
+
+add_filter( 'the_generator', 'blueline_core_empty_generator' );
+/**
+ * Empty every generator string (page head and feeds). WooCommerce and SportsPress (and its Pro add-on)
+ * append their own tags to core's through get_the_generator_{type}, and the_generator runs on the
+ * combined result, so this removes theirs too.
+ *
+ * @return string
+ */
+function blueline_core_empty_generator(): string {
+	return '';
+}
+
+add_filter( 'script_loader_src', 'blueline_core_mask_core_version' );
+add_filter( 'style_loader_src', 'blueline_core_mask_core_version' );
+/**
+ * Swap the WordPress version in a front-end asset URL's `ver` for an opaque token. Core gives its own
+ * assets (and any asset registered without a version) `?ver=<core version>`; the token is a salted hash
+ * of that version, so it still changes on every core update and cache busting keeps working, but it
+ * cannot be read back or looked up. Other versions (theme content hashes, plugin versions) are kept.
+ *
+ * @param mixed $src Asset URL.
+ * @return mixed
+ */
+function blueline_core_mask_core_version( $src ) {
+	$version = isset( $GLOBALS['wp_version'] ) ? (string) $GLOBALS['wp_version'] : '';
+
+	if ( ! is_string( $src ) || '' === $version || is_admin() ) {
+		return $src;
+	}
+
+	$token  = substr( wp_hash( 'blueline-core-asset-version|' . $version ), 0, 12 );
+	$masked = preg_replace( '/([?&]ver=)' . preg_quote( $version, '/' ) . '(?=&|#|$)/', '${1}' . $token, $src );
+
+	return is_string( $masked ) ? $masked : $src;
 }
 
 /**

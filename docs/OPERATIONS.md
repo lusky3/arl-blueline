@@ -75,9 +75,42 @@ so **blueline-core keeps working for them**: account URLs, mail wrapper, privacy
 (`my-team`, `my-schedule`, `player-profile`, `preferences`) only appear where a theme supplies a renderer, so they are
 omitted rather than leading to empty pages.
 
+## Hosting-specific code (what breaks if the host changes)
+
+The theme and plugin are meant to run on any WordPress host, but a few places know about this site's current
+hosting (WordOps nginx with a Redis-backed page cache, Cloudflare in front, and some site-specific mu-plugins). None
+of them can take a site down on a different host; each one degrades as described. Check this list when moving host.
+
+| Where | What it assumes | On a different host |
+|---|---|---|
+| `themes/blueline/inc/settings/cache.php`, `blueline_srcache_purge_attempt()` (also its Site Health row in `inc/settings/site-health.php`, `wp blueline settings flush-cache` in `inc/cli/settings-command.php` and the purge in `inc/settings/delete-data.php`) | After a Blueline settings save, clear the nginx page cache by SCAN/UNLINK of `nginx-cache:*<host>*` keys through the Redis Object Cache drop-in's `redis_instance()`. Off unless `BLUELINE_SRCACHE_PURGE` is defined true (it is not, today). | With the constant off (the default), nothing runs: after a settings save an admin notice asks for a manual purge, and its suggested `redis-cli` command only fits this host. With it on but no such Redis or key layout, every guard fails safely, nothing is deleted, and the "purge needed" notice stays up. Either way, purge the new host's page cache by hand after changing Blueline settings. |
+| `plugins/blueline-core/includes/boot.php`, `blueline_core_rewrite_flush_safe()` | Rewrite rules are flushed automatically (activation, upgrade) only when the `rh-royal-mcp-register-fix.php` mu-plugin exists, because a flush without it once let the Royal MCP plugin take over `/register` (405). | Without that mu-plugin the plugin never flushes and shows an admin notice instead. If Royal MCP is not installed there, allow it with `add_filter( 'blueline_core_rewrite_flush_safe', '__return_true' );` in a mu-plugin, or run `wp rewrite flush` by hand and check `/register` loads. |
+| `themes/blueline/inc/sportspress/core.php`, the cache-generation hooks (`blueline_sp_cache_on_post_change()` and friends) | The theme's own SportsPress data caches are invalidated on the same events the `sportspress-cache-purge` mu-plugin uses to purge the nginx-helper page cache. | The theme's caches keep working anywhere (they are plain options and transients). What is lost without that mu-plugin is the page-cache purge itself: standings, schedules and event pages can stay stale until the new host's page cache expires. Install an equivalent purge, or give SportsPress pages a short cache lifetime. |
+| `mu-plugins/arl-domain-router.php` (and `plugins/blueline-core/includes/mail/mail.php`, which asks it for the primary host) | The host names in `arl_dr_defaults()`; production's `arl-domain-router-config.php` override. See `docs/DOMAINS.md`. | Unknown hosts are left untouched, so a new host simply serves one face. Update the host lists before pointing domains at it. |
+| `robots.txt`, HSTS, Content-Security-Policy | Set outside WordPress: a static `robots.txt` in production's web root, and response headers at Cloudflare/nginx. | Re-create them on the new host (below). |
+
+### Security headers
+
+blueline-core's `headers` module sends `Permissions-Policy: camera=(), microphone=(), geolocation=()` with every
+front-end page (change or remove it with the `blueline_core_security_headers` filter). It deliberately does not
+send the two headers that bind the whole domain:
+
+- **Strict-Transport-Security.** Set at Cloudflare (SSL/TLS > Edge Certificates > HTTP Strict Transport Security).
+  The 2026-10-13 audit found `arlhockey.ca` without it; by 2026-10-14 it sent
+  `max-age=31536000; includeSubDomains; preload`, like the `rookiehockey.ca` zone. Every zone that serves pages needs it
+  (on a new host or zone: Cloudflare, or `add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;`
+  in nginx).
+- **Content-Security-Policy.** Start with `Content-Security-Policy-Report-Only: frame-ancestors 'self'; object-src 'none'; base-uri 'self'`
+  at Cloudflare or nginx. A `script-src` needs an inventory of the inline scripts the theme and plugins print first.
+
+Version strings: blueline-core removes the WordPress, WooCommerce and SportsPress generator tags (page head and
+feeds) and replaces the WordPress version in core asset URLs (`?ver=7.1.3`) with a salted token that still changes on
+every core update. Plugin asset versions (`?ver=11.2.1` on WooCommerce files) are left alone. The `x-powered-by: WordOps`
+header is added by the server's nginx configuration, not WordPress, so it can only be removed there.
+
 ## Production cutover checklist (owner steps; nothing here is automated)
 
-- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","mail","checkout","admin-bar","seo-meta","search","privacy","indexing"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
+- [ ] Deploy order above; confirm the plugin's modules loaded: `wp eval 'foreach(["player-link","player-photo","avatars","account-endpoints","seo-meta","mail","checkout","admin-bar","search","privacy","headers","indexing","plugin-info"] as $m){echo $m," ",blueline_core_module_loaded($m)?"LOADED":"no","\n";}'`
 - [ ] **Team page section order** is a database setting, not code. SportsPress > Settings > Teams > Layout: drag "Add to
   Calendar" and "Upcoming Games" where you want them (or `wp option update sportspress_team_template_order '["calendar","schedule","logo","excerpt","content","link","details","staff","lists","tables","events"]' --format=json`). A database refresh can revert it.
 - [ ] **Player ownership (SEC-01).** Only a Player-role account that is also the `post_author` of its linked player can

@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 // phpcs:disable WordPress.Security.ValidatedSanitizedInput, WordPress.WP.EnqueuedResources.NonEnqueuedScript
 
 require_once dirname( __DIR__, 3 ) . '/mu-plugins/arl-domain-router.php';
+require_once __DIR__ . '/domain-router-stubs.php';
 
 /**
  * Covers the pure parts of the ARL domain router mu-plugin: which face a host gets, where it redirects,
@@ -99,11 +100,175 @@ final class DomainRouterTest extends TestCase {
 			'primary to classic deep'        => array( 'arlhockey.ca', '/classic/team/ducks?x=1', 'https://www.rookiehockey.ca/team/ducks?x=1', 302 ),
 			'primary to classic home'        => array( 'arlhockey.ca', '/classic', 'https://www.rookiehockey.ca/', 302 ),
 			'primary classicist is a page'   => array( 'arlhockey.ca', '/classical', null, 0 ),
-			'legacy to new deep'             => array( 'www.rookiehockey.ca', '/new/standings', 'https://arlhockey.ca/standings', 302 ),
+			'legacy new root is permanent'   => array( 'www.rookiehockey.ca', '/new/', 'https://arlhockey.ca/', 301 ),
+			'legacy new bare keeps query'    => array( 'www.rookiehockey.ca', '/new?utm_source=x', 'https://arlhockey.ca/?utm_source=x', 301 ),
+			'primary new root is home'       => array( 'arlhockey.ca', '/new', 'https://arlhockey.ca/', 301 ),
+			'primary new slash is home'      => array( 'arlhockey.ca', '/new/', 'https://arlhockey.ca/', 301 ),
+			'legacy new deep waits for wp'   => array( 'www.rookiehockey.ca', '/new/standings', null, 0 ),
+			'primary new deep waits for wp'  => array( 'arlhockey.ca', '/new/standings', null, 0 ),
 			'legacy newsletter is a page'    => array( 'www.rookiehockey.ca', '/newsletter', null, 0 ),
+			'primary newsletter is a page'   => array( 'arlhockey.ca', '/newsletter', null, 0 ),
+			'com keeps path and query'       => array( 'rookiehockey.com', '/team/whalers?x=1', 'https://www.rookiehockey.ca/team/whalers?x=1', 301 ),
+			'www com keeps path'             => array( 'www.rookiehockey.com', '/schedule/', 'https://www.rookiehockey.ca/schedule/', 301 ),
+			'com root'                       => array( 'rookiehockey.com', '/', 'https://www.rookiehockey.ca/', 301 ),
+			'com new root goes straight'     => array( 'rookiehockey.com', '/new/', 'https://arlhockey.ca/', 301 ),
+			'legacy sitemap index'           => array( 'www.rookiehockey.ca', '/wp-sitemap.xml', 'https://arlhockey.ca/wp-sitemap.xml', 301 ),
+			'legacy sitemap page'            => array( 'rookiehockey.ca', '/wp-sitemap-posts-sp_team-1.xml', 'https://arlhockey.ca/wp-sitemap-posts-sp_team-1.xml', 301 ),
+			'legacy sitemap stylesheet'      => array( 'www.rookiehockey.ca', '/wp-sitemap-index.xsl', 'https://arlhockey.ca/wp-sitemap-index.xsl', 301 ),
+			'legacy sitemap.xml alias'       => array( 'www.rookiehockey.ca', '/sitemap.xml', 'https://arlhockey.ca/sitemap.xml', 301 ),
+			'legacy sitemap_index alias'     => array( 'www.rookiehockey.ca', '/sitemap_index.xml', 'https://arlhockey.ca/sitemap_index.xml', 301 ),
+			'legacy sitemap-like page stays' => array( 'www.rookiehockey.ca', '/wp-sitemap-guide/', null, 0 ),
+			'primary sitemap stays'          => array( 'arlhockey.ca', '/wp-sitemap.xml', null, 0 ),
 			'unknown host untouched'         => array( 'staging.rookiehockey.ca', '/account/', null, 0 ),
+			'unknown host new untouched'     => array( 'staging.rookiehockey.ca', '/new/', null, 0 ),
 			'empty uri becomes root'         => array( 'coedhockey.ca', '', 'https://arlhockey.ca/', 301 ),
 		);
+	}
+
+	/**
+	 * A /new/<path> request (on the primary or a legacy host) is left for WordPress to resolve; the rest of
+	 * the URI, query included, is what gets resolved.
+	 *
+	 * @return array<string, array{0: string, 1: string, 2: ?string}>
+	 */
+	public static function new_paths(): array {
+		return array(
+			'legacy deep'          => array( 'www.rookiehockey.ca', '/new/team/ducks?x=1', '/team/ducks?x=1' ),
+			'primary deep'         => array( 'arlhockey.ca', '/new/standings/', '/standings/' ),
+			'upper-case prefix'    => array( 'arlhockey.ca', '/NEW/standings', '/standings' ),
+			'bare new is certain'  => array( 'arlhockey.ca', '/new/', null ),
+			'newsletter is a page' => array( 'arlhockey.ca', '/newsletter', null ),
+			'alias redirects'      => array( 'coedhockey.ca', '/new/standings', null ),
+			'legacy com redirects' => array( 'rookiehockey.com', '/new/standings', null ),
+			'unknown host'         => array( 'staging.rookiehockey.ca', '/new/standings', null ),
+		);
+	}
+
+	/**
+	 * Which requests wait for WordPress to say whether the path exists.
+	 *
+	 * @param string  $host     Host header.
+	 * @param string  $uri      Request URI.
+	 * @param ?string $expected Rest of the URI, or null when the router does not defer.
+	 */
+	#[DataProvider( 'new_paths' )]
+	public function test_new_path_rest( string $host, string $uri, ?string $expected ): void {
+		$this->assertSame( $expected, arl_dr_new_path_rest( $host, $uri, $this->cfg() ) );
+	}
+
+	/**
+	 * A /new/<path> whose path WordPress knows is a permanent redirect to the primary host; an unknown path
+	 * is not redirected anywhere.
+	 */
+	public function test_new_path_redirect_only_when_it_resolves(): void {
+		$this->assertSame( array( 'https://arlhockey.ca/standings?x=1', 301 ), arl_dr_new_path_redirect( '/standings?x=1', true, $this->cfg() ) );
+		$this->assertNull( arl_dr_new_path_redirect( '/no-such-page', false, $this->cfg() ) );
+	}
+
+	/**
+	 * Path resolution uses WordPress's own lookups: a single post or page, or a public taxonomy's term
+	 * archive. Anything else (an unknown slug, a date archive) does not count as certain.
+	 */
+	public function test_path_resolves(): void {
+		$GLOBALS['arl_dr_test_post_ids']   = array(
+			'https://example.test/standings'  => 12,
+			'https://example.test/team/ducks' => 34,
+		);
+		$GLOBALS['arl_dr_test_taxonomies'] = array(
+			(object) array(
+				'name'    => 'sp_venue',
+				'rewrite' => array( 'slug' => 'venue' ),
+			),
+			(object) array(
+				'name'    => 'post_format',
+				'rewrite' => false,
+			),
+		);
+		$GLOBALS['arl_dr_test_terms']      = array( 'sp_venue' => array( 'red' ) );
+		// The posts page: url_to_postid() reports 0 for it, but it is a published page.
+		$GLOBALS['arl_dr_test_pages'] = array(
+			'news'   => (object) array( 'post_status' => 'publish' ),
+			'hidden' => (object) array( 'post_status' => 'draft' ),
+		);
+
+		$this->assertTrue( arl_dr_path_resolves( '/' ) );
+		$this->assertTrue( arl_dr_path_resolves( '/standings/' ) );
+		$this->assertTrue( arl_dr_path_resolves( '/team/ducks' ) );
+		$this->assertTrue( arl_dr_path_resolves( '/news' ) );
+		$this->assertTrue( arl_dr_path_resolves( '/news/page/2/' ), 'page 2 of a list that exists' );
+		$this->assertTrue( arl_dr_path_resolves( '/venue/red/' ) );
+		$this->assertTrue( arl_dr_path_resolves( '/venue/red/page/3' ) );
+		$this->assertTrue( arl_dr_path_resolves( '/Venue/red' ), 'the taxonomy base is matched case-insensitively' );
+		$this->assertTrue( arl_dr_path_resolves( '/page/2' ), 'page 2 of the home page' );
+		$this->assertFalse( arl_dr_path_resolves( '/hidden' ), 'an unpublished page does not count' );
+		$this->assertFalse( arl_dr_path_resolves( '/venue/blue' ) );
+		$this->assertFalse( arl_dr_path_resolves( '/player-evaluation' ) );
+		$this->assertFalse( arl_dr_path_resolves( '/2016/09' ) );
+		$this->assertFalse( arl_dr_path_resolves( '/venue/red/extra' ) );
+
+		unset( $GLOBALS['arl_dr_test_post_ids'], $GLOBALS['arl_dr_test_taxonomies'], $GLOBALS['arl_dr_test_terms'], $GLOBALS['arl_dr_test_pages'] );
+	}
+
+	/**
+	 * Sitemap addresses: core's index, provider pages and stylesheets, plus the two common aliases. Pages
+	 * that merely start with the word do not count.
+	 */
+	public function test_sitemap_paths(): void {
+		foreach ( array( '/wp-sitemap.xml', '/WP-SITEMAP.XML', '/wp-sitemap-posts-page-1.xml', '/wp-sitemap-taxonomies-sp_venue-1.xml', '/wp-sitemap.xsl', '/wp-sitemap-index.xsl', '/sitemap.xml', '/sitemap_index.xml' ) as $path ) {
+			$this->assertTrue( arl_dr_is_sitemap_path( $path ), $path );
+		}
+		foreach ( array( '/', '/sitemap', '/wp-sitemap-guide/', '/sitemap.xml/extra', '/news/sitemap.xml', '/wp-sitemap.xml.bak' ) as $path ) {
+			$this->assertFalse( arl_dr_is_sitemap_path( $path ), $path );
+		}
+	}
+
+	/**
+	 * The legacy hosts' robots.txt keeps every rule but names only the primary host's sitemap.
+	 */
+	public function test_legacy_robots_txt_names_the_primary_sitemap(): void {
+		$core = "User-agent: *\nDisallow: /wp-admin/\nAllow: /wp-admin/admin-ajax.php\n\nSitemap: https://www.rookiehockey.ca/wp-sitemap.xml\n";
+		$out  = arl_dr_legacy_robots_txt( $core, true, $this->cfg() );
+
+		$this->assertSame( "User-agent: *\nDisallow: /wp-admin/\nAllow: /wp-admin/admin-ajax.php\n\nSitemap: https://arlhockey.ca/wp-sitemap.xml\n", $out );
+		$this->assertSame( 1, substr_count( strtolower( $out ), 'sitemap:' ) );
+	}
+
+	/**
+	 * Without a core Sitemap line (sitemaps are switched off on the legacy face) the primary one is still
+	 * added; a site that asks not to be indexed gets no sitemap at all, as core does.
+	 */
+	public function test_legacy_robots_txt_without_core_line_and_when_private(): void {
+		$this->assertSame(
+			"User-agent: *\nDisallow: /wp-admin/\n\nSitemap: https://arlhockey.ca/wp-sitemap.xml\n",
+			arl_dr_legacy_robots_txt( "User-agent: *\nDisallow: /wp-admin/\n", true, $this->cfg() )
+		);
+		$this->assertSame(
+			"User-agent: *\nDisallow: /\n",
+			arl_dr_legacy_robots_txt( "User-agent: *\nDisallow: /\nsitemap: https://www.rookiehockey.ca/wp-sitemap.xml\n", false, $this->cfg() )
+		);
+	}
+
+	/**
+	 * On a legacy page the Open Graph URL names the primary host, like the canonical tag; on the primary
+	 * face it is left alone.
+	 */
+	public function test_process_body_points_og_url_at_primary_on_legacy_face(): void {
+		$body = '<head><meta property="og:url" content="https://arlhockey.ca/team/whalers"><link rel="canonical" href="' . ARL_DR_CANONICAL_TOKEN . '" /></head>';
+
+		$legacy = arl_dr_process_body( $body, 'www.rookiehockey.ca', 'https://arlhockey.ca/team/whalers', $this->cfg() );
+		$this->assertStringContainsString( '<meta property="og:url" content="https://arlhockey.ca/team/whalers">', $legacy );
+
+		$primary = arl_dr_process_body( '<meta property="og:url" content="https://arlhockey.ca/a?b=1&amp;c=2">', 'arlhockey.ca', 'https://arlhockey.ca/a', $this->cfg() );
+		$this->assertSame( '<meta property="og:url" content="https://arlhockey.ca/a?b=1&amp;c=2">', $primary );
+	}
+
+	/**
+	 * The Open Graph URL is escaped as an attribute value.
+	 */
+	public function test_og_url_replacement_is_escaped(): void {
+		$out = arl_dr_point_og_url( "<meta property='og:url' content='https://www.rookiehockey.ca/x'>", 'https://arlhockey.ca/x?a=1&b="2"' );
+
+		$this->assertSame( "<meta property='og:url' content='https://arlhockey.ca/x?a=1&amp;b=&quot;2&quot;'>", $out );
 	}
 
 	/**
