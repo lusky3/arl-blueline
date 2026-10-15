@@ -1254,7 +1254,8 @@ const BLUELINE_HOMEPAGE_STANDINGS_MAX_TABS = 12;
  * there are several.
  *
  * @param string $state Season state.
- * @return array<int, array{id:int, label:string}>
+ * @return array<int, array{id:int, label:string, short:string, full:string}> `label` sorts;
+ *         `short`/`full` are the tab's text (blueline_homepage_standings_tab_names()).
  */
 function blueline_homepage_current_standings_tables( string $state ): array {
 	if ( ! post_type_exists( 'sp_table' ) || ! taxonomy_exists( 'sp_season' ) ) {
@@ -1309,7 +1310,7 @@ function blueline_homepage_current_standings_tables( string $state ): array {
 		$tables[] = array(
 			'id'    => (int) $candidate_id,
 			'label' => blueline_homepage_standings_table_label( $title ),
-		);
+		) + blueline_homepage_standings_tab_names( $title );
 	}
 
 	return blueline_homepage_standings_tables_sort( $tables );
@@ -1343,11 +1344,11 @@ function blueline_homepage_standings_tables_sort( array $tables ): array {
 }
 
 /**
- * The tab label for one sp_table title: everything before the "|" that
+ * The sort key for one sp_table title: everything before the "|" that
  * separates division from season (e.g. "Division 1 | S2026" -> "Division
- * 1"), with a leading "Division "/"Group " dropped so the tab itself just
- * reads "1"/"A" -- the prefix is redundant once every tab in the strip is
- * already a division/group. A title matching neither convention (e.g. the
+ * 1"), with a leading "Division "/"Group " dropped so it reads "1"/"A" and
+ * sorts naturally. The tab's own text comes from
+ * blueline_homepage_standings_tab_names(). A title matching neither convention (e.g. the
  * archive's older "Open Division | S2019") falls back to the text before
  * "|" unchanged, so a tab is never silently blank.
  *
@@ -1366,6 +1367,33 @@ function blueline_homepage_standings_table_label( string $title ): string {
 	}
 
 	return $label;
+}
+
+/**
+ * A division tab's visible text and its full name for assistive tech: "Div 3"
+ * and "Division 3" for a "Division 3 | <Season>" table, so five chips stay
+ * compact on a phone while each radio is still announced as a division. Any
+ * other convention ("Group A", "Open Division") uses its own name for both.
+ *
+ * @param string $title Full sp_table post title.
+ * @return array{short:string, full:string}
+ */
+function blueline_homepage_standings_tab_names( string $title ): array {
+	$full = trim( explode( '|', $title, 2 )[0] );
+
+	if ( preg_match( '/^Division\s+(.+)$/i', $full, $matches ) ) {
+		return array(
+			/* translators: %s: division number or letter, e.g. "3". Short form for a small tab. */
+			'short' => sprintf( __( 'Div %s', 'blueline' ), $matches[1] ),
+			/* translators: %s: division number or letter, e.g. "3". */
+			'full'  => sprintf( __( 'Division %s', 'blueline' ), $matches[1] ),
+		);
+	}
+
+	return array(
+		'short' => $full,
+		'full'  => $full,
+	);
 }
 
 /**
@@ -1413,7 +1441,8 @@ function blueline_homepage_module_standings_snippet() {
 
 		$panels[] = array(
 			'id'    => $table['id'],
-			'label' => $table['label'],
+			'short' => $table['short'],
+			'full'  => $table['full'],
 			'html'  => $table_html,
 		);
 	}
@@ -1454,43 +1483,35 @@ function blueline_homepage_module_standings_snippet() {
  * (remembers the division a visitor last picked) that this markup does not
  * depend on.
  *
- * Radios, labels, and panels are deliberately flat siblings of the same
- * wrapper, not nested inside separate "tab list" / "panel list"
- * containers: assets/src/css/homepage.css's :nth-of-type pairing (the only
- * way to match "this panel" to "that radio" in pure CSS without knowing
- * sp_table post ids in advance) requires each pairing's radio and panel to
- * both be reachable via the `~` general sibling combinator, which only
- * matches elements sharing a parent. That same constraint rules out
- * wrapping just the radios in a <fieldset> (a panel outside it could no
- * longer be reached via `~` from its own radio) or putting `role=
- * "radiogroup"` on this function's own outermost element (every division's
- * full standings table would then sit inside the announced group's
- * boundary alongside the actual controls). Same-`name` native radios are
- * already exposed as a group to assistive tech with no role needed; the
- * screen-reader-text span below gives each radio context via
- * aria-describedby (A11Y-10: as a bare sibling it named nothing, and each
- * radio's own label is just the division number).
+ * The radios and their labels sit in a <fieldset> whose legend names the
+ * group; the panels are siblings of that fieldset, not inside it, so the
+ * announced group holds only the controls. assets/src/css/homepage.css pairs
+ * radio N with panel N by position (:nth-of-type, since sp_table post ids
+ * are not known in advance), labels with `~` inside the fieldset and panels
+ * with :has() on the wrapper. Each radio's accessible name is the full
+ * "Division N" while its chip shows "Div N" (blueline_homepage_standings_tab_names()).
  *
- * @param array<int, array{id:int, label:string, html:string}> $panels At least 2 entries.
+ * @param array<int, array{id:int, short:string, full:string, html:string}> $panels At least 2 entries.
  */
 function blueline_homepage_standings_tabs( array $panels ) {
 	?>
 	<div class="bl-standings-tabs">
-		<span class="screen-reader-text" id="bl-standings-tabs-desc"><?php esc_html_e( 'Choose a division', 'blueline' ); ?></span>
-		<?php foreach ( $panels as $index => $panel ) : ?>
-			<input
-				type="radio"
-				name="bl-standings-tab"
-				id="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>"
-				class="bl-standings-tabs__input"
-				aria-describedby="bl-standings-tabs-desc"
-				value="<?php echo esc_attr( $panel['id'] ); ?>"
-				<?php checked( 0 === $index ); ?>
-			>
-			<label class="bl-standings-tabs__label" for="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>">
-				<span class="bl-skew"><span><?php echo esc_html( $panel['label'] ); ?></span></span>
-			</label>
-		<?php endforeach; ?>
+		<fieldset class="bl-standings-tabs__group">
+			<legend class="screen-reader-text"><?php esc_html_e( 'Choose a division', 'blueline' ); ?></legend>
+			<?php foreach ( $panels as $index => $panel ) : ?>
+				<input
+					type="radio"
+					name="bl-standings-tab"
+					id="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>"
+					class="bl-standings-tabs__input"
+					value="<?php echo esc_attr( $panel['id'] ); ?>"
+					<?php checked( 0 === $index ); ?>
+				>
+				<label class="bl-standings-tabs__label" for="bl-standings-tab-<?php echo esc_attr( $panel['id'] ); ?>">
+					<span class="bl-skew"><span><?php blueline_homepage_standings_tab_text( $panel['short'], $panel['full'] ); ?></span></span>
+				</label>
+			<?php endforeach; ?>
+		</fieldset>
 		<?php foreach ( $panels as $panel ) : ?>
 			<div class="bl-standings-tabs__panel">
 				<?php echo $panel['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SportsPress's own shortcode output; see blueline_homepage_module_standings_snippet()'s own comment on why this is not wp_kses_post()'d. ?>
@@ -1498,6 +1519,22 @@ function blueline_homepage_standings_tabs( array $panels ) {
 		<?php endforeach; ?>
 	</div>
 	<?php
+}
+
+/**
+ * Print a division tab's text: the short form on screen and the full name
+ * for assistive tech, or the name alone when the two are the same.
+ *
+ * @param string $short Visible text, e.g. "Div 3".
+ * @param string $full  Accessible name, e.g. "Division 3".
+ */
+function blueline_homepage_standings_tab_text( string $short, string $full ) {
+	if ( $short === $full ) {
+		echo esc_html( $full );
+		return;
+	}
+
+	echo '<span aria-hidden="true">' . esc_html( $short ) . '</span><span class="screen-reader-text">' . esc_html( $full ) . '</span>';
 }
 
 /**

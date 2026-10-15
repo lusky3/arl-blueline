@@ -96,7 +96,7 @@ test.describe( 'Homepage standings module, with more than one division seeded', 
 		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
 		const tabs = page.locator( '.bl-standings-tabs' );
-		await tabs.getByRole( 'radio', { name: '2' } ).check( { force: true } );
+		await tabs.getByRole( 'radio', { name: 'Division 2', exact: true } ).check( { force: true } );
 
 		await expect(
 			page.getByText( `Division 2 | ${ seasonLabel }`, { exact: false } )
@@ -112,7 +112,7 @@ test.describe( 'Homepage standings module, with more than one division seeded', 
 		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 
 		const tabs = page.locator( '.bl-standings-tabs' );
-		await tabs.getByRole( 'radio', { name: '2' } ).check( { force: true } );
+		await tabs.getByRole( 'radio', { name: 'Division 2', exact: true } ).check( { force: true } );
 
 		await assertNoA11yViolations( page, 'homepage, division 2 selected' );
 	} );
