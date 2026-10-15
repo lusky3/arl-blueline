@@ -8,6 +8,54 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.1.6]
+
+Ships with blueline-core plugin 0.1.3. Install the plugin first (see Upgrade notes). This is the first release
+signed with the league's release key.
+
+### Changed
+- **My Account tab names and page headings.** The tabs now read My Registrations, My Address, Change My Details and
+  (only when WooCommerce Subscriptions is active) My Installments, and every account page is headed with exactly its
+  tab's name. Before, "My Registrations" opened a page titled "Registrations" and "My Installments" one titled
+  "Installments". The names now come from the Blueline Core plugin, so the site Code Snippet that used to supply them
+  is no longer needed. Page addresses do not change; the dashboard, order pages and other pages without a tab keep
+  their own titles.
+- **One shared "current season".** Everything season-scoped now follows SportsPress > Settings > General > Current
+  Season: the homepage standings, team-page games, roster stat columns, My Team record and division, My Season stats,
+  the "find my player profile" list and the team and player page descriptions. Before, each of these guessed the
+  season from the schedule on its own, and two of the copies could disagree. If the setting is empty or names a season
+  that no longer exists, the site falls back to the old rule (the season of the next game, or of the last game
+  played), so nothing breaks. Registration is not affected: the home page hero, the Register page and the offers still
+  follow the registration products.
+- During playoffs, My Season stats, roster stat columns, team-page games and the page descriptions use the regular
+  season (the homepage standings still switch to the playoff tables, and team pages still list the playoff games).
+- The theme now asks for Blueline Core 0.1.2 or newer; with an older plugin, Site Health and an admin notice ask for
+  the update.
+- New `season` module in blueline-core holds the shared definition; the theme carries a matching copy that is used only
+  while the plugin is missing or older than this release.
+
+### Security
+- **Release signing is now on.** The league's public release key is built into the theme, so from this release every
+  release must carry a signature that verifies against it, or sites do not offer it. A site on 1.1.5 (no key yet)
+  accepts this first signed release on its checksum alone; every later update must be signed. After updating,
+  Tools > Site Health shows "Blueline theme updates are signed and verified". See `docs/RELEASING.md` ("Release
+  signing").
+
+### Upgrade notes
+- **Install the blueline-core plugin 0.1.3 by hand first.** The plugin has no updater: download
+  `blueline-core-0.1.3.zip` and its `.sha256` from the release, verify, and upload it over the old one (Plugins > Add
+  New > Upload, "Replace current with uploaded"; do not delete the plugin first, uninstalling removes its options).
+  Then update the theme from Dashboard > Updates. See `docs/RELEASING.md` (Plugin) and `docs/OPERATIONS.md` (Deploy
+  order).
+- **Then deactivate the Code Snippet "My Account Tab Modifications".** The tab labels and page headings now live in the
+  plugin, so the menu and headings read the same with the snippet off.
+- **Set SportsPress > Settings > General > Current Season on the day the new season starts PLAYING**, not when
+  registration opens (`docs/OPERATIONS.md`, "Current season"). Until it is changed the site keeps showing the season
+  the setting names.
+- **Check that the release is signed:** Tools > Site Health shows "Blueline theme updates are signed and verified".
+- The go-live check in `docs/OPERATIONS.md` now lists 15 blueline-core modules (the new `season` module is first);
+  each should report `LOADED`.
+
 ## [1.1.5]
 
 Ships with blueline-core plugin 0.1.2. Install the plugin first (see Upgrade notes).
