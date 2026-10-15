@@ -558,8 +558,41 @@ final class PlayerScheduleTest extends TestCase {
 		$this->assertSame( $location, $query['location'] );
 		$this->assertSame( '20261016T230000Z/20261017T003000Z', $query['dates'] );
 
-		$ics = rawurldecode( substr( blueline_sp_event_ics_url( 117513 ), strlen( 'data:text/calendar;charset=utf8,' ) ) );
-		$this->assertStringContainsString( "\r\nLOCATION:Mr. Lube and Tires Arena — Black\\, 1179 Northside Rd\\, Burlington\\, ON L7M\\, Canada\r\n", $ics );
+		$ics = rawurldecode( substr( blueline_sp_event_ics_url( 117513 ), strlen( 'data:text/calendar;charset=utf-8,' ) ) );
+		// The line is longer than 75 octets, so it is folded; unfold before comparing.
+		$this->assertStringContainsString( "\r\nLOCATION:Mr. Lube and Tires Arena — Black\\, 1179 Northside Rd\\, Burlington\\, ON L7M\\, Canada\r\n", str_replace( "\r\n ", '', $ics ) );
+	}
+
+	/**
+	 * The single-game .ics reads as plain text in a calendar app: the
+	 * texturized title is decoded (no `&#8217;`), a long name with an accent is
+	 * folded at 75 octets without cutting the letter, and the data URI says
+	 * `charset=utf-8`.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_single_game_ics_is_plain_text_folded_and_utf_8(): void {
+		$this->load_stubs();
+		$this->event( 4865, array( self::KINGS, self::DUCKS ) );
+		$state                         = &blueline_test_state();
+		$state['posts'][4865]['title'] = "Kings vs Ducks (Dan&#8217;s Welding Caf\u{e9} Z\u{fc}rich Hockey Club Memorial Tournament Final)";
+
+		$uri = blueline_sp_event_ics_url( 4865 );
+
+		$this->assertStringStartsWith( 'data:text/calendar;charset=utf-8,', $uri );
+
+		$ics = rawurldecode( substr( $uri, strlen( 'data:text/calendar;charset=utf-8,' ) ) );
+
+		foreach ( explode( "\r\n", $ics ) as $line ) {
+			$this->assertLessThanOrEqual( 75, strlen( $line ), 'line: ' . $line );
+			$this->assertTrue( mb_check_encoding( $line, 'UTF-8' ) );
+		}
+
+		$unfolded = str_replace( "\r\n ", '', $ics );
+		$this->assertStringContainsString( "SUMMARY:Kings vs Ducks (Dan\u{2019}s Welding Caf\u{e9} Z\u{fc}rich Hockey Club Memorial Tournament Final)\r\n", $unfolded );
+		$this->assertStringNotContainsString( '&#', $unfolded );
+
+		parse_str( (string) wp_parse_url( blueline_sp_event_calendar_url( 4865 ), PHP_URL_QUERY ), $query );
+		$this->assertStringNotContainsString( '&#', $query['text'], 'the Google link gets the plain title too' );
 	}
 
 	/**

@@ -2669,6 +2669,18 @@ if ( ! function_exists( 'wp_unschedule_event' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_using_ext_object_cache' ) ) {
+	/**
+	 * Stand-in for wp_using_ext_object_cache(): false unless a test sets
+	 * $GLOBALS['bl_test_ext_object_cache'] to model a persistent cache.
+	 *
+	 * @return bool
+	 */
+	function wp_using_ext_object_cache() {
+		return ! empty( $GLOBALS['bl_test_ext_object_cache'] );
+	}
+}
+
 // -----------------------------------------------------------------------
 // Task 7 (Appearance -> Blueline admin page) additions below. Every stub
 // in this block exists because inc/settings/page.php is the first file in
@@ -2899,6 +2911,20 @@ if ( ! function_exists( 'admin_url' ) ) {
 	 */
 	function admin_url( $path = '' ) {
 		return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'wp_nonce_url' ) ) {
+	/**
+	 * Stand-in for wp_nonce_url(): appends the same deterministic token
+	 * wp_create_nonce() produces.
+	 *
+	 * @param string $url    URL.
+	 * @param string $action Nonce action.
+	 * @return string
+	 */
+	function wp_nonce_url( $url, $action = -1 ) {
+		return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . '_wpnonce=' . wp_create_nonce( $action );
 	}
 }
 

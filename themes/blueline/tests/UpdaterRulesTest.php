@@ -148,9 +148,21 @@ final class UpdaterRulesTest extends TestCase {
 			'403 plain'         => array( 403, array(), 'unauthorized' ),
 			'403 no quota left' => array( 403, array( 'x-ratelimit-remaining' => '0' ), 'rate_limited' ),
 			'403 quota left'    => array( 403, array( 'x-ratelimit-remaining' => '12' ), 'unauthorized' ),
+			'403 secondary'     => array(
+			403,
+			array(
+			'x-ratelimit-remaining' => '42',
+			'retry-after'           => '60',
+				),
+				'rate_limited',
+			), // phpcs:ignore Universal.Arrays.MixedKeyedUnkeyedArray.Found -- one-line fixture.
+			'403 retry-after'   => array( 403, array( 'retry-after' => '30' ), 'rate_limited' ),
+			'403 blank retry'   => array( 403, array( 'retry-after' => '' ), 'unauthorized' ),
 			'429'               => array( 429, array(), 'rate_limited' ),
+			'429 retry-after'   => array( 429, array( 'retry-after' => '60' ), 'rate_limited' ),
 			'500'               => array( 500, array(), 'error' ),
-			'404'               => array( 404, array(), 'error' ),
+			'404'               => array( 404, array(), 'not_found' ),
+			'404 with quota'    => array( 404, array( 'x-ratelimit-remaining' => '50' ), 'not_found' ),
 		);
 	}
 

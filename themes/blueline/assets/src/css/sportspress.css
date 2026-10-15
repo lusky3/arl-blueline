@@ -1150,13 +1150,12 @@ table.sp-event-statistics.sp-data-table {
  *   anything sitting on it uses --bl-team-on-primary, which was computed
  *   against the real contrast formula.
  *
- *   BOUNDARIES AND TEXT must use --bl-team-accent, which is the team's hue
- *   darkened until it clears 4.5:1 on paper. It is deliberately absent for
- *   achromatic teams (a darkened white is just grey, which is nobody's
- *   identity), so those fall back to the theme's own accent and stay legible.
- *
- * Using --bl-team-primary for a border would put a white 1.04:1 line on
- * paper for Canadiens. That is the mistake this split prevents.
+ *   BOUNDARIES AND TEXT must not use --bl-team-primary. A team colour can be
+ *   near-white (a white primary is 1.04:1 on paper), so a border or text in it
+ *   can vanish. Use the theme's own tokens there. (A paper-derived
+ *   --bl-team-accent used to be printed for this and was never read by any
+ *   rule, so it was removed; if a team-coloured border or text is wanted,
+ *   derive it against the surface it sits on, light AND dark.)
  */
 
 /*
@@ -1189,8 +1188,7 @@ table.sp-event-statistics.sp-data-table {
  * make the crest plate invisible against its own background. The ring uses
  * the same on-primary colour, guaranteed (by construction) to contrast
  * against the primary-filled band regardless of how light or dark that
- * primary is, unlike --bl-team-accent (which is only derived against the
- * theme's paper ground, not against a team's own colour).
+ * primary is.
  */
 .bl-sp-hero--team .bl-sp-hero__crest {
 	padding: var(--bl-space-2);
@@ -1211,14 +1209,12 @@ table.sp-event-statistics.sp-data-table {
  *
  * The team hero emits no flag element, because .bl-sp-hero__flag comes only
  * from the PLAYER hero (inc/sportspress.php), so the rule that used to sit
- * here matched nothing. It was also unsound: it painted --bl-team-accent,
- * which is derived for contrast against --bl-paper, on top of a
- * --bl-team-primary fill. For any dark team colour
- * blueline_darken_to_contrast() returns its input
- * unchanged, so the chip rendered at 1.00:1 against its own background.
+ * here matched nothing. It was also unsound: it painted a colour derived for
+ * contrast against --bl-paper on top of a --bl-team-primary fill, so for any
+ * dark team colour the chip rendered at 1.00:1 against its own background.
  *
- * If the team hero ever gains division chips, derive a SECOND accent against
- * --bl-team-primary rather than reusing the paper-derived one.
+ * If the team hero ever gains division chips, derive their colour against
+ * --bl-team-primary, never against the paper ground.
  */
 
 .bl-sp-hero__teams {

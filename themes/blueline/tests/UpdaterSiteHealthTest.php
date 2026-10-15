@@ -30,15 +30,17 @@ final class UpdaterSiteHealthTest extends TestCase {
 	 *
 	 * @param string                    $status    Status.
 	 * @param array<string, mixed>|null $candidate Candidate.
+	 * @param array<string, mixed>|null $rejected  A newer release that cannot be installed.
 	 * @return array<string, mixed>
 	 */
-	private function state( string $status, ?array $candidate = null ): array {
+	private function state( string $status, ?array $candidate = null, ?array $rejected = null ): array {
 		return array(
 			'status'    => $status,
 			'channel'   => 'beta',
 			'installed' => '1.0.1',
 			'checked'   => 0,
 			'candidate' => $candidate,
+			'rejected'  => $rejected,
 		);
 	}
 
@@ -50,6 +52,7 @@ final class UpdaterSiteHealthTest extends TestCase {
 	public static function verdicts(): array {
 		return array(
 			'unauthorized' => array( 'unauthorized', null, 'critical', 'red' ),
+			'not found'    => array( 'not_found', null, 'critical', 'red' ),
 			'rate limited' => array( 'rate_limited', null, 'recommended', 'orange' ),
 			'error'        => array( 'error', null, 'recommended', 'orange' ),
 			'ok'           => array( 'ok', null, 'good', 'blue' ),
@@ -108,6 +111,99 @@ final class UpdaterSiteHealthTest extends TestCase {
 		$this->assertStringContainsString( 'BLUELINE_GITHUB_TOKEN', $description );
 		$this->assertStringContainsString( 'expire', $description );
 		$this->assertStringContainsString( 'no longer be public', $description );
+	}
+
+	/**
+	 * A repository that is gone or private is not a token problem and must not say so.
+	 */
+	public function test_not_found_message_is_not_about_the_token(): void {
+		$description = blueline_updater_health_result( $this->state( 'not_found' ) )['description'];
+
+		$this->assertStringContainsString( 'could not find', $description );
+		$this->assertStringContainsString( 'private', $description );
+		$this->assertStringContainsString( 'not a token problem', $description );
+		$this->assertStringNotContainsString( 'revoked', $description );
+	}
+
+	/**
+	 * A newer release whose files are missing or broken is a warning, never "up to date".
+	 */
+	public function test_a_rejected_newer_release_is_reported_instead_of_up_to_date(): void {
+		foreach ( array( 'assets', 'manifest' ) as $reason ) {
+			$result = blueline_updater_health_result(
+				$this->state(
+					'ok',
+					null,
+					array(
+						'version' => '1.1.5',
+						'reason'  => $reason,
+					)
+				)
+			); // phpcs:ignore Universal.Arrays.MixedKeyedUnkeyedArray.Found -- one-line fixture.
+
+			$this->assertSame( 'recommended', $result['status'], $reason );
+			$this->assertSame( 'orange', $result['badge']['color'], $reason );
+			$this->assertStringContainsString( '1.1.5', $result['description'], $reason );
+			$this->assertStringContainsString( 'not being offered', $result['description'], $reason );
+			$this->assertStringNotContainsString( 'up to date', $result['description'], $reason );
+		}
+
+		$this->assertStringContainsString(
+			'zip or update manifest was not uploaded',
+			blueline_updater_health_result(
+				$this->state(
+					'ok',
+					null,
+					array(
+						'version' => '1.1.5',
+						'reason'  => 'assets',
+					)
+				)
+			)['description']
+		); // phpcs:ignore Universal.Arrays.MixedKeyedUnkeyedArray.Found -- one-line fixture.
+		$this->assertStringContainsString(
+			'manifest is missing, unreadable',
+			blueline_updater_health_result(
+				$this->state(
+					'ok',
+					null,
+					array(
+						'version' => '1.1.5',
+						'reason'  => 'manifest',
+					)
+				)
+			)['description']
+		); // phpcs:ignore Universal.Arrays.MixedKeyedUnkeyedArray.Found -- one-line fixture.
+	}
+
+	/**
+	 * With an older release still offered, the warning says so as well.
+	 */
+	public function test_a_rejected_release_still_mentions_the_available_older_one(): void {
+		$result = blueline_updater_health_result(
+			$this->state(
+				'ok',
+				array( 'version' => '1.1.4' ),
+				array(
+					'version' => '1.1.5',
+					'reason'  => 'manifest',
+				)
+			)
+		); // phpcs:ignore Universal.Arrays.MixedKeyedUnkeyedArray.Found -- one-line fixture.
+
+		$this->assertSame( 'recommended', $result['status'] );
+		$this->assertStringContainsString( '1.1.5', $result['description'] );
+		$this->assertStringContainsString( 'Blueline 1.1.4 is still available', $result['description'] );
+	}
+
+	/**
+	 * A state without the key (cached by an older build) still reads as healthy.
+	 */
+	public function test_a_cached_state_without_the_rejected_key_is_unchanged(): void {
+		$state = $this->state( 'ok' );
+		unset( $state['rejected'] );
+
+		$this->assertSame( 'good', blueline_updater_health_result( $state )['status'] );
 	}
 
 	/**

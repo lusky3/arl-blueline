@@ -768,12 +768,121 @@ function blueline_sp_event_calendar_url( $event_id ) {
 	// and a location now carries spaces, commas and sometimes an "&".
 	$args = array(
 		'action'   => 'TEMPLATE',
-		'text'     => rawurlencode( blueline_sp_title( $event_id ) ),
+		'text'     => rawurlencode( blueline_sp_event_calendar_title( $event_id ) ),
 		'dates'    => gmdate( 'Ymd\THis\Z', $bounds['start'] ) . '/' . gmdate( 'Ymd\THis\Z', $bounds['end'] ),
 		'location' => rawurlencode( $bounds['location'] ),
 	);
 
 	return add_query_arg( $args, 'https://calendar.google.com/calendar/render' );
+}
+
+/**
+ * A game's title as plain text for a calendar entry.
+ *
+ * The display title is HTML: WordPress texturizes "Dan's" into `Dan&#8217;s`,
+ * which a calendar app would show literally. Tags are stripped and entities
+ * decoded to the real characters, then whitespace is collapsed, since a
+ * calendar summary is one line.
+ *
+ * @param int $event_id sp_event post ID.
+ * @return string
+ */
+function blueline_sp_event_calendar_title( $event_id ) {
+	$title = html_entity_decode( wp_strip_all_tags( (string) blueline_sp_title( $event_id ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+	return trim( (string) preg_replace( '/\s+/u', ' ', $title ) );
+}
+
+/**
+ * Escape a value for an iCalendar TEXT property (RFC 5545 section 3.3.11).
+ *
+ * Backslash first, so the characters this adds are never themselves
+ * re-escaped by the replacements after it. A bare carriage return is dropped:
+ * it would end the content line early.
+ *
+ * @param string $text Plain text.
+ * @return string
+ */
+function blueline_ics_escape_text( $text ) {
+	$text = str_replace( array( "\r\n", "\r" ), "\n", (string) $text );
+	$text = str_replace( '\\', '\\\\', $text );
+
+	return str_replace( array( ',', ';', "\n" ), array( '\,', '\;', '\n' ), $text );
+}
+
+/**
+ * Fold one iCalendar content line to at most 75 octets per physical line
+ * (RFC 5545 section 3.1). Each continuation starts with one space, which counts
+ * toward its 75.
+ *
+ * Counted in octets, not characters, and never inside a multi-byte character:
+ * cutting "ü" in half would produce invalid UTF-8, which strict clients reject.
+ *
+ * @param string $line One unfolded content line, without its line ending.
+ * @return string The line with CRLF + space inserted at each fold.
+ */
+function blueline_ics_fold_line( $line ) {
+	$line = (string) $line;
+
+	if ( strlen( $line ) <= 75 ) {
+		return $line;
+	}
+
+	$chars = preg_split( '//u', $line, -1, PREG_SPLIT_NO_EMPTY );
+
+	if ( false === $chars ) {
+		return $line; // Not valid UTF-8: leave it rather than corrupt it further.
+	}
+
+	$out    = '';
+	$octets = 0;
+	$limit  = 75; // The first physical line; continuations get one less (their leading space).
+
+	foreach ( $chars as $char ) {
+		$size = strlen( $char );
+
+		if ( $octets + $size > $limit ) {
+			$out   .= "\r\n ";
+			$octets = 0;
+			$limit  = 74;
+		}
+
+		$out    .= $char;
+		$octets += $size;
+	}
+
+	return $out;
+}
+
+/**
+ * The text of a single-event VCALENDAR. Pure.
+ *
+ * @param array{summary:string, location:string, start:int, end:int, uid:string, host:string, stamp:int} $event The event.
+ * @return string CRLF-terminated, every line folded to 75 octets.
+ */
+function blueline_ics_single_event( array $event ) {
+	$lines = array(
+		'BEGIN:VCALENDAR',
+		'VERSION:2.0',
+		'PRODID:-//' . $event['host'] . '//Event//EN',
+		'BEGIN:VEVENT',
+		'UID:' . $event['uid'],
+		'DTSTAMP:' . gmdate( 'Ymd\THis\Z', $event['stamp'] ),
+		'DTSTART:' . gmdate( 'Ymd\THis\Z', $event['start'] ),
+		'DTEND:' . gmdate( 'Ymd\THis\Z', $event['end'] ),
+		'SUMMARY:' . blueline_ics_escape_text( $event['summary'] ),
+	);
+
+	if ( '' !== $event['location'] ) {
+		$lines[] = 'LOCATION:' . blueline_ics_escape_text( $event['location'] );
+	}
+
+	$lines[] = 'END:VEVENT';
+	$lines[] = 'END:VCALENDAR';
+
+	// CRLF line endings are RFC 5545, not a style choice -- some calendar
+	// clients reject a feed that uses bare \n instead.
+	return implode( "\r\n", array_map( 'blueline_ics_fold_line', $lines ) ) . "\r\n";
 }
 
 /**
@@ -803,37 +912,19 @@ function blueline_sp_event_ics_url( $event_id ) {
 		return '';
 	}
 
-	// RFC 5545 TEXT escaping: backslash first, so the characters this adds
-	// are never themselves re-escaped by the following replacements.
-	$escape = static function ( $text ) {
-		$text = str_replace( '\\', '\\\\', (string) $text );
-		return str_replace( array( ',', ';', "\n" ), array( '\,', '\;', '\n' ), $text );
-	};
+	$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
 
-	$host = wp_parse_url( home_url(), PHP_URL_HOST );
-
-	$lines = array(
-		'BEGIN:VCALENDAR',
-		'VERSION:2.0',
-		'PRODID:-//' . $host . '//Event//EN',
-		'BEGIN:VEVENT',
-		'UID:sp-event-' . $event_id . '@' . $host,
-		'DTSTAMP:' . gmdate( 'Ymd\THis\Z' ),
-		'DTSTART:' . gmdate( 'Ymd\THis\Z', $bounds['start'] ),
-		'DTEND:' . gmdate( 'Ymd\THis\Z', $bounds['end'] ),
-		'SUMMARY:' . $escape( blueline_sp_title( $event_id ) ),
+	$ics = blueline_ics_single_event(
+		array(
+			'summary'  => blueline_sp_event_calendar_title( $event_id ),
+			'location' => (string) $bounds['location'],
+			'start'    => $bounds['start'],
+			'end'      => $bounds['end'],
+			'uid'      => 'sp-event-' . $event_id . '@' . $host,
+			'host'     => $host,
+			'stamp'    => time(),
+		)
 	);
 
-	if ( $bounds['location'] ) {
-		$lines[] = 'LOCATION:' . $escape( $bounds['location'] );
-	}
-
-	$lines[] = 'END:VEVENT';
-	$lines[] = 'END:VCALENDAR';
-
-	// CRLF line endings are RFC 5545, not a style choice -- some calendar
-	// clients reject a feed that uses bare \n instead.
-	$ics = implode( "\r\n", $lines ) . "\r\n";
-
-	return 'data:text/calendar;charset=utf8,' . rawurlencode( $ics );
+	return 'data:text/calendar;charset=utf-8,' . rawurlencode( $ics );
 }

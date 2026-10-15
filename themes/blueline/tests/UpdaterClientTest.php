@@ -207,6 +207,108 @@ final class UpdaterClientTest extends TestCase {
 		$this->assertSame( '1.1.0', $state['candidate']['version'] );
 		$this->assertSame( $this->asset_url( 1, false ), $state['candidate']['package'] );
 		$this->assertSame( 'https://github.com/lusky3/arl-blueline/releases/tag/v1.1.0', $state['candidate']['release_url'] );
+		$this->assertSame(
+			array(
+				'version' => '1.2.0',
+				'reason'  => 'manifest',
+			),
+			$state['rejected'],
+			'the skipped newer release is reported, not forgotten'
+		);
+	}
+
+	/**
+	 * A newest release uploaded without its manifest asset is reported, with nothing
+	 * to offer; the state is not a plain "up to date".
+	 */
+	#[RunInSeparateProcess]
+	public function test_newest_release_without_a_manifest_asset_is_reported(): void {
+		$broken           = $this->release( '1.2.0', 2 );
+		$broken['assets'] = array_slice( $broken['assets'], 0, 1 );
+		$this->expect_list( array( $broken ) );
+
+		$state = blueline_updater_state();
+
+		$this->assertSame( 'ok', $state['status'] );
+		$this->assertNull( $state['candidate'] );
+		$this->assertSame(
+			array(
+				'version' => '1.2.0',
+				'reason'  => 'assets',
+			),
+			$state['rejected']
+		);
+		$this->assertSame( HOUR_IN_SECONDS, $GLOBALS['bl_test_site_transient_ttl'][ BLUELINE_UPDATER_CACHE_KEY ], 'rechecked hourly so a fixed upload is noticed' );
+	}
+
+	/**
+	 * A newest release whose manifest does not validate, with nothing older to fall
+	 * back to, is reported as rejected too.
+	 */
+	#[RunInSeparateProcess]
+	public function test_newest_release_with_a_broken_manifest_is_reported(): void {
+		$this->expect_list( array( $this->release( '1.2.0', 2 ) ) );
+		$this->expect_asset( $this->asset_url( 2, true ), '{"version":"1.2.0"}' );
+
+		$state = blueline_updater_state();
+
+		$this->assertNull( $state['candidate'] );
+		$this->assertSame( 'manifest', $state['rejected']['reason'] );
+		$this->assertSame( '1.2.0', $state['rejected']['version'] );
+	}
+
+	/**
+	 * A manifest asset that 404s is a broken release; a server error is only a failed check.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_missing_manifest_is_rejected_but_a_server_error_is_just_an_error(): void {
+		$this->expect_list( array( $this->release( '1.2.0', 2 ) ) );
+		blueline_test_http_expect( $this->asset_url( 2, true ), array( 'response' => array( 'code' => 404 ) ) );
+
+		$state = blueline_updater_state( true );
+
+		$this->assertSame( 'ok', $state['status'] );
+		$this->assertSame( 'manifest', $state['rejected']['reason'] );
+
+		blueline_test_reset();
+		$this->expect_list( array( $this->release( '1.2.0', 2 ) ) );
+		blueline_test_http_expect( $this->asset_url( 2, true ), array( 'response' => array( 'code' => 500 ) ) );
+
+		$state = blueline_updater_state( true );
+
+		$this->assertSame( 'error', $state['status'] );
+		$this->assertNull( $state['rejected'] );
+	}
+
+	/**
+	 * Once a newer release is offered, an older broken one is not news.
+	 */
+	#[RunInSeparateProcess]
+	public function test_an_older_broken_release_is_not_reported_when_a_newer_one_is_offered(): void {
+		$old_broken           = $this->release( '1.1.0', 1 );
+		$old_broken['assets'] = array();
+		$this->expect_list( array( $this->release( '1.2.0', 2 ), $old_broken ) );
+		$this->expect_asset( $this->asset_url( 2, true ), $this->manifest_json( '1.2.0', 'zip-1.2.0' ) );
+
+		$state = blueline_updater_state();
+
+		$this->assertSame( '1.2.0', $state['candidate']['version'] );
+		$this->assertNull( $state['rejected'] );
+		$this->assertSame( 12 * HOUR_IN_SECONDS, $GLOBALS['bl_test_site_transient_ttl'][ BLUELINE_UPDATER_CACHE_KEY ] );
+	}
+
+	/**
+	 * A post-release tag is not a release at all: nothing is offered and nothing is reported.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_post_release_suffix_tag_is_ignored_entirely(): void {
+		$this->expect_list( array( $this->release( BLUELINE_VERSION . '-p1', 1 ) ) );
+
+		$state = blueline_updater_state();
+
+		$this->assertSame( 'ok', $state['status'] );
+		$this->assertNull( $state['candidate'] );
+		$this->assertNull( $state['rejected'] );
 	}
 
 	/**
@@ -267,6 +369,16 @@ final class UpdaterClientTest extends TestCase {
 			'401'              => array( 401, array(), 'unauthorized' ),
 			'403'              => array( 403, array(), 'unauthorized' ),
 			'403 rate limited' => array( 403, array( 'x-ratelimit-remaining' => '0' ), 'rate_limited' ),
+			'403 secondary'    => array(
+			403,
+			array(
+			'x-ratelimit-remaining' => '42',
+			'retry-after'           => '60',
+				),
+				'rate_limited',
+			), // phpcs:ignore Universal.Arrays.MixedKeyedUnkeyedArray.Found -- one-line fixture.
+			'429 secondary'    => array( 429, array( 'retry-after' => '60' ), 'rate_limited' ),
+			'404'              => array( 404, array(), 'not_found' ),
 			'500'              => array( 500, array(), 'error' ),
 		);
 	}

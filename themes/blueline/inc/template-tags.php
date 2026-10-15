@@ -631,26 +631,41 @@ function blueline_contact_url(): string {
 }
 
 /**
- * The path part of a request URI, for building a "same page on the classic site" link.
+ * The path and query of a request URI, for building a "same page on the classic site" link.
  *
- * Drops the query string and any leading "/classic" (a page already reached through the switch route), and
- * always returns a path that starts with "/".
+ * Drops any leading "/classic" (a page already reached through the switch route) and the `theme-switch`
+ * argument (it belongs to the old Theme Switcha cookie link and would flip the theme again), keeps every other
+ * query argument so a filtered or paginated page opens the same way on the classic site, and always returns a
+ * path that starts with "/". Only visible ASCII survives in the query, so nothing can inject a header or break
+ * out of the attribute it is printed in; the caller still escapes it for output.
  *
  * @param string $uri    Request URI.
  * @param string $prefix The router's route prefix, normally "/classic".
  * @return string
  */
 function blueline_classic_path( string $uri, string $prefix = '/classic' ): string {
-	$path = (string) strstr( $uri . '?', '?', true );
-	$path = '/' . ltrim( $path, '/' );
-	$pre  = '/' . trim( $prefix, '/' );
+	$path  = (string) strstr( $uri . '?', '?', true );
+	$query = (string) substr( (string) strstr( $uri, '?' ), 1 );
+	$path  = '/' . ltrim( $path, '/' );
+	$pre   = '/' . trim( $prefix, '/' );
 	if ( strtolower( $pre ) === strtolower( $path ) ) {
-		return '/';
-	}
-	if ( 0 === stripos( $path, $pre . '/' ) ) {
+		$path = '/';
+	} elseif ( 0 === stripos( $path, $pre . '/' ) ) {
 		$path = substr( $path, strlen( $pre ) );
 	}
-	return $path;
+
+	// A fragment is never sent to the server, but strip it from a hand-built URI anyway.
+	$query = (string) strstr( $query . '#', '#', true );
+	$query = (string) preg_replace( '/[^\x21-\x7E]/', '', $query );
+	$keep  = array();
+	foreach ( explode( '&', $query ) as $pair ) {
+		if ( '' === $pair || 'theme-switch' === urldecode( (string) strstr( $pair . '=', '=', true ) ) ) {
+			continue;
+		}
+		$keep[] = $pair;
+	}
+
+	return $path . ( $keep ? '?' . implode( '&', $keep ) : '' );
 }
 
 /**
