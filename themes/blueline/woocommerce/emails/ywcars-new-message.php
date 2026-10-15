@@ -22,6 +22,9 @@
  * is preserved exactly from the stock template -- only the OUTPUT markup
  * changed.
  *
+ * Copied from YITH Advanced Refund System 1.1.5: yith-advanced-refund-system-for-woocommerce/templates/emails/ywcars-new-message.php
+ * The original has no @version, so the check script compares the plugin version.
+ *
  * @package blueline
  */
 
@@ -41,7 +44,7 @@ $request     = new YITH_Refund_Request( $request_id );
 $customer_id = $request->customer_id;
 $customer    = new WP_User( $customer_id );
 $order_id    = $request->order_id;
-$order       = wc_get_order( $order_id );
+$order       = wc_get_order( $order_id ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- local to wc_get_template()'s include scope, the same name the plugin's original uses.
 
 do_action( 'woocommerce_email_header', $email_heading, $email );
 
@@ -54,9 +57,9 @@ if ( $email->is_customer_email() ) {
 	$customer_name = version_compare( WC()->version, '3.0.0', '<' ) ? $request->get_customer_link_legacy() : $request->get_customer_link();
 	$author        = ucwords( $customer->display_name );
 
-	$order_post              = get_post( $order_id );
-	$order_post_type_object  = get_post_type_object( $order_post->post_type );
-	$order_url               = ( $order_post_type_object && $order_post_type_object->_edit_link )
+	$order_post             = get_post( $order_id );
+	$order_post_type_object = get_post_type_object( $order_post->post_type );
+	$order_url              = ( $order_post_type_object && $order_post_type_object->_edit_link )
 		? admin_url( sprintf( $order_post_type_object->_edit_link . '&action=edit', $order_id ) )
 		: '';
 

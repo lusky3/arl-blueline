@@ -2,26 +2,34 @@
 /**
  * Customer processing renewal order email
  *
- * @author  Brent Shepherd
+ * Blueline override: the stock template with installment wording in place
+ * of "subscription renewal order". The edited string uses the blueline text
+ * domain; the rest is the original. When WooCommerce Subscriptions bumps the
+ * version below, re-copy the original and re-apply it
+ * (scripts/check-template-versions.sh).
+ *
+ * Copied from WooCommerce Subscriptions 8.4.0: woocommerce-subscriptions/templates/emails/customer-processing-renewal-order.php
+ *
  * @package WooCommerce_Subscriptions/Templates/Emails
- * @version 2.6.0
- *
- * My Edits: references of "subscription" changed to "installment"
- *
+ * @version 7.3.0 - Updated for WC core email improvements.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly
-}
+defined( 'ABSPATH' ) || exit;
 
-do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
+$email_improvements_enabled = wcs_is_wc_feature_enabled( 'email_improvements' );
 
-<?php /* translators: %s: Customer first name */ ?>
+do_action( 'woocommerce_email_header', $email_heading, $email );
+
+echo $email_improvements_enabled ? '<div class="email-introduction">' : '';
+
+/* translators: %s: Customer first name */ ?>
 <p><?php printf( esc_html__( 'Hi %s,', 'woocommerce-subscriptions' ), esc_html( $order->get_billing_first_name() ) ); ?></p>
 <?php /* translators: %s: Order number */ ?>
-<p><?php printf( esc_html__( 'Just to let you know — we\'ve received your league fee installment payment (#%s), and it is now being processed:', 'woocommerce-subscriptions' ), esc_html( $order->get_order_number() ) ); ?></p>
-
+<p><?php printf( esc_html__( 'Just to let you know &mdash; we\'ve received your league fee installment payment (#%s), and it is now being processed:', 'blueline' ), esc_html( $order->get_order_number() ) ); ?></p>
 <?php
+
+echo $email_improvements_enabled ? '</div>' : '';
+
 do_action( 'woocommerce_subscriptions_email_order_details', $order, $sent_to_admin, $plain_text, $email );
 
 do_action( 'woocommerce_email_order_meta', $order, $sent_to_admin, $plain_text, $email );
@@ -32,7 +40,9 @@ do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_
  * Show user-defined additional content - this is set in each email's settings.
  */
 if ( $additional_content ) {
+	echo $email_improvements_enabled ? '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td class="email-additional-content">' : '';
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
+	echo $email_improvements_enabled ? '</td></tr></table>' : '';
 }
 
 do_action( 'woocommerce_email_footer', $email );

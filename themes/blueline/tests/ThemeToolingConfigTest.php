@@ -87,7 +87,8 @@ final class ThemeToolingConfigTest extends TestCase {
 	}
 
 	/**
-	 * The vendor-code exclusions the lint always had are still there.
+	 * The vendor-code exclusions that remain are still there: build output and the two edited
+	 * vendor templates that are too far from WPCS to reformat here.
 	 */
 	public function test_ruleset_keeps_the_vendor_template_exclusions(): void {
 		$patterns = array_map( 'strval', (array) $this->ruleset()->xpath( '/ruleset/exclude-pattern' ) );
@@ -96,13 +97,26 @@ final class ThemeToolingConfigTest extends TestCase {
 			'/vendor/*',
 			'/node_modules/*',
 			'/assets/dist/*',
-			'/woocommerce/emails/*',
 			'/woocommerce/checkout/form-coupon\.php',
-			'/woocommerce/myaccount/store-credit\.php',
-			'/woocommerce/myaccount/dashboard-store-credit\.php',
 			'/woocommerce/myaccount/my-refund-requests\.php',
 		) as $expected ) {
 			$this->assertContains( $expected, $patterns, $expected );
+		}
+	}
+
+	/**
+	 * The email templates and the Store Credit dashboard section carry theme-authored copy re-applied
+	 * on top of the plugins' current originals, so they are linted like theme code rather than excluded.
+	 */
+	public function test_ruleset_lints_the_edited_email_and_store_credit_overrides(): void {
+		$patterns = array_map( 'strval', (array) $this->ruleset()->xpath( '/ruleset/exclude-pattern' ) );
+
+		foreach ( array(
+			'/woocommerce/emails/*',
+			'/woocommerce/myaccount/store-credit\.php',
+			'/woocommerce/myaccount/dashboard-store-credit\.php',
+		) as $linted ) {
+			$this->assertNotContains( $linted, $patterns, $linted . ' must be linted, not excluded' );
 		}
 	}
 }

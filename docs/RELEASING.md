@@ -11,11 +11,21 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
 ## How it fits together
 
 - `.github/workflows/release.yml` runs on a `v*` tag: **guard** (tag = `style.css`
-  `Version` = `BLUELINE_VERSION`, and `CHANGELOG.md` has a section for it) ->
+  `Version` = `BLUELINE_VERSION` = `package.json` `version`, and `CHANGELOG.md` has a section for it) ->
   **build** (`npm run build`, `npm run check`, zip, `manifest.json`) -> **publish**
   (`gh release create`; `--prerelease` when the tag has a `-` suffix).
 - `themes/blueline/.distignore` is the one list of files that never ship. The rsync
-  deploy and the release zip both read it.
+  deploy and the release zip both read it. Besides tests and build config it drops
+  the build inputs already compiled into `assets/dist/` (all of `assets/src/css/`,
+  every `assets/src/js/` file except the three `settings-*.js` scripts the settings
+  screen loads from source, the `assets/fonts/*.woff2` font sources, the empty
+  `assets/dist/*.js` stubs of CSS-only entries) and the node scripts in `tools/`.
+  `tools/*.json` and the OFL licence texts ship.
+- `scripts/release/package.sh` zips `git archive` of the tag, not the working tree,
+  so an untracked file in the checkout cannot reach a release and `assets/dist/` is the
+  committed build. Entries are sorted and mtimes/permissions normalised
+  (`SOURCE_DATE_EPOCH`, default: the tagged commit's time): the same tag gives the
+  same bytes.
 - `themes/blueline/inc/updater.php` (+ `updater-rules.php`, `updater-client.php`)
   checks GitHub, verifies the zip's sha256 against the manifest, and hands WordPress
   the package. Updates never touch `blueline_settings`, user/post meta or uploads.
@@ -32,9 +42,12 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
 
 ## Release procedure
 
-1. In a PR, set `Version:` in `themes/blueline/style.css` **and** `BLUELINE_VERSION`
-   in `themes/blueline/functions.php` to the same value, and add a `## X.Y.Z[-rc.N]`
-   section to `themes/blueline/CHANGELOG.md` (rename `## [Unreleased]`). Merge.
+1. In a PR, set `Version:` in `themes/blueline/style.css`, `BLUELINE_VERSION`
+   in `themes/blueline/functions.php` and `version` in `themes/blueline/package.json`
+   (plus the two root `version` fields of `package-lock.json`) to the same value, and add a `## [X.Y.Z]` (or
+   `## [X.Y.Z-rc.N]`) section to `themes/blueline/CHANGELOG.md` (rename
+   `## [Unreleased]`). The guard accepts the heading with or without the brackets;
+   the file uses brackets. Merge.
 2. Tag the merge commit: `git tag vX.Y.Z-rc.1 && git push origin vX.Y.Z-rc.1`.
    Wait for the workflow; the release appears as a pre-release.
 3. On staging (`beta`): Dashboard > Updates > Check again, install, check the site.
@@ -42,12 +55,14 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
    merge, tag `vX.Y.Z`. Production (`stable`) now offers it; click Update.
 
 The guard fails the workflow, publishing nothing, if the tag, `style.css`,
-`BLUELINE_VERSION` and `CHANGELOG.md` disagree.
+`BLUELINE_VERSION`, `package.json` and `CHANGELOG.md` disagree.
 
-Dry run without publishing (from the repo root, after `npm run build` in `themes/blueline`):
+Dry run without publishing (from the repo root, after `npm run build` in `themes/blueline`).
+Without a local tag, package the working tree instead:
 
     php scripts/release/guard.php v1.0.1
-    scripts/release/package.sh v1.0.1 /tmp/rel
+    BLUELINE_PACKAGE_FROM_WORKTREE=1 scripts/release/package.sh v1.0.1 /tmp/rel
+    unzip -Z1 /tmp/rel/blueline-1.0.1.zip
     php scripts/release/build-manifest.php v1.0.1 /tmp/rel/blueline-1.0.1.zip /tmp/rel
 
 ## Plugin (blueline-core)

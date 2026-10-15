@@ -36,6 +36,9 @@
  * untouched: only the surrounding prose and the box's own inline styles
  * changed.
  *
+ * Copied from PayPal for WooCommerce 4.6.15: paypal-for-woocommerce/template/emails/angelleye-customer-partial-paid-order.php
+ * The original has no @version, so the check script compares the plugin version.
+ *
  * @package blueline
  */
 

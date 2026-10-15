@@ -11,20 +11,17 @@
 	<exclude-pattern>/assets/dist/*</exclude-pattern>
 	<exclude-pattern>/.phpunit.result.cache</exclude-pattern>
 
-	<!-- woocommerce/ holds a mix of theme-authored overrides (linted) and files that really are vendor
-	     code this theme did not author (excluded, one by one):
-	     - emails/*: WooCommerce core email templates, carried unedited.
+	<!-- woocommerce/ is linted like theme code, including every email template and the Store Credit dashboard
+	     section: each one carries theme-authored copy re-applied on top of the plugin's current original.
+	     Two vendor templates stay excluded, and both are edited, so the reason is size, not authorship:
 	     - checkout/form-coupon.php: WooCommerce core, with a light tone pass on two visible strings only.
-	     - myaccount/store-credit.php, myaccount/dashboard-store-credit.php: Store Credit plugin templates, unedited.
 	     - myaccount/my-refund-requests.php: YITH Advanced Refund System, with two label-only string edits; it never
 	       followed WPCS (spaces instead of tabs, unescaped echoes, a global override), so bringing it into line is a
 	       bigger, riskier change than the edit it carries.
 	     Each is a full path rather than a bare substring, so nothing can swallow a same-named theme file
-	     (a plain `woocommerce` once matched inc/woocommerce.php). -->
-	<exclude-pattern>/woocommerce/emails/*</exclude-pattern>
+	     (a plain `woocommerce` once matched inc/woocommerce.php).
+	     scripts/check-template-versions.sh (repo root) reports when an override's original has moved on. -->
 	<exclude-pattern>/woocommerce/checkout/form-coupon\.php</exclude-pattern>
-	<exclude-pattern>/woocommerce/myaccount/store-credit\.php</exclude-pattern>
-	<exclude-pattern>/woocommerce/myaccount/dashboard-store-credit\.php</exclude-pattern>
 	<exclude-pattern>/woocommerce/myaccount/my-refund-requests\.php</exclude-pattern>
 
 	<arg name="extensions" value="php"/>

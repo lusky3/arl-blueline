@@ -2,6 +2,9 @@
 /*
  * Cody Edits:
  * Changed references of Orders to Registrations, "Order" to "Reg #".
+ *
+ * Copied from YITH Advanced Refund System 1.1.5: yith-advanced-refund-system-for-woocommerce/templates/myaccount/my-refund-requests.php
+ * The original has no @version, so the check script compares the plugin version.
  */
 
 defined( 'ABSPATH' ) || exit;

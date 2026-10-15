@@ -83,10 +83,11 @@ function blueline_release_changelog_section( string $md, string $version ): ?str
  * @param string $tag          Tag name (`v1.2.0`).
  * @param string $style_css    Contents of style.css.
  * @param string $functions_php Contents of functions.php.
- * @param string $changelog_md Contents of CHANGELOG.md.
+ * @param string      $changelog_md Contents of CHANGELOG.md.
+ * @param string|null $package_json Contents of package.json; null skips that check.
  * @return string[]
  */
-function blueline_release_guard( string $tag, string $style_css, string $functions_php, string $changelog_md ): array {
+function blueline_release_guard( string $tag, string $style_css, string $functions_php, string $changelog_md, ?string $package_json = null ): array {
 	$version = blueline_release_parse_tag( $tag );
 	if ( null === $version ) {
 		return array( "Tag '$tag' is not vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-suffix." );
@@ -101,6 +102,14 @@ function blueline_release_guard( string $tag, string $style_css, string $functio
 	$constant = blueline_release_parse_version_constant( $functions_php );
 	if ( $constant !== $style ) {
 		$errors[] = "BLUELINE_VERSION is '$constant' but style.css Version is '$style'.";
+	}
+
+	if ( null !== $package_json ) {
+		$package = json_decode( $package_json, true );
+		$pkg_ver = is_array( $package ) && isset( $package['version'] ) ? (string) $package['version'] : '';
+		if ( $pkg_ver !== $style ) {
+			$errors[] = "package.json version is '$pkg_ver' but style.css Version is '$style'.";
+		}
 	}
 
 	if ( null === blueline_release_changelog_section( $changelog_md, $version ) ) {

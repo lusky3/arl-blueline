@@ -8,6 +8,8 @@
  * wrapper, comments) lives in blueline_render_sp_single() -- see that
  * function's own docblock in inc/sportspress.php.
  *
+ * Upstream: none (theme-authored; SportsPress ships no template of this name).
+ *
  * @package blueline
  */
 

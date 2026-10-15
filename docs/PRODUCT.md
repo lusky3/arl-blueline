@@ -1,4 +1,4 @@
-# PRODUCT.md — ARL / rookiehockey.ca
+# PRODUCT.md — ARL / arlhockey.ca
 
 ## Register
 

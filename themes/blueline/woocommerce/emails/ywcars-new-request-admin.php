@@ -18,6 +18,9 @@
  * items-table include) is preserved exactly from the stock template --
  * only the OUTPUT markup changed.
  *
+ * Copied from YITH Advanced Refund System 1.1.5: yith-advanced-refund-system-for-woocommerce/templates/emails/ywcars-new-request-admin.php
+ * The original has no @version, so the check script compares the plugin version.
+ *
  * @package blueline
  */
 

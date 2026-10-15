@@ -2,13 +2,12 @@
 /**
  * Admin cancelled order email
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/emails/admin-cancelled-order.php.
+ * Blueline override: the stock template with "registration" in place of
+ * "order" in the intro. Every edited string uses the blueline text domain;
+ * the rest is the original. When WooCommerce bumps @version, re-copy the
+ * original and re-apply those strings (scripts/check-template-versions.sh).
  *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
+ * Copied from WooCommerce 11.0.1: woocommerce/templates/emails/admin-cancelled-order.php
  *
  * @see https://woocommerce.com/document/template-structure/
  * @package WooCommerce\Templates\Emails
@@ -31,10 +30,10 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
 <?php
 echo $email_improvements_enabled ? '<div class="email-introduction">' : '';
 /* translators: %1$s: Order number. %2$s: Customer full name */
-$text = __( 'Notification to let you know &mdash; registration #%1$s belonging to %2$s has been cancelled:', 'woocommerce' );
+$text = __( 'Notification to let you know &mdash; registration #%1$s belonging to %2$s has been cancelled:', 'blueline' );
 if ( $email_improvements_enabled ) {
 	/* translators: %1$s: Order number. %2$s: Customer full name */
-	$text = __( 'We’re getting in touch to let you know that registration #%1$s from %2$s has been cancelled.', 'woocommerce' );
+	$text = __( 'We’re getting in touch to let you know that registration #%1$s from %2$s has been cancelled.', 'blueline' );
 }
 ?>
 <p><?php printf( esc_html( $text ), esc_html( $order->get_order_number() ), esc_html( $order->get_formatted_billing_full_name() ) ); ?></p>
