@@ -288,6 +288,57 @@ function checkHighlightStreakFix( styleTokens ) {
 }
 
 /**
+ * select2, the enhanced dropdown on checkout and Edit Account (Captain,
+ * Returning Player, Preferred Division), colours its own text: the chosen
+ * value in a fixed #444, which on the dark field measured 1.61:1. Like the
+ * SportsPress fixture above, that is plugin CSS rather than a --bl-* token, so
+ * the palette rules cannot see it; this guard asserts woocommerce.css still
+ * recolours each part of the field with a token, and that the token passes AA
+ * on the ground it sits on in both the light and the dark palette.
+ *
+ * @param {Map<string,string>} styleTokens style.css's `:root` tokens.
+ * @param {string}             css         Full style.css source.
+ * @return {number} Number of failing parts.
+ */
+function checkSelect2Overrides( styleTokens, css ) {
+	const darkTokens = new Map( [ ...styleTokens, ...extractTokensForSelector( css, ':root[data-theme="dark"]' ) ] );
+	const wcCss = readFileSync( resolve( here, '../assets/src/css/woocommerce.css' ), 'utf8' );
+	const field = '.woocommerce .select2-container .select2-selection';
+	const parts = [
+		{ part: 'chosen value and typed text', selectorHint: `${ field } .select2-selection__rendered`, ground: 'bl-content-surface', raw: '#444444' },
+		{ part: 'placeholder', selectorHint: `${ field } .select2-selection__placeholder`, ground: 'bl-content-surface', raw: '#444444' },
+		{ part: 'tag remove button', selectorHint: `${ field } .select2-selection__choice__remove`, ground: 'bl-content-bg', raw: '#999999' },
+	];
+
+	let failed = 0;
+	for ( const { part, selectorHint, ground, raw } of parts ) {
+		let block;
+		try {
+			block = extractRuleBlock( wcCss, selectorHint );
+		} catch {
+			block = '';
+		}
+		const decl = block.match( /(?:^|[;{\s])color\s*:\s*var\(\s*--([\w-]+)\s*\)/ );
+
+		if ( ! decl ) {
+			report( false, `woocommerce.css no longer colours select2's ${ part } ("${ selectorHint }") with a token -- select2's own ${ raw } shows through` );
+			failed++;
+			continue;
+		}
+
+		const light = contrastRatio( resolveColorToken( styleTokens, `--${ decl[ 1 ] }` ), resolveColorToken( styleTokens, `--${ ground }` ) );
+		const dark = contrastRatio( resolveColorToken( darkTokens, `--${ decl[ 1 ] }` ), resolveColorToken( darkTokens, `--${ ground }` ) );
+		const rawDark = contrastRatio( raw, resolveColorToken( darkTokens, `--${ ground }` ) );
+
+		if ( ! report( light >= 4.5 && dark >= 4.5, `select2 ${ part}: --${ decl[ 1 ] } on --${ ground } is ${ light.toFixed( 2 ) } light / ${ dark.toFixed( 2 ) } dark (min 4.5; select2's own ${ raw } is ${ rawDark.toFixed( 2 ) } dark)` ) ) {
+			failed++;
+		}
+	}
+
+	return failed;
+}
+
+/**
  * Recursively collect every `.css` file under `dir`.
  *
  * @param {string} dir Directory to walk.
@@ -427,6 +478,7 @@ function main() {
 	failed += checkTokenMirrors( styleTokens );
 	failed += checkSportsPressFixture( styleTokens );
 	failed += checkHighlightStreakFix( styleTokens );
+	failed += checkSelect2Overrides( styleTokens, css );
 	failed += checkNoLiteralRgba( styleTokens );
 	failed += checkFocusRings();
 

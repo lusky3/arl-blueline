@@ -130,6 +130,95 @@ final class RenderBlockingAssetsTest extends TestCase {
 	}
 
 	/**
+	 * The payment handles are the ones PayPal for WooCommerce's
+	 * angelleye_ppcp_add_css_js() enqueues (4.6.15, ppcp-gateway/angelleye-
+	 * paypal-ppcp-common-functions.php), the helper every one of its callers
+	 * goes through, less jquery-blockui, which WooCommerce's own scripts share.
+	 * Off a payment page every one is dropped; on one, none is.
+	 */
+	public function test_the_payment_handles_are_everything_the_paypal_helper_enqueues(): void {
+		$plugin_helper = array( 'angelleye_ppcp-common-functions', 'angelleye_ppcp-apple-pay', 'angelleye_ppcp-google-pay', 'angelleye-paypal-checkout-sdk', 'angelleye_ppcp', 'angelleye-pay-later-messaging' );
+
+		$this->assertEqualsCanonicalizing( $plugin_helper, blueline_payment_script_handles() );
+		$this->assertSame( array(), array_values( array_diff( $plugin_helper, blueline_unused_plugin_asset_handles( array() )['scripts'] ) ) );
+		$this->assertSame( array(), array_values( array_intersect( $plugin_helper, blueline_unused_plugin_asset_handles( array( 'payment_page' => true ) )['scripts'] ) ) );
+	}
+
+	/**
+	 * WooCommerce's block payment registry runs PayPal's helper on
+	 * wp_print_scripts priority 1, after wp_enqueue_scripts, and the product
+	 * button runs it again on wp_head 100, after the head scripts printed.
+	 * The dequeue pass runs again after each: before jQuery is moved (so it
+	 * can leave <head>) and before WordPress prints the footer scripts.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_payment_scripts_enqueued_while_the_page_prints_are_dropped(): void {
+		$this->define_request_stubs();
+		blueline_test_reset_state();
+		eval( 'function did_action( $hook ) { return "wp_head" === $hook ? 1 : 0; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- a theme template's head is printing.
+		eval( 'function wp_enqueue_script( $h ) { $GLOBALS["bl_test_queue"][ $h ] = true; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- records the script queue.
+		remove_action( 'wp_print_scripts', 'blueline_move_jquery_to_footer', 1000 ); // Needs WP_Scripts; tested on its own above.
+
+		$paypal_helper = static function () {
+			foreach ( blueline_payment_script_handles() as $handle ) {
+				wp_enqueue_script( $handle );
+			}
+		};
+		add_action( 'wp_print_scripts', $paypal_helper, 1 );
+		do_action( 'wp_print_scripts' );
+		$this->assertSame( array(), array_keys( $GLOBALS['bl_test_queue'] ?? array() ), 'head scripts' );
+
+		$paypal_helper();
+		do_action( 'wp_print_footer_scripts' );
+		$this->assertSame( array(), array_keys( $GLOBALS['bl_test_queue'] ?? array() ), 'footer scripts' );
+
+		$this->assertSame( PHP_INT_MAX, has_action( 'wp_enqueue_scripts', 'blueline_dequeue_unused_plugin_assets' ) );
+		$this->assertLessThan( 1000, has_action( 'wp_print_scripts', 'blueline_dequeue_plugin_assets_before_head_scripts' ), 'runs before jQuery moves to the footer' );
+		$this->assertLessThan( 10, has_action( 'wp_print_footer_scripts', 'blueline_dequeue_unused_plugin_assets' ), 'runs before WordPress prints the footer scripts' );
+	}
+
+	/**
+	 * The login screen prints its head scripts without wp_head(), so the
+	 * head pass leaves it alone.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_the_head_pass_skips_requests_without_wp_head(): void {
+		$this->define_request_stubs();
+		blueline_test_reset_state();
+		eval( 'function did_action( $hook ) { return 0; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- the login screen: no wp_head.
+
+		blueline_dequeue_plugin_assets_before_head_scripts();
+
+		$this->assertSame( array(), $GLOBALS['bl_test_dequeued']['scripts'] );
+	}
+
+	/**
+	 * Last resort for a payment script something pulls back in after the
+	 * dequeue passes (as another script's dependency): its tag is dropped off
+	 * payment pages, kept on them and when the filter keeps them; every other
+	 * script's tag is untouched.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_a_payment_script_tag_is_dropped_off_payment_pages(): void {
+		$this->define_request_stubs();
+		blueline_test_reset_state();
+		$tag = '<script src="https://example.test/sdk.js" id="angelleye-paypal-checkout-sdk-js"></script>'; // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- a script tag as script_loader_tag receives it.
+
+		$this->assertSame( '', blueline_drop_unused_payment_script_tag( $tag, 'angelleye-paypal-checkout-sdk' ) );
+		$this->assertSame( '<script id="x-js"></script>', blueline_drop_unused_payment_script_tag( '<script id="x-js"></script>', 'jquery-core' ) );
+
+		$GLOBALS['bl_test_woo']['cart'] = true;
+		$this->assertSame( $tag, blueline_drop_unused_payment_script_tag( $tag, 'angelleye-paypal-checkout-sdk' ) );
+
+		$GLOBALS['bl_test_woo']['cart'] = false;
+		add_filter( 'blueline_keep_payment_scripts', static fn() => true );
+		$this->assertSame( $tag, blueline_drop_unused_payment_script_tag( $tag, 'angelleye-paypal-checkout-sdk' ) );
+	}
+
+	/**
 	 * A rendered Quotes Llama widget keeps the plugin's base stylesheet.
 	 */
 	public function test_a_rendered_quotes_widget_keeps_its_stylesheet(): void {
@@ -495,7 +584,7 @@ final class RenderBlockingAssetsTest extends TestCase {
 			'styles'  => array(),
 		);
 
-		eval( 'function wp_dequeue_script( $h ) { $GLOBALS["bl_test_dequeued"]["scripts"][] = $h; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- records dequeues.
+		eval( 'function wp_dequeue_script( $h ) { $GLOBALS["bl_test_dequeued"]["scripts"][] = $h; unset( $GLOBALS["bl_test_queue"][ $h ] ); }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- records dequeues.
 		eval( 'function wp_dequeue_style( $h ) { $GLOBALS["bl_test_dequeued"]["styles"][] = $h; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- records dequeues.
 		eval( 'function is_active_widget() { return false; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- no widgets on this request.
 		eval( 'function get_queried_object() { return null; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- no queried post.
