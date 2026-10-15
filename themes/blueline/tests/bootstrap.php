@@ -1386,14 +1386,23 @@ if ( ! function_exists( 'get_the_date' ) ) {
 }
 if ( ! function_exists( 'get_the_time' ) ) {
 	/**
-	 * Minimal stand-in for WordPress' get_the_time() -- returns a fixed,
+	 * Minimal stand-in for WordPress' get_the_time(): a post registered with
+	 * a site-local `post_date` gets it formatted as asked (what the calendar
+	 * export needs to read a real start time); anything else gets a fixed,
 	 * recognisable string, mirroring get_the_date() above.
 	 *
-	 * @param string $format Time format (unused, kept for signature parity).
-	 * @param mixed  $post   Post (unused, kept for signature parity).
+	 * @param string $format Time format.
+	 * @param mixed  $post   Post ID (only the int form is exercised by this suite).
 	 * @return string
 	 */
-	function get_the_time( $format = '', $post = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- fixed stub value; no test needs real time formatting.
+	function get_the_time( $format = '', $post = null ) {
+		$state = &blueline_test_state();
+		$date  = is_numeric( $post ) ? ( $state['posts'][ (int) $post ]['post_date'] ?? '' ) : '';
+
+		if ( '' !== $date && '' !== $format ) {
+			return ( new DateTimeImmutable( $date ) )->format( $format );
+		}
+
 		return '7:00 PM';
 	}
 }
@@ -1675,6 +1684,37 @@ if ( ! function_exists( 'get_the_post_thumbnail_url' ) ) {
 		$id = get_post_thumbnail_id( $post );
 
 		return $id ? 'https://example.test/thumb-' . $id . '.jpg' : false;
+	}
+}
+if ( ! function_exists( 'get_the_post_thumbnail' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' get_the_post_thumbnail(): an <img> for
+	 * a post with a thumbnail_id, '' for one without (core's own return for
+	 * no featured image). Every call's attributes are recorded in
+	 * $GLOBALS['bl_test_thumbnail_calls'] so a test can assert what the
+	 * caller asked for (alt, loading, fetchpriority) without parsing HTML.
+	 *
+	 * @param int|object   $post Post ID (only the int form is exercised by this suite).
+	 * @param string|int[] $size Image size name.
+	 * @param array|string $attr Attributes for the <img>.
+	 * @return string
+	 */
+	function get_the_post_thumbnail( $post = null, $size = 'post-thumbnail', $attr = '' ) {
+		$id = get_post_thumbnail_id( $post );
+
+		$GLOBALS['bl_test_thumbnail_calls'][] = array(
+			'post' => (int) $post,
+			'size' => $size,
+			'attr' => is_array( $attr ) ? $attr : array(),
+		);
+
+		if ( ! $id ) {
+			return '';
+		}
+
+		$alt = is_array( $attr ) && isset( $attr['alt'] ) ? (string) $attr['alt'] : '';
+
+		return '<img class="wp-post-image" src="https://example.test/thumb-' . $id . '.jpg" alt="' . esc_attr( $alt ) . '">';
 	}
 }
 if ( ! function_exists( 'get_permalink' ) ) {
@@ -1967,16 +2007,78 @@ function blueline_test_reset_cron(): void {
  * Call from setUp() (directly, or via the combined blueline_test_reset())
  * in any test that calls add_filter()/add_action() itself, so one test's
  * registration cannot leak into the next.
+ *
+ * "The first call" is only a safe moment to capture if no earlier test has
+ * already added or removed a hook without resetting. Under random order that
+ * is not guaranteed, so the theme suite's Blueline_Test_Isolation_Extension
+ * captures the baseline itself the moment PHPUnit starts executing, after
+ * every test file (and so every file-scope registration) has loaded and
+ * before any test has run. The lazy capture below stays as the fallback for
+ * the blueline-core suite, which reuses this bootstrap without that
+ * extension.
  */
 function blueline_test_reset_hooks(): void {
-	static $baseline = null;
-
-	if ( null === $baseline ) {
-		$baseline = $GLOBALS['bl_test_hooks'];
+	if ( ! isset( $GLOBALS['bl_test_hooks_baseline'] ) ) {
+		blueline_test_capture_hook_baseline();
 		return;
 	}
 
-	$GLOBALS['bl_test_hooks'] = $baseline;
+	$GLOBALS['bl_test_hooks'] = $GLOBALS['bl_test_hooks_baseline'];
+}
+
+/**
+ * Record the current hook store as the state blueline_test_reset_hooks()
+ * restores to. See that function for when this is called.
+ *
+ * @return void
+ */
+function blueline_test_capture_hook_baseline(): void {
+	$GLOBALS['bl_test_hooks_baseline'] = $GLOBALS['bl_test_hooks'];
+}
+
+/**
+ * Reset everything that describes the current REQUEST rather than the site:
+ * the superglobals, who is logged in and what they may do, and the stub
+ * flags that stand in for is_admin() / wp_doing_ajax() / is_author() and
+ * the nav-menu model. The get_posts() model is left alone: the blueline-core
+ * suite installs a suite-wide default one at load time, and the theme tests
+ * that swap it restore it in their own tearDown().
+ *
+ * A handler test seeds $_POST/$_REQUEST (an import payload, a nonce) or
+ * grants a capability, and nothing in PHP clears those between tests. Under
+ * random execution order the next test then renders the settings page as
+ * if an import had been submitted, or runs a front-end filter as if it were
+ * in wp-admin. Runs before every test from Blueline_Test_Isolation_Extension
+ * (below) as well as from blueline_test_reset(), so a test that never
+ * calls the reset helpers cannot inherit another test's request either.
+ *
+ * Nonces need no reset: wp_create_nonce() here is a pure function of its
+ * action, so there is no minted-token state to leak.
+ *
+ * @return void
+ */
+function blueline_test_reset_request(): void {
+	$_GET     = array();
+	$_POST    = array();
+	$_FILES   = array();
+	$_REQUEST = array();
+	$_COOKIE  = array();
+
+	$state                    = &blueline_test_state();
+	$state['current_user_id'] = 0;
+	$state['caps']            = array();
+
+	unset(
+		$GLOBALS['bl_test_is_admin'],
+		$GLOBALS['bl_test_doing_ajax'],
+		$GLOBALS['bl_test_is_author'],
+		$GLOBALS['bl_test_status_header'],
+		$GLOBALS['bl_test_image_editor']
+	);
+
+	$GLOBALS['bl_test_nav_menu_locations']   = array();
+	$GLOBALS['bl_test_nav_menu_assignments'] = array();
+	$GLOBALS['bl_test_nav_menu_items']       = array();
 }
 
 /**
@@ -1987,6 +2089,7 @@ function blueline_test_reset_hooks(): void {
  * blueline_test_reset_cache() separately.
  */
 function blueline_test_reset(): void {
+	blueline_test_reset_request();
 	blueline_test_reset_hooks();
 	blueline_test_reset_options();
 	blueline_test_reset_transients();
@@ -3607,3 +3710,7 @@ if ( ! function_exists( 'woocommerce_show_product_images' ) ) {
 
 // Initialise the stores above so a test that skips blueline_test_reset() still works.
 blueline_test_reset_transients();
+
+// phpunit.xml registers this; it calls blueline_test_reset_request() and
+// blueline_test_capture_hook_baseline() above, so it loads after them.
+require_once __DIR__ . '/class-blueline-test-isolation-extension.php';

@@ -42,10 +42,10 @@ jobs:
     # self-hosted runner would execute fork pull requests' code on a
     # machine we own.
     runs-on: ubuntu-latest
-    # 7 tests x up to 3 attempts (2 retries, see playwright.e2e.config.js) x
-    # a 60s per-test timeout is a 21-minute worst case for the suite alone;
-    # give real headroom above that plus setup.
-    timeout-minutes: 30
+    # 14 tests x up to 2 attempts (1 retry, see playwright.e2e.config.js) x
+    # a 30s per-test timeout is a 14-minute worst case for the suite alone,
+    # plus about 5 minutes of setup (npm ci, browser, image pull, seeding).
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: themes/blueline
@@ -103,6 +103,37 @@ jobs:
           docker logs sp-test --tail 200
           exit 1
 
+      - name: Let nginx buffer large responses
+        # The sandbox image's nginx runs its workers as www-data but ships
+        # /var/lib/nginx (its FastCGI temp path) owned by nginx:nginx 0750.
+        # Any PHP response bigger than nginx's in-memory buffers that the
+        # client is not reading fast enough has to be spooled to that
+        # directory; the open() fails with "Permission denied", nginx logs a
+        # [crit], and the response is cut off after the headers and first
+        # buffers. The browser then waits for a body that never comes until
+        # Playwright's timeout. That was every `page.goto ... exceeded`
+        # failure this suite used to have, on whichever page happened to
+        # need spooling on that run (reproduced locally: each stall matched
+        # one [crit] line, and none happened once the directory was fixed).
+        # The ownership fix belongs upstream in lusky3/sportspress-sandbox;
+        # until then it is applied, and verified, here.
+        run: |
+          docker exec sp-test chown -R www-data:www-data /var/lib/nginx
+          docker exec -u www-data sp-test sh -c 'f=/var/lib/nginx/tmp/fastcgi/.probe && touch "$f" && rm "$f"'
+
+      - name: Trim the debug stack and block outbound HTTP
+        # Query Monitor and Debug Bar render their panels into every page for
+        # the auto-logged-in admin, inflating each response to 0.6-1MB (about
+        # ten times what the same page weighs without them) for output no
+        # test reads, and production runs neither. Blocking external HTTP
+        # keeps any plugin's remote call (update checks, marketplace feeds)
+        # from making a request slow for reasons outside this repo. The
+        # sandbox already sets DISABLE_WP_CRON.
+        run: |
+          docker exec sp-test wp plugin deactivate query-monitor debug-bar --allow-root
+          docker exec sp-test wp config set WP_HTTP_BLOCK_EXTERNAL true --raw \
+            --anchor="if ( ! defined( 'ABSPATH' ) )" --placement=before --allow-root
+
       - name: Install this theme into the container
         # A plain bind mount would also pull in node_modules/, vendor/,
         # tests/, and tests-browser/ (megabytes of files WordPress never
@@ -135,8 +166,7 @@ jobs:
       - name: Verify blueline-core booted
         # Active is not enough: a module that fails to load is skipped silently.
         # Fail the job here, with a clear message, instead of letting the suite
-        # run against a half-loaded plugin. (The E2E step below is
-        # continue-on-error; this one deliberately is not.)
+        # run against a half-loaded plugin.
         run: |
           docker exec sp-test wp eval 'if ( blueline_core_legacy_theme_active() ) { echo "blueline-core is idle: legacy theme detected\n"; exit( 1 ); } $wanted = array_keys( blueline_core_modules() ); $absent = array_diff( $wanted, array_keys( blueline_core_loaded_modules() ) ); echo count( $wanted ) - count( $absent ) . "/" . count( $wanted ) . " modules loaded\n"; if ( $absent ) { echo "NOT LOADED: " . implode( ", ", $absent ) . "\n"; exit( 1 ); }' --allow-root
 
@@ -203,36 +233,52 @@ jobs:
             -e BLUELINE_E2E_SEASON_SLUG="$BLUELINE_E2E_SEASON_SLUG" \
             sp-test wp eval-file /tmp/seed-standings-divisions.php --allow-root
 
-      - name: Warm up PHP opcache and MySQL's query cache before timing anything
-        # First real run against this environment: page.goto('/shop/') hit
-        # Playwright's 30s navigation timeout outright, and a runner this
-        # constrained (2 vCPU/7GB, shared with the container's own PHP-FPM +
-        # MariaDB + this job's Chromium) makes every theme file's first-ever
-        # opcache compile and every first-ever query plan measurably slower
-        # than any later hit -- untimed here means it doesn't count against
-        # the suite's own timeout budget.
+      - name: Warm up every page the suite visits
+        # Each page's first request compiles the theme into opcache and warms
+        # MariaDB's caches; doing it here keeps that one-off cost out of the
+        # suite's per-test timeout. It is also the readiness check: a page
+        # that does not answer 200 here fails the job now, with its URL,
+        # instead of as a browser timeout later.
         run: |
           for path in / /shop/ /cart/ /my-account/ "/team/$BLUELINE_E2E_TEAM_SLUG/"; do
-            curl -sf --max-time 25 "http://localhost:8082$path" -o /dev/null || true
+            curl -s -o /dev/null --max-time 60 \
+              -w "$path %{http_code} %{size_download}B %{time_total}s\n" \
+              "http://localhost:8082$path" | tee -a /tmp/warmup.txt
           done
+          if grep -qv ' 200 ' /tmp/warmup.txt; then
+            echo "::error::A page did not answer 200 during warm-up: $(grep -v ' 200 ' /tmp/warmup.txt | tr '\n' ';')"
+            exit 1
+          fi
 
       - name: Run the E2E suite
-        # continue-on-error, deliberately: this container runs nginx +
-        # PHP-FPM + MariaDB under supervisord, sharing GitHub's standard 2
-        # vCPU runner with this job's own Node + Chromium. Verified
-        # directly, repeatedly, against a live container (docker cp the
-        # theme in, activate, seed a team, curl/render the result) that
-        # the theme code and this suite's assertions are correct -- the
-        # observed failures varied run to run in both which test failed
-        # and how long the run took, which is generalised contention, not
-        # a repeatable defect. A red run here is a signal to look at the
-        # uploaded Playwright report, not proof something in this repo
-        # broke -- see the same reasoning in playwright.e2e.config.js's
-        # `retries` comment.
-        continue-on-error: true
+        # A failure here fails the job. The suite used to be
+        # continue-on-error because of intermittent 60s stalls that turned
+        # out to be the nginx temp-directory bug fixed above, not runner
+        # contention. The `github` reporter (playwright.e2e.config.js) turns
+        # each failure into an error annotation and each test that only
+        # passed on its retry into a warning, both readable on the run's
+        # summary page.
         env:
           BLUELINE_E2E_BASE_URL: http://localhost:8082
         run: npm run test:e2e
+
+      - name: Check nginx for cut-off responses
+        # The signature of the stall fixed above. Reported even when every
+        # test passed, so a regression in the image (or a page outgrowing
+        # some other limit) shows up before it costs a red run.
+        if: ${{ !cancelled() }}
+        run: |
+          docker exec sp-test cat /var/log/nginx/error.log > /tmp/nginx-error.log || true
+          crit=$(grep -c '\[crit\]' /tmp/nginx-error.log || true)
+          if [ "${crit:-0}" -gt 0 ]; then
+            echo "::warning::nginx logged ${crit} [crit] error(s) during the suite; first: $(grep -m1 '\[crit\]' /tmp/nginx-error.log | cut -c1-300)"
+          fi
+
+      - name: Show server logs
+        if: failure()
+        run: |
+          cat /tmp/nginx-error.log 2>/dev/null || true
+          docker logs sp-test --tail 200 2>&1 | grep -v '^\[.*\] PHP  *[0-9]' || true
 
       - name: Upload Playwright report
         if: failure()
