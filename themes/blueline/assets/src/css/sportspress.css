@@ -2648,6 +2648,6 @@ table.sp-event-statistics.sp-data-table {
 	.sp-scoreboard__team-link::after {
 		content: "";
 		position: absolute;
-		inset: -12px -4px;
+		inset: -13px -4px;
 	}
 }
