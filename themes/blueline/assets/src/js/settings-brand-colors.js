@@ -1,6 +1,6 @@
 /**
  * Live contrast readouts and colour-input syncing for the Brand Colors
- * fields on the Appearance settings tab (inc/settings/page.php's `color`
+ * fields on the Appearance settings tab (inc/settings/page-fields.php's `color`
  * field type).
  *
  * The ratio/luminance math below is a DELIBERATE, small, self-contained
@@ -110,7 +110,7 @@
 
 			// A text label alongside the color coding so pass/fail doesn't rely
 			// on color alone (WCAG 1.4.1) — kept in sync with the equivalent
-			// PHP markup in inc/settings/page.php's
+			// PHP markup in inc/settings/page-fields.php's
 			// blueline_settings_render_color_field().
 			const status = part.passes ? 'Pass' : 'Fail';
 			span.textContent = `${ status } — ${

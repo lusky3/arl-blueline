@@ -163,7 +163,7 @@ test( 'attach: a self-scrolling table is observed once, as itself', () => {
 } );
 
 /*
- * THE EXACT BUG (live-review finding): SportsPress's own jQuery script
+ * THE EXACT BUG: SportsPress's own jQuery script
  * creates .sp-scrollable-table-wrapper at ITS OWN DOM-ready time, which can
  * run after this file's initial querySelectorAll() snapshot. attachWithin()
  * is what the MutationObserver callback calls for every node a later DOM

@@ -325,8 +325,8 @@ final class SettingsCacheTest extends TestCase {
 	 * at all, this is the case that would have silently stopped working.
 	 *
 	 * Uses a REAL schema key (`contact_email`) rather than a fictional
-	 * nested `content` shape: since Task 7, the actual write path also
-	 * runs inc/settings/page.php's blueline_settings_sanitize_callback()
+	 * nested `content` shape: the actual write path also
+	 * runs inc/settings/sanitize-callback.php's blueline_settings_sanitize_callback()
 	 * (wired unconditionally at file scope), which drops any key that is
 	 * neither a real schema field nor a reserved bookkeeping key -- a
 	 * fictional `content` key would be dropped identically on both calls
@@ -489,7 +489,7 @@ final class SettingsCacheTest extends TestCase {
 	}
 
 	/**
-	 * The core proof the brief asks for: with every guard satisfied, the
+	 * The core proof: with every guard satisfied, the
 	 * purge uses SCAN (never KEYS), and prefers UNLINK when the client
 	 * exposes it.
 	 */
@@ -875,7 +875,7 @@ final class SettingsCacheTest extends TestCase {
 	}
 
 	/**
-	 * The notice-path guard the reviewer asked for, proven at the exact
+	 * The notice-path guard, proven at the exact
 	 * decision point blueline_render_cache_purge_notice() branches on: with
 	 * an unresolvable host, the admin must see the plain "could not be
 	 * parsed" explanation and NOTHING that looks like a command -- never a

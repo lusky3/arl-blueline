@@ -1,7 +1,7 @@
 /**
- * The browser guard for the class of bug closed out by fix rounds 3-5 of
- * Task 7 (see git log, tests/NoticeDivGuardTest.php's own docblock, and
- * inc/settings/page.php's "Never a <div> for the error summary" section):
+ * The browser guard for a class of bug (see tests/NoticeDivGuardTest.php's
+ * own docblock, and inc/settings/page-render.php's "Never a <div> for the
+ * error summary" section):
  * a third-party wp-admin plugin active on every real install this theme
  * ships to (Capabilities Pro's admin-notices "declutter" module) removes,
  * client-side, ANY `<div>` on any wp-admin screen whose `class` attribute
@@ -75,8 +75,7 @@
  *     NoticeDivGuardTest.php's own five forbidden substrings. This is the
  *     one that catches the "Settings saved." confirmation: its own
  *     `<section class="notice notice-success">` carries NO `bl-`-prefixed
- *     class at all (checked directly against inc/settings/page.php as of
- *     this file's own writing); (1) alone would miss a regression in
+ *     class at all (checked directly against inc/settings/page-registration.php); (1) alone would miss a regression in
  *     that exact element, which is precisely the shape of gap this file
  *     exists to close rather than repeat.
  *

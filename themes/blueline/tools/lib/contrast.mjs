@@ -69,9 +69,8 @@ function isWellFormedEndpoint( value ) {
 /**
  * Validate the shape of one rule from contrast-rules.json.
  *
- * This is a cross-language contract: a PHP validator (P1) and a panel readout
- * (P2) will each independently read the same JSON, and Tasks 6-8 add 18 more
- * rules to this exact file. A malformed rule must fail loudly, at the point
+ * This is a cross-language contract: a PHP validator and a panel readout
+ * each independently read the same JSON. A malformed rule must fail loudly, at the point
  * every consumer shares, rather than silently doing the wrong thing (honouring
  * only `max` when both bounds are present) or producing `undefined` in output
  * (when neither bound, or `id`/`fg`/`bg`, is present).
@@ -133,7 +132,7 @@ export function validateRule( rule ) {
  * is a plain per-channel linear interpolation on the 0-255 values, rounded the
  * way browsers round.
  *
- * NOTE: P1's PHP validator must implement this identically. A parity test
+ * NOTE: the PHP validator must implement this identically. A parity test
  * covers it; if this changes, that test must change with it.
  *
  * @param {string} a       Hex colour mixed in at `percent`.

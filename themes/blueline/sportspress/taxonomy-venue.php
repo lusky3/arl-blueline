@@ -6,18 +6,17 @@
  * term 13 "Black" both sit at 1179 Northside Rd) -- a cross-link to any
  * sibling pad so a player who lands on the wrong one can find the right
  * game. The page's own H1 (get_the_archive_title(), filtered by
- * blueline_sp_venue_archive_title() in inc/sportspress.php) already names
+ * blueline_sp_venue_archive_title() in inc/sportspress/venues.php) already names
  * the arena via blueline_venue_label(); this template does not invent a
  * second, differently-derived label of its own.
  *
- * P0 finding 3: the main WP_Query that used to drive this template applies
- * WordPress's default `post_date DESC` the moment
- * blueline_sp_venue_archive_include_future() (inc/sportspress.php) adds
- * 'future' to its post_status -- confirmed live, /venue/red opened on the
+ * The main WP_Query applies WordPress's default `post_date DESC` the moment
+ * blueline_sp_venue_archive_include_future() (inc/sportspress/venues.php)
+ * adds 'future' to its post_status, which would open /venue/red on the
  * single farthest-future event, five more at that same date, then the next-
- * farthest, with 2,168 mostly-historical events sitting behind all of it.
- * This template now runs two of its OWN WP_Query objects instead of relying
- * on the main query at all: upcoming events (including 'future' status)
+ * farthest, with thousands of mostly-historical events sitting behind all
+ * of it. This template therefore runs two of its OWN WP_Query objects
+ * instead of relying on the main query at all: upcoming events (including 'future' status)
  * ordered ascending (soonest first, the way a player actually wants to see
  * what's next), and past events ordered descending (most recent first,
  * paginated) -- the same split single-team.php's own the_content() already

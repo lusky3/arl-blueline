@@ -12,7 +12,7 @@
  * own abrupt show/hide -- driven ENTIRELY by the `[open]` attribute now,
  * not by a parallel `:hover` rule (see assets/src/js/team-flyout.js's own
  * docblock for why a plain CSS `:hover` reveal broke click-to-close: it and
- * `[open]` used to be two independent triggers for the same visual state,
+ * `[open]` would be two independent triggers for the same visual state,
  * so clicking the tab to close it while still hovering -- the only way to
  * click it -- toggled `open` off correctly but the `:hover` rule kept the
  * panel looking open anyway. JS now sets/clears the real `open` attribute
@@ -26,31 +26,19 @@
  */
 
 /*
- * Reported live: opening the flyout put its panel roughly 70% of the way
- * down a normal viewport, running off the bottom of the screen. Root cause:
- * this container used to be `top: 50%; transform: translateY(-50%)` with no
- * explicit height -- a `position: fixed` element with no height set gets a
- * browser quirk where a PERCENTAGE `top` resolves against the viewport
- * regardless, so that combination correctly centred the <summary> tab. But
- * .bl-team-flyout__panel (below) is `position: absolute` INSIDE this
- * element, and its own `top` is a `calc()` yielding an absolute length, not
- * a percentage -- and an absolute length does NOT get that same quirk. It
- * resolves against this container's real, un-quirked origin instead, which
- * (with the old top:50%/translateY(-50%) shape) sat at roughly
- * viewport-centre minus half the tab's own height, not at the viewport's
- * real y:0. The panel's own top formula (team-flyout.css, added when the
- * header-overlap fix landed) assumes its containing block's origin genuinely
- * IS the viewport's y:0 -- true once this container spans the full
- * viewport height explicitly, false under the old top:50% shape, which is
- * what let the two offsets stack instead of the panel's own formula alone
- * correctly placing it.
- *
- * Fixed by giving this element an explicit, unambiguous 0-to-100vh box
- * (inset-block: 0) and centring the tab with flexbox instead of a
- * percentage top/transform pair -- align-items: center does not depend on
- * any percentage-resolution quirk, and now that this container's own
- * height is the real, full viewport, .bl-team-flyout__panel's existing top
- * formula needs no change: its assumed origin is now the actual one.
+ * This container spans the full viewport height explicitly (inset-block: 0)
+ * and centres the tab with flexbox, not a percentage `top` + translateY pair.
+ * A `position: fixed` element with no height set gets a browser quirk where a
+ * PERCENTAGE `top` resolves against the viewport regardless, which would
+ * centre the <summary> tab correctly. But .bl-team-flyout__panel (below) is
+ * `position: absolute` INSIDE this element, and its own `top` is a `calc()`
+ * yielding an absolute length, not a percentage -- an absolute length does
+ * NOT get that same quirk and resolves against this container's real origin.
+ * The panel's top formula assumes that origin genuinely IS the viewport's
+ * y:0, which holds only when this container spans the full viewport height;
+ * a percentage-top shape would stack the two offsets and push the panel
+ * roughly 70% of the way down the viewport, off the bottom of the screen.
+ * align-items: center does not depend on any percentage-resolution quirk.
  */
 .bl-team-flyout {
 	position: fixed;
@@ -77,8 +65,8 @@
 
 	/*
 	 * --bl-content-border-strong, not the plain --bl-content-border this
-	 * used before: reported live, even with the pulse below, the tab was
-	 * "really hard to see" on the light theme -- confirmed, --bl-content-
+	 * would use: even with the pulse below, the tab is
+	 * hard to see on the light theme -- --bl-content-
 	 * surface (white) sits on --bl-content-bg (#F7FBFC, near-white paper),
 	 * and the plain border token (#DBE7F0) is barely darker than either,
 	 * so the tab's only edge was close to invisible outside the ~1s the
@@ -94,7 +82,7 @@
 	border-radius: 0 var(--bl-radius-card) var(--bl-radius-card) 0;
 
 	/*
-	 * Reported live: hard to notice, especially on a desktop pointer where
+	 * Hard to notice, especially on a desktop pointer where
 	 * there's no incidental thumb-brush the way a phone's edge sometimes
 	 * gets. A periodic ring pulsing out from the tab's own shape (same
 	 * technique as Tailwind's own `animate-ping`: a static resting
@@ -150,7 +138,7 @@
 	animation: none;
 }
 
-/* B-02/D-03: the resting pulse shadow outranks base.css's halo; restate it. */
+/* The resting pulse shadow outranks base.css's halo; restate it. */
 .bl-team-flyout summary:focus-visible {
 	box-shadow: var(--bl-focus-ring), var(--bl-shadow-raised);
 }
@@ -190,14 +178,13 @@
 	/* Centered within the viewport space BELOW the fixed header, not the
 	 * full viewport -- the header (z-index: var(--bl-z-header), 60) sits
 	 * above this panel (var(--bl-z-flyout), 48), and centering
-	 * against the full 100vh (the previous `top: 50%`, which this element's
+	 * against the full 100vh (a `top: 50%`, which a
 	 * position:fixed ancestor with no explicit height resolves against the
-	 * viewport) put the panel's top edge only ~16px down at any viewport
+	 * viewport, puts the panel's top edge only ~16px down at any viewport
 	 * height once the crest list is tall enough to hit max-height below --
-	 * directly under the header, so the first couple of team crests were
-	 * hit-tested against the header instead of this panel. Reported live as
-	 * "hovering over the team icons and scrolling scrolls the background
-	 * page" -- wheeling over that header-covered strip scrolled the page
+	 * directly under the header, so the first couple of team crests would be
+	 * hit-tested against the header instead of this panel, and wheeling over
+	 * that header-covered strip would scroll the page
 	 * (the header has no overflow of its own), not the team list.
 	 * --bl-header-rest-height is published by assets/src/js/sticky-header.js
 	 * (see header.css's own docblock); nav.css/base.css already read it with
@@ -206,11 +193,10 @@
 	top: calc(var(--bl-header-rest-height, 5.25rem) + ((100vh - var(--bl-header-rest-height, 5.25rem)) / 2));
 
 	/* Starts where the tab's own box ends (summary's 34px width), not at the
-	 * shared left:0 origin the tab sits at -- the panel used to overlap the
+	 * shared left:0 origin the tab sits at -- a panel overlapping the
 	 * tab's clickable area (pushing its content clear via padding-left
-	 * instead), so once open (pointer-events: auto) it sat on top of the
-	 * tab and swallowed clicks meant to close it. Reported live as
-	 * "clicking the tab doesn't close it again." */
+	 * instead) would, once open (pointer-events: auto), sit on top of the
+	 * tab and swallow clicks meant to close it. */
 	left: var(--bl-team-flyout-width);
 	transform: translateY(-50%) translateX(-12px);
 	opacity: 0;
@@ -219,11 +205,10 @@
 	box-sizing: border-box;
 
 	/* Full space below the header, less a small clearance top and bottom so
-	 * it never touches the header or the viewport's own bottom edge -- was
-	 * capped at min(70vh, 480px), too short once the crest list runs to
-	 * 22-34 teams in season, then at 100vh minus clearance only (the header-
-	 * overlap finding above), neither accounting for the header's own real,
-	 * dynamic height. */
+	 * it never touches the header or the viewport's own bottom edge -- a fixed
+	 * cap such as min(70vh, 480px) is too short once the crest list runs to
+	 * 22-34 teams in season, and 100vh minus clearance alone ignores the
+	 * header's own real, dynamic height. */
 	max-height: calc(100vh - var(--bl-header-rest-height, 5.25rem) - (var(--bl-space-4) * 2));
 
 	/* Wide enough for a crest plus the team's name beside it; min() keeps
@@ -235,13 +220,12 @@
 	/* Without this, a wheel scroll that reaches the top or bottom of this
 	 * list -- which happens almost immediately, since the pointer enters
 	 * right at the list's own top edge -- chains to the page behind the
-	 * flyout instead of stopping here. Reported live as "scrolling over
-	 * the teams menu scrolls the background page instead." */
+	 * flyout instead of stopping here. */
 	overscroll-behavior: contain;
 	padding: var(--bl-space-4) var(--bl-space-2);
 	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 
-	/* B-04: its own surface (crests no longer float over page text) and a
+	/* Its own surface (crests no longer float over page text) and a
 	   visible thin scrollbar as the "more teams below" cue. */
 	background: var(--bl-content-surface);
 	border: 1px solid var(--bl-content-border-strong);
@@ -300,7 +284,7 @@
 	overflow: hidden;
 	box-sizing: border-box;
 
-	/* B-03: fixed white chip like .team-logo img; dark crests vanish on dark. */
+	/* Fixed white chip like .team-logo img; dark crests vanish on dark. */
 	background: var(--bl-white);
 	border: 2px solid var(--bl-content-border);
 	padding: 4px;
@@ -315,8 +299,8 @@
 }
 
 /*
- * The crests used to bob forever; a looping animation beside the content
- * people are reading is gone, not paused.
+ * No looping animation beside the content people are reading: the crests
+ * do not bob.
  */
 .bl-team-flyout__link:hover .bl-team-flyout__crest,
 .bl-team-flyout__link:focus-visible .bl-team-flyout__crest {
@@ -364,7 +348,7 @@
  * tab sat over the left edge of whatever was being read on every screen.
  * Like the header (header.css), it stays at the top of the page instead and
  * scrolls away with it, over the first screen only. The panel centres in
- * that screen, since the header no longer covers its top.
+ * that screen, since the header does not cover its top.
  */
 @media (max-height: 419.98px) {
 

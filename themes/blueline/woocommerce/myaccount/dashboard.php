@@ -1,13 +1,10 @@
 <?php
 /**
- * League-first My Account dashboard (Task 12). Replaces the Task 9 port of
- * production's shop-account dashboard wholesale, per plan: league content
- * -- next game, team, season stats -- leads; billing is demoted to a
- * linked group at the bottom.
+ * League-first My Account dashboard. Replaces production's shop-account
+ * dashboard wholesale: league content -- next game, team, season stats --
+ * leads; billing is demoted to a linked group at the bottom.
  *
- * For the ~16% of current-season players with no sp_user link (Task 16's
- * corrected figure -- 84% ARE linked; the "~88% unlinked" this file used to
- * claim came from the retracted, sticky sp_current_team denominator), the
+ * For the ~16% of current-season players with no sp_user link, the
  * claim card is shown IN PLACE of the next-game/team/season modules, not
  * alongside three empty versions of them.
  *

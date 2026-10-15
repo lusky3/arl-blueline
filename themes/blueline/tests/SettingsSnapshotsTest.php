@@ -1,6 +1,6 @@
 <?php
 /**
- * Covers inc/settings/snapshots.php -- Task 10's save history, the restore
+ * Covers inc/settings/snapshots.php -- the save history, the restore
  * that undoes a save, and the four-state diff the import preview is built
  * on (changed / unchanged / carried_forward / added).
  *
@@ -160,7 +160,7 @@ final class SettingsSnapshotsTest extends TestCase {
 	 *
 	 * This matters because a snapshot is NOT itself validated on the way
 	 * in: it records whatever was stored, and `wp db import` (the same
-	 * bypass Task 9's repair path exists for) can put an invalid value
+	 * bypass the repair path exists for) can put an invalid value
 	 * there. Restoring must not be the way that value gets laundered back
 	 * into a validated option -- and an admin must be told, which is what
 	 * the settings error asserted below becomes on screen.

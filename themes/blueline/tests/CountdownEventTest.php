@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * Covers a live-review finding with zero prior test coverage: "The Next
+ * Covers a bug: "The Next
  * Puck Drop" countdown widget got permanently stuck on a game from over a
  * week in the past whose result was never entered, showing
  * 00 Days 00 Hrs 00 Mins 00 Secs forever instead of advancing to the real
@@ -52,7 +52,7 @@ final class CountdownEventTest extends TestCase {
 
 	/**
 	 * A picked event that is already future-dated is used as-is -- the
-	 * common, correct case, untouched by this fix.
+	 * common, correct case.
 	 */
 	public function test_future_pick_is_used_as_is(): void {
 		$picked = array(

@@ -122,7 +122,7 @@ function blueline_comments_nav(): void {
 }
 
 /**
- * Header CTA content, driven by Season State (Task 6/7): "Register to Play"
+ * Header CTA content, driven by Season State: "Register to Play"
  * with the ice fill only while a real registration is open AND its product
  * is purchasable right now, re-checked live rather than trusting a possibly
  * up-to-15-minutes-stale cached state alone -- a Register button must never
@@ -133,19 +133,15 @@ function blueline_comments_nav(): void {
  * Register CTA, for the same reason -- and MUST call the exact same
  * function that hero logic does.
  *
- * Live-review finding: this used to call a function named
- * "blueline_homepage_registration_offer", singular -- which is not, and
- * has never been, defined anywhere in this theme; the real function is
- * blueline_homepage_registration_offers() (plural, inc/homepage/registration-offers.php),
- * returning every live offer rather than one. function_exists() on the
- * misspelled name is always false, so `&&` short-circuited before the call
- * and $show_register was always false -- the header CTA showed "Schedule"
- * in EVERY state, including registration_open, even while the homepage hero
- * (which calls the real, plural function) was showing "REGISTRATION OPEN"
- * with real pricing and a working "Register Now" link. Confirmed live on
- * staging. Fixed by calling the same offers() function the hero itself uses
- * and checking for a non-empty result, which is exactly what
- * blueline_homepage_hero_content() already does to decide the same thing.
+ * The real function is blueline_homepage_registration_offers() (plural,
+ * inc/homepage/registration-offers.php), returning every live offer rather
+ * than one; there is no singular "blueline_homepage_registration_offer".
+ * Guarding on a misspelled name would make function_exists() always false,
+ * so $show_register would always be false and the header CTA would show
+ * "Schedule" in EVERY state while the homepage hero showed "REGISTRATION
+ * OPEN". It calls the same offers() function the hero itself uses and
+ * checks for a non-empty result, which is exactly what
+ * blueline_homepage_hero_content() does to decide the same thing.
  *
  * The 'is_register'/'is_schedule' flags exist specifically so
  * blueline_site_header() can tell Blueline_Nav_Walker to de-duplicate the
@@ -458,7 +454,7 @@ function blueline_site_header() {
 			<div class="bl-container bl-header__inner">
 				<?php
 				/*
-				 * A11y finding, investigated and deliberately left as-is: the
+				 * Deliberately left as-is (a known a11y trade-off): the
 				 * logo (below, either the_custom_logo() or the fallback link)
 				 * and a "Home" item in the primary menu (rendered by
 				 * wp_nav_menu() further down) would be adjacent, redundant tab
@@ -602,11 +598,11 @@ function blueline_site_header() {
 			 * widened past the content width, which is a design decision, not a
 			 * styling one.
 			 *
-			 * Reported live: with nothing labelling it, the strip read as a
-			 * random ad floating on bare navy rather than an intentional
-			 * section -- there was plenty of unused row width to its left (this
-			 * row carries only this one flex item, unlike the bar row above)
-			 * and no visual tie to the bar it sits under. The static label span
+			 * With nothing labelling it, the strip would read as a random ad
+			 * floating on bare navy rather than an intentional section --
+			 * there is plenty of unused row width to its left (this row
+			 * carries only this one flex item, unlike the bar row above) and
+			 * no visual tie to the bar it sits under. The static label span
 			 * below is real markup, not the SportsPress "Sponsors" title
 			 * (.sp-sponsors-title, hidden in this slot -- header.css), so its
 			 * copy and styling are this theme's own; it always prints
@@ -625,7 +621,7 @@ function blueline_site_header() {
 		<?php
 		/*
 		 * When chrome_sponsors is off, blueline_sp_header_sponsors_limit()
-		 * (inc/sportspress.php) has already forced SportsPress to print
+		 * (inc/sportspress/nav-options.php) has already forced SportsPress to print
 		 * nothing at all, so this slot div is skipped outright rather than
 		 * printed and left to a CSS/JS collapse (assets/src/js/sponsors.js,
 		 * header.css's own comment on `.bl-header__sponsors`) that was
@@ -756,14 +752,13 @@ function blueline_classic_site_url(): string {
 
 /**
  * Output the site footer: a permanent "The League" trust column (contact,
- * location, FAQs, legal -- there was previously none of this anywhere in
- * the footer), any populated widget columns, then a bottom bar with the
- * leaf mark and copyright line.
+ * location, FAQs, legal), any populated widget columns, then a bottom bar
+ * with the leaf mark and copyright line.
  *
  * Widget columns that have nothing assigned are skipped entirely rather
- * than rendered as an empty `.bl-footer__column` -- previously all four
- * always rendered, so on this site's real configuration (only footer-2
- * has widgets) three of the four columns were empty containers, against
+ * than rendered as an empty `.bl-footer__column` -- always rendering all
+ * four would leave, on this site's real configuration (only footer-2
+ * has widgets), three of the four columns as empty containers, against
  * DESIGN.md's own "never an empty container" rule. footer.css's grid
  * collapses to however many columns actually render.
  *
@@ -891,7 +886,7 @@ function blueline_site_footer() {
  * configured with.
  *
  * This is the theme's replacement for SportsPress Pro's own League Menu, which
- * inc/sportspress.php disables on the front end because the plugin prepends it
+ * inc/sportspress/nav-options.php disables on the front end because the plugin prepends it
  * to <body> ahead of the skip link and, at 360px, on top of the open mobile
  * drawer. Rendering it here instead keeps the same admin-managed team list and
  * the same links, in a place where the crest count does not compete with the
@@ -966,7 +961,7 @@ function blueline_footer_team_directory() {
  * Output a post's byline: category eyebrow, author and date.
  *
  * A no-op for anything other than the 'post' post type -- static Pages
- * and future SportsPress entity types (Task 8) don't get a byline.
+ * and future SportsPress entity types don't get a byline.
  */
 function blueline_entry_meta() {
 	if ( 'post' !== get_post_type() ) {

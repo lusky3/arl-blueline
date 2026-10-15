@@ -1,7 +1,6 @@
 <?php
 /**
- * Guards against the class of bug behind three separate fix rounds in a
- * row: a third-party plugin active on the production/staging install
+ * Guards against the class of bug where a third-party plugin active on the production/staging install
  * (Capabilities Pro's own admin-notices "declutter" module) removes, on
  * every wp-admin screen, any `<div>` whose `class` attribute contains
  * "notice", "error", "warning", "info" or "updated" as a SUBSTRING
@@ -10,16 +9,12 @@
  * "Settings saved." success notice, and inc/settings/cache.php's manual
  * page-cache-purge notice (the entire shipped behaviour of that
  * requirement, since the guarded automatic purge ships disabled), were
- * each hit by this independently before this test existed -- each fixed
- * one at a time, each confirmed only by an actual browser click-through
- * against a real WordPress request, because a PHPUnit test rendering
+ * each hit by this independently, and a PHPUnit test rendering
  * markup in isolation cannot see a third-party plugin's own JS at all.
  *
- * A prior version of this guard existed as
- * SettingsPageTest::test_error_summary_is_never_a_div() -- one test
- * pinning one element's id. That guarded the INSTANCE, not the class of
- * bug, which is exactly why the success and cache-purge notices slipped
- * through it. This file replaces that with a source scan across every
+ * Pinning one element's id would guard the INSTANCE, not the class of
+ * bug, which is how the success and cache-purge notices could slip
+ * through. This file is a source scan across every
  * PHP file this theme ships, catching the pattern itself rather than one
  * known occurrence of it -- so the next admin-facing notice this theme
  * ever adds is covered from the moment it's written, with no test to
@@ -112,7 +107,7 @@ final class NoticeDivGuardTest extends TestCase {
 	 * stripped before scanning -- via PHP's own tokenizer, the same
 	 * technique IncRequireCoverageTest uses and for the same reason: a
 	 * comment merely MENTIONING `<div class="notice">` as prose (exactly
-	 * what several docblocks alongside this fix now do) must not itself
+	 * what several docblocks do) must not itself
 	 * satisfy or fail this guard.
 	 */
 	public function test_no_theme_php_file_emits_a_forbidden_notice_div(): void {

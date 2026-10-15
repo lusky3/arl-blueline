@@ -27,8 +27,7 @@
  *      option-specific counterparts, but were not fired by this stub at
  *      all.
  *
- * Bugs 1-4 were found and fixed across earlier tasks; building THIS guard
- * is what surfaced 5 and 6, which were fixed directly rather than recorded
+ * Bugs 1-6 were all fixed directly rather than recorded
  * as tolerated exceptions (see tests/fixtures/wp-core-option-contract.json's
  * `known_gaps`, deliberately empty) -- a documented-but-unfixed gap is the
  * same bet as an undocumented one, just with better bookkeeping.
@@ -48,8 +47,7 @@
  * to reintroduce one (verified directly while building this test: swapping
  * the generic pre_update_option filter's argument order back to bug #2's
  * shape in tests/bootstrap.php made it fail, naming the exact discrepancy,
- * before the swap was reverted -- see this task's report for that and the
- * equivalent demonstration for bugs 5 and 6). Bug 5 specifically needs its
+ * before the swap was reverted; the same holds for bugs 5 and 6). Bug 5 specifically needs its
  * own dedicated test: every recorder used by the scenario-driven test is an
  * identity function, so $original_value and $value are indistinguishable in
  * every assertion it makes -- test_original_value_is_captured_before_any_
@@ -162,8 +160,7 @@ final class WpCoreContractTest extends TestCase {
 	 * This is the guard that fails if tests/bootstrap.php's update_option()/
 	 * add_option() stubs are edited to diverge from this contract -- see
 	 * this class's docblock for the four historical bugs it exists to
-	 * catch, and this task's report for the break-and-restore demonstration
-	 * proving it does.
+	 * catch.
 	 *
 	 * @param string $scenario_key Key into the fixture's `sequences` map.
 	 * @return void
@@ -377,12 +374,10 @@ final class WpCoreContractTest extends TestCase {
 	 * a misconfiguration to wave through just because this particular pair
 	 * of versions happens to extract identically.
 	 *
-	 * There is deliberately NO implicit fallback oracle path (earlier
-	 * versions of this test defaulted to a hardcoded local checkout when
-	 * BLUELINE_WP_CORE_INCLUDES_DIR was unset). An unreviewed default that
+	 * There is deliberately NO implicit fallback oracle path (a hardcoded
+	 * local checkout used when BLUELINE_WP_CORE_INCLUDES_DIR was unset). An unreviewed default that
 	 * everyone's test run silently trusts without anyone having chosen it
-	 * for THIS run is exactly the failure mode this job exists to close --
-	 * gap (1) in this task's own history. Requiring an explicit environment
+	 * for THIS run is exactly the failure mode this job exists to close. Requiring an explicit environment
 	 * variable means whoever configures an oracle (a developer's local
 	 * checkout, or a future CI step that rsyncs staging's live core) is
 	 * making a conscious choice this test can then hold to account, rather

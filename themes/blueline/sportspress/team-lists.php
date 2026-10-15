@@ -1,9 +1,9 @@
 <?php
 /**
  * Team roster override -- a compact roster table, restyled from
- * SportsPress's own <table class="sp-player-list"> markup and (finding 8)
- * this theme's own earlier 16-up identical-card grid, which review flagged
- * as the exact "banned pattern" DESIGN.md warns against: a big jersey
+ * SportsPress's own <table class="sp-player-list"> markup and this theme's
+ * own earlier 16-up identical-card grid, the exact "banned pattern"
+ * DESIGN.md warns against: a big jersey
  * number as the dominant element, the name shrunk to an afterthought, and
  * the word "SKATER" repeated on every single non-goalie card. A roster is
  * scanned for NAMES, so the name is still the largest, most prominent
@@ -14,17 +14,16 @@
  * actually needs the label, since "Skater" describes almost the entire
  * roster and adds nothing fifteen times over.
  *
- * A REAL <table> now, not a <ul>/<li> grid: live feedback asked for
- * click-to-sort columns, and sp-data-table/sp-sortable-table (the same two
+ * A REAL <table> now, not a <ul>/<li> grid: click-to-sort
+ * columns need one, and sp-data-table/sp-sortable-table (the same two
  * classes league-table.php's own mini-standings table on this exact page
  * already uses) are SportsPress's own, already-loaded DataTables wiring
  * (sportspress.js) -- reusing it needs a real <table>/<thead>/<tbody>, and
- * costs no new JS. Per-row stat labels (GP/G/A/PTS/PIM) moved from each
- * cell up into the <thead> once, for the same reason: repeating a column's
- * own label on every row was the "SKATER on every card" problem all over
- * again. Position/"You" badges live INSIDE the name cell, right after the
- * name text, not as their own trailing columns -- live feedback found a
- * separate trailing badge column pushed the row wider than the others.
+ * costs no new JS. Per-row stat labels (GP/G/A/PTS/PIM) live in the
+ * <thead> once, for the same reason: repeating a column's own label on
+ * every row would be the "SKATER on every card" problem all over again. Position/"You" badges live INSIDE the name cell, right after the
+ * name text, not as their own trailing columns -- a
+ * separate trailing badge column pushes the row wider than the others.
  *
 
  * This is a partial, not a page template: SportsPress's own team_content()
@@ -40,7 +39,7 @@
  * uses -- so grouping, filtering and sorting stay correct even though the
  * markup below is entirely custom.
  *
- * Live-site review fix: when SP_Team::lists() has nothing (see the inline
+ * When SP_Team::lists() has nothing (see the inline
  * comment further down for why that is a separate, easily-forgotten admin
  * step and not the same thing as "this team has no roster"), this falls
  * back to blueline_get_team_roster() -- the account dashboard's own
@@ -81,10 +80,10 @@ $lists = $team->lists();
 $bl_current_user_player_id = function_exists( 'blueline_current_user_player_id' ) ? blueline_current_user_player_id() : null;
 
 /*
- * Live-site review: a team can be fully, correctly rostered on the account
+ * A team can be fully, correctly rostered on the account
  * dashboard's own My Team module (blueline_get_team_roster(),
  * inc/account/dashboard.php, reading the sp_current_team meta every
- * player carries directly) while this public page still said "Roster not
+ * player carries directly) while this public page would still say "Roster not
  * posted yet" for the SAME team -- a real, current contradiction, not a
  * hypothetical.
  *
@@ -139,7 +138,7 @@ if ( empty( $lists ) ) {
 				<?php $number = get_post_meta( $mate['player_id'], 'sp_number', true ); ?>
 				<tr>
 					<td class="bl-sp-roster__number"><?php echo ( '' !== $number && null !== $number ) ? esc_html( $number ) : ''; ?></td>
-					<?php // QA B-12: sort by name, not by the photo markup that precedes it. ?>
+					<?php // Sort by name, not by the photo markup that precedes it. ?>
 					<td class="bl-sp-roster__name-cell" data-order="<?php echo esc_attr( $mate['name'] ); ?>">
 						<a class="bl-sp-roster__name" href="<?php echo esc_url( get_permalink( $mate['player_id'] ) ); ?>">
 							<?php if ( blueline_player_photo_available( (int) $mate['player_id'] ) ) : ?>
@@ -163,10 +162,9 @@ if ( empty( $lists ) ) {
 $multiple_lists = count( $lists ) > 1;
 
 // Heading level depends on where this template is actually rendered -- see
-// blueline_sp_caption_heading_level()'s own docblock (inc/sportspress.php)
-// for the accessibility finding this fixes (team-lists.php's own caption
-// used to be a hardcoded h4 that, on a team page, followed the hero's h1
-// with nothing else in between). $bl_group_level always trails
+// blueline_sp_caption_heading_level()'s own docblock
+// (inc/sportspress/core.php) for why (a hardcoded h4 would, on a team page,
+// follow the hero's h1 with nothing else in between). $bl_group_level always trails
 // $bl_caption_level by exactly one, whether or not the caption itself is
 // actually printed below (it is conditional on $multiple_lists, the group
 // heading is not) -- so the group heading is never left one level too deep
@@ -193,12 +191,12 @@ foreach ( $lists as $list_post ) :
 	}
 
 	/*
-	 * Modernization sweep finding: $data comes from SP_Player_List::data()
+	 * $data comes from SP_Player_List::data()
 	 * (SportsPress's own stats-table reader), not a WP_Query, so nothing
 	 * upstream has primed post/term/meta caches for these player IDs --
-	 * the render loop below was hitting get_post_meta()/wp_get_post_terms()/
+	 * the render loop below would hit get_post_meta()/wp_get_post_terms()/
 	 * get_the_post_thumbnail() one player at a time. A 20-25 player roster
-	 * -- one of this site's most-visited page types -- cost roughly 2-3
+	 * -- one of this site's most-visited page types -- would cost roughly 2-3
 	 * avoidable round trips per player. Primed once per list (covers every
 	 * position group within it, since $groups below only filters the same
 	 * $data), not per player.
@@ -277,8 +275,7 @@ foreach ( $lists as $list_post ) :
 
 					// Only computed when the list isn't already grouped by
 					// position (a group heading of "Goalie" would make a
-					// per-row repeat of the same word redundant) -- unchanged
-					// from before this finding.
+					// per-row repeat of the same word redundant).
 					$position_label = '';
 					if ( ! $group && taxonomy_exists( 'sp_position' ) ) {
 						$position_terms = wp_get_post_terms( $player_id, 'sp_position' );
@@ -289,7 +286,7 @@ foreach ( $lists as $list_post ) :
 
 					// "Skater" describes nearly the whole roster on a beginner
 					// co-ed league -- showing it on every row is the repeated-
-					// caption problem this finding exists to fix. Anything else
+					// caption problem. Anything else
 					// (Goalie, etc.) is genuinely informative and stays.
 					$show_position = ( '' !== $position_label && 0 !== strcasecmp( $position_label, 'Skater' ) );
 					?>

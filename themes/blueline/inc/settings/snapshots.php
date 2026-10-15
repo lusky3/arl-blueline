@@ -10,16 +10,14 @@
  *
  * Why a history at all, when the panel already has `reset`: reset writes
  * defaults over everything, which for content fields discards every word
- * anyone ever typed. A snapshot is the cheaper and strictly better undo --
- * the design spec's own words (§6.8).
+ * anyone ever typed. A snapshot is the cheaper and strictly better undo.
  *
  * ## Stored separately, and never autoloaded
  *
  * These live in their own option (BLUELINE_SETTINGS_SNAPSHOTS_OPTION), not
  * inside BLUELINE_SETTINGS_OPTION, and are written with an EXPLICIT
  * `false` autoload argument rather than whatever the default happens to be
- * -- the spec requires non-autoloaded twice (§6.1 and §6.8). The reason is
- * concrete: this is write-only history that nothing on the front end ever
+ * -- the reason is concrete: this is write-only history that nothing on the front end ever
  * reads, and autoloading it would put up to ten copies of the whole
  * settings array into every single request, including anonymous ones.
  *
@@ -41,9 +39,8 @@
  *
  * Note the argument order this hook uses -- `( $value, $old_value, $option )`
  * for `pre_update_option_{$option}`, which is NOT the order the generic
- * `pre_update_option` filter uses (`( $value, $option, $old_value )`). This
- * project has been bitten by that difference before; the callback below
- * accepts two arguments and is registered on the option-specific hook only.
+ * `pre_update_option` filter uses (`( $value, $option, $old_value )`). The
+ * callback below accepts two arguments and is registered on the option-specific hook only.
  *
  * @package blueline
  */
@@ -59,8 +56,7 @@ defined( 'ABSPATH' ) || exit;
 const BLUELINE_SETTINGS_SNAPSHOTS_OPTION = 'blueline_settings_snapshots';
 
 /**
- * How many snapshots are kept. Ten, per the design spec's §6.8 ("last 10,
- * non-autoloaded"): enough that a run of small saves does not immediately
+ * How many snapshots are kept. Ten: enough that a run of small saves does not immediately
  * push the mistake you actually want to undo off the end, small enough that
  * the option stays a few tens of kilobytes at worst.
  */
@@ -281,7 +277,7 @@ function blueline_settings_snapshot_time_label( int $timestamp ): string {
  * The distinction this function exists for: a write that OMITS a key
  * carries the stored value forward -- it does NOT reset that key to its
  * default (inc/settings/store.php's blueline_settings_merge(), which is
- * deliberate merge-not-replace behaviour and is staying). A diff that
+ * deliberate merge-not-replace behaviour). A diff that
  * listed only keys whose values differ would therefore read as "these are
  * the only differences" when every omitted key is simply invisible in it.
  * An admin previewing a partial import would conclude the unlisted keys are

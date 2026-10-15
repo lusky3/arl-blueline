@@ -12,21 +12,21 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Per-state homepage module order: the binding table in the Task 7 brief.
+ * Per-state homepage module order.
  * Any state outside the five known values falls back to the offseason
  * order: the smallest, least "sell registration" set of modules.
  *
- * 'sponsors' was removed from every order below (a later fix): SportsPress
+ * 'sponsors' is deliberately absent from every order below: SportsPress
  * Pro's own footer sponsors block (SportsPress_Sponsors::footer(), hooked
  * to get_footer sitewide) already renders directly above <footer> on every
- * page, homepage included, carrying the league's own configured title;
- * this module was rendering a second, redundant sponsors section only on
- * the homepage. Removing it here (rather than removing SportsPress's own
+ * page, homepage included, carrying the league's own configured title; a
+ * module here would render a second, redundant sponsors section only on
+ * the homepage. Omitting it here (rather than removing SportsPress's own
  * sitewide block) keeps sponsors showing on every other page; see
- * assets/src/css/sportspress.css for the styling now applied to
+ * assets/src/css/sportspress.css for the styling applied to
  * SportsPress's block instead.
  *
- * P1 finding 4: registration_open's own order below still leads with
+ * registration_open's own order below still leads with
  * 'new_here' unconditionally, because the enum cannot tell "nobody has
  * played yet" apart from "the season is already running and we're also
  * selling next season," but those are very different visitors. When
@@ -36,16 +36,14 @@ defined( 'ABSPATH' ) || exit;
  * the standings first, not three bullets of first-timer reassurance ahead
  * of it.
  *
- * Task 2 (P1b-panel-completion) adds the Sections tab's own say on top of
- * this table: each module here also has a `module_*` presence toggle
- * (blueline_section_enabled(), inc/settings/sections.php), and this function
- * is that toggle's only consumer for the homepage. The two return
- * statements above used to be genuinely separate exits: the is_playing
- * early return skipped the $orders lookup entirely, which would have let
- * an admin's toggle choice apply to one branch and not the other purely by
- * accident of code shape. Both paths now resolve $order first and fall
- * through to ONE filter, so "which modules are considered" and "does this
- * state override the order" stay independent questions.
+ * The Sections tab has its own say on top of this table: each module here
+ * also has a `module_*` presence toggle (blueline_section_enabled(),
+ * inc/settings/sections.php), and this function is that toggle's only
+ * consumer for the homepage. Both the is_playing path and the plain
+ * $orders lookup resolve $order first and fall through to ONE filter, so
+ * an admin's toggle choice applies to both, and "which modules are
+ * considered" and "does this state override the order" stay independent
+ * questions.
  *
  * @param string $state      Season state.
  * @param array  $state_data Result of blueline_season_state_data(); optional
@@ -195,10 +193,10 @@ function blueline_homepage_module_next_games() {
 	blueline_homepage_module_start( 'next_games', __( 'Next games', 'blueline' ), blueline_resolve_link( 'page_schedule' ), __( 'Full schedule', 'blueline' ) );
 
 	if ( empty( $events ) ) {
-		// This empty state used to say the same "nothing scheduled" line
-		// regardless of context, including while the Standings module one
-		// scroll down was showing a fully populated, live table -- a plain
-		// contradiction with no explanation (2026 homepage critique). No
+		// This empty state must not say the same "nothing scheduled" line
+		// regardless of context: while the Standings module one scroll
+		// down shows a fully populated, live table, that is a plain
+		// contradiction with no explanation. No
 		// upcoming sp_event post existing does not mean nothing is
 		// happening: it means no NEXT-game post has been created yet, which
 		// is a different, much less alarming fact when the season demonstrably
@@ -216,14 +214,13 @@ function blueline_homepage_module_next_games() {
 		<ul class="bl-next-games">
 			<?php foreach ( $events as $event ) : ?>
 				<?php
-				// P1 finding 3: this used to print only the pad name ("Red")
-				// as plain text, the same value /schedule links to
-				// /venue/red, which carries the street address and the
-				// sibling-pad cross-link. blueline_venue_label() (package 1)
-				// gives the arena name too ("Mr. Lube and Tires Arena —
+				// The label is the pad name plus the arena name via
+				// blueline_venue_label() ("Mr. Lube and Tires Arena —
 				// Red"), matching PRODUCT.md principle 4 ("the pad, not just
-				// the arena"), and linking it gives a phone-in-a-car-park
-				// player one tap to the address.
+				// the arena"), and links to the same /venue/red page
+				// /schedule uses, which carries the street address and the
+				// sibling-pad cross-link, so a phone-in-a-car-park player
+				// gets one tap to the address.
 				$venue_terms = taxonomy_exists( 'sp_venue' )
 					? wp_get_object_terms( $event->ID, 'sp_venue' )
 					: array();
@@ -310,15 +307,14 @@ function blueline_homepage_module_latest_news() {
 }
 
 /**
- * Render one named homepage module. Unknown names are a silent no-op, because the
- * brief names exactly four modules and this theme must not invent more.
+ * Render one named homepage module. Unknown names are a silent no-op, because
+ * exactly four modules exist and this theme must not invent more.
  *
- * A fifth module, 'sponsors', existed here through Task 7 (rendering
- * SportsPress's own [sponsors] shortcode a second time). It was removed as
- * a duplicate-content fix: SportsPress Pro's own footer sponsors block
- * already renders sitewide, homepage included, directly above <footer>;
- * see blueline_homepage_module_order()'s own comment for the full
- * reasoning.
+ * There is deliberately no 'sponsors' module: SportsPress Pro's own footer
+ * sponsors block already renders sitewide, homepage included, directly
+ * above <footer>, so a module rendering SportsPress's [sponsors] shortcode
+ * a second time would be duplicate content; see
+ * blueline_homepage_module_order()'s own comment for the full reasoning.
  *
  * @param string $name One of next_games|standings_snippet|new_here|latest_news.
  */

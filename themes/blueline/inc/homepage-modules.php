@@ -2,7 +2,7 @@
 /**
  * Season-aware homepage: hero variants and module rendering.
  *
- * Consumes blueline_season_state()/blueline_season_state_data() (Task 6).
+ * Consumes blueline_season_state()/blueline_season_state_data().
  * Produces the two interface functions template-homepage.php calls:
  * blueline_render_hero( string $state ) and blueline_render_module( string $name ).
  *

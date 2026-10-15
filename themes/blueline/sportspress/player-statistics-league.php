@@ -7,7 +7,7 @@
  * $caption, $scrollable, $league_id and $hide_teams all arrive the same way,
  * via sp_get_template()'s own extract()).
  *
- * Finding 7: when a player has no recorded statistics at all, SportsPress's
+ * When a player has no recorded statistics at all, SportsPress's
  * own template still renders a table -- confirmed live, /player/alec-lehto's
  * "Career Total" is a full-width `.sp-highlight` bar containing the single
  * word "Total" and nothing else, because $data's own label row ($data[0])
@@ -49,7 +49,7 @@ if ( empty( $data ) ) {
 // the degenerate case this override exists to catch.
 $stat_keys = array_diff( array_keys( $labels ), array( 'name', 'team' ) );
 
-// QA B-14: stat columns that are blank or dashes in every row are just as empty.
+// Stat columns that are blank or dashes in every row are just as empty.
 // Inside a player's whole stats section the line is held back, so a player
 // with nothing anywhere gets one empty state, not one per table
 // (inc/sportspress/player-stats.php).
@@ -61,10 +61,10 @@ if ( empty( $stat_keys ) || ! blueline_sp_stat_rows_have_values( $data, $stat_ke
 blueline_sp_player_stats_print( blueline_sp_player_stats_collect( 'table' ) );
 
 // Heading level depends on where this template is actually rendered -- see
-// blueline_sp_caption_heading_level()'s own docblock (inc/sportspress.php)
-// for the accessibility finding this fixes (this caption used to be a
-// hardcoded, level-skipping h4 everywhere -- on a single-player page it
-// followed the hero's own h1 with nothing else in between).
+// blueline_sp_caption_heading_level()'s own docblock
+// (inc/sportspress/core.php) for why (a hardcoded h4 would skip heading
+// levels -- on a single-player page it would follow the hero's own h1 with
+// nothing else in between).
 $bl_caption_level = blueline_sp_caption_heading_level();
 
 $output = '<h' . $bl_caption_level . ' class="sp-table-caption">' . $caption . '</h' . $bl_caption_level . '>' .

@@ -91,7 +91,7 @@ final class BluelineFakeProduct {
 }
 
 /**
- * P0 finding 1: the homepage hero used to read a single product ID off
+ * The homepage hero used to read a single product ID off
  * Season State ("the first purchasable product in the season's category,
  * by post ID") and print its price on the primary Register button. On this
  * site that resolved to a $145 Goalie Registration outranking a $550 Player
@@ -331,7 +331,7 @@ final class RegistrationPricingTest extends TestCase {
 	}
 
 	/**
-	 * The exact P0 bug, end-to-end: Player ($550) and Goalie ($145) offers
+	 * The exact bug, end-to-end: Player ($550) and Goalie ($145) offers
 	 * together must produce a CTA with NO price and a subcopy line naming
 	 * both -- never "Register — $145.00" while a skater owes $550.
 	 */
@@ -358,7 +358,7 @@ final class RegistrationPricingTest extends TestCase {
 	}
 
 	/**
-	 * P1 finding 4: when registration is open AND the season is already
+	 * When registration is open AND the season is already
 	 * being played, the hero must carry both the price breakdown/CTA AND a
 	 * "next game" line -- neither one masks the other.
 	 */

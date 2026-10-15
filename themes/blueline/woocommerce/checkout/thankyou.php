@@ -14,7 +14,7 @@
  * @package WooCommerce\Templates
  * @version 8.1.0
  *
- * Cody Edits:
+ * Local changes:
  * References of "Order" changed to "Registration"; "Order number:" replaced
  * by "Registration number:". The received message is inlined (same
  * filter and arguments as core's checkout/order-received.php) to carry the

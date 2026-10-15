@@ -82,7 +82,7 @@ import {
 		}
 
 		// The bar's brand, CTA and X toggle are painted over the drawer, so
-		// they belong in the cycle too (A11Y-11).
+		// they belong in the cycle too.
 		const focusable = getFocusable( trapRoot );
 		if ( ! focusable.length ) {
 			return;
@@ -328,7 +328,7 @@ import {
 		} );
 
 		/*
-		 * A11y finding: closeAllOpenSubmenus() above only ever touches
+		 * closeAllOpenSubmenus() above only ever touches
 		 * data-open/aria-expanded -- the JS side of "is this submenu
 		 * open". On desktop the dropdown ALSO opens on its own via
 		 * nav.css's `:focus-within` rule, which keeps matching for as
@@ -351,8 +351,7 @@ import {
 
 		/*
 		 * ...but focus on the trigger still satisfies :focus-within, so a
-		 * focus- or hover-opened desktop dropdown needs an explicit dismissal
-		 * (A11Y-06). Skipped when Escape just closed a nested submenu, so the
+		 * focus- or hover-opened desktop dropdown needs an explicit dismissal. Skipped when Escape just closed a nested submenu, so the
 		 * parent dropdown stays open for one more Escape.
 		 */
 		if ( ! desktopQuery.matches ) {

@@ -47,10 +47,9 @@ function checkLightContrast( styleTokens, rules ) {
 }
 
 /**
- * Dark-mode pass. Design spec docs/superpowers/specs/2026-08-22-blueline-
- * theme-toggle-design.md §7: the light palette above is guarded by
- * checkLightContrast(); nothing previously guarded the dark redefinitions in
- * style.css's `:root[data-theme="dark"]` block, so a future edit to either
+ * Dark-mode pass: the light palette above is guarded by
+ * checkLightContrast(); this guards the dark redefinitions in
+ * style.css's `:root[data-theme="dark"]` block, so without it a future edit to either
  * palette could silently drift out of AA with no build failure. Every rule
  * flagged `"themeAware": true` in contrast-rules.json is re-evaluated here
  * against the dark tokens merged over the light ones (a dark declaration
@@ -88,10 +87,9 @@ function checkDarkContrast( styleTokens, css, rules ) {
  * style.css's --bl-* tokens by value, because WordPress's editor-styles
  * injection path has no way to @import or otherwise share style.css's own
  * :root block into the block-editor canvas iframe (see editor.css's own
- * top-of-file comment for why). Nothing previously kept the two copies in
+ * top-of-file comment for why). This check keeps the two copies in
  * sync -- a token changed in style.css and forgotten in editor.css would
- * silently desync the editor preview from the real front end (Task 5
- * deferred finding, rolled into Task 16 item c).
+ * silently desync the editor preview from the real front end.
  *
  * This check is deliberately ONE-DIRECTIONAL: editor.css is allowed to omit
  * tokens it has no use for (e.g. --bl-focus, the semantic status colours),
@@ -159,7 +157,7 @@ function checkTokenMirrors( styleTokens ) {
 }
 
 /**
- * Finding 11: SportsPress's OWN output, not this theme's tokens, printed a
+ * SportsPress's OWN output, not this theme's tokens, printed a
  * WCAG failure straight onto the page -- SP_League_Table::data() emits the
  * STRK column as raw `<span style="color:#888888">`, 3.40:1 on white, below
  * the 4.5:1 AA floor. This is not a --bl-* token, so it cannot be asserted
@@ -229,7 +227,7 @@ function checkSportsPressFixture( styleTokens ) {
 }
 
 /**
- * Finding 11's own neutralisation (checkSportsPressFixture(), above) is
+ * The SportsPress inline-style neutralisation (checkSportsPressFixture(), above) is
  * `!important`, and so beats .sp-highlight's `color: var(--bl-team-on-primary,
  * var(--bl-ink))` on a team's own highlighted division row -- !important wins
  * regardless of specificity, so the plain `.sp-data-table td.data-strk
@@ -358,19 +356,16 @@ function collectCssFiles( dir ) {
 }
 
 /**
- * Finding: four CSS rules hard-coded the RGB channels of a token instead of
- * referencing it, so overriding the token moved the text colour while its
- * background stayed put -- breaking a pairing one of those files claimed in a
- * comment had been "verified by hand". This forbids reintroducing that.
+ * CSS rules must not hard-code the RGB channels of a token instead of
+ * referencing it: overriding the token would move the text colour while its
+ * background stayed put. This forbids that.
  *
- * Two follow-up gaps in the original version of this lint:
+ * Two things the scan must cover:
  *
- * 1. It only scanned assets/src/css, non-recursively. Spec P0.6 named FOUR
- *    offenders, one of which -- style.css's --bl-shadow-card /
- *    --bl-shadow-raised -- lives outside that directory entirely, so the
- *    file the spec actually named was never covered by the guard meant to
- *    stop it being reintroduced. readdirSync() was also flat, so a future
- *    subdirectory under assets/src/css would go unscanned with no warning.
+ * 1. Recursion, and files outside assets/src/css: style.css's
+ *    --bl-shadow-card / --bl-shadow-raised live outside that directory
+ *    entirely, and a flat readdirSync() would leave any future
+ *    subdirectory under assets/src/css unscanned with no warning.
  * 2. style.css DOES still contain --bl-shadow-card's rgba(19, 35, 67, ...),
  *    but that one is intentional (see style.css's own comment there): a
  *    shadow composites over whatever ground it happens to land on, which
@@ -444,7 +439,7 @@ function checkNoLiteralRgba( styleTokens ) {
 function checkFocusRings() {
 	const cssDir = resolve( here, '../assets/src/css' );
 	const themeRoot = resolve( here, '..' );
-	// Programmatically focused, non-interactive targets (WooCommerce notices, D-22).
+	// Programmatically focused, non-interactive targets (WooCommerce notices).
 	const allowlist = [ '.woocommerce-NoticeGroup:focus' ];
 
 	let failed = 0;

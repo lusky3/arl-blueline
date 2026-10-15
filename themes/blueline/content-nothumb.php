@@ -3,7 +3,7 @@
  * Content with a title but no featured image.
  *
  * Kept under this exact filename because SportsPress entity pages resolve
- * to it by convention (see template-fullwidth.php); Task 8 builds on it.
+ * to it by convention (see template-fullwidth.php).
  *
  * @package blueline
  */

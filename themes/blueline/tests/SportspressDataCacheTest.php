@@ -11,7 +11,7 @@ require_once __DIR__ . '/../inc/account/player-data.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * PERF-01/PERF-03: the generation-keyed caches behind team rosters and league
+ * The generation-keyed caches behind team rosters and league
  * tables, and the save hooks that retire them.
  */
 final class SportspressDataCacheTest extends TestCase {

@@ -20,7 +20,7 @@ require_once __DIR__ . '/../inc/settings/sanitize.php';
  * outside blueline_sanitize_field(), with the exact string the sanitizer
  * just rejected. That is not incidental coverage: it is the proof that
  * rejecting the string matters -- each one demonstrates the actual
- * PHP 8.3 exception a bare pre-Task-3 settings save would have shipped to
+ * PHP 8.3 exception an unvalidated settings save would have shipped to
  * production, on this exact runtime, rather than trusting a description of
  * PHP's behaviour written elsewhere.
  */
@@ -28,7 +28,7 @@ final class SettingsSanitizeTest extends TestCase {
 	use Blueline_Assert_WP_Error;
 
 	/**
-	 * The brief's own extraction fixtures: a plain %s, a mix of positional
+	 * Extraction fixtures: a plain %s, a mix of positional
 	 * specs, and a string with no specs at all.
 	 */
 	public function test_extract_placeholders_finds_positional_and_plain_specs(): void {
@@ -86,12 +86,11 @@ final class SettingsSanitizeTest extends TestCase {
 	/**
 	 * There is no longer a third, unchecked state: a field that omits
 	 * `placeholders` entirely is treated exactly like `placeholders =>
-	 * array()`, not skipped. This is the fix-round-1 hole close -- the
-	 * earlier "no key means skip" behaviour meant a field that SHOULD have
-	 * declared a contract but didn't (a schema-authoring mistake, or a
-	 * future field that starts feeding sprintf() without the schema being
-	 * updated) was invisibly unprotected, reproducing the exact fatal this
-	 * task exists to prevent, one step removed. A stray "%" is rejected
+	 * array()`, not skipped. Skipping on a missing key would leave a field
+	 * that SHOULD have declared a contract but didn't (a schema-authoring
+	 * mistake, or a future field that starts feeding sprintf() without the
+	 * schema being updated) invisibly unprotected, reproducing the exact
+	 * fatal this validator exists to prevent, one step removed. A stray "%" is rejected
 	 * regardless of whether the key is present.
 	 */
 	public function test_fields_without_a_placeholders_key_still_get_the_safety_check(): void {
@@ -112,7 +111,7 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * The brief's load-bearing rejection case: a field contractually
+	 * The load-bearing rejection case: a field contractually
 	 * requiring %s must refuse a replacement that drops it -- the real call
 	 * site would ArgumentCountError for lack of a value to fill the slot
 	 * that no longer exists.
@@ -184,7 +183,7 @@ final class SettingsSanitizeTest extends TestCase {
 
 	/**
 	 * The non-obvious case this validator exists to catch beyond the
-	 * brief's own examples: ordinary prose can hide a syntactically valid
+	 * obvious examples: ordinary prose can hide a syntactically valid
 	 * conversion specification with no "%s"-shaped placeholder in sight,
 	 * because " " (space) is a valid flag and "o" (among others) is a valid
 	 * type -- "% off" parses as a complete `% o` specification. A field
@@ -200,7 +199,7 @@ final class SettingsSanitizeTest extends TestCase {
 		$result = blueline_sanitize_field( 'Save 50% off, %s!', $field );
 		$this->assertWPError( $result, 'the % in "% off" is itself a valid, undeclared conversion spec' );
 
-		// Fix round 2: this field DOES declare a contract (%s), so the
+		// This field DOES declare a contract (%s), so the
 		// undeclared "% o" is a contract-mismatch message ("contains X,
 		// remove it"), not the stray-percent wording -- the field's real
 		// declared placeholder (%s) is still present and correct, only the
@@ -367,7 +366,7 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Task 7 fix round (I2): the case this whole key exists for. Before it,
+	 * The case this whole key exists for. Without the guard,
 	 * `season_state_override` was clamped on READ only -- so an admin typing
 	 * `playofs` into an emergency control got "Settings saved.", no change on
 	 * the site, and no admin notice either (the notice only renders when the
@@ -402,8 +401,7 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Pins the FALL-THROUGH, which is a real guarantee and was previously
-	 * only a comment: a value that passes the `choices` list still goes on
+	 * Pins the FALL-THROUGH, which is a real guarantee, not just a comment: a value that passes the `choices` list still goes on
 	 * to the ordinary text checks, so a `choices` field's `placeholders`
 	 * contract is enforced like any other text field's rather than being a
 	 * declaration nothing reads.
@@ -441,11 +439,11 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 1 (Task 8): `type => 'email'` must actually GUARANTEE the
-	 * value is a real email address -- before this fix it fell through to
+	 * `type => 'email'` must actually GUARANTEE the
+	 * value is a real email address -- it must not fall through to
 	 * the exact same sanitize_text_field()-only path as a plain `text`
-	 * field, meaning the schema's `email` type was purely decorative. A
-	 * valid address is accepted unchanged.
+	 * field, which would leave the schema's `email` type purely
+	 * decorative. A valid address is accepted unchanged.
 	 */
 	public function test_email_fields_accept_a_valid_address(): void {
 		$field = array(
@@ -518,7 +516,7 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 2, case (a) genuinely-malformed subtype: the rejection
+	 * Genuinely-malformed subtype: the rejection
 	 * message itself must be actionable, not just true. Asserts the exact
 	 * wording, including the corrected string handed back ready to paste
 	 * in, for a "%" that cannot complete any specification at all.
@@ -543,13 +541,12 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 2, case (a) accidental-valid-spec subtype -- the coordinator's
-	 * own reported bug: a field declaring NO placeholders at all
+	 * Accidental-valid-spec subtype: a field declaring NO placeholders at all
 	 * (`placeholders => array()`) rejects "Save 50% off" because "% off"
-	 * hides a real `% o` spec, but the message used to be the generic
+	 * hides a real `% o` spec, but the message must not be the generic
 	 * contract-mismatch wording ("must contain exactly these placeholders:
 	 * none"), which never mentions "%%", never says what was wrong with what
-	 * was typed, and never shows the fix. This asserts the corrected
+	 * was typed, and never shows the fix. This asserts the actionable
 	 * wording: names the offending spec, explains PHP reads it as a
 	 * formatting instruction rather than a literal percent sign, states the
 	 * silent-corruption risk, and hands back the corrected string.
@@ -577,10 +574,10 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 2, case (b) missing: a field that DOES declare a required
+	 * Missing placeholder: a field that DOES declare a required
 	 * placeholder must name it specifically when a replacement drops it,
 	 * not just say "here is the full required list, go work out what's
-	 * wrong" -- this is the "%s" example from the coordinator's brief.
+	 * wrong".
 	 */
 	public function test_the_dropped_placeholder_error_names_which_one_is_missing(): void {
 		$field  = array(
@@ -600,7 +597,7 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 2, case (b) extra, isolated from the "hides in ordinary
+	 * Extra placeholder, isolated from the "hides in ordinary
 	 * prose" scenario covered elsewhere: a genuinely-intentional-looking
 	 * extra placeholder (not one accidentally spelled out of plain English)
 	 * on a field that DOES have its own real contract must still be named
@@ -661,15 +658,15 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 3, bug (1): the coordinator's exact reproduction. A field
+	 * A field
 	 * declaring `placeholders => array()` rejects a value containing BOTH a
 	 * genuinely-broken "%" ("% and", where "a" is not a valid type) AND a
 	 * separate, undeclared "%s" -- and the suggested correction must be one
 	 * that would actually be ACCEPTED if pasted straight back in, not one
 	 * that only fixes the first problem and leaves the second to fail on
-	 * resubmission with a different, confusing error. Before this fix, the
-	 * suggestion was built without consulting $required and so still
-	 * contained the undeclared "%s", which the placeholder-contract check
+	 * resubmission with a different, confusing error. The
+	 * suggestion must consult $required, otherwise it still
+	 * contains the undeclared "%s", which the placeholder-contract check
 	 * would then reject a second time.
 	 */
 	public function test_the_stray_percent_correction_is_always_resubmittable(): void {
@@ -700,7 +697,7 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 3, bug (1), the genuinely-unfixable-by-escaping-alone case:
+	 * The genuinely-unfixable-by-escaping-alone case:
 	 * when a value has a broken "%" AND is separately missing a required
 	 * placeholder that escaping cannot fabricate (there is no way to know
 	 * WHERE a volunteer meant to place a dropped "%s"), the message must
@@ -733,11 +730,10 @@ final class SettingsSanitizeTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 3, bug (2): a declared contract that repeats a spec a
+	 * A declared contract that repeats a spec a
 	 * different number of times than the value supplies must produce a
-	 * message that actually says so, not a blank clause. Before this fix,
-	 * array_diff()'s set semantics saw "%s" in both $required and $found
-	 * and reported no difference in either direction, rendering the
+	 * message that actually says so, not a blank clause. array_diff()'s set semantics alone would see "%s" in both $required and $found
+	 * and report no difference in either direction, rendering the
 	 * message as literally `"Season banner" .`.
 	 */
 	public function test_repeated_placeholder_count_mismatch_names_the_count_problem(): void {
@@ -788,19 +784,14 @@ final class SettingsSanitizeTest extends TestCase {
 
 	/**
 	 * Integration check against the real schema, not a hand-built fixture:
-	 * every schema field's own default -- the original 13 fields with a
-	 * zero-placeholder contract, Task 8 (fix round 2)'s 4 further
-	 * zero-placeholder text fields (`module_new_here_heading`,
-	 * `module_new_here_cta`, `account_empty_next_game`,
-	 * `account_empty_stats`), 7 hero fields each carrying a real,
-	 * non-empty `placeholders` contract, the 2 Appearance fields (the
-	 * hero photograph list and its rotation flag), Task 6's 5 announcement-
-	 * banner fields (2 of them the first `date`-typed fields in the schema,
-	 * both defaulting to the empty "no bound" value that branch has to
-	 * accept), Task 7's 2 season-state break-glass fields (the second of
-	 * them the third `date` field), and the 16 `section` presence toggles (12 plus the Task 5 fix
-	 * round's 4 `chrome_footer_widgets_N` entries, plus the floating
-	 * next-game widget's own `floating_next_game` entry) generated from
+	 * every schema field's own default -- the zero-placeholder text fields,
+	 * the 7 hero fields each carrying a real, non-empty `placeholders`
+	 * contract, the Appearance fields (the hero photograph list and its
+	 * rotation flag), the announcement-banner fields (2 of them
+	 * `date`-typed, both defaulting to the empty "no bound" value that
+	 * branch has to accept), the season-state break-glass fields (the
+	 * second of them a `date` field), and the `section` presence toggles
+	 * generated from
 	 * blueline_section_definitions()
 	 * (inc/settings/sections.php) -- must still validate through
 	 * blueline_sanitize_field() unchanged. A default that failed here would

@@ -53,8 +53,7 @@ add_filter( 'the_content', 'blueline_sp_wrap_tables_for_scroll', 20 );
  *    self-contained scroll class directly. This is what actually closes
  *    the gap: event-venue.php is the one SP template today that renders
  *    its <table> with no wrapper at all (its embedded Leaflet map
- *    overflowed the page body at mobile widths until this was added (see
- *    the Task 8 fix report), and a future SportsPress update changing
+ *    overflowed the page body at mobile widths without it), and a future SportsPress update changing
  *    any table's class list, or adding a new unwrapped one, is still
  *    caught by this pass as long as it keeps SP's own sp- prefix
  *    convention, which every SP class already does today. Runs after

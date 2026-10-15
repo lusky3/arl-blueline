@@ -1,5 +1,5 @@
 /*
- * Blueline — season-aware homepage (Task 7).
+ * Blueline — season-aware homepage.
  * The hero sits directly under the header's own blue-line bands, so its
  * top padding is zeroed on .bl-main--homepage; the hero closes with its
  * own paired bands before the paper-white module stack begins.
@@ -64,7 +64,7 @@
  *     0.22      4.48  <-- below the 4.5 AA floor
  *
  * So the real ceiling is 0.20, and 0.12 is what ships: comfortably clear, and
- * closer to the brief ("really faded") than the point where it starts
+ * closer to "really faded" than the point where it starts
  * competing with the words in front of it.
  */
 .bl-band-photo {
@@ -204,7 +204,7 @@
 }
 
 /*
- * P0 finding 1 / P1 finding 4: zero, one or two of these can render per
+ * Zero, one or two of these can render per
  * hero -- the price breakdown line ("Skaters $550 · Goalies $145") when the
  * season's registration products don't share one price, and/or the
  * "Next game: ..." line when registration is open while the season is also
@@ -244,13 +244,12 @@
 }
 
 /*
- * P1 finding 6: five consecutive modules used to be separated by the same
- * generic 1px hairline as everything else on the site -- one of the things
- * that made the homepage read as "a list of modules" rather than a
+ * A generic 1px hairline between modules, as everywhere else on the
+ * site, would make the homepage read as "a list of modules" rather than a
  * designed page. Reusing the paired blue-line band device (Device #2,
  * already used to close the hero and every SportsPress hero) as the
- * divider between modules instead is the single change a reviewer flagged
- * as enough to make the site recognisable from a thumbnail. Built with
+ * divider between modules instead makes the site
+ * recognisable from a thumbnail. Built with
  * ::before/::after rather than the literal .bl-band/.bl-band--ink markup
  * used elsewhere: this is a decorative divider between two already-labelled
  * sections, not new content, so it does not need its own DOM nodes.
@@ -271,7 +270,7 @@
 	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
 	height: var(--bl-band-ice);
 
-	/* design spec §7.2's "signature band" -- see header.css's
+	/* The "signature band" -- see header.css's
 	 * .bl-btn--primary .bl-skew for why --bl-occasion-accent is a
 	 * no-op swap by default. */
 	background: var(--bl-occasion-accent);
@@ -324,12 +323,11 @@
 	color: var(--bl-content-text-secondary);
 }
 
-/* new_here -- P1 finding 5: this is the tonal north star ("Never played?
-   Perfect.") and used to be three short bullets with no more visual weight
-   than any other module, less than the standings snippet below it. It now
-   gets a tinted band of its own (breaking the all-paper rhythm, P1 finding
-   6), a bigger heading, and a decorative leaf watermark (Device #4) instead
-   of a plain list.
+/* new_here -- this is the tonal north star ("Never played?
+   Perfect."), so it needs more visual weight than any other module,
+   including the standings snippet below it. It gets a tinted band of its
+   own (breaking the all-paper rhythm), a bigger heading, and a decorative
+   leaf watermark (Device #4) instead of a plain list.
 
    Deliberately no `overflow: hidden` on .bl-module--new_here below, even
    though the watermark can extend slightly past the section's own edge:
@@ -350,7 +348,7 @@
 	   against transparent, not --bl-white: this section paints straight over
 	   the page's own --bl-paper background (see the "all-paper rhythm"
 	   comment above), not a white one, so the translucent form is the one
-	   that actually reproduces the old rgba()'s composited result. */
+	   that actually reproduces the original rgba()'s composited result. */
 	background: color-mix(in srgb, var(--bl-ice) 8%, transparent);
 }
 
@@ -451,7 +449,7 @@
 /*
  * One column on a phone: date, fixture, arena, stacked.
  *
- * This used to be `minmax(0, 1fr) auto` at every width, which put the fixture
+ * A `minmax(0, 1fr) auto` track at every width would put the fixture
  * and the arena side by side. `auto` gives the arena whatever its label needs,
  * and this league's labels are long -- "Mr. Lube and Tires Arena — Red" -- so
  * the arena took most of a 390px row and squeezed "Puck Dynasty vs Hammers"
@@ -513,7 +511,7 @@ a.bl-next-games__title:focus-visible {
 	text-align: start;
 }
 
-/* P1 finding 3: the venue is a real link (to the sp_venue archive, carrying
+/* The venue is a real link (to the sp_venue archive, carrying
    the address and any sibling-pad cross-link) whenever one is resolvable --
    give it the same accent-on-hover/focus treatment as every other inline
    link on the page instead of looking identical to the plain-text fallback. */
@@ -573,7 +571,7 @@ a.bl-next-games__venue:focus-visible {
 .bl-module--standings_snippet .bl-module__body {
 	overflow-x: auto;
 
-	/* C-02: room inside the scroll clip for the tab/toggle focus rings;
+	/* Room inside the scroll clip for the tab/toggle focus rings;
 	   padding and equal negative margin keep the layout unchanged. */
 	padding: calc(var(--bl-focus-offset) + var(--bl-focus-width) + 1px);
 	margin: calc(-1 * (var(--bl-focus-offset) + var(--bl-focus-width) + 1px));

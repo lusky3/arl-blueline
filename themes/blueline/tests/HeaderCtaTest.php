@@ -20,7 +20,7 @@ require_once __DIR__ . '/../inc/homepage-modules.php';
 require_once __DIR__ . '/../inc/template-tags.php';
 
 /**
- * Covers a live-review finding with zero prior test coverage: the header
+ * Covers a bug: the header
  * CTA (blueline_header_cta()) called a function named
  * "blueline_homepage_registration_offer", singular -- which has never been
  * defined anywhere in this theme; the real function is

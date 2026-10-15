@@ -6,7 +6,7 @@
  * self-contained DUPLICATE of blueline_contrast_ratio()/
  * blueline_relative_luminance() (inc/team-colors.php) -- not an import
  * of tools/lib/contrast.mjs, which is dev/build tooling, not a runtime
- * asset (design spec §5.1's fourth ruling). tests/OccasionsContrastParityTest.php
+ * asset. tests/OccasionsContrastParityTest.php
  * and this file's own settings-occasions.test.mjs both assert this
  * copy agrees with the PHP original at a fixed set of hex pairs -- if
  * this math ever changes, BOTH must change with it, or one of those
@@ -34,7 +34,7 @@
 
 	/**
 	 * Fallback for `window.blOccasionsData` when the settings data
-	 * (inc/settings/page.php's inline JSON) is unavailable --
+	 * (inc/settings/admin-assets.php's inline JSON) is unavailable --
 	 * e.g. this script loaded outside the admin settings page it is written
 	 * for. Matches style.css's --bl-ink and the Occasions tab's default AA
 	 * threshold, so the live readout still shows a sane number rather than
@@ -150,7 +150,7 @@
 	 * All three matter, not just `name`. The server renders every field's
 	 * `id` as `bl-occasion-{rowKey}-{field}` and points each caption's
 	 * `<label for>` at it (blueline_settings_render_occasion_row(),
-	 * inc/settings/page.php) -- so a clone that renamed only `[name]` would
+	 * inc/settings/occasions-tab.php) -- so a clone that renamed only `[name]` would
 	 * leave every added row sharing the template's ids, and every added
 	 * row's caption pointing at the FIRST added row's input: clicking the
 	 * second row's "Label" would focus the first row's field. Server-
@@ -272,7 +272,7 @@
 	 * Every field in the clone is renamed to a fresh, unique placeholder
 	 * row key (`__new_{n}`) so two added rows in the same submission can
 	 * never collide as PHP array keys before the server ever gets a
-	 * chance to derive their real ids (design spec §5.1's first ruling)
+	 * chance to derive their real ids
 	 * -- unlike settings-photos.js's renumber(), no OTHER row's name
 	 * needs to change when one is added or removed, since `occasions` is
 	 * a map, not a contiguous indexed array.

@@ -1,20 +1,18 @@
 <?php
 /**
  * Covers inc/settings/import.php -- the payload machinery `wp blueline
- * settings import|validate` and (from the following commit) the panel's own
+ * settings import|validate` and the panel's own
  * import form both run, and the two bounds the design spec's 6.8 asks for:
  * "bounds size and nesting depth".
  *
- * ## Neither bound existed before this file
+ * ## Why the decode step needs both bounds
  *
- * The decode step was a bare `json_decode( $raw, true )`. That leaves PHP's
+ * A bare `json_decode( $raw, true )` leaves PHP's
  * own default 512-level depth limit as the only ceiling, and no size
  * ceiling at all, and it reports both a 600-level-deep document and a
  * plain "hello" as the same message ("The file does not contain a valid
  * JSON object."), which tells an operator nothing about which of the two
- * they hit. There was also no depth mention anywhere in the settings code
- * to build on -- inc/settings/page.php:373's "in more depth" is prose in a
- * docblock sentence, not a bound.
+ * they hit.
  *
  * ## Where the two numbers come from
  *

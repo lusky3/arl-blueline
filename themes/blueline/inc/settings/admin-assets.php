@@ -106,8 +106,8 @@ function blueline_settings_maybe_enqueue_brand_colors( string $hook_suffix ): vo
  * Real, visually-distinct styling for the `.bl-contrast-pass`/
  * `.bl-contrast-fail` classes blueline_settings_render_color_field() (this
  * file) and settings-brand-colors.js's `updateReadout()` both apply to
- * each contrast rule's readout line. Before this, neither class had any
- * CSS rule anywhere in the theme, so a passing and a failing rule rendered
+ * each contrast rule's readout line. Without these rules neither class has
+ * any CSS anywhere in the theme, so a passing and a failing rule would render
  * as identical plain grey text inside the surrounding `<p class="description">`
  * -- defeating the entire point of the advisory contrast warning.
  *
@@ -185,8 +185,8 @@ function blueline_settings_maybe_enqueue_occasions_script( string $hook_suffix )
 }
 
 /**
- * The "How Occasions work" disclosure's summary was 18px tall, under the 24px WCAG 2.5.8
- * target minimum. Small enough to inline (same precedent as the photo picker's styles).
+ * The "How Occasions work" disclosure's summary would be 18px tall, under the 24px WCAG 2.5.8
+ * target minimum, so it is sized up. Small enough to inline (same precedent as the photo picker's styles).
  *
  * @return string
  */

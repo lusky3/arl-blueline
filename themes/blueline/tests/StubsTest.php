@@ -29,14 +29,13 @@ final class StubsTest extends TestCase {
 	}
 
 	/**
-	 * Binds the wp_nav_menu() stub to core's own contract (fix round 1 on
-	 * Task 4, P1b-panel-completion): fed no menu and no callable
+	 * Binds the wp_nav_menu() stub to core's own contract: fed no menu and no callable
 	 * `fallback_cb` -- exactly what blueline_site_header() passes on both
 	 * its calls -- it returns `false` and prints nothing, matching core's
 	 * unconditional `return false;` branch (wp-includes/nav-menu-template.php)
-	 * rather than the previous version of this stub, which always returned
-	 * null and echoed nothing regardless of $args -- a stub no test actually
-	 * depended on, so an arbitrarily wrong one would have passed identically.
+	 * rather than a stub that always returned
+	 * null and echoed nothing regardless of $args -- which no test would
+	 * notice being wrong.
 	 */
 	public function test_wp_nav_menu_returns_false_with_no_menu_and_no_fallback(): void {
 		ob_start();

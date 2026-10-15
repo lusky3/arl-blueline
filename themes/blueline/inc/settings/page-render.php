@@ -14,8 +14,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The distinct `tab` values the schema declares, in first-seen order,
  * deliberately derived from blueline_settings_schema() rather than a
- * hardcoded list, so a future task that adds a new tab (e.g. a Sections
- * tab) does not also have to remember to edit this file.
+ * hardcoded list, so adding a new tab (e.g. a Sections tab) does not
+ * also require editing this file.
  *
  * @return string[]
  */
@@ -28,7 +28,7 @@ function blueline_settings_tab_slugs(): array {
 		}
 	}
 
-	// One explicit, named exception (design spec §5.1's third ruling):
+	// One explicit, named exception:
 	// `occasions` has zero schema fields of its own; it is a reserved
 	// settings key (BLUELINE_SETTINGS_RESERVED_KEYS), not a
 	// `type => 'occasions'` schema entry. Every other tab above is still
@@ -119,7 +119,7 @@ function blueline_settings_field_input_id( string $field_key ): string {
  * whether blueline_settings_field_errors() should claim it and the error
  * summary should link to it.
  *
- * Two conditions, and the second is the one that was missing: the entry
+ * Two conditions, and the second is the easy one to miss: the entry
  * must be an `error` (a success/info entry like "Settings saved." belongs
  * to no field), AND its code must actually name a schema field. The
  * summary renders a code as the field's label and links it to
@@ -127,7 +127,7 @@ function blueline_settings_field_input_id( string $field_key ): string {
  * failed snapshot restore for one, rendered a raw internal key as its
  * label and linked to an element that does not exist on the page. Those
  * entries belong in the page-level notice list instead, which
- * blueline_settings_non_field_messages() now takes as its complement.
+ * blueline_settings_non_field_messages() takes as its complement.
  *
  * @param array<string, mixed> $error One get_settings_errors() entry.
  * @return bool
@@ -145,7 +145,7 @@ function blueline_settings_error_is_field_scoped( array $error ): bool {
  * blueline_settings_error_is_field_scoped() for exactly which entries
  * qualify. Every message returned here was already run through esc_html()
  * at the point blueline_settings_sanitize_callback() called
- * add_settings_error() (see this file's docblock); it is safe to echo
+ * add_settings_error() (see inc/settings/page.php's docblock); it is safe to echo
  * directly, never re-escape it.
  *
  * @return array<string, string> Field key => already-escaped message.
@@ -222,14 +222,14 @@ function blueline_settings_render_page(): void {
 
 		<?php
 		/*
-		 * <section>, deliberately NOT a <div>. See this file's own
+		 * <section>, deliberately NOT a <div>. See inc/settings/page.php's
 		 * docblock's "Never a <div> for the error summary" section: the
 		 * same third-party plugin (Capabilities Pro's admin-notices
 		 * "declutter" module) that swept the error summary from the DOM
 		 * also removes any <div> whose class contains "notice", and a
 		 * genuinely successful save's own "Settings saved." notice carries
-		 * exactly that class. Confirmed live: a real successful save on
-		 * staging rendered no feedback at all until this was fixed.
+		 * exactly that class. As a <div>, a real successful save rendered no
+		 * feedback at all.
 		 */
 		?>
 		<?php foreach ( $notices as $notice ) : ?>
@@ -243,7 +243,7 @@ function blueline_settings_render_page(): void {
 		 * tabindex="-1" makes this a valid focus target without adding it
 		 * to the normal tab order; blueline_settings_maybe_enqueue_focus_script()
 		 * actually moves focus here on page load, via an explicit .focus()
-		 * call; see this file's own docblock and
+		 * call; see inc/settings/page.php's docblock and
 		 * blueline_settings_focus_summary_script()'s docblock for why a
 		 * plain HTML attribute alone was tried first and does not work in
 		 * the target browser. This explanation is a PHP comment, not an
@@ -253,10 +253,9 @@ function blueline_settings_render_page(): void {
 		<?php if ( ! empty( $field_errors ) ) : ?>
 			<?php
 			/*
-			 * A <section>, deliberately NOT a <div>. See this file's own
+			 * A <section>, deliberately NOT a <div>. See inc/settings/page.php's
 			 * docblock's "Never a <div> for the error summary" section for
-			 * why: a real browser click-through (not a unit test) found a
-			 * THIRD-PARTY plugin active on this install (Capabilities Pro's
+			 * why: a THIRD-PARTY plugin active on this install (Capabilities Pro's
 			 * admin-notices module) removes every <div> whose class
 			 * attribute contains "notice", "error", "warning", "info" or
 			 * "updated" as a SUBSTRING, anywhere on any wp-admin screen, as
@@ -329,7 +328,7 @@ function blueline_settings_render_page(): void {
 			<?php if ( 'occasions' === $current_tab ) : ?>
 				<?php
 				/*
-				 * design spec §5.1's third ruling: one explicit, named
+				 * One explicit, named
 				 * exception in the page renderer, not a general "custom
 				 * tabs" mechanism. blueline_settings_fields_for_tab(
 				 * 'occasions' ) is always empty (no schema field ever

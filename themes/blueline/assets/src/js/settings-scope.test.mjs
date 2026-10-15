@@ -14,7 +14,7 @@ const FILES = [
 	'settings-occasions.js',
 ];
 
-// Names that used to be script-global (and generic enough to collide with
+// Names that must not be script-global (they are generic enough to collide with
 // another wp-admin script).
 const FORMER_GLOBALS = [
 	'ROOT',

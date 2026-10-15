@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * that endpoint's own menu entry to appear.
  *
  * Only 'my-team' and 'my-schedule' have a matching dashboard card that can
- * go dark (Task 3's blueline_account_render_my_team()/_next_game() early
+ * go dark (blueline_account_render_my_team()/_next_game() early
  * returns): every other endpoint here is in the billing group, which has no
  * toggle at all -- see blueline_section_definitions()'s own "deliberately
  * NOT here" note. Switching a card's toggle off without also removing its

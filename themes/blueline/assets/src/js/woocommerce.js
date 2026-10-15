@@ -1,9 +1,9 @@
 /**
  * Blueline — WooCommerce checkout field description accessibility fix.
  *
- * Live-review findings 1 & 2 move checkout-field guidance out of a
- * placeholder (which truncates and disappears once the field has a value)
- * and into a `description` -- see inc/woocommerce.php's
+ * Checkout-field guidance lives in a
+ * `description` rather than a placeholder (which truncates and disappears
+ * once the field has a value) -- see inc/woocommerce.php's
  * blueline_wc_checkout_field_guidance(), and woocommerce.css's own comment
  * on the matching `.woocommerce-input-wrapper .description` visibility fix
  * this pairs with (WooCommerce core ships that element `display: none` by
@@ -58,7 +58,7 @@ function select2LabelledBy( existing, labelId ) {
 }
 
 /**
- * D-13: the checkout plugin's selectWoo fields render comboboxes named only
+ * The checkout plugin's selectWoo fields render comboboxes named only
  * by their placeholder span (axe aria-input-field-name), and the multi-select
  * wrapper carries aria-expanded/aria-haspopup with no role (aria-allowed-attr).
  * Point each at its <label>, and drop the attributes the role-less wrapper

@@ -4,7 +4,7 @@
  * Scoped to `.entry-content` (the wrapper every content-*.php template
  * puts around the_content()) so these rules only ever touch
  * editor-authored blocks -- never SportsPress's own shortcode-rendered
- * markup (Task 8) or the theme's own hand-written chrome, which live
+ * markup or the theme's own hand-written chrome, which live
  * outside this wrapper or use their own class names entirely.
  *
  * Covers exactly the blocks this site's real pages use: paragraph,
@@ -54,7 +54,7 @@
 
 /*
  * A page with a sidebar keeps prose flush left, on the same edge as the
- * tables and forms around it (owner: a centred column gave text pages a
+ * tables and forms around it (a centred column gives text pages a
  * different heading edge than data pages). It keeps the measure's width cap,
  * though: filling the whole column ran FAQ answers to ~105 characters a line
  * at desktop widths, well past a comfortable 60-75. Tables, images and other
@@ -180,7 +180,7 @@
 	padding: var(--bl-space-5) var(--bl-space-6);
 	background: color-mix(in srgb, var(--bl-warning) 8%, var(--bl-content-surface));
 
-	/* A-20: a full tinted border, not a 4px side stripe. */
+	/* A full tinted border, not a 4px side stripe. */
 	border: 1px solid color-mix(in srgb, var(--bl-warning) 40%, var(--bl-content-border));
 	border-radius: var(--bl-radius-card);
 	box-shadow: var(--bl-shadow-card);
@@ -262,8 +262,8 @@
 }
 
 /*
- * Reported live: "the lists could look better" (/register's deeply
- * nested "Important Dates and Times" / "Format" lists -- a label item
+ * Nested lists (/register's deeply nested "Important Dates and Times" /
+ * "Format" lists -- a label item
  * like "Season Begins:" or "Blackout Dates:" immediately followed by a
  * nested sub-list of its actual values, several levels deep). Plain
  * bullets at every level read as one flat, undifferentiated list --
@@ -433,7 +433,7 @@
 	margin-inline: var(--bl-measure-inline, auto);
 }
 
-/* A-20: a hanging quotation mark instead of a 4px side stripe. */
+/* A hanging quotation mark instead of a 4px side stripe. */
 .entry-content .wp-block-quote::before {
 	content: "\201C" / "";
 	position: absolute;
@@ -459,7 +459,7 @@
 }
 
 /*
- * A11Y-01: Shortcodes Ultimate's [su_box] (/register's product box) paints a
+ * Shortcodes Ultimate's [su_box] (/register's product box) paints a
  * fixed white body; use the theme-aware surface so dark-mode text reads.
  */
 .entry-content .su-box-content {
@@ -478,7 +478,7 @@
 }
 
 /*
- * A-01: [su_tabs] (the past rosters/stats pages) paints white panes with
+ * [su_tabs] (the past rosters/stats pages) paints white panes with
  * #333 text; in dark mode the captions (1.1:1) and table cells (1.2-1.4:1)
  * vanished. Content tokens in both schemes.
  */
@@ -508,7 +508,7 @@
 	color: var(--bl-content-text);
 }
 
-/* A-08: [su_spoiler]'s #f0f0f0 title bar and white body, unchanged in dark. */
+/* [su_spoiler]'s #f0f0f0 title bar and white body, unchanged in dark. */
 .entry-content .su-spoiler.su-spoiler-style-fancy {
 	background: var(--bl-content-surface);
 	color: var(--bl-content-text);
@@ -526,7 +526,7 @@
 	color: inherit;
 }
 
-/* A-08: core File block's charcoal pill, in this theme's button language. */
+/* Core File block's charcoal pill, in this theme's button language. */
 .entry-content .wp-block-file .wp-block-file__button {
 	padding: var(--bl-space-2) var(--bl-space-4);
 	background: var(--bl-ink);
@@ -546,8 +546,8 @@
 }
 
 /*
- * A-03/A-09: author-set colours in post content. Only the exact inline
- * values the QA pass measured are defended; any other colour an author
+ * Author-set colours in post content. Only the exact inline
+ * values measured for contrast are defended; any other colour an author
  * picks stays content-owned. !important is the only way past core's own
  * !important palette classes and inline styles.
  */
@@ -569,7 +569,7 @@
 	color: var(--bl-success) !important;
 }
 
-/* A-03: the dynamic-standings plugin's #f5f5f5 filter bar (1.03:1 dark). */
+/* The dynamic-standings plugin's #f5f5f5 filter bar (1.03:1 dark). */
 .entry-content .arl-standings-filters {
 	background: var(--bl-content-surface);
 	color: var(--bl-content-text);
@@ -582,7 +582,7 @@
 	border-color: var(--bl-content-border-strong);
 }
 
-/* D-09: core's password form (the protected registration product) had
+/* Core's password form (the protected registration product) had
    21px UA controls. */
 .post-password-form input[type="password"] {
 	min-height: 44px;
@@ -615,7 +615,7 @@
 }
 
 /*
- * A-11: ink-filled controls on the dark page (1.14:1) had no visible shape,
+ * Ink-filled controls on the dark page (1.14:1) had no visible shape,
  * so the current page read lighter than its neighbours. Dark swaps to the ice
  * CTA fill (ink text 7.7:1). layout.css owns the light rules.
  */

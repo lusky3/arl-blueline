@@ -14,7 +14,7 @@
  * @package WooCommerce\Templates
  * @version 8.6.0
  *
- * ARL override (ported from rookie-child, Task 9; rebased on core 8.6.0):
+ * ARL override (rebased on core 8.6.0):
  * the only change from core is the `.woocommerce-shop-content` wrapper,
  * whose `content-area-*-sidebar` class comes from
  * `blueline_get_sidebar_setting()` (see inc/woocommerce.php). The outer

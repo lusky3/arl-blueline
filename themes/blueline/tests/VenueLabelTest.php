@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * P0 finding 10: PRODUCT.md principle 4 says naming only the arena ("Twin
+ * PRODUCT.md principle 4 says naming only the arena ("Twin
  * Rinks") doesn't tell a player which pad to walk to -- but the site now has
  * the inverse bug, naming only the pad ("Red") and never the arena at all.
  *
@@ -24,7 +24,7 @@ require_once __DIR__ . '/../inc/sportspress.php';
 final class VenueLabelTest extends TestCase {
 
 	/**
-	 * The one rename this task confirmed live (post 11113, /register: "Mr.
+	 * The one rename confirmed live (post 11113, /register: "Mr.
 	 * Lube and Tires Arena (formerly known as the Wave Twin Rinks)") must
 	 * resolve for the exact address string stored on the venue terms that
 	 * share it -- both the with- and without-postal-code forms actually

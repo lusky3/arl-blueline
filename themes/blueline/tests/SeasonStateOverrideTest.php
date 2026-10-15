@@ -1,12 +1,12 @@
 <?php
 /**
- * Covers Task 7 of the P1b-panel-completion plan: the season-state
+ * Covers the season-state
  * break-glass -- an admin-set override of the computed season state, with a
  * mandatory expiry.
  *
  * ## The trap this file is written against
  *
- * Before this task, blueline_season_state() took NO parameters. PHP does not
+ * blueline_season_state() originally took NO parameters. PHP does not
  * error when a userland function is called with extra arguments -- it
  * discards them silently. So the obvious test,
  * `blueline_season_state( strtotime( '2026-08-15' ) )`, would have RUN, the
@@ -202,11 +202,10 @@ final class SeasonStateOverrideTest extends TestCase {
 	 * inc/homepage/hero.php's blueline_render_hero(), says the same).
 	 *
 	 * Seeded past the sanitizer on purpose. An off-list value CANNOT be
-	 * stored through update_option() any more -- the `choices` guard added
-	 * in Task 7's fix round refuses it and keeps the previous value -- so a
-	 * version of this test using set_override() asserts against a value that
-	 * was never stored, and passes with the read clamp deleted. It did
-	 * exactly that for one commit. `wp db import` and a direct database edit
+	 * stored through update_option() any more -- the `choices` guard
+	 * refuses it and keeps the previous value -- so a
+	 * test using set_override() would assert against a value that
+	 * was never stored, and pass with the read clamp deleted. `wp db import` and a direct database edit
 	 * are the routes that remain, and that is what this seeds.
 	 */
 	public function test_an_unknown_state_already_in_storage_is_ignored(): void {
@@ -442,17 +441,16 @@ final class SeasonStateOverrideTest extends TestCase {
 		/*
 		 * NOT the injected instant. The returned timestamp is the site-local
 		 * wall clock read back by strtotime(), matching what the null branch
-		 * produces from current_time( 'mysql' ) -- see Ruling M and
-		 * test_both_branches_of_the_query_moment_agree() below. An earlier
-		 * version of this assertion pinned the raw instant, which is exactly
-		 * the bug: it made the two branches disagree by the site's offset
-		 * and called that correct.
+		 * produces from current_time( 'mysql' ) -- see
+		 * test_both_branches_of_the_query_moment_agree() below. Pinning the
+		 * raw instant would be exactly the bug: it would make the two
+		 * branches disagree by the site's offset and call that correct.
 		 */
 		$this->assertSame( (int) strtotime( $mysql ), $timestamp );
 	}
 
 	/**
-	 * THE BRANCH-PARITY PIN (Ruling M, Task 7 fix round). Both branches of
+	 * THE BRANCH-PARITY PIN. Both branches of
 	 * blueline_season_state_moment() must produce the identical pair for the
 	 * identical instant -- not just the same `$now_mysql`, the same
 	 * `$now_ts` too.

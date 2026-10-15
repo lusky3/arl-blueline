@@ -15,13 +15,13 @@ defined( 'ABSPATH' ) || exit;
  * One team's own scoreline for a played sp_event, looked up by team ID,
  * never by position in a shared results array.
  *
- * Review finding: SP_Event::main_results() (SportsPress core) returns a
+ * SP_Event::main_results() (SportsPress core) returns a
  * plain, re-indexed array built by looping $teams and doing
  * `$output[] = $team_result` only `if ( null != $team_result )`, so a
  * team with no result recorded for this event (a bye, an incomplete score
  * entry, etc.) is skipped entirely, shifting every following team's score
  * left by one slot. Zipping that array against this theme's own
- * separately-fetched $teams array by index (the original implementation)
+ * separately-fetched $teams array by index
  * would silently attribute one team's score to a different team the moment
  * either team is missing a value: home/away meta-row order is meaningful
  * on this site but not guaranteed to line up with a differently-derived,
@@ -71,8 +71,8 @@ function blueline_sp_team_result( $event_id, $team_id ) {
  * de-duplicated of anything that doesn't resolve to a real (positive) id:
  * the exact get_post_meta()/array_map()/array_filter() shape
  * blueline_sp_event_hero(), blueline_sp_event_teaser(),
- * blueline_social_meta_data_for_event() (inc/social-meta.php), and
- * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
+ * blueline_social_meta_data_for_event() (blueline-core's seo-meta module), and
+ * blueline_sports_event_schema() (blueline-core's seo-meta module) each used to repeat
  * verbatim. Callers that split this into a "team A"/"team B" pair (most of
  * them) still do that split themselves; this only resolves the raw id
  * list.
@@ -86,15 +86,14 @@ function blueline_sp_event_team_ids( int $event_id ): array {
 
 /**
  * The player-facing venue label for a single sp_event's own `sp_venue`
- * term: "{Arena name} — {Pad name}" via blueline_venue_label() (P0 finding
- * 10) when that function exists, else the term's own name; '' when the
+ * term: "{Arena name} — {Pad name}" via blueline_venue_label() when that function exists, else the term's own name; '' when the
  * taxonomy doesn't exist, the event has no venue term at all, or the term
  * lookup errors.
  *
  * The exact wp_get_post_terms()/is_wp_error()/blueline_venue_label()-or-
  * fallback shape blueline_sp_event_hero(), blueline_sp_event_teaser(),
- * blueline_social_meta_data_for_event() (inc/social-meta.php), and
- * blueline_sports_event_schema() (inc/social-meta.php) each used to repeat
+ * blueline_social_meta_data_for_event() (blueline-core's seo-meta module), and
+ * blueline_sports_event_schema() (blueline-core's seo-meta module) each used to repeat
  * verbatim.
  * blueline_homepage_next_event_line() (inc/homepage/hero.php) used a
  * wp_get_object_terms() variant of the same lookup (functionally
@@ -205,7 +204,7 @@ function blueline_sp_hero_crest_attributes( string $kind ): array {
 
 /**
  * The event masthead: teams, "vs", venue (via blueline_venue_label(),
- * P0 finding 10, so this reads "Mr. Lube and Tires Arena — Red" rather
+ * so this reads "Mr. Lube and Tires Arena — Red" rather
  * than just the pad name), and either an add-to-calendar link (game has not
  * started), "Result pending" (game has started but no score is in yet), or
  * the final score (a result has been recorded); "Postponed"/"Cancelled"
@@ -328,7 +327,7 @@ function blueline_sp_event_hero( $event_id ) {
 /**
  * The player masthead: number, position (read from the sp_position
  * taxonomy, never a meta field), current team, and nationality (escaped
- * for the attribute context it is used in, per the Task 8 brief).
+ * for the attribute context it is used in).
  *
  * @param int $player_id sp_player post ID.
  */
@@ -439,16 +438,15 @@ function blueline_sp_team_hero_decide_division_names( string $current_season_div
  * blueline_player_division_name() (inc/account/player-data.php), never the
  * team's own raw sp_league terms directly.
  *
- * Live-review finding: team pages showed 5-7 stale/historical division
+ * Rendering EVERY sp_league term ever attached to the team, comma-joined,
+ * with no "current" filter would show 5-7 stale/historical division
  * tags, most not matching any of the site's five actually-current
- * divisions -- this used to render EVERY sp_league term ever attached to
- * the team, comma-joined, with no "current" filter at all.
+ * divisions.
  * blueline_player_division_name()'s own docblock already documents exactly
- * this: "an earlier version of this function picked the team's own HIGHEST
- * term_id sp_league term... [that] claim was wrong: blueline_sp_team_hero()
- * renders EVERY sp_league term... so the two pages could disagree about the
- * same team's division," and "confirmed live: team 14955 alone carries 7
- * different Division terms spanning several seasons." This reuses that
+ * this: the team's own sp_league terms accumulate every division ever
+ * tagged, so the two pages could disagree about the same team's division
+ * ("confirmed live: team 14955 alone carries 7 different Division terms
+ * spanning several seasons"). This reuses that
  * function's season-scoped resolution (via the team's current-season
  * sp_table -- see blueline_team_current_table_id()) instead of inventing a
  * second way to determine "current," per that same docblock's own
@@ -470,11 +468,10 @@ function blueline_sp_team_hero_division_names( int $team_id ): array {
  * row with .sp-highlight, which is the correct, already-computed source for
  * W/L/T/PTS rather than a second, hand-rolled aggregation.
  *
- * Finding 13: the hero itself is now a coloured band (fill = team primary,
+ * The hero itself is a coloured band (fill = team primary,
  * text = the derived on-primary foreground) with a paired blue-line band
- * (Device #2) underneath in team primary + ink, in place of the old
- * border-top/box-shadow approximation. See single-team.php for the second
- * half of finding 13: it prints this same style attribute again on
+ * (Device #2) underneath in team primary + ink. See single-team.php for the
+ * second half of this: it prints this same style attribute again on
  * <main>, promoting the custom properties to a scope the_content()'s own
  * league table (rendered as a SIBLING of this <header>, not a descendant)
  * can also see, which is what lets .sp-highlight (sportspress.css) pick up
@@ -491,7 +488,7 @@ function blueline_sp_team_hero( $team_id ) {
 	 * back to its theme token and the hero renders exactly as it always has.
 	 * See inc/team-colors.php for why the stored palette is not used as-is:
 	 * that derivation guard (the fills-vs-boundaries split and the
-	 * achromatic withholding) is unchanged by this finding.
+	 * achromatic withholding) applies here.
 	 */
 	$team_color_attr = blueline_team_color_style_attr( $team_id );
 	?>
@@ -573,7 +570,7 @@ function blueline_sp_staff_hero( $staff_id ) {
  * listings (taxonomy-venue.php) where showing every event's full,
  * the_content()-rendered detail would be far too heavy per row.
  *
- * Same P0 finding 2/10 fixes as blueline_sp_event_hero(): "Preview" is
+ * Same behaviour as blueline_sp_event_hero(): "Preview" is
  * gated on the clock via blueline_sp_event_state(), not on whether a score
  * has been entered, and the venue (when the venue archive itself does not
  * already say it via the page title) reads through blueline_venue_label()

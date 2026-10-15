@@ -1,6 +1,6 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1).
 /**
- * Covers the panel's own export and import controls (inc/settings/page.php)
+ * Covers the panel's own export and import controls (inc/settings/page-data-tools.php)
  * -- the half of the design spec's 6.8 ("JSON, both directions,
  * manage_options + nonce") that only ever existed in WP-CLI.
  *
@@ -9,8 +9,8 @@
  * The spec's central property for an import preview is that a write which
  * OMITS a key carries the stored value forward rather than resetting it, so
  * an admin has to be able to see which keys the file simply does not
- * mention. `wp blueline settings import --dry-run` has printed exactly that
- * since P1a; the risk when adding a second surface is a second, weaker
+ * mention. `wp blueline settings import --dry-run` prints exactly that;
+ * the risk when adding a second surface is a second, weaker
  * preview that shows only what changes.
  *
  * test_the_panel_preview_lists_the_same_keys_and_statuses_as_the_cli_dry_run()

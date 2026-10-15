@@ -32,8 +32,8 @@
  * NARROWER than 1800px -- side-by-side: the sidebar is a real 300px grid
  * track INSIDE the shared 1200px .bl-container, so the content column
  * starts on the same left edge as the logo and the footer, and the rail
- * ends on the header's right edge. (It used to widen the container to
- * 1400px and push the rail further out with a translate, which put the
+ * ends on the header's right edge. (Widening the container to
+ * 1400px and pushing the rail out with a translate would put the
  * page heading 90px left of the logo at 1440px and the rail past the
  * header's edge -- one page type's grid jumping away from every other.)
  * There simply is not enough spare width below the breakpoint for a
@@ -50,16 +50,14 @@
  * than widening, so content is centred/balanced exactly like a
  * no-sidebar page. The sidebar becomes a `position: fixed` floating
  * panel instead of a grid participant, anchored straight to the true
- * viewport edge (right: 0 -- no longer needs the narrower rule's
- * max(0px, (100vw-1400px)/2) bleed math, since that was specifically
- * computing "how far past the centred container's own edge to bleed";
- * a fixed-position element measures from the viewport itself already).
+ * viewport edge (right: 0 -- no bleed math is needed, since a
+ * fixed-position element measures from the viewport itself already).
  *
  * The breakpoint itself: confirmed live that overlap and clean
  * separation are both real outcomes, not a matter of degree -- 1280px
  * and 1440px (ordinary laptop widths) put the floating panel directly
  * over the roster table's stat columns and the widget rail's own text;
- * 1920px sits it cleanly in what was previously dead margin with zero
+ * 1920px sits it cleanly in what is otherwise dead margin with zero
  * overlap. The exact zero-overlap point is where .bl-container's own
  * right-hand margin, (100vw - 1200px) / 2, plus its 24px inline padding,
  * first reaches the panel's ~300px footprint -- solving that equation
@@ -86,8 +84,8 @@
 		width: 300px;
 
 		/*
-		 * Reported live: each widget card's own box-shadow (added for the
-		 * light-theme-legibility fix above) looked like "a gray background"
+		 * Each widget card's own box-shadow (added for the
+		 * light-theme-legibility fix above) would look like "a gray background"
 		 * abruptly cut off instead of fading out -- confirmed: this
 		 * container's own overflow-y:auto clips anything that renders past
 		 * ITS box, and with too little padding of its own here, that box
@@ -101,7 +99,7 @@
 		 * viewport's right edge instead, since a grid item's width growth
 		 * extends its box past its own track rather than being absorbed by
 		 * it. --bl-shadow-raised-sm (style.css) exists for exactly this:
-		 * the same colour/opacity as the shadow originally used here, at a
+		 * the same colour/opacity as the larger shadow, at a
 		 * smaller 6px/20px offset/blur that fits inside padding this
 		 * element can safely add without changing its own width -- 20px
 		 * reaches 20-6=14px above a card and 20+6=26px below/beside it, so
@@ -129,7 +127,7 @@
 	}
 
 	/*
-	 * Reported live: the jump-nav "On this page" heading sat slightly under
+	 * The jump-nav "On this page" heading would sit slightly under
 	 * the header until it shrank on scroll. `position: sticky`'s own offset
 	 * is measured from the real viewport top, but `.bl-header` itself moves
 	 * to `top: 32px` for a logged-in admin (header.css's own `.admin-bar
@@ -192,7 +190,7 @@
  * exactly where the flyout's opaque tab does, and any text flowing
  * behind it (the tab is fixed, so this happens at whatever scroll
  * position puts a line of text in its vertically-centered band) gets its
- * leading character(s) clipped. Confirmed live, 2026-09-04 UX audit:
+ * leading character(s) clipped. Confirmed live:
  * "This page" rendered as "his page", "Final score coming soon" as
  * "inal score coming soon".
  *
@@ -363,7 +361,7 @@
 /* Sidebar widgets */
 
 /*
- * Reported live: unreadable on an event page at wide screens -- above the
+ * Unreadable on an event page at wide screens -- above the
  * 1800px breakpoint .bl-sidebar becomes position:fixed (this file's own
  * rule near the top) and can sit directly over .sp-scoreboard's dark hero,
  * where a widget's plain text (sized/coloured for the paper background
@@ -388,7 +386,7 @@
 	border-radius: var(--bl-radius-card);
 
 	/*
-	 * --bl-shadow-raised-sm, not --bl-shadow-raised: reported live, the
+	 * --bl-shadow-raised-sm, not --bl-shadow-raised: the
 	 * larger shadow's blur got clipped by .bl-sidebar's own overflow-y:auto
 	 * (that rule's own comment, above in this file, has the full story and
 	 * the numbers). Same colour/opacity, smaller reach.
@@ -399,17 +397,17 @@
 }
 
 /*
- * Reported live: "The Next Puck Drop" (the countdown widget) rendered
+ * "The Next Puck Drop" (the countdown widget) rendered
  * much larger than its content needed, with excess padding top and
  * bottom. Root cause: .sp-countdown-wrapper (sportspress.css) already
  * carries its OWN complete card -- padding, border, border-radius --
- * from an earlier fix (finding 4), predating this rule, and it wraps only
+ * and it wraps only
  * the countdown clock itself: the widget's title
  * (<h2 class="sp-table-caption">, SportsPress' own markup, printed as a
  * SIBLING before .sp-countdown-wrapper, not inside it) relied entirely on
- * THIS card's own padding for its top clearance. A first attempt zeroed
- * the outer .widget's own padding/border wholesale to fix the doubling --
- * confirmed live, that also stripped the title's only clearance, leaving
+ * THIS card's own padding for its top clearance. Zeroing
+ * the outer .widget's own padding/border wholesale to fix the doubling
+ * would also strip the title's only clearance, leaving
  * it flush against the card's top edge.
  *
  * Zeroing .sp-countdown-wrapper's OWN padding/border instead (scoped to
@@ -431,8 +429,7 @@
 }
 
 /*
- * Reported live, again, after the fix above: still oversized, this time
- * specifically extra space below the countdown digits. Root cause is
+ * Extra space below the countdown digits. Root cause is
  * SportsPress Pro's own bundled core stylesheet (not this theme's,
  * confirmed live via document.styleSheets -- includes/sportspress/assets/
  * css/sportspress.css, the "always loaded regardless of the frontend-css
@@ -456,9 +453,9 @@
 }
 
 /*
- * Reported live, a third time: bottom is now right, but the TOP still has
- * too much space. Same mechanism as the fix above, a different source --
- * this one is this theme's own rule, not a plugin default:
+ * Extra space above the countdown title. Same mechanism as the rule above,
+ * a different source -- this one is this theme's own rule, not a plugin
+ * default:
  * `.sp-table-caption { margin-block: var(--bl-space-6) var(--bl-space-3) }`
  * (sportspress.css) puts a deliberate 32px above the countdown widget's own
  * title (<h2 class="sp-table-caption">, printed as a sibling before
@@ -477,7 +474,7 @@
 }
 
 /*
- * Reported live: "looks off" -- confirmed via computed styles, the Quotes
+ * The Quotes
  * Llama plugin's own default markup carries styling this theme's card
  * layout never asked for. The headshot's hardcoded `margin: 0 10px 10px 0`
  * (an old float-the-image-left-and-wrap-text convention this centred card
@@ -568,9 +565,9 @@
 }
 
 /*
- * Reported live: no gap between "The Next Puck Drop" and "Recent Posts",
- * while every OTHER pair of widgets (Recent Posts to the quotes widget
- * below it) had the expected one. Not a WordPress widget-admin setting --
+ * Gap between "The Next Puck Drop" and "Recent Posts": every OTHER pair of
+ * widgets (Recent Posts to the quotes widget below it) gets the expected one,
+ * and this is not a WordPress widget-admin setting --
  * confirmed live via the actual DOM: SportsPress wraps the countdown
  * widget's own <section class="widget"> in an EXTRA
  * <div class="sp-widget-align-none"> (its own alignment wrapper, the
@@ -618,7 +615,7 @@
 }
 
 /*
- * "More content this way" scroll cues -- requested live: on a short page,
+ * "More content this way" scroll cues -- on a short page,
  * the sidebar's own widget stack can run taller than its scrollable box
  * (this file's own .bl-sidebar rules, overflow-y: auto) with nothing
  * indicating it scrolls at all. assets/src/js/sidebar-scroll-cues.js
@@ -634,8 +631,7 @@
  * pseudo-element can't host its own bounce animation independently of the
  * fade's, or use currentColor the way an inline SVG can).
  *
- * position: sticky, not absolute, for both -- confirmed live, and the
- * OPPOSITE of what this comment used to say here: .bl-sidebar is
+ * position: sticky, not absolute, for both -- confirmed live: .bl-sidebar is
  * simultaneously the scrolling element (overflow-y: auto) AND the
  * containing block these layers position against, which means an
  * absolutely positioned descendant is scrollABLE CONTENT of its own
@@ -646,8 +642,7 @@
  * shifted by exactly the scroll delta, i.e. it drifted straight out of
  * view after a small scroll rather than staying put -- it only ever
  * looked "pinned" at scrollTop 0, where absolute and sticky positioning
- * happen to coincide, which is why this went unnoticed through this
- * feature's own original live verification. position: sticky is the one
+ * happen to coincide. position: sticky is the one
  * that actually keeps a descendant pinned to a scrolling ancestor's own
  * visible edge as that ancestor scrolls internally. The OUTER position:
  * sticky/fixed already on .bl-sidebar itself (page-level placement, this
@@ -698,10 +693,10 @@
 }
 
 /*
- * Reported live: not actually visible -- confirmed, the chevron had no
- * backing of its own, so on a page where the widget behind it happens to
+ * The chevron needs a backing of its own: on a page where the widget behind
+ * it happens to
  * be a photo (the quotes widget's own image, directly below "Recent
- * Posts") it rendered a thin currentColor stroke straight on top of
+ * Posts") a bare chevron is a thin currentColor stroke straight on top of
  * arbitrary photo content with nothing to read against. A small circular
  * badge -- the same translucent-card legibility treatment
  * (color-mix()+backdrop-filter) the sidebar's own widget cards already use
@@ -859,10 +854,10 @@
 
 /*
  * Positioning for .bl-sidebar itself (position, top/right, width,
- * max-height) now lives on the single rule near the top of this file,
+ * max-height) lives on the single rule near the top of this file,
  * alongside .bl-content-layout's own experiment comment -- kept as one
- * rule rather than split across two, now that fixed positioning replaces
- * the grid-plus-sticky approach this comment used to describe.
+ * rule rather than split across two, since fixed positioning replaces
+ * a grid-plus-sticky approach.
  */
 
 .bl-jump-nav__label {
@@ -951,7 +946,7 @@
 	 * page WORSE (648px) while "fixing" only the pages with a tall/portrait
 	 * upload. 21/8 caps every page -- including a portrait upload, which
 	 * would otherwise render taller than it is wide -- while still shipping
-	 * a real reduction (~439px) on the one page this finding measured.
+	 * a real reduction (~439px) on the one page measured.
 	 */
 	aspect-ratio: 21 / 8;
 	object-fit: cover;
@@ -1093,10 +1088,10 @@
 
 /*
  * Applied to every card, not just `.has-post-thumbnail`: the thumbnail
- * column used to exist only on cards with an image, so a list mixing
+ * column would otherwise exist only on cards with an image, so a list mixing
  * illustrated and un-illustrated posts had titles landing at two different
  * x-offsets (280px vs 24px, measured live on /news at 1280px) -- the list
- * visibly jumped sideways mid-scroll. The column is now always reserved;
+ * visibly jumped sideways mid-scroll. The column is always reserved;
  * `.bl-post-card__body` is pinned to it explicitly so a card with no
  * `.bl-post-card__thumb` (the grid's only other possible child) leaves the
  * first column empty instead of auto-placing the body into it.
@@ -1137,7 +1132,7 @@
 	aspect-ratio: 4 / 3;
 }
 
-/* C-20: square team crests are framed, not cropped to 4:3. */
+/* Square team crests are framed, not cropped to 4:3. */
 .bl-post-card.type-sp_team .bl-post-card__thumb img {
 	padding: var(--bl-space-4);
 	background: var(--bl-white);
@@ -1145,7 +1140,7 @@
 }
 
 /*
- * B-13: a SportsPress archive with no thumbnails at all (players, staff)
+ * A SportsPress archive with no thumbnails at all (players, staff)
  * drops the reserved 240px column instead of indenting every entry.
  */
 @media (min-width: 700px) {
@@ -1235,7 +1230,7 @@
 
 .bl-pagination .prev,
 .bl-pagination .next {
-	gap: 0.35em; /* A-20: flex collapsed the space in "Older →". */
+	gap: 0.35em; /* flex collapsed the space in "Older →". */
 	min-width: auto;
 	padding-inline: var(--bl-space-3);
 	font-weight: 600;

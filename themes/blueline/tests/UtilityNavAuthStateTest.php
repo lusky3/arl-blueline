@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/template-tags.php';
 
 /**
- * Covers P3 finding 3: the header's utility nav (account links) is a
+ * Covers the header's utility nav (account links) is a
  * static, admin-managed wp_nav_menu -- on this site "My ARL Account" and
  * a "Log Out" link with a baked-in _wpnonce, both rendered unconditionally
  * regardless of login state. Verified live: a cookie-less visitor to

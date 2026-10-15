@@ -1,9 +1,9 @@
 <?php
 /**
- * Fix round 1 (Task 8): proves the four fields this round wired --
+ * Proves the four fields wired here --
  * `footer_heading`, `footer_location`, `contact_email`, `hero_offseason_cta`
  * -- actually change what renders on the public site when an admin changes
- * them. Before this fix, all four were schema fields an admin could edit and
+ * them. Before they were wired, all four were schema fields an admin could edit and
  * save ("Settings saved.") with no effect whatsoever: inc/template-tags.php
  * and inc/homepage-modules.php still read the original hardcoded literal.
  * SchemaFieldCoverageTest guards against a FUTURE field shipping in that
@@ -32,8 +32,7 @@ require_once __DIR__ . '/../inc/homepage-modules.php';
 
 /**
  * Covers the render side of the four newly-wired fields, plus the
- * `contact_email` `mailto:` href safety the coordinator asked for
- * explicitly.
+ * `contact_email` `mailto:` href safety.
  */
 final class FooterAndHeroSettingsRenderTest extends TestCase {
 
@@ -136,7 +135,7 @@ final class FooterAndHeroSettingsRenderTest extends TestCase {
 	}
 
 	/**
-	 * Task 8 (fix round 2): changing `module_new_here_heading` through a
+	 * Changing `module_new_here_heading` through a
 	 * real save changes the "new here" module's rendered `<h2>` heading --
 	 * not merely the stored option value.
 	 */
@@ -181,7 +180,7 @@ final class FooterAndHeroSettingsRenderTest extends TestCase {
 	/**
 	 * The regression this restructure exists to fix: a league volunteer
 	 * configuring ONE Q&A slot's widget area used to suppress the theme's
-	 * ENTIRE default Q&A block (reported live as "I lose all the content of
+	 * ENTIRE default Q&A block ("I lose all the content of
 	 * that section"), because all three questions shared one combined
 	 * widget area. Each slot is now its own area
 	 * ('bl-homepage-new-here-q1'/'q2'/'q3'), so populating just the first
@@ -242,7 +241,7 @@ final class FooterAndHeroSettingsRenderTest extends TestCase {
 	/**
 	 * Defence in depth, independent of the sanitizer: even if a hostile
 	 * value somehow reached storage already (pre-existing data from before
-	 * this fix, a direct database edit -- anything that bypasses
+	 * the sanitizer, a direct database edit -- anything that bypasses
 	 * update_option()'s sanitize_option_ filter entirely), esc_url() at the
 	 * render site still neutralises it. Writes straight to the in-memory
 	 * option store, bypassing update_option() and therefore the sanitizer

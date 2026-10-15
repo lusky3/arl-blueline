@@ -248,7 +248,7 @@ final class BootstrapFidelityTest extends TestCase {
 	}
 
 	/**
-	 * Pins the asymmetry a task-6 code review caught this stub getting
+	 * Pins the asymmetry this stub once got
 	 * wrong: core's real update_option() does NOT fire
 	 * update_option_{$option} on the very FIRST write to an option that
 	 * does not exist yet -- it delegates internally to add_option(), which
@@ -256,8 +256,8 @@ final class BootstrapFidelityTest extends TestCase {
 	 * SUBSEQUENT write, to an option that already exists, fires
 	 * update_option_{$option}. A callback hooked only to
 	 * update_option_{$option} silently never runs on that first save --
-	 * exactly the gap inc/settings/cache.php's purge trigger originally had
-	 * (see its blueline_flush_page_cache_on_first_save()).
+	 * exactly the gap inc/settings/cache.php's
+	 * blueline_flush_page_cache_on_first_save() exists to close.
 	 */
 	public function test_update_option_fires_add_option_hook_on_first_write_only(): void {
 		$calls = array();
@@ -293,7 +293,7 @@ final class BootstrapFidelityTest extends TestCase {
 	}
 
 	/**
-	 * Task-7 fix-round-5 finding, pinned directly: on a genuine first-ever
+	 * Pinned directly: on a genuine first-ever
 	 * write, update_option() delegates to add_option() (see the test
 	 * above) -- a REAL re-entrant call, not merely firing the same hooks
 	 * inline. Because add_option() is a fully independent function that

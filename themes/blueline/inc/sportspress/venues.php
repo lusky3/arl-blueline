@@ -17,8 +17,8 @@ add_action( 'pre_get_posts', 'blueline_sp_venue_archive_include_future' );
  * WordPress's default main-query post_status is 'publish' only, which would
  * silently hide every upcoming (future-status) game from a venue's own
  * archive page, which is the exact under-counting bug this project has already
- * shipped twice in custom queries (Tasks 6/7). This is the equivalent fix
- * for the one query Task 8 does not build itself: the taxonomy-venue.php
+ * shipped twice in custom queries. This is the equivalent fix
+ * for the one query this theme does not build itself: the taxonomy-venue.php
  * main loop, which WordPress core populates before the template ever runs.
  *
  * @param WP_Query $query The main query, passed by reference.
@@ -35,7 +35,7 @@ function blueline_sp_venue_archive_include_future( $query ) {
 
 /**
  * The known street-address -> arena-name map, filterable so a site owner
- * can correct or extend it without a code deploy. P0 finding 10: SportsPress
+ * can correct or extend it without a code deploy. SportsPress
  * venue *terms* only ever carry a pad name ("Red", "Black") plus a street
  * address (`sp_address`, in `get_option( 'taxonomy_' . $term_id )`); there
  * is no structured "arena name" field anywhere in the taxonomy. The arena
@@ -52,14 +52,13 @@ function blueline_sp_venue_archive_include_future( $query ) {
  * sometimes a full sentence, and sometimes blank/decorative markup
  * (`&nbsp;`); there is no reliable convention to parse, so guessing would
  * ship wrong names as confidently as right ones. A small address-keyed map
- * is auditable and correct for the one rename this task has confirmed;
+ * is auditable and correct for the one rename confirmed so far;
  * everywhere else this returns '' and blueline_venue_label() falls back to
  * the term's own name exactly as before.
  *
  * The real fix is a content one: give sp_venue terms an actual "arena name"
  * field (or at minimum update the description's opening line) so this map
- * can shrink to nothing. Recorded in this task's report as a content
- * follow-up for the site owner, not fixed here.
+ * can shrink to nothing.
  *
  * @param string $address Raw `sp_address` value.
  * @return string Arena name, or '' when this address is not confidently known.
@@ -107,8 +106,8 @@ function blueline_venue_arena_name( $term_id ) {
 }
 
 /**
- * The player-facing venue label: "{Arena name} — {Pad name}", per P0 finding
- * 10, PRODUCT.md principle 4 ("the pad, not just the arena"). Falls back to
+ * The player-facing venue label: "{Arena name} — {Pad name}", per
+ * PRODUCT.md principle 4 ("the pad, not just the arena"). Falls back to
  * the term's own name alone (today's behaviour, unchanged) whenever no
  * confidently-known arena name exists for that venue's address, or when the
  * arena name and the pad name are the same string (a single-pad venue whose
@@ -153,8 +152,7 @@ function blueline_venue_label( $term_id ) {
 
 add_filter( 'get_the_archive_title', 'blueline_sp_venue_archive_title' );
 /**
- * The venue archive's own page title, via blueline_venue_label(), per P0
- * finding 10. Scoped strictly to the sp_venue taxonomy archive so every
+ * The venue archive's own page title, via blueline_venue_label(). Scoped strictly to the sp_venue taxonomy archive so every
  * other archive/page title on the site is untouched.
  *
  * @param string $title Default archive title.

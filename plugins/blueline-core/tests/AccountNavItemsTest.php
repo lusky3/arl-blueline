@@ -11,8 +11,7 @@ require_once __DIR__ . '/../includes/account-endpoints/account-endpoints.php';
 require_once dirname( __DIR__, 3 ) . '/themes/blueline/inc/account/dashboard.php';
 
 /**
- * Covers blueline_account_nav_items() -- previously untested despite backing
- * the live nav template (woocommerce/myaccount/navigation.php).
+ * Covers blueline_account_nav_items(), which backs the nav template (woocommerce/myaccount/navigation.php).
  */
 final class AccountNavItemsTest extends TestCase {
 

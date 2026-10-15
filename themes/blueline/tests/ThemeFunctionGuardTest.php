@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Stops `function_exists( 'blueline_*' )` guards creeping back onto the theme's
- * own helpers (audit CC-04). functions.php loads every inc/ file on every
+ * own helpers. functions.php loads every inc/ file on every
  * request, so such a guard only turns a rename or deletion into a silent
  * fallback. A guard is allowed only for a name listed below with its reason.
  */

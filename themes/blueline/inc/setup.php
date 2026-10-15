@@ -44,7 +44,7 @@ function blueline_setup() {
 
 	/*
 	 * Required so the header can call has_custom_logo() / the_custom_logo()
-	 * (Task 4). `height`/`width` are only the recommended-size hint the
+	 * `height`/`width` are only the recommended-size hint the
 	 * Customizer's media picker shows an admin, not an enforced crop --
 	 * flex-height/flex-width (both true) mean WordPress never forces the
 	 * uploaded image to this ratio, and header.css's own
@@ -52,13 +52,11 @@ function blueline_setup() {
 	 * (fixed height, auto width) already renders whatever aspect ratio the
 	 * real uploaded image has, unenforced by this hint either way.
 	 *
-	 * Reported live: "We use a 1:1 logo" -- the league's real logo asset is
-	 * square, not the 3:1 (240x80) this hint originally suggested. Matching
-	 * it to a real square size (80x80, the header's own resting
-	 * --bl-header-logo height, so the hint and the rendered size agree)
-	 * keeps the Customizer's own guidance honest for what admins actually
-	 * upload here, even though the rendered header was already correct for
-	 * a square image before this change.
+	 * The league's real logo asset is square, so the hint is a real
+	 * square size (80x80, the header's own resting --bl-header-logo
+	 * height, so the hint and the rendered size agree), which keeps the
+	 * Customizer's own guidance honest for what admins actually upload
+	 * here.
 	 */
 	add_theme_support(
 		'custom-logo',
@@ -90,7 +88,7 @@ function blueline_setup() {
 
 add_filter( 'get_custom_logo_image_attributes', 'blueline_custom_logo_sizes', 10, 2 );
 /**
- * PERF-07: give the header logo a `sizes` matching its rendered box
+ * Give the header logo a `sizes` matching its rendered box
  * (header.css: height var(--bl-header-logo), 80px, 60px below 1100px; width
  * auto) instead of core's "(max-width: 512px) 100vw, 512px", which made
  * browsers fetch the full 512px source for an 80px mark.
@@ -156,9 +154,7 @@ function blueline_widgets_init() {
  * `@access private` (wp-includes/widgets.php): there is no public
  * alternative that reports widget ASSIGNMENTS without also rendering them
  * (dynamic_sidebar() prints markup; is_active_sidebar() reports only
- * true/false, never a count). Not independently re-verified against core's
- * own source as part of this change -- flagging that rather than dressing
- * it up as more thoroughly checked than it is.
+ * true/false, never a count).
  *
  * Not special-cased against the `wp_inactive_widgets` bucket
  * wp_get_sidebars_widgets() also returns (core's holding pen for widgets

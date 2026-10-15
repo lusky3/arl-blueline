@@ -1,6 +1,6 @@
 <?php
 /**
- * The SportsPress table-scroll pass on core's HTML5 parser (audit WP-17):
+ * The SportsPress table-scroll pass on core's HTML5 parser:
  * same decisions and output as the old libxml pass for every fixture that
  * pass handled, without re-serialising HTML5-only markup it used to mangle.
  *

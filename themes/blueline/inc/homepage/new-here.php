@@ -35,16 +35,14 @@ add_action( 'widgets_init', 'blueline_homepage_new_here_widgets_init' );
  * blueline_homepage_new_here_qa_slots()), replacing the module's original
  * single combined area.
  *
- * P1 finding 5: "Never played? Perfect." is PRODUCT.md's tonal north star,
- * because the site's whole reason to exist is convincing the nervous first-timer
- * persona to register, and this content was three short bullets, hardcoded
- * as English strings in PHP, with no way for a league volunteer (who runs
- * this site day to day, and is not a developer) to update it without a code
- * deploy. A single combined widget area first solved that, but reported
- * live as an all-or-nothing trap: adding any widget to it suppressed the
- * theme's ENTIRE default Q&A block, not just the one question the
- * volunteer meant to change ("I lose all the content of that section").
- * One widget area per question fixes that -- each falls back to its own
+ * "Never played? Perfect." is PRODUCT.md's tonal north star, because the
+ * site's whole reason to exist is convincing the nervous first-timer
+ * persona to register, so a league volunteer (who runs this site day to
+ * day, and is not a developer) must be able to update this content without
+ * a code deploy. A single combined widget area would be an all-or-nothing
+ * trap: adding any widget to it would suppress the theme's ENTIRE default
+ * Q&A block, not just the one question the volunteer meant to change.
+ * One widget area per question avoids that -- each falls back to its own
  * specific default independently, so overriding one leaves the other two
  * exactly as they were.
  */
@@ -188,7 +186,7 @@ function blueline_homepage_module_new_here() {
 /**
  * The "Never played? Perfect." module's closing button: the one step a
  * newcomer can take today. That module is where a nervous first-timer decides,
- * and it used to end on a link to more reading. Registration while it is open
+ * so it ends on an action rather than a link to more reading. Registration while it is open
  * (the same live check as the header's Register button), the waitlist while
  * only that is on offer, otherwise the off-season hero's mailing-list offer.
  *

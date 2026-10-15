@@ -35,8 +35,7 @@ function blueline_homepage_event_season_label( int $event_id ): string {
  * Count of games (post_status publish OR future) starting within the next
  * 7 days. Upcoming games on this site are 'future', not 'publish'; see
  * the docblock on BLUELINE_PUBLISHED_STATUS in inc/season-state.php. A
- * publish-only query here would silently under-count exactly the way
- * Task 6's first pass did.
+ * publish-only query here would silently under-count.
  *
  * Drives the in_season headline's "{n} games this week". Postponed and
  * cancelled games are not counted: they are not being played.

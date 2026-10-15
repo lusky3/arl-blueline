@@ -158,8 +158,8 @@ function blueline_occasion_themed_accent_default( string $id ): string {
 /**
  * The two occasion types the model recognises (design spec §5/§7.1).
  * `commemorative` is validated separately by its own rules elsewhere
- * (Task 5's announcement-severity suppression, and the panel-side "only
- * the poppy motif" restriction 2.1b will add); this enumeration is only
+ * (the announcement-severity suppression, and the panel-side "only
+ * the poppy motif" restriction); this enumeration is only
  * the shape check.
  *
  * @return string[]
@@ -197,7 +197,7 @@ function blueline_occasion_modes(): array {
  * Validated against 2024 (a leap year) deliberately: an occasion window
  * is a RECURRING annual date, not a single instant, so `02-29` must be
  * accepted as a real recurring day even though it does not exist every
- * year; Task 3's resolver and Task 6's cron boundary calculation are
+ * year; the resolver and the cron boundary calculation are
  * both what actually decide what happens to a `02-29` window in a
  * non-leap target year, not this shape check.
  *
@@ -215,11 +215,11 @@ function blueline_occasion_valid_md( $value ): bool {
 /**
  * Validate and repair a stored `occasions` value.
  *
- * Called from inc/settings/page.php's blueline_settings_sanitize_callback()
+ * Called from inc/settings/sanitize-callback.php's blueline_settings_sanitize_callback()
  * reserved-key branch, the same choke point `_schema`/`aa_acknowledgements`
  * already go through, so this runs on every write that actually reaches
  * update_option() for this option (WP-CLI, a direct update_option() call,
- * a future 2.1b panel save), not only ones that pass through wp-admin.
+ * a panel save), not only ones that pass through wp-admin.
  *
  * A map keyed by occasion id (design spec §5/§7.1: "stored flat inside
  * blueline_settings['occasions'], a map keyed by `id`"). Never fatal
@@ -336,10 +336,10 @@ function blueline_sanitize_occasions( $value ): array {
 /**
  * The four shipped occasion templates, per design spec §5's second ruling:
  * a READ-ONLY catalog for a future admin UI's "add from preset"
- * affordance (2.1b), never pre-populated into the real stored
- * `occasions` array. blueline_resolve_active_occasion() (Task 3) never
+ * affordance, never pre-populated into the real stored
+ * `occasions` array. blueline_resolve_active_occasion() never
  * calls this function; nothing here is "live" until something else (a
- * future panel save, or `wp blueline settings occasions` in Phase 2.2)
+ * panel save, or `wp blueline settings occasions`)
  * copies one of these into blueline_settings( 'occasions' )'s real
  * stored value.
  *
@@ -351,9 +351,8 @@ function blueline_sanitize_occasions( $value ): array {
  * by these presets living here instead of in the real stored array, not
  * by any flag on the entries themselves.
  *
- * Every `accent` is '' (use the resolved default): 2.1a ships no
- * contrast-vetted festive palette, and an admin choosing one is exactly
- * 2.1b's job.
+ * Every `accent` is '' (use the resolved default): no contrast-vetted
+ * festive palette ships by default, and choosing one is the admin's job.
  *
  * @return array<string, array{id:string, label:string, type:string, window:array{start_md:string, end_md:string}, accent:string, motif:string, line:string, mode:string}>
  */
@@ -399,7 +398,7 @@ function blueline_occasion_presets(): array {
 			'mode'   => 'auto',
 		),
 		// Crosses the year boundary (start_md > end_md) by design; see
-		// Task 3's blueline_occasion_window_contains() and Task 6's
+		// blueline_occasion_window_contains() and
 		// blueline_occasion_next_occurrence_timestamp() for the two places
 		// that must, and do, handle this correctly.
 		'new-year'        => array(
@@ -434,10 +433,10 @@ function blueline_occasion_presets(): array {
  *
  * Deliberately does not call blueline_sanitize_occasions() itself, and
  * does not validate anything beyond having a usable label: the caller
- * (inc/settings/page.php's sanitize-callback carve-out) runs the
+ * (inc/settings/sanitize-callback.php's carve-out) runs the
  * result through that unchanged validator immediately afterwards. Any
- * OTHER key a row carries (e.g. a save-time override checkbox a later
- * task reads) is copied through untouched, because this function only ever
+ * OTHER key a row carries (e.g. a save-time override checkbox another
+ * reader consumes) is copied through untouched, because this function only ever
  * reads `_original_id`/`label` and writes `id`.
  *
  * A stored slot whose owning row (the row in THIS batch carrying that
@@ -536,7 +535,7 @@ function blueline_occasions_assign_unique_ids( $submitted, array $stored ): arra
  * blueline_remove_acknowledgement()'s own contract.
  *
  * $ack_context bundles the three values that travel together at every call
- * site of this function (see inc/settings/page.php's own call, and
+ * site of this function (see inc/settings/sanitize-callback.php's own call, and
  * blueline_record_acknowledgement()'s own call shape, which takes the same
  * hash/user_id pair): `acknowledgements`, `inputs_hash`, and `user_id`,
  * keyed exactly as named here.

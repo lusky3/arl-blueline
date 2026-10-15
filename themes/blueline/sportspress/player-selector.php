@@ -3,7 +3,7 @@
  * Theme override of SportsPress's player-dropdown template ([player_selector],
  * auto-injected on single-player pages via player_content()).
  *
- * Finding 7: the stock template emits a bare `<select>` with no `<label>`,
+ * The stock template emits a bare `<select>` with no `<label>`,
  * `aria-label`, or associated text, AND builds its option list with
  * `'meta_key' => 'sp_number', 'orderby' => 'meta_value_num'` set at the TOP
  * LEVEL of the WP_Query args. WordPress treats a top-level 'meta_key' as an
@@ -21,7 +21,7 @@
  *     number on file still appears in their own team's list, and the current
  *     page's own player can therefore always end up `selected`.
  *
- * Modernization sweep finding: SportsPress's own redirect behaviour
+ * SportsPress's own redirect behaviour
  * (`.sp-selector-redirect`, its always-loaded assets/js/sportspress.js)
  * navigates on the bare `change` event -- and in every major browser,
  * arrow-keying a CLOSED <select> fires `change` on every keystroke
@@ -126,8 +126,8 @@ if ( $options['count'] > 1 ) :
 			<?php
 			// $team_ids is only set once and never reassigned, so this
 			// reflects exactly whether the queries above actually scoped to a
-			// team roster or fell through to every player in the league --
-			// confirmed live, 2026-09-04 UX audit: a player with no
+			// team roster or fell through to every player in the league:
+			// a player with no
 			// sp_current_team meta (roughly 6% of this database's players,
 			// not a bug case -- see blueline_player_current_team_id()'s own
 			// docblock) got the whole-league list under a label that

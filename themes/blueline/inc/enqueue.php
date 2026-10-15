@@ -63,9 +63,9 @@ function blueline_dist_dependencies( $handle ): array {
  * companion and needs its own mechanism. filemtime() changes automatically
  * whenever the file is saved and, unlike a hand-maintained constant,
  * cannot be forgotten. scripts/deploy-theme.sh ships it via `rsync -a`,
- * which preserves source mtimes (verified empirically — see the Task 4
- * fix report), so the mtime read here is the real last-edit time, not a
- * deploy-time artifact, and survives the deploy intact.
+ * which preserves source mtimes, so the mtime read here is the real
+ * last-edit time, not a deploy-time artifact, and survives the deploy
+ * intact.
  *
  * @return string
  */
@@ -275,7 +275,7 @@ function blueline_theme_asset_context(): array {
 }
 
 /**
- * PERF-10: the per-template stylesheets this request needs, in cascade order.
+ * The per-template stylesheets this request needs, in cascade order.
  *
  * @return string[] Bundle basenames under assets/dist/.
  */
@@ -1063,7 +1063,7 @@ add_action( 'wp_head', 'blueline_preload_fonts', 1 );
  * Preload the self-hosted webfonts used above the fold on every page: the
  * Inter variable font (body copy, all weights), the Barlow Condensed 800
  * italic static instance (h1-h4, the design's signature heavy-italic caps)
- * and 700 italic (the primary nav -- PERF-08: arriving late, it re-wrapped
+ * and 700 italic (the primary nav -- arriving late, it re-wrapped
  * the nav and shifted the page). Preloading more than this defeats the
  * purpose of preloading.
  */
@@ -1087,7 +1087,7 @@ function blueline_preload_fonts() {
  * enqueue_block_editor_assets()/wp_enqueue_style() here. That hook prints
  * into the actual wp-admin document (the Post/Page edit screen chrome),
  * not just the editor canvas iframe -- so a stylesheet enqueued that way
- * stays live and unscoped in wp-admin, which previously leaked this
+ * stays live and unscoped in wp-admin, which leaks this
  * theme's bare `body`/`a`/`h1-h4` rules onto the edit-screen UI itself.
  * It also can't reliably deliver style.css's --bl-* tokens into the
  * canvas iframe: WordPress only clones an admin-enqueued stylesheet into

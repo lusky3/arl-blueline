@@ -25,7 +25,7 @@ blueline_render_floating_next_game();
 /*
  * Same "persistent overlay chrome, not in-flow content" placement as the
  * renderer above (the team flyout moved to header.php for tab order) -- prints nothing unless blueline_resolve_active_
- * occasion() (inc/occasions.php) currently resolves one AND its motif has
+ * occasion() (inc/occasions/resolver.php) currently resolves one AND its motif has
  * an effect defined (blueline_render_occasion_effects()'s own guard).
  */
 blueline_render_occasion_effects();

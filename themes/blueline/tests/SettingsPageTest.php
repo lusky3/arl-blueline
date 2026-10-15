@@ -24,7 +24,7 @@ require_once __DIR__ . '/../inc/occasions.php';
  * Covers inc/settings/page.php: the Appearance -> Blueline admin page --
  * tab/schema grouping, the register_setting() sanitize_callback (including
  * its `_posted_fields` forwarding), the capability guard, and the two
- * load-bearing correctness requirements the task brief calls out by name:
+ * load-bearing correctness requirements:
  *
  * - Escaping: blueline_sanitize_field()'s WP_Error messages interpolate the
  *   admin's own input, and add_settings_error()'s $message is read back
@@ -59,65 +59,37 @@ require_once __DIR__ . '/../inc/occasions.php';
  *   test_admin_init_still_registers_the_setting_for_the_ui() confirms
  *   admin_init still does its own, separate job.
  *
- * Fix round 3 (a real browser click-through, not a unit test, found this):
- * the error summary's focus-on-failed-save behaviour previously relied
- * solely on the `autofocus` HTML attribute, reasoned to be "the
- * zero-JavaScript way" because the living standard defines it as a global
- * attribute valid on any element. A live browser check disproved that --
- * Chromium does not move focus to a plain `<div autofocus>` -- so this is
- * exactly the class of bug a PHPUnit test checking only rendered markup
- * cannot see: the markup was correct (the attribute was there), and only a
- * real browser's actual focus behaviour exposed that it does nothing.
+ * The error summary's focus-on-failed-save behaviour does not rely on the
+ * `autofocus` HTML attribute: Chromium does not move focus to a plain
+ * `<div autofocus>`, so this is exactly the class of bug a PHPUnit test
+ * checking only rendered markup cannot see -- the attribute is present, and
+ * only a real browser's focus behaviour shows it does nothing.
  * blueline_settings_focus_summary_script() (an explicit `.focus()` call,
- * enqueued via wp_add_inline_script()) replaces it.
+ * enqueued via wp_add_inline_script()) does the job instead.
  * test_focus_summary_script_is_enqueued_only_for_this_page() and
  * test_focus_summary_script_content_targets_the_summary_element() are the
- * part of this fix that PHPUnit CAN verify -- the right script, scoped to
+ * part of this that PHPUnit CAN verify -- the right script, scoped to
  * the right screen, with the right content -- not proof that a browser
  * actually moves focus when it runs. That was verified separately, outside
  * this suite, by loading this page's own rendered HTML plus WordPress
- * core's real wp-admin/js/common.js (fetched from the exact same running
- * WordPress install) in an actual Chromium instance and observing
- * `document.activeElement` move from `<body>` to the summary only once the
- * explicit `.focus()` call ran -- see the task report for the full
- * transcript, since no unit test can stand in for that check.
+ * core's real wp-admin/js/common.js in an actual Chromium instance and
+ * observing `document.activeElement` move from `<body>` to the summary only
+ * once the explicit `.focus()` call ran.
  *
- * Fix round 4 (a REAL admin session on staging, not a simulation, found
- * this -- round 3's own simulation reached the wrong conclusion): the
- * error summary still never rendered after a genuine failed save. The
- * round-3 simulation was directionally right about `autofocus` not
- * working on a `<div>` (that finding still stands -- the explicit
- * `.focus()` call is still needed and still correct) but wrong about why
- * the summary was missing, because it never included every piece of the
- * real environment: this WordPress install runs a third-party plugin
- * (Capabilities Pro's admin-notices module) that removes any `<div>`
- * matching a broad notice/error/warning/info/updated class substring on
- * every wp-admin screen -- something no amount of simulating WordPress
- * core's own common.js alone was ever going to surface, because it isn't
- * core's behaviour, it's a different, unrelated plugin's. Confirmed by
- * reading the plugin's own JS source directly off staging, and by
- * inspecting the RAW HTTP response body of a genuine failed save (fetched
- * via Playwright's network inspection, not a DOM query) -- which showed
- * this file's PHP was correct and had NEVER been the problem: the summary
- * was fully present in the server's actual response every time, and
- * disappeared only afterward, in the live DOM. See
- * blueline_settings_render_page()'s own docblock (the "Never a `<div>`"
- * section) for the fix.
- *
- * Fix round 5: the same plugin was also eating the "Settings saved."
- * success notice (page.php) and the manual page-cache-purge notice
- * (cache.php) -- both were still plain `<div class="notice ...">`, so a
- * genuinely successful save gave an admin no feedback at all, and the
- * purge notice (the entire shipped behaviour of the cache-purge
- * requirement, since the guarded automatic purge ships off) never
- * rendered either. Both fixed to `<section>` alongside the round-4 fix
- * this file's docblock describes above. The narrow, single-element
- * regression test this file used to carry (pinning only the error
- * summary's own id) was replaced with tests/NoticeDivGuardTest.php -- a
- * source scan across every theme PHP file for ANY `<div>` whose class
- * contains "notice", "error", "warning", "info" or "updated", which is
- * what should have existed from round 4 and would have caught these two
- * on its own.
+ * The error summary and the page's notices are never plain `<div>`s: this
+ * WordPress install runs a third-party plugin (Capabilities Pro's
+ * admin-notices module) that removes any `<div>` matching a broad
+ * notice/error/warning/info/updated class substring on every wp-admin
+ * screen. That is not core's behaviour, so no amount of simulating core
+ * alone surfaces it: the summary is fully present in the server's actual
+ * response and disappears only afterward, in the live DOM. See
+ * inc/settings/page.php's docblock (the "Never a `<div>` for the error
+ * summary" section). The "Settings saved." success notice
+ * (inc/settings/page-registration.php) and the manual page-cache-purge
+ * notice (cache.php) are `<section>` elements for the same reason.
+ * tests/NoticeDivGuardTest.php is a source scan across every theme PHP file
+ * for ANY `<div>` whose class contains "notice", "error", "warning", "info"
+ * or "updated".
  */
 final class SettingsPageTest extends TestCase {
 
@@ -307,7 +279,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The task-7 fix-round finding this directly addresses: `admin_init`
+	 * Why the callback is wired at file scope: `admin_init`
 	 * never fires for WP-CLI or a script calling update_option() directly,
 	 * so if blueline_settings_sanitize_callback() were wired ONLY inside
 	 * the admin_init-hooked blueline_settings_register(), every write
@@ -471,7 +443,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The other half of Task 7's fix-round finding: `_posted_fields` is
+	 * `_posted_fields` is
 	 * ALSO filtered to keys whose own schema `tab` matches the submission's
 	 * `_tab` -- `page_faqs` belongs to 'links', so naming it from a
 	 * submission declaring `_tab => 'content'` must never be honoured, even
@@ -513,10 +485,9 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task-7 fix-round-2 finding: the sanitize callback must not forward
+	 * The sanitize callback must not forward
 	 * ANY unrecognised top-level key merely because it doesn't recognise
-	 * it -- that was a real weakening of the allow-list model Tasks 2-6
-	 * built. A key that is neither a real schema field nor on
+	 * it -- forwarding would weaken the allow-list model. A key that is neither a real schema field nor on
 	 * BLUELINE_SETTINGS_RESERVED_KEYS must be dropped, exactly as if it
 	 * had never been declared at all.
 	 */
@@ -547,7 +518,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task-7 fix-round-5 finding: `_schema` must be clamped to
+	 * `_schema` must be clamped to
 	 * BLUELINE_SETTINGS_SCHEMA_VERSION, matching the limit
 	 * inc/cli/settings-command.php enforces on an import. Without this, a
 	 * `_schema` written above the running code's version (reachable via
@@ -634,7 +605,7 @@ final class SettingsPageTest extends TestCase {
 		// Already current: blueline_settings_migrate() must be a true no-op
 		// (SettingsStoreTest::test_migration_is_a_no_op_once_already_current()
 		// already covers this in isolation; repeated here through the full
-		// write path this fix round changed).
+		// write path).
 		$this->assertSame( $before, get_option( BLUELINE_SETTINGS_OPTION ) );
 
 		// The forward path: an unversioned option is bumped to current and
@@ -650,7 +621,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The full round trip the task brief calls out explicitly: saving the
+	 * The full round trip: saving the
 	 * Content tab with `footer_heading` cleared to an empty string must
 	 * actually clear it, while the Links tab's own value -- never posted by
 	 * this submission -- survives untouched. Exercised through
@@ -686,7 +657,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The fix-round finding, exercised as a full round trip rather than a
+	 * The tab-scoping rule, exercised as a full round trip rather than a
 	 * direct call to the callback: a request shaped like a Content-tab
 	 * submission (`_tab => 'content'`) names `page_faqs` -- a LINKS-tab
 	 * field -- in `_posted_fields` without posting `page_faqs` itself.
@@ -718,7 +689,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The literal scenario the brief asks for: a submitted field value
+	 * The literal scenario: a submitted field value
 	 * containing a `<script>` tag, combined with a stray "%" so the value
 	 * is rejected and its (sanitized) form is reflected back inside the
 	 * WP_Error message. Saves through the real path, renders the real page
@@ -756,11 +727,10 @@ final class SettingsPageTest extends TestCase {
 	 *
 	 * NOTE what this does and does not prove. It performs the escape ITSELF,
 	 * in the test body, so it pins esc_html()'s behaviour on a realistic
-	 * message -- not the production call site. An earlier version of this
-	 * docblock claimed "if that esc_html() call were ever removed, this test
-	 * fails by finding the raw tag still present", which was false: this test
-	 * never calls blueline_settings_sanitize_callback() at all, and deleting
-	 * the escape at inc/settings/page.php:511 left it green.
+	 * message -- not the production call site. Removing the production
+	 * esc_html() call would NOT fail it: this test never calls
+	 * blueline_settings_sanitize_callback() at all, so deleting the escape in
+	 * inc/settings/sanitize-callback.php leaves it green.
 	 *
 	 * The call site is pinned by
 	 * test_a_rejected_field_is_escaped_by_the_save_path_itself() below, which
@@ -788,18 +758,17 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The escape at inc/settings/page.php:511 is the ONLY one between a
+	 * The escape in inc/settings/sanitize-callback.php is the ONLY one between a
 	 * rejection message and a raw `echo` in wp-admin -- the two render sites
 	 * deliberately do not re-escape, because double-encoding entities would
 	 * show an admin `&amp;quot;` where they typed a quote.
 	 *
 	 * So it needs a test that goes through the real save path, and the fixture
-	 * has to survive sanitize_text_field(). That is the trap the previous
-	 * attempt fell into: `<script>alert(1)</script>` is not merely escaped by
+	 * has to survive sanitize_text_field(). That is the trap: `<script>alert(1)</script>` is not merely escaped by
 	 * the time it is asserted on, it is GONE -- wp_strip_all_tags() removes the
 	 * tag and its contents at save, so a test asserting "no <script> in the
-	 * output" was asserting against something that was never there. Two other
-	 * tests on this branch went vacuous in exactly that way.
+	 * output" was asserting against something that was never there. Other
+	 * tests can go vacuous in exactly that way.
 	 *
 	 * A double quote survives sanitize_text_field() untouched, and several real
 	 * schema labels carry one. `hero_registration_headline`'s says
@@ -862,7 +831,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 1 (Task 2, P1b-panel-completion): a `module_*` section field
+	 * A `module_*` section field
 	 * carries a `help` string explaining the homepage-modules floor (an
 	 * admin who unticks every box still sees one module -- see
 	 * blueline_section_definitions()'s own docblock and the "THE FLOOR"
@@ -907,7 +876,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task 7 fix round (I2): a field declaring `choices` renders a
+	 * A field declaring `choices` renders a
 	 * `<select>`, not a text box. That is the half of the fix that makes an
 	 * invalid value unreachable rather than merely rejected — which matters
 	 * for `season_state_override`, a control used under pressure where a
@@ -974,7 +943,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task 6: a `date` field renders a real `<input type="date">`. Without
+	 * A `date` field renders a real `<input type="date">`. Without
 	 * its own branch an unknown type silently falls through to the plain
 	 * text input at the end of the dispatch -- no error, just a text box an
 	 * admin has to know to type YYYY-MM-DD into, against a sanitizer that
@@ -1012,7 +981,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task 6: `help` reaches the rendered row for EVERY field type, not
+	 * `help` reaches the rendered row for EVERY field type, not
 	 * only for `bool`/`section`. It used to be printed inside that one
 	 * branch, so a `help` string on a `text`, `page_id` or `date` field was
 	 * accepted by the schema and then silently dropped -- the panel
@@ -1106,7 +1075,7 @@ final class SettingsPageTest extends TestCase {
 	 * `autofocus` attribute alone -- a live browser check (see this test
 	 * class's own docblock and blueline_settings_focus_summary_script()'s
 	 * docblock) found Chromium does not honour `autofocus` on a plain
-	 * `<div>` despite the HTML living standard allowing it; the fix-round-3
+	 * `<div>` despite the HTML living standard allowing it; the
 	 * regression test for that is
 	 * test_focus_summary_script_is_enqueued_only_for_this_page() below,
 	 * which is the part of this bug a render-output assertion alone cannot
@@ -1271,7 +1240,7 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * The fix-round-3 regression coverage: blueline_settings_maybe_enqueue_focus_script()
+	 * Regression coverage: blueline_settings_maybe_enqueue_focus_script()
 	 * must enqueue the focus script for THIS page's own hook suffix, and
 	 * must do nothing for any other admin screen -- admin_enqueue_scripts
 	 * fires for every screen, not just this one.
@@ -1317,7 +1286,7 @@ final class SettingsPageTest extends TestCase {
 	/**
 	 * The tab nav must render plain links carrying `aria-current="page"`
 	 * for whichever tab is active -- explicitly NOT an ARIA tab widget
-	 * (no `role="tab"`/`role="tablist"`), per the task brief.
+	 * (no `role="tab"`/`role="tablist"`).
 	 */
 	public function test_tab_nav_is_plain_links_not_an_aria_tab_widget(): void {
 		$_GET['tab'] = 'links'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- test fixture, not a real request.
@@ -1331,14 +1300,13 @@ final class SettingsPageTest extends TestCase {
 	}
 
 	/**
-	 * Task 5 fix round (P1b-panel-completion): `chrome_footer_widgets_2`'s
+	 * `chrome_footer_widgets_2`'s
 	 * field row carries blueline_section_widget_warning()'s own message,
 	 * naming the live widget count, when its mapped widget area (footer-2)
 	 * is populated -- proving the warning actually reaches the rendered row,
 	 * not merely that the accessor function returns a string in isolation.
-	 * `chrome_footer_trust` no longer maps to any widget area (that mapping
-	 * was a fix-round-1 mistake this plan's coordinator corrected -- see
-	 * blueline_section_widget_warning()'s own docblock), so this test now
+	 * `chrome_footer_trust` does not map to any widget area (see
+	 * blueline_section_widget_warning()'s own docblock), so this test
 	 * targets the key that actually gates footer-2.
 	 */
 	public function test_a_populated_widget_areas_section_field_renders_the_widget_warning(): void {
@@ -1874,8 +1842,8 @@ final class SettingsPageTest extends TestCase {
 	/**
 	 * Asserts a raw, directly-submitted `aa_acknowledgements` payload is
 	 * STILL never honoured on an occasions-tab save -- same guard as
-	 * above, covering the other reserved key. As of Task 3
-	 * (blueline_occasions_apply_aa_overrides()), an occasions-tab save
+	 * above, covering the other reserved key. Because of
+	 * blueline_occasions_apply_aa_overrides(), an occasions-tab save
 	 * ALWAYS sets `aa_acknowledgements` on the output -- computed from
 	 * the sanitized occasions and the CURRENTLY stored acknowledgements,
 	 * never from whatever the request happened to submit under that

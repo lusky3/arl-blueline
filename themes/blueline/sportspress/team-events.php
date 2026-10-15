@@ -1,12 +1,12 @@
 <?php
 /**
  * Team events override -- adds the theme's own `sp_team_events_season`
- * filter (blueline_team_events_current_season_id(), inc/sportspress.php)
+ * filter (blueline_team_events_current_season_id(), inc/sportspress/core.php)
  * to the 'blocks' branch, the one branch of the plugin's own
  * team-events.php that took no season input at all.
  *
- * Live-site review: a team's public "Results" card showed games years old
- * directly beneath "Upcoming Games." Confirmed against the SportsPress
+ * Without it, a team's public "Results" card would show games years old
+ * directly beneath "Upcoming Games." Per the SportsPress
  * plugin's own team-events.php/event-fixtures-results.php (this site's
  * configured `sportspress_team_events_format` option is 'blocks', the
  * `else` branch below): it calls `sp_get_template(
@@ -33,9 +33,10 @@
  * table_content + this file's own output (both registered as tab
  * templates, not stacked sections) -- confirmed live: its output sits in
  * <div class="sp-tab-content sp-tab-content-events" ...>, hidden until
- * that tab is clicked. The team's calendar-subscribe links used to be
- * printed here, but that made them invisible by default too -- see
- * blueline_register_team_page_sections() (inc/sportspress.php), which
+ * that tab is clicked. The team's calendar-subscribe links are
+ * deliberately not printed here, since that would make them invisible by
+ * default too -- see
+ * blueline_register_team_page_sections() (inc/sportspress/calendar.php), which
  * makes them their own reorderable SportsPress team section.
  *
  * Overrides SportsPress templates/team-events.php, core template version 2.6.9 as of

@@ -8,8 +8,7 @@
  * The one change from stock: the sponsor-block title ("The ARL extends a
  * very special thanks to...", SportsPress_Sponsors::footer()'s own
  * `sportspress_footer_sponsors_title` option) hardcodes <h3>, unconditionally,
- * on every page it renders on -- confirmed live, 2026-09-04 UX audit, as an
- * h1 -> h3 skip sitewide (this footer block sits directly after the page's
+ * on every page it renders on, an h1 -> h3 skip sitewide (this footer block sits directly after the page's
  * own h1/h2 content with nothing between). Same context-aware level as
  * league-table.php/event-list.php/team-lists.php/player-statistics-league.php/
  * countdown.php (blueline_sp_caption_heading_level()'s own docblock) --

@@ -102,11 +102,11 @@ if ( ! function_exists( 'esc_attr' ) ) {
 }
 if ( ! function_exists( 'esc_url' ) ) {
 	/**
-	 * A faithful-enough stand-in for WordPress' esc_url() -- Task 8's fix
-	 * round found the previous filter_var( FILTER_SANITIZE_URL ) version did
-	 * NOT strip a literal `"`, unlike real core (wp-includes/formatting.php),
-	 * which replaces every character outside an explicit allow-list. That
-	 * gap mattered concretely: a test asserting an href="" built from this
+	 * A faithful-enough stand-in for WordPress' esc_url() -- a
+	 * filter_var( FILTER_SANITIZE_URL ) version would NOT strip a literal `"`,
+	 * unlike real core (wp-includes/formatting.php), which replaces every
+	 * character outside an explicit allow-list. That gap would matter
+	 * concretely: a test asserting an href="" built from this
 	 * stub is safe against a `"`-carrying hostile value would have passed
 	 * for the wrong reason (the stub happened to be more permissive than
 	 * production, not because production is unsafe). This mirrors core's
@@ -126,9 +126,8 @@ if ( ! function_exists( 'checked' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' checked() -- needed the moment a test
 	 * calls blueline_settings_render_field() for a `bool`/`section` field
-	 * (inc/settings/page.php), which no test did until Task 2's fix round 1
-	 * added tests exercising a `section` field's `help` text: nothing before
-	 * that ever rendered this branch, so the gap was invisible.
+	 * (inc/settings/page-fields.php), as the tests exercising a `section`
+	 * field's `help` text do.
 	 *
 	 * WHAT THIS STUB DOES, stated as the stub's own behaviour rather than as
 	 * a claim about core: it compares the two arguments as strings with
@@ -138,9 +137,7 @@ if ( ! function_exists( 'checked' ) ) {
 	 *
 	 * Neither of those is verified against WordPress core. There is no core
 	 * checkout in this worktree to check `__checked_selected_helper()`
-	 * against, and an earlier version of this docblock asserted both anyway
-	 * (it claimed a loose `==` the code does not perform, and attributed the
-	 * quote style to core). Treat the exact output as this stub's convention:
+	 * against. Treat the exact output as this stub's convention:
 	 * a test asserting on it is asserting on the stub, so anything load-
 	 * bearing about core's real output needs checking against core first.
 	 *
@@ -165,13 +162,10 @@ if ( ! function_exists( 'selected' ) ) {
 	 * own convention, not a verified reproduction of core's, since there is
 	 * no core checkout here to check it against. See checked()'s docblock.
 	 *
-	 * Added for Task 6 (P1b-panel-completion): blueline_settings_render_field()
-	 * had never been exercised for a `band_photos` field before, so nothing
-	 * had ever called selected() under test. The theme calls it from two
-	 * places -- that field's per-photograph alignment `<option>` list
-	 * (inc/settings/page.php) and sportspress/player-selector.php's player
-	 * `<option>` list -- and Task 7's fix round added a third, the `choices`
-	 * select in blueline_settings_render_field() itself.
+	 * Needed whenever a test renders a field that calls selected(). The theme
+	 * calls it from several places -- the per-photograph alignment `<option>`
+	 * list and the `choices` select in inc/settings/page-fields.php, and the
+	 * player `<option>` list in inc/sportspress/core.php.
 	 *
 	 * @param mixed $selected    One of the values to compare.
 	 * @param mixed $current     The other value to compare (default true).
@@ -201,11 +195,9 @@ if ( ! function_exists( 'has_nav_menu' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' has_nav_menu(): reports whether $location
 	 * has a menu assigned, purely from the in-memory list a test populates via
-	 * $GLOBALS['bl_test_nav_menu_locations'] -- no test called
-	 * blueline_site_header() end-to-end before Task 4 (P1b-panel-completion)
-	 * needed to prove the chrome_utility_nav toggle withholds the utility nav
-	 * even when a real menu IS assigned to that location, so nothing stubbed
-	 * this function until now.
+	 * $GLOBALS['bl_test_nav_menu_locations'] -- needed to prove the
+	 * chrome_utility_nav toggle withholds the utility nav even when a real
+	 * menu IS assigned to that location.
 	 *
 	 * @param string $location Theme location slug.
 	 * @return bool
@@ -218,10 +210,10 @@ if ( ! function_exists( 'wp_nav_menu' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' wp_nav_menu(). Faithful to three of
 	 * core's own return/echo rules (wp-includes/nav-menu-template.php) --
-	 * fix round 1 on Task 4 found the first version of this stub always
-	 * returned null and never echoed regardless of $args, which meant every
-	 * ChromeSectionsTest assertion would have passed identically against an
-	 * arbitrarily wrong stub; nothing bound it to core's actual contract:
+	 * a stub that always returned null and never echoed regardless of $args
+	 * would let every ChromeSectionsTest assertion pass identically against
+	 * an arbitrarily wrong stub, so this one is bound to core's actual
+	 * contract:
 	 *
 	 * - No menu assigned to the requested theme_location, and no callable
 	 *   `fallback_cb`: returns `false` and prints nothing -- core's own
@@ -558,27 +550,25 @@ function &blueline_test_state(): array {
 		'terms'             => array(),
 		'post_terms'        => array(),
 		// Sidebar id => widget count, read by is_active_sidebar() and
-		// wp_get_sidebars_widgets() below -- added for Task 5
-		// (P1b-panel-completion). Empty by default, reproducing the pre-Task-5
+		// wp_get_sidebars_widgets() below. Empty by default, giving the
 		// always-false is_active_sidebar() behaviour for every test that
 		// never seeds it.
 		'active_sidebars'   => array(),
 		// The site's configured timezone, as wp_timezone() below hands it
-		// back -- added for Task 6 (P1b-panel-completion). Defaults to the
+		// back. Defaults to the
 		// zone this league actually plays in rather than UTC, deliberately:
 		// a date helper that quietly ignored the site zone would still pass
 		// every assertion written against a UTC-configured stub.
 		'timezone'          => 'America/Toronto',
 		// The instant current_time() below reports, as a Unix timestamp.
-		// null means the real clock -- added for Task 7's fix round, so a
+		// null means the real clock, so a
 		// test can pin blueline_season_state_moment()'s two branches to the
 		// same moment and assert they agree.
 		'now'               => null,
 		// The post type is_singular() below reports the current request as
 		// being a singular view of, or '' for "not a singular view at all"
-		// -- added for the accessibility fix round that introduced
-		// blueline_sp_caption_heading_level() (inc/sportspress.php), the
-		// first function in this suite to call is_singular() with an
+		// -- read by blueline_sp_caption_heading_level()
+		// (inc/sportspress.php), which calls is_singular() with an
 		// argument. Set via blueline_test_set_queried_post_type().
 		'queried_post_type' => '',
 	);
@@ -1041,7 +1031,7 @@ if ( ! function_exists( 'get_posts' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' get_posts(), supporting only the
 	 * shapes this suite exercises: blueline_get_linked_player_id()'s
-	 * post_type + meta_key/meta_value + fields=ids lookup, plus (added for
+	 * post_type + meta_key/meta_value + fields=ids lookup, plus (for
 	 * blueline_get_team_roster(), inc/account/dashboard.php) the single-
 	 * condition `meta_query => [ [ 'key' => ..., 'value' => ... ] ]` shape --
 	 * no relation/AND/OR nesting, since no caller in this suite needs one --
@@ -1211,12 +1201,11 @@ if ( ! function_exists( 'is_active_sidebar' ) ) {
 	 * blueline_test_state()'s 'active_sidebars' map (sidebar id => widget
 	 * count), true only for an id a test explicitly seeded with a non-zero
 	 * count. Default state's 'active_sidebars' is empty, so this reproduces
-	 * the old always-false behaviour exactly for every test that never
+	 * the always-false behaviour exactly for every test that never
 	 * touches it (e.g. blueline_homepage_module_new_here() still falls
 	 * through to its own default content unless a test opts in).
 	 *
-	 * Widened from an unconditional `return false;` for Task 5
-	 * (P1b-panel-completion): blueline_section_widget_warning() needs a
+	 * The widget-area warning (blueline_section_widget_warning()) needs a
 	 * sidebar that CAN report active, with a specific widget count behind
 	 * it, to be testable at all.
 	 *
@@ -1332,11 +1321,8 @@ if ( ! function_exists( 'dynamic_sidebar' ) ) {
 	 * Minimal stand-in for WordPress' dynamic_sidebar(): a no-op, regardless
 	 * of what is_active_sidebar() above reports for $index.
 	 *
-	 * Previously documented as "unreachable while is_active_sidebar() is
-	 * always false" -- that stopped being true the moment is_active_sidebar()
-	 * above was widened for Task 5 (P1b-panel-completion) to consult
-	 * blueline_test_state()'s 'active_sidebars' map, which a test can now
-	 * seed to make it report true. This stub still renders nothing when that
+	 * The is_active_sidebar() stub above consults blueline_test_state()'s
+	 * 'active_sidebars' map, which a test can seed to make it report true. This stub still renders nothing when that
 	 * happens: no test in this suite asserts real widget markup, only the
 	 * WIDGET COUNT (via wp_get_sidebars_widgets() above), so there is
 	 * nothing for this stub to fake beyond the no-op it already was.
@@ -1470,11 +1456,9 @@ if ( ! function_exists( 'is_singular' ) ) {
 	 * request, for which core's own is_singular() also always returns false
 	 * regardless of argument.
 	 *
-	 * Added for the accessibility fix round that introduced
-	 * blueline_sp_caption_heading_level() (inc/sportspress.php): that is
-	 * the first function in this suite to call is_singular() with an
-	 * argument, needing to tell "a SportsPress singular view" apart from
-	 * everything else. Only the two call shapes that function actually
+	 * Needed by blueline_sp_caption_heading_level() (inc/sportspress.php),
+	 * which calls is_singular() with an argument to tell "a SportsPress
+	 * singular view" apart from everything else. Only the two call shapes that function actually
 	 * uses are implemented -- no argument (any singular view) and a
 	 * string[] of post types (core also accepts a bare string, which this
 	 * stub also honours via the (array) cast, but no caller here needs it).
@@ -2060,11 +2044,10 @@ function blueline_test_reset_options(): void {
  * update_option() gets its bad value rejected and the previous one kept
  * instead.
  *
- * That is not a hypothetical. Task 7's fix round added the `choices`
- * save-time guard, and in doing so silently made both read-time clamps
- * untested: two tests that had been passing invalid values through
- * update_option() started asserting against values that were never stored.
- * Deleting either clamp left the whole suite green. Any test whose subject
+ * That is not a hypothetical. With the `choices` save-time guard in place,
+ * a test passing an invalid value through update_option() asserts against
+ * a value that was never stored, so deleting a read-time clamp leaves the
+ * whole suite green. Any test whose subject
  * is "what happens when storage already holds something the sanitizer would
  * refuse" has to seed it through here, not through update_option().
  *
@@ -2462,7 +2445,7 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * never the wrong one for which case this is.
 	 *
 	 * The sanitize step is the hook register_setting()'s sanitize_callback
-	 * attaches to, and the behaviour P1's settings layer depends on to
+	 * attaches to, and the behaviour the settings layer depends on to
 	 * guarantee WP-CLI and JSON import cannot bypass validation. The two
 	 * pre_update_option* filters are what a cross-tab merge lives on: they
 	 * are the only point in this sequence that receives the value CURRENTLY
@@ -2488,15 +2471,14 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * each hook's arguments individually, not merely that each fires).
 	 *
 	 * The add_option_{$option}-vs-update_option_{$option} branch below is a
-	 * SEPARATE fidelity fix, added after a task-6 code review caught this
-	 * stub firing update_option_{$option} unconditionally, including on an
+	 * SEPARATE fidelity point: this
+	 * stub must not fire update_option_{$option} unconditionally, including on an
 	 * option's first-ever write. Core's real update_option() does not: when
 	 * the option does not already exist, $old_value equals the (usually
 	 * `false`) registered default, and update_option() short-circuits into
 	 * calling add_option() internally -- which fires add_option_{$option}
 	 * and added_option, NOT update_option_{$option}/updated_option. A
-	 * callback hooked only to update_option_{$option} (as
-	 * inc/settings/cache.php's purge trigger originally was) would silently
+	 * callback hooked only to update_option_{$option} would silently
 	 * never run on that first save. See BootstrapFidelityTest::
 	 * test_update_option_fires_add_option_hook_on_first_write_only() for the
 	 * pinning test, and inc/settings/cache.php's blueline_flush_page_cache_on_first_save()
@@ -2510,10 +2492,9 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * skip a no-op one.
 	 *
 	 * First-write delegation is a REAL re-entrant call into this stub's own
-	 * add_option() below, not merely a comment saying so -- a task-7
-	 * fix-round-5 finding caught this stub previously writing $value and
-	 * firing the add_option_{$option}/added_option pair directly inline,
-	 * which is faithful to WHICH hooks fire but not to HOW core gets
+	 * add_option() below, not merely a comment saying so: writing $value and
+	 * firing the add_option_{$option}/added_option pair directly inline
+	 * would be faithful to WHICH hooks fire but not to HOW core gets
 	 * there. Core's real add_option() is a fully independent public
 	 * function that re-applies sanitize_option_{$option} to whatever it is
 	 * given, regardless of who calls it or why -- so on a genuine first
@@ -2522,7 +2503,7 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * cross-tab merge, if one is registered, lives) runs only ONCE, here,
 	 * BEFORE the delegation -- never again inside add_option(), which has
 	 * no equivalent filter of its own. A sanitize callback that
-	 * unconditionally appends bookkeeping (e.g. inc/settings/page.php's
+	 * unconditionally appends bookkeeping (e.g. inc/settings/sanitize-callback.php's
 	 * `_posted_fields`) to every value it returns will therefore have that
 	 * bookkeeping re-added by the second, unmerged pass and persisted
 	 * verbatim into the stored option on a first write -- a real, if
@@ -2544,10 +2525,8 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * runs. A callback that reads $original_value to recover the raw
 	 * pre-sanitize input (something the 2-argument version of this filter
 	 * could never let it do) now behaves identically here and in
-	 * production. This was a real, previously-undiscovered gap between this
-	 * stub and core, found while building tests/WpCoreContractTest.php, and
-	 * closed on review rather than left as a recorded exception -- see that
-	 * fixture's now-empty `known_gaps`.
+	 * production. tests/WpCoreContractTest.php guards this against core --
+	 * see that fixture's empty `known_gaps`.
 	 *
 	 * The generic 'update_option' action fires immediately before the write
 	 * on every write to an option that ALREADY exists -- i.e. only on this
@@ -2557,10 +2536,7 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * that same branch. Both are core's generic, option-name-agnostic
 	 * counterparts to update_option_{$option} -- a callback hooked onto
 	 * either generically (an audit log, for instance) rather than a
-	 * specific option name now runs here exactly as it would in production;
-	 * previously this stub did not fire either at all. See this function's
-	 * own docblock note above on sanitize_option_{$option} for why this,
-	 * too, is a closed gap rather than a documented one.
+	 * specific option name runs here exactly as it would in production.
 	 *
 	 * @param string $option   Option name.
 	 * @param mixed  $value    New value.
@@ -2625,8 +2601,7 @@ if ( ! function_exists( 'add_option' ) ) {
 	 *
 	 * The generic 'add_option' action fires immediately before the write,
 	 * on every add that actually happens -- core's option-name-agnostic
-	 * counterpart to add_option_{$option}, previously not fired by this
-	 * stub at all.
+	 * counterpart to add_option_{$option}.
 	 *
 	 * @param string $option     Option name.
 	 * @param mixed  $value      Option value.
@@ -2661,11 +2636,10 @@ if ( ! function_exists( 'delete_option' ) ) {
 	 * Minimal stand-in for WordPress' delete_option() over the in-memory store.
 	 *
 	 * Returns false for an option that was not stored, true when a row was
-	 * actually removed. This stub returned an unconditional `true` until
-	 * SettingsDeleteDataTest went looking for the difference: any caller
+	 * actually removed. An unconditional `true` would be wrong: any caller
 	 * distinguishing "deleted four things" from "there was nothing to delete"
-	 * -- which is exactly what a teardown reports back to an admin -- got the
-	 * wrong answer in tests while getting the right one in production.
+	 * -- which is exactly what a teardown reports back to an admin -- would
+	 * get the wrong answer in tests while getting the right one in production.
 	 *
 	 * That core returns false for an absent option is this stub's own
 	 * convention here, matching the documented contract; it is NOT independently
@@ -2852,10 +2826,10 @@ if ( ! function_exists( 'wp_using_ext_object_cache' ) ) {
 }
 
 // -----------------------------------------------------------------------
-// Task 7 (Appearance -> Blueline admin page) additions below. Every stub
+// Appearance -> Blueline admin page stubs below. Every stub
 // in this block exists because inc/settings/page.php is the first file in
 // this theme to touch wp-admin's Settings API and page-registration
-// surface -- none of it was needed before. Each mirrors core's real
+// surface. Each mirrors core's real
 // signature/behaviour closely enough for a unit test to exercise the
 // production code path directly (register_setting()'s wiring of
 // sanitize_option_{$option}, add_settings_error()'s "no escaping, that's
@@ -3281,10 +3255,9 @@ if ( ! function_exists( 'check_ajax_referer' ) ) {
 	 * out of $_REQUEST under $query_arg (falling back to core's own
 	 * '_ajax_nonce'/'_wpnonce' lookup order when no explicit arg is given)
 	 * and wp_die()s (raised here as Blueline_Test_WP_Die_Exception, same as
-	 * check_admin_referer() above) when it does not verify -- added for
+	 * check_admin_referer() above) when it does not verify -- used by
 	 * ThemePreferenceTest's AJAX handler coverage
-	 * (blueline_ajax_save_theme_preference(), inc/account/theme-preference.php),
-	 * the first AJAX handler this theme has.
+	 * (blueline_ajax_save_theme_preference(), inc/account/theme-preference.php).
 	 *
 	 * @param string|int   $action    Action the nonce must have been minted for.
 	 * @param string|false $query_arg Request key carrying the token, or false for core's own default lookup.
@@ -3411,7 +3384,7 @@ if ( ! function_exists( 'add_theme_page' ) ) {
 if ( ! function_exists( 'register_setting' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' register_setting(): the one piece of
-	 * its behaviour Task 7 actually depends on -- wiring $args['sanitize_callback']
+	 * its behaviour the settings page actually depends on -- wiring $args['sanitize_callback']
 	 * onto the `sanitize_option_{$option_name}` filter, exactly as core's
 	 * real implementation does, so a test can exercise the full
 	 * update_option() -> sanitize_option_* -> pre_update_option_* dispatch

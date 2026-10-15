@@ -10,8 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/homepage-modules.php';
 
 /**
- * Covers the Task 7 regression this suite had ZERO durable coverage for
- * (Task 16 item d): blueline_homepage_hero_content() can be asked for
+ * Covers a regression: blueline_homepage_hero_content() can be asked for
  * 'registration_open' and, because its own live re-check of the driving
  * product fails, actually render preseason or offseason content instead.
  * The bug was that the caller printed the REQUESTED state's class while the
@@ -130,7 +129,7 @@ final class HeroEffectiveStateTest extends TestCase {
 
 	/**
 	 * The $state_data parameter blueline_homepage_module_order() gained for
-	 * P1 finding 4 is optional specifically so every pre-existing call site
+	 * the in-play case is optional specifically so every pre-existing call site
 	 * and test above, written before that parameter existed, keeps working
 	 * unchanged -- omitting it must be identical to passing an empty array.
 	 */
@@ -145,7 +144,7 @@ final class HeroEffectiveStateTest extends TestCase {
 	}
 
 	/**
-	 * P1 finding 4: registration_open normally leads with 'new_here' (a
+	 * The registration_open state normally leads with 'new_here' (a
 	 * first-timer has never seen the site before), but when the season is
 	 * ALSO being played right now -- true for months at a time on this site
 	 * -- an existing player meeting the same registration-heavy hero should

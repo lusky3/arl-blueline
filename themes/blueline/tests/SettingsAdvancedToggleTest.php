@@ -7,9 +7,8 @@
  * rather than only in code:
  *
  * 1. The toggle actually hides the delete control. Asserted against RENDERED
- *    MARKUP, not against the setting's value, because this branch has a
- *    template behind it and a notice that shipped on this branch rendering a
- *    raw internal key proved that reading the data half tells you nothing
+ *    MARKUP, not against the setting's value, because a template, and a
+ *    notice that once rendered a raw internal key, show that reading the data half tells you nothing
  *    about what an admin sees.
  * 2. An import can never turn it on. The spec requires `advanced_enabled` and
  *    `aa_acknowledgements` be discarded from an import unconditionally,
@@ -130,7 +129,7 @@ final class SettingsAdvancedToggleTest extends TestCase {
 	}
 
 	/**
-	 * The P2 acknowledgement key is discarded by the same guard.
+	 * The acknowledgement key is discarded by the same guard.
 	 *
 	 * @return void
 	 */

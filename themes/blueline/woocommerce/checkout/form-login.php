@@ -14,7 +14,7 @@
  * @package WooCommerce\Templates
  * @version 10.0.0
  *
- * Cody Edits: Replaced references of Customer with Player.
+ * Local changes: Replaced references of Customer with Player.
  */
 
 defined( 'ABSPATH' ) || exit;

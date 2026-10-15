@@ -10,7 +10,7 @@
  *
  *   - The Occasion model. Its three closed enumerations (types, motifs,
  *     activation modes), the annually-recurring `MM-DD` shape check, and
- *     blueline_sanitize_occasions(), the validator inc/settings/page.php
+ *     blueline_sanitize_occasions(), the validator inc/settings/sanitize-callback.php
  *     runs the reserved `occasions` key through on every write that
  *     reaches update_option().
  *   - blueline_occasion_presets(): the four shipped templates, as a

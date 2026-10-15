@@ -24,12 +24,11 @@ defined( 'ABSPATH' ) || exit;
  * number/role in its own badge, so the prefix would both duplicate it and,
  * if merely HTML-escaped, print the literal tags as visible text.
  *
- * Review finding: an earlier version of this function used
- * get_post_field( 'post_title', $id, 'raw' ) for every post type, which
- * bypasses the ENTIRE 'the_title' filter chain, not just SportsPress's
+ * Using get_post_field( 'post_title', $id, 'raw' ) for every post type
+ * would bypass the ENTIRE 'the_title' filter chain, not just SportsPress's
  * badge, but also wptexturize()/convert_chars() (smart quotes, em-dashes)
- * that every other post type's title still needs. Narrowed to only the two
- * post types with the actual badge problem; sp_event/sp_team (and anything
+ * that every other post type's title still needs. So it is narrowed to only
+ * the two post types with the actual badge problem; sp_event/sp_team (and anything
  * else) go through the normal, fully-filtered get_the_title().
  *
  * @param int $post_id Post ID.
@@ -153,7 +152,7 @@ function blueline_render_sp_single( callable $hero_callback, string $extra_main_
  * event-list.php, team-lists.php and player-statistics-league.php) should
  * render at.
  *
- * A11y finding: these four templates are shared across two structurally
+ * These four templates are shared across two structurally
  * different contexts, and neither can be known when the markup is written
  * -- only at request time:
  *
@@ -161,18 +160,16 @@ function blueline_render_sp_single( callable $hero_callback, string $extra_main_
  *     the theme's own hero prints the page's ONE <h1> (blueline_sp_title(),
  *     e.g. sportspress/single-team.php) and then the_content() drops
  *     SportsPress's auto-injected sections straight in below it with
- *     NOTHING else in between -- confirmed live: a team page's outline
- *     went h1 -> [this caption], not h1 -> h2 -> [this caption]. The
- *     correct next level there is h2.
+ *     NOTHING else in between -- the outline there is h1 -> [this
+ *     caption], with no h2 in between. The correct next level there is h2.
  *   - Everywhere else these four templates are used today (the homepage's
  *     standings_snippet module, via [league_table] --
  *     blueline_homepage_module_standings_snippet()), an h2 section title
  *     ("Standings") already precedes them, so the correct next level is
- *     h3. Exceptions (A11Y-09): a widget area, and a non-front page with
+ *     h3. Exceptions: a widget area, and a non-front page with
  *     no h2 of its own (e.g. /standings' bare [team_standings]), get h2.
  *
- * Hardcoding h4 regardless of context (the bug this fixes) skipped a level
- * in BOTH cases: h2 -> h4 on the homepage, and h1 -> h4 -- skipping two
+ * Hardcoding h4 regardless of context would skip a level in BOTH cases: h2 -> h4 on the homepage, and h1 -> h4 -- skipping two
  * levels at once -- on every SportsPress singular page.
  *
  * @return int Either 2 or 3.
@@ -182,12 +179,12 @@ function blueline_sp_caption_heading_level(): int {
 		return 2;
 	}
 
-	// A11Y-09: in a widget area, a sibling of the h2 widget titles.
+	// In a widget area, a sibling of the h2 widget titles.
 	if ( blueline_sp_in_sidebar() ) {
 		return 2;
 	}
 
-	// A11Y-09: straight under the h1 of a page with no h2 of its own (/standings).
+	// Straight under the h1 of a page with no h2 of its own (/standings).
 	if ( is_page() && ! is_front_page() && ! blueline_content_has_h2( (string) get_post_field( 'post_content', get_queried_object_id() ) ) ) {
 		return 2;
 	}
@@ -318,7 +315,7 @@ function blueline_sp_retag_captions( string $content, int $level, string $page_t
 }
 
 /**
- * Whether a block of post content contains its own h2 (A11Y-09).
+ * Whether a block of post content contains its own h2.
  *
  * @param string $content Raw post content.
  * @return bool
@@ -361,7 +358,7 @@ function blueline_sp_leave_sidebar(): void {
 }
 
 /**
- * The [sponsors] title level: h2 for the footer band after <main> (A11Y-09).
+ * The [sponsors] title level: h2 for the footer band after <main>.
  *
  * @param bool $in_footer Whether this is the footer band (doing_action( 'get_footer' )).
  * @return int
@@ -443,7 +440,7 @@ function blueline_sp_sponsor_tags( $sponsor ): array {
 
 add_filter( 'wp_get_attachment_image_attributes', 'blueline_sp_sponsor_logo_alt' );
 /**
- * Name a sponsor logo link: an alt-less logo gets the sponsor's title (A11Y-04).
+ * Name a sponsor logo link: an alt-less logo gets the sponsor's title.
  *
  * @param array $attr Image attributes.
  * @return array
@@ -687,7 +684,7 @@ function blueline_sp_cache_on_option_change( $option ): void {
 }
 
 /**
- * Current-season stat lines for a roster, cached per team + season (PERF-01).
+ * Current-season stat lines for a roster, cached per team + season.
  *
  * Each line comes from blueline_get_player_season_stats() unchanged, so the
  * numbers are identical to an uncached read; this only stops a cold team page
@@ -728,7 +725,7 @@ function blueline_roster_season_stats( int $team_id, array $player_ids ): array 
  * The wp_kses_post() allowlist plus the img attributes core's own
  * get_the_post_thumbnail() emits (srcset/sizes/decoding), which the stock
  * list drops -- used by sportspress/league-table.php so its team logos keep
- * their responsive sources (PERF-06).
+ * their responsive sources.
  *
  * @return array
  */
@@ -832,7 +829,7 @@ function blueline_sp_schedule_result_html( array $main_results, $sp_status, stri
 		return $score;
 	}
 
-	// Played recently, no result on file yet; older unscored games (QA C-24) get the dash.
+	// Played recently, no result on file yet; older unscored games get the dash.
 	if ( 'pending' === $state && $still_expected ) {
 		return '<span class="bl-sp-schedule__pending">' . esc_html__( 'Final score coming soon', 'blueline' ) . '</span>';
 	}
@@ -1172,7 +1169,7 @@ add_filter( 'sp_team_events_season', 'blueline_team_events_current_season_id' );
  * (sportspress/team-events.php, the theme's own override of SportsPress'
  * team-events.php) to the season currently driving the schedule.
  *
- * Live-site review: a team's Results section showed games from years
+ * Without it, a team's Results section shows games from years
  * earlier (e.g. 2017) directly beneath Upcoming Games, with nothing
  * distinguishing them from the current season. Root cause, confirmed
  * against the SportsPress plugin's own team-events.php/

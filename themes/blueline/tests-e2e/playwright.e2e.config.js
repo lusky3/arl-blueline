@@ -39,12 +39,11 @@ module.exports = defineConfig( {
 	// other out under load. tests-browser/'s config made the same call.
 	fullyParallel: false,
 	workers: 1,
-	// The intermittent 60s `page.goto()` stalls this suite used to retry
-	// past were not runner contention. nginx in the sandbox image could not
-	// write its FastCGI temp directory, so any response large enough to be
+	// Intermittent 60s `page.goto()` stalls are not runner contention: nginx in the
+	// sandbox image could not write its FastCGI temp directory, so any response large enough to be
 	// buffered to disk (the debug toolbars made most pages 0.6-1MB) was cut
 	// off mid-body and the browser waited for the rest until it timed out.
-	// e2e.yml now fixes that directory's ownership and verifies it. One
+	// e2e.yml fixes that directory's ownership and verifies it. One
 	// retry stays as insurance for a genuinely transient runner hiccup; a
 	// test that needed it is reported as flaky (the `github` reporter
 	// annotates it), so a returning pattern is visible rather than absorbed.

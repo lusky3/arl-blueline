@@ -2,7 +2,7 @@
  * Tidies the Quotes Llama sidebar widget (third-party plugin) as it renders
  * and as it swaps quotes in.
  *
- * A11Y-08: the plugin builds its author photo <img> in JavaScript with no alt
+ * The plugin builds its author photo <img> in JavaScript with no alt
  * attribute, so screen readers read out the file URL. The author's name is
  * printed right beside it, which makes the photo decorative: give any such
  * image an empty alt. Images that already carry an alt (even an empty one)

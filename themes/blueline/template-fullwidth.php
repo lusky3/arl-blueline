@@ -5,7 +5,7 @@
  * Full-bleed page template, no sidebar. SportsPress entity post types
  * (sp_player, sp_staff, sp_team) render through content-nothumb.php --
  * the previous Rookie theme's convention for assigning this template to
- * team/player/staff pages, kept here for Task 8 to build on.
+ * team/player/staff pages, kept here.
  *
  * @package blueline
  */

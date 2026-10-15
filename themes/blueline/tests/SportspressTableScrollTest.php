@@ -15,11 +15,10 @@ require_once __DIR__ . '/../inc/sportspress.php';
  * DOMDocument-based helpers -- the mechanism behind the "page body must
  * never scroll horizontally" hard invariant.
  *
- * This exists specifically because the throwaway manual script used to
- * verify this logic during Task 8's first fix round was never committed,
- * and this exact logic went on to produce a real regression in the very
- * next review round (the DOM pass touching ordinary, non-SportsPress
- * tables site-wide). The scoping fix from that regression -- only ever
+ * This exists specifically because this logic was once verified only by a
+ * throwaway manual script that was never committed, and it went on to
+ * produce a real regression (the DOM pass touching ordinary,
+ * non-SportsPress tables site-wide). The scoping fix from that regression -- only ever
  * touching a <table> that carries an "sp-" prefixed class somewhere in its
  * own ancestry -- is exactly what several of these cases exist to pin
  * down permanently.

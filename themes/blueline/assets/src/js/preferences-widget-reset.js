@@ -5,8 +5,8 @@
  * itself once a visitor dismisses it, by comparing the current game's
  * event_id:fingerprint pair against WIDGET_DISMISSED_KEY in this browser's
  * own localStorage -- see that file's own docblock. This button just clears
- * that one key; it does not need to touch `blueline:next-game-seen` (PR
- * #24's key for the separate "Updated since you last checked" indicator),
+ * that one key; it does not need to touch `blueline:next-game-seen` (the key
+ * for the separate "Updated since you last checked" indicator),
  * since that key never affects visibility, only whether the indicator
  * shows.
  *

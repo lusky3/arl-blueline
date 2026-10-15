@@ -1,19 +1,14 @@
 <?php
 /**
- * Covers the Task 5 fix round of the P1b-panel-completion plan: the four
- * `chrome_footer_widgets_N` section toggles, each gating its own real
- * `footer-N` WordPress widget area (registered in inc/setup.php's
+ * Covers the four `chrome_footer_widgets_N` section toggles, each gating its
+ * own real `footer-N` WordPress widget area (registered in inc/setup.php's
  * blueline_widgets_init()).
  *
- * These did not exist when Task 1-4 built the Sections tab: the plan's own
- * spec named "4 footer widget areas" among the presence toggles, and no
- * earlier task built them. A first attempt at Task 5's widget-store warning
- * mapped `chrome_footer_trust` to `footer-2` instead -- caught as false by
- * this plan's coordinator, since `chrome_footer_trust` gates only the
+ * `chrome_footer_trust` must not stand in for `footer-2`: it gates only the
  * separate, hardcoded trust column (contact/location/FAQs/legal), never
- * footer-2's own widget loop (inc/template-tags.php:643-649 at the time,
- * gated solely by is_active_sidebar()). This file proves the real fix:
- * each `chrome_footer_widgets_N` key genuinely withholds its own column.
+ * footer-2's own widget loop (gated solely by is_active_sidebar()). This
+ * file proves each `chrome_footer_widgets_N` key genuinely withholds its
+ * own column.
  *
  * Assertions below check for the exact `<div class="bl-footer__column">`
  * opening tag, not merely the `bl-footer__column` substring -- the

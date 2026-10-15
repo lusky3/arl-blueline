@@ -69,8 +69,8 @@ final class SettingsAcknowledgementsTest extends TestCase {
 	}
 
 	/**
-	 * Asserts an entry missing `value` -- the field Finding #4 added, so
-	 * a covers() check can match the exact acknowledged value rather than
+	 * Asserts an entry missing `value` -- the field that lets
+	 * a covers() check match the exact acknowledged value rather than
 	 * only a contrast ratio -- is dropped, exactly like any other missing
 	 * required key.
 	 */
@@ -274,7 +274,7 @@ final class SettingsAcknowledgementsTest extends TestCase {
 	/**
 	 * Asserts a different value (the admin changed the accent since
 	 * acknowledging) answers false, even with the same rule id and hash --
-	 * the regression test for the bug this finding fixes: contrast ratio is
+	 * the regression test for this bug: contrast ratio is
 	 * a many-to-one projection of colour space, so matching on ratio alone
 	 * (the old behaviour) would have let this case wrongly answer true.
 	 */
@@ -288,7 +288,7 @@ final class SettingsAcknowledgementsTest extends TestCase {
 
 	/**
 	 * Integration-style: uses the real blueline_settings_inputs_hash()
-	 * (Task 4) to prove the mechanism composes with it exactly as Phase
+	 * to prove the mechanism composes with it exactly as Phase
 	 * 2.1's resolver will -- record with the real current hash, then check
 	 * coverage against that same real current hash.
 	 */

@@ -2,7 +2,7 @@
  * Blueline WooCommerce account form errors: associate an unassociated
  * `.woocommerce-error` list with the field it actually describes.
  *
- * A11y finding: submitting /account's login form empty re-renders the page
+ * Submitting /account's login form empty re-renders the page
  * with a focused `role="alert"` banner ("Error: Username is required.") --
  * but the `username` field itself gets no `aria-invalid`, no
  * `aria-describedby` pointing back at that message, and no visible border

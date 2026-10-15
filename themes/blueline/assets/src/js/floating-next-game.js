@@ -11,18 +11,16 @@
  * it -- with its own localStorage keys and `data-*` attribute so the two
  * scripts never collide.
  *
- * TWO separate keys, not one -- a real bug found live 2026-08-25: an
- * earlier version of this feature used ONE shared `event_id:fingerprint`
+ * TWO separate keys, not one: a single shared `event_id:fingerprint`
  * value for both "the visitor explicitly dismissed this widget" AND "the
  * visitor viewed the My Account next-game card" (assets/src/js/
  * account-next-game.js writes on every view of that card, by design, so
  * the "Updated" flag there doesn't keep nagging once you've looked). Since
- * both surfaces describe the SAME underlying game, sharing one key meant
- * merely visiting My Account silently marked the FLOATING WIDGET as
+ * both surfaces describe the SAME underlying game, sharing one key would mean
+ * merely visiting My Account silently marks the FLOATING WIDGET as
  * dismissed too -- it would flash on the very next page (server always
  * renders it) and then immediately hide itself, on every single page
- * after that, with no dismiss click ever happening. Splitting the concern
- * into two keys fixes it:
+ * after that, with no dismiss click ever happening. Two keys avoid that:
  *
  * - `blueline:next-game-dismissed` -- written ONLY by this widget's own
  *   dismiss button. Read ONLY to decide whether to hide the widget.
@@ -33,9 +31,7 @@
  *   whether the widget itself is shown or hidden.
  *
  * The stored/compared value under each key is still `event_id:fingerprint`
- * (`data-bl-next-game`), not a content hash of the rendered text. Design
- * spec: docs/superpowers/specs/2026-08-25-blueline-schedule-change-notice-
- * design.md. `fingerprint` (a hash of the event's own date/time, venue,
+ * (`data-bl-next-game`), not a content hash of the rendered text. `fingerprint` (a hash of the event's own date/time, venue,
  * opponent, and home/away flag -- blueline_event_schedule_fingerprint() in
  * inc/account/player-data.php) is what lets a dismissal of THIS version of
  * a game not suppress a later, changed version of the SAME game.
@@ -117,8 +113,8 @@ function writeState( key, state ) {
 }
 
 /*
- * Guarded on `document` (this file previously ran this block unconditionally
- * -- every front-end entry file does, since it only ever loads in a
+ * Guarded on `document` (every front-end entry file otherwise runs its
+ * block unconditionally, since it only ever loads in a
  * browser) so this module can also be `require()`d by
  * floating-next-game.test.mjs under plain Node, with no DOM present, purely
  * to reach parseNextGameState() -- same trade-off standings-tabs.js and

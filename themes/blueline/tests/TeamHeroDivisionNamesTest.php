@@ -11,7 +11,7 @@ require_once __DIR__ . '/../inc/sportspress.php';
 require_once __DIR__ . '/../inc/account/player-data.php';
 
 /**
- * Covers a live-review finding with zero prior test coverage: team pages
+ * Covers a bug: team pages
  * showed 5-7 stale/historical division tags (e.g. "Div 4C, Division 4,
  * Division 5, Group G" for a team currently in Division 5), because
  * blueline_sp_team_hero() rendered EVERY sp_league term the team had ever

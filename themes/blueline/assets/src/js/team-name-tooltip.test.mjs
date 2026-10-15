@@ -53,7 +53,7 @@ test( 'a scroll with no bubble showing does nothing', () => {
 } );
 
 test( 'a scroll while the bubble belongs to the focused link moves it with the link', () => {
-	// Focusing a link in the scrolling table scrolls it into view, which used to
+	// Focusing a link in the scrolling table scrolls it into view, which must not
 	// hide the bubble the focus had just shown.
 	assert.equal(
 		resolveScroll( { showing: true, focused: true } ),

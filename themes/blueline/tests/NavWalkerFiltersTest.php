@@ -1,6 +1,6 @@
 <?php
 /**
- * Blueline_Nav_Walker applies core's per-item nav filters (audit WP-09)
+ * Blueline_Nav_Walker applies core's per-item nav filters
  * without letting a callback drop the classes the nav's CSS and JS need,
  * and renders byte-identically when nothing is hooked.
  *

@@ -1,6 +1,6 @@
 <?php
 /**
- * Covers blueline_homepage_module_order()'s consumption of Task 1's section
+ * Covers blueline_homepage_module_order()'s consumption of the section
  * presence toggles: a module whose `module_*` toggle is off is dropped from
  * the render order, but never ALL of them -- WCAG 2.4.5 requires two ways to
  * find content, so an empty homepage is not a configuration a volunteer is
@@ -64,7 +64,7 @@ final class HomepageModuleOrderTest extends TestCase {
 	 * test_the_last_enabled_module_cannot_be_removed() above cannot tell them
 	 * apart -- it uses 'in_season', where no override applies. They diverge
 	 * under registration_open + is_playing, the one combination the order
-	 * matrix overrides (P1 finding 4): the raw table entry there starts with
+	 * matrix overrides: the raw table entry there starts with
 	 * 'new_here', while the effective order starts with 'next_games'.
 	 *
 	 * blueline_homepage_module_order()'s own docblock argues this point at
@@ -91,7 +91,7 @@ final class HomepageModuleOrderTest extends TestCase {
 
 	/**
 	 * Regression guard: the registration_open + is_playing early-return order
-	 * (P1 finding 4) must survive the restructure into a single filtered
+	 * must survive the restructure into a single filtered
 	 * exit untouched, when every toggle is left at its default (enabled).
 	 */
 	public function test_the_order_matrix_is_otherwise_untouched(): void {

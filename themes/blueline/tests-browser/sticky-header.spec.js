@@ -142,8 +142,8 @@ test.describe( 'sticky header', () => {
 	 */
 	/*
 	 * 1024 is in the range and 960 is not, deliberately: below roughly 960 the
-	 * menu already took two rows before any of this work, at the old 48px logo
-	 * too (measured), because it is close to the 880px point where nav.css
+	 * menu takes two rows regardless of the logo size, even at 48px
+	 * (measured), because it is close to the 880px point where nav.css
 	 * turns it into a drawer. Asserting one row there would be asserting a bug
 	 * fix that was never made.
 	 */
@@ -189,7 +189,7 @@ test.describe( 'sticky header', () => {
 			const contentRight = inner.x + inner.width;
 			expect( Math.abs( contentRight - ( logoBox.x + logoBox.width ) ) ).toBeLessThan( 40 );
 
-			// And bigger than the 176px cap the brief called out as too small.
+			// And bigger than the 176px cap, which read as too small.
 			expect( logoBox.width ).toBeGreaterThan( 176 );
 		}
 	} );

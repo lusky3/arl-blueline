@@ -3,7 +3,7 @@
  * The settings panel's export download and import preview/apply requests:
  * the request-handling layer that sits between inc/settings/import.php's pure
  * decode/prepare/sanitize logic and the panel's own UI (still rendered from
- * inc/settings/page.php).
+ * inc/settings/page-data-tools.php).
  *
  * Export is a real `admin_post_*` handler, registered below, because the
  * response is a file download and has to send its own headers. Import is

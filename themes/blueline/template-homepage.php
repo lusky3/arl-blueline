@@ -3,7 +3,7 @@
  * Template Name: Homepage
  *
  * Season-aware homepage. One hero variant and one module order is selected
- * from blueline_season_state() (Task 6) -- nobody edits this page twice a
+ * from blueline_season_state() -- nobody edits this page twice a
  * year for that to happen. Assign this template to the static front page
  * under Settings > Reading.
  *
@@ -26,7 +26,7 @@ $blueline_state_data = blueline_season_state_data();
 	// never disagrees with the hero actually shown above it. $blueline_state_data
 	// is passed through too so the module order can also see is_playing --
 	// registration_open and "games are being played" are independent facts
-	// (P1 finding 4) the effective state alone cannot carry.
+	// the effective state alone cannot carry.
 	$blueline_effective_state = blueline_render_hero( $blueline_state );
 
 	foreach ( blueline_homepage_module_order( $blueline_effective_state, $blueline_state_data ) as $blueline_module ) {

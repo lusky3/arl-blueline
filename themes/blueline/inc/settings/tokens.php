@@ -7,8 +7,7 @@
  * and whether the settings panel is ever allowed to expose it as an
  * editable value at all ("tunable"). Every token defaults to non-tunable;
  * only --bl-occasion-accent is marked tunable -- a structural limit, not
- * a promise the panel merely chooses to keep. See
- * docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md §4.1.
+ * a promise the panel merely chooses to keep.
  *
  * @package blueline
  */

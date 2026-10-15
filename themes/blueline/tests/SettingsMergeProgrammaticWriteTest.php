@@ -15,8 +15,7 @@
  * overwrite a key the submission actually POSTS: `array_key_exists( $key,
  * $new_value )` short-circuits before `_posted_fields` is ever consulted, so
  * a field explicitly present in the write -- `array( 'chrome_sponsors' =>
- * false )`, with no other bookkeeping at all -- was already safe under the
- * code this task started from. That specific literal shape from the staging
+ * false )`, with no other bookkeeping at all -- was already safe. That specific literal shape from the staging
  * report could not be reproduced as a failing test against this exact
  * codebase; test_programmatic_write_can_set_a_section_toggle_to_false()
  * below pins it as a passing regression guard rather than a red-then-green
@@ -26,7 +25,7 @@
  * the control panel's own "unchecked checkbox" idiom -- name the field in
  * `_posted_fields`, omit its value, to mean "clear it" -- WITHOUT also
  * declaring `_tab`, because a programmatic caller has no tab to declare.
- * Before this task's fix, blueline_settings_merge() honoured `_posted_fields`
+ * Before the `_tab` gate existed, blueline_settings_merge() honoured `_posted_fields`
  * unconditionally, with no notion of `_tab` at all, so this call:
  *
  *   update_option( BLUELINE_SETTINGS_OPTION, array(
@@ -44,7 +43,7 @@
  * ## Why testing blueline_settings_merge() directly, not only through
  * update_option()
  *
- * inc/settings/page.php's blueline_settings_sanitize_callback() (the
+ * inc/settings/sanitize-callback.php's blueline_settings_sanitize_callback() (the
  * sanitize_option_ pass that runs immediately before this merge on every
  * real write) ALSO filters `_posted_fields` to entries whose own schema
  * `tab` matches the submission's `_tab` -- and no real schema field's `tab`
@@ -53,8 +52,8 @@
  * write through the full pipeline could plausibly name. That is real
  * protection, but it is a DIFFERENT file's protection: blueline_settings_merge()
  * is registered independently, at file scope, on the same hook a future
- * write path (or, as this task's own brief points out, a test) could reach
- * without ever going through page.php's callback first. This file therefore
+ * write path (or a test) could reach
+ * without ever going through the sanitize callback first. This file therefore
  * exercises blueline_settings_merge() both directly (proving the function
  * itself, not merely its upstream caller, now enforces the `_tab` boundary)
  * and through the full update_option() pipeline (proving the two files
@@ -126,7 +125,7 @@ final class SettingsMergeProgrammaticWriteTest extends TestCase {
 	/**
 	 * The red-then-green test: a programmatic write (no `_tab`) naming a
 	 * field in `_posted_fields` without posting its value must NOT delete
-	 * that field. Before this task's fix, blueline_settings_merge() treated
+	 * that field. Before the `_tab` gate existed, blueline_settings_merge() treated
 	 * `_posted_fields` as sufficient ownership on its own, with no notion of
 	 * `_tab` at all -- so this exact call deleted `chrome_sponsors` outright,
 	 * which (read back through blueline_settings()'s default-fallback) is
@@ -135,12 +134,12 @@ final class SettingsMergeProgrammaticWriteTest extends TestCase {
 	 * below) may use `_posted_fields` this way.
 	 *
 	 * Calls blueline_settings_merge() directly rather than through
-	 * update_option(): inc/settings/page.php's own tab-match filtering
+	 * update_option(): inc/settings/sanitize-callback.php's own tab-match filtering
 	 * already happens to reduce `_posted_fields` to empty for any
 	 * programmatic write reaching it, which would mask this exact bug at
 	 * the full-pipeline level -- see this file's own docblock. Testing the
 	 * merge function directly proves blueline_settings_merge() enforces
-	 * this boundary itself, not merely benefits from page.php's cooperation.
+	 * this boundary itself, not merely benefits from the sanitize callback's cooperation.
 	 */
 	public function test_merge_ignores_posted_fields_ownership_without_a_tab(): void {
 		$old = array(
@@ -207,7 +206,7 @@ final class SettingsMergeProgrammaticWriteTest extends TestCase {
 
 	/**
 	 * Requirement 4: a programmatic write cannot use `_schema` to defeat
-	 * inc/settings/store.php's forward-only migration guard. inc/settings/page.php's
+	 * inc/settings/store.php's forward-only migration guard. inc/settings/sanitize-callback.php's
 	 * blueline_settings_sanitize_callback() already lets `_schema` survive a
 	 * programmatic write at all (unlike a tab-scoped one, which drops it
 	 * outright -- see that file's own docblock and
@@ -220,10 +219,10 @@ final class SettingsMergeProgrammaticWriteTest extends TestCase {
 	 * and silently skip every future migration).
 	 *
 	 * Exercised through the full update_option() pipeline (not merge()
-	 * directly): `_schema` is reserved-key bookkeeping page.php's sanitize
+	 * directly): `_schema` is reserved-key bookkeeping the sanitize
 	 * callback owns entirely -- blueline_settings_merge() does not special-
 	 * case it at all -- so this test proves the two files still cooperate
-	 * correctly, including through this task's `_tab`-gating change to the
+	 * correctly, including through the `_tab`-gating in the
 	 * merge, not merely that the callback's own clamp still exists in
 	 * isolation (SettingsPageTest.php already covers that directly).
 	 */

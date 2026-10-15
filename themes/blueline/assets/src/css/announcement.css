@@ -1,5 +1,5 @@
 /*
- * Blueline — site-wide announcement banner (Task 6).
+ * Blueline — site-wide announcement banner.
  *
  * Sits between the header's spacer and <main>, on every template. The strip
  * runs full bleed and only .bl-announce__inner opts into .bl-container,

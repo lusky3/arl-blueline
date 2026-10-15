@@ -35,7 +35,7 @@ final class OccasionsDriftTest extends TestCase {
 	/**
 	 * Reset every in-memory store, AND explicitly clear the drift
 	 * notice's same-request relay -- blueline_test_reset() does not know
-	 * about that module-level static, since it predates this task.
+	 * about that module-level static.
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();

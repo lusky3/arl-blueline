@@ -1,8 +1,8 @@
 <?php
 /**
- * QA fx4 table fixes: the event-list column count (C-16/B-05), the "score
- * coming soon" cut-off (C-24), empty states (B-14) and the roster sort key
- * (B-12). The templates themselves need a live SP_Calendar, so their wiring
+ * Table fixes: the event-list column count, the "score
+ * coming soon" cut-off, empty states and the roster sort key.
+ * The templates themselves need a live SP_Calendar, so their wiring
  * is source-scanned and the decisions are unit-tested through the helpers.
  *
  * @package blueline

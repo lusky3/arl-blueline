@@ -4,7 +4,7 @@
  * ([team_standings]/[league_table], and the auto-injected mini standings on
  * every sp_team page via team-tables.php's own `highlight` call).
  *
- * Enhancement (finding 14): /standings is the site's most-visited page and
+ * Enhancement: /standings is the site's most-visited page and
  * shows all thirteen SportsPress columns (Pos GP W L Tie OT PTS GF GA Diff
  * L10 Strk) for a beginner league -- the exact "every pro-sports site shows
  * all thirteen" category reflex this theme otherwise fights everywhere
@@ -73,7 +73,7 @@ if ( isset( $show_future_events ) ) {
 
 $identifier = uniqid( 'table_' );
 
-// PERF-03: the computed table (no per-viewer markup) is cached; highlighting below stays per request.
+// The computed table (no per-viewer markup) is cached; highlighting below stays per request.
 $bl_table_cache_key = ( $id && ! is_preview() )
 	? blueline_sp_cache_key( 'table', array( (int) $id, $table->show_published_events ?? '', $table->show_future_events ?? '' ) )
 	: '';
@@ -126,17 +126,16 @@ foreach ( $labels as $bl_key => $bl_label ) {
 $bl_show_toggle = $bl_has_record && ! empty( $bl_extra_keys );
 
 /*
- * Finding 7 (live review): a division whose season/playoff round hasn't
- * started yet renders every team at position 0 with a 0-0-0-0 record and
- * no explanatory text at all -- confirmed live on "Division 5 | Playoffs
- * S2026" -- which reads as a broken table, not as "nothing has happened
- * here yet." Detected from the same computed $data this template already
+ * A division whose season/playoff round hasn't started yet renders every
+ * team at position 0 with a 0-0-0-0 record and no explanatory text at all,
+ * which reads as a broken table, not as "nothing has happened here yet."
+ * Detected from the same computed $data this template already
  * renders (SP_League_Table::data(), not a second query): every listed
  * team's games-played figure is zero. Prefers the table's own 'gp' column
  * when present (the direct, unambiguous signal); falls back to every
  * record component (W/L/T/OT) being zero for a league configured without a
  * GP column at all. The actual decision is a pure function
- * (blueline_sp_zero_games_note(), inc/sportspress.php, unit tested) so it
+ * (blueline_sp_zero_games_note(), inc/sportspress/calendar.php, unit tested) so it
  * is testable without a real SP_League_Table.
  */
 $bl_has_progress_signal = isset( $labels['gp'] ) || ! empty( $bl_record_keys );
@@ -284,7 +283,7 @@ foreach ( $data as $team_id => $row ) :
 	/*
 	 * On a team's own page, this table's highlighted row IS that team --
 	 * its crest is already the page's hero image (blueline_sp_team_hero(),
-	 * inc/sportspress.php), so showing it again here duplicated the logo.
+	 * inc/sportspress/heroes.php), so showing it again here would duplicate the logo.
 	 * Every other team's logo in this same mini-standings table (and every
 	 * logo on /standings, where is_singular('sp_team') is false) is
 	 * unaffected -- only the one row that mirrors the page it's on.
@@ -292,7 +291,7 @@ foreach ( $data as $team_id => $row ) :
 	$bl_is_own_team_page = is_singular( 'sp_team' ) && (int) get_queried_object_id() === (int) $team_id;
 
 	if ( $show_team_logo && ! $bl_is_own_team_page && has_post_thumbnail( $team_id ) ) :
-		// PERF-06: drawn at 24px (sportspress.css), so sizes lets the browser take the 32w source at 1x.
+		// Drawn at 24px (sportspress.css), so sizes lets the browser take the 32w source at 1x.
 		$logo        = get_the_post_thumbnail(
 			$team_id,
 			'sportspress-fit-icon',
@@ -346,9 +345,8 @@ $output .= '</tbody>';
 		<?php
 		// Heading level depends on where this shortcode/template is
 		// actually rendered -- see blueline_sp_caption_heading_level()'s
-		// own docblock (inc/sportspress.php) for the accessibility finding
-		// this fixes (this caption used to be a hardcoded, level-skipping
-		// h4 everywhere).
+		// own docblock (inc/sportspress/core.php) for why (a hardcoded h4
+		// would skip heading levels).
 		$bl_caption_level = blueline_sp_caption_heading_level();
 		printf( '<h%1$d class="sp-table-caption" id="%3$s">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ), esc_attr( $bl_heading_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>

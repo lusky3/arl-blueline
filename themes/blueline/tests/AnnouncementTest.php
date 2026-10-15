@@ -1,6 +1,6 @@
 <?php
 /**
- * Covers Task 6 of the P1b-panel-completion plan: the site-wide
+ * Covers the site-wide
  * announcement banner -- its date window, its severity clamp, the site-time
  * timestamp helper both of those rest on, and the markup itself.
  *
@@ -9,7 +9,7 @@
  * "this window has passed" keeps meaning that after the date it was written
  * on -- and blueline_announcement_visible()'s own `?int $now` parameter is
  * genuinely honoured rather than accepted and discarded (a whole class of
- * silently-vacuous test this plan has already been bitten by; see
+ * silently-vacuous test; see
  * tests/SeasonStateOverrideTest.php's own docblock for the sibling case).
  *
  * @package blueline
@@ -351,12 +351,11 @@ final class AnnouncementTest extends TestCase {
 	 * resolves to a known modifier rather than being echoed into a class
 	 * attribute.
 	 *
-	 * Seeded past the sanitizer, because since Task 7's fix round the
+	 * Seeded past the sanitizer, because the
 	 * `choices` guard means an off-list tone can no longer be stored through
 	 * update_option() at all -- it is refused and the previous value kept.
-	 * A version of this using set_announcement() therefore asserted against
-	 * a value that was never stored and passed with the clamp deleted, which
-	 * is exactly what it did for one commit. Import and direct database
+	 * A test using set_announcement() would therefore assert against
+	 * a value that was never stored and pass with the clamp deleted. Import and direct database
 	 * edits are the routes that remain.
 	 *
 	 * @dataProvider provide_unrecognised_severities

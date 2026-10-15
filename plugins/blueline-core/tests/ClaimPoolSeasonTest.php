@@ -17,14 +17,14 @@ require_once __DIR__ . '/../includes/player-link/player-link.php';
 final class ClaimPoolSeasonTest extends TestCase {
 
 	/**
-	 * The get_posts() model in force before this test.
+	 * The get_posts() model saved in setUp() and restored in tearDown().
 	 *
 	 * @var mixed
 	 */
 	private $previous_model;
 
 	/**
-	 * Fresh state at a fixed "now" (the staging verification day), plus a get_posts() model that
+	 * Fresh state at a fixed "now", plus a get_posts() model that
 	 * also answers sp_event lookups, honouring post_status (one or several) and a post_date
 	 * date_query's after/before bounds the way WP_Query does.
 	 */

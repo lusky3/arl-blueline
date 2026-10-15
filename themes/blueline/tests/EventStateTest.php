@@ -10,8 +10,8 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * P0 finding 2: blueline_sp_event_hero() (and blueline_sp_event_teaser())
- * used to decide "Preview" vs "Final" purely from sp_get_status() ===
+ * The hero and teaser (blueline_sp_event_hero(), blueline_sp_event_teaser())
+ * must not decide "Preview" vs "Final" purely from sp_get_status() ===
  * 'results', which is only ever true once a score has been entered --
  * confirmed live, eleven published events in the last 90 days had no
  * sp_results row at all and still advertised "Preview" with a live "Add to

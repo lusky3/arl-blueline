@@ -1,6 +1,6 @@
 <?php
 /**
- * Covers Task 3 of the P1b-panel-completion plan: the four My Account
+ * Covers the four My Account
  * dashboard cards (next game, my team, season stats, registration) each obey
  * their own `blueline_section_enabled()` toggle. Guarded at the top of each
  * renderer, not at the three call sites (the dashboard template and the two
@@ -55,7 +55,7 @@ final class AccountSectionsTest extends TestCase {
 	}
 
 	/**
-	 * The exact case the brief writes out: disabling `account_my_team`
+	 * Disabling `account_my_team`
 	 * through the real save pipeline empties the My Team card entirely,
 	 * even though the player id passed in is otherwise a normal, renderable
 	 * one.
@@ -107,7 +107,7 @@ final class AccountSectionsTest extends TestCase {
 	/**
 	 * Unset means enabled (blueline_section_enabled()'s own contract): an
 	 * install that has never opened the Sections tab must keep rendering
-	 * every account card exactly as it did before this task, so the guard
+	 * every account card exactly as it did before the toggle existed, so the guard
 	 * itself must never be the reason a card goes missing on a fresh
 	 * install. `66` has no registered team/player data in this bare stub
 	 * environment, so the module renders its own empty state rather than
@@ -142,9 +142,9 @@ final class AccountSectionsTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 1, Important 4: switching off `account_my_team` blanked the
+	 * Switching off `account_my_team` blanked the
 	 * dedicated `/account/my-team/` page (its endpoint handler renders
-	 * blueline_account_render_my_team(), which Task 3's guard now empties)
+	 * blueline_account_render_my_team(), which the section guard now empties)
 	 * while the nav still listed a "My Team" link to it -- a linked player
 	 * following that link would land on an empty page. The menu item itself
 	 * must disappear along with the card: the theme says so through the
@@ -233,7 +233,7 @@ final class AccountSectionsTest extends TestCase {
 	}
 
 	/**
-	 * Task 8 (fix round 2): the "no upcoming game" empty-state line comes
+	 * The "no upcoming game" empty-state line comes
 	 * from `account_empty_next_game`, not a hardcoded literal.
 	 *
 	 * This write DOES go through the full save pipeline -- the
@@ -241,10 +241,9 @@ final class AccountSectionsTest extends TestCase {
 	 * so the test covers the whole path from update_option() to rendered
 	 * output, not just the read.
 	 *
-	 * An earlier version of this docblock claimed the opposite, reasoning
-	 * that "this file requires neither inc/settings/sanitize.php nor
-	 * inc/settings/page.php". That reasoning is wrong, and the mistake is
-	 * worth naming because it is easy to make again: PER-FILE `require_once`
+	 * That this file requires neither inc/settings/sanitize.php nor
+	 * inc/settings/page.php does not make the sanitizer absent, and the
+	 * mistake is easy to make: PER-FILE `require_once`
 	 * LISTS DO NOT SCOPE HOOK REGISTRATION. PHPUnit require_once's every
 	 * test file while building the suite, before any setUp() runs, so
 	 * page.php's file-scope `add_filter` has already executed by then; and
@@ -257,7 +256,7 @@ final class AccountSectionsTest extends TestCase {
 	public function test_the_next_game_empty_state_comes_from_settings(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'account_empty_next_game' => 'Nothing on the schedule for you just yet.' ) );
 
-		// Premise, and the claim the docblock above now makes: the value
+		// Premise, and the claim the docblock above makes: the value
 		// survived the sanitizer and the merge rather than being refused.
 		$this->assertSame( 'Nothing on the schedule for you just yet.', blueline_settings( 'account_empty_next_game' ) );
 

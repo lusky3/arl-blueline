@@ -8,7 +8,7 @@
  */
 
 /*
- * P3 finding 7: chrome/content boundaries get the paired blue-line band
+ * Chrome/content boundaries get the paired blue-line band
  * (device #2) instead of a generic hairline, same device Package 2 already
  * uses between homepage modules (homepage.css's `.bl-module + .bl-module`)
  * -- reused here via the identical margin + ::before/::after technique
@@ -35,7 +35,7 @@
 	inset-block-start: calc(-1 * (var(--bl-band-ice) + var(--bl-band-ink)));
 	height: var(--bl-band-ice);
 
-	/* design spec §7.2's "signature band" -- see header.css's
+	/* The "signature band" -- see header.css's
 	 * .bl-btn--primary .bl-skew for why --bl-occasion-accent is a
 	 * no-op swap by default. */
 	background: var(--bl-occasion-accent);
@@ -58,7 +58,7 @@
 }
 
 /*
- * P3 finding 5: a widget/block that sets its own background (WordPress
+ * A widget/block that sets its own background (WordPress
  * core block editor's `.has-background` convention -- e.g. this footer's
  * own yellow "WE STAND WITH UKRAINE" block, a paragraph with an inline
  * `background-color` style) is opting OUT of the footer's dark ground.
@@ -83,16 +83,16 @@
 }
 
 /*
- * P3 finding 5: four columns always rendered even when three had nothing
+ * Four columns always rendered even when three had nothing
  * assigned (measured live: three with innerHTML.length === 0, each still
  * occupying 282px of grid) -- against DESIGN.md's "never an empty
- * container" rule. blueline_site_footer() now skips an unpopulated widget
+ * container" rule. blueline_site_footer() skips an unpopulated widget
  * column entirely rather than rendering it empty, and always renders one
- * static trust column (contact/location/FAQs/legal -- finding 5's other
- * half: there was no contact, address, phone or policy link anywhere in
- * the footer). auto-fit collapses whatever tracks end up with no column in
- * them instead of reserving all four regardless of how many actually
- * render, so the grid always matches what's really there.
+ * static trust column (contact/location/FAQs/legal -- so the footer always
+ * carries a contact, address, phone and policy link). auto-fit collapses
+ * whatever tracks end up with no column in them instead of reserving all
+ * four regardless of how many actually render, so the grid always matches
+ * what's really there.
  */
 .bl-footer__columns {
 	display: grid;
@@ -139,7 +139,7 @@
 	padding-block: var(--bl-space-5) 0;
 }
 
-/* A-14: zero specificity, so each placement's own size class (96px empty
+/* Zero specificity, so each placement's own size class (96px empty
    state, 32px header...) wins even from a file loaded before this one. */
 :where(.bl-leaf-mark) {
 	width: 28px;
@@ -154,7 +154,7 @@
 }
 
 /*
- * The active occasion's optional `line` (design spec §7.1) -- forced onto
+ * The active occasion's optional `line` -- forced onto
  * its own full-width row via flex-basis rather than squeezed in beside the
  * leaf mark and copyright, since it is the one piece of this bar whose
  * presence is conditional (inc/template-tags.php's blueline_site_footer()
@@ -167,8 +167,8 @@
 	font-weight: 600;
 
 	/* --bl-pale, not --bl-occasion-accent: the resolver's own AA gate only
-	 * validates the accent as a FILL under --bl-ink text (design spec
-	 * §4.5), never as foreground text on this footer's own dark
+	 * validates the accent as a FILL under --bl-ink text,
+	 * never as foreground text on this footer's own dark
 	 * --bl-ink-deep ground -- a different pairing this file's own
 	 * docblock already restricts to --bl-pale/--bl-paper for exactly this
 	 * reason. */
@@ -240,13 +240,13 @@
 	flex: 0 0 auto;
 	object-fit: contain;
 
-	/* Finding 8 (live review): one team's real crest is confirmed near-
+	/* One team's real crest is confirmed near-
 	   invisible against this theme's dark surfaces -- a content/asset
 	   problem this theme cannot fix without the real, higher-contrast
 	   file. Every team logo thumbnail site-wide gets this same small,
 	   fixed light backdrop instead; see sportspress.css's identical
 	   .team-logo img / .gallery-icon img rules for the other two places
-	   this finding names. --bl-white, not --bl-paper -- this footer band
+	   it names. --bl-white, not --bl-paper -- this footer band
 	   is already --bl-ink-deep (dark), and the chip must look identical
 	   here and on the paper-white content body alike. */
 	background: var(--bl-white);
@@ -264,7 +264,7 @@
  * since it exists precisely because the treatment renders the photographer's
  * own watermark illegible.
  *
- * A11y finding: this measured 2.0:1 against the footer's own --bl-ink-deep
+ * This measured 2.0:1 against the footer's own --bl-ink-deep
  * ground -- --bl-ink-mid is this theme's "quieter than body text" token,
  * but (per style.css's own token comments) it is calibrated for --bl-paper/
  * --bl-white grounds only, not a dark one; it was never meant to carry the
@@ -350,7 +350,7 @@
 }
 
 /*
- * The pressed (currently active) option. D-21: an ink fill read only ~1.2:1
+ * The pressed (currently active) option: an ink fill read only ~1.2:1
  * against its ink-deep neighbours, so it takes the ice "selected" fill with
  * ink text instead (ink-on-ice rule), plain chrome in both content themes.
  */

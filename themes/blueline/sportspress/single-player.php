@@ -1,13 +1,13 @@
 <?php
 /**
  * Single sp_player: a custom masthead (number, position from the taxonomy,
- * current team -- see blueline_sp_player_hero() in inc/sportspress.php),
+ * current team -- see blueline_sp_player_hero() in inc/sportspress/heroes.php),
  * then SportsPress's own the_content()-injected sections (player details,
  * season stats table, past teams -- whichever are enabled).
  *
  * The shared skeleton (sidebar-active check, hero, `.bl-content-layout`
  * wrapper, comments) lives in blueline_render_sp_single() -- see that
- * function's own docblock in inc/sportspress.php.
+ * function's own docblock in inc/sportspress/core.php.
  *
  * Upstream: none (theme-authored; SportsPress ships no template of this name).
  *

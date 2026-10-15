@@ -3,14 +3,13 @@
  * Theme override of SportsPress's Countdown widget template
  * (templates/countdown.php in the installed plugin -- "The Next Puck Drop"
  * widget, sidebar-1, per blueline_sp_has_sidebar()'s own docblock in
- * inc/sportspress.php).
+ * inc/sportspress/core.php).
  *
- * Live-review finding: this widget got permanently stuck showing
- * "Puck Dynasty vs Hammers (On time)" -- a game from over a week in the
- * past whose result was never entered -- with a countdown frozen at
- * 00 Days 00 Hrs 00 Mins 00 Secs, while real future games (the same week's
- * Friday slate) existed and the homepage's own "Next games" module found
- * them without trouble. Two compounding causes, confirmed live:
+ * The stock widget can get permanently stuck showing a game from over a
+ * week in the past whose result was never entered (as "On time"), with a
+ * countdown frozen at 00 Days 00 Hrs 00 Mins 00 Secs, while real future
+ * games exist and the homepage's own "Next games" module finds them
+ * without trouble. Two compounding causes:
  *
  * 1. Whatever the widget's own resolution picks (a pinned "Event" setting,
  *    a specific Calendar, or SportsPress's own sp_get_next_event()) is not
@@ -25,7 +24,7 @@
  * (calendar/team/league/season/id/order/orderby, title/caption, show_*
  * toggles) and renders identically to stock in the common case. The one
  * change: after resolving $bl_post exactly as stock does, this ALWAYS
- * re-checks it against blueline_sp_next_dated_event() (inc/sportspress.php)
+ * re-checks it against blueline_sp_next_dated_event() (inc/sportspress/calendar.php)
  * in the same team/league/season scope, via blueline_sp_decide_countdown_event()'s
  * pure decision (unit tested, tests/CountdownEventTest.php) -- swapping to
  * a real future event whenever the resolved pick is stale and one exists,
@@ -308,8 +307,8 @@ if ( isset( $show_status ) && $show_status ) {
 			 * nothing left to count down to. Rather than a frozen
 			 * 00:00:00:00 (the exact bug this override exists to fix),
 			 * this says plainly that the result is what's pending, matching
-			 * the "Final score coming soon" language this same live review
-			 * asked for on the schedule tables (sportspress/event-list.php)
+			 * the "Final score coming soon" language used
+			 * on the schedule tables (sportspress/event-list.php)
 			 * for the identical underlying situation: a past, unplayed-per-
 			 * the-data game.
 			 */

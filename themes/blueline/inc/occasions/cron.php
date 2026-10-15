@@ -28,8 +28,8 @@ const BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK = 'blueline_occasion_boundary_purge'
  * uses `02-29`, and this is a purge-TIMING calculation only (design spec
  * §5/§7.8), so a purge landing a day off in a leap-adjacent year for a
  * hypothetical future `02-29` occasion delays cache visibility by at
- * most a day, never producing a wrong resolved result (the resolver,
- * Task 3, is unaffected by this function entirely).
+ * most a day, never producing a wrong resolved result (the resolver
+ * is unaffected by this function entirely).
  *
  * @param string $md    'MM-DD'.
  * @param int    $after Unix timestamp; the returned timestamp is always
@@ -95,7 +95,7 @@ function blueline_occasion_end_boundary_md( string $end_md ): string {
  * `end_md 00:00` an instant at which nothing changes.
  *
  * Never the correctness mechanism itself (design spec §5/§7.8); only
- * ever a purge-timing hint. blueline_resolve_active_occasion() (Task 3)
+ * ever a purge-timing hint. blueline_resolve_active_occasion()
  * always recomputes from scratch on every request regardless of whether
  * this ever ran.
  *
@@ -218,10 +218,7 @@ add_action( BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK, 'blueline_occasion_cron_bound
 /**
  * Clear the scheduled boundary-purge event when this theme is switched
  * away from. `switch_theme` fires on the OUTGOING theme, the closest
- * thing a theme has to a deactivation hook, and the same convention
- * inc/account/endpoints.php already establishes for `after_switch_theme`
- * (its own flush_rewrite_rules() registration) on the activation side.
- * Tidiness, not a correctness requirement: a stray scheduled event on a
+ * thing a theme has to a deactivation hook. Tidiness, not a correctness requirement: a stray scheduled event on a
  * theme that is no longer active simply never finds this callback again
  * once it is deactivated, since add_action() above is registered only
  * while this theme's functions.php actually runs.
