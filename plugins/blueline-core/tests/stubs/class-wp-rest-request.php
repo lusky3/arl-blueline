@@ -81,5 +81,69 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		public function set_param( $key, $value ) {
 			$this->params[ $key ] = $value;
 		}
+
+		/**
+		 * Raw request body.
+		 *
+		 * @var string
+		 */
+		private $body = '';
+
+		/**
+		 * Headers, keyed the way core canonicalises them (lower case, underscores).
+		 *
+		 * @var array<string, string>
+		 */
+		private $headers = array();
+
+		/**
+		 * Core's header-name canonicalisation: `Content-Type` and `content_type` are the same header.
+		 *
+		 * @param string $key Header name.
+		 * @return string
+		 */
+		private static function canonical_header( $key ) {
+			return str_replace( '-', '_', strtolower( (string) $key ) );
+		}
+
+		/**
+		 * The raw body.
+		 *
+		 * @return string
+		 */
+		public function get_body() {
+			return $this->body;
+		}
+
+		/**
+		 * Set the raw body.
+		 *
+		 * @param string $data Body.
+		 * @return void
+		 */
+		public function set_body( $data ) {
+			$this->body = (string) $data;
+		}
+
+		/**
+		 * One header's value, or null.
+		 *
+		 * @param string $key Header name.
+		 * @return string|null
+		 */
+		public function get_header( $key ) {
+			return $this->headers[ self::canonical_header( $key ) ] ?? null;
+		}
+
+		/**
+		 * Set one header.
+		 *
+		 * @param string $key   Header name.
+		 * @param string $value Value.
+		 * @return void
+		 */
+		public function set_header( $key, $value ) {
+			$this->headers[ self::canonical_header( $key ) ] = (string) $value;
+		}
 	}
 }
