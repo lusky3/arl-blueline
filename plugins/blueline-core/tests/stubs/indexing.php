@@ -1,7 +1,7 @@
 <?php
 /**
- * Stubs for the indexing module tests: WooCommerce page IDs, the meta box API, revision checks
- * and core's sitemap server.
+ * Stubs for the indexing module tests: WooCommerce page IDs, the meta box API, the meta cache,
+ * revision checks and core's sitemap server.
  *
  * @package blueline-core
  */
@@ -40,6 +40,19 @@ if ( ! function_exists( 'add_meta_box' ) ) {
 			'context'  => $context,
 			'priority' => $priority,
 		);
+	}
+}
+
+if ( ! function_exists( 'update_meta_cache' ) ) {
+	/**
+	 * Stand-in for update_meta_cache(): the meta store is already in memory, so nothing to prime.
+	 *
+	 * @param string $meta_type  Meta type.
+	 * @param int[]  $object_ids Object IDs.
+	 * @return array
+	 */
+	function update_meta_cache( $meta_type, $object_ids ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
+		return array();
 	}
 }
 

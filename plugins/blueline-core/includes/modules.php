@@ -23,6 +23,7 @@ return array(
 	'mail'              => 'mail/mail.php',
 	'checkout'          => 'checkout/checkout.php',
 	'admin-bar'         => 'admin-bar/admin-bar.php',
+	'access'            => 'access/access.php',
 	'search'            => 'search/search.php',
 	'privacy'           => 'privacy/privacy.php',
 	'headers'           => 'headers/headers.php',
