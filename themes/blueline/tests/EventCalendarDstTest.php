@@ -61,7 +61,7 @@ final class EventCalendarDstTest extends TestCase {
 	 * @return array{0:string, 1:string}
 	 */
 	private function ics_bounds( int $event_id ): array {
-		$ics = rawurldecode( substr( blueline_sp_event_ics_url( $event_id ), strlen( 'data:text/calendar;charset=utf8,' ) ) );
+		$ics = rawurldecode( substr( blueline_sp_event_ics_url( $event_id ), strlen( 'data:text/calendar;charset=utf-8,' ) ) );
 
 		preg_match( "/\r\nDTSTART:(\\S+)\r\n/", $ics, $start );
 		preg_match( "/\r\nDTEND:(\\S+)\r\n/", $ics, $end );
@@ -132,7 +132,7 @@ final class EventCalendarDstTest extends TestCase {
 	public function test_the_ics_is_a_single_crlf_terminated_event(): void {
 		$this->event( 902, '2026-11-01 19:00:00' );
 
-		$ics = rawurldecode( substr( blueline_sp_event_ics_url( 902 ), strlen( 'data:text/calendar;charset=utf8,' ) ) );
+		$ics = rawurldecode( substr( blueline_sp_event_ics_url( 902 ), strlen( 'data:text/calendar;charset=utf-8,' ) ) );
 
 		$this->assertStringStartsWith( "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n", $ics );
 		$this->assertStringEndsWith( "END:VEVENT\r\nEND:VCALENDAR\r\n", $ics );
