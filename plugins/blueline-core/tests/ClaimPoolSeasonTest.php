@@ -8,6 +8,7 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../includes/season/season.php';
 require_once __DIR__ . '/../includes/player-link/player-link.php';
 
 /**

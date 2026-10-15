@@ -45,9 +45,9 @@ function blueline_normalize_player_stats( array $raw ): array {
 }
 
 /**
- * $team_id's own regular-season sp_table post for the season currently
- * driving the schedule (blueline_current_sp_season_term_id(), or its parent
- * season while playoff games are next) -- never a playoff table -- the specific
+ * $team_id's own regular-season sp_table post for the current season
+ * (blueline_current_sp_season_term_id(), already the regular season even
+ * while playoff games are next) -- never a playoff table -- the specific
  * standings table this team is rostered into for that season, found by
  * checking each season-scoped table's own team list
  * (blueline_sp_table_team_ids()), not by
@@ -78,15 +78,6 @@ function blueline_team_current_table_id( int $team_id ): ?int {
 
 	if ( ! $season_id ) {
 		return null;
-	}
-
-	// Playoff games carry only the season's "Playoffs" child term; the
-	// division and season record still live on the parent season's table.
-	$season_term = get_term( $season_id, 'sp_season' );
-
-	if ( is_object( $season_term ) && ! is_wp_error( $season_term )
-		&& false !== strpos( (string) $season_term->slug, 'playoff' ) && (int) $season_term->parent > 0 ) {
-		$season_id = (int) $season_term->parent;
 	}
 
 	$table_ids = get_posts(
@@ -241,7 +232,7 @@ function blueline_player_division_name( int $team_id ): string {
 
 /**
  * $team_id's own row from SportsPress's own already-computed
- * SP_League_Table::data() for the season currently driving the schedule
+ * SP_League_Table::data() for the current SportsPress season
  * -- the authoritative record source review asked for, instead of a
  * hand-rolled W/L/T aggregation off sp_results (which, for the three most
  * recently played events checked live, was entirely empty -- see the
@@ -435,56 +426,19 @@ function blueline_get_player_team( int $player_id ): ?array {
 }
 
 /**
- * The sp_season term id currently driving the schedule: the season of the
- * next upcoming sp_event if there is one, otherwise the season of the most
- * recently played one.
+ * The current SportsPress season's sp_season term id (a regular-season term,
+ * never its Playoffs child), or null when there is none.
  *
- * Deliberately its own copy rather than reusing
- * blueline_homepage_active_event_season_term_id() (inc/homepage/standings.php):
- * that function is scoped to -- and may evolve for reasons
- * specific to -- the homepage hero/standings snippet. Coupling "My season"
- * stats to it would mean a future homepage-only change could silently
- * change what this reader shows. The two are intentionally allowed to
- * drift; this copy is small enough that the duplication is cheaper than
- * the coupling.
+ * A thin wrapper over blueline_current_season_id() (inc/current-season.php),
+ * the one definition every surface shares: SportsPress's Current Season
+ * setting, falling back to the season of the game the schedule is on.
  *
  * @return int|null
  */
 function blueline_current_sp_season_term_id(): ?int {
-	if ( ! post_type_exists( 'sp_event' ) || ! taxonomy_exists( 'sp_season' ) ) {
-		return null;
-	}
+	$season_id = blueline_current_season_id();
 
-	$state_data = blueline_season_state_data();
-	$event_id   = ! empty( $state_data['next_event_id'] ) ? (int) $state_data['next_event_id'] : 0;
-
-	if ( ! $event_id ) {
-		$recent = get_posts(
-			array(
-				'post_type'      => 'sp_event',
-				'post_status'    => 'publish',
-				'posts_per_page' => 1,
-				'orderby'        => 'date',
-				'order'          => 'DESC',
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-			)
-		);
-
-		$event_id = ! empty( $recent ) ? (int) $recent[0] : 0;
-	}
-
-	if ( ! $event_id ) {
-		return null;
-	}
-
-	$terms = wp_get_object_terms( $event_id, 'sp_season', array( 'fields' => 'ids' ) );
-
-	if ( is_wp_error( $terms ) || empty( $terms ) ) {
-		return null;
-	}
-
-	return (int) $terms[0];
+	return $season_id > 0 ? $season_id : null;
 }
 
 /**
@@ -696,8 +650,8 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 
 /**
  * $player_id's normalized stat line for one of their current teams (the first,
- * unless $team_id says otherwise) in the season currently driving the
- * schedule (blueline_current_sp_season_term_id()).
+ * unless $team_id says otherwise) in the current SportsPress season
+ * (blueline_current_sp_season_term_id()).
  *
  * READ THROUGH SPORTSPRESS, NOT sp_statistics. `sp_statistics` looks like the
  * obvious source and is shaped [ team_id => [ season_id => [ 'gp'=>, 'g'=>,

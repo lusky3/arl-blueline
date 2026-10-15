@@ -1144,8 +1144,8 @@ function blueline_sp_player_selector_options( array $groups, int $selected_id ):
  * one actually wins.
  *
  * Split out purely so this decision is unit-testable without going through
- * blueline_current_sp_season_term_id()'s own get_posts()/transient-backed
- * resolution path (inc/account/player-data.php) -- that function's own
+ * blueline_current_sp_season_term_id()'s own option/query-backed
+ * resolution path (inc/current-season.php) -- that function's own
  * WordPress dependencies stay entirely outside this one's test surface.
  *
  * @param int      $season           SportsPress' own filter value.
@@ -1167,7 +1167,7 @@ add_filter( 'sp_team_events_season', 'blueline_team_events_current_season_id' );
 /**
  * Scope a team's public "Upcoming Games"/"Results" cards
  * (sportspress/team-events.php, the theme's own override of SportsPress'
- * team-events.php) to the season currently driving the schedule.
+ * team-events.php) to the current SportsPress season.
  *
  * Without it, a team's Results section shows games from years
  * earlier (e.g. 2017) directly beneath Upcoming Games, with nothing
@@ -1184,10 +1184,12 @@ add_filter( 'sp_team_events_season', 'blueline_team_events_current_season_id' );
  * equivalent call for the 'blocks' format, whose plugin default takes no
  * filter input at all.
  *
- * Reuses blueline_current_sp_season_term_id() (inc/account/player-data.php)
- * -- the same season-resolution the account dashboard's own My Season/My
- * Next Game readers already use -- rather than inventing a second rule for
- * "which season is current."
+ * Reuses blueline_current_sp_season_term_id() (inc/account/player-data.php),
+ * the shared current season (SportsPress's Current Season setting; see
+ * inc/current-season.php), rather than inventing a second rule for "which
+ * season is current". It is the regular-season term, and SportsPress's
+ * season filter includes its Playoffs child term, so playoff games stay
+ * listed.
  *
  * @param int $season SportsPress' own filter value (its plugin default of 0
  *                     unless another filter already set one).

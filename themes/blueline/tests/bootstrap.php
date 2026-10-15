@@ -700,6 +700,10 @@ function blueline_test_reset_state(): void {
 	if ( function_exists( 'wp_cache_flush' ) ) {
 		wp_cache_flush(); // The plugin's request-scoped memos live in the object cache.
 	}
+
+	if ( function_exists( 'blueline_core_current_season_flush' ) ) {
+		blueline_core_current_season_flush(); // The current season is memoised for the request too.
+	}
 }
 
 if ( ! function_exists( 'taxonomy_exists' ) ) {
@@ -2206,6 +2210,11 @@ function blueline_test_reset_request(): void {
 	$GLOBALS['bl_test_nav_menu_locations']   = array();
 	$GLOBALS['bl_test_nav_menu_assignments'] = array();
 	$GLOBALS['bl_test_nav_menu_items']       = array();
+
+	// The current SportsPress season is memoised per request.
+	if ( function_exists( 'blueline_core_current_season_flush' ) ) {
+		blueline_core_current_season_flush();
+	}
 }
 
 /**

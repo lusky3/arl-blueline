@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../includes/season/season.php';
 require_once __DIR__ . '/../includes/seo-meta/seo-meta.php';
 
 /**
@@ -195,14 +196,15 @@ final class SeoMetaDiscoveryTest extends TestCase {
 	}
 
 	/**
-	 * With the theme's current-season division and season, the team sentence names them. Runs in its own
-	 * process because the fake theme functions cannot be un-defined for later tests.
+	 * With the theme's current-season division and the current SportsPress season, the team sentence
+	 * names them. Runs in its own process because the fake theme functions cannot be un-defined for
+	 * later tests.
 	 */
 	#[RunInSeparateProcess]
 	#[PreserveGlobalState( false )]
-	public function test_team_description_names_the_division_and_season_the_theme_resolves(): void {
+	public function test_team_description_names_the_division_and_the_current_season(): void {
 		eval( 'function blueline_player_division_name( int $team_id ): string { return "Division 3"; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- defines the theme function only in this isolated process.
-		eval( 'function blueline_current_sp_season_term_id(): ?int { return 700; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- defines the theme function only in this isolated process.
+		$GLOBALS['bl_test_options']['sportspress_season'] = '700'; // SportsPress's Current Season setting.
 		blueline_test_register_term( 700, 'sp_season', 'Fall 2026' );
 		$this->set_up_singular_request( 300, 'sp_team', array( 'title' => 'Whalers' ) );
 
@@ -252,7 +254,7 @@ final class SeoMetaDiscoveryTest extends TestCase {
 	#[PreserveGlobalState( false )]
 	public function test_player_description_names_the_season_for_a_team_playing_now(): void {
 		eval( 'function blueline_team_current_table_id( int $team_id ): ?int { return 12 === $team_id ? 99 : null; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- defines the theme function only in this isolated process.
-		eval( 'function blueline_current_sp_season_term_id(): ?int { return 700; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- defines the theme function only in this isolated process.
+		$GLOBALS['bl_test_options']['sportspress_season'] = '700'; // SportsPress's Current Season setting.
 		blueline_test_register_term( 700, 'sp_season', 'Fall 2026' );
 		$state                                      = &blueline_test_state();
 		$state['posts'][12]                         = array(

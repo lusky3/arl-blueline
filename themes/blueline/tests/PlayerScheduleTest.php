@@ -14,6 +14,7 @@ require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/season-state.php';
 require_once __DIR__ . '/../inc/sportspress.php';
+require_once __DIR__ . '/../inc/current-season.php';
 require_once __DIR__ . '/../inc/account/player-data.php';
 require_once __DIR__ . '/../inc/account/dashboard.php';
 require_once __DIR__ . '/../inc/account/endpoint-toggles.php';

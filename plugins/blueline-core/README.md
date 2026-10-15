@@ -16,7 +16,8 @@ shown in an admin notice (`manage_options`) and reported by the Site Health test
 
 1. Your slug is already listed in `includes/modules.php` (`'<slug>' => '<slug>/<slug>.php'`). Modules load top to
    bottom. If yours calls another module's functions, list it below that module and guard the call with
-   `function_exists()` (today: `mail` reads `seo-meta`'s logo helper; the real list's order is pinned by `BootTest`).
+   `function_exists()` (today: `mail` reads `seo-meta`'s logo helper, and `player-link` and `seo-meta` read
+   `season`; the real list's order is pinned by `BootTest`).
 2. Create `includes/<slug>/<slug>.php` starting with `defined( 'ABSPATH' ) || exit;`. Extra files go in the same
    folder and are `require_once`d from it with `BLUELINE_CORE_DIR . '/includes/<slug>/…'`.
 3. Moved code keeps its names, hooks, option/meta keys and nonce actions. Register hooks at file scope as before.
@@ -31,6 +32,20 @@ shown in an admin notice (`manage_options`) and reported by the Site Health test
    (text domain `blueline-core`, global prefix `blueline`, minimum WordPress 6.9, keep that equal to the plugin header).
 
 `blueline_core_module_loaded( 'slug' )` tells other code whether a module is running in this request.
+
+## Current season (`season`)
+
+`blueline_core_current_season_id()` is the one answer to "which season is current" for the plugin and the theme:
+SportsPress's Current Season setting (`sportspress_season`), falling back to the season of the next game going ahead
+(or the last one played) when the setting is unset or names no term. A Playoffs term counts as its parent season.
+`blueline_core_current_season_term_ids()` adds the season's Playoffs terms (the claim pool's anchor) and
+`blueline_core_current_season_phase_term_id()` gives the Playoffs term while those games are on the schedule (the
+homepage standings). Memoised per request; filters `blueline_core_current_season_id`,
+`blueline_core_current_season_term_ids` and `blueline_core_current_season_next_event_id` (the theme hands in Season
+State's cached next game). The theme carries a byte-identical copy (`themes/blueline/inc/current-season-core.php`)
+for when this plugin is missing or older: edit `includes/season/season.php`, copy it over, and both suites'
+`CurrentSeasonTest` check the copy and run every call site against the shared fixtures in
+`tests/fixtures/current-season-scenarios.php`. Owner step: docs/OPERATIONS.md, "Current season".
 
 ## Plugin details in wp-admin (`plugin-info`)
 

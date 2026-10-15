@@ -68,10 +68,10 @@ if ( ! $season_term_id ) {
 }
 
 /*
- * Retag whichever sp_event blueline_homepage_active_event_season_term_id()
- * (inc/homepage-modules.php) will ACTUALLY resolve, rather than creating a
- * brand new one and assuming it wins. That function's own algorithm --
- * mirrored exactly below, not called directly, since it only returns the
+ * Retag whichever sp_event the current-season fallback (inc/current-season.php,
+ * used when SportsPress's Current Season setting is unset) will ACTUALLY
+ * resolve, rather than creating a brand new one and assuming it wins. That
+ * fallback -- mirrored below, not called directly, since it only returns the
  * resolved TERM id, not the event id backing it -- is: prefer
  * blueline_season_state_data()['next_event_id'] if set, else the most
  * recently published sp_event. Live-confirmed this matters: this sandbox
@@ -121,6 +121,14 @@ if ( ! $event_id ) {
 }
 
 wp_set_object_terms( $event_id, array( $season_term_id ), 'sp_season' );
+
+/*
+ * Make it SportsPress's Current Season too, the step the league board takes when a season starts
+ * playing. The theme reads that setting first (inc/current-season.php) and only falls back to the
+ * event retagged above when it is unset, so a sample-data setting left in this image would
+ * otherwise win.
+ */
+update_option( 'sportspress_season', $season_term_id );
 
 foreach ( array( 1, 2 ) as $division ) {
 	$table_id = wp_insert_post(
