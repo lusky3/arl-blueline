@@ -4,17 +4,29 @@
  * rather than letting an unreachable host surface as a wall of individual
  * test timeouts (or, worse, tests that silently no-op and report green).
  *
- * This check is worthless against anything but a real WordPress install
- * carrying the real third-party plugin responsible for the bug class it
- * guards (Capabilities Pro's admin-notices "declutter" module -- see
- * ../tests-browser/panel-dom-persistence.spec.js's own docblock). Local
- * ddev (~/arl-local, http://arl-local.ddev.site) is the preferred target:
- * it carries capabilities-pro AND automatic-login (so no credential of any
- * kind needs to exist in this repo, this file, or the test itself -- see
- * "Authentication" below). BLUELINE_E2E_BASE_URL overrides the target for
- * anything else (e.g. staging), but nothing here attempts a credentialed
- * login: if a future target needs one, its credentials must come from
- * environment variables the CI/shell already has, never from this repo.
+ * ## Targets
+ *
+ * Every spec in tests-browser/ runs against BLUELINE_E2E_BASE_URL (default
+ * http://arl-local.ddev.site, set in ../playwright.config.js) through
+ * Playwright's baseURL; there is no second URL setting. The specs find the
+ * events, teams and arenas they measure at run time (helpers/site-data.js)
+ * rather than naming one database's post IDs:
+ *
+ * - Front-end specs (everything except panel-dom-persistence.spec.js) run
+ *   against any deployed copy of the site: local ddev, or staging, which
+ *   .github/workflows/browser.yml does weekly.
+ * - panel-dom-persistence.spec.js needs a logged-in wp-admin carrying the
+ *   real third-party plugin responsible for the bug class it guards
+ *   (Capabilities Pro's admin-notices "declutter" module -- see that spec's
+ *   own docblock), so only local ddev (~/arl-local) can serve it: it
+ *   carries capabilities-pro AND automatic-login (so no credential of any
+ *   kind needs to exist in this repo, this file, or the test itself -- see
+ *   "Authentication" below). Nothing here attempts a credentialed login: if
+ *   a future target needs one, its credentials must come from environment
+ *   variables the CI/shell already has, never from this repo.
+ *
+ * tests-e2e/ is a different suite with its own config: it runs in CI
+ * against a disposable sandbox container (http://localhost:8082).
  *
  * ## Authentication
  *
@@ -160,6 +172,16 @@ async function checkPanelMarkerPresent( ctx, baseURL ) {
 	);
 }
 
+/**
+ * Global setup: checks A and B, which every spec depends on. Check C only
+ * matters to panel-dom-persistence.spec.js (the one spec that needs a
+ * logged-in wp-admin), so that spec runs it from its own beforeAll; running
+ * it here would stop the front-end specs from running against any site
+ * without automatic-login, staging included.
+ *
+ * @param {import('@playwright/test').FullConfig} config
+ * @return {Promise<void>}
+ */
 module.exports = async ( config ) => {
 	const { baseURL } = config.projects[ 0 ].use;
 
@@ -168,8 +190,9 @@ module.exports = async ( config ) => {
 	try {
 		const rootResponse = await checkHostReachable( ctx, baseURL );
 		checkHostServesRealSite( rootResponse, baseURL );
-		await checkPanelMarkerPresent( ctx, baseURL );
 	} finally {
 		await ctx.dispose();
 	}
 };
+
+module.exports.checkPanelMarkerPresent = checkPanelMarkerPresent;

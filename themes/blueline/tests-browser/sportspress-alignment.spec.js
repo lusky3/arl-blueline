@@ -19,12 +19,8 @@
  * lockup is checked at tablet and desktop widths only.
  */
 
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const { SITE } = require( './helpers/site.js' );
-
-// Hammers (a long name) vs Kings (a short one) -- the pairing that exposed the
-// drift, since the error is half the difference between the two names.
-const EVENT = `${ SITE }/?p=116460&post_type=sp_event`;
+const { test, expect } = require( '@playwright/test' );
+const { findEventPath, withRequest } = require( './helpers/site-data.js' );
 
 /**
  * Rounded box for a selector.
@@ -56,9 +52,26 @@ async function box( page, sel ) {
 }
 
 test.describe( 'event fixture lockup', () => {
+	/**
+	 * Any recent event with the time-between-crests lockup. The drift was
+	 * exposed by Hammers (a long name) vs Kings (a short one), since the error
+	 * is half the difference between the two names; most real pairings differ
+	 * enough to show it.
+	 *
+	 * @type {string|null}
+	 */
+	let eventPath = null;
+
+	test.beforeAll( async ( { playwright }, testInfo ) => {
+		eventPath = await withRequest( playwright, testInfo, ( request ) =>
+			findEventPath( request, [ 'sp-event-logos-time', 'sp-team-logo' ] )
+		);
+	} );
+
 	test.beforeEach( async ( { page } ) => {
+		test.skip( null === eventPath, 'no recent event on this site renders the team lockup' );
 		await page.setViewportSize( { width: 1200, height: 900 } );
-		await page.goto( EVENT, { waitUntil: 'networkidle' } );
+		await page.goto( eventPath, { waitUntil: 'networkidle' } );
 	} );
 
 	test( 'the kick-off time sits on the lockup centre line', async ( { page } ) => {
@@ -124,7 +137,7 @@ for ( const width of [ 768, 1200 ] ) {
 	test.describe( `schedule table team columns at ${ width }px`, () => {
 		test.beforeEach( async ( { page } ) => {
 			await page.setViewportSize( { width, height: 900 } );
-			await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+			await page.goto( '/schedule', { waitUntil: 'networkidle' } );
 		} );
 
 		test( 'home and away cells and their headers point inward', async ( { page } ) => {
@@ -250,7 +263,7 @@ for ( const width of [ 768, 1200 ] ) {
 test.describe( 'schedule cards on a phone', () => {
 	test.beforeEach( async ( { page } ) => {
 		await page.setViewportSize( { width: 390, height: 900 } );
-		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+		await page.goto( '/schedule', { waitUntil: 'networkidle' } );
 	} );
 
 	test( 'every game shows its opponent and arena without scrolling sideways', async ( { page } ) => {
@@ -316,7 +329,7 @@ test.describe( 'schedule team names on a phone', () => {
 
 	test.beforeEach( async ( { page } ) => {
 		await page.setViewportSize( { width: 400, height: 900 } );
-		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+		await page.goto( '/schedule', { waitUntil: 'networkidle' } );
 	} );
 
 	test( 'no current team name is clipped or split mid-word', async ( { page } ) => {
@@ -384,7 +397,7 @@ test.describe( 'schedule team-name bubble and keyboard focus', () => {
 	test.beforeEach( async ( { page } ) => {
 		// Table layout, narrower than the table's minimum width, so it scrolls.
 		await page.setViewportSize( { width: 640, height: 900 } );
-		await page.goto( `${ SITE }/schedule`, { waitUntil: 'networkidle' } );
+		await page.goto( '/schedule', { waitUntil: 'networkidle' } );
 	} );
 
 	test( 'focusing a clamped away team keeps its bubble up while focus scrolls to it', async ( { page } ) => {

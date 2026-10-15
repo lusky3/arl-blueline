@@ -47,8 +47,9 @@ function blueline_normalize_player_stats( array $raw ): array {
 }
 
 /**
- * $team_id's own sp_table post for the season currently driving the
- * schedule (blueline_current_sp_season_term_id()) -- the specific
+ * $team_id's own regular-season sp_table post for the season currently
+ * driving the schedule (blueline_current_sp_season_term_id(), or its parent
+ * season while playoff games are next) -- never a playoff table -- the specific
  * standings table this team is rostered into for that season, found by
  * checking each season-scoped table's own team list
  * (blueline_sp_table_team_ids()), not by
@@ -81,6 +82,15 @@ function blueline_team_current_table_id( int $team_id ): ?int {
 		return null;
 	}
 
+	// Playoff games carry only the season's "Playoffs" child term; the
+	// division and season record still live on the parent season's table.
+	$season_term = get_term( $season_id, 'sp_season' );
+
+	if ( is_object( $season_term ) && ! is_wp_error( $season_term )
+		&& false !== strpos( (string) $season_term->slug, 'playoff' ) && (int) $season_term->parent > 0 ) {
+		$season_id = (int) $season_term->parent;
+	}
+
 	$table_ids = get_posts(
 		array(
 			'post_type'      => 'sp_table',
@@ -90,21 +100,58 @@ function blueline_team_current_table_id( int $team_id ): ?int {
 			'no_found_rows'  => true,
 			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to one season, a handful of division tables.
 				array(
-					'taxonomy' => 'sp_season',
-					'field'    => 'term_id',
-					'terms'    => $season_id,
+					'taxonomy'         => 'sp_season',
+					'field'            => 'term_id',
+					'terms'            => $season_id,
+					// Each season's "Playoffs" term is its child; with children
+					// included the newer playoff table won, showing 0-0-0.
+					'include_children' => false,
 				),
 			),
 		)
 	);
 
 	foreach ( $table_ids as $table_id ) {
+		if ( blueline_sp_table_is_playoff( (int) $table_id ) ) {
+			continue;
+		}
+
 		if ( in_array( $team_id, blueline_sp_table_team_ids( (int) $table_id ), true ) ) {
 			return (int) $table_id;
 		}
 	}
 
 	return null;
+}
+
+/**
+ * Whether an sp_table is a playoff table: it carries an sp_season or
+ * sp_league term whose slug contains "playoff", the same signal Season State
+ * (blueline_season_state_has_playoff_events()) and the claim pool use.
+ *
+ * @param int $table_id sp_table post ID.
+ * @return bool
+ */
+function blueline_sp_table_is_playoff( int $table_id ): bool {
+	foreach ( array( 'sp_season', 'sp_league' ) as $taxonomy ) {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			continue;
+		}
+
+		$terms = wp_get_post_terms( $table_id, $taxonomy );
+
+		if ( is_wp_error( $terms ) ) {
+			continue;
+		}
+
+		foreach ( $terms as $term ) {
+			if ( false !== strpos( (string) $term->slug, 'playoff' ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 /**

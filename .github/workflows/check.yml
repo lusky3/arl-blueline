@@ -2,11 +2,12 @@ name: Check
 
 # Runs the same gate `npm run check` runs locally: stylelint, eslint, the
 # node:test suite for tools/, the contrast-rules.json/tokens.json guard,
-# PHPUnit, and phpcs. Deliberately does NOT run `npm run check:oracle` --
-# that requires an SSH-reachable staging host (see
-# scripts/fetch-wp-core-oracle.sh) that CI has no access to, and
-# WpCoreContractTest's oracle job skips gracefully with no
-# BLUELINE_WP_CORE_INCLUDES_DIR configured.
+# PHPUnit, and phpcs. WpCoreContractTest's oracle job runs against the
+# WordPress core composer installs as a dev dependency (vendor/johnpbloch/
+# wordpress-core), so a core bump that changes the option-write contract the
+# test stubs model fails here instead of passing on stale stubs. The staging
+# oracle (`npm run check:oracle`, scripts/fetch-wp-core-oracle.sh) still needs
+# SSH access CI does not have.
 
 on:
   push:
@@ -47,6 +48,8 @@ jobs:
         run: npm ci
 
       - name: Run the gate
+        env:
+          BLUELINE_WP_CORE_INCLUDES_DIR: ${{ github.workspace }}/themes/blueline/vendor/johnpbloch/wordpress-core/wp-includes
         run: npm run check
 
       # The domain-router mu-plugin lives outside the theme; its tests run in the theme suite above, its
