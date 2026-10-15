@@ -1666,12 +1666,13 @@ if ( ! function_exists( 'tag_escape' ) ) {
 if ( ! function_exists( 'is_search' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' is_search(): true while a test sets
-	 * $GLOBALS['bl_test_is_search'].
+	 * $GLOBALS['bl_test_is_search'] or the shared request state's `search`
+	 * flag (the blueline-core tests set the latter, and load this file first).
 	 *
 	 * @return bool
 	 */
 	function is_search() {
-		return ! empty( $GLOBALS['bl_test_is_search'] );
+		return ! empty( $GLOBALS['bl_test_is_search'] ) || ! empty( blueline_test_state()['request']['search'] );
 	}
 }
 if ( ! function_exists( 'get_attached_file' ) ) {
@@ -1691,15 +1692,30 @@ if ( ! function_exists( 'get_attached_file' ) ) {
 if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' wp_get_attachment_metadata(): an
-	 * attachment's `meta` entry in the in-memory store, false when it has none.
+	 * attachment's `meta` entry in the in-memory store, or (the shape the
+	 * blueline-core tests use, which load this file first) its full-size
+	 * `width`/`height` plus an optional `sizes` map; false when it has none.
 	 *
 	 * @param int $attachment_id Attachment ID.
 	 * @return array|false
 	 */
-	function wp_get_attachment_metadata( $attachment_id ) {
+	function wp_get_attachment_metadata( $attachment_id = 0 ) {
 		$state = &blueline_test_state();
+		$post  = $state['posts'][ (int) $attachment_id ] ?? array();
 
-		return $state['posts'][ (int) $attachment_id ]['meta'] ?? false;
+		if ( isset( $post['meta'] ) ) {
+			return $post['meta'];
+		}
+
+		if ( empty( $post['width'] ) ) {
+			return false;
+		}
+
+		return array(
+			'width'  => (int) $post['width'],
+			'height' => (int) ( $post['height'] ?? 0 ),
+			'sizes'  => (array) ( $post['sizes'] ?? array() ),
+		);
 	}
 }
 if ( ! function_exists( 'wp_get_upload_dir' ) ) {
