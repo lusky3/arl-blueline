@@ -208,7 +208,11 @@ function blueline_resolve_claim_pool_term_ids( array $terms, callable $count_fn,
  * not depend on the active theme.
  *
  * Upcoming events carry post_status 'future' (WordPress gives every post dated ahead of now that
- * status), played ones 'publish'.
+ * status, and SportsPress lists them as fixtures) or 'publish' when published ahead of time;
+ * played ones are 'publish' (SportsPress's results). The next game must also be dated now or
+ * later: a 'future' post whose date has passed is a missed schedule that never went live (stray
+ * test events, for one), and taking it as the next game anchored the pool on the wrong season.
+ * The played fallback is bounded to now for the same reason.
  *
  * @return int[] Term IDs, possibly empty (no events, or the event has no season).
  */
@@ -217,6 +221,7 @@ function blueline_claim_pool_active_season_term_ids(): array {
 		return array();
 	}
 
+	$now   = current_time( 'mysql' );
 	$query = array(
 		'post_type'      => 'sp_event',
 		'posts_per_page' => 1,
@@ -227,8 +232,15 @@ function blueline_claim_pool_active_season_term_ids(): array {
 
 	$event_ids = get_posts(
 		$query + array(
-			'post_status' => 'future',
+			'post_status' => array( 'publish', 'future' ),
 			'order'       => 'ASC',
+			'date_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- one row, bounded by post_type sp_event.
+				array(
+					'column'    => 'post_date',
+					'after'     => $now,
+					'inclusive' => true,
+				),
+			),
 		)
 	);
 
@@ -237,6 +249,13 @@ function blueline_claim_pool_active_season_term_ids(): array {
 			$query + array(
 				'post_status' => 'publish',
 				'order'       => 'DESC',
+				'date_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_date_query -- one row, bounded by post_type sp_event.
+					array(
+						'column'    => 'post_date',
+						'before'    => $now,
+						'inclusive' => true,
+					),
+				),
 			)
 		);
 	}
