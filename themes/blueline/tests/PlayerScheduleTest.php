@@ -220,6 +220,125 @@ final class PlayerScheduleTest extends TestCase {
 	}
 
 	/**
+	 * The staging W2026-27 shape for Ice Bears: the regular-season table 117448
+	 * (sp_season w2026-27) and, created a second later, the playoff table 117449
+	 * (sp_season w2026-27-playoffs, a CHILD of w2026-27). Both list the team, in
+	 * the same division. The get_posts() model honours the tax_query the way
+	 * WP_Query does: child terms match unless include_children is false, and
+	 * the newest table comes first.
+	 *
+	 * @param int $schedule_season_id The sp_season term the next game carries.
+	 */
+	private function seed_regular_and_playoff_tables( int $schedule_season_id ): void {
+		$state               = &blueline_test_state();
+		$state['post_types'] = array( 'sp_event', 'sp_table' );
+
+		blueline_test_register_term( 674, 'sp_season', 'W2026-27' );
+		blueline_test_register_term( 680, 'sp_season', 'W2026-27 Playoffs', 674 );
+		$state['terms'][674]->slug = 'w2026-27';
+		$state['terms'][680]->slug = 'w2026-27-playoffs';
+		blueline_test_register_term( 53, 'sp_league', 'Division 3' );
+		$state['terms'][53]->slug = 'division-3';
+
+		blueline_test_set_post_terms( 117448, 'sp_season', array( 674 ) );
+		blueline_test_set_post_terms( 117449, 'sp_season', array( 680 ) );
+		blueline_test_set_post_terms( 117448, 'sp_league', array( 53 ) );
+		blueline_test_set_post_terms( 117449, 'sp_league', array( 53 ) );
+
+		$teams                      = new Blueline_Test_Meta_Rows( array( '0', (string) self::ICE_BEARS ) );
+		$state['post_meta'][117448] = array( 'sp_team' => $teams );
+		$state['post_meta'][117449] = array( 'sp_team' => $teams );
+
+		set_transient(
+			BLUELINE_SEASON_STATE_TRANSIENT,
+			array(
+				'state'                => 'in_season',
+				'is_playing'           => true,
+				'is_registration_open' => false,
+				'next_event_id'        => 117518,
+			)
+		);
+		$GLOBALS['bl_test_object_term_slugs'] = array( 'sp_season' => array( $schedule_season_id ) );
+
+		$GLOBALS['bl_test_get_posts_model'] = static function ( array $args ) {
+			if ( 'sp_table' !== ( $args['post_type'] ?? '' ) ) {
+				return null;
+			}
+
+			$state  = &blueline_test_state();
+			$clause = $args['tax_query'][0];
+			$wanted = array( (int) $clause['terms'] );
+
+			if ( $clause['include_children'] ?? true ) {
+				foreach ( $state['terms'] as $term ) {
+					if ( 'sp_season' === $term->taxonomy && in_array( (int) $term->parent, $wanted, true ) ) {
+						$wanted[] = (int) $term->term_id;
+					}
+				}
+			}
+
+			$found = array();
+			foreach ( array( 117449, 117448 ) as $table_id ) { // Newest first, WP_Query's default order.
+				if ( array_intersect( $state['post_terms'][ $table_id ]['sp_season'], $wanted ) ) {
+					$found[] = $table_id;
+				}
+			}
+
+			return $found;
+		};
+
+		$GLOBALS['bl_test_team_records'] = array(
+			self::ICE_BEARS => array(
+				'w'   => 3,
+				'l'   => 0,
+				'tie' => 0,
+				'pts' => 6,
+			),
+		);
+	}
+
+	/**
+	 * The record is the regular season's: the newer playoff table in the
+	 * season's child playoff term must not win (staging showed 0-0-0 for a
+	 * 3-0-0 team).
+	 */
+	#[RunInSeparateProcess]
+	public function test_current_table_is_the_regular_season_table_not_its_playoff_child(): void {
+		$this->load_stubs();
+		$this->seed_regular_and_playoff_tables( 674 );
+
+		$this->assertSame( 117448, blueline_team_current_table_id( self::ICE_BEARS ) );
+		$this->assertSame( 'Division 3', blueline_player_division_name( self::ICE_BEARS ) );
+	}
+
+	/**
+	 * Once playoff games are the next ones scheduled, the schedule's season is
+	 * the playoff term; the team still resolves to its regular-season table
+	 * (division and season record) rather than to nothing.
+	 */
+	#[RunInSeparateProcess]
+	public function test_during_playoffs_the_regular_season_table_still_resolves(): void {
+		$this->load_stubs();
+		$this->seed_regular_and_playoff_tables( 680 );
+
+		$this->assertSame( 117448, blueline_team_current_table_id( self::ICE_BEARS ) );
+		$this->assertSame( 6, blueline_get_team_record( self::ICE_BEARS )['pts'] ?? null );
+	}
+
+	/**
+	 * A table tagged with the regular season but also with a playoff term is
+	 * still a playoff table and is skipped.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_table_carrying_any_playoff_term_is_skipped(): void {
+		$this->load_stubs();
+		$this->seed_regular_and_playoff_tables( 674 );
+		blueline_test_set_post_terms( 117449, 'sp_season', array( 674, 680 ) );
+
+		$this->assertSame( 117448, blueline_team_current_table_id( self::ICE_BEARS ) );
+	}
+
+	/**
 	 * Both current teams are read, first-stored first, and a draft one is skipped.
 	 */
 	public function test_every_published_current_team_is_returned(): void {
@@ -439,8 +558,41 @@ final class PlayerScheduleTest extends TestCase {
 		$this->assertSame( $location, $query['location'] );
 		$this->assertSame( '20261016T230000Z/20261017T003000Z', $query['dates'] );
 
-		$ics = rawurldecode( substr( blueline_sp_event_ics_url( 117513 ), strlen( 'data:text/calendar;charset=utf8,' ) ) );
-		$this->assertStringContainsString( "\r\nLOCATION:Mr. Lube and Tires Arena — Black\\, 1179 Northside Rd\\, Burlington\\, ON L7M\\, Canada\r\n", $ics );
+		$ics = rawurldecode( substr( blueline_sp_event_ics_url( 117513 ), strlen( 'data:text/calendar;charset=utf-8,' ) ) );
+		// The line is longer than 75 octets, so it is folded; unfold before comparing.
+		$this->assertStringContainsString( "\r\nLOCATION:Mr. Lube and Tires Arena — Black\\, 1179 Northside Rd\\, Burlington\\, ON L7M\\, Canada\r\n", str_replace( "\r\n ", '', $ics ) );
+	}
+
+	/**
+	 * The single-game .ics reads as plain text in a calendar app: the
+	 * texturized title is decoded (no `&#8217;`), a long name with an accent is
+	 * folded at 75 octets without cutting the letter, and the data URI says
+	 * `charset=utf-8`.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_single_game_ics_is_plain_text_folded_and_utf_8(): void {
+		$this->load_stubs();
+		$this->event( 4865, array( self::KINGS, self::DUCKS ) );
+		$state                         = &blueline_test_state();
+		$state['posts'][4865]['title'] = "Kings vs Ducks (Dan&#8217;s Welding Caf\u{e9} Z\u{fc}rich Hockey Club Memorial Tournament Final)";
+
+		$uri = blueline_sp_event_ics_url( 4865 );
+
+		$this->assertStringStartsWith( 'data:text/calendar;charset=utf-8,', $uri );
+
+		$ics = rawurldecode( substr( $uri, strlen( 'data:text/calendar;charset=utf-8,' ) ) );
+
+		foreach ( explode( "\r\n", $ics ) as $line ) {
+			$this->assertLessThanOrEqual( 75, strlen( $line ), 'line: ' . $line );
+			$this->assertTrue( mb_check_encoding( $line, 'UTF-8' ) );
+		}
+
+		$unfolded = str_replace( "\r\n ", '', $ics );
+		$this->assertStringContainsString( "SUMMARY:Kings vs Ducks (Dan\u{2019}s Welding Caf\u{e9} Z\u{fc}rich Hockey Club Memorial Tournament Final)\r\n", $unfolded );
+		$this->assertStringNotContainsString( '&#', $unfolded );
+
+		parse_str( (string) wp_parse_url( blueline_sp_event_calendar_url( 4865 ), PHP_URL_QUERY ), $query );
+		$this->assertStringNotContainsString( '&#', $query['text'], 'the Google link gets the plain title too' );
 	}
 
 	/**

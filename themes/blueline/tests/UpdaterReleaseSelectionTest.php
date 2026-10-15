@@ -68,6 +68,18 @@ final class UpdaterReleaseSelectionTest extends TestCase {
 		return array(
 			'final'          => array( 'v1.2.3', '1.2.3' ),
 			'rc'             => array( 'v1.2.3-rc.1', '1.2.3-rc.1' ),
+			'beta'           => array( 'v1.2.3-beta.2', '1.2.3-beta.2' ),
+			'rc zero'        => array( 'v1.2.3-rc.0', '1.2.3-rc.0' ),
+			'patch p1'       => array( 'v1.2.3-p1', null ),
+			'patch dotted'   => array( 'v1.2.3-patch.1', null ),
+			'patch level'    => array( 'v1.2.3-pl1', null ),
+			'hotfix word'    => array( 'v1.2.3-hotfix', null ),
+			'alpha'          => array( 'v1.2.3-alpha.1', null ),
+			'rc no dot'      => array( 'v1.2.3-rc1', null ),
+			'rc bare'        => array( 'v1.2.3-rc', null ),
+			'rc leading 0'   => array( 'v1.2.3-rc.01', null ),
+			'rc extra part'  => array( 'v1.2.3-rc.1.2', null ),
+			'rc uppercase'   => array( 'v1.2.3-RC.1', null ),
 			'uppercase V'    => array( 'V1.2.3', null ),
 			'no v'           => array( '1.2.3', null ),
 			'two parts'      => array( 'v1.2', null ),
@@ -124,6 +136,41 @@ final class UpdaterReleaseSelectionTest extends TestCase {
 		$this->assertSame( array( '1.1.0-rc.1' ), $this->versions( array( $rc1 ), '1.0.1', 'beta' ) );
 		$this->assertSame( array(), $this->versions( array( $rc1 ), '1.1.0', 'beta' ), 'a final install is never offered its own rc' );
 		$this->assertSame( array( '1.1.0-rc.10' ), $this->versions( array( $this->release( 'v1.1.0-rc.10' ), $this->release( 'v1.1.0-rc.9' ) ), '1.1.0-rc.9', 'beta' ) );
+	}
+
+	/**
+	 * A post-release suffix must not sort above the final version it patches: on the
+	 * beta channel a site running 1.1.4 is not offered v1.1.4-p1 (PHP ranks "p" above
+	 * the release), and the final release itself still is offered once it exists.
+	 */
+	public function test_post_release_suffixes_are_never_offered(): void {
+		foreach ( array( 'v1.1.4-p1', 'v1.1.4-patch.1', 'v1.1.4-pl1', 'v1.1.4-hotfix.1' ) as $tag ) {
+			$this->assertSame( array(), $this->versions( array( $this->release( $tag ) ), '1.1.4', 'beta' ), $tag );
+			$this->assertSame( array(), $this->versions( array( $this->release( $tag ) ), '1.1.4', 'stable' ), $tag );
+		}
+
+		$this->assertSame( array( '1.1.5' ), $this->versions( array( $this->release( 'v1.1.4-p1' ), $this->release( 'v1.1.5' ) ), '1.1.4', 'beta' ) );
+		$this->assertSame( array( '1.1.5-rc.1', '1.1.5-beta.1' ), $this->versions( array( $this->release( 'v1.1.5-beta.1' ), $this->release( 'v1.1.5-rc.1' ) ), '1.1.4', 'beta' ), 'newest first: rc ranks above beta' );
+	}
+
+	/**
+	 * A newer release missing its zip or manifest is reported as incomplete (not
+	 * silently dropped), newest first, and only for what the channel could see.
+	 */
+	public function test_incomplete_releases_are_reported(): void {
+		$no_manifest              = $this->release( 'v1.3.0' );
+		$no_manifest['assets']    = array_slice( $no_manifest['assets'], 0, 1 );
+		$no_zip                   = $this->release( 'v1.4.0' );
+		$no_zip['assets']         = array_slice( $no_zip['assets'], 1 );
+		$rc_no_manifest           = $this->release( 'v1.5.0-rc.1' );
+		$rc_no_manifest['assets'] = array();
+
+		$releases = array( $no_manifest, $no_zip, $rc_no_manifest, $this->release( 'v1.2.0' ), $this->release( 'v2.0.0', array( 'draft' => true ) ) );
+
+		$this->assertSame( array( '1.4.0', '1.3.0' ), array_column( blueline_updater_incomplete_releases( $releases, '1.0.1', 'stable' ), 'version' ) );
+		$this->assertSame( array( '1.5.0-rc.1', '1.4.0', '1.3.0' ), array_column( blueline_updater_incomplete_releases( $releases, '1.0.1', 'beta' ), 'version' ) );
+		$this->assertSame( array(), blueline_updater_incomplete_releases( $releases, '1.4.0', 'stable' ), 'nothing newer than the installed version' );
+		$this->assertSame( array( '1.2.0' ), array_column( blueline_updater_eligible_releases( $releases, '1.0.1', 'stable' ), 'version' ), 'eligibility is unchanged' );
 	}
 
 	/**

@@ -220,6 +220,27 @@ final class SeasonStateSignalsTest extends TestCase {
 	}
 
 	/**
+	 * The recent-games signal means "games were actually played lately", and a
+	 * cancelled or postponed game was not played: counting one would keep the
+	 * site "in season" (and off the preseason hero) because of a game that
+	 * never happened. It takes the same clause as the upcoming query, so the
+	 * two signals cannot disagree about what counts as a game.
+	 */
+	#[RunInSeparateProcess]
+	public function test_recent_query_excludes_games_that_were_not_played(): void {
+		$this->load_stubs();
+		$GLOBALS['bl_test_wp_query_results'] = array( array(), array() );
+
+		blueline_season_state_event_signals( '2026-08-15 12:00:00', (int) strtotime( '2026-08-15 12:00:00' ) );
+
+		$this->assertSame(
+			blueline_season_state_live_event_meta_query(),
+			$GLOBALS['bl_test_wp_query_args'][1]['meta_query']
+		);
+		$this->assertSame( $GLOBALS['bl_test_wp_query_args'][0]['meta_query'], $GLOBALS['bl_test_wp_query_args'][1]['meta_query'] );
+	}
+
+	/**
 	 * A plain read with both WooCommerce and SportsPress loaded is cached.
 	 */
 	#[RunInSeparateProcess]

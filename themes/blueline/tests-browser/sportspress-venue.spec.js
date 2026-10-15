@@ -7,14 +7,31 @@
  * at the right size while only two thirds of it was painted.
  */
 
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const { SITE } = require( './helpers/site.js' );
-const EVENT = `${ SITE }/?p=116460&post_type=sp_event`;
+const { test, expect } = require( '@playwright/test' );
+const { findEventPath, findVenuePath, withRequest } = require( './helpers/site-data.js' );
 
 test.describe( 'event page', () => {
+	/**
+	 * An event whose page has both things measured below: the Past Meetings
+	 * tab (the two teams have played before) and the venue map.
+	 *
+	 * @type {string|null}
+	 */
+	let eventPath = null;
+
+	test.beforeAll( async ( { playwright }, testInfo ) => {
+		eventPath = await withRequest( playwright, testInfo, ( request ) =>
+			findEventPath( request, [ 'data-sp-tab="past_meetings"', 'leaflet' ] )
+		);
+	} );
+
 	test.beforeEach( async ( { page } ) => {
+		test.skip(
+			null === eventPath,
+			'no recent event on this site has both a Past Meetings tab and a venue map'
+		);
 		await page.setViewportSize( { width: 1200, height: 1000 } );
-		await page.goto( EVENT, { waitUntil: 'networkidle' } );
+		await page.goto( eventPath, { waitUntil: 'networkidle' } );
 	} );
 
 	/*
@@ -25,7 +42,7 @@ test.describe( 'event page', () => {
 	 */
 	test( 'the Past Meetings fixture title is centred in its cell', async ( { page } ) => {
 		await page.click( 'a[data-sp-tab="past_meetings"]' );
-		await page.waitForTimeout( 500 );
+		await expect( page.locator( '#sp-tab-content-past_meetings' ) ).toBeVisible();
 
 		const geo = await page.evaluate( () => {
 			const cell = document.querySelector(
@@ -53,30 +70,33 @@ test.describe( 'event page', () => {
 
 	test( 'the venue map paints its whole container', async ( { page } ) => {
 		await page.waitForSelector( '.leaflet-container img.leaflet-tile' );
-		await page.waitForTimeout( 1500 );
 
-		const cover = await page.evaluate( () => {
-			const c = document.querySelector( '.leaflet-container' );
-			const r = c.getBoundingClientRect();
-			const tiles = [ ...c.querySelectorAll( 'img.leaflet-tile' ) ];
+		// Leaflet keeps adding tiles as it lays the map out; poll the shortfall
+		// until the right-most tile reaches the container's edge (or time out).
+		// Before the fix the tiles stopped 69px short, leaving a blank strip.
+		await expect
+			.poll( () =>
+				page.evaluate( () => {
+					const c = document.querySelector( '.leaflet-container' );
+					const r = c.getBoundingClientRect();
+					const tiles = [ ...c.querySelectorAll( 'img.leaflet-tile' ) ];
+					const tilesRight = Math.max(
+						...tiles.map( ( t ) => t.getBoundingClientRect().right )
+					);
 
-			return {
-				containerRight: Math.round( r.right ),
-				tilesRight: Math.round(
-					Math.max( ...tiles.map( ( t ) => t.getBoundingClientRect().right ) )
-				),
-			};
-		} );
-
-		// Tiles must reach at least the container's edge. Before the fix they
-		// stopped 69px short, leaving a blank strip.
-		expect( cover.tilesRight ).toBeGreaterThanOrEqual( cover.containerRight );
+					return Math.round( r.right ) - Math.round( tilesRight );
+				} )
+			)
+			.toBeLessThanOrEqual( 0 );
 	} );
 } );
 
-test( 'the arena page shows a map of the arena', async ( { page } ) => {
+test( 'the arena page shows a map of the arena', async ( { page, request } ) => {
+	const venuePath = await findVenuePath( request, [ 'bl-sp-venue-header__map' ] );
+	test.skip( null === venuePath, 'no arena on this site has a map' );
+
 	await page.setViewportSize( { width: 1200, height: 1000 } );
-	await page.goto( `${ SITE }/venue/red`, { waitUntil: 'networkidle' } );
+	await page.goto( venuePath, { waitUntil: 'networkidle' } );
 
 	const map = page.locator( '.bl-sp-venue-header__map .leaflet-container' );
 	await expect( map ).toBeVisible();
@@ -90,7 +110,12 @@ test( 'a homepage fixture links to its event, and the arena to the arena', async
 	page,
 } ) => {
 	await page.setViewportSize( { width: 1200, height: 1000 } );
-	await page.goto( SITE, { waitUntil: 'networkidle' } );
+	await page.goto( '/', { waitUntil: 'networkidle' } );
+
+	test.skip(
+		0 === ( await page.locator( '.bl-next-games__item' ).count() ),
+		'the homepage lists no upcoming games on this site right now'
+	);
 
 	const row = page.locator( '.bl-next-games__item' ).first();
 

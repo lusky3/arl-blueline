@@ -10,14 +10,14 @@
  * catches that.
  */
 
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const { SITE } = require( './helpers/site.js' );
+const { test, expect } = require( '@playwright/test' );
 const { PHONE } = require( './helpers/viewports.js' );
+const { settleAnimations } = require( './helpers/settle.js' );
 
 test.describe( 'mobile drawer', () => {
 	test.beforeEach( async ( { page } ) => {
 		await page.setViewportSize( PHONE );
-		await page.goto( SITE, { waitUntil: 'domcontentloaded' } );
+		await page.goto( '/', { waitUntil: 'domcontentloaded' } );
 	} );
 
 	/**
@@ -64,7 +64,7 @@ test.describe( 'mobile drawer', () => {
 		page,
 	} ) => {
 		await page.locator( '.bl-nav__toggle' ).click();
-		await page.waitForTimeout( 300 );
+		await settleAnimations( page );
 
 		const result = await hitTest( page, '.bl-nav__toggle' );
 
@@ -88,7 +88,7 @@ test.describe( 'mobile drawer', () => {
 
 	test( 'the first menu item is not hidden behind the header bar', async ( { page } ) => {
 		await page.locator( '.bl-nav__toggle' ).click();
-		await page.waitForTimeout( 300 );
+		await settleAnimations( page );
 
 		const firstLink = '.bl-nav__menu > li:first-child > a';
 		const result = await hitTest( page, firstLink );
@@ -104,7 +104,7 @@ test.describe( 'mobile drawer', () => {
 
 	test( 'the brand and account controls stay visible over the drawer', async ( { page } ) => {
 		await page.locator( '.bl-nav__toggle' ).click();
-		await page.waitForTimeout( 300 );
+		await settleAnimations( page );
 
 		expect( ( await hitTest( page, '.bl-header__brand a' ) ).isTarget ).toBe( true );
 	} );
@@ -117,7 +117,7 @@ test.describe( 'mobile drawer', () => {
 		);
 
 		await page.locator( '.bl-nav__toggle' ).click();
-		await page.waitForTimeout( 300 );
+		await settleAnimations( page );
 
 		const state = await bars.evaluate( ( el ) => ( {
 			middle: window.getComputedStyle( el ).backgroundColor,
@@ -146,7 +146,7 @@ test.describe( 'mobile drawer', () => {
 
 	test( 'the open drawer does not make the page scroll sideways', async ( { page } ) => {
 		await page.locator( '.bl-nav__toggle' ).click();
-		await page.waitForTimeout( 300 );
+		await settleAnimations( page );
 
 		const overflows = await page.evaluate(
 			() =>

@@ -6,6 +6,7 @@
  * @package blueline-core
  */
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../includes/mail/mail.php';
@@ -469,5 +470,15 @@ final class MailTest extends TestCase {
 		);
 
 		$this->assertStringContainsString( '<img src="https://example.test/uploads/photo-55-full.jpg"', $wrapped['message'] );
+	}
+
+	/**
+	 * Without the domain router (a site that does not run it) every link is left as built. Runs in
+	 * its own process because tests/MailPrimaryHostTest.php loads the router into this one.
+	 */
+	#[RunInSeparateProcess]
+	public function test_mail_urls_are_untouched_when_the_domain_router_is_absent(): void {
+		$this->assertFalse( function_exists( 'arl_dr_config' ) );
+		$this->assertSame( 'https://www.rookiehockey.ca/x', blueline_core_mail_url( 'https://www.rookiehockey.ca/x' ) );
 	}
 }

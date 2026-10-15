@@ -21,12 +21,21 @@
  *   - BLUELINE_SETTINGS_OPTION            the settings themselves
  *   - BLUELINE_SETTINGS_SNAPSHOTS_OPTION  the save-snapshot undo history
  *   - BLUELINE_CACHE_PURGE_NEEDED_OPTION  the "a purge is owed" flag
+ *   - BLUELINE_SP_CACHE_GEN_OPTION        the SportsPress data-cache generation
  *   - the `blueline_season_state` transient (a 15-minute cache, but leaving a
  *     stale one behind after deleting everything else would be untidy at best
  *     and confusing at worst)
+ *   - every `bl_*` transient (the roster-stat and league-table caches built
+ *     by blueline_sp_cache_key())
+ *   - the updater's `blueline_updater_state` site transient
+ *   - the scheduled `blueline_occasion_boundary_purge` cron event, which would
+ *     otherwise fire into a theme that may no longer be active
  *
  * NOT DELETED -- user content and other plugins' data that merely passes
  * through this theme:
+ *   - BLUELINE_THEME_PREFERENCE_META_KEY (`blueline_theme_preference`), a
+ *     member's own light/dark choice stored on their user account. It is their
+ *     setting, not the site's configuration, and the panel copy says it stays.
  *   - BLUELINE_AVATAR_META_KEY (`blueline_avatar_id`). This points at a real
  *     media attachment a member uploaded. It is their content, not our
  *     configuration, and the attachment itself would survive regardless, so
@@ -59,12 +68,47 @@ function blueline_settings_deletable_options(): array {
 		BLUELINE_SETTINGS_OPTION,
 		BLUELINE_SETTINGS_SNAPSHOTS_OPTION,
 		BLUELINE_CACHE_PURGE_NEEDED_OPTION,
+		BLUELINE_SP_CACHE_GEN_OPTION,
 	);
 }
 
 /**
- * Delete every option this theme's settings layer owns, plus the season-state
- * transient, and report what was actually removed.
+ * Delete every `bl_*` data-cache transient this theme created through
+ * blueline_sp_cache_key() (rosters, league tables), and their timeout rows.
+ *
+ * Direct SQL because WordPress cannot enumerate transients by prefix. `bl_` is
+ * this theme's own prefix for those keys (see blueline_sp_cache_key()). It is
+ * escaped through esc_like(), since `_` is a LIKE wildcard and an unescaped
+ * `_transient_bl_` would also match `_transient_blX...`.
+ *
+ * Does nothing when an external object cache is in use: transients then live
+ * in the cache rather than in the options table, cannot be enumerated here, and
+ * expire on their own within BLUELINE_SP_CACHE_TTL (15 minutes).
+ *
+ * @return int How many rows were removed.
+ */
+function blueline_settings_delete_cache_transients(): int {
+	global $wpdb;
+
+	if ( wp_using_ext_object_cache() || ! isset( $wpdb ) ) {
+		return 0;
+	}
+
+	$deleted = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- WordPress cannot enumerate transients by prefix, and the rows are being deleted, so there is nothing to cache.
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+			$wpdb->esc_like( '_transient_bl_' ) . '%',
+			$wpdb->esc_like( '_transient_timeout_bl_' ) . '%'
+		)
+	);
+
+	return is_int( $deleted ) ? $deleted : 0;
+}
+
+/**
+ * Delete every option this theme's settings layer owns, plus the theme's
+ * transients and its scheduled cron event, and report what was actually
+ * removed.
  *
  * Reports what was REMOVED, not what was attempted: `delete_option()` returns
  * false for an option that was not there, and an honest teardown says "three
@@ -107,6 +151,24 @@ function blueline_settings_delete_all_data(): array {
 		$deleted[] = BLUELINE_SEASON_STATE_TRANSIENT;
 	}
 
+	if ( defined( 'BLUELINE_UPDATER_CACHE_KEY' ) && delete_site_transient( BLUELINE_UPDATER_CACHE_KEY ) ) {
+		$deleted[] = BLUELINE_UPDATER_CACHE_KEY;
+	}
+
+	$cache_rows = blueline_settings_delete_cache_transients();
+
+	if ( $cache_rows > 0 ) {
+		$deleted[] = sprintf( 'bl_* cache transients (%d rows)', $cache_rows );
+	}
+
+	// Removed after the options above so nothing in this function can
+	// re-schedule it: delete_option() fires neither add_option_ nor
+	// update_option_, the hooks that (re)schedule the boundary purge.
+	if ( false !== wp_next_scheduled( BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK ) ) {
+		blueline_occasion_clear_scheduled_boundary_purge();
+		$deleted[] = BLUELINE_OCCASION_BOUNDARY_PURGE_HOOK;
+	}
+
 	// Attempted unconditionally: the stored settings are gone either way, so any
 	// cached page rendered from them is stale whether or not a row happened to
 	// exist a moment ago.
@@ -146,7 +208,7 @@ function blueline_settings_render_delete_all_data(): void {
 		<p>
 			<?php
 			echo esc_html(
-				__( 'Removes every setting on this page, the saved copies under "Recent saves", and nothing else. Your pages, posts, players, events, photographs and member accounts are untouched -- this deletes the theme\'s own settings, not your content.', 'blueline' )
+				__( 'Removes every setting on this page, the saved copies under "Recent saves", the theme\'s cached roster and league-table data, its update-check result and its scheduled occasion cache refresh. Your pages, posts, players, events, photographs and member accounts are untouched, and so is each member\'s own light or dark choice -- this deletes the theme\'s own settings and caches, not your content.', 'blueline' )
 			);
 			?>
 		</p>

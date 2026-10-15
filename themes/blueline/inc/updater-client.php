@@ -46,18 +46,20 @@ function blueline_updater_channel(): string {
 /**
  * One failure, with fixed text: no URL, no token, no response body.
  *
- * @param string $reason Short reason code.
- * @param int    $status HTTP status, 0 when none.
- * @param string $rate   The x-ratelimit-remaining header, '' when absent.
+ * @param string $reason      Short reason code.
+ * @param int    $status      HTTP status, 0 when none.
+ * @param string $rate        The x-ratelimit-remaining header, '' when absent.
+ * @param string $retry_after The retry-after header, '' when absent (a secondary rate limit sends it).
  * @return WP_Error
  */
-function blueline_updater_error( string $reason, int $status = 0, string $rate = '' ): WP_Error {
+function blueline_updater_error( string $reason, int $status = 0, string $rate = '', string $retry_after = '' ): WP_Error {
 	return new WP_Error(
 		'blueline_updater_' . $reason,
 		__( 'The Blueline update service could not be reached or refused the request.', 'blueline' ),
 		array(
-			'status' => $status,
-			'rate'   => $rate,
+			'status'      => $status,
+			'rate'        => $rate,
+			'retry_after' => $retry_after,
 		)
 	);
 }
@@ -111,7 +113,12 @@ function blueline_updater_request( string $url, array $args = array() ) {
 			return $response;
 		}
 		if ( 'fail' === $next['action'] ) {
-			return blueline_updater_error( $next['code'], $status, (string) wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' ) );
+			return blueline_updater_error(
+				$next['code'],
+				$status,
+				(string) wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' ),
+				(string) wp_remote_retrieve_header( $response, 'retry-after' )
+			);
 		}
 
 		$current = $next['url'];
@@ -124,7 +131,7 @@ function blueline_updater_request( string $url, array $args = array() ) {
  * Map a request failure onto the status Site Health and the cache understand.
  *
  * @param WP_Error $error Error from blueline_updater_request().
- * @return string unauthorized, rate_limited or error.
+ * @return string unauthorized, rate_limited, not_found or error.
  */
 function blueline_updater_status_from_error( WP_Error $error ): string {
 	$data = $error->get_error_data();
@@ -132,24 +139,30 @@ function blueline_updater_status_from_error( WP_Error $error ): string {
 
 	return blueline_updater_classify_status(
 		(int) ( $data['status'] ?? 0 ),
-		array( 'x-ratelimit-remaining' => (string) ( $data['rate'] ?? '' ) )
+		array(
+			'x-ratelimit-remaining' => (string) ( $data['rate'] ?? '' ),
+			'retry-after'           => (string) ( $data['retry_after'] ?? '' ),
+		)
 	);
 }
 
 /**
  * A fresh state record.
  *
- * @param string                    $status    ok, unauthorized, rate_limited or error.
- * @param array<string, mixed>|null $candidate The update to offer, if any.
+ * @param string                                      $status    ok, unauthorized, rate_limited, not_found or error.
+ * @param array<string, mixed>|null                   $candidate The update to offer, if any.
+ * @param array{version: string, reason: string}|null $rejected  A newer release that exists but cannot be installed
+ *                                                               (reason `assets` or `manifest`), if any.
  * @return array<string, mixed>
  */
-function blueline_updater_make_state( string $status, ?array $candidate = null ): array {
+function blueline_updater_make_state( string $status, ?array $candidate = null, ?array $rejected = null ): array {
 	return array(
 		'status'    => $status,
 		'channel'   => blueline_updater_channel(),
 		'installed' => defined( 'BLUELINE_VERSION' ) ? BLUELINE_VERSION : '0',
 		'checked'   => time(),
 		'candidate' => $candidate,
+		'rejected'  => $rejected,
 	);
 }
 
@@ -173,22 +186,51 @@ function blueline_updater_fetch_state(): array {
 	}
 
 	$had_error = false;
+	$rejected  = null;
+
+	// A newer release that is missing its zip or manifest is never offered, so say so
+	// instead of letting the check report "up to date".
+	$incomplete = blueline_updater_incomplete_releases( $releases, $installed, $channel );
+	if ( $incomplete ) {
+		$rejected = array(
+			'version' => $incomplete[0]['version'],
+			'reason'  => 'assets',
+		);
+	}
 
 	// Newest first; a release whose manifest is broken falls through to the next-older one.
 	foreach ( blueline_updater_eligible_releases( $releases, $installed, $channel ) as $entry ) {
 		$manifest_response = blueline_updater_request( $entry['manifest_asset']['url'], array( 'accept' => 'application/octet-stream' ) );
+		$manifest          = null;
+
 		if ( is_wp_error( $manifest_response ) ) {
 			$status = blueline_updater_status_from_error( $manifest_response );
 			if ( 'unauthorized' === $status || 'rate_limited' === $status ) {
 				return blueline_updater_make_state( $status );
 			}
-			$had_error = true;
+			// A manifest that is gone (404) is a broken release; anything else (a timeout,
+			// a 5xx) says nothing about the release and is only a failed check.
+			if ( 'not_found' !== $status ) {
+				$had_error = true;
+				continue;
+			}
+		} else {
+			$manifest = blueline_updater_validate_manifest( json_decode( wp_remote_retrieve_body( $manifest_response ), true ), $entry['version'] );
+		}
+
+		if ( null === $manifest ) {
+			if ( null === $rejected || version_compare( $entry['version'], $rejected['version'], '>' ) ) {
+				$rejected = array(
+					'version' => $entry['version'],
+					'reason'  => 'manifest',
+				);
+			}
 			continue;
 		}
 
-		$manifest = blueline_updater_validate_manifest( json_decode( wp_remote_retrieve_body( $manifest_response ), true ), $entry['version'] );
-		if ( null === $manifest ) {
-			continue;
+		// An older broken release is not news once a newer one is being offered.
+		if ( null !== $rejected && ! version_compare( $rejected['version'], $entry['version'], '>' ) ) {
+			$rejected = null;
 		}
 
 		return blueline_updater_make_state(
@@ -198,18 +240,21 @@ function blueline_updater_fetch_state(): array {
 				'release_url' => is_string( $entry['release']['html_url'] ?? null ) ? $entry['release']['html_url'] : '',
 				'package'     => $entry['zip_asset']['url'],
 				'manifest'    => $manifest,
-			)
+			),
+			$rejected
 		);
 	}
 
-	return blueline_updater_make_state( $had_error ? 'error' : 'ok' );
+	return blueline_updater_make_state( ( $had_error && null === $rejected ) ? 'error' : 'ok', null, $rejected );
 }
 
 /**
  * The cached update state; refreshed when absent, stale for this install, or forced.
  *
  * `ok` (including "nothing newer") is cached 12h, any failure 1h so a bad token
- * or a rate limit is not hammered. Works without a token (see the file header).
+ * or a rate limit is not hammered. A newer release that cannot be installed
+ * (see blueline_updater_make_state()) is also rechecked hourly, so a fixed
+ * upload is noticed. Works without a token (see the file header).
  *
  * @param bool $force Skip the cache.
  * @return array<string, mixed>
@@ -225,7 +270,7 @@ function blueline_updater_state( bool $force = false ): array {
 	}
 
 	$state = blueline_updater_fetch_state();
-	set_site_transient( BLUELINE_UPDATER_CACHE_KEY, $state, 'ok' === $state['status'] ? 12 * HOUR_IN_SECONDS : HOUR_IN_SECONDS );
+	set_site_transient( BLUELINE_UPDATER_CACHE_KEY, $state, ( 'ok' === $state['status'] && empty( $state['rejected'] ) ) ? 12 * HOUR_IN_SECONDS : HOUR_IN_SECONDS );
 
 	return $state;
 }
