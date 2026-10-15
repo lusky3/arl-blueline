@@ -103,6 +103,7 @@ final class DistIgnoreTest extends TestCase {
 			'package.json',
 			'package-lock.json',
 			'phpunit.xml',
+			'phpcs.xml.dist',
 			'playwright.config.js',
 			'webpack.config.js',
 			'assets/src/css',

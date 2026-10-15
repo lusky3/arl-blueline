@@ -11,21 +11,30 @@ defined( 'ABSPATH' ) || exit;
  * The five season states blueline_decide_season_state() can return. There is
  * no sixth: the break-glass override below refuses anything outside this
  * list, and blueline_render_hero() (inc/homepage-modules.php) falls back to
- * 'offseason' for anything outside it.
+ * 'offseason' for anything outside it (blueline_known_season_state()).
  *
  * The order here is presentation order -- roughly the arc of a season -- and
  * is NOT the order blueline_decide_season_state() evaluates its branches in.
  * That function tests registration_open first, then playoffs, then
  * in_season/preseason, then falls through to offseason.
  *
- * KNOWN DUPLICATION: blueline_render_hero() still holds its own literal copy
- * of these same five values. It predates this constant and was not rewritten
- * to read it as part of Task 7, which had no other reason to touch that
- * file. A sixth state would need both edits; tests/SeasonStateOverrideTest.php
- * pins this list's contents, so at least one side of the pair cannot drift
- * unnoticed.
+ * This is the only place the five are listed: the override, the hero and the
+ * admin choices all read it, and tests/SeasonStateOverrideTest.php pins its
+ * contents.
  */
 const BLUELINE_SEASON_STATES = array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' );
+
+/**
+ * $state if it is one of BLUELINE_SEASON_STATES, otherwise 'offseason' -- the
+ * quietest state, so an unknown value (a stale option, a filter returning
+ * junk) never renders a loud one by mistake.
+ *
+ * @param string $state A season state, or anything a filter handed back.
+ * @return string One of BLUELINE_SEASON_STATES.
+ */
+function blueline_known_season_state( string $state ): string {
+	return in_array( $state, BLUELINE_SEASON_STATES, true ) ? $state : 'offseason';
+}
 
 /**
  * Pure predicate: is registration currently open. P1 finding 4: this used to
@@ -252,8 +261,10 @@ function blueline_registration_product_offer_kind( $product ): string {
 
 /**
  * The meta_query clause that keeps postponed and cancelled games out of an
- * sp_event query, for every "next game" surface this theme owns. Events with
- * no sp_status at all are kept: that is how most games are stored.
+ * sp_event query, for every "next game" surface this theme owns and for the
+ * season-state signals (upcoming games, and the recent games that tell a live
+ * season from a preseason). Events with no sp_status at all are kept: that is
+ * how most games are stored.
  *
  * @return array A WP_Query meta_query.
  */
@@ -540,6 +551,10 @@ function blueline_season_state_event_signals( string $now_mysql, int $now_ts ): 
 					'inclusive' => true,
 				),
 			),
+			// "Recent" means games actually played: a cancelled game was not, and a
+			// postponed one still carrying its old date was not either. Counting them
+			// would keep the site "in season" because of games that never happened.
+			'meta_query'     => blueline_season_state_live_event_meta_query(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded by post_type sp_event and the date range above.
 		)
 	);
 

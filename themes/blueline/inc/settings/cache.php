@@ -207,6 +207,47 @@ function blueline_apply_cache_purge_policy( bool $purge_enabled ): void {
 }
 
 /**
+ * Which SCAN calling convention a Redis client speaks, or null when this
+ * theme does not know how to drive it.
+ *
+ * The Redis Object Cache plugin hands back whichever client the site is
+ * configured for, and their SCAN signatures differ:
+ *
+ * - `predis`: Predis\ClientInterface. `scan( $cursor, array( 'MATCH' => ...,
+ *   'COUNT' => ... ) )` returns `array( $next_cursor, $keys )`, with the
+ *   cursor as a string and '0' meaning finished.
+ * - `phpredis`: the phpredis extension, and Relay, which copies its API.
+ *   `scan( &$cursor, $pattern, $count )` takes the cursor BY REFERENCE. It
+ *   must start as null: a literal 0 means "already finished" and makes the
+ *   call return false straight away, having scanned nothing.
+ *
+ * Anything else (RedisCluster, whose SCAN also takes a node, or a client this
+ * code has never seen) is refused rather than guessed at: a guess that
+ * returns "purged" without scanning is exactly the failure this function
+ * exists to avoid.
+ *
+ * Told apart by shape rather than by class name, so a phpredis-compatible
+ * client that is not literally `Redis` still works: its scan() declares a
+ * by-reference first parameter.
+ *
+ * @param object $redis The client from redis_instance().
+ * @return string|null 'predis', 'phpredis', or null for an unsupported client.
+ */
+function blueline_srcache_client_style( object $redis ): ?string {
+	if ( $redis instanceof \Predis\ClientInterface ) {
+		return 'predis';
+	}
+
+	if ( $redis instanceof \RedisCluster || ! method_exists( $redis, 'scan' ) ) {
+		return null;
+	}
+
+	$params = ( new ReflectionMethod( $redis, 'scan' ) )->getParameters();
+
+	return ( isset( $params[0] ) && $params[0]->isPassedByReference() ) ? 'phpredis' : null;
+}
+
+/**
  * The guarded Redis/nginx srcache purge itself. Never called unless
  * BLUELINE_SRCACHE_PURGE is true (via blueline_apply_cache_purge_policy()).
  *
@@ -220,7 +261,8 @@ function blueline_apply_cache_purge_policy( bool $purge_enabled ): void {
  *    cache backend (or no drop-in) does not.
  * 3. `is_object( $redis )` -- redis_instance() returning something falls
  *    short of proving it returned a usable client object.
- * 4. A non-empty `blueline_cache_purge_host()` -- an unparseable
+ * 4. A client this theme knows how to SCAN (blueline_srcache_client_style()).
+ * 5. A non-empty `blueline_cache_purge_host()` -- an unparseable
  *    `home_url()` would otherwise build the pattern `nginx-cache:**`,
  *    which matches (and would purge) EVERY key in that Redis, not just
  *    this site's -- see blueline_cache_purge_command()'s docblock for the
@@ -236,19 +278,30 @@ function blueline_apply_cache_purge_policy( bool $purge_enabled ): void {
  * for the duration. SCAN yields the same eventual result in bounded-size
  * batches instead.
  *
+ * Reports success only when the scan RAN TO COMPLETION: the cursor came back
+ * as 0 after at least one call. An error reply, a client exception or the
+ * iteration cap all return false, so the caller keeps the "a purge is owed"
+ * notice up instead of telling an admin the cache is clean when it may not be.
+ *
  * Prefers UNLINK (asynchronous reclaim, off the main thread) over DEL
  * (synchronous, blocking), falling back to DEL only when the client object
  * doesn't expose an `unlink` method -- UNLINK requires Redis >= 4.0, and a
  * `method_exists()` check is the cheap way to stay correct against an
- * older server without a version probe of its own.
+ * older server without a version probe of its own. Predis forwards every
+ * command through __call(), so method_exists() cannot see its UNLINK; it
+ * always gets DEL, which every server supports.
  *
  * The host is derived from `wp_parse_url( home_url(), PHP_URL_HOST )`
  * rather than hardcoded, so this keeps working correctly if the site's
  * domain ever changes without anyone having to remember to update this file.
  *
- * @return bool True if the purge actually ran (every guard passed and at
- *              least one SCAN cursor cycle completed), false if any guard
- *              failed and nothing was attempted.
+ * This clears the nginx page cache only. A Cloudflare edge cache in front of
+ * the site is a separate layer this does not touch; see
+ * blueline_cache_purge_notice_message().
+ *
+ * @return bool True only if every guard passed and the SCAN ran to
+ *              completion, false if any guard failed or the scan did not
+ *              finish.
  */
 function blueline_srcache_purge_attempt(): bool {
 	global $wp_object_cache;
@@ -267,36 +320,66 @@ function blueline_srcache_purge_attempt(): bool {
 		return false;
 	}
 
+	$style = blueline_srcache_client_style( $redis );
+	if ( null === $style ) {
+		return false;
+	}
+
 	$host = blueline_cache_purge_host();
 	if ( '' === $host ) {
 		return false;
 	}
 
 	$pattern    = 'nginx-cache:*' . $host . '*';
-	$use_unlink = method_exists( $redis, 'unlink' );
+	$use_unlink = 'phpredis' === $style && method_exists( $redis, 'unlink' );
 
-	$cursor          = 0;
-	$max_iterations  = 10000; // Defensive cap only -- a well-behaved SCAN converges to cursor 0 long before this; this exists solely so a misbehaving client can never spin this loop forever.
-	$iterations_done = 0;
+	$cursor         = null; // phpredis: null starts a scan, 0 ends one (see blueline_srcache_client_style()).
+	$max_iterations = 10000; // Defensive cap only -- a well-behaved SCAN converges to cursor 0 long before this; this exists solely so a misbehaving client can never spin this loop forever.
 
-	do {
-		$keys = $redis->scan( $cursor, $pattern, 1000 );
-		++$iterations_done;
+	try {
+		for ( $i = 0; $i < $max_iterations; ++$i ) {
+			if ( 'predis' === $style ) {
+				$reply = $redis->scan(
+					null === $cursor ? 0 : $cursor,
+					array(
+						'MATCH' => $pattern,
+						'COUNT' => 1000,
+					)
+				);
 
-		if ( false === $keys ) {
-			break; // phpredis returns false on a SCAN error -- stop rather than loop on a broken cursor.
-		}
+				if ( ! is_array( $reply ) || 2 !== count( $reply ) ) {
+					return false;
+				}
 
-		if ( ! empty( $keys ) ) {
-			if ( $use_unlink ) {
-				$redis->unlink( $keys );
+				list( $cursor, $keys ) = array_values( $reply );
 			} else {
-				$redis->del( $keys );
+				$keys = $redis->scan( $cursor, $pattern, 1000 );
+
+				if ( false === $keys ) {
+					// phpredis reports both a SCAN error and "nothing (more) to
+					// return" as false. Only the latter leaves the cursor at 0.
+					return null !== $cursor && 0 === (int) $cursor;
+				}
+			}
+
+			if ( ! empty( $keys ) ) {
+				if ( $use_unlink ) {
+					$redis->unlink( $keys );
+				} else {
+					$redis->del( $keys );
+				}
+			}
+
+			if ( null !== $cursor && 0 === (int) $cursor ) {
+				return true;
 			}
 		}
-	} while ( 0 !== $cursor && $iterations_done < $max_iterations );
+	} catch ( Throwable $e ) {
+		// A dropped connection must not fatal a settings save; the notice stays up.
+		unset( $e );
+	}
 
-	return true;
+	return false;
 }
 
 /**
@@ -399,6 +482,20 @@ function blueline_cache_purge_notice_message(): string {
 	return __( 'Blueline settings were saved, but the page cache was not purged automatically -- the front end will keep serving the old version of any page these settings affect until it is. Run this on the server to clear it:', 'blueline' );
 }
 
+/**
+ * The reminder about the cache layer this theme never purges.
+ *
+ * A site behind Cloudflare can serve cached pages from Cloudflare's edge even
+ * after the nginx cache is cleared, and nothing here talks to Cloudflare. It is
+ * shown under the purge command, and by `wp blueline settings flush-cache`
+ * whether or not the nginx purge worked.
+ *
+ * @return string
+ */
+function blueline_cache_purge_cloudflare_message(): string {
+	return __( 'This clears the server\'s page cache only. If the site is also behind Cloudflare, purge its cache as well (Cloudflare dashboard > Caching > Purge Everything, or the Cloudflare plugin), because the Blueline theme does not do that, and visitors can keep seeing the old page from there.', 'blueline' );
+}
+
 add_action( 'admin_notices', 'blueline_render_cache_purge_notice' );
 /**
  * Render the persistent "manual purge needed" admin notice: shown on every
@@ -458,6 +555,7 @@ function blueline_render_cache_purge_notice(): void {
 		<?php else : ?>
 			<p><?php echo esc_html( blueline_cache_purge_unresolvable_host_message() ); ?></p>
 		<?php endif; ?>
+		<p><?php echo esc_html( blueline_cache_purge_cloudflare_message() ); ?></p>
 		<p>
 			<a class="button" href="<?php echo esc_url( $dismiss ); ?>">
 				<?php esc_html_e( "I've purged the cache manually -- dismiss this notice", 'blueline' ); ?>

@@ -47,8 +47,9 @@ function blueline_normalize_player_stats( array $raw ): array {
 }
 
 /**
- * $team_id's own sp_table post for the season currently driving the
- * schedule (blueline_current_sp_season_term_id()) -- the specific
+ * $team_id's own regular-season sp_table post for the season currently
+ * driving the schedule (blueline_current_sp_season_term_id(), or its parent
+ * season while playoff games are next) -- never a playoff table -- the specific
  * standings table this team is rostered into for that season, found by
  * checking each season-scoped table's own team list
  * (blueline_sp_table_team_ids()), not by
@@ -81,6 +82,15 @@ function blueline_team_current_table_id( int $team_id ): ?int {
 		return null;
 	}
 
+	// Playoff games carry only the season's "Playoffs" child term; the
+	// division and season record still live on the parent season's table.
+	$season_term = get_term( $season_id, 'sp_season' );
+
+	if ( is_object( $season_term ) && ! is_wp_error( $season_term )
+		&& false !== strpos( (string) $season_term->slug, 'playoff' ) && (int) $season_term->parent > 0 ) {
+		$season_id = (int) $season_term->parent;
+	}
+
 	$table_ids = get_posts(
 		array(
 			'post_type'      => 'sp_table',
@@ -90,21 +100,58 @@ function blueline_team_current_table_id( int $team_id ): ?int {
 			'no_found_rows'  => true,
 			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- scoped to one season, a handful of division tables.
 				array(
-					'taxonomy' => 'sp_season',
-					'field'    => 'term_id',
-					'terms'    => $season_id,
+					'taxonomy'         => 'sp_season',
+					'field'            => 'term_id',
+					'terms'            => $season_id,
+					// Each season's "Playoffs" term is its child; with children
+					// included the newer playoff table won, showing 0-0-0.
+					'include_children' => false,
 				),
 			),
 		)
 	);
 
 	foreach ( $table_ids as $table_id ) {
+		if ( blueline_sp_table_is_playoff( (int) $table_id ) ) {
+			continue;
+		}
+
 		if ( in_array( $team_id, blueline_sp_table_team_ids( (int) $table_id ), true ) ) {
 			return (int) $table_id;
 		}
 	}
 
 	return null;
+}
+
+/**
+ * Whether an sp_table is a playoff table: it carries an sp_season or
+ * sp_league term whose slug contains "playoff", the same signal Season State
+ * (blueline_season_state_has_playoff_events()) and the claim pool use.
+ *
+ * @param int $table_id sp_table post ID.
+ * @return bool
+ */
+function blueline_sp_table_is_playoff( int $table_id ): bool {
+	foreach ( array( 'sp_season', 'sp_league' ) as $taxonomy ) {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			continue;
+		}
+
+		$terms = wp_get_post_terms( $table_id, $taxonomy );
+
+		if ( is_wp_error( $terms ) ) {
+			continue;
+		}
+
+		foreach ( $terms as $term ) {
+			if ( false !== strpos( (string) $term->slug, 'playoff' ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 /**
@@ -651,8 +698,9 @@ function blueline_get_player_next_event( int $player_id ): ?array {
 }
 
 /**
- * $player_id's normalized stat line for their current team in the season
- * currently driving the schedule (blueline_current_sp_season_term_id()).
+ * $player_id's normalized stat line for one of their current teams (the first,
+ * unless $team_id says otherwise) in the season currently driving the
+ * schedule (blueline_current_sp_season_term_id()).
  *
  * READ THROUGH SPORTSPRESS, NOT sp_statistics. `sp_statistics` looks like the
  * obvious source and is shaped [ team_id => [ season_id => [ 'gp'=>, 'g'=>,
@@ -669,10 +717,12 @@ function blueline_get_player_next_event( int $player_id ): ?array {
  * player's events -- so the result is memoised per request; the dashboard asks
  * for the same player two or three times per page render.
  *
- * @param int $player_id sp_player post ID.
+ * @param int      $player_id sp_player post ID.
+ * @param int|null $team_id   One of the player's current teams, to read that team's league; null for the first.
+ * @param int|null $league_id An explicit sp_league id (0 for SportsPress' all-leagues bucket), instead of looking one up from the team.
  * @return array{gp:int, g:int, a:int, pim:int} Always the four keys, zero-filled if unavailable.
  */
-function blueline_get_player_season_stats( int $player_id ): array {
+function blueline_get_player_season_stats( int $player_id, ?int $team_id = null, ?int $league_id = null ): array {
 	static $memo = array();
 
 	$zero = blueline_normalize_player_stats( array() );
@@ -681,8 +731,10 @@ function blueline_get_player_season_stats( int $player_id ): array {
 		return $zero;
 	}
 
-	if ( isset( $memo[ $player_id ] ) ) {
-		return $memo[ $player_id ];
+	$memo_key = $player_id . ':' . (int) $team_id . ':' . ( null === $league_id ? '-' : $league_id );
+
+	if ( isset( $memo[ $memo_key ] ) ) {
+		return $memo[ $memo_key ];
 	}
 
 	$season_id = blueline_current_sp_season_term_id();
@@ -697,15 +749,66 @@ function blueline_get_player_season_stats( int $player_id ): array {
 		return $zero;
 	}
 
-	$row = $player->data( blueline_player_stats_league_id( $player_id, $season_id ) );
+	$row = $player->data( null === $league_id ? blueline_player_stats_league_id( $player_id, $season_id, $team_id ) : $league_id );
 
 	if ( ! is_array( $row ) || empty( $row[ $season_id ] ) || ! is_array( $row[ $season_id ] ) ) {
 		return $zero;
 	}
 
-	$memo[ $player_id ] = blueline_normalize_player_stats( $row[ $season_id ] );
+	$memo[ $memo_key ] = blueline_normalize_player_stats( $row[ $season_id ] );
 
-	return $memo[ $player_id ];
+	return $memo[ $memo_key ];
+}
+
+/**
+ * The My Season blocks for $player_id: one per current team, each with that
+ * team's own stat line, the way My Team has one card per team.
+ *
+ * A team's line comes from the league it plays in this season, so two teams
+ * only get separate blocks when the leagues tell them apart. SportsPress keeps
+ * one team per player, league and season, and falls back to a combined
+ * all-leagues line when none matches; two blocks printing that same combined
+ * line under two team names would be wrong, so then there is one combined
+ * block with no team. A player on one team, or none, always gets one block.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return array<int, array{team: array|null, stats: array{gp:int, g:int, a:int, pim:int}}>
+ *         `team` is a blueline_player_team_summary() row, or null for a combined block.
+ */
+function blueline_player_season_stat_blocks( int $player_id ): array {
+	$teams = blueline_get_player_teams( $player_id );
+
+	if ( count( $teams ) < 2 ) {
+		return array(
+			array(
+				'team'  => $teams ? $teams[0] : null,
+				'stats' => blueline_get_player_season_stats( $player_id ),
+			),
+		);
+	}
+
+	$season_id = (int) blueline_current_sp_season_term_id();
+	$blocks    = array();
+
+	foreach ( $teams as $team ) {
+		if ( $season_id && blueline_player_stats_league_id( $player_id, $season_id, $team['team_id'] ) > 0 ) {
+			$blocks[] = array(
+				'team'  => $team,
+				'stats' => blueline_get_player_season_stats( $player_id, $team['team_id'] ),
+			);
+		}
+	}
+
+	if ( count( $blocks ) < 2 ) {
+		return array(
+			array(
+				'team'  => null,
+				'stats' => blueline_get_player_season_stats( $player_id, null, 0 ),
+			),
+		);
+	}
+
+	return $blocks;
 }
 
 /**
@@ -721,12 +824,13 @@ function blueline_get_player_season_stats( int $player_id ): array {
  * Falls back to 0, SportsPress' own all-leagues bucket, which on this data
  * returns the same per-season totals but without a team link.
  *
- * @param int $player_id sp_player post ID.
- * @param int $season_id sp_season term id.
+ * @param int      $player_id sp_player post ID.
+ * @param int      $season_id sp_season term id.
+ * @param int|null $team_id   One of the player's current teams; null or 0 for the first.
  * @return int League id, or 0 for the all-leagues bucket.
  */
-function blueline_player_stats_league_id( int $player_id, int $season_id ): int {
-	$team_id = blueline_player_current_team_id( $player_id );
+function blueline_player_stats_league_id( int $player_id, int $season_id, ?int $team_id = null ): int {
+	$team_id = $team_id ? $team_id : blueline_player_current_team_id( $player_id );
 
 	if ( ! $team_id ) {
 		return 0;

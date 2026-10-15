@@ -66,17 +66,41 @@ final class EventListTeamNameClampTest extends TestCase {
 	}
 
 	/**
-	 * Below 600px the schedule is cards, not a sideways-scrolling table: the
-	 * 40rem minimum width is dropped and every row is laid out on its own.
+	 * Once the schedule is narrower than its own minimum width it is cards,
+	 * not a sideways-scrolling table: the minimum is dropped and every row is
+	 * laid out on its own. The switch is the schedule's own width, so there is
+	 * no viewport range in which it scrolls a little with columns cut off.
 	 */
 	public function test_stylesheet_stacks_rows_as_cards_on_phones(): void {
 		$css = $this->theme_file( 'assets/src/css/sportspress.css' );
 
-		$this->assertSame( 1, preg_match( '/@media \(max-width: 600px\) \{\s*\.sp-event-list\.bl-sp-schedule,.*?\n\}/s', $css, $block ) );
+		$this->assertSame( 1, preg_match( '/@container bl-sched \(width < 41rem\) \{\s*\.sp-event-list\.bl-sp-schedule,.*?\n\}/s', $css, $block ) );
 		$this->assertMatchesRegularExpression( '/min-width:\s*0;/', $block[0] );
 		$this->assertMatchesRegularExpression( '/tbody tr\.sp-row \{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s', $block[0] );
 		$this->assertMatchesRegularExpression( '/td\.data-time \{[^}]*order:\s*2;[^}]*text-align:\s*end;/s', $block[0] );
 		$this->assertMatchesRegularExpression( '/td\.data-venue \{[^}]*order:\s*7;/s', $block[0] );
+	}
+
+	/**
+	 * The card threshold is the table's own minimum width, so the table is
+	 * never given less room than it needs without turning into cards: the
+	 * default columns add up to the 41rem the container query switches at.
+	 */
+	public function test_card_threshold_equals_the_tables_default_minimum_width(): void {
+		$css  = $this->theme_file( 'assets/src/css/sportspress.css' );
+		$vars = array();
+
+		$this->assertSame( 1, preg_match( '/\.sp-event-list\.bl-sp-schedule \{\s*--bl-sched-date:(.*?)table-layout: fixed;/s', $css, $block ) );
+		preg_match_all( '/--bl-sched-(date|home|time|away|league|season|venue|article|day):\s*(\d+(?:\.\d+)?);/', $block[1], $found, PREG_SET_ORDER );
+
+		foreach ( $found as $row ) {
+			$vars[ $row[1] ] = (float) $row[2];
+		}
+		$vars['date'] = 5.25;
+
+		$this->assertSame( 41.0, array_sum( $vars ), 'default column weights, in rem' );
+		$this->assertStringContainsString( '.sp-template-event-list:has(.bl-sp-schedule) {', $css );
+		$this->assertMatchesRegularExpression( '/\.sp-template-event-list:has\(\.bl-sp-schedule\) \{\s*container:\s*bl-sched \/ inline-size;/', $css );
 	}
 
 	/**

@@ -131,19 +131,32 @@ function blueline_updater_next_hop( int $status, string $location, string $curre
 /**
  * Classify a GitHub API response for caching and Site Health.
  *
+ * GitHub limits requests in two ways. The primary limit reports itself with
+ * `x-ratelimit-remaining: 0`; the secondary (abuse) limit answers 403 or 429
+ * with a `retry-after` header while quota is still left. Both are "try again
+ * later", never a revoked token, so neither may reach the red "refused" state.
+ * A 404 on the repository means it is gone, renamed or private; that is its own
+ * state because the fix (and who can make it) differs from a bad token.
+ *
  * @param int                   $code    HTTP status code.
  * @param array<string, string> $headers Response headers, lower-cased keys.
- * @return string One of ok, unauthorized, rate_limited, error.
+ * @return string One of ok, unauthorized, rate_limited, not_found, error.
  */
 function blueline_updater_classify_status( int $code, array $headers ): string {
 	if ( $code >= 200 && $code < 300 ) {
 		return 'ok';
 	}
-	if ( 429 === $code || ( 403 === $code && '0' === (string) ( $headers['x-ratelimit-remaining'] ?? '' ) ) ) {
+	if ( 429 === $code ) {
+		return 'rate_limited';
+	}
+	if ( 403 === $code && ( '0' === (string) ( $headers['x-ratelimit-remaining'] ?? '' ) || '' !== trim( (string) ( $headers['retry-after'] ?? '' ) ) ) ) {
 		return 'rate_limited';
 	}
 	if ( 401 === $code || 403 === $code ) {
 		return 'unauthorized';
+	}
+	if ( 404 === $code ) {
+		return 'not_found';
 	}
 
 	return 'error';
@@ -152,8 +165,13 @@ function blueline_updater_classify_status( int $code, array $headers ): string {
 /**
  * The version a release tag names, or null when the tag is not ours.
  *
- * Accepts `v1.2.3` and `v1.2.3-rc.1`. Rejects a missing or uppercase `v`,
- * build metadata (`+x`), a dangling `-`, and leading zeros.
+ * Accepts `v1.2.3`, `v1.2.3-rc.1` and `v1.2.3-beta.1`. Anything else after the
+ * version is refused, on purpose: PHP's version_compare() ranks a `-p1`,
+ * `-patch.1` or `-pl1` suffix ABOVE the final release, so a hotfix tagged that
+ * way would be offered to the beta channel as newer than the version it patches
+ * and then never reach stable, where a suffix means "prerelease". A hotfix is a
+ * new patch number. Also rejects a missing or uppercase `v`, build metadata
+ * (`+x`), a dangling `-`, and leading zeros.
  *
  * @param string $tag Tag name.
  * @return string|null Version without the `v`.
@@ -161,7 +179,7 @@ function blueline_updater_classify_status( int $code, array $headers ): string {
 function blueline_updater_parse_tag( string $tag ): ?string {
 	$num = '(?:0|[1-9]\d*)';
 
-	if ( 1 !== preg_match( '/^v(' . $num . '\.' . $num . '\.' . $num . '(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)$/', $tag, $m ) ) {
+	if ( 1 !== preg_match( '/^v(' . $num . '\.' . $num . '\.' . $num . '(?:-(?:rc|beta)\.' . $num . ')?)$/', $tag, $m ) ) {
 		return null;
 	}
 
@@ -210,20 +228,21 @@ function blueline_updater_find_asset( array $assets, string $name ): ?array {
 }
 
 /**
- * Releases this site may be offered, newest first.
+ * Releases newer than the installed version that this channel is allowed to see,
+ * newest first, whatever their assets.
  *
- * Skips drafts, tags that are not ours, releases missing either asset, and
- * anything not newer than the installed version. `stable` also skips any
- * prerelease -- by flag OR by a `-` suffix, because the flag is set by hand
- * and must not be the only thing keeping an rc off a live site.
+ * Skips drafts, tags that are not ours, and anything not newer than the
+ * installed version. `stable` also skips any prerelease -- by flag OR by a `-`
+ * suffix, because the flag is set by hand and must not be the only thing keeping
+ * an rc off a live site.
  *
  * @param array<int, mixed> $releases  Decoded GitHub releases list.
  * @param string            $installed Installed theme version.
  * @param string            $channel   `stable` or `beta`.
- * @return array<int, array{version: string, release: array<string, mixed>, zip_asset: array<string, mixed>, manifest_asset: array<string, mixed>}>
+ * @return array<int, array{version: string, release: array<string, mixed>}>
  */
-function blueline_updater_eligible_releases( array $releases, string $installed, string $channel ): array {
-	$eligible = array();
+function blueline_updater_newer_releases( array $releases, string $installed, string $channel ): array {
+	$newer = array();
 
 	foreach ( $releases as $release ) {
 		if ( ! is_array( $release ) || ! is_string( $release['tag_name'] ?? null ) || ! empty( $release['draft'] ) ) {
@@ -238,30 +257,93 @@ function blueline_updater_eligible_releases( array $releases, string $installed,
 			continue;
 		}
 
-		$assets = is_array( $release['assets'] ?? null ) ? $release['assets'] : array();
-		$names  = blueline_updater_asset_names( $version );
-		$zip    = blueline_updater_find_asset( $assets, $names['zip'] );
-		$man    = blueline_updater_find_asset( $assets, $names['manifest'] );
-		if ( null === $zip || null === $man ) {
-			continue;
-		}
-
-		$eligible[] = array(
-			'version'        => $version,
-			'release'        => $release,
-			'zip_asset'      => $zip,
-			'manifest_asset' => $man,
+		$newer[] = array(
+			'version' => $version,
+			'release' => $release,
 		);
 	}
 
 	usort(
-		$eligible,
+		$newer,
 		static function ( array $a, array $b ): int {
 			return version_compare( $b['version'], $a['version'] );
 		}
 	);
 
+	return $newer;
+}
+
+/**
+ * A release's zip and manifest assets, or null for either one it lacks.
+ *
+ * @param array<string, mixed> $release Release.
+ * @param string               $version Version the tag names.
+ * @return array{zip: array<string, mixed>|null, manifest: array<string, mixed>|null}
+ */
+function blueline_updater_release_assets( array $release, string $version ): array {
+	$assets = is_array( $release['assets'] ?? null ) ? $release['assets'] : array();
+	$names  = blueline_updater_asset_names( $version );
+
+	return array(
+		'zip'      => blueline_updater_find_asset( $assets, $names['zip'] ),
+		'manifest' => blueline_updater_find_asset( $assets, $names['manifest'] ),
+	);
+}
+
+/**
+ * Releases this site may be offered, newest first: the newer releases
+ * (blueline_updater_newer_releases()) that carry both assets.
+ *
+ * @param array<int, mixed> $releases  Decoded GitHub releases list.
+ * @param string            $installed Installed theme version.
+ * @param string            $channel   `stable` or `beta`.
+ * @return array<int, array{version: string, release: array<string, mixed>, zip_asset: array<string, mixed>, manifest_asset: array<string, mixed>}>
+ */
+function blueline_updater_eligible_releases( array $releases, string $installed, string $channel ): array {
+	$eligible = array();
+
+	foreach ( blueline_updater_newer_releases( $releases, $installed, $channel ) as $entry ) {
+		$assets = blueline_updater_release_assets( $entry['release'], $entry['version'] );
+
+		if ( null === $assets['zip'] || null === $assets['manifest'] ) {
+			continue;
+		}
+
+		$eligible[] = array(
+			'version'        => $entry['version'],
+			'release'        => $entry['release'],
+			'zip_asset'      => $assets['zip'],
+			'manifest_asset' => $assets['manifest'],
+		);
+	}
+
 	return $eligible;
+}
+
+/**
+ * Releases this channel should be offering but cannot, because the zip or the
+ * manifest is missing (a botched upload), newest first.
+ *
+ * Without this the check would skip such a release in silence and report "up to
+ * date" while production never receives it.
+ *
+ * @param array<int, mixed> $releases  Decoded GitHub releases list.
+ * @param string            $installed Installed theme version.
+ * @param string            $channel   `stable` or `beta`.
+ * @return array<int, array{version: string, release: array<string, mixed>}>
+ */
+function blueline_updater_incomplete_releases( array $releases, string $installed, string $channel ): array {
+	$incomplete = array();
+
+	foreach ( blueline_updater_newer_releases( $releases, $installed, $channel ) as $entry ) {
+		$assets = blueline_updater_release_assets( $entry['release'], $entry['version'] );
+
+		if ( null === $assets['zip'] || null === $assets['manifest'] ) {
+			$incomplete[] = $entry;
+		}
+	}
+
+	return $incomplete;
 }
 
 /**

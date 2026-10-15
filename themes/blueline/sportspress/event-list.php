@@ -107,13 +107,16 @@ extract( $defaults, EXTR_SKIP ); // phpcs:ignore WordPress.PHP.DontExtract.extra
  * and DataTables' own uncaught "Incorrect column count" alert() on the
  * <tr class="bl-sp-date-heading"> rows below (a single colspan'd <th>, not
  * one <td> per column) hangs the entire page waiting on a blocking native
- * dialog. Sorting/pagination make no sense once rows are grouped under a
- * date heading anyway -- the grouping IS the ordering, and pagination
- * would split a date group across pages -- so both are simply off for this
- * override, regardless of the site-wide option.
+ * dialog. Sorting makes no sense once rows are grouped under a date heading
+ * anyway -- the grouping IS the ordering -- and SportsPress's client-side
+ * pager would split a date group across pages, so both are simply off for
+ * this override, regardless of the site-wide option. The site's paging and
+ * rows settings are still honoured, on the server in whole date groups
+ * (blueline_sp_schedule_page_ranges()), below.
  */
-$sortable  = false;
-$paginated = false;
+$bl_paginate = $paginated && (int) $rows > 0 && ( ! is_numeric( $number ) || $number < 1 );
+$sortable    = false;
+$paginated   = false;
 
 $calendar = new SP_Calendar( $id );
 if ( 'default' !== $status ) {
@@ -171,6 +174,49 @@ if ( 'default' !== $day ) {
 $data       = $calendar->data();
 $usecolumns = $calendar->columns;
 
+/*
+ * Server-side paging. A schedule of a whole season (58 games on the current
+ * calendar) used to print every row oldest-first, three screens of played games
+ * above the next one. A list capped by a row limit (a team page's next five) is
+ * never paged. The page defaults to the one holding the next game, so the
+ * first thing seen is what is coming up.
+ */
+$bl_page_ranges = array();
+$bl_pager       = '';
+$bl_anchor      = '';
+$bl_visible     = $data;
+
+if ( $bl_paginate && ! empty( $data ) ) {
+	$bl_position  = blueline_sp_schedule_next_list_position();
+	$bl_param     = blueline_sp_schedule_page_param( $bl_position );
+	$bl_anchor    = 'bl-sched-' . $bl_position;
+	$bl_ascending = 'DESC' !== strtoupper( (string) $calendar->order );
+	$bl_date_keys = array();
+	$bl_upcoming  = null;
+	$bl_now       = time();
+
+	foreach ( array_values( $data ) as $bl_index => $bl_event ) {
+		$bl_date_keys[] = get_post_time( 'Y-m-d', false, $bl_event );
+
+		if ( null === $bl_upcoming && (int) blueline_sp_event_start_timestamp( $bl_event->ID ) >= $bl_now ) {
+			$bl_upcoming = $bl_index;
+		}
+	}
+
+	$bl_page_ranges = blueline_sp_schedule_page_ranges( $bl_date_keys, (int) $rows );
+	$bl_page        = blueline_sp_schedule_resolve_page(
+		isset( $_GET[ $bl_param ] ) ? sanitize_text_field( wp_unslash( $_GET[ $bl_param ] ) ) : null, // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a display-only page number, never an action.
+		count( $bl_page_ranges ),
+		blueline_sp_schedule_default_page( $bl_page_ranges, $bl_upcoming, $bl_ascending )
+	);
+
+	if ( count( $bl_page_ranges ) > 1 ) {
+		$bl_range   = $bl_page_ranges[ $bl_page - 1 ];
+		$bl_visible = array_slice( $data, $bl_range[0], $bl_range[1] );
+		$bl_pager   = blueline_sp_schedule_pager_html( $bl_page, count( $bl_page_ranges ), remove_query_arg( $bl_param ), $bl_param, $bl_anchor, $bl_ascending );
+	}
+}
+
 if ( isset( $columns ) && null !== $columns ) {
 	$usecolumns = is_array( $columns ) ? $columns : explode( ',', $columns );
 }
@@ -185,7 +231,7 @@ $identifier = uniqid( 'eventlist_' );
 // Date-heading row colspan: every printed <th>, Result included (QA C-16).
 $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 ?>
-<div class="sp-template sp-template-event-list">
+<div class="sp-template sp-template-event-list"<?php echo '' !== $bl_anchor ? ' id="' . esc_attr( $bl_anchor ) . '"' : ''; ?>>
 	<?php if ( $title ) : ?>
 		<?php
 		// Heading level depends on where this shortcode/template is
@@ -278,7 +324,7 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 				$bl_prev_date     = null;
 				$bl_reverse_teams = get_option( 'sportspress_event_reverse_teams', 'no' ) === 'yes';
 
-				foreach ( $data as $event ) :
+				foreach ( $bl_visible as $event ) :
 					if ( null !== $limit && $i >= $limit ) {
 						continue;
 					}
@@ -375,9 +421,10 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 							<?php if ( $link_events ) : ?>
 								<a href="<?php echo esc_url( get_post_permalink( $event->ID, false, true ) ); ?>" itemprop="url">
 							<?php endif; ?>
-							<time itemprop="startDate" datetime="<?php echo esc_attr( mysql2date( 'Y-m-d\TH:i:sP', $event->post_date ) ); ?>">
-								<?php echo esc_html( get_post_time( get_option( 'time_format' ), false, $event ) ); ?>
-							</time>
+							<?php
+							// The time, or "Time TBD" while the game's time is not settled.
+							echo blueline_sp_schedule_time_html( $status, mysql2date( 'Y-m-d\TH:i:sP', $event->post_date ), (string) get_post_time( get_option( 'time_format' ), false, $event ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built and escaped by blueline_sp_schedule_time_html() (inc/sportspress/core.php).
+							?>
 							<?php if ( $link_events ) : ?>
 								<?php // Several games share a time slot; the link's name says which game it is. ?>
 								<span class="screen-reader-text"><?php echo esc_html( blueline_sp_schedule_link_context( $bl_team_names, $bl_date_label, $bl_status_label ) ); ?></span>
@@ -480,6 +527,7 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 			</tbody>
 		</table>
 	</div>
+		<?php echo $bl_pager; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built and escaped by blueline_sp_schedule_pager_html() (inc/sportspress/core.php); '' when the list is not paged. ?>
 	<?php endif; ?>
 	<?php if ( $id && $show_all_events_link ) : ?>
 		<div class="sp-calendar-link sp-view-all-link"><a href="<?php echo esc_url( get_permalink( $id ) ); ?>"><?php esc_html_e( 'View all events', 'sportspress' ); ?></a></div>

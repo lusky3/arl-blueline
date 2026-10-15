@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<ruleset name="blueline" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+	<description>WordPress Coding Standards for the Blueline theme (run via `composer lint`).</description>
+
+	<file>.</file>
+
+	<!-- Not authored here. -->
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+	<exclude-pattern>/.wp-core-oracle/*</exclude-pattern>
+	<exclude-pattern>/assets/dist/*</exclude-pattern>
+	<exclude-pattern>/.phpunit.result.cache</exclude-pattern>
+
+	<!-- woocommerce/ is linted like theme code, including every email template and the Store Credit dashboard
+	     section: each one carries theme-authored copy re-applied on top of the plugin's current original.
+	     Two vendor templates stay excluded, and both are edited, so the reason is size, not authorship:
+	     - checkout/form-coupon.php: WooCommerce core, with a light tone pass on two visible strings only.
+	     - myaccount/my-refund-requests.php: YITH Advanced Refund System, with two label-only string edits; it never
+	       followed WPCS (spaces instead of tabs, unescaped echoes, a global override), so bringing it into line is a
+	       bigger, riskier change than the edit it carries.
+	     Each is a full path rather than a bare substring, so nothing can swallow a same-named theme file
+	     (a plain `woocommerce` once matched inc/woocommerce.php).
+	     scripts/check-template-versions.sh (repo root) reports when an override's original has moved on. -->
+	<exclude-pattern>/woocommerce/checkout/form-coupon\.php</exclude-pattern>
+	<exclude-pattern>/woocommerce/myaccount/my-refund-requests\.php</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<rule ref="WordPress"/>
+
+	<!-- Minimum WordPress the theme supports: keep equal to "Requires at least" in style.css. Drives
+	     WordPress.WP.DeprecatedFunctions and friends. -->
+	<config name="minimum_wp_version" value="6.9"/>
+
+	<!-- Text domain: every i18n call must use it. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="blueline"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Global namespace prefixes. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="blueline"/>
+			</property>
+		</properties>
+		<!-- Test classes, stand-ins for WordPress functions, fixtures and e2e seed scripts deliberately live
+		     in the global namespace and mimic WordPress and the plugins. -->
+		<exclude-pattern>/tests/*</exclude-pattern>
+		<exclude-pattern>/tests-e2e/*</exclude-pattern>
+	</rule>
+
+	<!-- Template files are included by WordPress inside a function (get_template_part(), wc_get_template(),
+	     SportsPress's template loader), so the variables they assign are local to that call, not globals.
+	     The sniff cannot tell, and would demand a `blueline_` prefix on every local such as $has_sidebar.
+	     Covers the root theme templates and the plugin template overrides. Functions, classes, constants and
+	     hooks declared in inc/ and functions.php are still checked. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound">
+		<exclude-pattern>/woocommerce/*</exclude-pattern>
+		<exclude-pattern>/sportspress/*</exclude-pattern>
+		<exclude-pattern>(?&lt;!/inc|/settings)/(archive|comments|content|content-none|content-single|page|search|single|sportspress)\.php$</exclude-pattern>
+	</rule>
+
+	<!-- The WooCommerce and SportsPress template overrides keep firing those plugins' own hooks
+	     (woocommerce_before_cart, sportspress_before_single_event, ...) exactly as the templates they replace
+	     do, so add-ons that hook in keep working. The nav walker likewise invokes core's own nav-menu filters,
+	     as every custom walker must. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound">
+		<exclude-pattern>/woocommerce/*</exclude-pattern>
+		<exclude-pattern>/sportspress/*</exclude-pattern>
+		<exclude-pattern>/inc/class-blueline-nav-walker\.php</exclude-pattern>
+	</rule>
+
+	<!-- The same overrides reuse the plugins' own strings ('woocommerce', 'sportspress') on purpose, so the
+	     translations those plugins ship keep applying. Every string in inc/ and the root templates is checked. -->
+	<rule ref="WordPress.WP.I18n.TextDomainMismatch">
+		<exclude-pattern>/woocommerce/*</exclude-pattern>
+		<exclude-pattern>/sportspress/*</exclude-pattern>
+	</rule>
+</ruleset>

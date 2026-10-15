@@ -47,14 +47,14 @@ final class Blueline_Fake_Redis_Client {
 	 * Consumed one per scan() call; once empty, scan() reports cursor 0 with
 	 * no keys (a natural "nothing left" end state).
 	 *
-	 * @var array<int, array{cursor:int, keys:string[]}>
+	 * @var array<int, array{cursor:int|null, keys:string[]|false}>
 	 */
 	private array $batches;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param array<int, array{cursor:int, keys:string[]}> $batches Queued SCAN batches.
+	 * @param array<int, array{cursor:int|null, keys:string[]|false}> $batches Queued SCAN batches.
 	 */
 	public function __construct( array $batches ) {
 		$this->batches = $batches;
@@ -63,15 +63,23 @@ final class Blueline_Fake_Redis_Client {
 	/**
 	 * Stand-in for phpredis' Redis::scan( &$cursor, $pattern, $count ): pops
 	 * the next queued batch, mutates $cursor by reference exactly as the
-	 * real client does, and returns that batch's keys.
+	 * real client does, and returns that batch's keys (or false, for a batch
+	 * queued with `keys => false`, which models phpredis' error reply).
 	 *
-	 * @param int    $cursor  Cursor, passed by reference.
-	 * @param string $pattern MATCH pattern.
-	 * @param int    $count   COUNT hint.
-	 * @return string[]
+	 * @param int|null $cursor  Cursor, passed by reference.
+	 * @param string   $pattern MATCH pattern.
+	 * @param int      $count   COUNT hint.
+	 * @return string[]|false
 	 */
 	public function scan( &$cursor, $pattern, $count ) {
 		$this->calls[] = array( 'scan', $cursor, $pattern, $count );
+
+		// phpredis semantics: a scan starts from a null iterator, and an iterator
+		// of 0 means "already finished", so the call returns false having
+		// scanned nothing. A caller that starts at 0 purges nothing.
+		if ( 0 === $cursor ) {
+			return false;
+		}
 
 		if ( empty( $this->batches ) ) {
 			$cursor = 0;
@@ -145,14 +153,14 @@ final class Blueline_Fake_Redis_Client_No_Unlink {
 	/**
 	 * Queued SCAN batches; see Blueline_Fake_Redis_Client::$batches.
 	 *
-	 * @var array<int, array{cursor:int, keys:string[]}>
+	 * @var array<int, array{cursor:int|null, keys:string[]|false}>
 	 */
 	private array $batches;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param array<int, array{cursor:int, keys:string[]}> $batches Queued SCAN batches.
+	 * @param array<int, array{cursor:int|null, keys:string[]|false}> $batches Queued SCAN batches.
 	 */
 	public function __construct( array $batches ) {
 		$this->batches = $batches;
@@ -168,6 +176,13 @@ final class Blueline_Fake_Redis_Client_No_Unlink {
 	 */
 	public function scan( &$cursor, $pattern, $count ) {
 		$this->calls[] = array( 'scan', $cursor, $pattern, $count );
+
+		// phpredis semantics: a scan starts from a null iterator, and an iterator
+		// of 0 means "already finished", so the call returns false having
+		// scanned nothing. A caller that starts at 0 purges nothing.
+		if ( 0 === $cursor ) {
+			return false;
+		}
 
 		if ( empty( $this->batches ) ) {
 			$cursor = 0;
@@ -582,6 +597,197 @@ final class SettingsCacheTest extends TestCase {
 	}
 
 	/**
+	 * The regression this file's fakes used to hide: phpredis starts a scan
+	 * from a NULL iterator, and an iterator of 0 means "finished", so a loop
+	 * that starts at 0 returns at once, having purged nothing, while this
+	 * function reported success.
+	 */
+	public function test_purge_attempt_starts_the_scan_from_a_null_cursor(): void {
+		$redis = new Blueline_Fake_Redis_Client(
+			array(
+				array(
+					'cursor' => 0,
+					'keys'   => array( 'nginx-cache:GET:example.test:/' ),
+				),
+			)
+		);
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertTrue( blueline_srcache_purge_attempt() );
+
+		$scan_calls = array_values( array_filter( $redis->calls, static fn( $call ) => 'scan' === $call[0] ) );
+		$this->assertNull( $scan_calls[0][1], 'the first SCAN must start from a null iterator' );
+		$this->assertContains( 'unlink', array_column( $redis->calls, 0 ), 'a key must really have been unlinked, not merely reported' );
+	}
+
+	/**
+	 * A SCAN error (phpredis returns false and leaves the iterator alone) is
+	 * not a completed purge: the owed-purge notice has to stay up.
+	 */
+	public function test_purge_attempt_reports_failure_when_scan_errors(): void {
+		$redis = new Blueline_Fake_Redis_Client(
+			array(
+				array(
+					'cursor' => null,
+					'keys'   => false,
+				),
+			)
+		);
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertFalse( blueline_srcache_purge_attempt() );
+
+		// The same failure through the policy a save runs: the notice must stay up.
+		$wp_object_cache = new Blueline_Fake_Object_Cache(
+			new Blueline_Fake_Redis_Client(
+				array(
+					array(
+						'cursor' => null,
+						'keys'   => false,
+					),
+				)
+			)
+		);
+
+		blueline_mark_cache_purge_needed();
+		blueline_apply_cache_purge_policy( true );
+		$this->assertTrue( blueline_cache_purge_needed(), 'a scan that did not finish must leave the notice up' );
+	}
+
+	/**
+	 * A scan that dies half way (a later batch errors) is also not complete,
+	 * even though the first batch was purged.
+	 */
+	public function test_purge_attempt_reports_failure_when_scan_fails_part_way(): void {
+		$redis = new Blueline_Fake_Redis_Client(
+			array(
+				array(
+					'cursor' => 9,
+					'keys'   => array( 'nginx-cache:GET:example.test:/one' ),
+				),
+				array(
+					'cursor' => 9,
+					'keys'   => false,
+				),
+			)
+		);
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertFalse( blueline_srcache_purge_attempt() );
+	}
+
+	/**
+	 * A phpredis client reports "no more keys" as false once the iterator is back at 0;
+	 * that is the end of the scan, not an error.
+	 */
+	public function test_purge_attempt_treats_false_with_a_zero_cursor_as_finished(): void {
+		$redis = new Blueline_Fake_Redis_Client(
+			array(
+				array(
+					'cursor' => 0,
+					'keys'   => false,
+				),
+			)
+		);
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertTrue( blueline_srcache_purge_attempt() );
+	}
+
+	/**
+	 * A client that never finishes is cut off by the iteration cap and
+	 * reported as not complete.
+	 */
+	public function test_purge_attempt_gives_up_on_a_scan_that_never_finishes(): void {
+		$redis = new class() {
+			/**
+			 * Calls made.
+			 *
+			 * @var int
+			 */
+			public int $calls = 0;
+
+			/**
+			 * Never converges.
+			 *
+			 * @param int|null $cursor  Cursor, by reference.
+			 * @param string   $pattern Pattern.
+			 * @param int      $count   Count.
+			 * @return string[]
+			 */
+			public function scan( &$cursor, $pattern, $count ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with phpredis.
+				++$this->calls;
+				$cursor = 5;
+				return array();
+			}
+		};
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertFalse( blueline_srcache_purge_attempt() );
+		$this->assertSame( 10000, $redis->calls );
+	}
+
+	/**
+	 * A dropped connection throws; that must not fatal a settings save.
+	 */
+	public function test_purge_attempt_survives_a_client_exception(): void {
+		$redis = new class() {
+			/**
+			 * Throws like phpredis on a lost connection.
+			 *
+			 * @param int|null $cursor  Cursor, by reference.
+			 * @param string   $pattern Pattern.
+			 * @param int      $count   Count.
+			 * @return never
+			 * @throws RuntimeException Always.
+			 */
+			public function scan( &$cursor, $pattern, $count ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with phpredis.
+				throw new RuntimeException( 'connection lost' );
+			}
+		};
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertFalse( blueline_srcache_purge_attempt() );
+	}
+
+	/**
+	 * A client whose scan() does not take the cursor by reference is not one
+	 * this code can drive (RedisCluster, or something unknown): refuse it
+	 * rather than call it with a convention it does not speak.
+	 */
+	public function test_purge_attempt_refuses_a_client_it_cannot_drive(): void {
+		$redis = new class() {
+			/**
+			 * Takes the cursor by value, like no client this code supports.
+			 *
+			 * @param int    $cursor  Cursor.
+			 * @param string $pattern Pattern.
+			 * @return array
+			 */
+			public function scan( $cursor, $pattern ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- deliberately the wrong shape.
+				return array();
+			}
+		};
+
+		global $wp_object_cache;
+		$wp_object_cache = new Blueline_Fake_Object_Cache( $redis );
+
+		$this->assertFalse( blueline_srcache_purge_attempt() );
+	}
+
+	/**
 	 * Calling blueline_apply_cache_purge_policy( true ), with every guard
 	 * satisfied, must clear a previously-recorded manual-purge notice -- the
 	 * purge running successfully is what makes the manual instruction stale.
@@ -622,6 +828,26 @@ final class SettingsCacheTest extends TestCase {
 			"redis-cli --scan --pattern 'nginx-cache:*example.test*' | xargs -r redis-cli unlink",
 			blueline_cache_purge_command( blueline_cache_purge_host() )
 		);
+	}
+
+	/**
+	 * The notice and `flush-cache` both say the Cloudflare edge cache is not
+	 * purged by this theme: a clean nginx purge is not the whole story on a
+	 * site behind Cloudflare.
+	 */
+	public function test_the_cloudflare_gap_is_stated(): void {
+		$this->assertStringContainsString( 'Cloudflare', blueline_cache_purge_cloudflare_message() );
+		$this->assertStringContainsString( 'does not do that', blueline_cache_purge_cloudflare_message() );
+
+		blueline_mark_cache_purge_needed();
+		$state                           = &blueline_test_state();
+		$state['caps']['manage_options'] = true;
+
+		ob_start();
+		blueline_render_cache_purge_notice();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'Cloudflare', $html, 'the admin notice must carry the reminder' );
 	}
 
 	/**

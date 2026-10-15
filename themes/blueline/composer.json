@@ -3,6 +3,9 @@
   "description": "ARL standalone theme",
   "type": "wordpress-theme",
   "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=8.3"
+  },
   "require-dev": {
     "phpunit/phpunit": "^12.0",
     "squizlabs/php_codesniffer": "^3.10",
@@ -12,11 +15,11 @@
   "scripts": {
     "test": "phpunit",
     "test:oracle": "BLUELINE_WP_CORE_INCLUDES_DIR=\"$(pwd)/.wp-core-oracle/wp-includes\" phpunit",
-    "lint": "phpcs --standard=WordPress --extensions=php --ignore=vendor,node_modules,.wp-core-oracle,assets/dist,woocommerce/checkout/form-coupon.php,woocommerce/myaccount/my-refund-requests.php ."
+    "lint": "phpcs"
   },
   "scripts-descriptions": {
     "test:oracle": "Like `test`, but points WpCoreContractTest's optional oracle job at a local snapshot of staging's WordPress core instead of letting it skip. Fetch that snapshot first with ../../scripts/fetch-wp-core-oracle.sh (from the repo root) -- this script does not fetch it itself, so a stale or missing .wp-core-oracle/ fails loudly rather than silently comparing against nothing.",
-    "lint": "Lints the whole theme, including every woocommerce/ override the theme has edited: the email templates (WooCommerce, Subscriptions, Store Credit, PayPal and YITH Refund originals with registration wording re-applied) and the Store Credit dashboard section are linted like theme code, because each one carries theme-authored copy. Two vendor templates stay excluded, and both are edited, so the reason is size, not authorship: woocommerce/checkout/form-coupon.php (WooCommerce core) carries a two-string tone pass (see its 'Cody Edits' note), and woocommerce/myaccount/my-refund-requests.php (YITH Advanced Refund System) carries label-only edits ('Order' to 'Reg #') on a template that was never close to WordPress Coding Standards (spaces for tabs, unescaped echoes); bringing either into line would mean reformatting a third-party file far beyond its small edit. Each excluded path is a full file match, so it cannot swallow a same-named theme file. scripts/check-template-versions.sh (repo root) reports when an override's original has moved on."
+    "lint": "WordPress Coding Standards over the whole theme, tests included, using phpcs.xml.dist: the text domain (blueline), the global prefix (blueline) and the minimum WordPress version are enforced, and each exclusion (vendor templates under woocommerce/, the plugin template overrides, test stand-ins) is listed there with its reason. The edited email and Store Credit overrides under woocommerce/ are linted like theme code; scripts/check-template-versions.sh (repo root) reports when an override's original has moved on."
   },
   "config": { "allow-plugins": { "dealerdirect/phpcodesniffer-composer-installer": true } }
 }

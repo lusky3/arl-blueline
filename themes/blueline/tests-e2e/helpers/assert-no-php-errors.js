@@ -8,11 +8,12 @@
  * markup that legitimately contains that word in its own UI copy
  * regardless of whether anything was actually deprecated on the request --
  * asserting its absence would fail on every page for a reason that has
- * nothing to do with this theme. These four strings are what PHP itself
- * emits verbatim (with `display_errors` on, which this environment's
- * WP_DEBUG=true implies) for a fatal, a parse error, an uncaught
- * exception's stack trace header, or a WSOD -- not something any
- * WordPress admin UI plugin would coincidentally print.
+ * nothing to do with this theme. The first four strings are what PHP itself
+ * emits verbatim for a fatal, a parse error or an uncaught exception when
+ * errors are displayed. The sandbox sets WP_DEBUG_DISPLAY to false, though,
+ * so there a fatal is caught by WordPress' fatal-error handler instead and
+ * the page is its "critical error" screen: that sentence is the fifth
+ * signature. (The specs also assert a 200, which that screen is not.)
  *
  * @param {string} html Full page HTML, e.g. from `page.content()`.
  * @param {string} context Short label for the assertion failure message.
@@ -23,6 +24,7 @@ function assertNoPhpErrors( html, context ) {
 		'Parse error',
 		'Uncaught Error',
 		'Uncaught Exception',
+		'There has been a critical error on this website',
 	];
 
 	for ( const signature of signatures ) {

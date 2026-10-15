@@ -14,6 +14,7 @@ require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/sportspress.php';
+require_once __DIR__ . '/../inc/account/dashboard.php';
 require_once __DIR__ . '/../inc/floating-next-game.php';
 
 /**
@@ -30,16 +31,28 @@ final class FloatingNextGameTest extends TestCase {
 	 * Define the plugin and WooCommerce stand-ins and a signed-in, claimed
 	 * visitor with a real upcoming game. Must run inside a separate process.
 	 *
-	 * @param array<string, bool> $woo WooCommerce conditional tags that should answer true.
+	 * @param array<string, bool> $woo   WooCommerce conditional tags that should answer true.
+	 * @param array               $event Fields of the next game that differ from the default one.
 	 */
-	private function arrange( array $woo = array() ): void {
+	private function arrange( array $woo = array(), array $event = array() ): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
 
-		$GLOBALS['bl_test_woo'] = $woo;
+		$GLOBALS['bl_test_woo']        = $woo;
+		$GLOBALS['bl_test_next_event'] = $event + array(
+			'event_id'         => 700,
+			'team_id'          => 0,
+			'timestamp'        => 1,
+			'venue'            => 'Red',
+			'venue_term_id'    => null,
+			'opponent_team_id' => null,
+			'is_home'          => true,
+			'status'           => 'ok',
+			'fingerprint'      => 'abc123',
+		);
 
 		eval( 'function blueline_current_user_player_id() { return 12; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- stands in for the blueline-core function, which must stay undefined in the shared process (CorePluginAbsentTest).
-		eval( 'function blueline_get_player_next_event( int $player_id ): ?array { return array( "event_id" => 700, "timestamp" => 1, "venue" => "Red", "venue_term_id" => null, "opponent_team_id" => null, "is_home" => true, "fingerprint" => "abc123" ); }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- same reason; player-data.php is not loaded here so the event can be fixed.
+		eval( 'function blueline_get_player_next_event( int $player_id ): ?array { return $GLOBALS["bl_test_next_event"]; }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- same reason; player-data.php is not loaded here so the event can be fixed.
 		eval( 'function is_account_page() { return ! empty( $GLOBALS["bl_test_woo"]["account"] ); }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- WooCommerce conditional tag stand-in.
 		eval( 'function is_cart() { return ! empty( $GLOBALS["bl_test_woo"]["cart"] ); }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- WooCommerce conditional tag stand-in.
 		eval( 'function is_checkout() { return ! empty( $GLOBALS["bl_test_woo"]["checkout"] ); }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- WooCommerce conditional tag stand-in.
@@ -160,5 +173,67 @@ final class FloatingNextGameTest extends TestCase {
 
 		$this->assertStringContainsString( 'bl-floating-next-game__date-full', $html );
 		$this->assertStringContainsString( 'bl-floating-next-game__date-short', $html );
+	}
+
+	/**
+	 * A game whose time is not settled says "Time TBD" in both the card and
+	 * the phone bar, never a firm-looking time.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_a_tbd_game_says_time_tbd_not_a_time(): void {
+		$this->arrange( array(), array( 'status' => 'tbd' ) );
+		$html = $this->render();
+
+		$this->assertStringContainsString( 'Aug 20 · Time TBD', $html );
+		$this->assertMatchesRegularExpression( '#date-short">\s*Aug 20 · Time TBD\s*<#', $html );
+		$this->assertStringNotContainsString( '7:00 PM', $html );
+		$this->assertStringNotContainsString( '7:00 pm', $html );
+	}
+
+	/**
+	 * An on-time game keeps its time, in the card and in the bar.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_an_on_time_game_keeps_its_time(): void {
+		$this->arrange();
+		$html = $this->render();
+
+		$this->assertStringContainsString( 'Aug 20 at 7:00 PM', $html );
+		$this->assertStringNotContainsString( 'Time TBD', $html );
+	}
+
+	/**
+	 * A player on two current teams has to be told which team is playing.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_the_matchup_names_the_players_own_team(): void {
+		$this->arrange(
+			array(),
+			array(
+				'team_id'          => 31,
+				'opponent_team_id' => 32,
+				'is_home'          => false,
+			)
+		);
+		$state              = &blueline_test_state();
+		$state['posts'][31] = array( 'title' => 'Kings' );
+		$state['posts'][32] = array( 'title' => 'Ducks' );
+		$html               = $this->render();
+
+		$this->assertMatchesRegularExpression( '#__matchup"[^>]*>\s*Kings @ Ducks\s*</a>#', $html );
+	}
+
+	/**
+	 * It still reads sensibly when the team is not known.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_the_matchup_without_a_team_is_just_the_opponent(): void {
+		$this->arrange();
+
+		$this->assertMatchesRegularExpression( '#__matchup"[^>]*>\s*vs TBD\s*</a>#', $this->render() );
 	}
 }

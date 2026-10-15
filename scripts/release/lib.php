@@ -8,8 +8,9 @@
  */
 
 /**
- * Tag grammar: v1.2.3 or v1.2.3-rc.1 (no uppercase V, no +build, no leading zeros).
- * A literal copy of blueline_updater_parse_tag(): scripts cannot load theme code.
+ * Tag grammar: v1.2.3, v1.2.3-rc.1 or v1.2.3-beta.1 (no uppercase V, no +build, no leading
+ * zeros, no other suffix: PHP's version_compare() ranks `-p1` / `-patch.1` above the final
+ * release). A literal copy of blueline_updater_parse_tag(): scripts cannot load theme code.
  *
  * @param string $tag Tag name.
  * @return string|null Version without the `v`.
@@ -17,7 +18,7 @@
 function blueline_release_parse_tag( string $tag ): ?string {
 	$num = '(?:0|[1-9]\d*)';
 
-	if ( 1 !== preg_match( '/^v(' . $num . '\.' . $num . '\.' . $num . '(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)$/', $tag, $m ) ) {
+	if ( 1 !== preg_match( '/^v(' . $num . '\.' . $num . '\.' . $num . '(?:-(?:rc|beta)\.' . $num . ')?)$/', $tag, $m ) ) {
 		return null;
 	}
 

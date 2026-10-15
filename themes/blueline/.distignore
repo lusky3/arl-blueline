@@ -53,6 +53,7 @@ tests
 /.wp-core-oracle
 /.phpunit.result.cache
 /phpunit.xml
+/phpcs.xml.dist
 /.gitignore
 /.distignore
 /composer.json

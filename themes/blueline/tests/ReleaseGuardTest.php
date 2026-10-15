@@ -112,11 +112,13 @@ final class ReleaseGuardTest extends TestCase {
 	 */
 	public static function bad_tags(): array {
 		return array(
-			'two parts'      => array( 'v1.2' ),
-			'uppercase V'    => array( 'V1.2.0' ),
-			'no v'           => array( '1.2.0' ),
-			'build metadata' => array( 'v1.2.0+b' ),
-			'dangling dash'  => array( 'v1.2.0-' ),
+			'two parts'          => array( 'v1.2' ),
+			'uppercase V'        => array( 'V1.2.0' ),
+			'no v'               => array( '1.2.0' ),
+			'build metadata'     => array( 'v1.2.0+b' ),
+			'dangling dash'      => array( 'v1.2.0-' ),
+			'post-release p'     => array( 'v1.2.0-p1' ),
+			'post-release patch' => array( 'v1.2.0-patch.1' ),
 		);
 	}
 
@@ -137,7 +139,7 @@ final class ReleaseGuardTest extends TestCase {
 	 * The script's tag grammar and the theme's must not drift apart.
 	 */
 	public function test_tag_grammar_matches_the_theme_updater(): void {
-		$samples = array( 'v1.2.3', 'v1.2.3-rc.1', 'V1.2.3', '1.2.3', 'v1.2', 'v1.2.3+b', 'v1.2.3-', 'v01.2.3', '', 'v1.2.3-rc..1' );
+		$samples = array( 'v1.2.3', 'v1.2.3-rc.1', 'v1.2.3-beta.2', 'v1.2.3-p1', 'v1.2.3-patch.1', 'v1.2.3-pl1', 'v1.2.3-hotfix', 'v1.2.3-rc1', 'V1.2.3', '1.2.3', 'v1.2', 'v1.2.3+b', 'v1.2.3-', 'v01.2.3', '', 'v1.2.3-rc..1' );
 
 		foreach ( $samples as $tag ) {
 			$this->assertSame( blueline_updater_parse_tag( $tag ), blueline_release_parse_tag( $tag ), $tag );
