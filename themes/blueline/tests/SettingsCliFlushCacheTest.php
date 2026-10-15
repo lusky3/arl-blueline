@@ -193,6 +193,10 @@ final class SettingsCliFlushCacheTest extends TestCase {
 			 * @return string[]
 			 */
 			public function scan( &$cursor, $pattern, $count ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- signature parity with phpredis' own SCAN; this fake ignores the hint.
+				if ( 0 === $cursor ) {
+					return false; // phpredis: an iterator of 0 means "finished"; a scan starts from null.
+				}
+
 				$cursor = 0;
 				return array( 'nginx-cache:' . $pattern . ':1' );
 			}

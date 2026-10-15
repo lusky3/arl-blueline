@@ -111,14 +111,16 @@ function is_preview() {
 	return false;
 }
 
-/**
- * Stand-in for core's get_post_permalink().
- *
- * @param int $post Post ID.
- * @return string
- */
-function get_post_permalink( $post = 0 ) {
-	return 'https://example.test/team/' . (int) $post . '/';
+if ( ! function_exists( 'get_post_permalink' ) ) {
+	/**
+	 * Stand-in for core's get_post_permalink().
+	 *
+	 * @param int $post Post ID.
+	 * @return string
+	 */
+	function get_post_permalink( $post = 0 ) {
+		return 'https://example.test/team/' . (int) $post . '/';
+	}
 }
 
 /**

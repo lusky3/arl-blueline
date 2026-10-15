@@ -289,11 +289,17 @@
  * rather than one more line of copy next to the copyright -- the same
  * bottom bar the occasion `line` above already grows into, without
  * disturbing either it or the header's own fixed-height layout.
+ *
+ * It wraps, and never outgrows the row: at 320px with the WCAG 1.4.12 text
+ * spacing overrides the label and the three buttons no longer fit on one
+ * line, and an unwrappable toggle pushed the whole page sideways.
  */
 .bl-theme-toggle {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bl-space-2);
+	max-width: 100%;
 	margin-inline-start: auto;
 }
 
@@ -304,6 +310,7 @@
 
 .bl-theme-toggle__group {
 	display: inline-flex;
+	max-width: 100%;
 	border: 1px solid var(--bl-ink-mid);
 }
 
@@ -325,6 +332,13 @@
 	font-size: var(--bl-text-sm);
 	line-height: 1;
 	cursor: pointer;
+
+	/*
+	 * The three share the group's width, whatever the text spacing, so the
+	 * group itself never overflows.
+	 */
+	flex: 1 1 auto;
+	min-width: 0;
 }
 
 .bl-theme-toggle__option + .bl-theme-toggle__option {

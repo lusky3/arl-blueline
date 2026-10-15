@@ -22,6 +22,13 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
 - Channels: `stable` offers final releases only; `beta` also offers `-rc` pre-releases.
   A site running `1.1.0` is never offered `1.1.0-rc.1` (final sorts above rc), so a
   site must run an older version to be offered an rc.
+- Tags are `vX.Y.Z`, `vX.Y.Z-rc.N` or `vX.Y.Z-beta.N`, nothing else: PHP ranks a `-p1` or
+  `-patch.1` suffix above the final release, so such a tag would reach staging but never
+  production. A hotfix is a new patch number. The updater and `scripts/release` both refuse
+  other suffixes.
+- A release newer than the installed theme whose zip or `manifest.json` is missing or invalid
+  is not offered, and Tools > Site Health says so (instead of "up to date"). Fix the release
+  files; the check retries hourly.
 
 ## Release procedure
 

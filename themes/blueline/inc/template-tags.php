@@ -209,6 +209,66 @@ function blueline_utility_normalize_path( $url ) {
 	return rtrim( strtolower( $path ), '/' );
 }
 
+add_filter( 'page_link', 'blueline_canonical_page_link', 30 );
+add_filter( 'post_link', 'blueline_canonical_page_link', 30 );
+add_filter( 'post_type_link', 'blueline_canonical_page_link', 30 );
+/**
+ * A permalink with the trailing slash dropped when this site does not use
+ * one, so the nav, the XML sitemap and every other generated link name the
+ * address that is actually served.
+ *
+ * Core redirects /standings/ to /standings on a slashless-permalink site, but
+ * the Page Links To plugin (priority 20 on these hooks) replaces a page's link
+ * with whatever address the editor stored -- often the slash form -- so those
+ * links cost a 301 on every click and sit in the sitemap as redirecting URLs.
+ * Runs after it. Only this site's own addresses (and bare paths) are touched,
+ * and the site root, other hosts and non-URLs are left exactly as they are.
+ *
+ * @param string $link A permalink.
+ * @return string
+ */
+function blueline_canonical_page_link( $link ) {
+	$link = (string) $link;
+
+	// Plain permalinks, or a structure that ends in a slash, serve the slash form.
+	$structure = (string) get_option( 'permalink_structure' );
+
+	if ( '' === $structure || '/' === substr( $structure, -1 ) ) {
+		return $link;
+	}
+
+	if ( ! preg_match( '/^([^?#]*)([?#].*)?$/s', $link, $parts ) ) {
+		return $link;
+	}
+
+	$base = $parts[1];
+	$tail = $parts[2] ?? '';
+
+	if ( '/' !== substr( $base, -1 ) || '/' === $base ) {
+		return $link;
+	}
+
+	$host = wp_parse_url( $base, PHP_URL_HOST );
+
+	// A relative path has no host; an absolute one must be this site's.
+	if ( $host ) {
+		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+
+		if ( ! $home_host || 0 !== strcasecmp( (string) $host, (string) $home_host ) ) {
+			return $link;
+		}
+	} elseif ( '/' !== substr( $base, 0, 1 ) ) {
+		return $link;
+	}
+
+	// A site root with a scheme and host ("https://example.test/") is the home page, not a slash to drop.
+	if ( '' === (string) wp_parse_url( $base, PHP_URL_PATH ) || '/' === wp_parse_url( $base, PHP_URL_PATH ) ) {
+		return $link;
+	}
+
+	return rtrim( $base, '/' ) . $tail;
+}
+
 add_filter( 'wp_nav_menu_objects', 'blueline_utility_nav_auth_state', 10, 2 );
 /**
  * Makes the header's utility nav (account links) -- and, more simply, the
@@ -571,26 +631,41 @@ function blueline_contact_url(): string {
 }
 
 /**
- * The path part of a request URI, for building a "same page on the classic site" link.
+ * The path and query of a request URI, for building a "same page on the classic site" link.
  *
- * Drops the query string and any leading "/classic" (a page already reached through the switch route), and
- * always returns a path that starts with "/".
+ * Drops any leading "/classic" (a page already reached through the switch route) and the `theme-switch`
+ * argument (it belongs to the old Theme Switcha cookie link and would flip the theme again), keeps every other
+ * query argument so a filtered or paginated page opens the same way on the classic site, and always returns a
+ * path that starts with "/". Only visible ASCII survives in the query, so nothing can inject a header or break
+ * out of the attribute it is printed in; the caller still escapes it for output.
  *
  * @param string $uri    Request URI.
  * @param string $prefix The router's route prefix, normally "/classic".
  * @return string
  */
 function blueline_classic_path( string $uri, string $prefix = '/classic' ): string {
-	$path = (string) strstr( $uri . '?', '?', true );
-	$path = '/' . ltrim( $path, '/' );
-	$pre  = '/' . trim( $prefix, '/' );
+	$path  = (string) strstr( $uri . '?', '?', true );
+	$query = (string) substr( (string) strstr( $uri, '?' ), 1 );
+	$path  = '/' . ltrim( $path, '/' );
+	$pre   = '/' . trim( $prefix, '/' );
 	if ( strtolower( $pre ) === strtolower( $path ) ) {
-		return '/';
-	}
-	if ( 0 === stripos( $path, $pre . '/' ) ) {
+		$path = '/';
+	} elseif ( 0 === stripos( $path, $pre . '/' ) ) {
 		$path = substr( $path, strlen( $pre ) );
 	}
-	return $path;
+
+	// A fragment is never sent to the server, but strip it from a hand-built URI anyway.
+	$query = (string) strstr( $query . '#', '#', true );
+	$query = (string) preg_replace( '/[^\x21-\x7E]/', '', $query );
+	$keep  = array();
+	foreach ( explode( '&', $query ) as $pair ) {
+		if ( '' === $pair || 'theme-switch' === urldecode( (string) strstr( $pair . '=', '=', true ) ) ) {
+			continue;
+		}
+		$keep[] = $pair;
+	}
+
+	return $path . ( $keep ? '?' . implode( '&', $keep ) : '' );
 }
 
 /**

@@ -38,8 +38,9 @@ final class ThemeFunctionGuardTest extends TestCase {
 	 * @var array<string,string>
 	 */
 	private const KEPT_THEME_GUARDS = array(
-		'blueline_is_commerce_request' => 'Defined in inc/woocommerce.php after its no-WooCommerce early return.',
-		'blueline_get_sidebar_setting' => 'Pluggable definition in inc/woocommerce.php (if ! function_exists), not a call guard.',
+		'blueline_is_commerce_request'    => 'Defined in inc/woocommerce.php after its no-WooCommerce early return.',
+		'blueline_wc_page_has_no_sidebar' => 'Defined in inc/woocommerce.php after its no-WooCommerce early return; sidebar.php runs without WooCommerce too.',
+		'blueline_get_sidebar_setting'    => 'Pluggable definition in inc/woocommerce.php (if ! function_exists), not a call guard.',
 	);
 
 	/**

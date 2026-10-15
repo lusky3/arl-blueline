@@ -1225,13 +1225,12 @@ table.sp-event-statistics.sp-data-table {
  *   anything sitting on it uses --bl-team-on-primary, which was computed
  *   against the real contrast formula.
  *
- *   BOUNDARIES AND TEXT must use --bl-team-accent, which is the team's hue
- *   darkened until it clears 4.5:1 on paper. It is deliberately absent for
- *   achromatic teams (a darkened white is just grey, which is nobody's
- *   identity), so those fall back to the theme's own accent and stay legible.
- *
- * Using --bl-team-primary for a border would put a white 1.04:1 line on
- * paper for Canadiens. That is the mistake this split prevents.
+ *   BOUNDARIES AND TEXT must not use --bl-team-primary. A team colour can be
+ *   near-white (a white primary is 1.04:1 on paper), so a border or text in it
+ *   can vanish. Use the theme's own tokens there. (A paper-derived
+ *   --bl-team-accent used to be printed for this and was never read by any
+ *   rule, so it was removed; if a team-coloured border or text is wanted,
+ *   derive it against the surface it sits on, light AND dark.)
  */
 
 /*
@@ -1264,8 +1263,7 @@ table.sp-event-statistics.sp-data-table {
  * make the crest plate invisible against its own background. The ring uses
  * the same on-primary colour, guaranteed (by construction) to contrast
  * against the primary-filled band regardless of how light or dark that
- * primary is, unlike --bl-team-accent (which is only derived against the
- * theme's paper ground, not against a team's own colour).
+ * primary is.
  */
 .bl-sp-hero--team .bl-sp-hero__crest {
 	padding: var(--bl-space-2);
@@ -1286,14 +1284,12 @@ table.sp-event-statistics.sp-data-table {
  *
  * The team hero emits no flag element, because .bl-sp-hero__flag comes only
  * from the PLAYER hero (inc/sportspress.php), so the rule that used to sit
- * here matched nothing. It was also unsound: it painted --bl-team-accent,
- * which is derived for contrast against --bl-paper, on top of a
- * --bl-team-primary fill. For any dark team colour
- * blueline_darken_to_contrast() returns its input
- * unchanged, so the chip rendered at 1.00:1 against its own background.
+ * here matched nothing. It was also unsound: it painted a colour derived for
+ * contrast against --bl-paper on top of a --bl-team-primary fill, so for any
+ * dark team colour the chip rendered at 1.00:1 against its own background.
  *
- * If the team hero ever gains division chips, derive a SECOND accent against
- * --bl-team-primary rather than reusing the paper-derived one.
+ * If the team hero ever gains division chips, derive their colour against
+ * --bl-team-primary, never against the paper ground.
  */
 
 .bl-sp-hero__teams {
@@ -2185,6 +2181,37 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	white-space: nowrap;
 }
 
+/*
+ * "Time TBD" where a game's time would be: wider than "6:45 pm", so it may
+ * wrap onto two lines in the narrow Time column rather than spill into Home.
+ */
+.bl-sp-schedule .bl-sp-schedule__tbd {
+	display: inline-block;
+	font-size: var(--bl-text-sm);
+	line-height: 1.3;
+	white-space: normal;
+}
+
+/*
+ * Earlier / later links under a paged schedule
+ * (blueline_sp_schedule_pager_html()).
+ */
+.bl-sp-pager {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bl-space-3);
+	margin-block-start: var(--bl-space-4);
+}
+
+.bl-sp-pager__status {
+	flex: 1 1 auto;
+	color: var(--bl-content-text-secondary);
+	font-size: var(--bl-text-sm);
+	text-align: center;
+}
+
 /* In the narrow Result column a recorded score goes under its status pill. */
 .bl-sp-schedule__status + .bl-sp-schedule__score {
 	display: block;
@@ -2588,6 +2615,16 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
  */
 
 /*
+ * The schedule is the container that its own narrow layout (the @container
+ * rule below) measures, so the table and the cards switch at the table's
+ * minimum width whatever the viewport or sidebar. Inline-size containment
+ * only: the block still fills its parent.
+ */
+.sp-template-event-list:has(.bl-sp-schedule) {
+	container: bl-sched / inline-size;
+}
+
+/*
  * QA C-01: calendars add League/Season/Article/Match Day columns, and fixed
  * percentages that already summed to 100% left those at 0 -- with
  * min-width: max-content the table went 1,000,000px wide. Each column now has
@@ -2791,10 +2828,10 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 }
 
 /*
- * Phones: one card per game instead of a table that scrolls sideways. At 390px
- * the table's first screen showed only Time, Home and Result; the opponent and
- * the pad were off to the right, behind a scroll most people never find. Same
- * reading order as the homepage's Next games cards:
+ * Narrow containers: one card per game instead of a table that scrolls
+ * sideways. At 390px the table's first screen showed only Time, Home and
+ * Result; the opponent and the pad were off to the right, behind a scroll most
+ * people never find. Same reading order as the homepage's Next games cards:
  *
  *   6:45 pm                        [result]
  *   [crest] Home  vs  [crest] Away
@@ -2803,10 +2840,17 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
  * The row becomes a wrapping flex line rather than a grid: `order` moves the
  * Result cell up beside the time, the row's ::before is a full-width break
  * after them, and when both names do not fit on one line the away team drops
- * to its own line instead of either being squeezed. Above 600px the table and
- * its mirrored crest lockup are unchanged.
+ * to its own line instead of either being squeezed. Once the table has room
+ * for its minimum width, the table and its mirrored crest lockup are unchanged.
+ *
+ * The switch follows the schedule's own width, not the viewport's: the table's
+ * minimum is 41rem (--bl-sched-total with the default columns, above), and
+ * between 601px and about 720px of viewport, or with the sidebar beside it up
+ * to about 1100px, the space it was given was narrower than that, so it sat in
+ * a state of scrolling a little with the Arena column cut off. Keep this
+ * threshold equal to the default --bl-sched-total.
  */
-@media (max-width: 600px) {
+@container bl-sched (width < 41rem) {
 
 	.sp-event-list.bl-sp-schedule,
 	.sp-event-list.bl-sp-schedule tbody {

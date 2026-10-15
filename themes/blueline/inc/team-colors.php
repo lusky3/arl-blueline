@@ -402,82 +402,10 @@ function blueline_readable_foreground( string $background, ?bool &$passes = null
 }
 
 /**
- * Saturation of a colour, 0.0-1.0, using the HSL definition.
- *
- * Used only to recognise achromatic colours (white, black, greys), whose hue
- * cannot survive being darkened -- see blueline_team_color_set().
- *
- * @param string $hex Validated `#rrggbb`.
- * @return float
- */
-function blueline_color_saturation( string $hex ): float {
-	$r = hexdec( substr( $hex, 1, 2 ) ) / 255;
-	$g = hexdec( substr( $hex, 3, 2 ) ) / 255;
-	$b = hexdec( substr( $hex, 5, 2 ) ) / 255;
-
-	$max = max( $r, $g, $b );
-	$min = min( $r, $g, $b );
-
-	if ( $max === $min ) {
-		return 0.0;
-	}
-
-	$l = ( $max + $min ) / 2;
-	$d = $max - $min;
-
-	return $l > 0.5 ? $d / ( 2 - $max - $min ) : $d / ( $max + $min );
-}
-
-/**
- * Darken a colour toward black, preserving its hue, until it clears a
- * contrast threshold against a background.
- *
- * Scaling all three channels by the same factor keeps the ratios between them
- * -- and therefore the hue -- while lowering luminance. This is what lets a
- * team's actual colour survive into readable text: Sharks' `#55bfd2` is only
- * 2.0:1 on paper, but darkening it produces a teal that clears 4.5:1 and is
- * still recognisably theirs, which a fallback to the generic theme accent
- * would not be.
- *
- * @param string $hex        Validated `#rrggbb` to darken.
- * @param string $background Validated `#rrggbb` to test against.
- * @param float  $min        Minimum acceptable ratio.
- * @return string Validated `#rrggbb`. Returns black if even that fails,
- *                which cannot happen for any background lighter than black.
- */
-function blueline_darken_to_contrast( string $hex, string $background, float $min ): string {
-	if ( blueline_contrast_ratio( $hex, $background ) >= $min ) {
-		return $hex;
-	}
-
-	$r = hexdec( substr( $hex, 1, 2 ) );
-	$g = hexdec( substr( $hex, 3, 2 ) );
-	$b = hexdec( substr( $hex, 5, 2 ) );
-
-	// 40 steps of 2.5% is fine-grained enough that the darkened result is
-	// never visibly darker than it needs to be, and terminates at black.
-	for ( $step = 1; $step <= 40; $step++ ) {
-		$factor    = 1 - ( $step * 0.025 );
-		$candidate = sprintf(
-			'#%02x%02x%02x',
-			(int) round( $r * $factor ),
-			(int) round( $g * $factor ),
-			(int) round( $b * $factor )
-		);
-
-		if ( blueline_contrast_ratio( $candidate, $background ) >= $min ) {
-			return $candidate;
-		}
-	}
-
-	return '#000000';
-}
-
-/**
  * The usable colour set for one team, derived from its `sp_colors` meta.
  *
  * @param int $team_id `sp_team` post ID.
- * @return array{primary:string,on_primary:string,accent:string}|array Empty
+ * @return array{primary:string,on_primary:string}|array Empty
  *               array when the team has no usable colour, in which case the
  *               page renders exactly as it did before this feature existed.
  */
@@ -511,32 +439,9 @@ function blueline_team_color_set( $team_id ): array {
 		return array();
 	}
 
-	/*
-	 * The accent is the team's colour used as *text* on the paper ground.
-	 *
-	 * An achromatic primary (Canadiens' #ffffff, Outlaws' #adadad) has no
-	 * hue to preserve, so darkening it yields grey -- which is not the
-	 * team's identity, just a dark neutral. Those fall back to the theme's
-	 * own accent for text while still using the real colour as a fill, so
-	 * the page keeps the team's identity where it reads and stays legible
-	 * where it matters.
-	 */
-	$is_achromatic = blueline_color_saturation( $primary ) < 0.15;
-
-	if ( $is_achromatic ) {
-		$accent = '';
-	} else {
-		$accent = blueline_darken_to_contrast(
-			$primary,
-			BLUELINE_TOKEN_PAPER,
-			blueline_contrast_threshold( 'body' )
-		);
-	}
-
 	return array(
 		'primary'    => $primary,
 		'on_primary' => $on_primary,
-		'accent'     => $accent,
 	);
 }
 
@@ -576,10 +481,6 @@ function blueline_team_color_style_value( $team_id ): string {
 		'--bl-team-primary: ' . $colors['primary'],
 		'--bl-team-on-primary: ' . $colors['on_primary'],
 	);
-
-	if ( '' !== $colors['accent'] ) {
-		$declarations[] = '--bl-team-accent: ' . $colors['accent'];
-	}
 
 	return implode( '; ', $declarations ) . ';';
 }

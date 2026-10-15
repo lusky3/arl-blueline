@@ -120,54 +120,6 @@ final class TeamColorsTest extends TestCase {
 		}
 	}
 
-	/* --------------------------------------------------------- darkening */
-
-	/**
-	 * Asserts a pale team colour that fails body contrast is darkened
-	 * until it passes.
-	 */
-	public function test_darkening_makes_a_pale_team_colour_readable_as_text(): void {
-		// Sharks #55bfd2 is only ~2:1 on paper and must not be used as text raw.
-		$this->assertLessThan(
-			blueline_contrast_threshold( 'body' ),
-			blueline_contrast_ratio( '#55bfd2', BLUELINE_TOKEN_PAPER )
-		);
-
-		$darkened = blueline_darken_to_contrast( '#55bfd2', BLUELINE_TOKEN_PAPER, blueline_contrast_threshold( 'body' ) );
-
-		$this->assertGreaterThanOrEqual(
-			blueline_contrast_threshold( 'body' ),
-			blueline_contrast_ratio( $darkened, BLUELINE_TOKEN_PAPER )
-		);
-	}
-
-	/**
-	 * Asserts darkening a colour to meet contrast preserves its hue by
-	 * keeping channel ordering intact.
-	 */
-	public function test_darkening_preserves_hue_order(): void {
-		// A cyan must stay cyan: blue channel highest, red lowest.
-		$darkened = blueline_darken_to_contrast( '#55bfd2', BLUELINE_TOKEN_PAPER, blueline_contrast_threshold( 'body' ) );
-
-		$r = hexdec( substr( $darkened, 1, 2 ) );
-		$g = hexdec( substr( $darkened, 3, 2 ) );
-		$b = hexdec( substr( $darkened, 5, 2 ) );
-
-		$this->assertGreaterThan( $r, $b, 'blue should still dominate red' );
-		$this->assertGreaterThan( $r, $g, 'green should still dominate red' );
-	}
-
-	/**
-	 * Asserts a colour that already meets the contrast target is returned
-	 * unchanged.
-	 */
-	public function test_already_dark_colour_is_returned_untouched(): void {
-		$this->assertSame(
-			'#002d62',
-			blueline_darken_to_contrast( '#002d62', BLUELINE_TOKEN_PAPER, blueline_contrast_threshold( 'body' ) )
-		);
-	}
-
 	/* ------------------------------------------------------- the full set */
 
 	/**
@@ -212,46 +164,6 @@ final class TeamColorsTest extends TestCase {
 
 		$this->assertSame( '#e2b85e', $set['primary'] );
 		$this->assertSame( BLUELINE_TOKEN_INK, $set['on_primary'] );
-		$this->assertNotSame( '', $set['accent'] );
-	}
-
-	/**
-	 * Asserts an achromatic (white) team primary withholds the derived
-	 * text accent rather than producing a meaningless grey.
-	 */
-	public function test_achromatic_team_gets_no_text_accent(): void {
-		// Canadiens' primary is pure white; a darkened white is grey, which
-		// is not their identity, so the accent is deliberately withheld and
-		// the CSS falls back to the theme token.
-		blueline_test_state()['post_meta'][123]['sp_colors'] = array( 'primary' => '#ffffff' );
-
-		$set = blueline_team_color_set( 123 );
-
-		$this->assertSame( '#ffffff', $set['primary'] );
-		$this->assertSame( BLUELINE_TOKEN_INK, $set['on_primary'] );
-		$this->assertSame( '', $set['accent'], 'white must not produce a grey "team" accent' );
-	}
-
-	/**
-	 * Asserts every derived accent colour, when present, is legible
-	 * against the paper token.
-	 */
-	public function test_derived_accent_is_always_legible_on_paper(): void {
-		foreach ( array( '#55bfd2', '#f8c63f', '#e2b85e', '#002d62', '#032a95' ) as $primary ) {
-			blueline_test_state()['post_meta'][123]['sp_colors'] = array( 'primary' => $primary );
-
-			$set = blueline_team_color_set( 123 );
-
-			if ( '' === $set['accent'] ) {
-				continue;
-			}
-
-			$this->assertGreaterThanOrEqual(
-				blueline_contrast_threshold( 'body' ),
-				blueline_contrast_ratio( $set['accent'], BLUELINE_TOKEN_PAPER ),
-				"accent derived from $primary is not legible on paper"
-			);
-		}
 	}
 
 	/* --------------------------------------------------- the style attribute */
@@ -279,13 +191,16 @@ final class TeamColorsTest extends TestCase {
 	}
 
 	/**
-	 * Asserts the style attribute omits the --bl-team-accent property when
-	 * the accent was withheld.
+	 * Asserts the style attribute carries exactly the two properties the CSS
+	 * reads. A team accent used to be printed here as well, but nothing read it.
 	 */
-	public function test_style_attribute_omits_the_accent_when_withheld(): void {
-		blueline_test_state()['post_meta'][123]['sp_colors'] = array( 'primary' => '#ffffff' );
+	public function test_style_attribute_carries_no_unused_accent_property(): void {
+		foreach ( array( '#ffffff', '#002d62', '#f8c63f' ) as $primary ) {
+			blueline_test_state()['post_meta'][123]['sp_colors'] = array( 'primary' => $primary );
 
-		$this->assertStringNotContainsString( '--bl-team-accent', blueline_team_color_style_attr( 123 ) );
+			$this->assertStringNotContainsString( '--bl-team-accent', blueline_team_color_style_attr( 123 ) );
+			$this->assertArrayNotHasKey( 'accent', blueline_team_color_set( 123 ) );
+		}
 	}
 
 	/* ---------------------------------------------------- shared thresholds */

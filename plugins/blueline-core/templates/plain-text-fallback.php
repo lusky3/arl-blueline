@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 
 $blueline_logo_url  = $blueline_core_brand['logo'];
 $blueline_site_name = get_bloginfo( 'name' );
-$blueline_site_url  = home_url( '/' );
+$blueline_site_url  = blueline_core_mail_url( home_url( '/' ) );
 ?>
 <!DOCTYPE html>
 <html>

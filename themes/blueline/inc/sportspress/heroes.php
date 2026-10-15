@@ -282,7 +282,7 @@ function blueline_sp_event_hero( $event_id ) {
 			</p>
 
 			<?php if ( $calendar_url || $ics_url ) : ?>
-				<div class="sp-scoreboard__calendar" data-calendar-links>
+				<div class="sp-scoreboard__calendar" data-calendar-links<?php echo blueline_calendar_group_attrs( __( 'Add this game to your calendar', 'blueline' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built and escaped by blueline_calendar_group_attrs(). ?>>
 					<?php if ( $ics_url ) : ?>
 						<?php
 						/*

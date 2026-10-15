@@ -70,11 +70,11 @@ final class EventListScheduleStatusTest extends TestCase {
 	}
 
 	/**
-	 * A status game with no score shows only its label: never the "coming
+	 * A game called off with no score shows only its label: never the "coming
 	 * soon" copy (it is not coming) and never the dash a game still on gets.
 	 */
 	public function test_status_game_without_a_score_never_falls_through(): void {
-		foreach ( array( 'postponed', 'cancelled', 'tbd' ) as $sp_status ) {
+		foreach ( array( 'postponed', 'cancelled' ) as $sp_status ) {
 			foreach ( array( 'pending', 'preview' ) as $state ) {
 				$html = blueline_sp_schedule_result_html( array(), $sp_status, $state, true );
 
@@ -84,6 +84,56 @@ final class EventListScheduleStatusTest extends TestCase {
 				$this->assertStringNotContainsString( 'bl-sp-schedule__score', $html, "$sp_status/$state" );
 			}
 		}
+	}
+
+	/**
+	 * A game whose time is not settled is still going ahead: the note lives in
+	 * the Time column, so the Result cell is the plain dash, not a second
+	 * "Time TBD" and not "Final score coming soon" for a placeholder date.
+	 */
+	public function test_tbd_game_result_cell_is_the_plain_dash(): void {
+		foreach ( array( 'pending', 'preview' ) as $state ) {
+			$html = blueline_sp_schedule_result_html( array(), 'tbd', $state, true );
+
+			$this->assertSame( '<span class="bl-sp-schedule__none">&#8212;</span>', $html, $state );
+		}
+	}
+
+	/**
+	 * A game whose time is not settled prints "Time TBD" where the time goes,
+	 * and no <time> element: its datetime attribute would be the placeholder
+	 * the post date carries, which machines read as the real start.
+	 */
+	public function test_time_cell_says_time_tbd_instead_of_a_firm_time(): void {
+		$html = blueline_sp_schedule_time_html( 'tbd', '2026-10-16T21:45:00-04:00', '9:45 pm' );
+
+		$this->assertSame( '<span class="bl-sp-schedule__tbd">Time TBD</span>', $html );
+		$this->assertStringNotContainsString( '9:45', $html );
+		$this->assertStringNotContainsString( '<time', $html );
+	}
+
+	/**
+	 * Every other game, including one called off (its time is struck through
+	 * by CSS), keeps its time.
+	 */
+	public function test_time_cell_keeps_the_time_for_every_other_game(): void {
+		foreach ( array( 'ok', '', 'postponed', 'cancelled', false ) as $sp_status ) {
+			$this->assertSame(
+				'<time itemprop="startDate" datetime="2026-10-16T21:45:00-04:00">9:45 pm</time>',
+				blueline_sp_schedule_time_html( $sp_status, '2026-10-16T21:45:00-04:00', '9:45 pm' ),
+				var_export( $sp_status, true ) // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- assertion message.
+			);
+		}
+	}
+
+	/**
+	 * The time is escaped on the way out.
+	 */
+	public function test_time_cell_escapes_its_inputs(): void {
+		$html = blueline_sp_schedule_time_html( 'ok', '"><b>', '<i>9</i>' );
+
+		$this->assertStringNotContainsString( '<b>', $html );
+		$this->assertStringNotContainsString( '<i>', $html );
 	}
 
 	/**
@@ -162,7 +212,7 @@ final class EventListScheduleStatusTest extends TestCase {
 		$this->assertStringContainsString( "get_post_meta( \$event->ID, 'sp_status', true )", $src );
 		$this->assertStringContainsString( 'blueline_sp_schedule_status( $status )', $src );
 		$this->assertMatchesRegularExpression(
-			'#</time>.*<span class="screen-reader-text"><\?php echo esc_html\( blueline_sp_schedule_link_context\( \$bl_team_names, \$bl_date_label, \$bl_status_label \) \); \?></span>\s*</a>#s',
+			'#blueline_sp_schedule_time_html\(.*<span class="screen-reader-text"><\?php echo esc_html\( blueline_sp_schedule_link_context\( \$bl_team_names, \$bl_date_label, \$bl_status_label \) \); \?></span>\s*</a>#s',
 			$src,
 			'the hidden context must sit inside the time link, after the visible time'
 		);

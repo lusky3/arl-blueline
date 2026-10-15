@@ -60,7 +60,8 @@ $season_ids = sp_get_the_term_ids( $id, 'sp_season' );
 // of this database's players carry, and since '0' is falsy the teammate filter
 // below was skipped entirely -- so "Jump to a teammate" listed the whole
 // league instead of the player's own team. See blueline_player_current_team_ids().
-$team = blueline_player_current_team_id( $id );
+// A player on two current teams lists the teammates of each, one group per team.
+$team_ids = blueline_player_published_team_ids( $id );
 
 $args = array(
 	'post_type'      => 'sp_player',
@@ -89,67 +90,48 @@ if ( $season_ids ) :
 	);
 endif;
 
-if ( $team ) :
-	$args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- same shape as the stock template this overrides.
-		array(
-			'key'   => 'sp_current_team',
-			'value' => $team,
-		),
+// One query per current team (none for an unrostered player: the whole league, as before).
+$groups = array();
+
+foreach ( $team_ids ? $team_ids : array( 0 ) as $team_id ) :
+	$team_args = $args;
+
+	if ( $team_id ) :
+		$team_args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- same shape as the stock template this overrides.
+			array(
+				'key'   => 'sp_current_team',
+				'value' => $team_id,
+			),
+		);
+	endif;
+
+	$team_args = apply_filters( 'sportspress_players_selector_args', $team_args );
+	$players   = get_posts( $team_args );
+
+	$groups[] = array(
+		'label'   => count( $team_ids ) > 1 ? blueline_sp_title( $team_id ) : '',
+		'players' => is_array( $players ) ? $players : array(),
 	);
-endif;
+endforeach;
 
-$args = apply_filters( 'sportspress_players_selector_args', $args );
+// Numbered players first, then by name -- see blueline_sp_player_selector_options().
+$options = blueline_sp_player_selector_options( $groups, (int) $id );
 
-$players = get_posts( $args );
-
-if ( is_array( $players ) ) {
-	usort(
-		$players,
-		static function ( $a, $b ) {
-			$a_number = get_post_meta( $a->ID, 'sp_number', true );
-			$b_number = get_post_meta( $b->ID, 'sp_number', true );
-			$a_has    = ( '' !== $a_number && null !== $a_number );
-			$b_has    = ( '' !== $b_number && null !== $b_number );
-
-			if ( $a_has && $b_has ) {
-				return (int) $a_number - (int) $b_number;
-			}
-			if ( $a_has !== $b_has ) {
-				return $a_has ? -1 : 1; // Numbered players first, same order the stock query produced.
-			}
-			return strcasecmp( $a->post_title, $b->post_title );
-		}
-	);
-}
-
-$options = array();
-
-if ( $players && is_array( $players ) ) :
-	foreach ( $players as $player ) :
-		$name   = $player->post_title;
-		$number = get_post_meta( $player->ID, 'sp_number', true );
-		if ( isset( $number ) && '' !== $number ) :
-			$name = $number . '. ' . $name;
-		endif;
-		$options[] = '<option value="' . esc_url( get_post_permalink( $player->ID ) ) . '" ' . selected( $player->ID, $id, false ) . '>' . esc_html( $name ) . '</option>';
-	endforeach;
-endif;
-
-if ( count( $options ) > 1 ) :
+if ( $options['count'] > 1 ) :
 	$select_id = 'bl-sp-player-selector-' . (int) $id;
 	?>
 	<div class="sp-template sp-template-player-selector sp-template-profile-selector bl-sp-player-selector">
 		<label class="bl-sp-player-selector__label" for="<?php echo esc_attr( $select_id ); ?>">
 			<?php
-			// $team is only set once (line 60) and never reassigned, so this
-			// reflects exactly whether the query above actually scoped to a
+			// $team_ids is only set once and never reassigned, so this
+			// reflects exactly whether the queries above actually scoped to a
 			// team roster or fell through to every player in the league --
 			// confirmed live, 2026-09-04 UX audit: a player with no
 			// sp_current_team meta (roughly 6% of this database's players,
 			// not a bug case -- see blueline_player_current_team_id()'s own
 			// docblock) got the whole-league list under a label that
 			// promised "teammate", not "player".
-			echo $team // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- both branches are static translated strings, no variable content.
+			echo $team_ids // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- both branches are static translated strings, no variable content.
 				? esc_html__( 'Jump to a teammate', 'blueline' )
 				: esc_html__( 'Jump to a player', 'blueline' );
 			?>
@@ -158,9 +140,12 @@ if ( count( $options ) > 1 ) :
 			<select id="<?php echo esc_attr( $select_id ); ?>" class="sp-profile-selector sp-player-selector bl-sp-player-selector__select">
 				<?php
 				echo wp_kses(
-					implode( '', $options ),
+					$options['html'],
 					array(
-						'option' => array(
+						'optgroup' => array(
+							'label' => array(),
+						),
+						'option'   => array(
 							'value'    => array(),
 							'selected' => array(),
 						),

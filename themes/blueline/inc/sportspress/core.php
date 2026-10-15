@@ -642,7 +642,8 @@ function blueline_sp_schedule_status( $sp_status ): string {
 /**
  * Label for a blueline_sp_schedule_status() key. Postponed and cancelled use
  * the event hero's own words, so the table and the game's page agree; "Time
- * TBD" because the Time column beside it still shows a provisional time.
+ * TBD" is what the Time column itself prints for a game whose time is not
+ * settled (blueline_sp_schedule_time_html()).
  *
  * @param string $status blueline_sp_schedule_status() result.
  * @return string
@@ -660,9 +661,11 @@ function blueline_sp_schedule_status_label( string $status ): string {
  *
  * A postponed or cancelled game often carries a recorded 0-0, which on its own
  * reads as a final score; the status label always comes first and the score,
- * when there is one, sits beside it (the event hero does the same). A status
- * game never falls through to "Final score coming soon" or the dash, which
- * both say the game is still on.
+ * when there is one, sits beside it (the event hero does the same). A
+ * postponed or cancelled game never falls through to "Final score coming
+ * soon" or the dash, which both say the game is still on. A TBD-time game is
+ * still going ahead, so it shows what any such game shows; its Time column
+ * carries the TBD note.
  *
  * @param array  $main_results   Team ID => score, as sp_get_main_results() returns.
  * @param mixed  $sp_status      The event's `sp_status` meta.
@@ -675,6 +678,10 @@ function blueline_sp_schedule_result_html( array $main_results, $sp_status, stri
 	$score  = $main_results
 		? '<span class="bl-sp-schedule__score">' . wp_kses_post( implode( ' - ', $main_results ) ) . '</span>'
 		: '';
+
+	if ( 'tbd' === $status ) {
+		return '' !== $score ? $score : '<span class="bl-sp-schedule__none">&#8212;</span>';
+	}
 
 	if ( '' !== $status ) {
 		$label = sprintf(
@@ -696,6 +703,202 @@ function blueline_sp_schedule_result_html( array $main_results, $sp_status, stri
 	}
 
 	return '<span class="bl-sp-schedule__none">&#8212;</span>';
+}
+
+/**
+ * The schedule's Time cell content (sportspress/event-list.php): the kick-off
+ * time, or "Time TBD" when SportsPress marks the time as not settled -- the
+ * game page and the account cards already say so, and the post date of such a
+ * game holds a placeholder that must not be shown, or sent to machines in a
+ * <time datetime>, as the real start.
+ *
+ * @param mixed  $sp_status The event's `sp_status` meta.
+ * @param string $datetime  The event's ISO 8601 start, for <time datetime>.
+ * @param string $time_text The start time as formatted for display.
+ * @return string HTML.
+ */
+function blueline_sp_schedule_time_html( $sp_status, string $datetime, string $time_text ): string {
+	if ( 'tbd' === blueline_sp_schedule_status( $sp_status ) ) {
+		return '<span class="bl-sp-schedule__tbd">' . esc_html( blueline_sp_schedule_status_label( 'tbd' ) ) . '</span>';
+	}
+
+	return '<time itemprop="startDate" datetime="' . esc_attr( $datetime ) . '">' . esc_html( $time_text ) . '</time>';
+}
+
+/**
+ * Split an ordered schedule into pages of whole date groups: the schedule
+ * prints a heading per date, so a day split across a page break would repeat
+ * its heading. A page holds as many whole days as fit in $rows; a single day
+ * larger than $rows still gets a page of its own.
+ *
+ * @param string[] $date_keys One `Y-m-d` per event, in display order.
+ * @param int      $rows      Target rows per page; 0 or less means no paging.
+ * @return array<int, array{0:int, 1:int}> [ offset, length ] per page; empty for no events.
+ */
+function blueline_sp_schedule_page_ranges( array $date_keys, int $rows ): array {
+	$total = count( $date_keys );
+
+	if ( 0 === $total ) {
+		return array();
+	}
+
+	if ( $rows < 1 || $total <= $rows ) {
+		return array( array( 0, $total ) );
+	}
+
+	$groups = array();
+	foreach ( array_values( $date_keys ) as $index => $key ) {
+		if ( $groups && $groups[ count( $groups ) - 1 ][2] === $key ) {
+			++$groups[ count( $groups ) - 1 ][1];
+			continue;
+		}
+		$groups[] = array( $index, 1, $key );
+	}
+
+	$pages = array();
+	$page  = null;
+
+	foreach ( $groups as $group ) {
+		if ( null !== $page && $page[1] + $group[1] > $rows ) {
+			$pages[] = $page;
+			$page    = null;
+		}
+
+		$page = null === $page ? array( $group[0], $group[1] ) : array( $page[0], $page[1] + $group[1] );
+	}
+
+	$pages[] = $page;
+
+	return $pages;
+}
+
+/**
+ * The 1-based page of a blueline_sp_schedule_page_ranges() result that holds
+ * the event at $index. An index past the end is the last page.
+ *
+ * @param array<int, array{0:int, 1:int}> $ranges blueline_sp_schedule_page_ranges() result.
+ * @param int                             $index  Position of the event in the full list.
+ * @return int
+ */
+function blueline_sp_schedule_page_for_index( array $ranges, int $index ): int {
+	foreach ( array_values( $ranges ) as $position => $range ) {
+		if ( $index < $range[0] + $range[1] ) {
+			return $position + 1;
+		}
+	}
+
+	return max( 1, count( $ranges ) );
+}
+
+/**
+ * The page a schedule opens on when none was asked for: an oldest-first list
+ * opens on the page holding the next game (a player scrolling past every
+ * played game to find it was the complaint), a newest-first list on its first
+ * page, and a list with nothing upcoming on its last page, the most recent.
+ *
+ * @param array<int, array{0:int, 1:int}> $ranges              blueline_sp_schedule_page_ranges() result.
+ * @param int|null                        $first_upcoming_index Position of the first game not yet started, null for none.
+ * @param bool                            $ascending            Whether the list runs oldest first.
+ * @return int
+ */
+function blueline_sp_schedule_default_page( array $ranges, ?int $first_upcoming_index, bool $ascending ): int {
+	if ( ! $ascending || ! $ranges ) {
+		return 1;
+	}
+
+	if ( null === $first_upcoming_index ) {
+		return count( $ranges );
+	}
+
+	return blueline_sp_schedule_page_for_index( $ranges, $first_upcoming_index );
+}
+
+/**
+ * The page to show: the requested one clamped into range, or $fallback when
+ * the request is absent or not a positive whole number.
+ *
+ * @param mixed $requested The raw query-string value.
+ * @param int   $pages     Number of pages.
+ * @param int   $fallback  blueline_sp_schedule_default_page() result.
+ * @return int
+ */
+function blueline_sp_schedule_resolve_page( $requested, int $pages, int $fallback ): int {
+	if ( ! is_scalar( $requested ) || ! preg_match( '/^\d+$/', (string) $requested ) || (int) $requested < 1 ) {
+		return $fallback;
+	}
+
+	return min( (int) $requested, max( 1, $pages ) );
+}
+
+/**
+ * The query argument carrying a paged schedule's page number. A page can hold
+ * several paged schedules, each numbered in the order it prints.
+ *
+ * @param int $position 1-based position of this schedule among the paged ones on the page.
+ * @return string
+ */
+function blueline_sp_schedule_page_param( int $position ): string {
+	return $position > 1 ? 'sched_page_' . $position : 'sched_page';
+}
+
+/**
+ * The position of the paged schedule about to print among the paged
+ * schedules on this request (1, 2, ...), so each gets its own query argument
+ * and anchor. Counted here, in a function, rather than in the template: a
+ * template runs inside whatever function included it, where a static would be
+ * shared with every other template that function loads.
+ *
+ * @return int
+ */
+function blueline_sp_schedule_next_list_position(): int {
+	static $position = 0;
+
+	return ++$position;
+}
+
+/**
+ * Previous/next links under a paged schedule. Both keep the reader on the
+ * table (the fragment), and say which way in time they go: oldest-first lists
+ * go earlier/later, newest-first ones the reverse.
+ *
+ * @param int    $page      Current 1-based page.
+ * @param int    $pages     Number of pages.
+ * @param string $base_url  The page's URL without this schedule's page argument.
+ * @param string $param     This schedule's query argument.
+ * @param string $anchor    Id of the schedule's wrapper, for the fragment.
+ * @param bool   $ascending Whether the list runs oldest first.
+ * @return string HTML, '' for a single page.
+ */
+function blueline_sp_schedule_pager_html( int $page, int $pages, string $base_url, string $param, string $anchor, bool $ascending ): string {
+	if ( $pages < 2 ) {
+		return '';
+	}
+
+	$link = static function ( int $target, string $rel, string $label ) use ( $base_url, $param, $anchor ): string {
+		return sprintf(
+			'<a class="bl-btn bl-btn--secondary" rel="%1$s" href="%2$s"><span class="bl-skew"><span>%3$s</span></span></a>',
+			esc_attr( $rel ),
+			esc_url( add_query_arg( $param, $target, $base_url ) . '#' . $anchor ),
+			esc_html( $label )
+		);
+	};
+
+	$before = $ascending ? __( 'Earlier games', 'blueline' ) : __( 'Later games', 'blueline' );
+	$after  = $ascending ? __( 'Later games', 'blueline' ) : __( 'Earlier games', 'blueline' );
+
+	$html  = '<nav class="bl-sp-pager" aria-label="' . esc_attr__( 'Schedule pages', 'blueline' ) . '">';
+	$html .= $page > 1 ? $link( $page - 1, 'prev', $before ) : '';
+	$html .= '<span class="bl-sp-pager__status">' . esc_html(
+		sprintf(
+			/* translators: 1: current page, 2: number of pages. */
+			__( 'Page %1$d of %2$d', 'blueline' ),
+			$page,
+			$pages
+		)
+	) . '</span>';
+	$html .= $page < $pages ? $link( $page + 1, 'next', $after ) : '';
+
+	return $html . '</nav>';
 }
 
 /**
@@ -735,6 +938,70 @@ function blueline_sp_schedule_link_context( array $team_names, string $date, str
  */
 function blueline_sp_schedule_venue_text( string $label ): string {
 	return (string) preg_replace( '/\s+—\s+/u', "\u{00A0}—\u{00A0}", $label );
+}
+
+/**
+ * The <option> list for sportspress/player-selector.php, grouped by team.
+ *
+ * Players with a jersey number come first, ascending by number (the order the
+ * stock template produced), then everyone else by name -- so a player with no
+ * number on file still appears in their own team's list. A player on two
+ * current teams has a group per team; with one team there is no group heading.
+ * A group with nobody in it is dropped rather than printed as an empty heading.
+ *
+ * @param array<int, array{label:string, players:array}> $groups      One per team: a heading ('' for none) and its get_posts() players.
+ * @param int                                            $selected_id The player whose page this is.
+ * @return array{html:string, count:int} The markup, and how many options it holds.
+ */
+function blueline_sp_player_selector_options( array $groups, int $selected_id ): array {
+	$html  = '';
+	$count = 0;
+
+	foreach ( $groups as $group ) {
+		$players = array_values( (array) $group['players'] );
+
+		if ( ! $players ) {
+			continue;
+		}
+
+		usort(
+			$players,
+			static function ( $a, $b ) {
+				$a_number = get_post_meta( $a->ID, 'sp_number', true );
+				$b_number = get_post_meta( $b->ID, 'sp_number', true );
+				$a_has    = ( '' !== $a_number && null !== $a_number && false !== $a_number );
+				$b_has    = ( '' !== $b_number && null !== $b_number && false !== $b_number );
+
+				if ( $a_has && $b_has ) {
+					return (int) $a_number - (int) $b_number;
+				}
+				if ( $a_has !== $b_has ) {
+					return $a_has ? -1 : 1;
+				}
+				return strcasecmp( $a->post_title, $b->post_title );
+			}
+		);
+
+		$options = '';
+		foreach ( $players as $player ) {
+			$name   = $player->post_title;
+			$number = get_post_meta( $player->ID, 'sp_number', true );
+			if ( '' !== $number && false !== $number && null !== $number ) {
+				$name = $number . '. ' . $name;
+			}
+			$options .= '<option value="' . esc_url( get_post_permalink( $player->ID ) ) . '"' . selected( $player->ID, $selected_id, false ) . '>' . esc_html( $name ) . '</option>';
+			++$count;
+		}
+
+		$html .= '' !== $group['label']
+			? '<optgroup label="' . esc_attr( $group['label'] ) . '">' . $options . '</optgroup>'
+			: $options;
+	}
+
+	return array(
+		'html'  => $html,
+		'count' => $count,
+	);
 }
 
 /**

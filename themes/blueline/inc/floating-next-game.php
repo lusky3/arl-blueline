@@ -94,10 +94,6 @@ function blueline_render_floating_next_game(): void {
 		return;
 	}
 
-	$opponent_name = $event['opponent_team_id']
-		? blueline_sp_title( $event['opponent_team_id'] )
-		: __( 'TBD', 'blueline' );
-
 	$venue_url = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 	?>
 	<div
@@ -111,31 +107,11 @@ function blueline_render_floating_next_game(): void {
 			<?php esc_html_e( 'Updated', 'blueline' ); ?>
 		</span>
 		<p class="bl-floating-next-game__date">
-			<span class="bl-floating-next-game__date-full">
-				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: 1: event date, 2: event time. */
-						__( '%1$s at %2$s', 'blueline' ),
-						get_the_date( 'D, M j', $event['event_id'] ),
-						get_the_time( get_option( 'time_format' ), $event['event_id'] )
-					)
-				);
-				?>
-			</span>
-			<span class="bl-floating-next-game__date-short"><?php echo esc_html( get_the_time( 'D g:i a', $event['event_id'] ) ); ?></span>
+			<span class="bl-floating-next-game__date-full"><?php echo esc_html( blueline_account_event_when( $event ) ); ?></span>
+			<span class="bl-floating-next-game__date-short"><?php echo esc_html( blueline_account_event_when_short( $event ) ); ?></span>
 		</p>
 		<a class="bl-floating-next-game__matchup" href="<?php echo esc_url( get_permalink( $event['event_id'] ) ); ?>">
-			<?php
-			echo esc_html(
-				sprintf(
-					/* translators: 1: "vs" (home) or "@" (away), 2: opponent team name. */
-					__( '%1$s %2$s', 'blueline' ),
-					$event['is_home'] ? __( 'vs', 'blueline' ) : __( '@', 'blueline' ),
-					$opponent_name
-				)
-			);
-			?>
+			<?php echo esc_html( blueline_account_event_matchup( $event ) ); ?>
 		</a>
 		<?php if ( $event['venue'] ) : ?>
 			<p class="bl-floating-next-game__venue">

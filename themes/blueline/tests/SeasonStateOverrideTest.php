@@ -273,6 +273,32 @@ final class SeasonStateOverrideTest extends TestCase {
 	}
 
 	/**
+	 * The hero reads the one list, through blueline_known_season_state():
+	 * every known state passes through, anything else is the quiet offseason.
+	 */
+	public function test_an_unknown_state_is_the_offseason(): void {
+		foreach ( BLUELINE_SEASON_STATES as $state ) {
+			$this->assertSame( $state, blueline_known_season_state( $state ) );
+		}
+
+		foreach ( array( '', 'Preseason', 'summer', 'in-season' ) as $junk ) {
+			$this->assertSame( 'offseason', blueline_known_season_state( $junk ), $junk );
+		}
+	}
+
+	/**
+	 * THE PIN for the former copy: the hero must not list the states again,
+	 * or a sixth state added to the constant would be quietly demoted to
+	 * offseason on the homepage.
+	 */
+	public function test_the_hero_does_not_keep_its_own_list_of_states(): void {
+		$src = (string) file_get_contents( __DIR__ . '/../inc/homepage-modules.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading local theme source in a unit test.
+
+		$this->assertStringContainsString( 'blueline_known_season_state( $state )', $src );
+		$this->assertStringNotContainsString( "array( 'registration_open', 'preseason', 'in_season', 'playoffs', 'offseason' )", $src );
+	}
+
+	/**
 	 * THE DRIFT PIN between the domain enum and the panel's dropdown. The
 	 * schema's `choices` list is what an admin can pick from and what the
 	 * sanitizer accepts; BLUELINE_SEASON_STATES is what
