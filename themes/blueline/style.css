@@ -68,8 +68,8 @@ Update URI: https://github.com/lusky3/arl-blueline
 	--bl-danger:  #A32C1B;
 
 	/* Type */
-	--bl-font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-	--bl-font-body:    "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--bl-font-display: "Barlow Condensed", "Barlow Condensed Fallback", "Barlow Condensed Fallback Arial", "Arial Narrow", system-ui, sans-serif;
+	--bl-font-body:    "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
 
 	--bl-text-xs:   0.75rem;
 	--bl-text-sm:   0.875rem;

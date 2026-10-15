@@ -578,6 +578,11 @@
 		margin-inline-end: calc(var(--bl-space-3) + 0.18em);
 	}
 
+	/* ...and on a parent item it ran over the submenu chevron beside it. */
+	.bl-nav__menu > .bl-nav__item > .bl-nav__link[aria-current="page"] + .bl-nav__toggle-sub {
+		margin-inline-start: calc(var(--bl-space-3) + 0.18em);
+	}
+
 	/*
 	 * Desktop dropdowns also open on hover and on focus-within, not only on
 	 * [data-open]. Both are safe here in a way they are not in the drawer: a

@@ -383,9 +383,14 @@
 }
 
 .bl-new-here__intro,
-.bl-new-here__qa {
+.bl-new-here__qa,
+.bl-new-here__cta {
 	position: relative;
 	z-index: 1;
+}
+
+.bl-new-here__cta {
+	margin: var(--bl-space-7) 0 0;
 }
 
 .bl-new-here__intro {

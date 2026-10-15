@@ -32,6 +32,7 @@ $heading_level = isset( $args['heading_level'] ) ? (string) $args['heading_level
 		<p class="bl-empty-state__text">
 			<?php esc_html_e( 'We couldn’t find anything matching your search. Try a different term below.', 'blueline' ); ?>
 		</p>
+		<?php blueline_empty_state_links(); ?>
 		<?php get_search_form(); ?>
 
 	<?php elseif ( is_home() && current_user_can( 'publish_posts' ) ) : ?>
@@ -56,6 +57,7 @@ $heading_level = isset( $args['heading_level'] ) ? (string) $args['heading_level
 		<p class="bl-empty-state__text">
 			<?php esc_html_e( 'We couldn’t find anything to show. Try searching instead.', 'blueline' ); ?>
 		</p>
+		<?php blueline_empty_state_links(); ?>
 		<?php get_search_form(); ?>
 
 	<?php endif; ?>

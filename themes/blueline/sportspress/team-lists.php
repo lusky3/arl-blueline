@@ -142,7 +142,7 @@ if ( empty( $lists ) ) {
 					<?php // QA B-12: sort by name, not by the photo markup that precedes it. ?>
 					<td class="bl-sp-roster__name-cell" data-order="<?php echo esc_attr( $mate['name'] ); ?>">
 						<a class="bl-sp-roster__name" href="<?php echo esc_url( get_permalink( $mate['player_id'] ) ); ?>">
-							<?php if ( has_post_thumbnail( $mate['player_id'] ) ) : ?>
+							<?php if ( blueline_player_photo_available( (int) $mate['player_id'] ) ) : ?>
 								<span class="bl-sp-roster__photo"><?php echo get_the_post_thumbnail( $mate['player_id'], 'thumbnail', array( 'alt' => '' ) ); ?></span>
 							<?php endif; ?>
 							<?php echo esc_html( $mate['name'] ); ?>
@@ -297,7 +297,7 @@ foreach ( $lists as $list_post ) :
 						<td class="bl-sp-roster__number"><?php echo ( '' !== $number && null !== $number ) ? esc_html( $number ) : ''; ?></td>
 						<td class="bl-sp-roster__name-cell" data-order="<?php echo esc_attr( $name ); ?>">
 							<a class="bl-sp-roster__name" href="<?php echo esc_url( get_permalink( $player_id ) ); ?>">
-								<?php if ( has_post_thumbnail( $player_id ) ) : ?>
+								<?php if ( blueline_player_photo_available( (int) $player_id ) ) : ?>
 									<span class="bl-sp-roster__photo"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail', array( 'alt' => '' ) ); ?></span>
 								<?php endif; ?>
 								<?php echo esc_html( $name ); ?>

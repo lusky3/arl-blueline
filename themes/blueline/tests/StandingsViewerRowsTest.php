@@ -12,6 +12,7 @@ require_once __DIR__ . '/fixtures/wp-html-api.php';
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/team-colors.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 
@@ -143,6 +144,44 @@ final class StandingsViewerRowsTest extends TestCase {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'standings_extra_stats_default' => false ) );
 
 		$this->assertDoesNotMatchRegularExpression( '/bl-sp-standings-toggle-input"[^>]*checked/', $this->render_table() );
+	}
+
+	/**
+	 * A playoff round nobody has played yet shows its heading and the leaf
+	 * empty state, never a table of zeros; a regular season that has not
+	 * started keeps its table (it still lists the teams) under the note.
+	 */
+	#[RunInSeparateProcess]
+	public function test_an_unplayed_playoff_round_is_an_empty_state_not_a_table(): void {
+		$this->load_fixture();
+		foreach ( array( self::TREBLEMAKERS, self::TRAIN_WRECK, self::HAMMERS ) as $team_id ) {
+			$GLOBALS['bl_test_league_table_data'][ $team_id ] = array_merge(
+				$GLOBALS['bl_test_league_table_data'][ $team_id ],
+				array(
+					'pos' => 0,
+					'gp'  => 0,
+					'w'   => 0,
+					'l'   => 0,
+					'tie' => 0,
+					'ot'  => 0,
+					'pts' => 0,
+				)
+			);
+		}
+
+		$playoffs = $this->render_table( 'Division 5 | Playoffs W2026-27' );
+
+		$this->assertMatchesRegularExpression( '/<h[23] class="sp-table-caption"[^>]*>Division 5 \| Playoffs W2026-27<\/h[23]>/', $playoffs );
+		$this->assertStringContainsString( '<p class="bl-sp-empty__text">Playoffs start after the regular season.</p>', $playoffs );
+		$this->assertStringContainsString( 'bl-sp-empty__mark', $playoffs );
+		$this->assertStringNotContainsString( '<table', $playoffs );
+		$this->assertStringNotContainsString( 'bl-sp-standings-toggle', $playoffs );
+
+		$regular = $this->render_table();
+
+		$this->assertStringContainsString( 'No games have been played yet this season.', $regular );
+		$this->assertStringContainsString( '<table', $regular );
+		$this->assertStringNotContainsString( 'bl-sp-empty__text', $regular );
 	}
 
 	/**

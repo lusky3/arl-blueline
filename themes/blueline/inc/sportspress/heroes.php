@@ -177,17 +177,6 @@ function blueline_sp_event_team_url( int $team_id ): string {
 }
 
 /**
- * Hero date format: add the year once the game is not in the current year (C-08).
- *
- * @param int $event_year   Year the event is dated.
- * @param int $current_year Current year.
- * @return string Date format.
- */
-function blueline_sp_event_hero_date_format( int $event_year, int $current_year ): string {
-	return $event_year === $current_year ? 'D, M j' : 'D, M j, Y';
-}
-
-/**
  * Attributes for the event hero's two team crests. `sizes` is the crest's
  * drawn width (sportspress.css: a 64px plate with 4px padding); without it
  * WordPress assumed 150px and phones fetched the 300px PNG for a 56px image.
@@ -244,7 +233,6 @@ function blueline_sp_event_hero( $event_id ) {
 
 	$calendar_url = ( 'preview' === $status ) ? blueline_sp_event_calendar_url( $event_id ) : '';
 	$ics_url      = ( 'preview' === $status ) ? blueline_sp_event_ics_url( $event_id ) : '';
-	$date_format  = blueline_sp_event_hero_date_format( (int) get_the_date( 'Y', $event_id ), (int) current_time( 'Y' ) );
 	?>
 	<header class="sp-scoreboard sp-scoreboard--<?php echo esc_attr( $status ); ?>">
 		<?php blueline_render_faceoff_rings(); ?>
@@ -291,18 +279,7 @@ function blueline_sp_event_hero( $event_id ) {
 			</h1>
 
 			<p class="sp-scoreboard__meta">
-				<time class="sp-scoreboard__time" datetime="<?php echo esc_attr( get_the_date( DATE_W3C, $event_id ) ); ?>">
-					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: 1: event date, 2: event time. */
-							__( '%1$s · %2$s', 'blueline' ),
-							get_the_date( $date_format, $event_id ),
-							blueline_sp_event_time_is_tbd( $event_id ) ? __( 'Time TBD', 'blueline' ) : get_the_time( get_option( 'time_format' ), $event_id )
-						)
-					);
-					?>
-				</time>
+				<time class="sp-scoreboard__time" datetime="<?php echo esc_attr( get_the_date( DATE_W3C, $event_id ) ); ?>"><?php echo esc_html( blueline_event_when( $event_id ) ); ?></time>
 				<?php if ( $venue_name ) : ?>
 					<span class="sp-scoreboard__venue"><?php echo esc_html( $venue_name ); ?></span>
 				<?php endif; ?>
@@ -381,7 +358,7 @@ function blueline_sp_player_hero( $player_id ) {
 	?>
 	<header class="bl-sp-hero bl-sp-hero--player">
 		<div class="bl-container bl-sp-hero__inner">
-			<?php if ( has_post_thumbnail( $player_id ) ) : ?>
+			<?php if ( blueline_player_photo_available( (int) $player_id ) ) : ?>
 				<div class="bl-sp-hero__crest bl-sp-hero__crest--player"><?php echo get_the_post_thumbnail( $player_id, 'thumbnail', array( 'alt' => '' ) ); ?></div>
 			<?php else : ?>
 				<div class="bl-sp-hero__crest bl-sp-hero__crest--fallback">
@@ -619,14 +596,14 @@ function blueline_sp_event_teaser( $event_id ) {
 	?>
 	<a class="bl-sp-event-teaser" href="<?php echo esc_url( get_permalink( $event_id ) ); ?>">
 		<span class="bl-sp-event-teaser__date">
-			<?php echo esc_html( get_the_date( 'D, M j \a\t g:ia', $event_id ) ); ?>
+			<?php echo esc_html( blueline_event_when( $event_id ) ); ?>
 			<?php if ( $venue_name ) : ?>
 				<span class="bl-sp-event-teaser__venue"> · <?php echo esc_html( $venue_name ); ?></span>
 			<?php endif; ?>
 		</span>
 		<span class="bl-sp-event-teaser__title"><?php echo esc_html( blueline_sp_title( $event_id ) ); ?></span>
 		<?php if ( $show_score && $scores ) : ?>
-			<span class="bl-sp-event-teaser__score"><?php echo esc_html( implode( ' - ', $scores ) ); ?></span>
+			<span class="bl-sp-event-teaser__score"><?php echo esc_html( blueline_score_line( $scores ) ); ?></span>
 		<?php else : ?>
 			<span class="bl-sp-event-teaser__status"><?php echo esc_html( blueline_sp_event_status_label( $status ) ); ?></span>
 		<?php endif; ?>

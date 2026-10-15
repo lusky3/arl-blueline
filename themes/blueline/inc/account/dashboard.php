@@ -706,22 +706,9 @@ function blueline_account_render_team_calendar( int $team_id, string $label ) {
  * @return string
  */
 function blueline_account_event_when( array $event ): string {
-	$date = get_the_date( 'D, M j', $event['event_id'] );
+	$tbd = 'tbd' === ( $event['status'] ?? '' );
 
-	if ( 'tbd' === ( $event['status'] ?? '' ) ) {
-		return sprintf(
-			/* translators: %s: event date. */
-			__( '%s · Time TBD', 'blueline' ),
-			$date
-		);
-	}
-
-	return sprintf(
-		/* translators: 1: event date, 2: event time. */
-		__( '%1$s at %2$s', 'blueline' ),
-		$date,
-		get_the_time( get_option( 'time_format' ), $event['event_id'] )
-	);
+	return blueline_event_when( (int) $event['event_id'], $tbd );
 }
 
 /**
@@ -741,7 +728,7 @@ function blueline_account_event_when_short( array $event ): string {
 		);
 	}
 
-	return (string) get_the_time( 'D g:i a', $event['event_id'] );
+	return get_the_date( 'D', $event['event_id'] ) . ' ' . blueline_event_time( $event['event_id'] );
 }
 
 /**
@@ -1108,6 +1095,46 @@ function blueline_account_nav_items( array $menu_items ): array {
 	}
 
 	return $items;
+}
+
+/**
+ * A My Account page's heading in the words of the tab that leads to it.
+ *
+ * The tab labels can be renamed after the plugin sets them (this site renames
+ * several, e.g. "Account Details" to "Change My Details"), while each page's
+ * heading kept the plugin's own title, so "My Registrations" opened a page
+ * headed "Registrations". The heading now takes whatever the tab says.
+ *
+ * @param mixed  $title    Endpoint title as WooCommerce resolved it.
+ * @param string $endpoint Endpoint (query var) the title is for.
+ * @return mixed
+ */
+function blueline_account_endpoint_title_from_nav( $title, $endpoint = '' ) {
+	if ( ! function_exists( 'wc_get_account_menu_items' ) ) {
+		return $title;
+	}
+
+	$items = wc_get_account_menu_items();
+	$label = isset( $items[ $endpoint ] ) ? trim( wp_strip_all_tags( (string) $items[ $endpoint ] ) ) : '';
+
+	return '' !== $label ? $label : $title;
+}
+
+add_action( 'template_redirect', 'blueline_account_titles_follow_nav' );
+/**
+ * Hook blueline_account_endpoint_title_from_nav() onto every tab's title
+ * filter, after the plugin's own (priority 10), on My Account pages only.
+ *
+ * @return void
+ */
+function blueline_account_titles_follow_nav(): void {
+	if ( ! function_exists( 'is_account_page' ) || ! function_exists( 'wc_get_account_menu_items' ) || ! is_account_page() || ! is_user_logged_in() ) {
+		return;
+	}
+
+	foreach ( array_keys( wc_get_account_menu_items() ) as $endpoint ) {
+		add_filter( "woocommerce_endpoint_{$endpoint}_title", 'blueline_account_endpoint_title_from_nav', 20, 2 );
+	}
 }
 
 if ( ! class_exists( 'WooCommerce' ) ) {

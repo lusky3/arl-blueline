@@ -384,7 +384,7 @@ final class RegistrationPricingTest extends TestCase {
 		// and sp_venue is not a registered taxonomy in this test's state, so
 		// the venue-less branch of blueline_homepage_next_event_line() is
 		// what's exercised here.
-		$this->assertSame( array( 'Next game: Aug 20' ), $content['subcopy_lines'] );
+		$this->assertSame( array( 'Next game: Aug 20 at 7:00 PM' ), $content['subcopy_lines'] );
 	}
 
 	/**

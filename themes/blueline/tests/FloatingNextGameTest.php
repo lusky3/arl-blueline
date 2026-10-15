@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/settings/defaults.php';
 require_once __DIR__ . '/../inc/settings/sections.php';
 require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 require_once __DIR__ . '/../inc/account/dashboard.php';
 require_once __DIR__ . '/../inc/floating-next-game.php';

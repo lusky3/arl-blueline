@@ -50,25 +50,15 @@ if ( empty( $data ) ) {
 $stat_keys = array_diff( array_keys( $labels ), array( 'name', 'team' ) );
 
 // QA B-14: stat columns that are blank or dashes in every row are just as empty.
+// Inside a player's whole stats section the line is held back, so a player
+// with nothing anywhere gets one empty state, not one per table
+// (inc/sportspress/player-stats.php).
 if ( empty( $stat_keys ) || ! blueline_sp_stat_rows_have_values( $data, $stat_keys ) ) {
-	?>
-	<div class="bl-sp-empty">
-		<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>
-		<p class="bl-sp-empty__text">
-			<?php
-			echo esc_html(
-				sprintf(
-					/* translators: %s: table caption, e.g. "Career Total" or a league name. */
-					__( '%s not recorded yet.', 'blueline' ),
-					wp_strip_all_tags( (string) ( $caption ?? '' ) )
-				)
-			);
-			?>
-		</p>
-	</div>
-	<?php
+	blueline_sp_player_stats_print( blueline_sp_player_stats_collect( 'empty', (string) ( $caption ?? '' ) ) );
 	return;
 }
+
+blueline_sp_player_stats_print( blueline_sp_player_stats_collect( 'table' ) );
 
 // Heading level depends on where this template is actually rendered -- see
 // blueline_sp_caption_heading_level()'s own docblock (inc/sportspress.php)

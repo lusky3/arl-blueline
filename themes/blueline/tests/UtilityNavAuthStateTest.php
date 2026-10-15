@@ -114,6 +114,30 @@ final class UtilityNavAuthStateTest extends TestCase {
 	}
 
 	/**
+	 * Logged out, the primary menu's item that leads to the account page
+	 * ("My ARL Account", which shows them a login form) reads "Log In". It is
+	 * matched by destination, not title, and the original menu object is
+	 * left as it was for any other render of the same menu.
+	 */
+	public function test_primary_location_logged_out_labels_the_account_item_log_in(): void {
+		$account = $this->menu_item( wp_login_url(), 'My ARL Account' );
+		$items   = array(
+			$this->menu_item( 'https://example.test/', 'Home' ),
+			$account,
+			$this->menu_item( 'https://example.test/standings', 'Standings' ),
+		);
+		$args    = (object) array( 'theme_location' => 'primary' );
+
+		$result = blueline_utility_nav_auth_state( $items, $args );
+
+		$this->assertSame(
+			array( 'Home', 'Log In', 'Standings' ),
+			array_map( static fn( $item ) => $item->title, $result )
+		);
+		$this->assertSame( 'My ARL Account', $account->title );
+	}
+
+	/**
 	 * A logged-IN visitor's primary menu must render exactly as configured
 	 * -- same guarantee 'utility' already has.
 	 */

@@ -1,0 +1,157 @@
+/*
+ * Blueline — site search in the header.
+ *
+ * Desktop: a magnifier button in the header's action cluster opens a panel
+ * hanging under the header bands (assets/src/js/header-search.js). Drawer
+ * (below 960px): the same form is the drawer's last row, always open, and
+ * the button is not shown. Markup: blueline_site_header() and
+ * blueline_nav_search_item(), inc/template-tags.php.
+ */
+
+.bl-search-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	flex: 0 0 auto;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--bl-paper);
+	cursor: pointer;
+}
+
+.bl-search-toggle[hidden] {
+	display: none;
+}
+
+.bl-search-toggle:hover,
+.bl-search-toggle[aria-expanded="true"] {
+	color: var(--bl-pale);
+	background: var(--bl-ink-mid);
+}
+
+.bl-search-toggle__icon {
+	width: 20px;
+	height: 20px;
+}
+
+/*
+ * The panel hangs below the header (position: absolute inside the fixed
+ * header), so opening it covers the top of the page rather than pushing
+ * the header taller.
+ */
+.bl-header__search {
+	position: absolute;
+	inset-inline: 0;
+	inset-block-start: 100%;
+	padding-block: var(--bl-space-4);
+	background: var(--bl-ink-deep);
+	border-block-end: 1px solid var(--bl-ink-mid);
+	box-shadow: var(--bl-shadow-raised-sm);
+}
+
+.bl-header__search[hidden] {
+	display: none;
+}
+
+.bl-header__search .search-form {
+	justify-content: flex-end;
+}
+
+/* On the navy ground the submit takes the ice fill, ink text (ink-on-ice). */
+.bl-header__search .search-submit,
+.bl-nav__search .search-submit {
+	background: var(--bl-ice);
+	border-color: var(--bl-ice);
+	color: var(--bl-ink);
+}
+
+.bl-header__search .search-field,
+.bl-nav__search .search-field {
+	min-width: 0;
+	min-height: 44px;
+}
+
+.bl-header__search .search-field {
+	width: min(28rem, 60vw);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+	.bl-header__search:not([hidden]) {
+		animation: bl-header-search-in 0.15s ease-out;
+	}
+}
+
+@keyframes bl-header-search-in {
+
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* Drawer row: the form fills it. */
+.bl-nav__search {
+	padding-block: var(--bl-space-4);
+}
+
+.bl-nav__search .search-form {
+	flex: 1 1 auto;
+	flex-wrap: nowrap;
+	justify-content: stretch;
+}
+
+.bl-nav__search .search-form label {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bl-nav__search .search-field {
+	width: 100%;
+}
+
+@media (min-width: 960px) {
+
+	.bl-nav__menu > .bl-nav__search {
+		display: none;
+	}
+}
+
+/*
+ * The bar has almost no spare width between 960 and 1180px (nav.css's FE-04
+ * note); a smaller button keeps a signed-in member's menu on one row there.
+ */
+@media (min-width: 960px) and (max-width: 1179.98px) {
+
+	.bl-header__actions:has(> .bl-search-toggle:not([hidden])) {
+		gap: var(--bl-space-1);
+	}
+
+	.bl-search-toggle {
+		width: 28px;
+		height: 28px;
+	}
+
+	.bl-search-toggle__icon {
+		width: 18px;
+		height: 18px;
+	}
+}
+
+@media (max-width: 959.98px) {
+
+	.bl-search-toggle,
+	.bl-search-toggle:not([hidden]),
+	.bl-header__search {
+		display: none;
+	}
+}

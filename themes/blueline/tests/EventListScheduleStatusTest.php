@@ -61,9 +61,9 @@ final class EventListScheduleStatusTest extends TestCase {
 		);
 
 		$this->assertStringContainsString( '<span class="bl-sp-schedule__status bl-sp-schedule__status--postponed">Postponed</span>', $html );
-		$this->assertStringContainsString( '<span class="bl-sp-schedule__score">0 - 0</span>', $html );
+		$this->assertStringContainsString( '<span class="bl-sp-schedule__score">0–0</span>', $html );
 		$this->assertLessThan(
-			strpos( $html, '0 - 0' ),
+			strpos( $html, '0–0' ),
 			strpos( $html, 'Postponed' ),
 			'the label comes first, so the score never reads on its own'
 		);
@@ -151,7 +151,7 @@ final class EventListScheduleStatusTest extends TestCase {
 	 */
 	public function test_on_time_games_are_unchanged(): void {
 		$this->assertSame(
-			'<span class="bl-sp-schedule__score">3 - 2</span>',
+			'<span class="bl-sp-schedule__score">3–2</span>',
 			blueline_sp_schedule_result_html(
 				array(
 					1 => '3',

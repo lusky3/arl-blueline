@@ -7,6 +7,7 @@
  */
 import '../css/index.css';
 import './navigation.js';
+import './header-search.js';
 import './sticky-header.js';
 import './table-scroll.js';
 import './calendar-links.js';

@@ -646,6 +646,16 @@ html body .woocommerce .woocommerce-invalid textarea {
 	color: var(--bl-content-link);
 }
 
+/* Touch screens: the breadcrumb's links were 18px tall. */
+@media (pointer: coarse) {
+
+	.woocommerce .woocommerce-breadcrumb a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+}
+
 /* ---------------------------------------------------------------------
  * Product archive (registration listing).
  * ------------------------------------------------------------------- */
@@ -779,6 +789,41 @@ html body .woocommerce .woocommerce-invalid textarea {
 
 .woocommerce div.product .product_title {
 	margin-block-start: 0;
+}
+
+/*
+ * The gallery's full-screen button. WooCommerce draws its magnifier in pure
+ * black on a 36px disc (and the 🔍 emoji it also prints stays visually
+ * hidden); this is the theme's own icon language instead -- ink, a 2px
+ * round-capped stroke like the nav chevrons -- on a 44px touch target. Same
+ * selectors as WooCommerce's rules, which load first.
+ */
+.woocommerce div.product div.images .woocommerce-product-gallery__trigger {
+	width: 44px;
+	height: 44px;
+	background: var(--bl-white);
+	box-shadow: var(--bl-shadow-card);
+}
+
+.woocommerce div.product div.images .woocommerce-product-gallery__trigger::before {
+	top: 12px;
+	left: 12px;
+	width: 12px;
+	height: 12px;
+	border-color: var(--bl-ink);
+}
+
+.woocommerce div.product div.images .woocommerce-product-gallery__trigger::after {
+	top: 24px;
+	left: 28px;
+	height: 9px;
+	background: var(--bl-ink);
+	border-radius: 1px;
+}
+
+.woocommerce div.product div.images .woocommerce-product-gallery__trigger:focus-visible {
+	outline: var(--bl-focus-width) var(--bl-focus-style) var(--bl-focus-color);
+	outline-offset: var(--bl-focus-offset);
 }
 
 /*
