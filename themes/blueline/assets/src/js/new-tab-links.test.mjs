@@ -28,8 +28,12 @@ function el( tag, attrs = {}, text = '', children = [] ) {
 			selector === `.${ HINT_CLASS }`
 				? self.children.find( ( c ) => c.className.split( ' ' ).includes( HINT_CLASS ) ) || null
 				: null,
-		querySelectorAll: ( selector ) =>
-			'a[target]' === selector ? self.children.filter( ( c ) => 'A' === c.tagName && 'target' in c.attrs ) : [],
+		querySelectorAll: ( selector ) => {
+			if ( 'a[target]' === selector ) {
+				return self.children.filter( ( c ) => 'A' === c.tagName && 'target' in c.attrs );
+			}
+			return 'img' === selector ? self.children.filter( ( c ) => 'IMG' === c.tagName ) : [];
+		},
 		matches: ( selector ) => 'a[target]' === selector && 'A' === self.tagName && 'target' in self.attrs,
 	};
 	return self;
@@ -65,6 +69,27 @@ test( 'links that open in place, or already say so, are left alone', () => {
 
 	[ same, self, says, label ].forEach( ( link ) => assert.equal( hintLink( link, doc ), false ) );
 	assert.equal( label.getAttribute( 'aria-label' ), 'Map, opens in new tab' );
+} );
+
+test( 'an image-only link named by its alt (a sponsor logo) gets the hint', () => {
+	const link = el( 'a', { target: '_blank' }, '', [ el( 'img', { alt: 'Arcturus' } ) ] );
+
+	assert.equal( hintLink( link, doc ), true );
+} );
+
+test( 'a link with no name of its own is left for its author to fix, not named "(opens in a new tab)"', () => {
+	const empty = el( 'a', { target: '_blank', href: '/zamboni.jpg' } );
+	const blankImage = el( 'a', { target: '_blank' }, '  ', [ el( 'img', { alt: '' } ) ] );
+
+	assert.equal( hintLink( empty, doc ), false );
+	assert.equal( hintLink( blankImage, doc ), false );
+	assert.equal( empty.children.length, 0 );
+} );
+
+test( 'a link named by aria-labelledby is left alone: content inside it is never read', () => {
+	const link = el( 'a', { target: '_blank', 'aria-labelledby': 'x' }, 'Map' );
+
+	assert.equal( hintLink( link, doc ), false );
 } );
 
 test( 'running twice never doubles the hint', () => {

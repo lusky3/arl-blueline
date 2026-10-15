@@ -47,7 +47,24 @@ function hintLink( link, doc ) {
 		return true;
 	}
 
-	if ( SAYS_SO.test( link.textContent || '' ) ) {
+	const text = ( link.textContent || '' ).trim();
+
+	if ( SAYS_SO.test( text ) ) {
+		return false;
+	}
+
+	// A link with no name of its own is a content fault to fix, not to
+	// paper over: "(opens in a new tab)" would become its whole name.
+	// A name from aria-labelledby ignores the link's own content, so a hint
+	// inside it would never be read.
+	const namedImage = Array.from( link.querySelectorAll( 'img' ) ).some(
+		( img ) => ( img.getAttribute( 'alt' ) || '' ).trim()
+	);
+
+	if (
+		( ! text && ! namedImage ) ||
+		link.getAttribute( 'aria-labelledby' )
+	) {
 		return false;
 	}
 
