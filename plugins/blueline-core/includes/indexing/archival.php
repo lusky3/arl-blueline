@@ -24,7 +24,7 @@ const BLUELINE_ARCHIVAL_TRANSIENT = 'blueline_archival_ids';
  * Payload layout version. Bump it when the cached shape changes, so an old transient left by a
  * previous plugin version is recomputed instead of misread.
  */
-const BLUELINE_ARCHIVAL_VERSION = 1;
+const BLUELINE_ARCHIVAL_VERSION = 2;
 
 /**
  * Non-persistent object-cache group for the per-request memo. A persistent cache would keep the
@@ -45,6 +45,13 @@ const BLUELINE_ARCHIVAL_TTL = 6 * HOUR_IN_SECONDS;
 const BLUELINE_ARCHIVAL_DEFAULT_RECENT_SEASONS = 2;
 
 /**
+ * Fewest published or scheduled events (playoffs included) a season needs before it can rank as
+ * recent. Every real season since 2020 has at least 10 games in its first week, and the schedule
+ * goes in weeks ahead; a test season made by hand has one or two.
+ */
+const BLUELINE_ARCHIVAL_DEFAULT_MIN_SEASON_EVENTS = 10;
+
+/**
  * Number of recent seasons that count as current. 0 (or less) switches archival handling off.
  *
  * @return int
@@ -58,6 +65,24 @@ function blueline_archival_recent_seasons(): int {
 	 * @param int $seasons Number of recent seasons. Default 2 (the current one and the previous).
 	 */
 	return max( 0, (int) apply_filters( 'blueline_core_archival_recent_seasons', BLUELINE_ARCHIVAL_DEFAULT_RECENT_SEASONS ) );
+}
+
+/**
+ * Fewest events a season needs to rank as recent. Ranking is by each season's latest game, so
+ * without a floor one stray season (a test term with a game or two dated after the real ones)
+ * would count as current and push a real season, and all its pages, out of the sitemap.
+ *
+ * @return int
+ */
+function blueline_archival_min_season_events(): int {
+	/**
+	 * Filters the fewest published or scheduled events (its playoff terms' events included) a
+	 * season needs before it can rank as one of the recent seasons. A season below it is treated
+	 * as past. 0 lets any season with events rank.
+	 *
+	 * @param int $events Minimum event count. Default 10.
+	 */
+	return max( 0, (int) apply_filters( 'blueline_core_archival_min_season_events', BLUELINE_ARCHIVAL_DEFAULT_MIN_SEASON_EVENTS ) );
 }
 
 /**
@@ -148,15 +173,17 @@ function blueline_archival_season_families( array $terms ): array {
 /**
  * Pure: the N most recent seasons, ranked by the latest event date in each (term_id order says
  * nothing: an admin creates next season's term, or a stray test term, long before anyone plays).
- * A season with no events never ranks, and a playoff term's events count toward its season.
+ * A season with no events, or fewer than $min_events, never ranks, and a playoff term's events
+ * count toward its season (dates and count alike).
  *
- * @param array<int, int>                                        $families Term ID => season term ID (blueline_archival_season_families()).
- * @param array<int, array{first_date:string, last_date:string}> $ranges   Term ID => first/last event date ('Y-m-d H:i:s').
- * @param int                                                    $count    How many seasons to take.
+ * @param array<int, int>                                                     $families   Term ID => season term ID (blueline_archival_season_families()).
+ * @param array<int, array{first_date:string, last_date:string, events?:int}> $ranges     Term ID => first/last event date ('Y-m-d H:i:s') and event count.
+ * @param int                                                                 $count      How many seasons to take.
+ * @param int                                                                 $min_events Fewest events a season needs to rank (0: no floor).
  * @return array{terms:int[], floor:string} Season term IDs, newest first, and the earliest event
  *                                          date among them ('' when there are none).
  */
-function blueline_archival_pick_recent( array $families, array $ranges, int $count ): array {
+function blueline_archival_pick_recent( array $families, array $ranges, int $count, int $min_events = 0 ): array {
 	$seasons = array();
 
 	foreach ( $ranges as $term_id => $range ) {
@@ -166,17 +193,23 @@ function blueline_archival_pick_recent( array $families, array $ranges, int $cou
 			continue;
 		}
 
+		$events = (int) ( $range['events'] ?? 0 );
+
 		if ( ! isset( $seasons[ $season_id ] ) ) {
 			$seasons[ $season_id ] = array(
-				'first' => (string) $range['first_date'],
-				'last'  => (string) $range['last_date'],
+				'first'  => (string) $range['first_date'],
+				'last'   => (string) $range['last_date'],
+				'events' => $events,
 			);
 			continue;
 		}
 
-		$seasons[ $season_id ]['first'] = min( $seasons[ $season_id ]['first'], (string) $range['first_date'] );
-		$seasons[ $season_id ]['last']  = max( $seasons[ $season_id ]['last'], (string) $range['last_date'] );
+		$seasons[ $season_id ]['first']   = min( $seasons[ $season_id ]['first'], (string) $range['first_date'] );
+		$seasons[ $season_id ]['last']    = max( $seasons[ $season_id ]['last'], (string) $range['last_date'] );
+		$seasons[ $season_id ]['events'] += $events;
 	}
+
+	$seasons = array_filter( $seasons, static fn ( $season ) => $season['events'] >= $min_events );
 
 	$ids = array_keys( $seasons );
 
@@ -204,10 +237,11 @@ function blueline_archival_pick_recent( array $families, array $ranges, int $cou
 }
 
 /**
- * First and last event date per sp_season term, in one grouped query. Published and scheduled
- * events both count: the season being played is the one with games still to come.
+ * First and last event date and number of events per sp_season term, in one grouped query.
+ * Published and scheduled events both count: the season being played is the one with games still
+ * to come. Drafts never do.
  *
- * @return array<int, array{first_date:string, last_date:string}> Term ID => range.
+ * @return array<int, array{first_date:string, last_date:string, events:int}> Term ID => range.
  */
 function blueline_archival_term_date_ranges(): array {
 	global $wpdb;
@@ -215,7 +249,7 @@ function blueline_archival_term_date_ranges(): array {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- an aggregate no WP API offers; the caller caches the whole result in a transient.
 	$rows = $wpdb->get_results(
 		$wpdb->prepare(
-			"SELECT tt.term_id AS term_id, MIN( p.post_date ) AS first_date, MAX( p.post_date ) AS last_date
+			"SELECT tt.term_id AS term_id, MIN( p.post_date ) AS first_date, MAX( p.post_date ) AS last_date, COUNT( * ) AS events
 			FROM {$wpdb->term_relationships} tr
 			INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = %s
 			INNER JOIN {$wpdb->posts} p ON p.ID = tr.object_id
@@ -231,6 +265,7 @@ function blueline_archival_term_date_ranges(): array {
 		$ranges[ (int) $row->term_id ] = array(
 			'first_date' => (string) $row->first_date,
 			'last_date'  => (string) $row->last_date,
+			'events'     => (int) $row->events,
 		);
 	}
 
@@ -322,16 +357,19 @@ function blueline_archival_event_participants( array $event_ids ): array {
  * Nothing is archival while the recent seasons cannot be determined (no events, no season
  * terms): with no evidence of what is current, leaving everything listed is the safe answer.
  *
- * @param int|null $seasons How many seasons are recent; null reads the filter.
- * @return array{version:int, seasons:int, types:string[], recent_terms:int[], archival:array<string, int[]>, totals:array<string, int>, generated:int}
+ * @param int|null $seasons    How many seasons are recent; null reads the filter.
+ * @param int|null $min_events Fewest events a season needs to rank; null reads the filter.
+ * @return array{version:int, seasons:int, min_events:int, types:string[], recent_terms:int[], archival:array<string, int[]>, totals:array<string, int>, generated:int}
  */
-function blueline_archival_compute( ?int $seasons = null ): array {
-	$seasons = null === $seasons ? blueline_archival_recent_seasons() : max( 0, $seasons );
-	$types   = blueline_archival_post_types();
+function blueline_archival_compute( ?int $seasons = null, ?int $min_events = null ): array {
+	$seasons    = null === $seasons ? blueline_archival_recent_seasons() : max( 0, $seasons );
+	$min_events = null === $min_events ? blueline_archival_min_season_events() : max( 0, $min_events );
+	$types      = blueline_archival_post_types();
 
 	$data = array(
 		'version'      => BLUELINE_ARCHIVAL_VERSION,
 		'seasons'      => $seasons,
+		'min_events'   => $min_events,
 		'types'        => array_keys( $types ),
 		'recent_terms' => array(),
 		'archival'     => array_fill_keys( array_keys( $types ), array() ),
@@ -364,7 +402,7 @@ function blueline_archival_compute( ?int $seasons = null ): array {
 	}
 
 	$families = blueline_archival_season_families( $rows );
-	$recent   = blueline_archival_pick_recent( $families, blueline_archival_term_date_ranges(), $seasons );
+	$recent   = blueline_archival_pick_recent( $families, blueline_archival_term_date_ranges(), $seasons, $min_events );
 
 	if ( ! $recent['terms'] ) {
 		return $data;
@@ -436,10 +474,10 @@ function blueline_archival_compute( ?int $seasons = null ): array {
 
 /**
  * The archival ids as cached: the request memo, then the transient, then a fresh computation.
- * A cached copy computed under other settings (season count, post types, payload layout) is
- * ignored.
+ * A cached copy computed under other settings (season count, event minimum, post types, payload
+ * layout) is ignored.
  *
- * @return array{version:int, seasons:int, types:string[], recent_terms:int[], archival:array<string, int[]>, totals:array<string, int>, generated:int}
+ * @return array{version:int, seasons:int, min_events:int, types:string[], recent_terms:int[], archival:array<string, int[]>, totals:array<string, int>, generated:int}
  */
 function blueline_archival_data(): array {
 	static $registered = false;
@@ -449,13 +487,15 @@ function blueline_archival_data(): array {
 		$registered = true;
 	}
 
-	$seasons = blueline_archival_recent_seasons();
-	$types   = array_keys( blueline_archival_post_types() );
+	$seasons    = blueline_archival_recent_seasons();
+	$min_events = blueline_archival_min_season_events();
+	$types      = array_keys( blueline_archival_post_types() );
 
-	$usable = static function ( $cached ) use ( $seasons, $types ): bool {
+	$usable = static function ( $cached ) use ( $seasons, $min_events, $types ): bool {
 		return is_array( $cached )
 			&& ( $cached['version'] ?? 0 ) === BLUELINE_ARCHIVAL_VERSION
 			&& ( $cached['seasons'] ?? -1 ) === $seasons
+			&& ( $cached['min_events'] ?? -1 ) === $min_events
 			&& ( $cached['types'] ?? null ) === $types;
 	};
 
@@ -470,7 +510,7 @@ function blueline_archival_data(): array {
 		return $stored;
 	}
 
-	$data = blueline_archival_compute( $seasons );
+	$data = blueline_archival_compute( $seasons, $min_events );
 
 	set_transient( BLUELINE_ARCHIVAL_TRANSIENT, $data, BLUELINE_ARCHIVAL_TTL );
 	wp_cache_set( 'data', $data, BLUELINE_ARCHIVAL_CACHE_GROUP );

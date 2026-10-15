@@ -1,7 +1,7 @@
 <?php
 /**
- * Fake $wpdb for the archival tests: answers the module's one aggregate query from the in-memory
- * posts and their season terms.
+ * Fake $wpdb for the archival tests: answers the module's one aggregate query (first and last
+ * event date and event count per season term) from the in-memory posts and their season terms.
  *
  * @package blueline-core
  */
@@ -59,16 +59,19 @@ if ( ! class_exists( 'Blueline_Core_Test_Archival_Wpdb' ) ) {
 					$ranges[ $term_id ] = array(
 						'first_date' => isset( $ranges[ $term_id ] ) ? min( $ranges[ $term_id ]['first_date'], $date ) : $date,
 						'last_date'  => isset( $ranges[ $term_id ] ) ? max( $ranges[ $term_id ]['last_date'], $date ) : $date,
+						'events'     => ( $ranges[ $term_id ]['events'] ?? 0 ) + 1,
 					);
 				}
 			}
 
+			// wpdb returns every column as a string.
 			$rows = array();
 			foreach ( $ranges as $term_id => $range ) {
 				$rows[] = (object) array(
-					'term_id'    => $term_id,
+					'term_id'    => (string) $term_id,
 					'first_date' => $range['first_date'],
 					'last_date'  => $range['last_date'],
+					'events'     => (string) $range['events'],
 				);
 			}
 
