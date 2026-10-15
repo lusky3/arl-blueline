@@ -1,0 +1,69 @@
+name: Browser checks (staging)
+
+# Runs themes/blueline/tests-browser/'s front-end specs (rendered geometry,
+# the sticky header, the mobile drawer, band photography, SportsPress
+# alignment) against the deployed staging site: weekly, so a change on
+# staging (a deploy, a DB refresh, a plugin update) is caught within days,
+# and on demand from the Actions tab, optionally against another URL.
+#
+# Read-only: every spec only loads pages and the public sportspress/v2 REST
+# API. The specs find the events, teams and arenas they measure at run time
+# (tests-browser/helpers/site-data.js), and skip with the reason when the
+# site has nothing suitable (an empty off-season schedule), so a data change
+# reads as a skip, not a failure.
+#
+# panel-dom-persistence.spec.js is left out: it needs a logged-in wp-admin
+# with the Capabilities Pro plugin, which only the local ddev clone provides
+# (see tests-browser/global-setup.js). tests-e2e/ (e2e.yml) is the suite
+# that runs on every pull request, against a disposable sandbox.
+
+on:
+  schedule:
+    - cron: '17 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Site to check (defaults to staging)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: themes/blueline
+    env:
+      BLUELINE_E2E_BASE_URL: ${{ inputs.base_url || vars.BLUELINE_STAGING_URL || 'https://staging.rookiehockey.ca' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the front-end browser specs
+        run: >-
+          npx playwright test --config=playwright.config.js
+          band-photo mobile-drawer sportspress-alignment sportspress-venue
+          sticky-header ux-fixes
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-playwright-results
+          path: themes/blueline/artifacts/browser-test-results/
+          if-no-files-found: ignore
+          retention-days: 14

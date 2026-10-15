@@ -130,7 +130,9 @@ if ( ! function_exists( 'wp_check_filetype_and_ext' ) ) {
 
 if ( ! function_exists( 'media_handle_upload' ) ) {
 	/**
-	 * Stand-in for media_handle_upload(): records the call and returns
+	 * Stand-in for media_handle_upload(): records the call, and whether the
+	 * EXIF-stripping wp_handle_upload filter was attached while it ran (in
+	 * $GLOBALS['bl_core_test_media_strip_hooked']), and returns
 	 * $GLOBALS['bl_core_test_media_result'] (an attachment ID by default; set a
 	 * WP_Error to simulate a failed upload).
 	 *
@@ -140,6 +142,14 @@ if ( ! function_exists( 'media_handle_upload' ) ) {
 	 */
 	function media_handle_upload( $file_id, $post_id ) {
 		$GLOBALS['bl_core_test_media_calls'][] = array( $file_id, (int) $post_id );
+
+		$hooked = false;
+		foreach ( $GLOBALS['bl_test_hooks']['wp_handle_upload'] ?? array() as $callbacks ) {
+			foreach ( $callbacks as $callback ) {
+				$hooked = $hooked || 'blueline_strip_uploaded_photo_metadata' === $callback['cb'];
+			}
+		}
+		$GLOBALS['bl_core_test_media_strip_hooked'][] = $hooked;
 
 		return $GLOBALS['bl_core_test_media_result'] ?? 51;
 	}

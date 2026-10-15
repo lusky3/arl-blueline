@@ -37,6 +37,9 @@ final class AccountSectionsTest extends TestCase {
 	 */
 	protected function setUp(): void {
 		blueline_test_reset();
+		// Player 66 must have no team: another test's registered roster
+		// rows would otherwise reach the empty-state cases below.
+		blueline_test_reset_state();
 	}
 
 	/**
