@@ -1,7 +1,8 @@
 <?php
 /**
  * Search-engine indexing: a per-post "hide from search engines" flag, a core XML sitemap that
- * lists only canonical, indexable pages, and the sitemap's address in robots.txt.
+ * lists only canonical, indexable pages (and, through archival.php, current-season content),
+ * and the sitemap's address in robots.txt.
  *
  * Every filter here adds to what core and other plugins already set; nothing turns a page
  * someone else marked noindex back into an indexable one.
@@ -10,6 +11,9 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+
+// Archival SportsPress pages: indexable, but left out of the sitemap (see the file's header).
+require_once __DIR__ . '/archival.php';
 
 /**
  * Post meta flag: '1' means noindex, nofollow and out of the XML sitemap. Protected (leading
