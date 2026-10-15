@@ -3,7 +3,7 @@
  * The sanitize_option_{$option} callback for the Blueline settings option and
  * its reserved-key sanitizers. Loaded by inc/settings/page.php, so the filter
  * is wired at file scope on every write path. "This file's docblock" below
- * means inc/settings/page.php's, where these functions used to live.
+ * means inc/settings/page.php's, which documents these functions.
  *
  * @package blueline
  */
@@ -52,8 +52,8 @@ add_filter( 'sanitize_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_sa
  *    `_tab` (came from this file's own form, which never legitimately
  *    submits either one), EXCEPT `occasions`, which is the one reserved
  *    key that DOES survive a tab-scoped submission, and only when that
- *    submission's own `_tab` is literally `'occasions'` (design spec
- *    §5.1's second ruling): that tab's own rendered form posts
+ *    submission's own `_tab` is literally `'occasions'`: that tab's own
+ *    rendered form posts
  *    `blueline_settings[occasions]` as one opaque map value, never through
  *    `_posted_fields` per-field carry-forward. `_schema`,
  *    `aa_acknowledgements`, and `_validated_against` keep the absolute
@@ -124,8 +124,7 @@ function blueline_settings_sanitize_callback( $input ): array {
 				// Reserved, but this submission carries `_tab`, meaning it
 				// came from this file's own rendered form, which never
 				// legitimately submits a reserved key... EXCEPT
-				// `occasions` submitted BY its own Occasions tab (design
-				// spec §5.1's second ruling): that tab's own form posts
+				// `occasions` submitted BY its own Occasions tab: that tab's own form posts
 				// `blueline_settings[occasions]` as one opaque map value,
 				// never through `_posted_fields` per-field carry-forward,
 				// since `occasions` is not a scalar schema field at all.
@@ -202,8 +201,8 @@ function blueline_settings_sanitize_reserved_aa_acknowledgements( $value ): arra
  *
  * A hash string (blueline_settings_inputs_hash()'s own return shape), not an
  * integer like every other reserved key. It is validated as a plain string,
- * defaulting to '' for anything else. No complex validation is needed here
- * (design spec §6.5's storage-shape ruling): this key is never read back
+ * defaulting to '' for anything else. No complex validation is needed here:
+ * this key is never read back
  * through blueline_settings() (see blueline_settings_defaults()'s own
  * docblock for why), only through inc/settings/validation.php's
  * blueline_validated_against(), which applies the identical
@@ -237,12 +236,11 @@ function blueline_settings_sanitize_reserved_occasions( $value, string $submitte
 	if ( 'occasions' !== $submitted_tab ) {
 		// A programmatic write (WP-CLI, a direct update_option() call, an
 		// import) does no id derivation: the caller is expected to already
-		// supply final, correctly-keyed ids, exactly as this branch behaved
-		// before 2.1b.
+		// supply final, correctly-keyed ids.
 		return array( 'occasions' => blueline_sanitize_occasions( $value ) );
 	}
 
-	// The Occasions tab's own save (design spec §5.1's first ruling): derive
+	// The Occasions tab's own save: derive
 	// and de-duplicate every row's id server-side BEFORE the unchanged
 	// blueline_sanitize_occasions() ever sees it, because the admin never
 	// types an id directly.
@@ -262,7 +260,7 @@ function blueline_settings_sanitize_reserved_occasions( $value, string $submitte
 
 	$sanitized_occasions = blueline_sanitize_occasions( $with_ids );
 
-	// design spec §5.1's fifth ruling: the Occasions tab's own save is also
+	// The Occasions tab's own save is also
 	// what decides this save's new `aa_acknowledgements` value,
 	// per-occasion, symmetric record/remove, plus orphan cleanup. A forged
 	// `aa_acknowledgements` field in the raw POST can't overwrite this
@@ -297,7 +295,7 @@ function blueline_settings_sanitize_reserved_occasions( $value, string $submitte
  * trusted as opaque data, then clamped to BLUELINE_SETTINGS_SCHEMA_VERSION,
  * matching the limit blueline_settings_import_prepare()
  * (inc/settings/import.php) enforces on an import's own `_schema` for the
- * CLI and the panel alike, since fe37280 unified them (there, by refusing
+ * CLI and the panel alike (there, by refusing
  * the whole import outright; here, by clamping, since this path returns a
  * value to store rather than an all-or-nothing operation to abort). Without
  * this, a `_schema` at or above the running code's version, written via

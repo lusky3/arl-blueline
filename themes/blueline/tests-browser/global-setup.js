@@ -39,8 +39,8 @@
  * file nor the spec file ever needs to know a username or password: a
  * plain, cookie-less GET of a wp-admin URL against the target already
  * comes back authenticated. That plugin must be ACTIVE for this to work
- * (see this project's own task record for the one-line `ddev wp plugin
- * activate automatic-login` this required on a fresh ddev checkout) --
+ * (a fresh ddev checkout needs the one-line `ddev wp plugin
+ * activate automatic-login`) --
  * the panel-reachability check below fails with a specific message
  * naming exactly that if it is not.
  *

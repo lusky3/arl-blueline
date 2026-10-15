@@ -11,12 +11,12 @@ require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
  * Regression coverage for blueline_sp_caption_heading_level() -- the
- * accessibility fix for a heading-level skip a live-site review found in
+ * accessibility fix for a heading-level skip in
  * SportsPress's own auto-injected table/list captions
  * ("Division 1 | S2026", "Upcoming Games", a roster list's title, a
  * player's per-league stats caption).
  *
- * Before this fix, sportspress/league-table.php, event-list.php,
+ * Before the level was computed, sportspress/league-table.php, event-list.php,
  * team-lists.php and player-statistics-league.php all hardcoded these
  * captions as <h4>, regardless of what actually preceded them in the page
  * outline. That skipped ONE level on the homepage (h2 "Standings" -> h4)
@@ -60,7 +60,7 @@ final class SportspressCaptionHeadingLevelTest extends TestCase {
 	}
 
 	/**
-	 * Test case: A11Y-09 -- a page with no h2 of its own (/standings) puts captions straight under its h1.
+	 * Test case: a page with no h2 of its own (/standings) puts captions straight under its h1.
 	 */
 	public function test_page_without_its_own_h2_returns_h2(): void {
 		blueline_test_set_queried_post_type( 'page' );
@@ -70,7 +70,7 @@ final class SportspressCaptionHeadingLevelTest extends TestCase {
 	}
 
 	/**
-	 * Test case: A11Y-09 -- the front page keeps h3 (its modules print their own h2 first).
+	 * Test case: the front page keeps h3 (its modules print their own h2 first).
 	 */
 	public function test_front_page_returns_h3(): void {
 		blueline_test_set_queried_post_type( 'page' );
@@ -82,7 +82,7 @@ final class SportspressCaptionHeadingLevelTest extends TestCase {
 	}
 
 	/**
-	 * Test case: A11Y-09 -- inside a widget area, captions are siblings of the h2 widget titles.
+	 * Test case: inside a widget area, captions are siblings of the h2 widget titles.
 	 */
 	public function test_widget_area_returns_h2(): void {
 		blueline_sp_enter_sidebar();
@@ -97,7 +97,7 @@ final class SportspressCaptionHeadingLevelTest extends TestCase {
 	}
 
 	/**
-	 * Test case: A11Y-09 -- the footer sponsor band's title is h2; elsewhere it follows the caption rule.
+	 * Test case: the footer sponsor band's title is h2; elsewhere it follows the caption rule.
 	 */
 	public function test_sponsors_title_level(): void {
 		$this->assertSame( 2, blueline_sp_sponsors_title_level( true ) );

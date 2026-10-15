@@ -5,17 +5,15 @@
  * unknown-key report, and the one-line value renderer a preview is built
  * from.
  *
- * ## Why this is not in inc/cli/settings-command.php any more
+ * ## Why this is not in inc/cli/settings-command.php
  *
- * These functions started life there, as `blueline_settings_cli_*`, because
- * WP-CLI was the only caller. It is not any more: the panel's own
- * export/import controls (inc/settings/page.php) need the SAME decode, the
+ * WP-CLI is not the only caller: the panel's own export/import controls
+ * (inc/settings/import-export-handlers.php) need the SAME decode, the
  * SAME `_schema` refusal, the SAME sanitizer walk and the SAME diff
  * preview, and inc/cli/settings-command.php is loaded only under
  * `defined( 'WP_CLI' ) && WP_CLI`, so a web request cannot reach anything
- * declared in it. Leaving them there and reimplementing for the panel would
- * have produced exactly the second, weaker validator this file's original
- * docblock argued against for the sanitize callback.
+ * declared in it. Declaring them there and reimplementing for the panel
+ * would produce a second, weaker validator.
  *
  * What stayed behind in the CLI file is the CLI-SHAPED part:
  * blueline_settings_cli_diff_lines() (fixed-width text lines) and
@@ -28,8 +26,8 @@
  * stand in front of that, and this file is the first four:
  *
  * 1. A SIZE bound and a NESTING-DEPTH bound, both applied by
- *    blueline_settings_import_decode() before anything is parsed or walked
- *    (design spec 6.8: "bounds size and nesting depth"). See each
+ *    blueline_settings_import_decode() before anything is parsed or walked.
+ *    See each
  *    constant's own docblock for where its number comes from.
  * 2. blueline_settings_import_prepare() refuses a payload whose own
  *    `_schema` exceeds BLUELINE_SETTINGS_SCHEMA_VERSION outright, mirroring
@@ -48,7 +46,7 @@
  *    write to drop them in silence.
  * 5. (Not here.) The write itself goes through
  *    `update_option( BLUELINE_SETTINGS_OPTION, ... )`, hence through
- *    inc/settings/page.php's `sanitize_option_{$option}` callback, on every
+ *    inc/settings/sanitize-callback.php's `sanitize_option_{$option}` callback, on every
  *    path.
  *
  * ## Export carries no secret
@@ -96,7 +94,7 @@ const BLUELINE_SETTINGS_IMPORT_MAX_DEPTH = 8;
  * The "that file is too big" refusal, as one string with one translation.
  *
  * Shared by blueline_settings_import_decode() (which measures the bytes it
- * was handed) and inc/settings/page.php's
+ * was handed) and inc/settings/import-export-handlers.php's
  * blueline_settings_import_read_upload() (which refuses on the size the
  * upload REPORTS, before reading a byte of it -- the whole point of a size
  * bound on a browser upload being that the file is never loaded at all).
@@ -121,8 +119,7 @@ function blueline_settings_import_too_large_message( int $size ): string {
  * The three refusals carry three DISTINCT error codes and messages, rather
  * than one "that isn't valid JSON": an operator who hit the size ceiling,
  * the nesting ceiling, or genuinely malformed JSON has three different
- * things to do about it, and the previous single message told them which of
- * the three it was only by accident.
+ * things to do about it.
  *
  * @param string $raw Raw file contents.
  * @return array<string, mixed>|WP_Error The decoded associative array, or a
@@ -192,25 +189,20 @@ function blueline_settings_import_prepare( array $payload, int $current_schema_v
 	// Never honoured from a file -- see this function's own docblock.
 	unset( $payload['_posted_fields'], $payload['_tab'] );
 
-	// Discarded UNCONDITIONALLY, exactly as the spec requires: "discards
-	// `aa_acknowledgements` and `advanced_enabled` unconditionally (otherwise a
-	// crafted file arrives pre-excused)". Both are consent, not configuration
+	// `aa_acknowledgements` and `advanced_enabled` are discarded
+	// UNCONDITIONALLY (otherwise a crafted file arrives pre-excused). Both are consent, not configuration
 	// -- a record that a human looked at a dangerous control and chose to
 	// proceed. Importing that consent would let a file assert it on an admin's
 	// behalf, which is the one thing consent cannot be.
 	//
 	// This has to be explicit, and it has to be HERE rather than left to the
 	// unknown-key drop below: that drop only removes keys the schema does not
-	// recognise, and `advanced_enabled` became a real schema key in this same
-	// task. The moment it was added, the drop stopped covering it.
-	// `aa_acknowledgements` now has real storage too (Phase 2.0's own
-	// inc/settings/acknowledgements.php) -- but the reasoning above already
-	// covers it regardless: consent is not something a file can assert on an
-	// admin's behalf, whether or not the key had storage behind it yet. It
-	// was named here from the start, before that storage existed, precisely
-	// so the discard would already be in place the moment it did -- the gap
-	// between a key becoming real and a discard naming it explicitly is
-	// exactly when a crafted file would work.
+	// recognise, and `advanced_enabled` is a real schema key, so the drop
+	// does not cover it. `aa_acknowledgements` has real storage too
+	// (inc/settings/acknowledgements.php), and the reasoning above covers it
+	// regardless: consent is not something a file can assert on an admin's
+	// behalf. The gap between a key becoming real and a discard naming it
+	// explicitly is exactly when a crafted file would work.
 	unset( $payload['advanced_enabled'], $payload['aa_acknowledgements'] );
 
 	$payload_schema = isset( $payload['_schema'] ) ? (int) $payload['_schema'] : 0;
@@ -327,7 +319,8 @@ function blueline_settings_import_sanitize_payload( array $payload, array $schem
 
 /**
  * Which top-level keys in $payload the schema does not declare -- exactly
- * the keys blueline_settings_sanitize_callback() (inc/settings/page.php)
+ * the keys blueline_settings_sanitize_callback()
+ * (inc/settings/sanitize-callback.php)
  * drops with a bare `continue`, never surfacing them via
  * add_settings_error(), because that callback also runs on ordinary
  * wp-admin saves and has no business emitting caller-shaped output. Each

@@ -54,7 +54,7 @@ test( 'parseNextGameState splits on the FIRST colon only', () => {
  * precedent (see this file's own module docblock).
  *
  * Two SEPARATE stored values, not one -- see this file's own module
- * docblock for the real bug (found live 2026-08-25) this split fixes:
+ * docblock for the real bug this split fixes:
  * `dismissed` controls ONLY `hidden`; `seen` controls ONLY
  * `updatedRevealed`. A caller that only ever wrote one of them (e.g.
  * account-next-game.js writes `seen` but never `dismissed`) must never be

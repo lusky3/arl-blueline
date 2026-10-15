@@ -1,7 +1,7 @@
 /*
  * Blueline — base reset and element defaults.
  * Uses design tokens only (see style.css :root). No component, header,
- * nav, footer or template CSS belongs here — see Tasks 4+.
+ * nav, footer or template CSS belongs here.
  */
 
 *,
@@ -24,17 +24,14 @@
  * force the other axis (overflow-y) to also become a scroll container at
  * this element, so it cannot accidentally trap the document's own vertical
  * scroll here. Verified live: the mobile nav drawer's focus trap/open-close
- * behaviour still works correctly with this rule in place (see the Task 8
- * fix report).
+ * behaviour still works correctly with this rule in place.
  *
  * Sticky table headers (.sp-league-table thead th) do NOT work on this
  * site and this rule is not why -- .sp-table-wrapper's own overflow-x:auto
  * (sportspress.css) independently makes that wrapper, not the page
  * viewport, the sticky positioning containing block, with no spare height
  * to visibly stick within. That CSS was removed rather than left non-
- * functional; see sportspress.css's own comment on .sp-league-table and
- * the design spec's risks/open-items section for the recorded decision not
- * to implement it.
+ * functional; see sportspress.css's own comment on .sp-league-table.
  */
 html {
 	overflow-x: clip;
@@ -63,8 +60,7 @@ body {
 	line-height: 1.6;
 
 	/* The page's main reading surface -- toggles with the light/dark/system
-	 * theme preference (design spec
-	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md).
+	 * theme preference.
 	 * The navy chrome (header/footer/hero) paints its own background over
 	 * this regardless of which theme is active. */
 	color: var(--bl-content-text);
@@ -232,7 +228,7 @@ img {
 .bl-band {
 	height: var(--bl-band-ice);
 
-	/* design spec §7.2's "signature band" -- see header.css's
+	/* The "signature band" -- see header.css's
 	 * .bl-btn--primary .bl-skew for why --bl-occasion-accent is a
 	 * no-op swap by default. */
 	background: var(--bl-occasion-accent);

@@ -1,9 +1,8 @@
 <?php
 /**
- * Guards against the class of bug behind two fix rounds in a row:
- * inc/settings/links.php and inc/settings/sanitize.php both existed, were
- * fully covered by tests, and were never require_once'd from functions.php
- * -- so the whole 243-test suite stayed green while a real page load would
+ * Guards against the class of bug where a file under inc/ exists, is
+ * fully covered by tests, and is never require_once'd from functions.php
+ * -- so the whole suite stays green while a real page load would
  * fatal on "call to undefined function". The suite structurally cannot see
  * this bug on its own: every test file requires the exact files it needs
  * directly, bypassing functions.php's require chain entirely, so a file
@@ -27,12 +26,12 @@ use PHPUnit\Framework\TestCase;
  * Deliberately NOT restricted to inc/settings/: that would fix today's two
  * offenders but leave inc/account/ (already fully covered, so this scan
  * proves it, not just assumes it) and any future subdirectory unguarded --
- * inc/cli/ is coming in Task 10, and this test should already cover it the
+ * inc/cli/ is covered, and any future subdirectory is covered the
  * day it lands.
  *
  * The check is "does functions.php contain this path as a quoted string
  * literal anywhere", not "is there an unconditional require_once at file
- * scope" -- so a file that's deliberately conditionally loaded (Task 10's
+ * scope" -- so a file that's deliberately conditionally loaded (the
  * WP-CLI file, expected to be wrapped in `if ( defined( 'WP_CLI' ) ) { ... }`)
  * still satisfies this test as soon as its path is written down anywhere in
  * functions.php, guarded or not. What this test cannot tolerate is a file

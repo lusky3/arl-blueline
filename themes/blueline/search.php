@@ -30,8 +30,7 @@ blueline_page_wrapper_start( $has_sidebar );
 					 * get_template_part( 'content', 'none' )) already prints a
 					 * search form -- this branch, when there ARE results, had
 					 * none at all: no way to refine or repeat a search without
-					 * navigating away first. Confirmed live, 2026-09-04 UX
-					 * audit.
+					 * navigating away first.
 					 */
 					get_search_form();
 					?>

@@ -1,6 +1,6 @@
 <?php
 /**
- * Covers a live-review finding with zero prior test coverage: on
+ * Covers a bug: on
  * /schedule and team pages, a past game with no result entered yet
  * rendered the exact same plain em dash as a genuinely future game --
  * "TBD" and "already played, results pending" read identically, with

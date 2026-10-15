@@ -1,5 +1,5 @@
 /**
- * Accessible names for SportsPress logo/photo links (C-04, A-13, C-27).
+ * Accessible names for SportsPress logo/photo links.
  *
  * 1. An image-only link (player-list Team column, team gallery, sponsor
  *    logos, `.team-logo` links) is hidden when a same-URL text link sits in

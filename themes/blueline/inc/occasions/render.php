@@ -366,9 +366,8 @@ function blueline_occasion_new_year_display_year( ?int $now_override = null ): s
 
 /**
  * How many particles/bursts each motif's ambient effect prints, keyed by
- * motif (design spec-adjacent, but this whole feature postdates the
- * original design spec -- these counts are this feature's own tuning,
- * arrived at against the Task 8/fork brainstorm's own guardrail: 15-25
+ * motif (these counts are this feature's own tuning, arrived at against
+ * a guardrail: 15-25
  * animated elements total is the ceiling before density risks jank on
  * low-end mobile, and Remembrance Day deliberately sits far under that
  * ceiling regardless -- restraint reads as respect for a commemorative

@@ -72,8 +72,8 @@ function blueline_settings_field_described_by( string $input_id, array $field, s
  * pick from); a `<select>` for any field declaring `choices`, checked ahead
  * of every type branch except `band_photos` because it describes the
  * control rather than the storage shape;
- * an `<input type="date">` for a `date` field (Task 6);
- * an `<input type="color">` (swatch + hex text) for a `color` field (Task 3);
+ * an `<input type="date">` for a `date` field;
+ * an `<input type="color">` (swatch + hex text) for a `color` field;
  * without it a `date` or `color` would fall through to the plain text input, since an
  * unrecognised type does not error here, it simply takes the last branch;
  * text/email otherwise), and, when this field failed the last
@@ -92,8 +92,8 @@ function blueline_settings_field_described_by( string $input_id, array $field, s
  * one), so all three branches carry the same aria wiring the text input does.
  *
  * A field's `help` string is printed once, after whichever branch ran, for
- * every type. It used to be printed inside the `bool`/`section` branch
- * alone, which silently dropped `help` on any other type.
+ * every type, not inside the `bool`/`section` branch alone, which would
+ * silently drop `help` on any other type.
  *
  * @param string      $field_key     A blueline_settings_schema() key.
  * @param array       $field         That key's schema entry.
@@ -111,7 +111,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 	$has_error = null !== $error_message;
 
 	/*
-	 * Task 5 (P1b-panel-completion): a `section` field mapped to a
+	 * A `section` field mapped to a
 	 * populated widget area (today, the four `chrome_footer_widgets_N`
 	 * keys; see blueline_section_widget_warning()'s own docblock
 	 * for the real per-area mapping) gets a second, distinct notice
@@ -133,7 +133,7 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 			<?php elseif ( ! empty( $field['choices'] ) ) : ?>
 				<?php
 				/*
-				 * Task 7 fix round: `choices` is checked ahead of every
+				 * `choices` is checked ahead of every
 				 * `type` branch below because it is orthogonal to type: it
 				 * says "this field's value comes off a fixed list", which is
 				 * a statement about the control, not the storage shape.
@@ -237,13 +237,11 @@ function blueline_settings_render_field( string $field_key, array $field, ?strin
 			<?php
 			/*
 			 * A field's `help` string renders once, here, for EVERY type,
-			 * not inside each branch. It used to live inside the
-			 * `bool`/`section` branch alone, which meant a `help` string on
+			 * not inside each branch. Printing it inside the
+			 * `bool`/`section` branch alone would mean a `help` string on
 			 * any other type was accepted by the schema, listed in its
 			 * docblock, and then silently dropped at render: the panel would
-			 * have promised an explanation it never printed. Task 6's
-			 * announcement fields are the first `text`/`page_id`/`date`
-			 * fields to carry one.
+			 * promise an explanation it never printed.
 			 */
 			?>
 			<?php if ( ! empty( $field['help'] ) ) : ?>
@@ -348,7 +346,7 @@ function blueline_settings_render_term_id_field( string $field_key, array $field
  * it fall through to the plain text input every other unrecognised type
  * gets.
  *
- * Task 6: without this, a `date` field falls through to the plain text
+ * Without this, a `date` field falls through to the plain text
  * input below: no error, just a text box an admin has to know to type
  * YYYY-MM-DD into, against a sanitizer that rejects anything else.
  * `<input type="date">` is what makes the stored format and the entered
@@ -389,7 +387,7 @@ function blueline_settings_render_date_field( string $field_key, array $field, s
  * assets/src/js/settings-brand-colors.js), plus a live, advisory contrast
  * readout against every tools/contrast-rules.json rule that names this
  * token (blueline_brand_color_contrast_report()). Never blocks
- * submission — see this feature's design spec §1.
+ * submission.
  *
  * @param string $field_key Schema key, e.g. 'brand_color_ice'.
  * @param array  $field     Schema entry; must carry 'token_key'.
@@ -555,7 +553,7 @@ function blueline_settings_render_band_photos( string $field_key, array $field, 
 
 		<?php
 		/*
-		 * This field's `help` string is NOT printed here: since Task 6,
+		 * This field's `help` string is NOT printed here:
 		 * blueline_settings_render_field() prints it once for every field
 		 * type, immediately after whichever input branch ran. Printing it
 		 * again here would render it twice for this one field.

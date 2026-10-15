@@ -1,8 +1,8 @@
 /*
- * Blueline -- WooCommerce restyle (Task 9).
+ * Blueline -- WooCommerce restyle.
  *
- * Task 9 is a PORT, not a redesign: the markup in woocommerce/ is copied
- * unchanged from production (see the Task 9 report for the md5 proof), so
+ * This is a PORT, not a redesign: the markup in woocommerce/ is copied
+ * unchanged from production, so
  * everything below styles WooCommerce's own generic/stock class names and
  * HTML elements -- never a hard-coded field id. In particular the ~16
  * woocommerce-checkout-field-editor-pro fields rendered inside
@@ -30,7 +30,7 @@
  * annotated with a scoped stylelint-disable for selector-id-pattern only.
  */
 
-/* D-02: WooCommerce's error red (#a00, 2.3:1 on the dark page) follows the
+/* WooCommerce's error red (#a00, 2.3:1 on the dark page) follows the
    theme's scheme-aware danger token. */
 :root {
 	--wc-red: var(--bl-danger);
@@ -42,7 +42,7 @@
  * variants used by the ported checkout/thankyou.php.
  * ------------------------------------------------------------------- */
 
-/* D-08: block, not flex -- flex made every text node and link its own
+/* Block, not flex -- flex made every text node and link its own
    item, breaking sentences apart. */
 .woocommerce-message,
 .woocommerce-error,
@@ -108,7 +108,7 @@
 	color: var(--bl-ink);
 }
 
-/* D-01: the content link colour on ice was 2.6:1 (light) / 1.04:1 (dark);
+/* The content link colour on ice was 2.6:1 (light) / 1.04:1 (dark);
    ink on ice is 7.7:1 in both. */
 .woocommerce-info a:not(.button) {
 	color: var(--bl-ink);
@@ -171,7 +171,7 @@
 	font-size: var(--bl-text-lg);
 }
 
-/* D-10: the .alt pair matches core's .alt:hover specificity, which
+/* The .alt pair matches core's .alt:hover specificity, which
    otherwise turned it WooCommerce purple. */
 .woocommerce a.button:hover,
 .woocommerce a.button:focus-visible,
@@ -189,7 +189,7 @@
 	color: var(--bl-paper);
 }
 
-/* D-03: the resting 1px ring above outranks base.css's halo; restate it. */
+/* The resting 1px ring above outranks base.css's halo; restate it. */
 .woocommerce a.button:focus-visible,
 .woocommerce button.button:focus-visible,
 .woocommerce input.button:focus-visible,
@@ -228,7 +228,7 @@
 }
 
 /*
- * Live-review finding: the disabled "Update cart" button on /cart was
+ * The disabled "Update cart" button on /cart
  * measured invisible at ~390px -- color and background-color both computed
  * to #132343, the same navy this file's own button rule (above) already
  * uses for background. The cause is WooCommerce core's OWN disabled-button
@@ -302,7 +302,7 @@
 	color: var(--bl-ink);
 }
 
-/* D-15: the shared 1px ring drew an un-skewed frame round the ribbon; the
+/* The shared 1px ring drew an un-skewed frame round the ribbon; the
    focus ring (restated above) is untouched. */
 .woocommerce a.button.alt:not(:focus-visible),
 .woocommerce button.button.alt:not(:focus-visible),
@@ -420,7 +420,7 @@ html .woocommerce form .form-row textarea {
  * class on the same .select2-selection base, confirmed live: covering
  * only --single left Preferred Division a stray white box.
  *
- * D-06: no padding of its own -- the rendered child already pads, so this
+ * No padding of its own -- the rendered child already pads, so this
  * matches the 38px inputs (was 62px).
  */
 .woocommerce .select2-container .select2-selection--single,
@@ -458,7 +458,7 @@ html .woocommerce form .form-row textarea {
 	color: var(--bl-content-text);
 }
 
-/* D-06: select2's #444 placeholder was 1.61:1 on the dark field; native
+/* Select2's #444 placeholder was 1.61:1 on the dark field; native
    placeholders were ~3.4:1. */
 .woocommerce .select2-container .select2-selection .select2-selection__placeholder,
 .woocommerce .select2-container .select2-search__field::placeholder,
@@ -468,7 +468,7 @@ html .woocommerce form .form-row textarea {
 	opacity: 1;
 }
 
-/* D-06: inline section-title colours (2.0-4.1:1) from the checkout
+/* Inline section-title colours (2.0-4.1:1) from the checkout
    plugin's markup; only !important reaches them. The same titles print on
    Edit Account, where the dark theme took them to 2:1 (brick red on navy). */
 .woocommerce-checkout .arl_sectiontitle,
@@ -506,13 +506,13 @@ body > .select2-container .select2-results__option {
 	color: var(--bl-content-text);
 }
 
-/* D-06: select2's #ddd "selected" fill put dark-mode option text at 1.3:1. */
+/* Select2's #ddd "selected" fill put dark-mode option text at 1.3:1. */
 body > .select2-container .select2-results__option[aria-selected="true"],
 body > .select2-container .select2-results__option[data-selected="true"] {
 	background: var(--bl-content-bg);
 }
 
-/* D-06: brand highlight instead of WordPress-admin blue; ink on ice is
+/* Brand highlight instead of WordPress-admin blue; ink on ice is
    7.7:1 in both schemes. */
 body > .select2-container .select2-results__option.select2-results__option--highlighted {
 	background: var(--bl-ice);
@@ -538,7 +538,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	font-size: var(--bl-text-sm);
 }
 
-/* D-02: the checkout plugin's inline errors are pure red (3.8:1 light,
+/* The checkout plugin's inline errors are pure red (3.8:1 light,
    4.45:1 dark); its email/phone rule is !important. */
 .woocommerce span.thwcfe-email-error,
 .woocommerce span.thwcfe-phone-error,
@@ -572,34 +572,34 @@ html body .woocommerce .woocommerce-invalid textarea {
 }
 
 /*
- * Live-review findings 1 & 2 ("Preferred Division" has no example text;
- * "Requested Team"/"Requested Partner"'s real caveats live in a truncated,
- * disappears-once-you-type placeholder) both move guidance from a field's
- * `placeholder` into its `description` (see inc/woocommerce.php's
+ * Guidance for "Preferred Division" (example text) and
+ * "Requested Team"/"Requested Partner" (real caveats that a truncated,
+ * disappears-once-you-type placeholder cannot carry) lives in each field's
+ * `description` rather than its `placeholder` (see inc/woocommerce.php's
  * blueline_wc_checkout_field_guidance_for_key()) -- but a `description` on a
  * WooCommerce field is NOT plain visible helper text by default. WooCommerce
  * core's own woocommerce.css renders `.woocommerce-input-wrapper .description`
  * as a `display: none` speech-bubble tooltip (confirmed live: computed
  * `display: none` on every one of this checkout's existing field
  * descriptions, e.g. arl_team's "If you would like to be placed on a
- * specific team."). Moving guidance into `description` would have been a
- * silent no-op fix without overriding that.
+ * specific team."). Moving guidance into `description` is a
+ * silent no-op without overriding that.
  *
  * A SECOND, higher-specificity fight sits on top of core's rule, for the
- * exact fields this finding cares about: an active site-specific Code
+ * exact fields that need this: an active site-specific Code
  * Snippets entry (id 47, "Fix Checkout Description Tooltip" -- confirmed
  * live via `wp db query` against wp_snippets; not in this repo, not part of
  * WooCommerce or WCFE Pro, and not editable from theme code) injects an
  * inline `<style>` block hard-coding `#arl_team-description`,
  * `#arl_request(2|3)-description` and `#arl_relation-description` to
  * `display: none`, revealed only via `#arl_team:focus + #arl_team-description`
- * (etc.) -- i.e. a previous attempt at exactly this same problem, which
+ * (etc.) -- i.e. an attempt at exactly this same problem, which
  * still leaves the guidance disappearing the moment the field is blurred,
- * not persistently visible as this finding asks for. Its ID selectors
+ * rather than persistently visible. Its ID selectors
  * inherently outrank any class-based override this file could write, and
  * writing our own matching per-field ID selectors here would break the
  * file-level comment's "do not add per-field selectors" rule for exactly
- * the fields the live review flagged. `!important` on `display` alone is
+ * the fields concerned. `!important` on `display` alone is
  * the narrow, still-generic way to win regardless of how many fields that
  * snippet's ID list does or doesn't cover.
  *
@@ -608,7 +608,7 @@ html body .woocommerce .woocommerce-invalid textarea {
  * usual muted colour/size, not core's blue bubble+arrow -- rather than a
  * tooltip that needs an interaction to reveal. Generic per the file-level
  * comment: this affects every Checkout Field Editor Pro field's description
- * site-wide, not just the ones the live review flagged.
+ * site-wide, not just the ones above.
  */
 .woocommerce form .form-row .woocommerce-input-wrapper .description {
 	display: block !important;
@@ -847,7 +847,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 }
 
 /*
- * Live-review finding 5: /register's two products don't actually link
+ * /register's two products don't actually link
  * anywhere -- the title is plain text and the image opens only a
  * decorative-artwork zoom lightbox, even though a real single-product page
  * for each exists (WooCommerce's [product_page] shortcode, which /register
@@ -871,7 +871,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	text-decoration: underline;
 }
 
-/* A11Y-09: the /register embed's title is now an h2; keep its h1 size. */
+/* The /register embed's title is now an h2; keep its h1 size. */
 .woocommerce div.product .blueline-wc-product-page-title-link .product_title {
 	font-size: 2em;
 	margin-block-end: 0.67em;
@@ -1004,7 +1004,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 /* ---------------------------------------------------------------------
  * Tables shared by cart, checkout order review, and the My Account
  * store-credit/refund-request partials (dashboard.php itself is replaced
- * wholesale in Task 12).
+ * wholesale).
  * ------------------------------------------------------------------- */
 
 .woocommerce table.shop_table,
@@ -1063,7 +1063,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	border-radius: 50%;
 }
 
-/* D-02: page-ground text on the danger fill is 6.3-6.9:1 in both schemes
+/* Page-ground text on the danger fill is 6.3-6.9:1 in both schemes
    (white was 2.8:1 on dark's lighter red); !important beats core's. */
 .woocommerce table.shop_table td.product-remove a.remove:hover,
 .woocommerce table.shop_table td.product-remove a.remove:focus-visible {
@@ -1141,7 +1141,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 }
 
 /*
- * Live-review finding: a dangling "Quantity" column with nothing visible
+ * Hides a dangling "Quantity" column with nothing visible
  * under it. Every product this store carries is a season registration,
  * always `sold_individually` (confirmed live: WooCommerce renders
  * `<input type="hidden" ... value="1">` for the quantity, not the usual
@@ -1386,7 +1386,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	margin-block: var(--bl-space-4);
 }
 
-/* D-01: the link colour was 4.35:1 on core's grey payment panel. */
+/* The link colour was 4.35:1 on core's grey payment panel. */
 .woocommerce-terms-and-conditions-wrapper a.woocommerce-terms-and-conditions-link {
 	color: var(--bl-content-text);
 	text-decoration: underline;
@@ -1430,7 +1430,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	font-size: var(--bl-text-base);
 }
 
-/* A11Y-12: WC's 22px show-password toggle, up to the 24px minimum target. */
+/* WC's 22px show-password toggle, up to the 24px minimum target. */
 .woocommerce form .show-password-input {
 	display: flex;
 	align-items: center;
@@ -1445,7 +1445,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 }
 
 /*
- * A11Y-12: Social Login's white labels on its own brand fills: Twitter's
+ * Social Login's white labels on its own brand fills: Twitter's
  * #55acee fails at 2.46:1 (ink text there is 6.4:1), Google's #4285f4 at
  * 3.56:1 (Google's own darker #3367d6 is 5.2:1 with white).
  */
@@ -1458,7 +1458,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 	border-color: #3367d6;
 }
 
-/* D-16: product tabs on content tokens (core's: a white tab on the dark
+/* Product tabs on content tokens (core's: a white tab on the dark
    page, #515151 label, no hover). */
 .woocommerce div.product .woocommerce-tabs ul.tabs {
 	padding: 0;
@@ -1499,7 +1499,7 @@ html body .woocommerce .woocommerce-invalid textarea {
 }
 
 /* ---------------------------------------------------------------------
- * D-04/D-05: the registration rules modal (#arl-rules-modal). Its markup,
+ * the registration rules modal (#arl-rules-modal). Its markup,
  * inline <style> and script come from a Code Snippets entry in the
  * database, not this repo, so it is themed from here; `html` lifts each
  * selector past that inline style. Focus handling: js/rules-modal.js.
@@ -1518,7 +1518,7 @@ html #arl-rules-modal h2 {
 	color: var(--bl-content-text);
 }
 
-/* The dark link token on the old fixed-white panel was 1.95:1. */
+/* The dark link token on the plugin's fixed-white panel is 1.95:1. */
 html #arl-rules-modal .arl-rules-panel a {
 	color: var(--bl-content-link);
 }

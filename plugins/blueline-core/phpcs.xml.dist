@@ -26,7 +26,7 @@
 	</rule>
 
 	<!-- Global namespace prefixes. `blueline` also covers `blueline_core` and BLUELINE_CORE_*:
-	     several moved helpers keep the theme's blueline_* names on purpose (see README, step 3). -->
+	     several moved helpers keep the theme's blueline_* names on purpose. -->
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">

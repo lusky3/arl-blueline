@@ -41,7 +41,7 @@ function blueline_hero_headline( string $translated_format, string $highlight ):
 
 /**
  * A one-line "next game" summary for the hero's registration_open subcopy.
- * P1 finding 4: registration can be open for months while the current
+ * Registration can be open for months while the current
  * season is still being played, and an existing player hitting the
  * registration-heavy hero should still see their next game rather than
  * have the sell fully mask it.
@@ -91,7 +91,7 @@ function blueline_homepage_hero_registration_content( array $offers, array $stat
 		$subcopy_lines[] = $pricing['price_breakdown'];
 	}
 
-	// Sell-and-play overlap (P1 finding 4): registration can be open while
+	// Sell-and-play overlap: registration can be open while
 	// this season's games are still happening. Rather than let the sell
 	// fully mask "when's my next game" for a third of the year, carry both
 	// at once: the price breakdown (or lack of one) above, and this line,
@@ -222,7 +222,7 @@ function blueline_homepage_hero_in_season_content( array $state_data, ?int $now 
 			blueline_event_date( $event_id )
 		);
 	} else {
-		// The brief's table highlights only {n} ("**{n}** games this week."),
+		// Only {n} is highlighted ("**{n}** games this week."),
 		// not the whole "N games" phrase, so the pluralized noun is a plain,
 		// separately-escaped substitution alongside the highlighted number,
 		// not passed through blueline_hero_headline()'s single-highlight helper.
@@ -285,8 +285,7 @@ function blueline_homepage_hero_offseason_content(): array {
 }
 
 /**
- * Resolve the eyebrow/headline/CTA copy for one hero variant, per the
- * per-state table in the Task 7 brief.
+ * Resolve the eyebrow/headline/CTA copy for one hero variant.
  *
  * The returned 'state' key is the EFFECTIVE state actually rendered, which
  * can differ from the requested $state: when $state is registration_open

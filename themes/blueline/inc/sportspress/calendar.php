@@ -32,12 +32,11 @@ function blueline_sp_event_start_timestamp( $event_id ) {
 }
 
 /**
- * Live-review finding: "The Next Puck Drop" countdown widget (SportsPress's
- * own Countdown widget, sportspress/countdown.php below overrides its
- * template) got permanently stuck on a game from over a week in the past
- * whose result was never entered, showing 00 Days 00 Hrs 00 Mins 00 Secs
- * forever instead of advancing to the real next dated game -- confirmed
- * live on staging while real future games existed the same week. Whatever
+ * The "The Next Puck Drop" countdown widget (SportsPress's own Countdown
+ * widget, sportspress/countdown.php below overrides its template) can get
+ * permanently stuck on a game from over a week in the past whose result
+ * was never entered, showing 00 Days 00 Hrs 00 Mins 00 Secs forever
+ * instead of advancing to the real next dated game. Whatever
  * event the stock widget/template resolves (a pinned "Event" setting, a
  * specific Calendar, or SportsPress's own "next" pick) can end up being a
  * stale one; the template's own countdown math (date_diff() with $interval
@@ -117,7 +116,7 @@ function blueline_sp_decide_countdown_event( ?array $picked, ?array $next_future
  * own WP_Query calls are (see tests/SeasonStateOverrideTest.php's
  * test_the_query_moment_is_built_from_the_injected_timestamp() docblock): a
  * from-memory WP_Query/date_query stub is exactly how this project's
- * option-lifecycle stubs previously shipped assumptions nobody could check
+ * option-lifecycle stubs end up carrying assumptions nobody can check
  * against core's real behaviour. blueline_sp_decide_countdown_event() above
  * carries the actual decision this exists to serve, and IS unit tested.
  *
@@ -231,10 +230,9 @@ function blueline_sp_countdown_scope_args( $team, $league, $season, array $exclu
  * league-table.php) where no listed team has played any games yet, or ''
  * when at least one has -- or when there is simply no way to tell.
  *
- * Live-review finding: a division whose season/playoff round hasn't
- * started yet rendered every team at position 0 with a 0-0-0-0 record and
- * NO explanatory text at all -- confirmed live on "Division 5 | Playoffs
- * S2026" -- reading as a broken table rather than "nothing has happened
+ * A division whose season/playoff round hasn't started yet would render
+ * every team at position 0 with a 0-0-0-0 record and NO explanatory text
+ * at all, reading as a broken table rather than "nothing has happened
  * here yet."
  *
  * Kept free of SportsPress/WordPress calls -- the caller alone knows its
@@ -280,12 +278,11 @@ function blueline_sp_zero_games_note( bool $has_progress_signal, array $progress
  * The effective display state of an sp_event, independent of whether a
  * score has been entered.
  *
- * P0 finding 2: blueline_sp_event_hero() used to decide pre/post-game
- * purely from `sp_get_status() === 'results'`, which SportsPress only ever
- * returns once a result row exists in `sp_results`. Confirmed live:
- * eleven published events in the last 90 days have no `sp_results` row at
- * all, so an event dated well in the past still advertised "Preview" and
- * offered a live "Add to calendar" link. This function is pure (no
+ * Deciding pre/post-game purely from `sp_get_status() === 'results'` is
+ * not enough: SportsPress only ever returns it once a result row exists
+ * in `sp_results`, and events well in the past can have no `sp_results`
+ * row at all, so they would still advertise "Preview" and offer a live
+ * "Add to calendar" link. This function is pure (no
  * SportsPress/WordPress calls of its own) so it can be unit tested
  * directly: given whether a result exists and when the event actually
  * starts, it returns exactly one of three states, gated on the clock
@@ -327,7 +324,7 @@ function blueline_sp_event_state( $has_results, $start_timestamp, $now_timestamp
 
 /**
  * Whether a played game with no result is recent enough that a score is still
- * expected (QA C-24: "Final score coming soon" was shown on 2016 games).
+ * expected (an old game is never shown "Final score coming soon").
  *
  * @param int|false $start_timestamp GMT unix start time, or false if unknown.
  * @param int|null  $now_timestamp   Current GMT unix time; defaults to time().
@@ -347,7 +344,7 @@ function blueline_sp_result_still_expected( $start_timestamp, $now_timestamp = n
 
 /**
  * Number of columns sportspress/event-list.php prints, so its date-heading
- * row spans the whole table (QA C-16/B-05: the Result column was missed).
+ * row spans the whole table.
  * Mirrors sp_column_active(): an empty column list means "every column".
  *
  * @param array|null $usecolumns Active column keys.
@@ -375,7 +372,7 @@ function blueline_sp_event_list_column_count( $usecolumns ) {
 
 /**
  * Whether any row of a player statistics table has a real stat value; a table
- * of blanks and dashes gets the empty state instead (QA B-14).
+ * of blanks and dashes gets the empty state instead.
  *
  * @param array    $rows      Rows keyed by season id, each keyed by column.
  * @param string[] $stat_keys Stat column keys.
@@ -499,14 +496,12 @@ function blueline_calendar_group_attrs( string $label, bool $is_id = false ): st
  * (webcal) and Google -- or nothing at all when the team has no published
  * calendar (blueline_team_calendar_urls() itself returns null).
  *
- * Every team's page carried this by hand until now: the same two links,
- * the same "Take your schedule with you." lead-in, and (per a live content
- * audit) the same 2016-era GCal.png/iCal.png image attachments and a
- * hardcoded, environment-specific webcal:// URL -- one team at a time,
- * copy-pasted, unable to follow a domain change or a URL scheme fix. This
- * renders the identical two destinations from the one already-tested
- * source (blueline_team_calendar_urls(), used unchanged by the account
- * dashboard's "My next game" module) instead.
+ * Rendering the two destinations from one source
+ * (blueline_team_calendar_urls(), also used unchanged by the account
+ * dashboard's "My next game" module) replaces per-team hand-copied links
+ * with a "Take your schedule with you." lead-in and a hardcoded,
+ * environment-specific webcal:// URL, which could not follow a domain
+ * change or a URL scheme fix.
  *
  * data-calendar-links / data-calendar="apple|google" is the same contract
  * assets/src/js/calendar-links.js already reads sitewide (it is imported
@@ -550,29 +545,22 @@ function blueline_render_team_calendar_links( $team_id ) {
  * (grouped date headings, muted venue text -- see that file's own
  * docblock).
  *
- * Every team's page carried this by hand until now, as a literal
- * `[event_list id="..." title="Upcoming Games" ...]` shortcode pasted into
- * the team's Description -- one PER-TEAM sp_calendar post id, unique to
- * that team, hand-copied from wherever the shortcode was first generated.
- * A live content audit clearing that pasted boilerplate (see
- * blueline_render_team_calendar_links()'s own docblock for the matching
- * calendar-links half of the same cleanup) removed the shortcode text but
- * left the underlying sp_calendar posts themselves untouched -- this
- * renders the identical table from that same post, auto-resolved via
+ * Replaces a literal `[event_list id="..." title="Upcoming Games" ...]`
+ * shortcode pasted by hand into each team's Description (one PER-TEAM
+ * sp_calendar post id, unique to that team): the table is rendered from
+ * that same sp_calendar post, auto-resolved via
  * blueline_team_calendar_urls()'s own calendar_id lookup, instead of
- * requiring the shortcode to be pasted back in by hand.
+ * requiring the shortcode to be pasted in by hand (see
+ * blueline_render_team_calendar_links()'s own docblock for the matching
+ * calendar-links half).
  *
  * This is NOT the same thing as sportspress/team-events.php's own
  * "Fixtures"/"Results" cards (the "Games" tab, sportspress_after_single_team
- * teammate below) -- reported live as two visibly different features:
- * this is a plain grouped table of the next 5 upcoming games (matching
- * /schedule's own layout exactly), that is a card-based fixtures/results
- * breakdown. Both have coexisted on a team's own page before this
- * session's changes (confirmed against team-events.php's own docblock,
- * which already described a "Results" card sitting directly beneath an
- * "Upcoming Games" table from the pasted shortcode) -- restoring this
- * table does not replace or duplicate that section's job, it restores
- * the piece that went missing when the pasted shortcode was cleared.
+ * teammate below) -- two visibly different features: this is a plain
+ * grouped table of the next 5 upcoming games (matching /schedule's own
+ * layout exactly), that is a card-based fixtures/results breakdown. Both
+ * coexist on a team's own page, and this table does not replace or
+ * duplicate that section's job.
  *
  * @param int $team_id sp_team post ID.
  * @return void
@@ -596,16 +584,14 @@ function blueline_render_team_schedule_table( $team_id ) {
 			'show_all_events_link' => true,
 
 			/*
-			 * Reversed live, per explicit request: an earlier round of
-			 * feedback ("too busy") turned this off for this one table --
-			 * this site's own sportspress_event_list_show_logos option is
+			 * Team crests are shown in this one table -- this site's own
+			 * sportspress_event_list_show_logos option is
 			 * "yes" (default "no"), so /schedule and any other [event_list]
 			 * shortcode already show these crests regardless of this
-			 * override. Re-enabled now that the table's own column widths
-			 * (see .sp-event-list td.data-home/.data-away below) are also
-			 * being fixed -- the two changes were requested together, on
-			 * the reasoning that a tighter, better-proportioned table
-			 * would no longer feel cluttered with the crests back.
+			 * override. Enabled because the table's own column widths
+			 * (see .sp-event-list td.data-home/.data-away below) are
+			 * tighter and better proportioned, so the table does not
+			 * feel cluttered with the crests.
 			 */
 			'show_team_logo'       => true,
 		)
@@ -888,10 +874,10 @@ function blueline_ics_single_event( array $event ) {
 /**
  * An Apple/Outlook "add event" link for a single upcoming sp_event.
  *
- * Reported live: the event page's "Add to calendar" only ever offered
- * Google -- the one-off single-event equivalent of the gap
- * blueline_render_team_calendar_links() already closed for a team's whole
- * season (that function's own docblock covers why a subscription needs
+ * The one-off single-event equivalent of
+ * blueline_render_team_calendar_links()'s team-season subscription links,
+ * so the event page's "Add to calendar" offers Apple/Outlook as well as
+ * Google (that function's own docblock covers why a subscription needs
  * BOTH forms; the same "no single link works everywhere" reasoning applies
  * here). A subscription feed is the wrong shape for a one-off add, though
  * (RFC 5545 requires webcal:// to serve reachable HTTP with the calendar

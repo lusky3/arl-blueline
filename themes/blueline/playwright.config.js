@@ -37,9 +37,8 @@ const { defineConfig, devices } = require( '@playwright/test' );
 
 /**
  * Overridable so this can point somewhere other than the local ddev
- * install this was written and verified against (see this project's own
- * task brief: "Prefer local ddev... only use staging if local proves
- * unworkable"). Nothing in this repo ever hardcodes a credentialed target;
+ * install this was written and verified against (prefer local ddev; use
+ * staging only if local proves unworkable). Nothing in this repo ever hardcodes a credentialed target;
  * BLUELINE_E2E_BASE_URL is the only thing that decides where this check
  * runs, and no credential of any kind lives in this file or in git.
  */

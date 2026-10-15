@@ -33,7 +33,7 @@ test( 'blOccasionIsHex: rejects anything else', () => {
 } );
 
 /*
- * PHP<->JS parity fixture (design spec §5.1's fourth ruling): these
+ * PHP<->JS parity fixture: these
  * exact hex pairs and their expected ratios were computed once,
  * directly, with this exact formula, and confirmed identical (to 6
  * decimal places) against inc/team-colors.php's

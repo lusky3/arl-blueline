@@ -14,9 +14,9 @@
  * @package WooCommerce\Templates
  * @version 7.0.1
  *
- * ARL override: themed empty state -- see Cody Edits below.
+ * ARL override: themed empty state -- see Local changes below.
  *
- * Cody Edits: full replacement of the stock "Your cart is currently empty"
+ * Local changes: full replacement of the stock "Your cart is currently empty"
  * notice (core's wc_empty_cart_message(), unhooked from
  * 'woocommerce_cart_is_empty' in inc/woocommerce.php so it doesn't render
  * a second, un-themed notice alongside this one) and the generic

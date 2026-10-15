@@ -2,13 +2,12 @@
  * Fade the edges of a horizontally scrolling table only where content is
  * actually hidden.
  *
- * The fade started life as an unconditional mask on both edges, which meant it
- * dimmed the first and last 24px of every table whether or not there was
- * anything to scroll to -- so a table that fitted its column still had its
- * leading characters greyed out ("ᴛIME", "ᴀUGUST 14, 2026", "₁0:30 pm"), and a
- * table scrolled hard to the left still faded a left edge with nothing hidden
- * behind it. The cue was covering the information it was meant to help people
- * find.
+ * An unconditional fade mask on both edges would dim the first and last 24px
+ * of every table whether or not there was anything to scroll to -- a table
+ * that fitted its column would have its leading characters greyed out
+ * ("ᴛIME", "ᴀUGUST 14, 2026", "₁0:30 pm"), and a table scrolled hard to the
+ * left would still fade a left edge with nothing hidden behind it. The cue
+ * would cover the information it is meant to help people find.
  *
  * CSS alone cannot express "only if this element overflows, and only on the
  * side that has more": there is no overflow or scroll-position selector. So the
@@ -16,9 +15,9 @@
  * .css maps them to the mask. With no JS the attributes are absent and no mask
  * applies -- losing a hint, never hiding content.
  *
- * Live-review finding: a schedule table's Arena column clipped at the
+ * A schedule table's Arena column can clip at the
  * viewport edge with only a faint native scrollbar as a cue -- the fade
- * mask above never appeared for it. Root cause: `.sp-scrollable-table-wrapper`
+ * mask above must appear for it too. `.sp-scrollable-table-wrapper`
  * is not server-rendered by this theme at all -- it is created at RUNTIME by
  * SportsPress's own bundled jQuery script, which wraps an existing
  * `<table class="sp-scrollable-table">` in it on that script's own DOM-ready
@@ -31,7 +30,7 @@
  * update()/observer to the one that eventually appears. Native scrolling
  * would still work (the wrapper's own CSS `overflow-x: auto` needs no JS),
  * but the fade cue this file exists to provide would silently never show,
- * for that table, ever: exactly the reported symptom. The MutationObserver
+ * for that table, ever. The MutationObserver
  * below catches any such container the moment it actually appears in the
  * DOM, instead of assuming the initial snapshot already saw everything.
  */
@@ -40,7 +39,7 @@ const CONTAINERS = [
 	'.bl-table-scroll',
 	'.sp-scrollable-table-wrapper',
 	'table.bl-table-self-scroll',
-	// QA A-02: legacy classic-editor tables scroll themselves (sportspress.css).
+	// Legacy classic-editor tables scroll themselves (sportspress.css).
 	'.entry-content > table:not([class*="sp-"])',
 	// Gutenberg's table block: blocks.css makes the <figure> the scroller.
 	'.entry-content .wp-block-table',
@@ -140,7 +139,7 @@ function uniqueLabel( el, text ) {
 }
 
 /**
- * QA C-03/B-08 (WCAG 2.1.1): a container that actually overflows must be
+ * A container that actually overflows must be
  * reachable by keyboard so arrow keys can scroll it; one that fits must not
  * add an empty tab stop. A <table> keeps its own role.
  *

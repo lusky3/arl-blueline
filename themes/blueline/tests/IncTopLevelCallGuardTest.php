@@ -1,7 +1,7 @@
 <?php
 /**
- * Guards against the class of bug Task 10's Part B fix round found and
- * corrected: inc/account/endpoints.php called
+ * Guards against a class of bug once found in the theme:
+ * inc/account/endpoints.php called
  * blueline_register_account_endpoint_title_filters() as a BARE, unconditional
  * function call at file scope -- executing the instant functions.php's
  * require_once chain reached that file, before WordPress had fired
@@ -11,7 +11,7 @@
  * notice on every wp-cli invocation including a plain `wp user create`.
  *
  * The investigation that found it (a live doing_it_wrong_run backtrace
- * captured against staging, not a hunch -- see the Task 10 report) was a
+ * captured against staging, not a hunch) was a
  * one-off: nothing stopped a future contributor reintroducing the identical
  * pattern in some OTHER inc/ file, where it would resurface only as the same
  * staging log noise, not a test failure.

@@ -1,7 +1,7 @@
 /*
  * Blueline — sitewide floating "next game" widget.
  *
- * position: fixed, bottom-LEFT -- reported live: bottom-right put this
+ * position: fixed, bottom-LEFT -- bottom-right would put this
  * directly under the OneSignal push-notification plugin's own bell widget
  * (a separate plugin, not this theme's code -- it injects its own
  * `#onesignal-bell-container`, fixed at that same corner, at a z-index far
@@ -12,7 +12,7 @@
  * centered with a fixed 96px height, not anchored to the bottom, so the
  * two only get close on a viewport short enough to put the flyout's
  * centered band near the very bottom -- a materially narrower edge case
- * than the corner this used to permanently collide with.
+ * than the bottom-right corner, which would collide permanently.
  *
  * --bl-z-floating-widget (style.css's centralized scale) sits between
  * --bl-z-nav-submenu and --bl-z-flyout/--bl-z-drawer on purpose: above

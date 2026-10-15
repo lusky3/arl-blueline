@@ -60,9 +60,9 @@ test.describe( 'hero band photography', () => {
 				false
 			);
 
-			// ...and never neither, which is how the first version of this
-			// shipped: the photo hidden by the width rule and the rings hidden
-			// by the opt-in class, leaving a phone with no texture at all.
+			// ...and never neither, which is what happens when the photo is hidden by
+			// the width rule and the rings hidden by the opt-in class, leaving a
+			// phone with no texture at all.
 			expect( t.photoShown || t.ringShown, `no texture at ${ width }px` ).toBe(
 				true
 			);
@@ -151,9 +151,9 @@ test.describe( 'hero band photography', () => {
 	/*
 	 * With JavaScript off, page.evaluate() cannot run at all -- so this asserts
 	 * on the SERVED MARKUP instead, which is exactly what a no-JS browser gets:
-	 * an inline <style> setting the custom property the band reads. An earlier
-	 * version of this check used evaluate() with javaScriptEnabled:false and
-	 * reported "no image", which was the test failing, not the page.
+	 * an inline <style> setting the custom property the band reads. evaluate() with
+	 * javaScriptEnabled:false would report "no image", which is the test
+	 * failing, not the page.
 	 */
 	test( 'a real photograph is set without JavaScript', async ( { page } ) => {
 		const response = await page.goto( '/', { waitUntil: 'domcontentloaded' } );

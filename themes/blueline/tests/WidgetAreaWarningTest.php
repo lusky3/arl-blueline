@@ -1,19 +1,16 @@
 <?php
 /**
- * Covers Task 5 of the P1b-panel-completion plan:
+ * Covers
  * blueline_section_widget_warning() -- the message that stops an admin
  * switching a widget-bearing section off and assuming their widgets were
  * deleted. Switching a section off only hides it (blueline_section_enabled());
  * it never touches the widget store, and this warning names the live widget
  * count so an admin doesn't rebuild something that's still there.
  *
- * Fix round: the first version of this warning mapped `chrome_footer_trust`
- * to `footer-2`, which the plan's coordinator caught as false --
  * `chrome_footer_trust` gates only a separate, hardcoded trust column, never
- * footer-2's own widget loop. The real fix built the four missing
- * `chrome_footer_widgets_N` sections (each genuinely gating its own
- * `footer-N`, per inc/template-tags.php's blueline_site_footer()), so this
- * file now targets those instead.
+ * footer-2's own widget loop, so the warning targets the four
+ * `chrome_footer_widgets_N` sections instead (each genuinely gating its own
+ * `footer-N`, per inc/template-tags.php's blueline_site_footer()).
  *
  * @package blueline
  */
@@ -128,9 +125,8 @@ final class WidgetAreaWarningTest extends TestCase {
 	/**
 	 * `chrome_footer_trust` gates a separate, hardcoded footer column, not
 	 * any widget area -- it must never warn, even with footer-2 populated.
-	 * This is the exact mistake a fix round of this plan made once already:
-	 * mapping this key to footer-2's count when nothing about this section's
-	 * own toggle actually hides that area.
+	 * Mapping this key to footer-2's count would be a mistake: nothing about
+	 * this section's own toggle actually hides that area.
 	 */
 	public function test_chrome_footer_trust_never_warns_even_with_footer_2_populated(): void {
 		$state                                = &blueline_test_state();

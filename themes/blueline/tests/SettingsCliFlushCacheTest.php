@@ -1,8 +1,7 @@
 <?php // phpcs:disable WordPress.Files.FileName.InvalidClassFileName -- must be inline on this exact line; see tests/bootstrap.php's identical disable for why (the sniff's error is anchored to the T_OPEN_TAG token on line 1).
 /**
  * Covers `wp blueline settings flush-cache` (inc/cli/settings-command.php)
- * -- the subcommand the design spec's 6.9 list named and the panel work
- * never added.
+ * -- the subcommand the design spec's 6.9 list names.
  *
  * ## Why the shipped path reports failure, and why that is correct
  *
@@ -18,7 +17,7 @@
  * flag stays set, the exact manual command is printed, and the command
  * exits non-zero. A `flush-cache` that printed "Success." while purging
  * nothing would be the same class of untrue admin-facing claim this
- * project keeps finding.
+ * project guards against.
  *
  * ## The subcommand's name is pinned, and here is why that needs a test
  *

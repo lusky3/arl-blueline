@@ -1,5 +1,5 @@
 /**
- * Focus-ring lint (QA pass: B-02/C-02/D-03). The two-tone indicator only
+ * Focus-ring lint. The two-tone indicator only
  * works when the halo box-shadow is actually painted, and three ways kept
  * dropping it: a component focus rule setting its own box-shadow, a rule
  * ringing a *different* element (`input:focus-visible ~ label`) with an

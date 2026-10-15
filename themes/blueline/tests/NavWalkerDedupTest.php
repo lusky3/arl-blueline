@@ -10,8 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/template-tags.php';
 
 /**
- * Covers the Task 7 regression this suite had ZERO durable coverage for
- * (Task 16 item d): Blueline_Nav_Walker must hide a duplicate "Register to
+ * Covers a regression: Blueline_Nav_Walker must hide a duplicate "Register to
  * Play" item ONLY when it is genuinely the Register CTA showing -- reusing
  * the same de-dup path for whatever CTA happens to be visible silently
  * deleted the site's permanent "Schedule" nav link in 4 of 5 season states.
@@ -134,7 +133,7 @@ final class NavWalkerDedupTest extends TestCase {
 	}
 
 	/**
-	 * Live-review finding: "SCHEDULE" rendered twice in the desktop
+	 * "SCHEDULE" rendered twice in the desktop
 	 * header -- once as this permanent nav item, once as the header's own
 	 * CTA button, whenever the CTA was showing Schedule (i.e. every state
 	 * but registration_open). The walker's second constructor argument

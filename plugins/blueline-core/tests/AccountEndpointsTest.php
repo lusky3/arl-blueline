@@ -63,7 +63,7 @@ final class AccountEndpointsTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_store_credit_resolves_to_its_own_query_var(): void {
-		// The exact regression: navigation.php feeds this value to
+		// navigation.php feeds this value to
 		// wc_get_account_endpoint_url() and wc_get_account_menu_item_classes().
 		// Returning 'credit' made the nav link to /account/credit/ (a 301) on
 		// every render and left the real page unable to mark itself active.
@@ -245,7 +245,7 @@ final class AccountEndpointsTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_a_request_for_the_arl_slug_itself_does_not_match_as_legacy(): void {
-		// This is the exact bug the redirect-loop fix closed: WooCommerce's own
+		// WooCommerce's own
 		// query-var remap sets $wp->query_vars['orders'] on every *correct* request
 		// to /account/registrations/ too, via its internal orders => registrations
 		// mapping. The matcher must key off the dedicated blueline_legacy_* var,
@@ -302,7 +302,7 @@ final class AccountEndpointsTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_endpoint_titles_match_this_themes_own_copy_not_woocommerces_defaults(): void {
-		// Regression pin for the live mismatch: WooCommerce's own hard-coded
+		// WooCommerce's own hard-coded
 		// defaults are "Addresses" and "Account details" (lowercase d) --
 		// our copy is "Addresses" (same, coincidentally) and
 		// "Account Details" (capital D). Both must resolve to THIS theme's

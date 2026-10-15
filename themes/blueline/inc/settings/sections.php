@@ -2,12 +2,12 @@
 /**
  * Section presence toggles: which parts of the site render at all.
  *
- * PRESENCE ONLY, NEVER ORDER. blueline_homepage_module_order() (a later
- * task) encodes the registration_open-and-playing fix, and a drag-list
+ * PRESENCE ONLY, NEVER ORDER. blueline_homepage_module_order() encodes the
+ * registration_open-and-playing fix, and a drag-list
  * inviting an admin to reorder sections would invite re-breaking it -- this
  * tab only ever offers "show" or "hide", never "where".
  *
- * Every consumer (the homepage, account cards, site chrome -- later tasks)
+ * Every consumer (the homepage, account cards, site chrome)
  * reads through blueline_section_enabled() rather than calling
  * blueline_settings() directly, so a floor or an unknown-key guard added
  * here cannot be bypassed by a caller that forgot it exists.
@@ -76,14 +76,13 @@ function blueline_section_definitions(): array {
 			'label' => 'Footer team directory',
 			'group' => 'Site chrome',
 		),
-		// Fix round (Task 5): these four gate the four REAL footer-1..footer-4
+		// These four gate the four REAL footer-1..footer-4
 		// WordPress widget areas (register_sidebar() calls in inc/setup.php's
 		// blueline_widgets_init()) -- each ANDed with the area's own
 		// is_active_sidebar() check in blueline_site_footer()
 		// (inc/template-tags.php). `chrome_footer_trust` (above) does NOT
 		// gate any of these; it only gates the separate, hardcoded trust
-		// column next to them -- a distinction a fix round of this plan got
-		// wrong once already, which is why these four exist as their own
+		// column next to them, which is why these four exist as their own
 		// entries rather than being folded into chrome_footer_trust.
 		'chrome_footer_widgets_1'  => array(
 			'label' => 'Footer widget area 1',
@@ -165,17 +164,15 @@ function blueline_section_enabled( string $key ): bool {
  * assuming their widgets were deleted and rebuilding them from scratch.
  *
  * The wording depends on the toggle's CURRENT value, not only on the area
- * being populated. Before this took the toggle into account, an admin who
- * had already switched an area off still read "Switching it off hides
- * them" beside an unticked box -- future tense about a step they had
+ * being populated. Otherwise an admin who had already switched an area
+ * off would still read "Switching it off hides them" beside an unticked box -- future tense about a step they had
  * already taken, and silent on the one thing they would actually want
  * confirmed at that moment, which is that the widgets they can no longer
  * see still exist. Both phrasings carry the count and both say nothing was
  * deleted; only the tense and the reassurance differ.
  *
  * Each of the four `chrome_footer_widgets_N` keys maps to its own real
- * widget area (`footer-N`) -- and, unlike an earlier fix round's
- * `chrome_footer_trust` -> `footer-2` mapping, each genuinely IS the toggle
+ * widget area (`footer-N`) -- and each genuinely IS the toggle
  * that gates its area: blueline_site_footer() (inc/template-tags.php) gates
  * each of the four footer widget columns on both that column's own section
  * toggle and that area's own is_active_sidebar() check, so this warning's

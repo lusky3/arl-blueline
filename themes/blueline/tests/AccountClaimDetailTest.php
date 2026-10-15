@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/account/dashboard.php';
 
 /**
- * P4 finding 6: two claim candidates sharing a name used to render as
+ * Two claim candidates sharing a name used to render as
  * identical rows with an identical "Yes, that's me" button. These tests
  * cover the pure formatting layer added to distinguish them --
  * blueline_format_candidate_detail()'s visible "Team · Season · #Number"
@@ -106,7 +106,7 @@ final class AccountClaimDetailTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_aria_label_with_detail_carries_the_same_disambiguation_as_the_visible_row(): void {
-		// The whole point of P4 finding 6: a screen-reader user choosing
+		// The whole point: a screen-reader user choosing
 		// between two "Mike Brown" rows must hear the same distinguishing
 		// information a sighted user sees in .bl-account-claim__detail.
 		$this->assertSame(

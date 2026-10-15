@@ -7,11 +7,10 @@
  * in inc/setup.php -- WordPress reads this file's contents server-side
  * and injects them only inside the editor canvas iframe's
  * .editor-styles-wrapper, never into the surrounding wp-admin document.
- * An earlier version of this fix used wp_enqueue_style() on
- * enqueue_block_editor_assets instead; that hook prints into wp-admin
- * itself, so it leaked these bare `body`/`a`/`h1-h4` rules onto the
- * actual edit-screen chrome (sidebar, toolbar, panel headings) -- see
- * the Task 5 review fix report for how that was found and verified.
+ * Using wp_enqueue_style() on
+ * enqueue_block_editor_assets instead would print into wp-admin
+ * itself and leak these bare `body`/`a`/`h1-h4` rules onto the
+ * actual edit-screen chrome (sidebar, toolbar, panel headings).
  *
  * Two things follow from the canvas being an iframe:
  *   - :root custom properties don't cross document/iframe boundaries, and
@@ -31,7 +30,7 @@
  *     blocks.css's `.entry-content …` scoping.
  *
  * Coverage vs. blocks.css: typography and colour rules are mirrored for
- * every block in the brief's list (paragraph, heading, list, table,
+ * every block in the supported list (paragraph, heading, list, table,
  * image, columns, group, buttons, separator, quote), including style
  * variants (table stripes, separator dots, button outline). Purely
  * spacing-only rules that only exist in blocks.css to establish vertical
@@ -54,9 +53,7 @@
 	--bl-white: #fff;
 
 	/* Light-mode values only -- the block-editor canvas doesn't need the
-	 * light/dark/system toggle (design spec
-	 * docs/superpowers/specs/2026-08-22-blueline-theme-toggle-design.md
-	 * §8, out of scope), it just needs --bl-surface/--bl-surface-sunken to
+	 * light/dark/system toggle, it just needs --bl-surface/--bl-surface-sunken to
 	 * keep resolving to *something* now that style.css points them here
 	 * instead of at --bl-white/--bl-paper directly -- see
 	 * tools/check-contrast.mjs's editor-parity check, which compares this

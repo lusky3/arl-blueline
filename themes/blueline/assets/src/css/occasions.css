@@ -25,15 +25,14 @@
  * function is worse than relying on the ancestor aria-hidden to correctly
  * suppress it for this purely-ambient repetition).
  *
- * Round 2 (first-round feedback: "really, really tame"): fireworks now
- * rise on a trailing spark before they bloom (one shared keyframe covers
- * both phases -- see .bl-occasion-effects__burst below), each firework
+ * Fireworks rise on a trailing spark before they bloom (one shared keyframe
+ * covers both phases -- see .bl-occasion-effects__burst below), each firework
  * occasion also gets one larger .bl-occasion-effects__hero-burst that
  * fires prominently near page load, New Year's sky additionally "writes"
- * the coming year in light (.bl-occasion-effects__year), Christmas gained
+ * the coming year in light (.bl-occasion-effects__year), Christmas has
  * a snowdrift + frost vignette (pure CSS, no new markup -- see the
  * `::before`/`::after` rules on `.bl-occasion-effects--snowflake`), and
- * Canada Day gained two larger, mostly-still maple leaves alongside its
+ * Canada Day has two larger, mostly-still maple leaves alongside its
  * falling confetti (.bl-occasion-effects__accent-leaf).
  */
 
@@ -642,11 +641,10 @@
 	 * ones show, and the medium layer's own gaps are where the small ones
 	 * show. Painted in that order (CSS paints the first-listed background
 	 * layer on top) so a big mound always wins where it and a smaller one
-	 * overlap. (First attempt at this had all three layers on the SAME
-	 * tight period, which just buried the two smaller layers under the
-	 * big one everywhere -- feedback: "recommend layering different size
-	 * mounds", meaning visibly different sizes side by side, not merely
-	 * three superimposed near-identical rows.) Each layer is also very
+	 * overlap. (All three layers on the SAME tight period would bury the two
+	 * smaller layers under the big one everywhere; the point is visibly
+	 * different sizes side by side, not merely three superimposed
+	 * near-identical rows.) Each layer is also very
 	 * slightly cooler than the one in front of it (color-mix toward
 	 * --bl-ice) -- a cheap atmospheric-depth cue, the same "size/tone =
 	 * distance" logic the falling-snow depth cue above already uses.
@@ -672,7 +670,7 @@
  * ---- New Year: white/gold firework bursts ----
  *
  * White and warm gold only, never the site's occasion accent or any
- * blue -- a "white or yellow" brief reads as literally that palette, not
+ * blue -- "white or yellow" reads as literally that palette, not
  * tinted to whatever accent an admin happens to have configured. Gold is
  * a fixed literal (#ffd873, not a design-system token): this effect is
  * the only place it is used, matching the maple-leaf motif's own
@@ -728,7 +726,7 @@
  * `display: none` of the whole effects layer (that is the visitor's own
  * choice, below). A frozen mid-fall particle
  * or a frozen firework mid-bloom still reads as festive decoration; it
- * just no longer moves. The snowdrift/frost vignette are already static
+ * just does not move. The snowdrift/frost vignette are already static
  * (no animation), so neither needs an entry here.
  */
 @media (prefers-reduced-motion: reduce) {

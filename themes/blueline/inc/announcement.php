@@ -71,12 +71,12 @@ function blueline_site_timestamp( string $datetime ): ?int {
  *
  * The two cover different routes in, which is why both exist. Every write
  * through update_option() -- wp-admin, WP-CLI, a plugin, an import script --
- * DOES run the sanitizer: inc/settings/page.php registers it on
+ * DOES run the sanitizer: inc/settings/sanitize-callback.php registers it on
  * `sanitize_option_{$option}` at file scope precisely so no write path can
  * miss it. What no PHP guard can intercept is a value written straight to
  * the database: `wp db import`, a `$wpdb` write, a hand-edited row. That is
  * the case this clamp is for, and this is the single read path every render
- * goes through. `wp blueline settings repair` (Task 9) is the reporting
+ * goes through. `wp blueline settings repair` is the reporting
  * answer to the same class of value; this is the containing one, so a
  * corrupt row cannot reach a class attribute in the meantime.
  *
@@ -94,7 +94,7 @@ function blueline_announcement_severity(): string {
 
 	/**
 	 * Filters the announcement's resolved severity, after the choices-list
-	 * clamp above but before it is used anywhere. inc/occasions.php hooks
+	 * clamp above but before it is used anywhere. inc/occasions/render.php hooks
 	 * this to clamp 'urgent' down to 'info' while a commemorative occasion
 	 * is the currently resolved-active one -- design spec §5/§7.6: a
 	 * festive "urgent" treatment would read as tone-deaf during an

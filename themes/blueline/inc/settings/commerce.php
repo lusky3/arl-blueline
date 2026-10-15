@@ -7,9 +7,9 @@
  * The trap this file exists to close mirrors inc/settings/links.php's own,
  * one level up the tree: BLUELINE_REGISTRATION_TERM_ID (inc/season-state.php)
  * has always been a hardcoded, UNVERIFIED term ID (documented there as
- * "plausible but unconfirmed" -- an inventory pass tried to confirm 91 by
- * numeric ID and failed; only a slug-based lookup for "registration" found
- * the real, live category). Every call site that read the constant directly
+ * "plausible but unconfirmed" -- 91 could not be confirmed by numeric ID;
+ * only a slug-based lookup for "registration" finds the real, live
+ * category). Every call site that read the constant directly
  * therefore trusted a number nobody had actually verified against the
  * database, with no fallback if that number stopped resolving to a real
  * term -- e.g. because a volunteer deleted and recreated the "Registration"
@@ -96,8 +96,8 @@ function blueline_resolve_registration_term(): int {
 	}
 
 	// Configured value absent, or configured but no longer real -- fall
-	// back, but do not blindly trust the fallback either: an inventory pass
-	// could not confirm 91 by numeric ID in the first place, so it gets the
+	// back, but do not blindly trust the fallback either: 91 could not be
+	// confirmed by numeric ID in the first place, so it gets the
 	// identical existence check the configured value just failed.
 	if ( $fallback > 0 && blueline_term_id_exists( $fallback, $taxonomy ) ) {
 		return $fallback;

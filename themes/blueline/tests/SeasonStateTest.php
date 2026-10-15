@@ -124,7 +124,7 @@ final class SeasonStateTest extends TestCase {
 		$this->assertSame( 'offseason', blueline_decide_season_state( $this->signals() ) );
 	}
 
-	/* ---------------------------------------------- P1 finding 4: split predicates */
+	/* ---------------------------------------------- split predicates */
 
 	/**
 	 * The registration-open predicate mirrors the enum's own product check
@@ -136,7 +136,7 @@ final class SeasonStateTest extends TestCase {
 	}
 
 	/**
-	 * The core of P1 finding 4: registration being open and games being
+	 * The core of the split: registration being open and games being
 	 * played must be independently true or false of each other -- neither
 	 * predicate may read the other's signal.
 	 */

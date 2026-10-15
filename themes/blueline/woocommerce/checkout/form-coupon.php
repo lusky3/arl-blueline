@@ -14,7 +14,7 @@
  * @package WooCommerce\Templates
  * @version 9.8.0
  *
- * Cody Edits: light tone pass only, on the two visible strings below
+ * Local changes: light tone pass only, on the two visible strings below
  * ("Have a credit?" -> "Got a credit code?", and the paragraph in the
  * expanded form) -- this is a real store-credit feature (see
  * woocommerce/myaccount/store-credit.php), not marketing copy, so the

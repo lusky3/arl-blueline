@@ -68,8 +68,8 @@ add_action( 'admin_enqueue_scripts', 'blueline_settings_maybe_enqueue_focus_scri
  *
  * Attached to the always-already-loaded `jquery` handle via
  * wp_add_inline_script() (a WordPress-blessed enqueue API, not a raw
- * echoed `<script>` tag) rather than a new webpack entry, because this file's
- * own docblock's "no webpack entry" constraint is about not adding a
+ * echoed `<script>` tag) rather than a new webpack entry, because
+ * inc/settings/page.php's docblock's "no webpack entry" constraint is about not adding a
  * build step for the theme's UI, not about never enqueuing any script at
  * all, and one inline snippet doing exactly one thing does not need one.
  *
@@ -90,13 +90,12 @@ function blueline_settings_maybe_enqueue_focus_script( string $hook_suffix ): vo
  * one; the element may not exist, in which case this is a no-op) once
  * the page has finished loading.
  *
- * This exists because the HTML5 living standard defines `autofocus` as a
- * global attribute valid on any focusable element, not only form
- * controls, which is what this file relied on before a live browser
- * check (not just a unit test, which cannot see this class of bug at
- * all; see blueline_settings_render_page()'s docblock) proved Chromium
- * does NOT actually move focus to a plain `<div autofocus>` on page load,
- * despite the spec allowing it: confirmed directly by loading this
+ * This exists because `autofocus` alone does not work: the HTML5 living
+ * standard defines it as a global attribute valid on any focusable element,
+ * not only form controls, but Chromium does NOT actually move focus to a
+ * plain `<div autofocus>` on page load, despite the spec allowing it (a
+ * unit test cannot see this class of bug at all; see
+ * blueline_settings_render_page()'s docblock). Confirmed by loading this
  * exact page's own rendered markup, alongside WordPress core's real
  * wp-admin/js/common.js (which independently relocates every `.notice`
  * element to just after the page's own `<h1>` on every admin screen, on
@@ -140,8 +139,8 @@ add_action( 'admin_init', 'blueline_settings_register' );
  * blueline_settings_sanitize_callback() onto `sanitize_option_{$option}`
  * only while `admin_init` has fired, which WP-CLI and a direct
  * update_option() call from a script never do. The unconditional,
- * file-scope add_filter() a few lines below this function is what actually
- * wires validation, on every path; see this file's own docblock ("Every
+ * file-scope add_filter() in inc/settings/sanitize-callback.php is what actually
+ * wires validation, on every path; see inc/settings/page.php's docblock ("Every
  * write path is validated") for why that distinction matters.
  *
  * @return void
@@ -161,9 +160,8 @@ add_action( 'admin_notices', 'blueline_settings_newer_schema_notice' );
 /**
  * Tell an admin when the stored settings were written by a NEWER version of
  * this theme than the one running: the one state inc/settings/store.php's
- * blueline_settings_migrate() deliberately refuses to act on, and the half
- * of the design spec's forward-only requirement ("refuse to write, still
- * render, and show a notice") that was never built. Site Health already
+ * blueline_settings_migrate() deliberately refuses to act on (forward-only:
+ * refuse to write, still render, and show a notice). Site Health already
  * reports both version numbers (inc/settings/site-health.php), but nobody
  * opens Site Health unprompted; a rolled-back theme is otherwise silent.
  *
@@ -176,9 +174,8 @@ add_action( 'admin_notices', 'blueline_settings_newer_schema_notice' );
  *
  * ## Every claim in the copy below is pinned by a test
  *
- * This is reassuring copy about a scary-looking state, which is exactly the
- * kind this project has shipped wrong before, so each factual claim has its
- * own test in tests/SettingsSchemaNoticeTest.php rather than being inferred
+ * This is reassuring copy about a scary-looking state, so each factual claim
+ * has its own test in tests/SettingsSchemaNoticeTest.php rather than being inferred
  * from the code's shape:
  *
  * - "the automatic settings upgrade refuses to run":
@@ -188,7 +185,7 @@ add_action( 'admin_notices', 'blueline_settings_newer_schema_notice' );
  * - "saving from Appearance -> Blueline carries the newer values forward":
  *   test_an_ordinary_panel_save_keeps_both_the_newer_schema_and_its_unknown_keys()
  *
- * A `<section>`, not a `<div>`; see this file's own docblock's "Never a
+ * A `<section>`, not a `<div>`; see inc/settings/page.php's docblock's "Never a
  * `<div>`" section, and tests/NoticeDivGuardTest.php.
  *
  * @return void

@@ -125,7 +125,7 @@ function blueline_settings_render_data_tools( ?array $preview ): void {
  * what would happen to every setting, and, only when there is nothing to
  * refuse, the control that actually applies it.
  *
- * Both notices below are `<section>`s, never `<div>`s; see this file's own
+ * Both notices below are `<section>`s, never `<div>`s; see inc/settings/page.php's
  * docblock's "Never a `<div>`" section and tests/NoticeDivGuardTest.php.
  *
  * EVERY key gets a row, including the ones that are not changing. That is

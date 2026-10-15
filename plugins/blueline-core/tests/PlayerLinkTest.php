@@ -575,14 +575,14 @@ final class PlayerLinkTest extends TestCase {
 	 * Test case.
 	 */
 	public function test_matcher_still_scores_a_subset_name_at_one(): void {
-		// NOT a bug report -- a pin. blueline_name_match_score()'s formula is
-		// plan-mandated and deliberately unchanged: it divides by the SMALLER
+		// A pin, not a bug report. blueline_name_match_score()'s formula is
+		// deliberately unchanged: it divides by the SMALLER
 		// token set so "Cody James Lusk" still matches "Cody Lusk". The
 		// consequence is that any strict subset scores exactly 1.0, which is
 		// why the fix for the identity-squatting hole lives in the candidate
 		// GATE below, not in this function. If this assertion ever starts
-		// failing, someone changed the matcher, and the six verbatim tests
-		// above are no longer describing the shipped behaviour.
+		// failing, someone changed the matcher and the verbatim tests
+		// above no longer describe the shipped behaviour.
 		$this->assertSame( 1.0, blueline_name_match_score( 'Matthew', 'Matthew Zielinski' ) );
 		$this->assertSame( 1.0, blueline_name_match_score( 'Smith', 'John Smith' ) );
 	}

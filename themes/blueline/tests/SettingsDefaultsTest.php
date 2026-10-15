@@ -23,18 +23,16 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  *   `text`/`textarea` field, rather than a silent gap a schema author could
  *   forget — see inc/settings/sanitize.php's blueline_sanitize_field() for
  *   why an omitted key being invisible to this validator was exactly the
- *   fatal Task 3 exists to prevent, one step removed.
+ *   fatal the validator exists to prevent, one step removed.
  * - test_placeholder_contracts_match_the_declared_default() proves that any
  *   field declaring a NON-EMPTY `placeholders` contract has a default value
  *   that actually contains every one of those conversion specs, so a
- *   contract can never ship wrong from birth. Before Task 8, no field
- *   declared a non-empty contract (every current theme literal with a real
- *   sprintf() placeholder was deliberately excluded until Task 8 added it
- *   against the validator Task 3 built — see defaults.php's docblock), so
- *   this test's own $checked/addToAssertionCount() guard existed purely so
- *   the test could not go quietly inert while nothing exercised it. Task 8's
- *   seven hero fields now give the per-field loop real, non-empty contracts
- *   to check on every run; the guard stays in place regardless, so the test
+ *   contract can never ship wrong from birth. This test's own
+ *   $checked/addToAssertionCount() guard exists so the test cannot go
+ *   quietly inert if no field declares a non-empty contract (see
+ *   defaults.php's docblock). The seven hero fields give the per-field loop
+ *   real, non-empty contracts to check on every run; the guard stays in
+ *   place regardless, so the test
  *   still reports a real assertion even if a future schema change ever drops
  *   back to zero non-empty contracts.
  */
@@ -194,7 +192,7 @@ final class SettingsDefaultsTest extends TestCase {
 	 * stops a sprintf() contract from being wrong the moment it's added.
 	 *
 	 * Two guards keep this test from going quietly inert while no field
-	 * declares a contract (true today; Task 8 changes that):
+	 * declares a contract:
 	 *
 	 * - assertNotEmpty() on the schema itself, so the loop below is proven
 	 *   to have had something to iterate -- an empty schema and "zero
@@ -202,8 +200,8 @@ final class SettingsDefaultsTest extends TestCase {
 	 * - a running count of contracts actually checked, asserted on at the
 	 *   end via addToAssertionCount() when it's zero (the same convention
 	 *   TeamColorsTest::test_read_failure_hook_never_fatals() uses for a
-	 *   PHPUnit "risky: no assertions" false alarm). Once Task 8 adds a
-	 *   placeholder-bearing field, $checked becomes non-zero and the
+	 *   PHPUnit "risky: no assertions" false alarm). Once a
+	 *   placeholder-bearing field exists, $checked becomes non-zero and the
 	 *   assertStringContainsString() calls above start carrying the real
 	 *   signal on their own, with no edit to this test required.
 	 */

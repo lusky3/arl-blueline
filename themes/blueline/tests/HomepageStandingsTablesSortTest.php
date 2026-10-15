@@ -12,7 +12,7 @@ require_once __DIR__ . '/../inc/homepage-modules.php';
 /**
  * Regression coverage for blueline_homepage_standings_tables_sort(), split
  * out of blueline_homepage_current_standings_tables() specifically because
- * a peer review caught this exact bug: WordPress's own `orderby => 'title'`
+ * of this exact bug: WordPress's own `orderby => 'title'`
  * query sorts "Division 1".."Division 9" correctly as plain strings, but
  * puts "Division 10" before "Division 2" once a season reaches double
  * digits -- silently misordering the homepage tab strip

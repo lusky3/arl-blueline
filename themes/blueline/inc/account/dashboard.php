@@ -5,14 +5,11 @@
  * and the my-team/my-schedule endpoint handlers wired at the bottom of this
  * file.
  *
- * Inverts Task 9's ported (shop-account) dashboard: league content --
- * next game, team, season stats -- leads; billing is a visually demoted
- * group at the bottom. For the ~16% of current-season players with no
- * sp_user link (Task 16's corrected figure -- 84% ARE linked; the "~88%
- * unlinked" this file used to claim came from the retracted, sticky
- * sp_current_team denominator), the claim card is shown in place of the
+ * League content -- next game, team, season stats -- leads; billing is a
+ * visually demoted group at the bottom. For the ~16% of current-season
+ * players with no sp_user link, the claim card is shown in place of the
  * league modules rather than squeezed in alongside three empty ones. It is
- * now a minority path to serve well, not the default experience.
+ * a minority path to serve well, not the default experience.
  *
  * @package blueline
  */
@@ -39,7 +36,7 @@ function blueline_account_module_start( string $name, string $title, string $lin
 	// $name is already a unique per-module slug (the bl-account-module--{name}
 	// modifier above); reused as the heading id so <section> can name itself
 	// via aria-labelledby instead of landing on the page's landmark list with
-	// no accessible name at all -- confirmed live, 2026-09-04 UX audit.
+	// no accessible name at all.
 	$blueline_title_id = 'bl-account-module-title--' . $name;
 	?>
 	<section class="bl-account-module bl-account-module--<?php echo esc_attr( $name ); ?>" aria-labelledby="<?php echo esc_attr( $blueline_title_id ); ?>">
@@ -104,31 +101,23 @@ function blueline_account_module_empty_state_html( string $html_message ) {
 
 /**
  * Show a one-line result notice after a redirect from the claim handler
- * (admin_post_blueline_claim_player, Task 11). Purely a display of an
+ * (admin_post_blueline_claim_player). Purely a display of an
  * already-decided outcome -- the state change itself was nonce-verified in
  * blueline_handle_claim_player_submission() before this page ever loads --
  * so reading the query var here needs no nonce of its own.
  *
  * Deliberately its OWN `.bl-account-notice` class, not WooCommerce's
- * `.woocommerce-message`/`.woocommerce-error`: at the time this was
- * written, staging (and, presumably, production) carried a site-wide
- * custom-CSS snippet (`#simple-css-output`, visible in every page's
- * `<head>`) with `.woocommerce-message { display: none !important; }` --
- * confirmed live by actually submitting a claim and finding the "you're
- * linked" success notice invisible. Reusing that class would have made
- * the one message a newly-linked user most needs to see silently
- * disappear.
+ * `.woocommerce-message`/`.woocommerce-error`: a site-wide custom-CSS
+ * snippet (`#simple-css-output`, printed in every page's `<head>`) on
+ * the site once carried `.woocommerce-message { display: none
+ * !important; }`, which made the "you're linked" success notice
+ * invisible. Reusing that class would have made the one message a
+ * newly-linked user most needs to see silently disappear.
  *
- * That specific rule is gone as of the theme-toggle work's own staging
- * check (2026-08-23): `#simple-css-output` still exists but no longer
- * contains a `.woocommerce-message` rule at all -- it was evidently
- * removed in the Task 16 (2026-08-11) prune this same snippet's own
- * comment describes, or sometime after. `.bl-account-notice` is kept
- * as-is rather than migrated back: it works, and the focus-management
- * reasoning below is a genuine, independent reason to keep a
- * `tabindex="-1"` notice for this specific redirect-driven flow either
- * way (see assets/src/js/account.js, since broadened to also cover
- * WooCommerce's own now-visible-again notices for the same reason).
+ * The focus-management reasoning below is an independent reason to keep
+ * a `tabindex="-1"` notice for this redirect-driven flow either way (see
+ * assets/src/js/account.js, which also covers WooCommerce's own notices
+ * for the same reason).
  *
  * This is a server-rendered notice on a normal (non-AJAX) page load, not
  * a live region injected after the fact, so `role="alert"` alone is not
@@ -139,7 +128,6 @@ function blueline_account_module_empty_state_html( string $html_message ) {
  * is not.
  *
  * Rendered as a `<section>`, not a `<div>` -- tests/NoticeDivGuardTest.php
- * (Task 7's fix rounds, inc/settings/page.php and inc/settings/cache.php)
  * bans any theme-emitted `<div>` whose class contains "notice", "error",
  * "warning", "info" or "updated" as a substring, since a third-party
  * wp-admin plugin on the production install sweeps exactly that pattern
@@ -221,7 +209,7 @@ function blueline_is_standings_page(): bool {
  * outright), and the bare, unmodified `.bl-account-notice` class so
  * assets/src/js/account.js's existing "move focus to the notice on load"
  * behaviour picks it up with no JS changes of its own. This is deliberately
- * a much shorter nudge than blueline_account_render_claim_card() (Task 11)
+ * a much shorter nudge than blueline_account_render_claim_card()
  * -- no candidate matching, no confirm form -- since it renders on pages
  * that are not the account dashboard, where that full card would be out of
  * place; it only ever points there.
@@ -259,10 +247,10 @@ function blueline_render_claim_nudge(): void {
 
 /**
  * Page-specific framing for the claim card's "no candidates" message,
- * appended after the contact-the-league sentence. Live-site review:
- * /account/my-team and /account/my-schedule showed the exact same claim
+ * appended after the contact-the-league sentence. Without it,
+ * /account/my-team and /account/my-schedule would show the exact same claim
  * card, with the exact same copy, as the main dashboard -- landing
- * directly on one of those tabs while unlinked gave no hint of what would
+ * directly on one of those tabs while unlinked would give no hint of what would
  * actually appear there once linked. This is a minimal copy parameter on
  * the existing shared renderer, not a restructuring: candidate matching,
  * the claim form, and every other behaviour stay identical across all
@@ -288,7 +276,7 @@ function blueline_claim_card_context_hint( string $context ): string {
  * The claim card: "Is this you?" plus one-click-confirm candidates, or a
  * "contact the league" message (a real link, see below) when there are
  * none. This is the whole experience for an unlinked user (~16% of
- * current-season players, per Task 16's corrected figure) -- it replaces
+ * current-season players) -- it replaces
  * the next-game/team/season modules entirely rather than sitting alongside
  * three empty versions of them.
  *
@@ -298,10 +286,9 @@ function blueline_claim_card_context_hint( string $context ): string {
  * "No candidates" is therefore a legitimate, expected outcome here, not a
  * bug to loosen the matcher for.
  *
- * Live-site review: "Contact the league" used to be plain, unclickable
- * text -- a dead end for exactly the player who most needs to reach the
- * league. It is now a real link to the site's Contact Us page, resolved
- * through blueline_contact_url() (inc/template-tags.php ->
+ * "Contact the league" is a real link, not plain text (which would be a
+ * dead end for exactly the player who most needs to reach the league). It
+ * points to the site's Contact Us page, resolved through blueline_contact_url() (inc/template-tags.php ->
  * blueline_resolve_link(), inc/settings/links.php) rather than a hardcoded
  * URL, so it inherits that resolver's own "never link to an unpublished or
  * deleted page" guarantee and stays in sync with whatever the Links tab has
@@ -373,7 +360,7 @@ function blueline_account_render_claim_card( int $user_id, string $context = 'da
 /**
  * One human-readable disambiguating line for a claim candidate --
  * "Team · Season · #Number", each segment included only when present. Two
- * same-named players are otherwise indistinguishable rows (P4 finding 6);
+ * same-named players are otherwise indistinguishable rows;
  * this is the whole difference between a coin flip and an informed choice.
  *
  * @param array{team?:string, season?:string, number?:string} $candidate One row from blueline_find_player_candidates().
@@ -798,7 +785,7 @@ function blueline_account_event_matchup_compose( array $event, string $versus, c
  * player's current teams that is still going ahead (postponed and cancelled
  * games are skipped at the source, blueline_get_player_next_event()). Venue
  * is shown as a link straight to its own sp_venue archive
- * (taxonomy-venue.php, Task 8) rather than inventing a second "which arena"
+ * (taxonomy-venue.php) rather than inventing a second "which arena"
  * label here -- that page already carries the street address and, when the
  * arena is split into named pads sharing one address (e.g. the Red/Black
  * pair), a cross-link to the sibling pad.
@@ -1024,7 +1011,7 @@ function blueline_account_render_season_stats( int $player_id ) {
  * blueline_get_user_registration_status() -- that reader's own logic is
  * unchanged; only the copy differs.
  *
- * Live-site review: a player who registered by an offline/manual method
+ * A player who registered by an offline/manual method
  * (e.g. e-transfer handled outside WooCommerce, a league-run signup) but IS
  * currently rostered onto a team has clearly, verifiably registered --
  * blueline_get_user_registration_status() simply has no ONLINE order to
@@ -1171,8 +1158,8 @@ if ( ! class_exists( 'WooCommerce' ) ) {
 
 add_action( 'woocommerce_account_my-team_endpoint', 'blueline_account_my_team_endpoint' );
 /**
- * Content for the custom /account/my-team/ tab (Task 10 registered the
- * rewrite endpoint; this is the handler that fills it in). Unlinked users
+ * Content for the custom /account/my-team/ tab (the rewrite endpoint is
+ * registered by blueline-core's account-endpoints module). Unlinked users
  * get the same claim card as the dashboard rather than a bare "no team"
  * message -- landing here directly should not be a dead end.
  */

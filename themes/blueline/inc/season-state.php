@@ -37,9 +37,9 @@ function blueline_known_season_state( string $state ): string {
 }
 
 /**
- * Pure predicate: is registration currently open. P1 finding 4: this used to
- * live only as a branch inside blueline_decide_season_state(), which forces
- * it to be mutually exclusive with every other state -- but this site sells
+ * Pure predicate: is registration currently open. Kept separate from
+ * blueline_decide_season_state(), where it would be forced to be mutually
+ * exclusive with every other state -- but this site sells
  * next season's registration while this season's games are still being
  * played for months at a time (confirmed: that overlap is normal, not an
  * edge case), so "are we selling" and "are we playing" are independent
@@ -89,8 +89,8 @@ function blueline_decide_is_playing( array $signals ): bool {
  * "games are being played" are independent facts (see
  * blueline_decide_registration_open()/blueline_decide_is_playing()) that
  * this enum necessarily collapses into one mutually-exclusive value, which
- * is exactly why callers that need both facts at once (the homepage layout,
- * P1 finding 4) should read blueline_season_state_data()'s
+ * is exactly why callers that need both facts at once (the homepage layout)
+ * should read blueline_season_state_data()'s
  * `is_registration_open`/`is_playing` keys instead of branching on this string.
  *
  * @param array $signals Keys: has_purchasable_product (bool), upcoming_events (int),
@@ -168,12 +168,12 @@ const BLUELINE_PUBLISHED_STATUS = 'publish';
  * call themselves (see blueline_season_state_data()'s own docblock on why
  * purchasability is never read from a cache).
  *
- * P0 finding 1: this exists so a consumer that needs to know about EVERY
+ * This exists so a consumer that needs to know about EVERY
  * product in the season -- not just "the first purchasable one", which is
  * all blueline_season_state_data() itself needs -- doesn't have to
- * duplicate the season-term resolution query. The homepage hero used to
- * quote the price of whatever single product this query happened to return
- * first (post ID order), which meant a $145 Goalie Registration could
+ * duplicate the season-term resolution query. Quoting the price of
+ * whatever single product this query happened to return first (post ID
+ * order) would let a $145 Goalie Registration
  * outrank a $550 Player Registration on the site's primary CTA. Nothing
  * here picks a "winner" by name or ID; every purchasable product this
  * returns is the caller's to price and label.
@@ -312,15 +312,13 @@ function blueline_season_state_live_event_meta_query(): array {
  *   - `$diff_seconds = strtotime( $next_post->post_date ) - $now_ts`, where
  *     `post_date` is site-local and read by the same strtotime().
  *
- * An earlier version of this function returned the raw instant here. The
- * `$mysql` half was right, so the paired bounds looked right, but the
- * derived ones were out by the site's offset -- four or five hours for this
- * league. `days_to_next_event` skewed by the same amount, which is enough
- * for blueline_decide_is_playing()'s `<= 14` day test to flip in_season and
- * preseason around a boundary. Nothing shipped broken (the raw-instant
- * branch is only reachable through `$now`, which no production call site
- * passes), but the docblock claimed the two branches matched while one
- * derived bound did not.
+ * Returning the raw instant here would leave the `$mysql` half right, so
+ * the paired bounds would look right, but the derived ones would be out by
+ * the site's offset -- four or five hours for this league.
+ * `days_to_next_event` would skew by the same amount, which is enough for
+ * blueline_decide_is_playing()'s `<= 14` day test to flip in_season and
+ * preseason around a boundary. (The raw-instant branch is only reachable
+ * through `$now`, which no production call site passes.)
  * tests/SeasonStateOverrideTest.php pins the parity directly.
  *
  * This is its own function so the `$now` branch is directly testable: the
@@ -695,7 +693,7 @@ function blueline_season_state_override( ?int $now = null ): string {
  *
  * The override deliberately does NOT touch blueline_season_state_data()'s
  * `is_registration_open`/`is_playing`. Those two report live facts about the catalogue
- * and the schedule (P1 finding 4) rather than the emphasis this enum
+ * and the schedule rather than the emphasis this enum
  * collapses them into; forcing them as well would mean the panel could make
  * the site claim registration is open when nothing is actually purchasable.
  *

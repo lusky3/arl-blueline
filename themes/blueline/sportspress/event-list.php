@@ -3,7 +3,7 @@
  * Theme override of SportsPress's [event_list] shortcode template
  * ([event_list], used on /schedule and embedded on every sp_team page).
  *
- * Finding 9: the stock table repeats the full date on every single row
+ * The stock table repeats the full date on every single row
  * ("August 14, 2026" eleven consecutive times on /schedule), makes date,
  * home, time/results, away AND venue all identical-weight blue links (~4-5
  * links per row across 30 rows), and shows the venue as a bare pad name
@@ -17,7 +17,7 @@
  *    longer styled with the same weight as an actual team-name link).
  *  - Drops the venue cell to plain --bl-ink-mid text (no link -- team names
  *    are the only thing this table still styles as a link) and names it via
- *    blueline_venue_label() (finding 10) instead of the bare pad name.
+ *    blueline_venue_label() instead of the bare pad name.
  *  - Leaves team-name links exactly as SportsPress renders them (still real
  *    <a> elements, still the accent-coloured link a beginner expects to be
  *    clickable).
@@ -25,14 +25,14 @@
  * Reimplementing every column/format permutation SportsPress supports
  * (title_format: title/teams/homeaway/event; time_format: combined/
  * separate/time/results) would be a much larger, higher-risk rewrite than
- * this finding calls for. This site's OWN configuration -- confirmed live
+ * this override needs. This site's OWN configuration -- confirmed live
  * (sportspress_event_list_title_format = 'homeaway',
  * sportspress_event_list_time_format = 'combined', and every [event_list]
  * shortcode found on the site, including /schedule's, leaves both at their
  * option default) -- only ever exercises ONE combination. This override
  * handles exactly that combination and defers to SportsPress's own stock
- * template, completely unmodified, for anything else, so a page this task
- * never analysed (a future editor explicitly overriding title_format or
+ * template, completely unmodified, for anything else, so a page using
+ * another combination (a future editor explicitly overriding title_format or
  * time_format in a shortcode attribute) cannot regress.
  *
  * Overrides SportsPress templates/event-list.php, core template version 2.7.23 as of
@@ -176,7 +176,7 @@ $usecolumns = $calendar->columns;
 
 /*
  * Server-side paging. A schedule of a whole season (58 games on the current
- * calendar) used to print every row oldest-first, three screens of played games
+ * calendar) would otherwise print every row oldest-first, three screens of played games
  * above the next one. A list capped by a row limit (a team page's next five) is
  * never paged. The page defaults to the one holding the next game, so the
  * first thing seen is what is coming up.
@@ -228,7 +228,7 @@ if ( $show_title && false === $title && $id ) {
 
 $identifier = uniqid( 'eventlist_' );
 
-// Date-heading row colspan: every printed <th>, Result included (QA C-16).
+// Date-heading row colspan: every printed <th>, Result included.
 $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 ?>
 <div class="sp-template sp-template-event-list"<?php echo '' !== $bl_anchor ? ' id="' . esc_attr( $bl_anchor ) . '"' : ''; ?>>
@@ -236,15 +236,14 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 		<?php
 		// Heading level depends on where this shortcode/template is
 		// actually rendered -- see blueline_sp_caption_heading_level()'s
-		// own docblock (inc/sportspress.php) for the accessibility finding
-		// this fixes (this caption used to be a hardcoded, level-skipping
-		// h4 everywhere).
+		// own docblock (inc/sportspress/core.php) for why (a hardcoded h4
+		// would skip heading levels).
 		$bl_caption_level = blueline_sp_caption_heading_level();
 		printf( '<h%1$d class="sp-table-caption">%2$s</h%1$d>', $bl_caption_level, wp_kses_post( $title ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $bl_caption_level is always the int 2 or 3 blueline_sp_caption_heading_level() returns, never user input; $title is already escaped via wp_kses_post().
 		?>
 	<?php endif; ?>
 	<?php if ( empty( $data ) ) : ?>
-		<?php // QA B-14: one line, never a bare header row. ?>
+		<?php // One line, never a bare header row. ?>
 		<div class="bl-sp-empty">
 			<?php blueline_leaf_mark( 'bl-sp-empty__mark' ); ?>
 			<p class="bl-sp-empty__text">
@@ -350,11 +349,11 @@ $bl_col_count = blueline_sp_event_list_column_count( $usecolumns );
 					$bl_status_label = '' !== $bl_status ? blueline_sp_schedule_status_label( $bl_status ) : '';
 
 					/*
-					 * Finding 5 (live review): a past game with no result
-					 * entered yet rendered the exact same blank em dash as a
-					 * genuinely future game -- "TBD" and "already played,
-					 * waiting on data entry" read identically. Reuses
-					 * blueline_sp_event_state() (inc/sportspress.php,
+					 * A past game with no result entered yet must not render
+					 * the exact same blank em dash as a genuinely future game
+					 * -- "TBD" and "already played, waiting on data entry"
+					 * would read identically. Reuses
+					 * blueline_sp_event_state() (inc/sportspress/calendar.php,
 					 * unit-tested in tests/EventStateTest.php), the same
 					 * clock-vs-results decision blueline_sp_event_hero()
 					 * already uses for the single-event page, so this table

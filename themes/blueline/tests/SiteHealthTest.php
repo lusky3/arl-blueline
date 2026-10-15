@@ -21,11 +21,9 @@ require_once __DIR__ . '/../inc/occasions.php';
 require_once __DIR__ . '/../inc/settings/validation.php';
 
 /**
- * Covers inc/settings/site-health.php's `blueline` Site Health section --
- * Task 10, Part A.
+ * Covers inc/settings/site-health.php's `blueline` Site Health section.
  *
- * Two things this file exists to prove, both directly requested by the task
- * brief:
+ * Two things this file exists to prove:
  *
  * - test_contact_email_field_is_marked_private() proves the one field
  *   shaped like personal/contact information is actually flagged, so it

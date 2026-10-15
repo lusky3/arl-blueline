@@ -611,8 +611,7 @@ final class TeamColorsTest extends TestCase {
 		$GLOBALS['bl_test_options'][ BLUELINE_SETTINGS_OPTION ] = array( 'brand_color_paper' => '#EEEEEE' );
 
 		// blueline_resolved_brand_color() now runs the stored override
-		// through blueline_sanitize_hex_color() (Fix 2 of the final-review
-		// fix wave), which normalises to lowercase -- so the resolved
+		// through blueline_sanitize_hex_color(), which normalises to lowercase -- so the resolved
 		// value is '#eeeeee', not the mixed-case '#EEEEEE' as stored.
 		$this->assertSame( '#eeeeee', blueline_hex_for_css_var( '--bl-paper' ) );
 		$this->assertSame( '#0D1729', blueline_hex_for_css_var( '--bl-focus-color' ) );

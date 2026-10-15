@@ -1,12 +1,11 @@
 <?php
 /**
- * "Delete all Blueline data" -- the explicit teardown the spec asks for at
- * section 6.7: "Themes have no uninstall hook, so ship an explicit 'Delete all
- * Blueline data' action plus a WP-CLI equivalent, and add it to the cutover
- * checklist."
+ * "Delete all Blueline data" -- the explicit teardown: themes have no
+ * uninstall hook, so this ships as an explicit 'Delete all Blueline data'
+ * action plus a WP-CLI equivalent.
  *
  * NOT the same operation as `wp blueline settings reset`, and the difference
- * matters enough that the spec draws it explicitly at section 6.8. `reset`
+ * matters. `reset`
  * WRITES every field's default into the option, so the option still exists and
  * still carries a full settings array. This DELETES the option, so nothing is
  * stored at all and blueline_settings() falls back to blueline_settings_defaults()
@@ -36,12 +35,13 @@
  *   - BLUELINE_THEME_PREFERENCE_META_KEY (`blueline_theme_preference`), a
  *     member's own light/dark choice stored on their user account. It is their
  *     setting, not the site's configuration, and the panel copy says it stays.
- *   - BLUELINE_AVATAR_META_KEY (`blueline_avatar_id`). This points at a real
- *     media attachment a member uploaded. It is their content, not our
+ *   - BLUELINE_AVATAR_META_KEY (`blueline_avatar_id`), defined and written by
+ *     the blueline-core plugin. This points at a real media attachment a member
+ *     uploaded. It is their content, not our
  *     configuration, and the attachment itself would survive regardless, so
  *     dropping the pointer would orphan the file rather than clean anything up.
- *   - `sp_user` (BLUELINE_PLAYER_USER_META). Despite this theme reading and
- *     writing it, the key belongs to SportsPress -- it is how SportsPress
+ *   - `sp_user` (BLUELINE_PLAYER_USER_META), which the blueline-core plugin
+ *     reads and writes. The key belongs to SportsPress -- it is how SportsPress
  *     itself links a player post to a user, and SportsPress keeps using it
  *     after this theme is gone.
  *
@@ -120,8 +120,8 @@ function blueline_settings_delete_cache_transients(): int {
  * `update_option_{$option}`/`add_option_{$option}` (see inc/settings/cache.php).
  * Without that, deleting every setting would leave the old settings still
  * rendering from cache with nothing in the database to explain them, which is
- * the most confusing possible end state. This closes P1a's deferred item 7 for
- * this path; the general "delete_option() bypasses the purge" gap is wider.
+ * the most confusing possible end state. The general "delete_option() bypasses
+ * the purge" gap is wider than this one path.
  *
  * It calls blueline_srcache_purge_attempt() DIRECTLY rather than going through
  * blueline_maybe_purge_page_cache(), and that detour is the whole reason this
@@ -184,8 +184,8 @@ function blueline_settings_delete_all_data(): array {
  * Render the "Delete all Blueline data" control -- but only when the Advanced
  * toggle is on.
  *
- * This is what `advanced_enabled` gates, and the pairing is the point: the spec
- * calls Advanced a "here be dragons" disclosure affordance, and this is the
+ * This is what `advanced_enabled` gates, and the pairing is the point: Advanced
+ * is a "here be dragons" disclosure affordance, and this is the
  * most dragon-like control the panel has. Hiding it by default costs an admin
  * who genuinely wants it one extra checkbox, and stops everyone else from
  * finding it next to the harmless-looking export button.

@@ -110,18 +110,15 @@ button.bl-nav__link {
 }
 
 /*
- * P3 finding 2: the active chip's fill used to be --bl-ink on this bar's
- * own --bl-ink-deep ground -- 1.28:1, so the only thing that actually read
- * as "active" was the underline that used to sit on .bl-nav__link[aria-
- * current="page"], which is not one of the four signature devices. The
- * chip now uses the palette's documented accent-as-fill pairing instead:
+ * An --bl-ink fill on this bar's own --bl-ink-deep ground would be only
+ * 1.28:1, and an underline on .bl-nav__link[aria-current="page"] is not one
+ * of the four signature devices, so the active chip uses the palette's
+ * documented accent-as-fill pairing instead:
  * --bl-ice fill with --bl-ink text, 7.69:1 (tools/check-contrast.mjs's
- * "ink on ice fill" rule already asserts this exact pair). The underline
- * is dropped in favour of the chip alone -- it was compensating for the
- * fill not reading, and doubling ice fill + ice underline on the same
- * active item looked like a single thick block once the fill itself was
- * visible. Hard constraint unaffected: --bl-ice still never appears as
- * unfilled text on light.
+ * "ink on ice fill" rule already asserts this exact pair). There is no
+ * underline: ice fill + ice underline on the same active item would look
+ * like a single thick block. Hard constraint unaffected: --bl-ice still
+ * never appears as unfilled text on light.
  */
 .bl-nav__link[aria-current="page"] .bl-skew {
 	background: var(--bl-ice);
@@ -141,8 +138,8 @@ button.bl-nav__link {
  * .bl-nav__toggle-sub button as a sibling of this link (see the desktop
  * `.bl-nav__submenu .bl-nav__item` flex-row rule below). `width: 100%`
  * claims the row's entire inline size regardless of that sibling, pushing
- * the button onto its own line underneath -- reported live as the arrow
- * moving from beside the label to below it. `flex: 1 1 auto` instead lets
+ * the button onto its own line underneath -- the arrow
+ * would move from beside the label to below it. `flex: 1 1 auto` instead lets
  * the link grow to fill whatever the row's other flex item (the button, on
  * items that have one) doesn't need, and behaves identically to the old
  * width:100% on a leaf item with no button sibling.
@@ -163,7 +160,7 @@ button.bl-nav__link {
 }
 
 /*
- * A11y finding: tabbing through a submenu (desktop dropdown or the mobile
+ * Tabbing through a submenu (desktop dropdown or the mobile
  * drawer's in-flow accordion) produced no visible focus change at all --
  * base.css's global `:focus-visible` rule was firing (confirmed via
  * computed styles, not skipped by anything here), but its ring bleeds
@@ -238,7 +235,7 @@ button.bl-nav__link {
  * :focus-within are desktop-dropdown affordances and live in the min-width
  * block below.
  *
- * They used to be here, shared, and that made the drawer's chevron a one-way
+ * Sharing them would make the drawer's chevron a one-way
  * switch: tapping it set data-open="true", tapping again set it back to
  * "false" -- correctly, JS was never the problem -- but the button still held
  * focus, so :focus-within matched and kept the submenu displayed. Measured at
@@ -358,9 +355,8 @@ button.bl-nav__link {
 	}
 
 	/*
-	 * The hamburger becomes an X while the drawer is open. Worth having only
-	 * now that the control is actually visible over the drawer -- until this
-	 * commit it sat underneath, so there was nothing to communicate with.
+	 * The hamburger becomes an X while the drawer is open. Worth having because
+	 * the control is visible over the drawer.
 	 *
 	 * The middle bar is the element itself and the other two are its
 	 * pseudo-elements, so the X is the two pseudo-elements brought to the
@@ -425,7 +421,7 @@ button.bl-nav__link {
 	}
 
 	/*
-	 * P3 finding 2: .bl-nav .bl-skew's padding/negative-margin pair (above)
+	 * .bl-nav .bl-skew's padding/negative-margin pair (above)
 	 * deliberately adds no layout width, so the active item's ribbon
 	 * bleeds ~12px plus ~5px of slant beyond its own link box -- with zero
 	 * gap between adjacent <li>s that bleed ran straight into the next
@@ -473,7 +469,7 @@ button.bl-nav__link {
 	 * where its preceding siblings already render), so right-anchoring is
 	 * safe for all of them and needs no per-item/JS overflow detection.
 	 * Verified live at 900–1100px on "Standings" (Past Standings) and
-	 * "Rosters / Stats" (Past Rosters) — see the Task 4 fix report.
+	 * "Rosters / Stats" (Past Rosters).
 	 */
 	.bl-nav__item > .bl-nav__submenu {
 		position: absolute;
@@ -516,7 +512,7 @@ button.bl-nav__link {
 	 * overflow-y region instead of risking an off-screen flyout or a
 	 * second independent scrollbar.
 	 *
-	 * flex-basis: 100% -- reported live: once the parent <li> became a flex
+	 * flex-basis: 100% -- once the parent <li> became a flex
 	 * row (.bl-nav__submenu .bl-nav__item below, added in the same change
 	 * that made this rule's own li a flex container), this panel is a THIRD
 	 * flex item in that row, alongside the link and its toggle-sub button --
@@ -529,7 +525,7 @@ button.bl-nav__link {
 	 * max-width:959.98px block below) already keeps its accordion panels
 	 * under their label rather than beside it.
 	 *
-	 * D-12: no min-width or margin of its own, so opening it can't widen
+	 * No min-width or margin of its own, so opening it can't widen
 	 * (and shift) the right-anchored panel; links carry the indent instead.
 	 */
 	.bl-nav__submenu .bl-nav__submenu {
@@ -567,7 +563,7 @@ button.bl-nav__link {
 		align-items: center;
 	}
 
-	/* D-12: dropdown labels were 4px from the panel edge (the bar's own
+	/* Dropdown labels were 4px from the panel edge (the bar's own
 	   tight padding); nested items indent by padding, not margin. */
 	.bl-nav__submenu .bl-nav__link {
 		padding-inline: var(--bl-space-4);
@@ -616,7 +612,7 @@ button.bl-nav__link {
 		display: block;
 	}
 
-	/* A11Y-06: Escape dismissal (navigation.js) until focus/pointer returns. */
+	/* Escape dismissal (navigation.js) until focus/pointer returns. */
 	.bl-nav__item[data-dismissed] > .bl-nav__submenu {
 		display: none;
 	}

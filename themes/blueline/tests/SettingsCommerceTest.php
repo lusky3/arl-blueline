@@ -38,7 +38,7 @@ if ( ! function_exists( 'wc_get_orders' ) ) {
  * Covers blueline_resolve_registration_term() (inc/settings/commerce.php):
  * the Commerce tab's hardcoded-term-ID-to-verified-term-ID resolver, and the
  * four call sites (inc/season-state.php, inc/account/player-data.php x2,
- * inc/homepage-modules.php) Task 9 rewired to use it instead of reading
+ * inc/homepage-modules.php) that use it instead of reading
  * BLUELINE_REGISTRATION_TERM_ID directly.
  *
  * The trap this resolver exists to close: BLUELINE_REGISTRATION_TERM_ID (91)
@@ -181,8 +181,8 @@ final class SettingsCommerceTest extends TestCase {
 	 * Wiring proof #2: blueline_get_user_registration_status()
 	 * (inc/account/player-data.php) must return null, not fatal, under the
 	 * identical unresolvable-term condition -- proving the defined()
-	 * BLUELINE_REGISTRATION_TERM_ID guard this task was told to leave
-	 * working (see inc/season-state.php) and the newer resolver-based guard
+	 * BLUELINE_REGISTRATION_TERM_ID guard
+	 * (see inc/season-state.php) and the newer resolver-based guard
 	 * compose correctly rather than one masking a bug in the other.
 	 */
 	public function test_user_registration_status_degrades_safely_when_registration_term_is_unresolvable(): void {

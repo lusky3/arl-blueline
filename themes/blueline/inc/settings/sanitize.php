@@ -44,12 +44,12 @@
  * safer for it.
  *
  * `email`-typed fields are the one exception to "sanitize_text_field() plus
- * the placeholder check": before Task 8's fix round, `type => 'email'` was
- * purely decorative, because an email field fell through to the exact same
- * path as a plain `text` field, guaranteeing nothing about the value's actual
- * shape. That mattered concretely for `contact_email`, echoed into a
+ * the placeholder check": `type => 'email'` would be purely decorative if an
+ * email field fell through to the exact same path as a plain `text` field,
+ * guaranteeing nothing about the value's actual shape. That matters
+ * concretely for `contact_email`, echoed into a
  * `mailto:` href: rather than trust esc_url() alone to neutralise whatever a
- * volunteer typed, blueline_sanitize_field() now runs an `email` value
+ * volunteer typed, blueline_sanitize_field() runs an `email` value
  * through core's own is_email() and rejects anything it would reject,
  * closing the gap at the value's source rather than only at its render site.
  *
@@ -67,7 +67,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * Matches PHP 8.3's own parser (ext/standard/formatted_print.c). Every clause
  * below was verified empirically with `php -r` against this runtime rather
- * than assumed; the task report carries the full transcript. Summary:
+ * than assumed. Summary:
  *
  *   %  [ position$ ]  [ flags ]*  [ width ]  [ .precision ]  type
  *
@@ -127,10 +127,9 @@ const BLUELINE_SPRINTF_SPEC = '%(?:[1-9][0-9]*\$)?(?:[-+ 0]|\'.)*[0-9]*(?:\.[0-9
  * text. Verified: `sprintf( '%%s' )` returns the literal string '%s' (one
  * percent, one "s"), not a placeholder call requiring an argument.
  *
- * That ordering is NOT load-bearing, despite reading as though it must be, and
- * an earlier version of this docblock claimed it was: that putting the
- * conversion-spec branch first would "match '%s' starting at the second '%'".
- * It would not. At the first "%" of "%%", the spec branch cannot match at all:
+ * That ordering is NOT load-bearing, despite reading as though it must be:
+ * putting the conversion-spec branch first would NOT "match '%s' starting at
+ * the second '%'". At the first "%" of "%%", the spec branch cannot match at all:
  * "%" is neither a valid flag nor a valid type, so the alternation has only
  * "%%" available there whichever branch is written first, and the engine never
  * reaches the second "%" with the first one unconsumed. Measured across "%%s",
@@ -298,8 +297,7 @@ function blueline_placeholder_mismatch_reasons( array $required, array $found ):
 
 		if ( 0 === $have ) {
 			// Declared, but does not appear in the value at all: the
-			// simple "dropped a placeholder" case, wording unchanged from
-			// before this function existed.
+			// simple "dropped a placeholder" case.
 			$reasons[] = sprintf(
 				/* translators: %s: the missing placeholder token. */
 				__( 'must contain %s, which is missing', 'blueline' ),
@@ -307,8 +305,7 @@ function blueline_placeholder_mismatch_reasons( array $required, array $found ):
 			);
 		} elseif ( 0 === $needed ) {
 			// Present, but never declared at all: the simple "extra
-			// placeholder" case, wording unchanged from before this
-			// function existed.
+			// placeholder" case.
 			$reasons[] = sprintf(
 				/* translators: %s: the unexpected placeholder token. */
 				__( 'contains %s, which is not expected here; remove it', 'blueline' ),
@@ -380,12 +377,12 @@ function blueline_placeholders_match( array $required, array $found ): bool {
  * `placeholders` contract, with no third "unchecked" state: `$field['placeholders']`
  * missing entirely is treated exactly like `placeholders => array()`,
  * zero conversion specs permitted, rather than skipping the check. This
- * is deliberate, not an oversight: earlier this validator only ran when a
- * field opted in by declaring the key, which meant a field that SHOULD have
+ * is deliberate, not an oversight: a validator that only ran when a
+ * field opted in by declaring the key would leave a field that SHOULD have
  * declared a contract but didn't (a schema-authoring mistake, or a future
  * field that starts feeding a sprintf() call site nobody updated the schema
- * for) was invisibly unprotected, reproducing the exact class of fatal
- * this task exists to prevent, just one step removed. Requiring the key on
+ * for) invisibly unprotected, reproducing the exact class of fatal
+ * this file exists to prevent, just one step removed. Requiring the key on
  * every `text`/`textarea` field (enforced by SettingsDefaultsTest, a broken
  * build rather than a silent gap) and defaulting an absent key to `array()`
  * closes that hole from both directions at once.
@@ -447,13 +444,13 @@ function blueline_placeholders_match( array $required, array $found ): bool {
  * an extra spec the schema did not declare would ArgumentCountError or
  * silently misuse an argument for exactly the same reason, just from the
  * other direction; verified on this runtime (see BLUELINE_SPRINTF_SPEC's
- * docblock and the task report):
+ * docblock):
  *
  *   sprintf( 'Save 50% off', 'X' )  -> 'Save 500ff'      (silent corruption)
  *   sprintf( 'Save 50% off' )       -> ArgumentCountError (public-site fatal)
  *
  * A field failing either check returns a WP_Error rather than the sanitized
- * value, so register_setting()'s sanitize_callback (a later task's wiring)
+ * value, so register_setting()'s sanitize_callback
  * can refuse to store it and report the failure back to the admin screen
  * that submitted it, instead of writing a value that fatals the next time
  * its call site runs. Both messages interpolate field-controlled data (the
@@ -491,10 +488,10 @@ function blueline_sanitize_field( $value, array $field ) {
 	}
 
 	if ( 'email' === $type ) {
-		// Fix round 1 (Task 8): before this, an `email`-typed field fell
+		// Without this branch, an `email`-typed field would fall
 		// through to the exact same sanitize_text_field() + placeholder-only
 		// path as a plain `text` field, meaning the schema's `email` type
-		// was purely decorative, guaranteeing NOTHING about the value's
+		// would be purely decorative, guaranteeing NOTHING about the value's
 		// shape. That matters here specifically because contact_email is
 		// echoed into a `mailto:` href: a value is_email() would reject
 		// (stray quotes, angle brackets, spaces, none of which are legal
@@ -521,7 +518,7 @@ function blueline_sanitize_field( $value, array $field ) {
 
 	if ( 'date' === $type ) {
 		/*
-		 * Task 6: a `date` field stores a strict Y-m-d string, or '' for
+		 * A `date` field stores a strict Y-m-d string, or '' for
 		 * "not set", since both of the announcement window's bounds are
 		 * optional, so '' is a legitimate value here, unlike in the
 		 * `email` branch above where an empty address is simply wrong.
@@ -612,7 +609,7 @@ function blueline_sanitize_placeholder_text( $value, array $field ) {
 
 	if ( isset( $field['choices'] ) && is_array( $field['choices'] ) ) {
 		/*
-		 * Task 7 fix round: a field declaring `choices` accepts only the
+		 * A field declaring `choices` accepts only the
 		 * values on its own list, and says so when it does not.
 		 *
 		 * This is a SAVE-time guard, and the two fields that use it
@@ -630,13 +627,13 @@ function blueline_sanitize_placeholder_text( $value, array $field ) {
 		 * no write-time check could catch even in principle.
 		 *
 		 * What a read clamp CANNOT do is tell anybody, which is what this
-		 * branch adds. Before it existed, an admin who typed `playofs` into
-		 * the break-glass got "Settings saved.", no change to the site, and
+		 * branch adds. Without it, an admin who typed `playofs` into
+		 * the break-glass would get "Settings saved.", no change to the site, and
 		 * no admin notice either, because the notice only renders while the
 		 * override reads back as one of the five. A silent no-op is the
 		 * wrong failure mode for an emergency control.
 		 *
-		 * The renderer (inc/settings/page.php) makes the invalid state
+		 * The renderer (inc/settings/page-fields.php) makes the invalid state
 		 * mostly unreachable by rendering these as a `<select>`; this is
 		 * the guard behind it, for a hand-built POST or a WP-CLI write.
 		 *

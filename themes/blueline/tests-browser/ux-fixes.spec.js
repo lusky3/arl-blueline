@@ -197,7 +197,7 @@ test( 'the homepage fixture row stacks on a phone', async ( { page } ) => {
 	expect( geo.title.w ).toBe( geo.venue.w );
 	expect( geo.venue.y ).toBeGreaterThan( geo.title.y );
 
-	// And the fixture is no longer the squeezed one -- it used to lose most of
+	// And the fixture is not the squeezed one -- the arena's long label must not take most of
 	// the row to the arena's long label.
 	expect( geo.title.w ).toBeGreaterThan( 200 );
 } );
@@ -297,7 +297,7 @@ test( 'the schedule has one time column and a result column', async ( { page } )
 	expect( headers ).toContain( 'Time' );
 	expect( headers ).toContain( 'Result' );
 
-	// The old header read "Time/Results" beside a "Time" column, so the table
+	// A header reading "Time/Results" beside a "Time" column, so the table
 	// appeared to have two time columns, one permanently an em dash.
 	expect( headers ).not.toContain( 'Time/Results' );
 	expect( headers.filter( ( h ) => /time/i.test( h ) ) ).toHaveLength( 1 );

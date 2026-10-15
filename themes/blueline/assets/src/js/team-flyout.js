@@ -7,16 +7,16 @@
  * layer on top, for non-touch input, and it does so by setting the real
  * `open` attribute rather than a parallel CSS-only reveal.
  *
- * The previous version of this behaviour was CSS-only: a
+ * A CSS-only reveal -- a
  * `.bl-team-flyout:hover .bl-team-flyout__panel { ... }` rule, entirely
- * independent of `[open]`. That meant clicking the tab to close it while
+ * independent of `[open]` -- would mean clicking the tab to close it while
  * still hovering it -- the only way to click it -- toggled the real `open`
  * attribute off correctly, but the separate `:hover` rule kept the panel
  * looking open regardless, since either condition alone was enough to
- * reveal it. Reported live as "clicking the tab doesn't close it again."
- * Making `[open]` the single source of truth here fixes that: a click's
+ * reveal it, so the tab would not close again on click.
+ * Making `[open]` the single source of truth avoids that: a click's
  * native toggle is never fighting a competing always-on hover rule,
- * because there is no longer a second, independent rule.
+ * because there is no second, independent rule.
  *
  * On hover-capable devices a click on the tab pins the panel open (it then
  * ignores mouseleave until the tab is clicked again, Escape is pressed, or

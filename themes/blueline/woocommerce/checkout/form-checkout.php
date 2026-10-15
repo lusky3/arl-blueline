@@ -14,7 +14,7 @@
  * @package WooCommerce\Templates
  * @version 9.4.0
  *
- * Cody Edits: Changed "Your order" to "Registration Details" (the
+ * Local changes: Changed "Your order" to "Registration Details" (the
  * order review heading). Added a screen-reader-only h2 above the
  * customer details (heading order).
  */

@@ -22,9 +22,9 @@ require_once __DIR__ . '/../inc/settings/store.php';
 final class SettingsInputsHashTest extends TestCase {
 
 	/**
-	 * Reset the options store before each test -- needed starting with
-	 * this task's own blueline_validated_against() tests; harmless for
-	 * this file's pre-existing fixture-file-based tests, which never
+	 * Reset the options store before each test -- needed by the
+	 * blueline_validated_against() tests; harmless for
+	 * the fixture-file-based tests, which never
 	 * touch the options store at all.
 	 */
 	protected function setUp(): void {

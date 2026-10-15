@@ -4,8 +4,8 @@
  * core's `debug_information` filter.
  *
  * Registered unconditionally at file scope, exactly like every other filter
- * this settings module wires (inc/settings/page.php's sanitize_option_
- * callback, inc/settings/store.php's pre_update_option_ merge) -- it costs
+ * this settings module wires (inc/settings/sanitize-callback.php's
+ * sanitize_option_ callback, inc/settings/store.php's pre_update_option_ merge) -- it costs
  * nothing when nothing calls WP_Debug_Data::debug_data(), and doing so
  * means this section appears both on the interactive admin screen AND in
  * the "Copy site info to clipboard" export a volunteer might paste into a
@@ -194,9 +194,8 @@ function blueline_site_health_link_field( string $key, array $field, array $curr
 }
 
 /**
- * The currently-active occasion's own label, or "None" -- design spec
- * §6.3/§6.9's Site Health requirement, reading the SAME resolver the
- * front end uses (blueline_resolve_active_occasion(), inc/occasions/resolver.php,
+ * The currently-active occasion's own label, or "None", reading the SAME
+ * resolver the front end uses (blueline_resolve_active_occasion(), inc/occasions/resolver.php,
  * unchanged), so this can never disagree with what the site is actually
  * showing right now.
  *
@@ -214,7 +213,7 @@ function blueline_site_health_active_occasion_label(): string {
 
 /**
  * Format `aa_acknowledgements` as ONE multi-line string, one line per
- * entry -- design spec §6.5's Site Health field-shape ruling: matching
+ * entry, matching
  * every OTHER field in this file, which are all plain strings; no field
  * here has ever carried a nested array, and inventing that shape now for
  * just this one field would be a bigger, riskier departure than
@@ -223,12 +222,9 @@ function blueline_site_health_active_occasion_label(): string {
  * look.
  *
  * Every `occasion:*`-scoped entry gets $classifications' own verdict
- * appended: "(needs re-review)" for `stale` (the ruling's own exact
- * wording), "(occasion no longer exists)" for `orphaned` -- an addition
- * beyond the ruling's literal text, but a direct, non-contradicting
- * application of design spec §6.3's own framing ("every live AA
- * acknowledgement ... including ones currently invalidated by drift,
- * marked as such"): an orphaned entry is exactly as invalidated as a
+ * appended: "(needs re-review)" for `stale`, "(occasion no longer exists)"
+ * for `orphaned`, so every live AA acknowledgement is listed, including ones
+ * currently invalidated by drift, marked as such: an orphaned entry is exactly as invalidated as a
  * stale one, just for a different reason (the occasion itself is gone,
  * not merely a hash mismatch), and leaving it printed as an unremarkable,
  * unmarked line would silently lose that distinction. A `valid` entry,

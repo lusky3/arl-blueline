@@ -191,8 +191,8 @@ test( 'evaluateRule resolves a mix background', () => {
 } );
 
 // Integration tests against the real tools/contrast-rules.json and the real
-// style.css -- not hand-built fixtures. Tasks 6-8 add 18 more rules to this
-// exact file, so these guard the table itself, not just the code that reads it.
+// style.css -- not hand-built fixtures. These guard the table itself, not just the code
+// that reads it.
 const here = dirname( fileURLToPath( import.meta.url ) );
 const contrastRulesJson = JSON.parse(
 	readFileSync( resolve( here, '../contrast-rules.json' ), 'utf8' )
@@ -223,7 +223,7 @@ test( 'every rule id in contrast-rules.json is unique', () => {
 test( 'every fg/bg token in contrast-rules.json resolves against style.css', () => {
 	for ( const rule of rules ) {
 		// fg/bg are plain token-name strings today. A future `{ mix: [...] }`
-		// endpoint form (Task 5) will not be a string; skip those here rather
+		// endpoint form will not be a string; skip those here rather
 		// than rewrite this assertion when that form arrives -- it only makes
 		// a claim about the string case that exists now.
 		if ( typeof rule.fg === 'string' ) {
@@ -242,11 +242,10 @@ test( 'every fg/bg token in contrast-rules.json resolves against style.css', () 
 } );
 
 // contrast-rules.json declares an explicit top-level "thresholds" object,
-// read verbatim by inc/team-colors.php's blueline_contrast_threshold()
-// (Fix 1). It used to be inferred as body = max(rules[].min), large =
-// min(rules[].min) -- a heuristic over data that any future rule could
-// silently move. These pin the declared contract itself, not just the code
-// that reads it.
+// read verbatim by inc/team-colors.php's blueline_contrast_threshold().
+// Inferring body = max(rules[].min), large = min(rules[].min) would be a
+// heuristic over data that any future rule could silently move. These pin the declared contract itself, not just
+// the code that reads it.
 test( 'contrast-rules.json declares explicit top-level thresholds', () => {
 	assert.ok(
 		contrastRulesJson.thresholds && typeof contrastRulesJson.thresholds === 'object',
@@ -256,9 +255,8 @@ test( 'contrast-rules.json declares explicit top-level thresholds', () => {
 	assert.equal( contrastRulesJson.thresholds.large, 3.0 );
 } );
 
-// Spec P0.4/§10: every tunable colour token must be covered by at least one
-// rule. --bl-border-strong was covered; --bl-border (the plain, non-strong
-// border token, 27 uses, all decorative) was not (Fix 3).
+// Every tunable colour token must be covered by at least one rule,
+// including --bl-border (the plain, non-strong border token, all decorative).
 test( 'contrast-rules.json covers --bl-border with a max-style "stays decorative" rule', () => {
 	const borderRules = rules.filter( ( rule ) => rule.fg === '--bl-border' );
 	assert.ok(

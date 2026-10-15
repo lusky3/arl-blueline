@@ -2,27 +2,24 @@
 /**
  * `aa_acknowledgements` storage.
  *
- * Real storage for what, before this file, was only an import-time
- * discard target (inc/settings/import.php unsets it unconditionally on
- * every import -- that does not change here; consent is not something a
- * file can assert on an admin's behalf). A map of acknowledgement id (a
+ * Storage for the acknowledgements map. inc/settings/import.php unsets it
+ * unconditionally on every import: consent is not something a file can
+ * assert on an admin's behalf. A map of acknowledgement id (a
  * `scope` string, e.g. `occasion:canada-day`) => {rule_id, value, ratio,
  * user_id, date, inputs_hash, scope}.
  *
  * `aa_acknowledgements` is protected the same way `_schema` already is
  * (inc/settings/page.php's BLUELINE_SETTINGS_RESERVED_KEYS,
- * blueline_settings_sanitize_callback()'s reserved-key branch, and
- * inc/settings/store.php's blueline_settings_merge() carry-forward)
- * rather than being a real schema field: there is no panel tab or form
- * field that owns it in Phase 2.0, or even Phase 2.1's Occasions tab --
- * see docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md
- * §4.4/§4.5 -- so a schema `type`/`tab` entry would have nothing real to
- * render.
+ * inc/settings/sanitize-callback.php's blueline_settings_sanitize_callback()
+ * reserved-key branch, and inc/settings/store.php's
+ * blueline_settings_merge() carry-forward) rather than being a real schema
+ * field: no panel tab or form field owns it, so a schema `type`/`tab` entry
+ * would have nothing real to render.
  *
  * This file's pure record/covers/remove functions --
  * blueline_record_acknowledgement(), blueline_acknowledgement_covers(),
- * blueline_remove_acknowledgement() -- are what Phase 2.1's resolver will
- * call once a real Occasion model exists to supply their parameters from.
+ * blueline_remove_acknowledgement() -- are what the Occasions model and
+ * resolver call, supplying their parameters from a real Occasion.
  *
  * @package blueline
  */
@@ -32,7 +29,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Validate and repair a stored `aa_acknowledgements` value.
  *
- * Called from inc/settings/page.php's blueline_settings_sanitize_callback()
+ * Called from inc/settings/sanitize-callback.php's
+ * blueline_settings_sanitize_callback()
  * reserved-key branch, the same choke point `_schema` already goes
  * through -- so this runs on every write that actually reaches
  * update_option() for this option (WP-CLI, a direct update_option() call),
@@ -147,9 +145,9 @@ function blueline_record_acknowledgement(
  *
  * A stale `inputs_hash` (style.css or contrast-rules.json changed since
  * the acknowledgement) is NOT a valid reason to call this function: per
- * the design spec's §4.5, a stale-but-still-stored acknowledgement is
- * intentionally RETAINED, not deleted -- it stays visible in Site Health
- * (§6.9's "every live AA acknowledgement") until an admin re-acknowledges
+ * design, a stale-but-still-stored acknowledgement is intentionally
+ * RETAINED, not deleted -- it stays visible in Site Health ("every live AA
+ * acknowledgement") until an admin re-acknowledges
  * or the scope's underlying value changes to something that passes
  * outright. A stale hash simply fails blueline_acknowledgement_covers()'s
  * check on its own; nothing needs to be removed for that to work.
@@ -196,14 +194,13 @@ function blueline_remove_acknowledgement( array $acknowledgements, string $scope
  * Any mismatch -- no entry for this scope, a different rule, a different
  * value (the admin changed it since acknowledging), or a stale inputs
  * hash (style.css or contrast-rules.json changed since) -- answers false:
- * per docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md
- * §4.5, that is "unacknowledged", not an error.
+ * that is "unacknowledged", not an error.
  *
  * Deliberately generic: it takes the rule id and value to check against
  * as plain parameters rather than reading anything about what an
- * Occasion is, so it is fully testable today against synthetic
- * acknowledgement data. Phase 2.1's resolver calls it once a real
- * Occasion model exists to supply those parameters from.
+ * Occasion is, so it is fully testable against synthetic acknowledgement
+ * data. The Occasions resolver supplies those parameters from a real
+ * Occasion.
  *
  * @param array<string, array<string, mixed>> $acknowledgements    Current map.
  * @param string                              $scope               Scope to check.

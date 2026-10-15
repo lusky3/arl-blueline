@@ -189,7 +189,7 @@ function blueline_homepage_standings_tables_sort( array $tables ): array {
  *
  * Pure string function, split out purely so it's unit-testable without a
  * WordPress install, matching blueline_resolve_team_events_season()'s own
- * trade-off (inc/sportspress.php) for the same reason.
+ * trade-off (inc/sportspress/core.php) for the same reason.
  *
  * @param string $title Full sp_table post title.
  * @return string
@@ -234,7 +234,7 @@ function blueline_homepage_standings_tab_names( string $title ): array {
 /**
  * The standings_snippet module: every current-season division's table,
  * rendered through SportsPress's own [league_table] shortcode (not a
- * custom entity template, which stays out of Task 7's scope). A single
+ * custom entity template). A single
  * division renders directly, as it always has; more than one gets a tab
  * strip (blueline_homepage_standings_tabs()) so a visitor whose team is in
  * Division 3 isn't left looking at Division 1's table with no way to reach
@@ -262,15 +262,15 @@ function blueline_homepage_module_standings_snippet() {
 			continue;
 		}
 
-		// P1 finding 2: inc/sportspress.php's blueline_sp_wrap_tables_for_scroll()
+		// inc/sportspress/table-scroll.php's blueline_sp_wrap_tables_for_scroll()
 		// only ever hooks 'the_content'; do_shortcode() above bypasses that
 		// filter entirely, so without this call the table reached the page with
 		// .sp-table-wrapper computing overflow-x: visible, and at 360px a 786px
 		// table was silently cut off by the html{overflow-x:clip} backstop:
 		// only Pos/Team/GP stayed reachable; W/L/Tie/PTS/GF/GA/Diff/L10/Strk
 		// were not. Running the shortcode's own output through the SAME wrap
-		// function /standings gets via the_content (owned by package 1;
-		// called here, not duplicated) keeps every one of these tables
+		// function /standings gets via the_content (called here, not
+		// duplicated) keeps every one of these tables
 		// scrollable exactly like every other SportsPress table on the site.
 		$table_html = blueline_sp_wrap_tables_for_scroll( $table_html );
 
@@ -293,7 +293,7 @@ function blueline_homepage_module_standings_snippet() {
 		// and every `data-label` (the labels its responsive CSS shows in place
 		// of column headers at narrow widths), quietly degrading the module
 		// while the very same [league_table], rendered through the_content on
-		// /standings, kept them (inc/sportspress.php applies no kses there).
+		// /standings, kept them (inc/sportspress/core.php applies no kses there).
 		// One plugin's first-party, already-escaped output must not be subject
 		// to two different sanitisation policies depending on which template
 		// renders it; this is the /standings policy, applied here too.

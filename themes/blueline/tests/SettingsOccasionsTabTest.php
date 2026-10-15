@@ -23,7 +23,7 @@ require_once __DIR__ . '/cli-stubs.php'; // wp_json_encode(), used by the "add f
 
 /**
  * Covers blueline_settings_render_occasions_tab() and
- * blueline_settings_render_occasion_row() (inc/settings/page.php):
+ * blueline_settings_render_occasion_row() (inc/settings/occasions-tab.php):
  * design spec §5.1's third and fifth rulings' admin-facing half.
  * Follows tests/SettingsPageTest.php's own convention -- render into an
  * output buffer via the real render function, assert on the captured
@@ -39,7 +39,7 @@ final class SettingsOccasionsTabTest extends TestCase {
 	}
 
 	/**
-	 * Builds a Task-1-shaped Occasion, with overrides.
+	 * Builds a valid Occasion, with overrides.
 	 *
 	 * @param array<string, mixed> $overrides Keys to override.
 	 * @return array<string, mixed>
@@ -214,7 +214,7 @@ final class SettingsOccasionsTabTest extends TestCase {
 
 	/**
 	 * Exactly one `<template>` element, holding a row keyed by the
-	 * `__TEMPLATE__` placeholder Task 6's JS replaces on clone.
+	 * `__TEMPLATE__` placeholder the JS replaces on clone.
 	 */
 	public function test_the_template_element_exists_exactly_once_and_uses_the_placeholder_key(): void {
 		ob_start();
@@ -315,7 +315,7 @@ final class SettingsOccasionsTabTest extends TestCase {
 
 	/**
 	 * The `_original_id` hidden field carries the row's own existing id
-	 * -- Task 2's blueline_occasions_assign_unique_ids() reads exactly
+	 * -- blueline_occasions_assign_unique_ids() reads exactly
 	 * this field.
 	 */
 	public function test_the_original_id_hidden_field_carries_the_existing_id(): void {

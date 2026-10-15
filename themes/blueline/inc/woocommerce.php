@@ -1,10 +1,9 @@
 <?php
 /**
- * WooCommerce integration for the ported templates in woocommerce/ (Task 9).
+ * WooCommerce integration for the ported templates in woocommerce/.
  *
- * Task 9 is a port, not a redesign: every template in woocommerce/ was
- * copied byte-identical from production's rookie-child theme (verified by
- * md5sum before any edit -- see the Task 9 report) and is restyled only via
+ * These templates are a port, not a redesign: they were copied
+ * byte-identical from production's rookie-child theme and are restyled only via
  * tokens/classes in assets/src/css/woocommerce.css. This file supplies the
  * small number of parent-theme dependencies those templates relied on that
  * blueline, a standalone theme, does not inherit for free:
@@ -31,7 +30,7 @@
  *   documented integration path (see "Theme wrapper hooks",
  *   https://woocommerce.com/document/template-structure/); doing so here
  *   also gives WooCommerce pages the same `#main.bl-main` > `.bl-container`
- *   structure page.php/archive.php already use, which is what the Step 4
+ *   structure page.php/archive.php already use, which is what the
  *   token restyle targets. archive-product.php's own inline wrapper was
  *   removed to match (see that file). This is a DOM-structure/presentation
  *   fix only -- no hook tied to cart, checkout, or order processing is
@@ -67,7 +66,7 @@ add_action( 'woocommerce_before_main_content', 'blueline_wc_wrapper_start' );
 add_action( 'woocommerce_after_main_content', 'blueline_wc_wrapper_end' );
 
 /*
- * P4 finding 4 -- both core's default single-product.php and the ported
+ * Both core's default single-product.php and the ported
  * archive-product.php (see that file's own docblock) call
  * do_action( 'woocommerce_sidebar' ) AFTER do_action( 'woocommerce_after_main_content' ),
  * i.e. after blueline_wc_wrapper_end() has already closed .bl-container/
@@ -78,14 +77,14 @@ add_action( 'woocommerce_after_main_content', 'blueline_wc_wrapper_end' );
  * `.bl-sidebar` was x=0/width=1280 while the product above it was
  * x=64/width=1152. Wrapping the same 'woocommerce_sidebar' action (priority
  * 5/15, straddling core's own 10) gives it the identical container every
- * other page uses, without touching sidebar.php itself (not a Task 9 port
- * file, but shared with every non-WooCommerce template) or restructuring
+ * other page uses, without touching sidebar.php itself (shared with
+ * every non-WooCommerce template) or restructuring
  * either ported template.
  */
 add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_start', 5 );
 add_action( 'woocommerce_sidebar', 'blueline_wc_sidebar_wrapper_end', 15 );
 
-// D-17: no gallery at all for an image-less registration (not a white placeholder).
+// No gallery at all for an image-less registration (not a white placeholder).
 remove_action( 'woocommerce_before_single_product_summary', 'woocommerce_show_product_images', 20 );
 add_action( 'woocommerce_before_single_product_summary', 'blueline_wc_show_product_images', 20 );
 
@@ -163,7 +162,7 @@ add_action( 'wp_print_scripts', 'blueline_dequeue_commerce_assets', PHP_INT_MAX 
 add_action( 'wp_print_styles', 'blueline_dequeue_commerce_assets', PHP_INT_MAX );
 add_action( 'wp_print_footer_scripts', 'blueline_dequeue_commerce_assets', 1 );
 /**
- * PERF-02/PERF-05: drop the PayPal/Google Pay/Apple Pay SDK loaders (~780 KB
+ * Drop the PayPal/Google Pay/Apple Pay SDK loaders (~780 KB
  * of third-party script) and WooCommerce's front-end CSS on requests that can
  * render no commerce UI (blueline_is_commerce_request()). Runs after every
  * plugin's own enqueue (PayPal's run up to priority 100) and again just before
@@ -285,7 +284,7 @@ add_action( 'woocommerce_before_checkout_form', 'blueline_checkout_reassurance' 
  * A short reassurance note above the checkout form -- the same nervous
  * first-timer persona the homepage's 'new_here' module exists to calm (see
  * blueline_homepage_module_new_here() in inc/homepage/new-here.php), except
- * here they are one field away from actually paying, which was previously
+ * here they are one field away from actually paying, which is
  * the one place in the whole registration flow with zero brand-voice copy
  * anywhere on the page (see this file's own docblock on woocommerce/ being
  * a byte-identical port). Hooked onto 'woocommerce_before_checkout_form'
@@ -308,8 +307,8 @@ function blueline_checkout_reassurance() {
 }
 
 /*
- * Live-site UX review finding 5 -- /register's product title and image link
- * nowhere.
+ * Link /register's embedded product title and image to the product's
+ * permalink (otherwise they link nowhere).
  *
  * /register embeds each registration product with WooCommerce's own
  * `[product_page sku="..."]` shortcode (confirmed live: the page's content
@@ -385,7 +384,7 @@ function blueline_wc_product_page_shortcode_title_link_open() {
 		esc_url( $permalink )
 	);
 
-	// A11Y-09: buffer the core <h1> title so _close() can demote it under the page's own h1.
+	// Buffer the core <h1> title so _close() can demote it under the page's own h1.
 	blueline_wc_title_buffer_active( ob_start() );
 }
 
@@ -406,7 +405,7 @@ function blueline_wc_title_buffer_active( ?bool $set = null ): bool {
 }
 
 /**
- * Turn a product title's <h1> into an <h2> (A11Y-09: /register has its own h1).
+ * Turn a product title's <h1> into an <h2> (/register has its own h1).
  *
  * @param string $html Title markup from woocommerce_template_single_title().
  * @return string
@@ -504,7 +503,7 @@ function blueline_wc_product_page_shortcode_thumbnail_link( $html, $attachment_i
 		return $html;
 	}
 
-	// A11Y-05: the title link right below goes to the same place, so this one stays out of the a11y tree.
+	// The title link right below goes to the same place, so this one stays out of the a11y tree.
 	return sprintf(
 		'<a href="%s" class="blueline-wc-product-page-image-link" tabindex="-1" aria-hidden="true">%s</a>',
 		esc_url( $permalink ),

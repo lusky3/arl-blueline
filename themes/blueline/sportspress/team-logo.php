@@ -5,10 +5,9 @@
  * content whenever sportspress_team_show_logo is "yes", the default).
  *
  * Intentionally empty: single-team.php's own hero (blueline_sp_team_hero(),
- * inc/sportspress.php) already prints the team's crest, once, at the very
+ * inc/sportspress/heroes.php) already prints the team's crest, once, at the very
  * top of the page -- this stock component duplicated it a second time,
- * full-size, directly above the roster. Reported live as "team pages show
- * 2 team logos." There is no sportspress_team_show_logo admin toggle
+ * full-size, directly above the roster. There is no sportspress_team_show_logo admin toggle
  * exposed in this theme's own settings (it is a raw wp_options row SportsPress
  * itself reads, `inc/settings/defaults.php` never touches it), so suppressing
  * it here -- the same override-a-stock-template mechanism this theme already

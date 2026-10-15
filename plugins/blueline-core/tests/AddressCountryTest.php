@@ -151,7 +151,7 @@ final class AddressCountryTest extends TestCase {
 	}
 
 	/**
-	 * A billing submission without a country (a form rendered before this fix) gets one just before
+	 * A billing submission without a country gets one just before
 	 * WooCommerce's handler reads it; the customer's stored country wins over the store's.
 	 */
 	#[RunInSeparateProcess]

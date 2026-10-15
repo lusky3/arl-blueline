@@ -415,7 +415,7 @@ test.describe( 'schedule team-name bubble and keyboard focus', () => {
 		await expect( link ).toHaveAttribute( 'data-bl-clipped', '' );
 		await link.focus();
 
-		// The bubble used to hide on the scroll the focus itself caused.
+		// The bubble must not hide on the scroll the focus itself caused.
 		await expect( tip ).toBeVisible();
 		await expect( tip ).toHaveText( longName );
 

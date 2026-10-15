@@ -55,12 +55,13 @@ function blueline_product_has_tag( int $product_id, string $tag_name ): bool {
  * product that has since sold out or been unpublished. Sorted highest
  * price first.
  *
- * P0 finding 1: the hero used to read a SINGLE product id
+ * The hero must not read a SINGLE product id
  * ($state_data['product_id'], "the first purchasable product Season State
  * happened to find") and quote its price on the primary CTA; on this site
- * that resolved to the $145 Goalie Registration outranking the $550 Player
- * Registration by post ID, so the button read "Register — $145.00" while
- * the skater the button was aimed at actually owed $550 at checkout. This
+ * that would resolve to the $145 Goalie Registration outranking the $550
+ * Player Registration by post ID, so the button would read "Register —
+ * $145.00" while the skater the button was aimed at actually owes $550 at
+ * checkout. This
  * intentionally does not pick a single "winner" product by name or ID
  * (the season's category can hold any number of registration products, and
  * pinned IDs/role names are a known trap in this codebase; see
@@ -69,16 +70,15 @@ function blueline_product_has_tag( int $product_id, string $tag_name ): bool {
  * decide, from the actual set, whether one price or a breakdown belongs on
  * the page.
  *
- * Reported live: the W2026-27 category holds five real, live products --
- * Player and Goalie Registration, but also a $999.99 Player late-
- * registration surcharge (SKU 117085-LR-1) and two $0.00 Waitlist products
- * -- and the hero's price line read all five: "Player $999.99 · Player
- * $575.00 · Goalie $170.00 · Player Waitlist $0.00 · Goalie Waitlist
- * $0.00". Every one of those five is a genuinely correct, purchasable
- * product (the late-registration and waitlist products need to stay live
- * and on sale precisely when regular registration is full or its window
- * has passed) -- the bug was never in what's purchasable, only in what the
- * homepage hero's own summary line should quote. Narrowing this specific
+ * A season's category can hold real, live products beyond Player and
+ * Goalie Registration -- e.g. a $999.99 Player late-registration surcharge
+ * and $0.00 Waitlist products -- and quoting all of them would make the
+ * hero's price line read "Player $999.99 · Player $575.00 · Goalie $170.00
+ * · Player Waitlist $0.00 · Goalie Waitlist $0.00". Every one of those is
+ * a genuinely correct, purchasable product (the late-registration and
+ * waitlist products need to stay live and on sale precisely when regular
+ * registration is full or its window has passed) -- the question is only
+ * what the homepage hero's own summary line should quote. Narrowing this specific
  * caller to the "Featured" product_tag (not a blanket rule on the season
  * category itself, which blueline_registration_season_product_ids() still
  * returns unfiltered for whoever else needs the full set) is what keeps
@@ -184,8 +184,8 @@ function blueline_homepage_registration_offer_role_label( $product ): string {
  * blueline_homepage_registration_offers()), decide what the hero's CTA
  * button and subcopy should say about price. Kept free of WooCommerce/
  * WordPress calls, because it only ever sees plain arrays the caller has already
- * extracted from a WC_Product, so the exact decision this P0 bug turned
- * on (one price on a button vs. several products at different prices) is
+ * extracted from a WC_Product, so the exact decision at stake
+ * (one price on a button vs. several products at different prices) is
  * directly unit testable without a WC_Product fixture.
  *
  * - No offers at all: nothing to show; caller falls back to non-registration copy.

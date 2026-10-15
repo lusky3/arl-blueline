@@ -16,7 +16,7 @@ require_once __DIR__ . '/../includes/indexing/indexing.php';
 final class IndexingArchivalTest extends TestCase {
 
 	/**
-	 * The get_posts() model in force before this test.
+	 * The get_posts() model saved in setUp() and restored in tearDown().
 	 *
 	 * @var mixed
 	 */

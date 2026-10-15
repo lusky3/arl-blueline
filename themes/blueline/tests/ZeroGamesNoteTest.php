@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * Covers a live-review finding with zero prior test coverage: "Division 5
+ * Covers a bug: "Division 5
  * Playoffs" showed every team at position 0 with a 0-0-0-0 record and no
  * explanatory text -- reading as broken rather than "playoffs haven't
  * started yet." blueline_sp_zero_games_note() is the pure decision
@@ -65,7 +65,7 @@ final class ZeroGamesNoteTest extends TestCase {
 
 	/**
 	 * No teams listed at all is a different, unrelated empty state (an
-	 * unconfigured or genuinely empty table) -- not this finding's "teams
+	 * unconfigured or genuinely empty table) -- not the "teams
 	 * exist but none have played" case, so no note here either.
 	 */
 	public function test_no_teams_at_all_suppresses_the_note(): void {

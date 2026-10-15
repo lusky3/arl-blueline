@@ -25,11 +25,10 @@ require_once __DIR__ . '/../inc/cli/settings-command.php';
 
 /**
  * Covers `wp blueline settings export|import|validate|repair|reset`
- * (inc/cli/settings-command.php) -- P1a's Task 10, Part A, plus the
- * `repair` subcommand P1b's Task 9 added.
+ * (inc/cli/settings-command.php).
  *
- * Three things this file exists to prove, each directly requested by the
- * task brief rather than assumed:
+ * Three things this file exists to prove, each pinned directly rather
+ * than assumed:
  *
  * - test_sanitize_option_filter_is_registered_at_file_scope_before_any_command_runs()
  *   proves (does not assume) that `import`/`reset`'s update_option() calls
@@ -261,7 +260,7 @@ final class SettingsCliCommandTest extends TestCase {
 
 	/**
 	 * A key the schema does not declare is dropped, never stored -- the
-	 * allow-list model Task 7 restored, not reintroduced as "forward
+	 * allow-list model, not reintroduced as "forward
 	 * anything unrecognised" by this new write path.
 	 */
 	public function test_import_drops_unknown_keys_rather_than_storing_them(): void {
@@ -282,7 +281,7 @@ final class SettingsCliCommandTest extends TestCase {
 	}
 
 	/**
-	 * The load-bearing fix for the review's Finding 1: a dropped, unknown
+	 * A dropped, unknown
 	 * key must not be a SILENT drop -- the operator is named the exact key
 	 * that was ignored, via WP_CLI::warning(), even though the command
 	 * still reports overall success (a dropped key is not itself evidence
@@ -345,7 +344,7 @@ final class SettingsCliCommandTest extends TestCase {
 	}
 
 	/**
-	 * A value that violates the placeholder contract (Task 3/8) is rejected
+	 * A value that violates the placeholder contract is rejected
 	 * by the SAME sanitizer the panel uses -- the existing value survives,
 	 * a warning is surfaced, and the command still reports success for the
 	 * rest of the file (partial success, exactly like a panel save).
@@ -356,7 +355,7 @@ final class SettingsCliCommandTest extends TestCase {
 		$path = $this->write_temp_json(
 			array(
 				// hero_offseason_headline requires exactly one %s -- a bare
-				// "%" here is the stray-percent case Task 3 exists to catch.
+				// "%" here is the stray-percent case the validator exists to catch.
 				'hero_offseason_headline' => 'Back on the ice 50% sooner.',
 			)
 		);

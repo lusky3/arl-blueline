@@ -1,8 +1,7 @@
 /*
  * Blueline — /sponsors page.
  *
- * Reported live: "make the sponsor page look nicer... more modern than it
- * is now." This page's own content (post ID 154) is a hand-authored
+ * This page's own content (post ID 154) is a hand-authored
  * legacy grid built with an old third-party columns plugin (Shortcodes
  * Ultimate's [su_row]/[su_column] shortcodes) -- rebuilt as plain Group
  * blocks with the two class names below, styled here as a proper card
@@ -84,7 +83,7 @@
 }
 
 /*
- * A-05/B-06: a linked logo's <img> sits in an auto-height <a>, so its
+ * A linked logo's <img> sits in an auto-height <a>, so its
  * max-height: 100% had nothing to resolve against and the ad overflowed
  * the frame onto the sponsor name. The link fills the frame instead.
  */
@@ -122,7 +121,7 @@
 	color: inherit;
 }
 
-/* B-21: a phone number never breaks mid-number. */
+/* A phone number never breaks mid-number. */
 .page-id-154 .bl-sponsor-card__detail a[href^="tel:"] {
 	white-space: nowrap;
 }

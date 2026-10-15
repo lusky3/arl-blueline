@@ -25,9 +25,9 @@ require_once __DIR__ . '/../inc/occasions.php';
 final class OccasionsTest extends TestCase {
 
 	/**
-	 * Reset every in-memory store before each test -- needed starting with
-	 * this task's own classify_acknowledgements() tests; harmless for
-	 * this file's pre-existing fixture-file-based tests, which never touch
+	 * Reset every in-memory store before each test -- needed by the
+	 * classify_acknowledgements() tests; harmless for
+	 * the fixture-file-based tests, which never touch
 	 * the options store at all.
 	 */
 	protected function setUp(): void {
@@ -314,7 +314,7 @@ final class OccasionsTest extends TestCase {
 	/**
 	 * Asserts a window that crosses the year boundary (start after end,
 	 * e.g. New Year's own 12-27..01-02) is accepted at the sanitizer level
-	 * -- the resolver (Task 3) is what interprets the wraparound, not this
+	 * -- the resolver is what interprets the wraparound, not this
 	 * validator, which only checks that both bounds are individually
 	 * well-formed calendar dates.
 	 */
@@ -462,8 +462,8 @@ final class OccasionsTest extends TestCase {
 		$this->assertSame( 'snowflake', $presets['christmas']['motif'] );
 
 		$this->assertSame( 'decorative', $presets['new-year']['type'] );
-		// Crosses the year boundary deliberately -- this is the case Task
-		// 3's resolver and Task 6's cron boundary calculation both have to
+		// Crosses the year boundary deliberately -- this is the case the
+		// resolver and the cron boundary calculation both have to
 		// handle correctly, not hypothetically.
 		$this->assertSame(
 			array(
@@ -935,7 +935,7 @@ final class OccasionsTest extends TestCase {
 	 * default) is evaluated against that resolved default, and against
 	 * the SAME value blueline_occasion_accent_default() itself returns.
 	 *
-	 * The bare `assertArrayNotHasKey()` this test used to carry was not
+	 * A bare `assertArrayNotHasKey()` is not
 	 * discriminating on its own: "the default resolved and passed" and
 	 * "the default failed to resolve at all" both end in the same
 	 * no-acknowledgement state, because the unresolvable-accent branch

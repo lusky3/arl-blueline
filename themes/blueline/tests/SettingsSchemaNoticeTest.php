@@ -30,7 +30,7 @@
  * And the notice is asserted on its RENDERED MARKUP, not on the fact that
  * some function was called: a notice test that never renders cannot see
  * that the notice names a raw internal key or links nowhere, which is
- * exactly how a previous notice on this branch shipped broken.
+ * exactly how a notice can ship broken.
  *
  * @package blueline
  */

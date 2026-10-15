@@ -15,7 +15,7 @@ require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * Covers a live-review finding with zero prior test coverage: on any
+ * Covers a bug: on any
  * SportsPress singular view (a team, player, or staff page, or a single
  * event page) EVERY top-level primary-menu item rendered identically -- no
  * "you are here" -- even though nav.css already has working CSS for it

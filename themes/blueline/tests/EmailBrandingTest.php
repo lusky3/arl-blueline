@@ -4,8 +4,7 @@
  * WooCommerce's email_improvements-flag color/type options to this theme's own brand
  * tokens, the AngellEYE template reclaim, and the brand-token callback the blueline-core
  * mail module reads. See inc/woocommerce.php's own docblocks above
- * blueline_wc_email_option_overrides() for the full reasoning, and
- * docs/superpowers/specs/2026-09-04-blueline-email-templates-design.md for the design.
+ * blueline_wc_email_option_overrides() for the full reasoning.
  * The wrapper and wp-email-template pins moved to the plugin (plugins/blueline-core/tests/MailTest.php).
  *
  * The require below would otherwise no-op in this plain-PHPUnit

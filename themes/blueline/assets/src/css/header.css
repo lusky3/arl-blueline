@@ -48,7 +48,7 @@
 	outline-offset: var(--bl-focus-offset);
 
 	/*
-	 * A11y finding: this link renders fixed at the viewport's top-left,
+	 * This link renders fixed at the viewport's top-left,
 	 * BEFORE the header (.bl-header, this file, further down) in DOM order
 	 * -- and .bl-header's own background is --bl-ink-deep, the exact same
 	 * colour as --bl-focus-color. Measured live: outline alone was
@@ -65,7 +65,7 @@
 }
 
 /*
- * A11y finding: on a logged-in admin view, WordPress' own admin bar is
+ * On a logged-in admin view, WordPress' own admin bar is
  * fixed at top:0 (or top:0..46px depending on width -- see `.admin-bar
  * .bl-header` above, whose breakpoints/values this mirrors exactly) with a
  * z-index far above this link's own 100. The skip link's top offset above
@@ -134,8 +134,8 @@
 	/*
 	 * Orders the fixed header against the page content it floats over.
 	 *
-	 * NOT what keeps the menu toggle reachable above the open mobile drawer,
-	 * though an earlier version of this comment said so: `position: fixed`
+	 * NOT what keeps the menu toggle reachable above the open mobile drawer:
+	 * `position: fixed`
 	 * here creates a stacking context, and the drawer (.bl-nav__menu) is a
 	 * DESCENDANT of this element, so this z-index orders the header against
 	 * its siblings and does nothing for its own children. The toggle stays
@@ -161,8 +161,8 @@
  * having loaded. The calc() below is the no-JS fallback and the value used for
  * the very first paint -- logo plus the row's padding plus the two bands, plus
  * the sponsor strip wherever it shows, so on a one-row menu JS has nothing to
- * correct (PERF-04: the old logo-plus-padding fallback was 77px short on
- * desktop and the page jumped when JS ran).
+ * correct (a logo-plus-padding fallback alone falls short on
+ * desktop and the page jumps when JS runs).
  */
 .bl-header__spacer {
 	--bl-header-spacer-sponsors: 0px;
@@ -251,10 +251,10 @@
 }
 
 /*
- * P3 finding 1: the brand mark is the design system (DESIGN.md), but with
- * no Customizer logo set this box used to render nothing but a hard-
+ * The brand mark is the design system (DESIGN.md), but with
+ * no Customizer logo set a shrinking box would render nothing but a hard-
  * truncated site title ("ARL – ADU…") at EVERY viewport, including ones
- * with 200px of empty navy to spare. The brand no longer shrinks itself
+ * with 200px of empty navy to spare. The brand does not shrink itself
  * to make room — .bl-nav is the flex sibling that gives way (min-width: 0
  * there, see nav.css's `@media (min-width: 960px) .bl-nav` rule; this box
  * stays flex: 0 0 auto, its natural size). Below 960px .bl-nav is a
@@ -362,7 +362,7 @@
  * bold/italic/uppercase. --bl-pale on --bl-ink-deep is 10.46:1
  * (tools/check-contrast.mjs), comfortably above the 4.5:1 AA text minimum.
  *
- * P3 finding 4: "My ARL Account" measured 94x15px at 360px -- well under
+ * "My ARL Account" measured 94x15px at 360px -- well under
  * WCAG 2.2's 24x24 minimum target size, sitting directly beside "Log Out"
  * (a mis-tap there logs someone out). The gap between items and the
  * padding/min-height on each link both grew to fix this: a taller box AND
@@ -394,19 +394,19 @@
 }
 
 /*
- * Task 8 hooks sportspress_header_sponsors_selector at this container.
+ * sportspress_header_sponsors_selector is hooked at this container.
  * SportsPress's own inline script (wp_footer, SportsPress_Sponsors::header())
  * prepends `.sp-header-sponsors` into this element on document ready -- see
  * sportspress.css's own comment on `.sp-sponsors-loader` for the matching
- * (AJAX-fill) half of this fix.
+ * (AJAX-fill) half of this.
  *
  * This container reserves its final 256x128 (2:1) box
  * (sportspress_header_sponsor_width/height, both 256/128 on this site,
  * verified live) UNCONDITIONALLY, from the very first layout, rather than
- * only once JS has confirmed a sponsor is actually coming. A first version
- * of this fix gated the reservation behind a class added by
- * assets/src/js/sponsors.js on script load; measured live, that class
- * still landed too late -- `blueline`'s script runs with `defer`, which
+ * only once JS has confirmed a sponsor is actually coming. Gating the
+ * reservation behind a class added by assets/src/js/sponsors.js on script
+ * load does not work: measured live, that class lands too late --
+ * `blueline`'s script runs with `defer`, which
  * only guarantees it runs before DOMContentLoaded, and the browser had
  * already painted the header at its unreserved (0-height) size well
  * before that point (confirmed: this element was still childless with the
@@ -433,7 +433,7 @@
  */
 
 /*
- * P3 finding 6: this slot is intentional (the league sells it). The "Sponsors"
+ * This slot is intentional (the league sells it). The "Sponsors"
  * title SP prints above the logo is hidden in this slot specifically -- it
  * doubled the box's height for no information a header strip needs.
  *
@@ -452,7 +452,7 @@
  * what made it read as small and unrelated to anything above it. Aligning it
  * to the container's end ties it to the CTA cluster directly above.
  *
- * Reported live, separately: even right-aligned and sized to the container,
+ * Even right-aligned and sized to the container,
  * the strip still read as a random ad floating on bare navy at first paint
  * (before the reader has scrolled) -- there was nothing filling the unused
  * row width to its left, and this box shared the bar's own exact background
@@ -482,8 +482,8 @@
 	 * belongs with -- rather than centred, where it floated in the middle of a
 	 * navy band with no relationship to anything above it.
 	 *
-	 * Was capped at 176px, which the brief called out as reading small; the
-	 * cap is now on the inner logo (see `.bl-header__sponsors > *` below) so
+	 * The cap (176px read as too small) is on the inner logo
+	 * (see `.bl-header__sponsors > *` below) so
 	 * this box can span the row and still place the mark at its end. The 2:1
 	 * aspect-ratio is the real sportspress_header_sponsor_* ratio and still
 	 * does the layout-shift reservation.
@@ -597,8 +597,8 @@
 	 * the plugin's own bundled stylesheet). align-items: center on the
 	 * parent centres this child's MARGIN box, not its content box, so an
 	 * asymmetric margin (top-only) shifts the actual content off-centre by
-	 * that same amount -- confirmed live as the reported overlap's second
-	 * half, once the .sp-sponsors-loader height cap above stopped it
+	 * that same amount -- confirmed live as the overlap's second
+	 * half, once the .sp-sponsors-loader height cap above stops it
 	 * overflowing the TOP: capping the loader's height fixed the box's own
 	 * size, but this leftover margin still pushed the whole thing down,
 	 * overflowing the BOTTOM instead. Zeroing it here is scoped to the
@@ -621,7 +621,7 @@
  * untouched (and correctly sized at its own default 256px) everywhere
  * else it's used (e.g. the footer sponsor band, sportspress.css).
  *
- * max-height added later, reported live: padding visible above the logo
+ * max-height: padding was visible above the logo
  * but none below, slightly overlapping the divider band under this strip.
  * Root cause: SportsPress's own sportspress-sponsors.css sets
  * `.sp-header-sponsors .sp-sponsors .sponsor { margin: 5px }` -- a
@@ -646,9 +646,8 @@
 }
 
 /*
- * Reported live: the ad "overlaps [the label] oddly" -- really, it poked up
- * out of the strip's own now-visible top edge (added along with the label,
- * above) into the nav row above it. Root cause: sportspress.css's
+ * The ad could poke up out of the strip's own visible top edge (see the
+ * label, above) into the nav row above it. Root cause: sportspress.css's
  * `.sp-sponsors-loader` reserves a 256:128 (2:1) aspect-ratio box -- this
  * site's configured sponsor-slot dimensions, sized to prevent layout shift
  * before the real logo loads via AJAX -- which computes to 124px tall at
@@ -725,13 +724,13 @@
 
 /*
  * min-height + centering, not more padding on .bl-skew: the visible ribbon
- * (font size, padding, skewed fill) stays exactly the size the design spec
+ * (font size, padding, skewed fill) stays exactly the size the design
  * calls for; only the invisible tappable box around it grows to the 44px
  * minimum this codebase already enforces elsewhere (e.g.
- * .bl-theme-toggle__option, footer.css) -- confirmed live, 2026-09-04 UX
- * audit: every .bl-btn measured 32-36px tall, sitewide (this is the shared
- * base class every "Register to Play" CTA, calendar link, claim-card
- * button, and account-page action button renders through).
+ * .bl-theme-toggle__option, footer.css) -- confirmed live: every .bl-btn
+ * measured 32-36px tall, sitewide (this is the shared base class every
+ * "Register to Play" CTA, calendar link, claim-card button, and
+ * account-page action button renders through).
  */
 .bl-btn {
 	display: inline-flex;
@@ -767,7 +766,7 @@ button.bl-btn {
 
 .bl-btn--primary .bl-skew {
 
-	/* design spec §7.2's "CTA ribbon fill" -- --bl-occasion-accent defaults
+	/* The "CTA ribbon fill" -- --bl-occasion-accent defaults
 	 * to var(--bl-ice) (style.css's :root), so this is a no-op change to
 	 * every-day appearance; inc/occasions.php's
 	 * blueline_occasion_front_end_styles() is what actually varies the
@@ -798,9 +797,9 @@ button.bl-btn {
 }
 
 /*
- * Secondary CTA on the header's dark ground -- Season State (Task 7) shows
+ * Secondary CTA on the header's dark ground -- Season State shows
  * this instead of the primary Register button in every state but
- * registration_open, per the brief's "drop the ice fill" rule. Overrides
+ * registration_open (the ice fill is dropped). Overrides
  * only color/border on top of the shared .bl-btn--secondary defined for
  * light backgrounds in layout.css; the homepage hero applies the same
  * pattern in homepage.css for its own dark ground.

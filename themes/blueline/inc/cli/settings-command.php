@@ -17,7 +17,7 @@
  * `import` is the one subcommand that writes untrusted, unreviewed data
  * (a JSON file that could have come from anywhere: a backup, another
  * environment, a hand-edited fixture) into the site's live settings. The
- * guards that make that safe are NOT in this file any more: they live in
+ * guards that make that safe are NOT in this file: they live in
  * inc/settings/import.php, whose own docblock enumerates all five, because
  * the panel's import form has to apply the identical ones and cannot reach
  * anything declared here (this file is loaded only under WP_CLI). What this
@@ -25,8 +25,8 @@
  *
  * 1. `current_user_can( 'manage_options' )` on `import`, `repair`, `reset`,
  *    `flush-cache` and `delete-all-data`: the SAME capability the panel requires
- *    (inc/settings/page.php's blueline_settings_add_page() and
- *    blueline_settings_render_page()). WP-CLI does not authenticate a
+ *    (inc/settings/page-registration.php's blueline_settings_add_page() and
+ *    inc/settings/page-render.php's blueline_settings_render_page()). WP-CLI does not authenticate a
  *    "current user" unless the operator explicitly passes `--user=<who>`,
  *    so by default this check fails closed: an unattended `wp` invocation
  *    with no `--user` cannot import settings at all. That is deliberate
@@ -53,10 +53,10 @@
  * The actual write still goes through
  * `update_option( BLUELINE_SETTINGS_OPTION, ... )`, hence through the SAME
  * `sanitize_option_{$option}` callback (blueline_settings_sanitize_callback(),
- * inc/settings/page.php) the panel's own save request runs; it is registered
- * UNCONDITIONALLY at file scope specifically so every write path is
- * validated identically. See that file's own docblock ("Every write path is
- * validated"), and
+ * inc/settings/sanitize-callback.php) the panel's own save request runs; it
+ * is registered UNCONDITIONALLY at file scope specifically so every write
+ * path is validated identically. See inc/settings/page.php's docblock
+ * ("Every write path is validated"), and
  * SettingsCliCommandTest::test_sanitize_option_filter_is_registered_at_file_scope_before_any_command_runs()
  * for the assertion that proves it rather than assumes it.
  *
@@ -197,8 +197,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * `occasions`); see this file's own docblock, point 1, for why the
 	 * check exists and why it fails closed with no `--user` passed.
 	 *
-	 * Reports the same WP_CLI::error() message every call site used to
-	 * inline; callers still need their own `return;` immediately after a
+	 * Reports the refusal via WP_CLI::error(); callers still need their own `return;` immediately after a
 	 * `false` result, since WP_CLI::error() does not itself halt execution
 	 * in every registered handler context.
 	 *
@@ -225,7 +224,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * check against it).
 	 *
 	 * Carries no secret: see inc/settings/import.php's docblock, "Export
-	 * carries no secret." That reasoning moved there with the shared
+	 * carries no secret." That reasoning lives there with the shared
 	 * machinery and is not restated in this file.
 	 *
 	 * ## OPTIONS
@@ -328,7 +327,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 
 		// The SAME sanitize_option_{$option} callback the panel's own save
 		// request runs. It is registered unconditionally at file scope by
-		// inc/settings/page.php, never conditioned on admin_init, so this
+		// inc/settings/sanitize-callback.php, never conditioned on admin_init, so this
 		// path is validated identically, not by a second validator this
 		// file would have to keep in sync by hand. A rejected field keeps
 		// its currently-stored value; an unrecognised key is dropped (and
@@ -597,7 +596,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	/**
 	 * Delete every option and cache entry this theme's settings layer created.
 	 *
-	 * The spec's section 6.7 teardown: themes have no uninstall hook, so
+	 * The explicit teardown: themes have no uninstall hook, so
 	 * removing Blueline's rows has to be something a human asks for explicitly.
 	 * Belongs on the cutover checklist for a rollback to `rookie-child`.
 	 *
@@ -669,8 +668,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * settings save, without changing any setting.
 	 *
 	 * For the case a save's own purge could not run, or a deploy changed
-	 * something the settings option does not cover: the spec's 6.9 list
-	 * names this subcommand alongside export/import/validate/reset.
+	 * something the settings option does not cover.
 	 *
 	 * ## WHAT THIS DOES ON A DEFAULT INSTALL
 	 *
@@ -744,13 +742,10 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 
 	/**
 	 * `wp blueline settings occasions list|enable <id>|disable <id>|force <id>`:
-	 * the original spec's §6.9 command list's `occasions` entry, ruled
-	 * on by design spec §6.5: one subcommand taking an action positional
-	 * argument, not four separately-registered subcommands, matching how
-	 * the spec itself names it as a single command with four listed
-	 * behaviors.
+	 * one subcommand taking an action positional argument, not four
+	 * separately-registered subcommands.
 	 *
-	 * Verb-to-mode mapping (design spec §6.5, the three
+	 * Verb-to-mode mapping (the three
 	 * blueline_occasion_modes() values with no fourth invented): `enable`
 	 * -> `auto` (let it run on its own calendar window, the "normal"
 	 * state), `disable` -> `force_off` (never eligible, regardless of
@@ -762,7 +757,7 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * blueline_occasion_presets() but absent from the currently STORED
 	 * `occasions` map copies that preset in first (with the requested mode
 	 * applied), the CLI equivalent of the panel's "add from preset"
-	 * affordance (2.1b); refusing to would make the CLI strictly less
+	 * affordance; refusing to would make the CLI strictly less
 	 * capable than the panel already is, for no stated reason. An <id>
 	 * matching neither a stored occasion nor a preset is a WP_CLI::error(),
 	 * matching every other subcommand's not-found handling convention in
@@ -780,8 +775,8 @@ class Blueline_Settings_Command extends WP_CLI_Command {
 	 * `sanitize_option_{$option}` path every other subcommand in this file
 	 * uses: `_tab` is never set on this write, so
 	 * blueline_settings_sanitize_callback()'s `occasions` branch takes its
-	 * pre-existing "programmatic write" path (blueline_sanitize_occasions()
-	 * directly, no id derivation), unchanged 2.1a behaviour, since this
+	 * "programmatic write" path (blueline_sanitize_occasions()
+	 * directly, no id derivation), since this
 	 * command always supplies an already-correctly-keyed id itself.
 	 *
 	 * ## OPTIONS

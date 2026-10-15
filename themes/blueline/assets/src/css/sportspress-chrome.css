@@ -25,7 +25,7 @@
  * wrapper's own content is never taller than itself, so it should never
  * need to scroll vertically at all. It was added while chasing a sticky-
  * table-header attempt (see .sp-league-table's own comment in
- * sportspress.css for the full finding); explicitly declaring "no
+ * sportspress.css for the full explanation); explicitly declaring "no
  * vertical overflow behaviour wanted" here did NOT restore position:
  * sticky for content inside this
  * wrapper (confirmed empirically: even overflow-y: visible forced via an
@@ -83,7 +83,7 @@ table.bl-table-self-scroll {
 }
 
 /*
- * QA A-02: a bare classic-editor content table (e.g. /refs) has no wrapper and
+ * A bare classic-editor content table (e.g. /refs) has no wrapper and
  * isn't SportsPress's, so the PHP pass leaves it alone; it scrolls itself here
  * instead of being clipped by html { overflow-x: clip }. table-scroll.js gives
  * it the same fade + keyboard focus as the other scroll containers.
@@ -107,7 +107,7 @@ table.bl-table-self-scroll {
 }
 
 /*
- * Finding 8 (live review): one team's real crest is confirmed near-
+ * One team's real crest is confirmed near-
  * invisible against this theme's dark surfaces (the header/countdown
  * widget's navy ground chief among them) -- a content/asset problem this
  * theme cannot fix without the real, higher-contrast file. Rather than
@@ -181,7 +181,7 @@ table.bl-table-self-scroll {
  * this element empty and fills it by AJAX after first paint
  * (sportspress-pro's own sportspress-sponsors.js:
  * $('.sp-sponsors-loader').each(...).post(...)). With no size of its own,
- * the arriving logo used to push the rest of the page down. The
+ * the arriving logo would push the rest of the page down. The
  * placeholder already carries the intended box as its own data-width/
  * data-height attributes, 256x128 for both slots on this site
  * (sportspress_header_sponsor_width/height and
@@ -222,8 +222,8 @@ table.bl-table-self-scroll {
  *
  * SportsPress Pro's own footer sponsors block, injected sitewide (every
  * page, not just the homepage) directly above <footer> by
- * SportsPress_Sponsors::footer(). The theme's own homepage sponsors module
- * was removed as a duplicate (inc/homepage-modules.php); this is now the
+ * SportsPress_Sponsors::footer(). The theme has no homepage sponsors module of
+ * its own (it would duplicate this); this is the
  * only sponsor surface anywhere on the site, so it gets full token-based
  * treatment rather than the plugin's own hard-coded #f4f4f4/#363f48
  * (neutralised on the front end by blueline_sp_blank_frontend_option() in
@@ -273,7 +273,7 @@ table.bl-table-self-scroll {
 	   the heading at every width. The band's padding is the spacing. */
 	padding-block: 0;
 
-	/* Finding 6: every other heading on the site is left-aligned;
+	/* Every other heading on the site is left-aligned;
 	   .sp-sponsors's own base rule (above) centres itself and everything
 	   that inherits from it, which is correct for the SMALL header slot but
 	   wrong for this full-width band. Scoped to the footer instance only;
@@ -317,7 +317,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 }
 
 /*
- * Finding 6: logos stacked vertically in a ~640px-tall band for three
+ * Logos stacked vertically in a ~640px-tall band for three
  * sponsors (each `.sponsor` is `display: inline-block`, so three near-
  * 256px-wide logos simply wrap onto their own lines at most viewport
  * widths) with no shared sizing, no shared background, and each carrying
@@ -399,7 +399,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	}
 }
 
-/* ---- Countdown widget (finding 4) ----
+/* ---- Countdown widget ----
  *
  * sidebar-1 renders on all seven sportspress/*.php templates, and the
  * countdown widget is the one thing that historically lives there, but
@@ -415,8 +415,8 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	border: 1px solid var(--bl-content-border);
 	border-radius: var(--bl-radius-card);
 
-	/* Names sit between two crests and the clock under them: left-aligned,
-	   the text read as off-centre against both (owner, 2026-10-03). */
+	/* Names sit between two crests and the clock under them: centred;
+	   left-aligned text reads as off-centre against both. */
 	text-align: center;
 }
 
@@ -431,7 +431,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	color: var(--bl-content-text);
 }
 
-/* C-05: SportsPress fades inactive event tabs to opacity .5 (3.1:1 in
+/* SportsPress fades inactive event tabs to opacity .5 (3.1:1 in
    light); colour and a steel bar carry the state instead. Same specificity
    as the plugin's rules, which load first. */
 .sp-tab-menu-item a {
@@ -464,7 +464,7 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 	}
 }
 
-/* C-23: both crests flush with the card edges, the same gap to the text. */
+/* Both crests flush with the card edges, the same gap to the text. */
 .sp-event-name .team-logo {
 	margin-inline: 0 var(--bl-space-2);
 }
@@ -523,8 +523,8 @@ body .sp-footer-sponsors .sp-sponsors .sp-sponsors-title {
 }
 
 /*
- * Finding 4 (live review): the countdown widget stuck on a past game with
- * no result used to render 00:00:00:00 forever -- sportspress/countdown.php
+ * The countdown widget stuck on a past game with
+ * no result would render 00:00:00:00 forever -- sportspress/countdown.php
  * only prints this state (a plain line of text, not the digit row above)
  * once it has confirmed nothing future exists anywhere in scope to count
  * down to.
@@ -598,7 +598,7 @@ table.bl-table-self-scroll[data-fade-start][data-fade-end],
 }
 
 /*
- * QA C-03/B-08: table-scroll.js makes an overflowing container focusable
+ * table-scroll.js makes an overflowing container focusable
  * (data-bl-scroll-focus). The ring is inset so an outer scroll wrapper can't
  * clip it, uses the content text colour so it shows in both schemes, and the
  * edge fade lifts while focused so it doesn't fade the ring.

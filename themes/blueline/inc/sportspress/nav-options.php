@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 add_filter( 'body_class', 'blueline_sp_body_class' );
 /**
  * Add bl-sp / bl-sp-{post_type-or-taxonomy} body classes on SportsPress
- * singular and taxonomy views, per the Task 8 interface contract.
+ * singular and taxonomy views.
  *
  * @param string[] $classes Existing body classes.
  * @return string[]
@@ -44,7 +44,7 @@ function blueline_sp_body_class( $classes ) {
 
 add_filter( 'wp_nav_menu_objects', 'blueline_sp_primary_nav_current_item', 10, 2 );
 /**
- * Live-review finding: on any SportsPress singular view (a team, player, or
+ * On any SportsPress singular view (a team, player, or
  * staff page) or a schedule-related event page, EVERY top-level primary-menu
  * item renders identically -- no "you are here" at all, on either the
  * desktop bar or the mobile drawer, even though both already have working
@@ -190,7 +190,7 @@ add_filter( 'option_sportspress_league_menu_teams', 'blueline_sp_blank_frontend_
 add_filter( 'option_sportspress_league_menu_title', 'blueline_sp_blank_frontend_option' );
 add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_option' );
 /**
- * P0 finding 1: SportsPress Pro's "League Menu" sub-module
+ * SportsPress Pro's "League Menu" sub-module
  * (includes/sportspress-league-menu/sportspress-league-menu.php) is a
  * separate always-loaded plugin feature, not something this theme's own
  * header renders. Its own JS, confirmed in the installed plugin at
@@ -205,8 +205,8 @@ add_filter( 'option_sportspress_league_menu_logo', 'blueline_sp_blank_frontend_o
  * (and the title/logo options that would otherwise still render an empty
  * bar) evaluate empty, in which case menu() returns before printing
  * anything and the wrapper div stays empty. An empty div has no focusable
- * content, so it cannot cover the mobile nav (confirmed: at 360px with the
- * drawer open, elementFromPoint(180,150) previously returned the league
+ * content, so it cannot cover the mobile nav (at 360px with the
+ * drawer open, elementFromPoint(180,150) would otherwise return the league
  * menu's own IMG.sp-team-logo, ahead of Home/News/League Info/
  * Rosters-Stats/Schedule) and cannot push 22 links ahead of the skip link
  * in tab order.
@@ -274,7 +274,7 @@ function blueline_league_menu_team_ids(): array {
  * Load the posts, meta and crest attachments for a list of team IDs in a few
  * batched queries, so the per-team get_post_status()/get_permalink()/
  * get_the_post_thumbnail() calls in the flyout and footer directory read
- * from cache instead of querying once per team (PERF-09).
+ * from cache instead of querying once per team.
  *
  * @param array $team_ids Team IDs (scalars; anything else is ignored).
  * @return void
@@ -342,10 +342,10 @@ add_filter( 'option_sportspress_header_sponsors_limit', 'blueline_sp_header_spon
  *     }
  *
  * The entire method (both the sponsor markup and the relocation script)
- * is inside that one `if ( $limit )`. An earlier version of this fix only
- * changed `sportspress_header_sponsors_selector` to something unmatchable,
- * on the theory that SportsPress would then have nowhere to prepend the
- * block. That was wrong: with $limit still truthy, `header()` still prints
+ * is inside that one `if ( $limit )`. Merely changing
+ * `sportspress_header_sponsors_selector` to something unmatchable, on the
+ * theory that SportsPress would then have nowhere to prepend the block, is
+ * not enough: with $limit still truthy, `header()` still prints
  * `.sp-header-sponsors` and still runs the prepend script; prepending an
  * empty jQuery selection is simply a no-op, so the sponsor markup just
  * stays wherever `wp_footer` put it (stranded at the end of the page, not
@@ -382,8 +382,7 @@ add_filter( 'sportspress_header_sponsors_selector', 'blueline_header_sponsors_se
  *
  * `:not(*)` is returned anyway, as defence in depth: a selector that
  * matches nothing, in both CSS and jQuery, by construction, unlike
- * `.bl-header__sponsors--disabled`, an earlier version of this fix's
- * choice, which is a BEM modifier of a class (`.bl-header__sponsors`) this
+ * `.bl-header__sponsors--disabled`, which is a BEM modifier of a class (`.bl-header__sponsors`) this
  * theme really emits elsewhere, and so the single edit most likely to be
  * made to that div in the future (adding a state class to it) would have
  * silently re-enabled injection. `:not(*)` cannot collide with any class

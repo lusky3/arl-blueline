@@ -3,19 +3,17 @@
  * checked" read, and the write-on-view that clears it for the floating
  * widget too.
  *
- * Design spec: docs/superpowers/specs/2026-08-25-blueline-schedule-change-
- * notice-design.md. This card (blueline_account_render_next_game(), inc/
+ * This card (blueline_account_render_next_game(), inc/
  * account/dashboard.php) is never dismissible -- it's permanent account
  * content, not ambient chrome -- so there is no dismiss control here, only
  * a read (does the stored pair for this event differ from the current
  * one?) and a write (record the current pair as seen).
  *
  * Reads and writes `blueline:next-game-seen`, NOT
- * `blueline:next-game-dismissed` -- a real bug found live 2026-08-25: this
- * file used to share the SAME key the floating widget's dismiss button
- * writes, on the theory that "viewing this card counts as having
- * acknowledged the change." It does, but sharing one key meant simply
- * VISITING My Account silently marked the floating widget as fully
+ * `blueline:next-game-dismissed`. Viewing this card does count as having
+ * acknowledged the change, but sharing the SAME key the floating widget's
+ * dismiss button writes would mean simply
+ * VISITING My Account silently marks the floating widget as fully
  * DISMISSED everywhere else, with no dismiss click ever happening -- the
  * widget would flash on the very next page (server always renders it) and
  * immediately hide itself, on every page after that. See

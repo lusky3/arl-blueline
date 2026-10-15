@@ -71,9 +71,9 @@
  * literal space character in the HTML source (`</span> <span>`), which
  * -- unlike in a flex container, where such a whitespace-only text node
  * is ignored -- still renders as real inline whitespace here and
- * consumes actual width. A first attempt at `50% - (space-3 / 2)` each
- * left only that half-space-3 as slack, which the whitespace character's
- * own width ate entirely, silently wrapping the second box onto its own
+ * consumes actual width. Sizing each box at `50% - (space-3 / 2)`
+ * leaves only that half-space-3 as slack, which the whitespace character's
+ * own width eats entirely, silently wrapping the second box onto its own
  * line (confirmed live: both boxes measured 343px wide in a ~700px
  * container -- 343+343+12 leaves only 2px, not enough). Subtracting a
  * full --bl-space-3 from each (instead of half each) leaves a full
@@ -358,7 +358,7 @@ select.wpcf7-form-control {
 	cursor: not-allowed;
 }
 
-/* A-11: ink on the dark page (1.14:1) left no visible button; dark uses
+/* Ink on the dark page (1.14:1) left no visible button; dark uses
    the ice CTA fill (ink text 7.7:1). */
 :root[data-theme="dark"] .wpcf7-form input.wpcf7-submit {
 	background: var(--bl-ice);

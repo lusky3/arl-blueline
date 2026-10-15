@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/woocommerce.php';
 
 /**
- * A11Y-09: the /register [product_page] embed's title drops from h1 to h2.
+ * The /register [product_page] embed's title drops from h1 to h2.
  */
 final class ProductTitleDemoteTest extends TestCase {
 

@@ -1,12 +1,12 @@
 <?php
 /**
- * Covers Task 4 of the P1b-panel-completion plan: the four site-chrome
+ * Covers the four site-chrome
  * section toggles (`chrome_sponsors`, `chrome_utility_nav`,
  * `chrome_footer_trust`, `chrome_footer_teams`) actually withhold what they
  * claim to control.
  *
  * `chrome_sponsors` is guarded differently from the other three, and
- * differently from fix round 1's first attempt at it. That first attempt
+ * differently from an earlier attempt at it. That first attempt
  * only pointed `sportspress_header_sponsors_selector` at an unmatchable
  * selector, on the theory that SportsPress would then have nowhere to
  * prepend its sponsor markup -- verified against the installed plugin
@@ -73,7 +73,7 @@ final class ChromeSectionsTest extends TestCase {
 	}
 
 	/**
-	 * The brief's own test, verbatim in spirit: a footer team directory that
+	 * A footer team directory that
 	 * would otherwise render (a real league menu is configured) renders
 	 * nothing at all once `chrome_footer_teams` is switched off.
 	 */
@@ -171,7 +171,7 @@ final class ChromeSectionsTest extends TestCase {
 	 * the 'utility' theme location -- proving the new
 	 * `blueline_section_enabled()` check actually gates the block, not
 	 * merely that an unassigned location renders nothing (which
-	 * `has_nav_menu()` alone already guaranteed before this task).
+	 * `has_nav_menu()` alone already guaranteed on its own).
 	 */
 	public function test_the_utility_nav_can_be_switched_off_even_with_a_menu_assigned(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_utility_nav' => false ) );
@@ -241,7 +241,7 @@ final class ChromeSectionsTest extends TestCase {
 	}
 
 	/**
-	 * Fix round 1, Important 3: `.bl-header__sponsors--disabled` (the first
+	 * `.bl-header__sponsors--disabled` (the first
 	 * attempt's disabled-selector literal) was a BEM modifier of a class
 	 * this theme really emits -- the single most likely future edit to that
 	 * div (adding a state class to it) would have silently matched it again
@@ -311,7 +311,7 @@ final class ChromeSectionsTest extends TestCase {
 	}
 
 	/**
-	 * The real gate fix round 1 introduced is
+	 * The real gate is
 	 * blueline_sp_header_sponsors_limit(): on the front end, with the
 	 * toggle off, it forces `sportspress_header_sponsors_limit` to 0 -- the
 	 * exact value SportsPress_Sponsors::header() checks (`if ( $limit )`,
@@ -352,9 +352,9 @@ final class ChromeSectionsTest extends TestCase {
 	 * outright when `chrome_sponsors` is off, rather than printed and left
 	 * to the CSS/JS collapse assets/src/js/sponsors.js performs for a
 	 * DIFFERENT case (the slot being off site-wide via SportsPress's own
-	 * settings). Fix round 1, Critical 1: nothing tested the rendered
-	 * header at all before this -- only the returned selector string, which
-	 * proved nothing about whether the slot div itself still printed.
+	 * settings). This asserts on the rendered
+	 * header itself, not just the returned selector string, which proves
+	 * nothing about whether the slot div itself still printed.
 	 */
 	public function test_the_sponsor_slot_div_is_not_emitted_when_disabled(): void {
 		update_option( BLUELINE_SETTINGS_OPTION, array( 'chrome_sponsors' => false ) );

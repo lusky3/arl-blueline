@@ -5,7 +5,7 @@
  *
  * This file is pure data plus accessors: it declares what fields exist and
  * what they default to. It writes no options, registers no UI, and adds no
- * filters — those arrive in later tasks that build on this contract.
+ * filters — the rest of inc/settings/ builds on this contract.
  *
  * @package blueline
  */
@@ -21,8 +21,7 @@ const BLUELINE_SETTINGS_OPTION = 'blueline_settings';
 
 /**
  * Schema version of the stored option. Bump this whenever the schema shape
- * changes in a way a migration needs to know about; later tasks read it,
- * this one only defines it.
+ * changes in a way a migration needs to know about.
  */
 const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
 
@@ -78,11 +77,9 @@ const BLUELINE_SETTINGS_SCHEMA_VERSION = 1;
  * `placeholders => array()` — not "no contract yet", but "the contract IS
  * zero placeholders" — so a stray "%" in its value is rejected by
  * inc/settings/sanitize.php's blueline_sanitize_field() exactly like any
- * other violation. The seven `hero_*` fields below (Task 8) are the first to
- * carry a real, non-empty contract, added one field at a time against the
- * validator Task 3 built and verified against the actual sprintf()/printf()
- * call site each replaces — see inc/homepage-modules.php and the Task 8
- * report for the call-site-by-call-site verification.
+ * other violation. The seven `hero_*` fields below carry a real, non-empty
+ * contract, each verified against the actual sprintf()/printf() call site it
+ * replaces — see inc/homepage-modules.php.
  *
  * @return array<string, array<string, mixed>>
  */
@@ -112,13 +109,10 @@ function blueline_settings_schema(): array {
 			'label'        => 'Off-season CTA label',
 			'placeholders' => array(),
 		),
-		// Task 8 (fix round 2): the plan's remaining four hardcoded copy
-		// strings -- the "Never played? Perfect." module's heading and CTA
-		// label, and two account-dashboard empty-state lines -- none of
-		// which ever carries a sprintf() placeholder, hence `array()` on all
-		// four. "The plan's" because the theme has plenty of other hardcoded
-		// strings outside this plan's scope; these four are simply the ones
-		// this plan's own task list named.
+		// Four hardcoded copy strings -- the "Never played? Perfect." module's
+		// heading and CTA label, and two account-dashboard empty-state lines --
+		// none of which ever carries a sprintf() placeholder, hence `array()`
+		// on all four.
 		'module_new_here_heading'       => array(
 			'type'         => 'text',
 			'tab'          => 'content',
@@ -143,7 +137,7 @@ function blueline_settings_schema(): array {
 			'label'        => 'My Account — "season stats" empty-state line',
 			'placeholders' => array(),
 		),
-		// Hero copy carrying a live sprintf() placeholder contract (Task 8).
+		// Hero copy carrying a live sprintf() placeholder contract.
 		// Each label spells out what the placeholder becomes so a volunteer
 		// editing the field cannot omit or reorder it without understanding
 		// why -- see inc/settings/sanitize.php's blueline_sanitize_field()
@@ -202,7 +196,7 @@ function blueline_settings_schema(): array {
 			'label'        => 'Hero highlighted word — off-season (fills the %s in the headline above)',
 			'placeholders' => array(),
 		),
-		// Announcement banner (Task 6). `announcement_text` is the on
+		// Announcement banner. `announcement_text` is the on
 		// switch as well as the copy: empty means no banner, so there is
 		// no separate enabled flag that could fall out of step with it.
 		// `announcement_link` deliberately carries NO `fallback`, unlike
@@ -249,7 +243,7 @@ function blueline_settings_schema(): array {
 				'urgent' => 'Urgent (loud)',
 			),
 		),
-		// Season-state break-glass (Task 7). Failure recovery, not routine
+		// Season-state break-glass. Failure recovery, not routine
 		// configuration -- see blueline_season_state_override()
 		// (inc/season-state.php) for the three separate ways an override is
 		// ignored, and why the expiry is mandatory rather than optional.
@@ -260,8 +254,8 @@ function blueline_settings_schema(): array {
 			'help'         => 'Leave this alone unless the site is showing the wrong season. Whatever you pick is ignored until you also set an end date below.',
 			'placeholders' => array(),
 			// A dropdown, not a text box: this control gets used under
-			// pressure, and a typo used to save cleanly, change nothing, and
-			// raise no notice (fix round I2). The five non-empty keys are
+			// pressure, and a typo would save cleanly, change nothing, and
+			// raise no notice. The five non-empty keys are
 			// pinned against BLUELINE_SEASON_STATES by
 			// SeasonStateOverrideTest.
 			'choices'      => array(
@@ -449,9 +443,8 @@ function blueline_settings_schema(): array {
 			'token_key' => 'danger',
 			'help'      => 'Leave blank to use the theme default. This value applies identically in light and dark mode — style.css normally uses a different shade for each, so check your chosen color reads well in both before saving.',
 		),
-		// A DISCLOSURE affordance, not a privilege boundary -- the spec says so
-		// twice (section 3's audience row, and "The Advanced toggle must state
-		// in its own UI that it is a warning, not a lock"). Everyone who can
+		// A DISCLOSURE affordance, not a privilege boundary -- the toggle must
+		// state in its own UI that it is a warning, not a lock. Everyone who can
 		// reach this page already holds `manage_options`, so flipping this
 		// grants nobody anything they could not already do; it only stops a
 		// volunteer wandering into the dangerous controls by accident. The
@@ -460,10 +453,9 @@ function blueline_settings_schema(): array {
 		// switch at all -- someone would rely on it.
 		//
 		// What it gates today is the "Delete all Blueline data" control
-		// (inc/settings/page.php's blueline_settings_render_delete_all_data()),
+		// (inc/settings/delete-data.php's blueline_settings_render_delete_all_data()),
 		// which is the most destructive thing the panel can do and so the most
-		// dragon-like thing to put behind a dragons switch. The AA-failure
-		// acknowledgement the spec also names is P2, with the colour work.
+		// dragon-like thing to put behind a dragons switch.
 		//
 		// It also has to exist for inc/settings/import.php's unconditional
 		// discard to be reachable at all: until this was a real schema key the
@@ -628,7 +620,7 @@ function blueline_settings_defaults(): array {
 		// Off: a disclosure affordance defaults to hiding what it discloses,
 		// or it discloses nothing.
 		'advanced_enabled'               => false,
-		// `aa_acknowledgements` (design spec §4.4/§4.5) is deliberately NOT
+		// `aa_acknowledgements` is deliberately NOT
 		// listed here, for the same reason `_schema` never has been:
 		// membership in blueline_settings()'s returned array is decided by
 		// presence in THIS array, so a bookkeeping key that must stay out of
@@ -640,23 +632,22 @@ function blueline_settings_defaults(): array {
 		// blueline_sanitize_acknowledgements()) -- just never a default
 		// value a schema field falls back to.
 
-		// `_validated_against` (design spec §6.5's storage-shape ruling,
-		// Phase 2.2) follows the exact same shape as `aa_acknowledgements`
+		// `_validated_against` follows the exact same shape as `aa_acknowledgements`
 		// immediately above, for the identical reason: nothing reads it
 		// back through blueline_settings() (inc/settings/validation.php's
 		// blueline_validated_against() reads get_option() directly
 		// instead), so it stays out of this array too. Still real,
 		// protected storage (BLUELINE_SETTINGS_RESERVED_KEYS,
-		// inc/settings/page.php; validated by that same file's
+		// inc/settings/page.php; validated by
+		// inc/settings/sanitize-callback.php's
 		// blueline_settings_sanitize_callback() reserved-key branch).
 
-		// `occasions` (design spec §5) IS listed here, unlike
+		// `occasions` IS listed here, unlike
 		// `aa_acknowledgements` immediately above -- the front-end resolver
-		// (Task 3) needs blueline_settings( 'occasions' ) to return
+		// needs blueline_settings( 'occasions' ) to return
 		// something. Its own default is a genuinely empty array: the four
-		// shipped presets (blueline_occasion_presets(), Task 2) are a
-		// READ-ONLY catalog for a future admin UI, never pre-populated live
-		// entries -- design spec §5's second ruling.
+		// shipped presets (blueline_occasion_presets()) are a
+		// READ-ONLY catalog, never pre-populated live entries.
 		'occasions'                      => array(),
 
 		// Matches the position this theme has always rendered -- installing

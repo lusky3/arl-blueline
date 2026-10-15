@@ -18,8 +18,8 @@ require_once __DIR__ . '/../inc/settings/sanitize.php';
 require_once __DIR__ . '/../inc/season-state.php';
 require_once __DIR__ . '/../inc/homepage-modules.php';
 
-// wp_get_post_terms() is no longer stubbed here -- tests/bootstrap.php now
-// provides a shared stand-in (added for Task 9's registration-term
+// wp_get_post_terms() is not stubbed here -- tests/bootstrap.php
+// provides a shared stand-in (used by the registration-term
 // resolver tests), backed by blueline_test_register_term()/
 // blueline_test_set_post_terms() rather than this file's own
 // $GLOBALS['bl_test_post_terms']. wp_get_object_terms() below is still
@@ -80,17 +80,17 @@ final class BluelineHeroFieldFakeProduct {
 }
 
 /**
- * Task 8: the seven hero-copy fields whose stored value becomes a raw
+ * The seven hero-copy fields whose stored value becomes a raw
  * sprintf()/printf() format string at its call site in
  * inc/homepage-modules.php -- the highest-risk field type this control
- * panel exposes, per the Task 8 brief. Three things per field, each its own
+ * panel exposes. Three things per field, each its own
  * group of tests below:
  *
  * 1. The schema's declared `placeholders` contract matches the exact
  *    literal it replaced, verified against the real call site's sprintf()
- *    argument count and order (not merely assumed from the brief's
- *    inventory table -- see each call site in inc/homepage-modules.php).
- * 2. The Task 3 validator (blueline_sanitize_field()) actually rejects a
+ *    argument count and order (not merely assumed
+ *    -- see each call site in inc/homepage-modules.php).
+ * 2. The validator (blueline_sanitize_field()) actually rejects a
  *    dropped placeholder and a stray "%" for these specific fields, with
  *    the actionable message a volunteer needs to fix it.
  * 3. Swapping the hardcoded literal for blueline_settings( $key ) produced
@@ -141,7 +141,7 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 	}
 
 	/**
-	 * Every field named in the Task 8 brief's inventory exists in the
+	 * Every hero-copy field exists in the
 	 * schema, as a `text` field on the `content` tab, declaring exactly the
 	 * verified contract, with a non-empty label.
 	 */
@@ -259,7 +259,7 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 	/**
 	 * Rendering regression check: the registration hero's headline and
 	 * (single-offer, agreeing-price) CTA are byte-identical to what the
-	 * hardcoded literals produced before this task.
+	 * hardcoded literals produced before the setting existed.
 	 */
 	public function test_registration_headline_and_cta_render_unchanged_with_the_default_value(): void {
 		$offers = array(
@@ -310,8 +310,8 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 	/**
 	 * Rendering regression check: the registration eyebrow's season-truthy
 	 * branch (the one that actually reaches hero_registration_eyebrow) is
-	 * byte-identical to what the hardcoded literal produced before this
-	 * task. Since Task 9, blueline_homepage_registration_season_label()
+	 * byte-identical to what the hardcoded literal produced before the
+	 * setting existed. blueline_homepage_registration_season_label()
 	 * resolves the registration term through
 	 * blueline_resolve_registration_term() rather than reading
 	 * BLUELINE_REGISTRATION_TERM_ID directly, so the fixture registers a
@@ -341,7 +341,7 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 
 	/**
 	 * Rendering regression check: the preseason headline is byte-identical
-	 * to what the hardcoded literal produced before this task. get_the_date()
+	 * to what the hardcoded literal produced before the setting existed. get_the_date()
 	 * is a fixed stub in tests/bootstrap.php (always returns 'Aug 20'
 	 * regardless of $format/$post), so that literal string is what the real
 	 * call site would have substituted before this change too.
@@ -357,7 +357,7 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 
 	/**
 	 * Rendering regression check: the in-season headline is byte-identical
-	 * to what the hardcoded literal produced before this task. sp_event is
+	 * to what the hardcoded literal produced before the setting existed. sp_event is
 	 * never registered as a post type in this suite's default state, so
 	 * blueline_homepage_games_this_week() (gated on post_type_exists())
 	 * returns 0, and _n( 'game', 'games', 0, ... ) resolves to the plural.
@@ -395,7 +395,7 @@ final class HeroPlaceholderFieldsTest extends TestCase {
 
 	/**
 	 * Rendering regression check: the off-season headline is byte-identical
-	 * to what the hardcoded literal produced before this task.
+	 * to what the hardcoded literal produced before the setting existed.
 	 */
 	public function test_offseason_headline_renders_unchanged_with_the_default_value(): void {
 		$content = blueline_homepage_hero_offseason_content();

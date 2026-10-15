@@ -1,15 +1,14 @@
 <?php
 /**
- * Appearance -> Blueline: the Settings-API admin page every earlier task in
- * this plan has been building toward. This is the first task that produces
- * something a human can actually open and use.
+ * Appearance -> Blueline: the Settings-API admin page.
  *
  * Deliberately plain WordPress Settings API, no React, no REST endpoint, no
  * webpack entry, because the theme has zero React anywhere else, and the
  * Settings API already supplies, for free, exactly what this page needs: a
  * nonce (settings_fields()), a capability check on the actual save request
  * (options.php itself refuses a non-manage_options user before this file's
- * code ever runs), and the sanitize/merge pipeline Tasks 2-6 already built.
+ * code ever runs), and the sanitize/merge pipeline the rest of inc/settings/
+ * provides.
  * (blueline_settings_sanitize_callback(), in inc/settings/sanitize-callback.php
  * which this file requires, wires onto
  * sanitize_option_{$option} UNCONDITIONALLY, at file scope; see "Every
@@ -98,15 +97,14 @@
  * it, so naming a foreign field only ever fails silently and never deletes
  * it.
  *
- * `_tab` itself is now FORWARDED in this callback's return value, not
- * dropped. This is a P1b fix-round finding (a Critical bug found on staging, not
- * by any unit test): a programmatic write (WP-CLI, a JSON import,
+ * `_tab` itself is FORWARDED in this callback's return value, not
+ * dropped: a programmatic write (WP-CLI, a JSON import,
  * blueline_settings_migrate()'s own update_option() call) never carries
  * `_tab`, and blueline_settings_merge() needs to be able to tell that case
  * apart from a real tab-scoped form post, because `_posted_fields`-driven
  * deletion is a guarantee this file's own rendered form needs, not one a
  * programmatic write asked for or should be bound by. `_tab` is never
- * persisted on an ordinary, steady-state save, exactly as before:
+ * persisted on an ordinary, steady-state save:
  * inc/settings/store.php's blueline_settings_merge() (the very next filter
  * this same write triggers, on pre_update_option_{$option}, immediately
  * after this one) reads it for that one decision and strips it before
@@ -126,10 +124,10 @@
  * `_schema` migration bookkeeping key survive a write (it is deliberately
  * NOT part of the schema; see blueline_settings()'s own docblock), yet
  * blueline_settings_migrate() writes it directly via update_option(),
- * which now runs through this same callback on every path. That is NOT
+ * which runs through this same callback on every path. That is NOT
  * the same thing as forwarding every unrecognised key unchanged: doing
- * that once let ANY top-level key in a submission persist, silently
- * weakening the allow-list model Tasks 2-6 built, and specifically let
+ * that would let ANY top-level key in a submission persist, silently
+ * weakening the allow-list model, and specifically let
  * `_schema` itself be set from an ordinary POST. An admin (accidentally
  * or otherwise) sending `blueline_settings[_schema]` at or above
  * BLUELINE_SETTINGS_SCHEMA_VERSION would make blueline_settings_migrate()'s
@@ -144,7 +142,7 @@
  * `_schema` itself is still sanitized like everything else (absint(),
  * matching every other integer-valued field this callback handles) AND
  * additionally clamped to `BLUELINE_SETTINGS_SCHEMA_VERSION`, matching
- * the limit inc/cli/settings-command.php enforces on an import's own
+ * the limit inc/settings/import.php enforces on an import's own
  * `_schema` (there, by refusing the import outright; here, by clamping,
  * since a direct update_option() call has no "abort" to fall back to),
  * so a `_schema` at or above the running code's version can never survive
@@ -168,9 +166,8 @@
  * `<div>`, despite carrying the WP-admin `.notice`/`.notice-error` classes
  * (a plain class selector in wp-admin/css/common.css, with no tag
  * qualifier, so a `<section>` gets the exact same styling a `<div>` would).
- * This is deliberate, found by an actual browser click-through against a
- * real save on staging (a unit test cannot see this class of bug at all,
- * because the server-side render is, and was always, correct): this WordPress
+ * This is deliberate (a unit test cannot see this class of bug at all,
+ * because the server-side render is correct): this WordPress
  * install has a third-party plugin active (Capabilities Pro's own
  * admin-notices "declutter" module) whose JS removes, via
  * `$(element).remove()`, every `<div>` on any wp-admin screen whose
@@ -223,7 +220,7 @@ const BLUELINE_SETTINGS_OPTION_GROUP = 'blueline_settings_group';
  * tab-scoped submission may also carry, and only from its OWN tab; see
  * blueline_settings_sanitize_callback()'s docblock, rule 4), and
  * inc/settings/validation.php's `_validated_against` deploy-drift
- * bookkeeping hash (design spec §6.5's storage-shape ruling: it follows
+ * bookkeeping hash (it follows
  * `_schema`/`aa_acknowledgements`'s shape, not `occasions`'s, because nothing
  * reads it back through blueline_settings()).
  * blueline_settings_sanitize_callback() checks every unrecognised key

@@ -5,9 +5,9 @@
  * This site sits behind a Redis-backed nginx srcache page cache. When the
  * control panel changes a setting, any already-cached page reflecting the
  * old value must be purged or the front end keeps serving stale HTML.
- * Research established the mechanism: the Redis Object Cache drop-in
- * exposes a public redis_instance() returning the raw client, and
- * SCAN + UNLINK over `nginx-cache:*<host>*` is the right key shape.
+ * The mechanism: the Redis Object Cache drop-in exposes a public
+ * redis_instance() returning the raw client, and SCAN + UNLINK over
+ * `nginx-cache:*<host>*` is the right key shape.
  *
  * BUT there is an unverified infrastructure assumption underneath that
  * mechanism: whether the Redis server *and logical database* the WordPress
@@ -519,10 +519,9 @@ add_action( 'admin_notices', 'blueline_render_cache_purge_notice' );
  * blueline_srcache_purge_attempt() applies before it will attempt the
  * automated purge, applied here to the manual instruction instead.
  *
- * Rendered as a `<section>`, deliberately NOT a `<div>` -- a real browser
- * check (Task 7's fix rounds) found a third-party plugin active on this
- * install (Capabilities Pro's admin-notices "declutter" module) removes,
- * on every wp-admin screen, any `<div>` whose class attribute contains
+ * Rendered as a `<section>`, deliberately NOT a `<div>` -- a third-party
+ * plugin active on this install (Capabilities Pro's admin-notices
+ * "declutter" module) removes, on every wp-admin screen, any `<div>` whose class attribute contains
  * "notice", "error", "warning", "info" or "updated" as a substring. This
  * notice's own `notice notice-warning` classes match that pattern
  * exactly -- and with the guarded Redis purge shipped OFF by default (see

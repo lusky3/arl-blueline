@@ -792,7 +792,7 @@ add_action( 'wp_enqueue_scripts', 'blueline_brand_color_front_end_styles', 20 );
 /**
  * Block-editor parity for admin-overridden brand colours, alongside
  * blueline_occasion_editor_styles()'s identical treatment of
- * --bl-occasion-accent (inc/occasions.php) — both hook
+ * --bl-occasion-accent (inc/occasions/editor.php) — both hook
  * block_editor_settings_all and each appends its own `$settings['styles']`
  * entry, so neither has to know about the other.
  *

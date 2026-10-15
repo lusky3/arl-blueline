@@ -5,10 +5,8 @@
  * Every reader here degrades to null/zeros instead of throwing when
  * SportsPress or WooCommerce is missing, or when the player/user has no
  * team, no upcoming game, no recorded stats, or no orders. About ~16% of
- * current-season players carry no sp_user link (Task 16's corrected figure:
- * 76 of 90 current-sp_season players ARE linked, i.e. 84%; the "~88%
- * unlinked" this file used to claim came from the retracted, sticky
- * sp_current_team denominator), and an unlinked or half-populated player is
+ * current-season players carry no sp_user link (76 of 90 current-sp_season
+ * players are linked, i.e. 84%), and an unlinked or half-populated player is
  * still a routine case a reader must not assume away.
  *
  * MULTI-ROW FIELD: `sp_current_team` is a repeated meta key, never a scalar --
@@ -198,18 +196,17 @@ function blueline_sp_table_team_ids( int $table_id ): array {
  * blueline_team_current_table_id() -- NOT from the team's own sp_league
  * terms directly.
  *
- * An earlier version of this function picked the team's own HIGHEST
- * term_id sp_league term as a "most recently tagged" guess, and its
- * docblock claimed blueline_sp_team_hero() (inc/sportspress.php) made the
- * "identical choice." That claim was wrong: blueline_sp_team_hero()
- * renders EVERY sp_league term comma-joined, with no single-value
- * selection at all, so the two pages could disagree about the same
- * team's division. Both the team's own terms and the player's own terms
- * accumulate every division ever tagged with no "current" flag
- * (confirmed live: team 14955 alone carries 7 different Division terms
- * spanning several seasons) -- "highest term_id" is an artifact of
- * insertion order, not a rule tied to which season is actually current,
- * so it was never defensible.
+ * The team's own HIGHEST term_id sp_league term must not be used as a
+ * "most recently tagged" guess, even though it can look like the "identical
+ * choice" blueline_sp_team_hero() (inc/sportspress/heroes.php) makes:
+ * blueline_sp_team_hero() renders EVERY sp_league term comma-joined, with
+ * no single-value selection at all, so a guess would let the two pages
+ * disagree about the same team's division. Both the team's own terms and
+ * the player's own terms accumulate every division ever tagged with no
+ * "current" flag (confirmed live: team 14955 alone carries 7 different
+ * Division terms spanning several seasons) -- "highest term_id" is an
+ * artifact of insertion order, not a rule tied to which season is
+ * actually current, so it is not defensible.
  *
  * Resolving through the team's current-season sp_table instead is
  * genuinely season-scoped, not a heuristic over insertion order: that
@@ -443,8 +440,8 @@ function blueline_get_player_team( int $player_id ): ?array {
  * recently played one.
  *
  * Deliberately its own copy rather than reusing
- * blueline_homepage_active_event_season_term_id() (inc/homepage/standings.php,
- * Task 7): that function is scoped to -- and may evolve for reasons
+ * blueline_homepage_active_event_season_term_id() (inc/homepage/standings.php):
+ * that function is scoped to -- and may evolve for reasons
  * specific to -- the homepage hero/standings snippet. Coupling "My season"
  * stats to it would mean a future homepage-only change could silently
  * change what this reader shows. The two are intentionally allowed to

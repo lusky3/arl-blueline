@@ -26,7 +26,7 @@ require_once __DIR__ . '/../inc/account/dashboard.php';
  * which queries a real $wpdb this suite has no stub for by design (see
  * PlayerLinkTest::test_find_player_candidates_short_circuits_on_a_single_token_name()'s
  * own comment on the same boundary) -- an untestable path in this suite,
- * not a gap specific to this fix.
+ * not a gap specific to this function.
  */
 final class TeamRosterFallbackTest extends TestCase {
 

@@ -1,17 +1,14 @@
 <?php
 /**
- * Guards against the class of bug this fix round (Task 8, round 1) exists
- * to catch: a schema field (inc/settings/defaults.php) an admin can edit,
+ * Guards against the class of bug where a schema field (inc/settings/defaults.php) an admin can edit,
  * save successfully ("Settings saved."), and that changes NOTHING on the
  * public site because no template ever actually reads it. That is the worst
  * shape a settings bug can take -- it looks like it worked.
  *
- * Concretely: Task 1 added `footer_heading`, `footer_location`,
- * `contact_email` and `hero_offseason_cta` to the schema. Task 5 wired the
- * eight `page_id` fields (via blueline_resolve_link()). Task 8 wired the
- * seven placeholder-bearing hero fields directly. Nobody wired Task 1's
- * four plain content fields at all -- and the gap was invisible to the
- * existing suite, because every test exercises functions/templates
+ * Concretely: a plain content field such as `footer_heading`,
+ * `footer_location`, `contact_email` or `hero_offseason_cta` can be added to
+ * the schema and never wired into a template -- and the gap is invisible to
+ * the rest of the suite, because every test exercises functions/templates
  * directly with values it supplies itself; nothing was asserting that the
  * schema-to-template link the panel promises an admin actually exists.
  *
@@ -38,26 +35,14 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  * test_exempt_keys_do_not_yet_have_a_real_consumer() below), never a silent
  * one.
  *
- * Was empty as of P1a's Task 9 (`registration_term` was the last entry
- * removed, once blueline_resolve_registration_term() started reading it).
- * The P1b-panel-completion plan's Task 1 (inc/settings/sections.php) added a
- * new, deliberate batch: the 12 `section` presence-toggle keys generated
- * from blueline_section_definitions(). Task 1 was explicitly scoped as
- * foundation only -- the schema, the sanitizer branch, and the ONE read
- * accessor (blueline_section_enabled()) -- and wired zero consumers itself.
- * Tasks 3 and 4 have now wired the eight `account_*` and `chrome_*` keys
- * (each account dashboard card renderer and each site-chrome surface calls
- * blueline_section_enabled() with its own literal key), so all eight are
- * removed below. Only the four `module_*` keys remain, and unlike the other
- * eight they are exempt PERMANENTLY, not pending a task: their consumer
- * blueline_homepage_module_order() (inc/homepage/modules.php) has landed and
- * does read all four -- but through a key it BUILDS at runtime
- * (`'module_' . $module`), not a literal
+ * The four `module_*` `section` presence-toggle keys (generated from
+ * blueline_section_definitions() in inc/settings/sections.php) are exempt
+ * PERMANENTLY: their consumer blueline_homepage_module_order()
+ * (inc/homepage/modules.php) does read all four -- but through a key it
+ * BUILDS at runtime (`'module_' . $module`), not a literal
  * `blueline_section_enabled( 'module_next_games' )` this regex-based guard
  * can see. Removing them from the list reddens the build against working
- * code; an earlier version of this docblock said to remove each key "as the
- * task that wires its consumer lands", which by the time that task landed
- * was advice that broke the build if followed.
+ * code.
  *
  * That is a limit of the scan, not a gap in coverage: the four keys are read
  * on every homepage request, and HomepageModuleOrderTest exercises each of
@@ -69,13 +54,13 @@ require_once __DIR__ . '/../inc/settings/sections.php';
  * 1. test_every_schema_field_has_a_real_consumer() below now also recognises
  *    `blueline_section_enabled( 'key' )` as a valid consumer for a
  *    `section`-typed field -- mirroring the existing `blueline_resolve_link()`
- *    indirection already carved out for `page_id` fields. The day a later
- *    task adds that literal call for one of these keys, the guard sees it
+ *    indirection already carved out for `page_id` fields. The day a
+ *    literal call is added for one of these keys, the guard sees it
  *    on its own; the exemption below is not what will eventually clear it.
  * 2. test_exempt_keys_do_not_yet_have_a_real_consumer() is the actual
  *    forcing function this list needs: it fails the moment any exempted key
  *    ALREADY has a real consumer somewhere in the theme's source, which can
- *    only happen if a later task wired one without also removing that key
+ *    only happen if a consumer was wired without also removing that key
  *    from this list -- i.e. the list going stale is a red build, not a
  *    silent no-op.
  *
@@ -88,8 +73,8 @@ const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
 	'module_standings_snippet',
 	'module_new_here',
 	'module_latest_news',
-	// Brand palette colour overrides declared in Task 1, consumed by Task 2
-	// and later tasks through blueline_resolved_brand_color().
+	// Brand palette colour overrides, consumed through
+	// blueline_resolved_brand_color().
 	'brand_color_ink',
 	'brand_color_ink_deep',
 	'brand_color_ink_mid',
@@ -109,9 +94,9 @@ const BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS = array(
  * anywhere in the theme's real (non-test) PHP source -- either directly via
  * `blueline_settings( 'key' )`, or via one of two established per-type
  * indirections: `blueline_resolve_link( 'key' )` for a `page_id` field
- * (inc/settings/links.php's own resolver -- see Task 5), or
+ * (inc/settings/links.php's own resolver), or
  * `blueline_section_enabled( 'key' )` for a `section` field
- * (inc/settings/sections.php's own accessor -- see Task 1). Both
+ * (inc/settings/sections.php's own accessor). Both
  * indirections exist for the identical reason: so every consumer shares one
  * resolver/guard rather than each repeating its own fallback or unknown-key
  * logic, and both are recognised here the same way -- a literal call naming
@@ -242,7 +227,7 @@ final class SchemaFieldCoverageTest extends TestCase {
 	 * The exemption list must name only real, current schema keys -- a typo
 	 * or a stale entry (a field since renamed or removed) would silently
 	 * widen this guard's blind spot instead of narrowing it to exactly the
-	 * documented, temporary gaps. The list is non-empty as of P1b's Task 1
+	 * documented, temporary gaps. The list is non-empty
 	 * (see the const's own docblock for why), so this loop carries real
 	 * assertions on every run; the addToAssertionCount() fallback exists only
 	 * so a future run where the list is empty again does not get flagged by
@@ -262,10 +247,9 @@ final class SchemaFieldCoverageTest extends TestCase {
 
 	/**
 	 * The forcing function that keeps BLUELINE_SCHEMA_COVERAGE_EXEMPT_KEYS
-	 * from going stale and permanent (the coordinator's fix-round-1 finding
-	 * on this file): fails, naming the offender, the moment any exempted key
+	 * from going stale and permanent: fails, naming the offender, the moment any exempted key
 	 * ALREADY has a real consumer somewhere in the theme's live source. That
-	 * can only happen if a later task wired blueline_section_enabled() (or
+	 * can only happen if a consumer wired blueline_section_enabled() (or
 	 * blueline_settings(), or blueline_resolve_link()) for that key without
 	 * also removing it from the exemption list above -- i.e. the exemption
 	 * going stale is a red build here, not a silent gap this guard stops
@@ -306,7 +290,7 @@ final class SchemaFieldCoverageTest extends TestCase {
 	 * just a synthetic pass: fed a schema containing one field with no
 	 * matching call anywhere in the real theme source, it fails and names
 	 * that field -- the same shape `footer_heading` et al. were in before
-	 * this fix round. Exercises the matching logic directly (not by
+	 * they were wired. Exercises the matching logic directly (not by
 	 * temporarily deleting a real call site from disk, which would leave
 	 * the working tree in a broken state between test runs).
 	 */
@@ -315,7 +299,7 @@ final class SchemaFieldCoverageTest extends TestCase {
 
 		// 'contact_email' stands in for the "wired" side of the contrast --
 		// it really is read via a literal blueline_settings() call
-		// somewhere in the theme (inc/template-tags.php, this fix round).
+		// somewhere in the theme (inc/template-tags.php).
 		// 'an_unwired_field' is invented for this test and, by construction,
 		// appears nowhere.
 		$fake_schema = array(

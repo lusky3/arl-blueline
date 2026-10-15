@@ -3,8 +3,8 @@
  * sidebar's own scroll box (.bl-sidebar, overflow-y: auto, layout.css)
  * currently has more content past it.
  *
- * Reported live: on a short page, the widget stack can run taller than its
- * box with nothing indicating it scrolls at all -- confirmed, a reader has
+ * On a short page, the widget stack can run taller than its
+ * box with nothing indicating it scrolls at all -- a reader has
  * no reason to expect a plain content block does.
  *
  * Mirrors table-scroll.js's own contract closely, on purpose: this is the

@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../inc/sportspress.php';
 
 /**
- * A11Y-04: blueline_sp_sponsor_logo_alt() names alt-less sponsor logo links.
+ * Covers blueline_sp_sponsor_logo_alt(), which names alt-less sponsor logo links.
  */
 final class SponsorLogoAltTest extends TestCase {
 

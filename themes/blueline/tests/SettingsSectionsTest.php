@@ -1,9 +1,9 @@
 <?php
 /**
  * Covers inc/settings/sections.php: the section presence toggles that decide
- * which parts of the site render at all. This task only builds the
+ * which parts of the site render at all. These tests cover the
  * foundation -- the definition list, the schema/defaults entries, the
- * sanitizer branch, and the ONE read accessor every later task (homepage,
+ * sanitizer branch, and the ONE read accessor every consumer (homepage,
  * account cards, site chrome) must call through rather than reading
  * blueline_settings() directly.
  *
@@ -33,7 +33,7 @@ final class SettingsSectionsTest extends TestCase {
 	/**
 	 * Unset means enabled: every section shipped visible, and an install
 	 * that has never opened the Sections tab must look exactly as it did
-	 * before this task existed.
+	 * before the toggles existed.
 	 */
 	public function test_a_section_defaults_to_enabled_when_unset(): void {
 		$this->assertTrue( blueline_section_enabled( 'module_next_games' ) );

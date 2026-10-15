@@ -4,9 +4,7 @@
  * and the small label helpers those two use to turn a stored Occasion's
  * raw `type`/`motif`/`mode` values into copy an admin can read.
  *
- * Split out of inc/settings/page.php, which otherwise mixed this repeater's
- * markup in among routing, sanitisation and every other settings-tab concern.
- * blueline_settings_render_page() (inc/settings/page-render.php) still owns dispatching
+ * The page renderer, blueline_settings_render_page() (inc/settings/page-render.php) still owns dispatching
  * to blueline_settings_render_occasions_tab() for the Occasions tab, the same
  * way it dispatches to the generic per-field loop for every other tab.
  *
@@ -20,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
  * toolbar, one row per stored occasion, and the `<template>` a JS-added
  * row is cloned from.
  *
- * Design spec §5.1's third ruling: this is the bespoke renderer
+ * This is the bespoke renderer
  * blueline_settings_render_page() dispatches to for the Occasions tab
  * INSTEAD of the generic per-field `<table>` loop, because `occasions` has
  * zero schema fields of its own (it is a reserved settings key, not a
@@ -39,8 +37,8 @@ defined( 'ABSPATH' ) || exit;
  * never be set, and blueline_settings_merge() would then carry the OLD
  * stored map straight back: the admin sees "Settings saved" and the
  * occasion (and its AA acknowledgement) is still there. Deleting one row
- * out of several was always fine; only deleting down to zero was
- * silently a no-op.
+ * out of several is fine; only deleting down to zero would otherwise
+ * silently be a no-op.
  *
  * The marker's own row never survives processing:
  * blueline_occasions_assign_unique_ids() (inc/occasions/model.php) drops any
@@ -156,14 +154,14 @@ function blueline_settings_render_occasions_tab(): void {
 }
 
 /**
- * Render one occasion's row: every Task-1-shaped field, the AA-override
- * checkbox+notice (design spec §5.1's fifth ruling), and a
+ * Render one occasion's row: every field of an Occasion, the AA-override
+ * checkbox+notice, and a
  * server-computed contrast readout that is already correct even with
  * no JS at all.
  *
  * @param string                              $name             The `occasions` field's base POST name, e.g. `blueline_settings[occasions]`.
- * @param string                              $row_key          This row's per-request array key: a real occasion's own id for an existing row, or `__TEMPLATE__` for the `<template>` a later task's JS clones.
- * @param array<string, mixed>                $occasion         A Task-1-shaped Occasion (or the blank template shape above).
+ * @param string                              $row_key          This row's per-request array key: a real occasion's own id for an existing row, or `__TEMPLATE__` for the `<template>` the JS clones.
+ * @param array<string, mixed>                $occasion         An Occasion (or the blank template shape above).
  * @param string                              $inputs_hash      blueline_settings_inputs_hash()'s current value.
  * @param array<string, array<string, mixed>> $acknowledgements blueline_stored_acknowledgements()'s current value.
  * @return void

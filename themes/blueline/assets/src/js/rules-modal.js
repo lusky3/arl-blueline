@@ -1,5 +1,5 @@
 /**
- * Blueline — registration rules modal focus management (D-04/D-05).
+ * Blueline — registration rules modal focus management.
  *
  * #arl-rules-modal's markup and open/close script come from a Code Snippets
  * entry in the database, not this repo. Its own script focuses the checkbox

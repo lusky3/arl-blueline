@@ -681,16 +681,12 @@ final class SettingsDeleteDataTest extends TestCase {
 	 * missing from the teardown list.
 	 *
 	 * The list-pinning test above CANNOT catch the failure that actually
-	 * matters. A later task declaring a fourth option in the settings layer and
+	 * matters. Declaring a fourth option in the settings layer and
 	 * forgetting to add it here leaves that test perfectly green, because it
-	 * only compares the list to itself. An earlier version of
-	 * blueline_settings_deletable_options()'s docblock claimed otherwise -- that
-	 * the test "fails if that line is forgotten" -- which is the same
-	 * assert-coverage-that-does-not-exist defect this branch kept finding,
-	 * written this time by the person who had just finished cataloguing it.
+	 * only compares the list to itself. It does not
+	 * "fail if that line is forgotten".
 	 *
-	 * So the claim is made true here rather than softened: this scan is the
-	 * thing that fails when someone forgets. An option that genuinely should
+	 * So this scan is the thing that fails when someone forgets. An option that genuinely should
 	 * survive a teardown becomes an explicit exemption with a reason, instead
 	 * of an oversight nobody sees.
 	 *

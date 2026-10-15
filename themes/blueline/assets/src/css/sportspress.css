@@ -1,13 +1,14 @@
 /*
  * Blueline — SportsPress data surfaces.
  *
- * Correction (P0/P1 pass): sportspress_enable_frontend_css is unset
+ * sportspress_enable_frontend_css is unset
  * (defaults to "no"), which does turn off the plugin's big, TOGGLE-gated
  * frontend stylesheet, but a SEPARATE, small, always-loaded core
  * stylesheet (includes/sportspress/assets/css/sportspress.css, confirmed
  * live regardless of that option) ships with the plugin unconditionally.
  * It supplies structural rules this file relies on rather than repeats,
- * such as `.sp-header{z-index:10000}` (the P0 finding 1 bug), `.data-home`/
+ * such as `.sp-header{z-index:10000}` (SportsPress's own z-index),
+ * `.data-home`/
  * `.data-away` text-align, `.team-logo` base sizing, and `date{display:none}`
  * inside .sp-event-list. So "SportsPress emits no CSS" is not quite true;
  * "SportsPress emits no VISUAL/colour styling" is the accurate version.
@@ -35,11 +36,11 @@
  *   ([team_gallery]'s own team-gallery-thumbnail.php).
  *   Theme-owned classes (in inc/sportspress.php and sportspress/*.php
  *   overrides): .bl-table-scroll, .bl-table-self-scroll, .sp-scoreboard,
- *   .bl-sp-roster (finding 8's roster list, replacing the earlier
- *   .sp-team-list card grid), .bl-sp-hero, .bl-sp-event-teaser,
- *   .bl-sp-empty, .bl-sp-schedule/.bl-sp-date-heading (finding 9's
+ *   .bl-sp-roster (the roster list, replacing
+ *   an .sp-team-list card grid), .bl-sp-hero, .bl-sp-event-teaser,
+ *   .bl-sp-empty, .bl-sp-schedule/.bl-sp-date-heading (the
  *   event-list.php override), .bl-sp-standings-toggle-* /.bl-sp-col-*
- *   (finding 14's league-table.php override), .sp-statistic /
+ *   (the league-table.php override), .sp-statistic /
  *   .sp-statistic-bar (SP Pro's match-stats template), .is-empty (a state
  *   class assets/src/js/sponsors.js toggles on the sponsor markup above).
  */
@@ -64,7 +65,7 @@
 }
 
 /*
- * Finding 7 (live review): a division whose season/playoff round hasn't
+ * A division whose season/playoff round hasn't
  * started yet rendered every team at position 0 with a 0-0-0-0 record and
  * no explanatory text -- reading as broken rather than "nothing has
  * happened here yet." sportspress/league-table.php only prints this note
@@ -167,7 +168,7 @@
    Fill only, ink text on top, matching the same vetted 7.69:1 pairing as
    .bl-btn--primary's ice fill (tools/check-contrast.mjs).
 
-   Finding 13: on a team's own single page, --bl-team-primary/-on-primary are
+   On a team's own single page, --bl-team-primary/-on-primary are
    declared on <main> itself (single-team.php), which is an ANCESTOR of this
    cell (the_content()'s own league-table markup), so a team's own division
    row picks up ITS colour here instead of the theme's generic ice fill,
@@ -181,7 +182,7 @@
 	font-weight: 700;
 }
 
-/* A11Y-03: a highlighted cell's link takes the cell's vetted on-fill colour. */
+/* A highlighted cell's link takes the cell's vetted on-fill colour. */
 .sp-highlight a {
 	color: inherit;
 }
@@ -213,7 +214,7 @@
  * WCAG check instead (same guard .sp-highlight already trusts).
  */
 
-/* QA C-13: row + tbody selector so the zebra stripe (.odd/.even) can't win. */
+/* Row + tbody selector so the zebra stripe (.odd/.even) can't win. */
 .sp-data-table tbody tr.bl-sp-row--mine,
 .bl-sp-row--mine,
 .sp-player-list tbody tr:has(.bl-sp-roster__you) {
@@ -230,7 +231,7 @@
 /* ---- League table: header emphasis, --bl-ice position column ----
  *
  * position: sticky on the header row was attempted and removed after being
- * verified live not to work; this comment discloses that finding rather
+ * verified live not to work; this comment records that rather
  * than shipping non-functional CSS silently. This
  * table's own .sp-table-wrapper needs overflow-x: auto for the horizontal-
  * scroll hard constraint, and per the CSS Overflow spec, any ancestor with
@@ -258,14 +259,14 @@
 	text-align: center;
 }
 
-/* A-18: stays a table cell (display: flex broke it out of the row, so its
+/* Stays a table cell (display: flex broke it out of the row, so its
    border and stripe sat 1px off the rest); the crest is inline-block. */
 .sp-league-table td.data-name.has-logo {
 	white-space: nowrap;
 }
 
 /*
- * QA C-17/B-15: the cell stays a table cell (a flex <td> drops out of the
+ * The cell stays a table cell (a flex <td> drops out of the
  * row, so its border stepped 1px); the crest + name pair is the inner link.
  */
 .sp-league-table :where(td.data-name.has-logo) > a {
@@ -281,7 +282,7 @@
 }
 
 /*
- * QA C-18: every stat column gets a fixed width, so the team column (the only
+ * Every stat column gets a fixed width, so the team column (the only
  * auto-width one) absorbs the spare space and stacked division tables share
  * column positions; numbers align by place value (right).
  */
@@ -425,8 +426,8 @@
 }
 
 /*
- * A paragraph now, no longer a heading (blueline_sp_event_results_as_text()),
- * so it restates the display-heading treatment it used to get from base.css.
+ * A paragraph (blueline_sp_event_results_as_text()), not a heading,
+ * so it restates the display-heading treatment base.css gives headings.
  */
 .sp-event-blocks .sp-event-results {
 	margin: var(--bl-space-1) 0 0;
@@ -462,7 +463,7 @@
 }
 
 /*
- * QA C-19: the month grid is a real fixed-layout table that fills its card
+ * The month grid is a real fixed-layout table that fills its card
  * (it was a 313px grid inside a self-scrolling block, clipping Saturday at
  * 360 and leaving the card two-thirds empty on desktop).
  */
@@ -491,7 +492,7 @@ table.sp-event-calendar {
 }
 
 /*
- * QA B-07: a fixtures card fits its column; a long match title wraps instead
+ * A fixtures card fits its column; a long match title wraps instead
  * of pushing the away crest behind a scroll.
  */
 .sp-event-blocks {
@@ -504,7 +505,7 @@ table.sp-event-calendar {
 }
 
 /*
- * QA C-25: the venue table (map + address) fits its column instead of
+ * The venue table (map + address) fits its column instead of
  * growing to the map's max-content and hiding the address behind a scroll.
  */
 table.sp-event-venue {
@@ -578,7 +579,7 @@ table.sp-event-venue :is(th, td) {
 	height: 100%;
 }
 
-/* QA C-26: DataTables page links get a 44px touch target. */
+/* DataTables page links get a 44px touch target. */
 .dataTables_paginate .paginate_button {
 	display: inline-flex;
 	align-items: center;
@@ -638,7 +639,7 @@ table.sp-event-venue :is(th, td) {
 }
 
 /* ---- Player list (SP's own <table class="sp-player-list">) ----
-   The brief names .sp-player-list alongside .sp-team-list for "roster
+   .sp-player-list sits alongside .sp-team-list for "roster
    grids". team-lists.php's own override never emits .sp-player-list (it
    builds .sp-team-list cards directly instead); this class is what
    SportsPress's [player_list] shortcode/player-list.php template emits
@@ -657,7 +658,7 @@ table.sp-event-venue :is(th, td) {
 	white-space: nowrap;
 }
 
-/* QA C-17: same inner-link layout as the league table's crest cells. */
+/* Same inner-link layout as the league table's crest cells. */
 .sp-player-list :where(td.data-name.has-photo) > a {
 	display: inline-flex;
 	align-items: center;
@@ -672,7 +673,7 @@ table.sp-event-venue :is(th, td) {
 		padding-inline-start: calc(var(--bl-space-3) + 32px + 2 * var(--bl-space-2));
 	}
 
-	/* QA C-18: stat columns right-aligned. */
+	/* Stat columns right-aligned. */
 	.sp-player-list :is(th, td):not(.data-rank, .data-number, .data-name, .data-team, .data-position) {
 		--bl-sort-arrow-lead: "";
 		--bl-sort-arrow-trail: none;
@@ -700,7 +701,7 @@ table.sp-event-venue :is(th, td) {
 		clip-path: inset(50%);
 	}
 
-	/* C-11: narrow stat cells, so a leaders card is ~3 short rows, not 8 lines. */
+	/* Narrow stat cells, so a leaders card is ~3 short rows, not 8 lines. */
 	.sp-player-list tr {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
@@ -754,7 +755,7 @@ table.sp-event-venue :is(th, td) {
 
 /* ---- Theme-owned roster table override: sportspress/team-lists.php ----
  *
- * Finding 8: replaces the earlier 16-up identical-card grid (banned pattern:
+ * Replaces a 16-up identical-card grid (banned pattern:
  * big number, small name, "SKATER" repeated on almost every card). A roster
  * is scanned for NAMES, so the name stays the largest, most prominent
  * element in each row (~18px, the same link colour team names get in the
@@ -786,7 +787,7 @@ table.sp-event-venue :is(th, td) {
 
 /*
  * table-layout: auto (.sp-data-table's own default) sizes every OTHER
- * column to its content's intrinsic width and then, live feedback found,
+ * column to its content's intrinsic width and then
  * leaves any width the table has beyond that sum as dead space past the
  * last column rather than distributing it -- the table itself filled its
  * container (width: 100%), but every row inside stopped well short of the
@@ -801,7 +802,7 @@ table.sp-event-venue :is(th, td) {
 /*
  * Photo, name, and the position/"You" badges all sit in ONE cell, in flow
  * order (name first, badges after) rather than trailing columns of their
- * own -- live feedback found a separate trailing badge column made a
+ * own -- a separate trailing badge column makes a
  * goalie's row wider than every other row. flex-wrap so a badge drops to
  * its own line rather than forcing the cell (and so the whole table) wider
  * than the other columns need; .sp-data-table's own `white-space: nowrap`
@@ -812,7 +813,7 @@ table.sp-event-venue :is(th, td) {
 }
 
 /*
- * QA B-15: the cell stays a table cell (display:flex broke the row border);
+ * The cell stays a table cell (display:flex broke the row border);
  * the photo + name link is inline-flex and the badges follow it inline.
  */
 .bl-sp-roster__name {
@@ -932,7 +933,7 @@ td.bl-sp-roster__stat {
 	}
 }
 
-/* ---- Match stats (SP Pro event-statistics.php), C-10 ----
+/* ---- Match stats (SP Pro event-statistics.php) ----
    Home value | bar (home share filled, away share the track) | away value,
    full width so the bars line up under their centred labels. */
 
@@ -1015,7 +1016,7 @@ table.sp-event-statistics.sp-data-table {
 	padding-block: var(--bl-space-7) var(--bl-space-6);
 }
 
-/* C-09: the pill, matchup and meta share one centre line. */
+/* The pill, matchup and meta share one centre line. */
 .sp-scoreboard__status {
 	margin: 0;
 	text-align: center;
@@ -1034,8 +1035,8 @@ table.sp-event-statistics.sp-data-table {
 }
 
 /*
- * C-09: equal side columns keep "vs" on the true centre whatever the name
- * lengths, at every width. It is the page's h1 (C-12), so the heading type
+ * Equal side columns keep "vs" on the true centre whatever the name
+ * lengths, at every width. It is the page's h1, so the heading type
  * is reset; each child sets its own.
  */
 .sp-scoreboard__matchup {
@@ -1117,7 +1118,7 @@ table.sp-event-statistics.sp-data-table {
 	margin-block: var(--bl-space-3);
 }
 
-/* Centred on the crest row (C-09). */
+/* Centred on the crest row. */
 .sp-scoreboard__vs {
 	grid-row: 1;
 	grid-column: 2;
@@ -1148,7 +1149,7 @@ table.sp-event-statistics.sp-data-table {
 	}
 }
 
-/* C-07: SportsPress's own logos block repeats the hero directly beneath it. */
+/* SportsPress's own logos block repeats the hero directly beneath it. */
 .single-sp_event .sp-section-content-logos {
 	display: none;
 }
@@ -1271,8 +1272,8 @@ table.sp-event-statistics.sp-data-table {
 	height: 100%;
 }
 
-/* Finding 7: players get the same photo/fallback treatment teams get
-   (previously the player hero had no image slot at all), using a circular
+/* Players get the same photo/fallback treatment teams get
+   (the player hero has an image slot of its own), using a circular
    shape rather than the team's rounded-square plate, so a player photo and
    a team crest never read as the same kind of object at a glance. */
 .bl-sp-hero__crest--player {
@@ -1306,18 +1307,17 @@ table.sp-event-statistics.sp-data-table {
  *
  *   BOUNDARIES AND TEXT must not use --bl-team-primary. A team colour can be
  *   near-white (a white primary is 1.04:1 on paper), so a border or text in it
- *   can vanish. Use the theme's own tokens there. (A paper-derived
- *   --bl-team-accent used to be printed for this and was never read by any
- *   rule, so it was removed; if a team-coloured border or text is wanted,
- *   derive it against the surface it sits on, light AND dark.)
+ *   can vanish. Use the theme's own tokens there. (If a team-coloured
+ *   border or text is wanted, derive it against the surface it sits on,
+ *   light AND dark.)
  */
 
 /*
- * Finding 13: the hero itself is now the coloured band (a fill), so the
+ * The hero itself is the coloured band (a fill), so the
  * raw primary is safe here (the same "any colour works as a fill" rule the
  * top-of-section comment states), paired with the derived on-primary
  * foreground for its own text. The paired blue-line band (Device #2)
- * underneath, in team primary + ink, replaces the old border-top/box-shadow
+ * underneath, in team primary + ink, replaces a border-top/box-shadow
  * approximation with the real .bl-band/.bl-band--ink elements every other
  * hero already uses (see blueline_sp_team_hero(), inc/sportspress.php).
  */
@@ -1362,10 +1362,10 @@ table.sp-event-statistics.sp-data-table {
  * Deliberately no .bl-sp-hero--team .bl-sp-hero__flag rule.
  *
  * The team hero emits no flag element, because .bl-sp-hero__flag comes only
- * from the PLAYER hero (inc/sportspress.php), so the rule that used to sit
- * here matched nothing. It was also unsound: it painted a colour derived for
+ * from the PLAYER hero (inc/sportspress.php), so a flag rule here would match
+ * nothing. It would also be unsound: it would paint a colour derived for
  * contrast against --bl-paper on top of a --bl-team-primary fill, so for any
- * dark team colour the chip rendered at 1.00:1 against its own background.
+ * dark team colour the chip would render at 1.00:1 against its own background.
  *
  * If the team hero ever gains division chips, derive their colour against
  * --bl-team-primary, never against the paper ground.
@@ -1428,12 +1428,12 @@ table.sp-event-statistics.sp-data-table {
 	color: var(--bl-content-text-secondary);
 }
 
-/* B-20: not flush against the map's bottom edge. */
+/* Not flush against the map's bottom edge. */
 .bl-sp-venue-header__map + .bl-sp-venue-header__siblings {
 	margin-block-start: var(--bl-space-3);
 }
 
-/* Finding 3: the upcoming/past section split. */
+/* The upcoming/past section split. */
 .bl-sp-venue-header__section {
 	margin-block: var(--bl-space-6) var(--bl-space-3);
 	font-family: var(--bl-font-display);
@@ -1478,7 +1478,7 @@ table.sp-event-statistics.sp-data-table {
 	font-variant-numeric: tabular-nums;
 }
 
-/* Finding 10: the venue label ("Arena — Pad") riding along on the teaser's
+/* The venue label ("Arena — Pad") riding along on the teaser's
    own date line. */
 .bl-sp-event-teaser__venue {
 	font-variant-numeric: normal;
@@ -1528,7 +1528,7 @@ table.sp-event-statistics.sp-data-table {
 	}
 }
 
-/* ---- Single sponsor page (B-17): logo frame, then an outline button ---- */
+/* ---- Single sponsor page: logo frame, then an outline button ---- */
 
 .bl-sp-sponsor-logo {
 	display: flex;
@@ -1590,7 +1590,7 @@ table.sp-event-statistics.sp-data-table {
 	background: var(--bl-content-text);
 }
 
-/* ---- Team gallery: [team_gallery] (finding 5) ----
+/* ---- Team gallery: [team_gallery] ----
  *
  * SportsPress's own team-gallery.php/team-gallery-thumbnail.php templates
  * (used on /rosters-and-stats) render a bare <dl class="gallery-item"> per
@@ -1624,8 +1624,8 @@ table.sp-event-statistics.sp-data-table {
 	object-fit: contain;
 	margin-inline: auto;
 
-	/* Finding 8 (live review) -- see .team-logo img's own comment above;
-	   /rosters-and-stats is one of the three places that finding names. */
+	/* See .team-logo img's own comment above;
+	   /rosters-and-stats is one of the three places it applies. */
 	background: var(--bl-white);
 	border-radius: var(--bl-radius-sm, 4px);
 }
@@ -1648,13 +1648,12 @@ table.sp-event-statistics.sp-data-table {
 	text-decoration: underline;
 }
 
-/* ---- Player details / selector (finding 7) ---- */
+/* ---- Player details / selector ---- */
 
 /*
- * Reported live: content "smushed" -- Past Teams/Divisions/Seasons not
- * using the full available width the tables further down the same page
- * do. Root cause: this 32rem (512px) cap, applied with no season-count
- * consideration when this block was first styled. .sp-player-details'
+ * No width cap here: Past Teams/Divisions/Seasons use the full available
+ * width the tables further down the same page do. A 32rem (512px) cap
+ * would ignore season count. .sp-player-details'
  * own grid-template-columns: auto 1fr (below) already sizes the label
  * column to its own content and lets the value column take the rest --
  * but "the rest" was this 512px wrapper's leftover after that label
@@ -1665,7 +1664,7 @@ table.sp-event-statistics.sp-data-table {
  * flowing across the space the page already has -- confirmed live,
  * .sp-list-wrapper's parent column measured ~853px available at 1280px
  * wide, all but 512px of it unused by this block specifically.
- * Removed rather than widened: short single-value fields (Name,
+ * Short single-value fields (Name,
  * Position) are entirely unaffected either way -- a 1fr grid track's
  * own content still just left-aligns within whatever width the track
  * ends up, it does not stretch or centre to fill it -- so there is no
@@ -1715,13 +1714,13 @@ table.sp-event-statistics.sp-data-table {
 	color: var(--bl-content-text);
 }
 
-/* B-22: no "#" row with an empty value for a player without a number. */
+/* No "#" row with an empty value for a player without a number. */
 .sp-player-details dt:has(+ dd:empty),
 .sp-player-details dd:empty {
 	display: none;
 }
 
-/* B-22: the hero already shows the photo; SP's photo section repeats it. */
+/* The hero already shows the photo; SP's photo section repeats it. */
 .single-sp_player:has(.bl-sp-hero__crest--player)
 .sp-section-content-photo {
 	display: none;
@@ -1730,7 +1729,7 @@ table.sp-event-statistics.sp-data-table {
 .bl-sp-player-selector {
 	margin: 0 0 var(--bl-space-5);
 
-	/* B-16: SP right-aligns this template; keep the label by its select. */
+	/* SP right-aligns this template; keep the label by its select. */
 	text-align: start;
 }
 
@@ -1765,7 +1764,7 @@ table.sp-event-statistics.sp-data-table {
 }
 
 /*
- * Finding: SportsPress's own .sp-selector-redirect binding navigates on a
+ * SportsPress's own .sp-selector-redirect binding navigates on a
  * bare `change` event, which fires on a closed <select> from arrow keys
  * alone (WCAG 3.2.2); see player-selector.php's own docblock. This row
  * pairs the select with an explicit "Go" button instead; the select no
@@ -1777,7 +1776,7 @@ table.sp-event-statistics.sp-data-table {
 	gap: var(--bl-space-2);
 	max-width: 24rem;
 
-	/* B-16: room for the Go button's skewed corner at 360. */
+	/* Room for the Go button's skewed corner at 360. */
 	padding-inline-end: var(--bl-space-2);
 }
 
@@ -1804,7 +1803,7 @@ table.sp-event-statistics.sp-data-table {
 	cursor: pointer;
 }
 
-/* ---- Schedule table override: sportspress/event-list.php (finding 9) ----
+/* ---- Schedule table override: sportspress/event-list.php ----
  *
  * .sp-event-list's own base alignment/logo rules (.data-home/.data-away
  * text-align, .team-logo sizing) come from SportsPress's own always-loaded
@@ -1830,12 +1829,11 @@ table.sp-event-statistics.sp-data-table {
 }
 
 /*
- * Live feedback: "too busy". padding-block was --bl-space-1 (4px) --
- * cramped even before blueline_render_team_schedule_table()
- * (inc/sportspress.php) turned the per-row team crests off for this same
- * complaint; two team-name links and a muted time/venue column sharing one
- * row still need real breathing room. --bl-space-2 doubles it without
- * meaningfully lengthening a 5-row table.
+ * padding-block of --bl-space-1 (4px) is cramped
+ * (blueline_render_team_schedule_table() in inc/sportspress.php turns the
+ * per-row team crests off to keep it uncluttered); two team-name links and a
+ * muted time/venue column sharing one row still need real breathing room.
+ * --bl-space-2 doubles it without meaningfully lengthening a 5-row table.
  */
 .bl-sp-schedule td,
 .bl-sp-schedule th {
@@ -1863,8 +1861,8 @@ table.sp-event-statistics.sp-data-table {
 }
 
 /*
- * Finding 5 (live review): a played-but-unentered game and a genuinely
- * future one both used to render the same plain em dash in the Result
+ * A played-but-unentered game and a genuinely
+ * future one would otherwise render the same plain em dash in the Result
  * column -- this is the one visual distinction between them (sportspress/
  * event-list.php only prints this span for the 'pending' state, never for
  * a real future game, which still gets the plain dash).
@@ -1943,7 +1941,7 @@ table.sp-event-statistics.sp-data-table {
 	display: none;
 }
 
-/* ---- Data-table row hover (finding 12; its mobile scroll cue is in
+/* ---- Data-table row hover (its mobile scroll cue is in
    sportspress-chrome.css) ----
  *
  * No .sp-data-table anywhere had a hover state; on a 30-row schedule the
@@ -1956,7 +1954,7 @@ table.sp-event-statistics.sp-data-table {
 	background: color-mix(in srgb, var(--bl-ice) 20%, var(--bl-content-surface));
 }
 
-/* C-22: was --bl-surface-sunken, the even-row stripe itself, so hovering
+/* Was --bl-surface-sunken, the even-row stripe itself, so hovering
    an even row changed nothing. */
 .sp-data-table tbody tr.odd:hover,
 .sp-data-table tbody tr.even:hover,
@@ -1972,7 +1970,7 @@ table.sp-event-statistics.sp-data-table {
 	}
 }
 
-/* ---- SportsPress inline-style neutralisation (finding 11) ----
+/* ---- SportsPress inline-style neutralisation ----
  *
  * SP_League_Table::data() prints the STRK column as raw
  * `<span style="color:{outcome-colour}">`, defaulting to #888888 for any
@@ -2009,8 +2007,7 @@ table.sp-event-statistics.sp-data-table {
 	color: var(--bl-team-on-primary, var(--bl-ink)) !important;
 }
 
-/* ---- Standings "full stats" toggle: sportspress/league-table.php
-   (finding 14) ----
+/* ---- Standings "full stats" toggle: sportspress/league-table.php ----
  *
  * No JavaScript: a visually-hidden checkbox plus a `~` sibling selector
  * against the table's own column classes. Pos / Team / Record / Points
@@ -2090,7 +2087,7 @@ table.sp-event-statistics.sp-data-table {
 	box-shadow: var(--bl-focus-ring);
 }
 
-/* C-02: sortable headers sit in an overflow-x scroll wrapper that clips an
+/* Sortable headers sit in an overflow-x scroll wrapper that clips an
    outward ring, so draw it inside the cell instead. */
 .sp-data-table thead th:focus-visible {
 	outline-offset: calc(var(--bl-focus-width) * -1);
@@ -2157,8 +2154,8 @@ table.sp-event-statistics.sp-data-table {
  */
 
 /*
- * Reported live: these crests (128px, far bigger than any other logo on
- * the page) sat flush against the hero's own blue-line divider bands
+ * These crests (128px, far bigger than any other logo on
+ * the page) would sit flush against the hero's own blue-line divider bands
  * (.bl-band/.bl-band--ink, blueline_sp_event_hero()) with zero gap --
  * confirmed live, 0px between the ink band's bottom edge and this block's
  * top. .bl-main--sp-hero deliberately zeroes .bl-main's own top padding so
@@ -2252,8 +2249,7 @@ table.sp-event-statistics.sp-data-table {
 /* stylelint-enable no-descending-specificity */
 
 /*
- * Reported live: "a lot of whitespace beside the arena; it's not expanding
- * to use the space evenly". table-layout: auto (.sp-data-table's own
+ * table-layout: auto (.sp-data-table's own
  * default, see .bl-sp-roster__col-name's own comment above for the same
  * mechanism elsewhere) sizes every column to its OWN longest line across
  * every row -- and on this table specifically, Arena's longest realistic
@@ -2261,26 +2257,26 @@ table.sp-event-statistics.sp-data-table {
  * longer string than any team name, so auto-layout hands it the biggest
  * share of the row even though every arena string on this site shares the
  * same short set of real venues. Confirmed live: at a 988px table width,
- * Arena claimed 336px (34%) while Home/Away -- now carrying a 32px crest
+ * Arena claimed 336px (34%) while Home/Away -- carrying a 32px crest
  * plus the name, not just the name -- were squeezed to 242px/207px.
  *
  * table-layout: fixed with explicit percentages replaces that content-
- * driven guess with a deliberate one: Home/Away (now the two columns
+ * driven guess with a deliberate one: Home/Away (the two columns
  * actually carrying a logo) get the most generous, roughly-equal share,
  * Arena keeps enough room to fit a real venue name on one line without
  * dominating the row, Date stays compact (a literal time-of-day string
  * like "6:45 pm" never needs much), and Result gets enough room for its
  * own longest real content -- not always short, see .data-time's own
- * comment below for the pending-state string that first exposed this.
+ * comment below for the pending-state string.
  * Only this one table, not .sp-data-table generally: the roster and
  * league tables already have their own established width strategies
  * (.bl-sp-roster__col-name's width:100% comment above is the roster's).
  */
 
 /*
- * QA C-01: calendars add League/Season/Article/Match Day columns, and fixed
+ * Calendars add League/Season/Article/Match Day columns, and fixed
  * percentages that already summed to 100% left those at 0 -- with
- * min-width: max-content the table went 1,000,000px wide. Each column now has
+ * min-width: max-content the table went 1,000,000px wide. Each column has
  * a weight (its minimum width in rem); a column's share is weight / total of
  * the columns actually present (detected with :has()), and the table never
  * shrinks below that total, so any column mix fits or scrolls sanely.
@@ -2397,7 +2393,7 @@ table.sp-event-statistics.sp-data-table {
 
 .sp-event-list.bl-sp-schedule .data-home {
 	width: calc(100% * var(--bl-sched-home) / var(--bl-sched-total));
-	text-align: end; /* mirrored lockup, see "Live feedback: the schedule looks off balance" below */
+	text-align: end; /* mirrored lockup, see the mirrored lockup comment below */
 }
 
 /*
@@ -2481,7 +2477,7 @@ table.sp-event-statistics.sp-data-table {
 }
 
 /*
- * QA C-14/B-18: crest and name stay on one line in every row (flex-wrap:wrap
+ * Crest and name stay on one line in every row (flex-wrap:wrap
  * stacked the crest above long names only, so rows differed); the name wraps
  * beside the crest, and only a single over-long word breaks mid-word.
  */
@@ -2501,11 +2497,10 @@ table.sp-event-statistics.sp-data-table {
 }
 
 /*
- * Live feedback: "the schedule looks off balance ... the logo alignment and not
- * being symmetrical". Each crest-and-name group used to be CENTRED in its
- * column, logo first on both sides, so a crest sat wherever its team's name
+ * Centring each crest-and-name group in its
+ * column, logo first on both sides, would put a crest wherever its team's name
  * length put it: measured live, the crest's left edge ranged from 16px to 56px
- * into the same 203px cell, and the two sides did not mirror each other.
+ * into the same 203px cell, and the two sides would not mirror each other.
  *
  * In this table, unlike the event-page lockup above, mirroring is symmetric by
  * construction: the Result column is a fixed width and Home and Away get equal

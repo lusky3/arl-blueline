@@ -13,7 +13,7 @@
  * The fix uses two hooks doing two different jobs, both core's own design:
  *
  * - sanitize_option_{$option} receives only the keys THIS submission
- *   posted. Validation belongs there (a later task's job, not this file's).
+ *   posted. Validation belongs there (inc/settings/sanitize-callback.php's job, not this file's).
  * - pre_update_option_{$option} receives ($value, $old_value) with the full
  *   stored value as a parameter. The merge belongs HERE, because no
  *   get_option() call and no race is needed to see what is currently
@@ -68,10 +68,10 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
  *   tab-scoped submission (see below): every key absent from $new_value is
  *   carried forward from $old_value.
  *
- * ## `_tab` gates `_posted_fields` here too, not only in page.php
+ * ## `_tab` gates `_posted_fields` here too, not only in sanitize-callback.php
  *
  * A submission naming a reserved `_tab` key came from this panel's own
- * rendered form -- inc/settings/page.php's blueline_settings_sanitize_callback()
+ * rendered form -- inc/settings/sanitize-callback.php's blueline_settings_sanitize_callback()
  * forwards `_tab` into its own return value (the sanitize_option_ pass that
  * runs immediately before this one, on every real write) specifically so
  * this function can read it here. Absent (or empty) means a PROGRAMMATIC
@@ -82,17 +82,17 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
  * unconditionally -- a present key, even `false`, was never at risk of
  * being overwritten by this function regardless of `_tab`), but naming a
  * field ONLY in `_posted_fields`, without ALSO posting a value for it,
- * carries no ownership at all without `_tab` to legitimise it: this task
- * found exactly that gap on staging -- `update_option( OPTION, array(
+ * carries no ownership at all without `_tab` to legitimise it:
+ * `update_option( OPTION, array(
  * '_posted_fields' => array( 'chrome_sponsors' ) ) )`, with no `_tab`,
- * deleted `chrome_sponsors` outright, indistinguishable once read back
+ * would delete `chrome_sponsors` outright, indistinguishable once read back
  * through blueline_settings()'s default-fallback from "silently reverted to
  * its default value". A programmatic write that wants to actually change a
  * field's value must post that value; it cannot rely on the "unchecked
  * checkbox" omission idiom, because it has no tab-scoped ownership to make
  * that omission unambiguous.
  *
- * inc/settings/page.php's own `_posted_fields`-to-`_tab` matching (dropping
+ * inc/settings/sanitize-callback.php's own `_posted_fields`-to-`_tab` matching (dropping
  * any entry whose schema `tab` does not equal the submission's `_tab`)
  * already reduces `_posted_fields` to an empty array for any programmatic
  * write that reaches THIS function through the normal sanitize_option_ ->
@@ -100,9 +100,9 @@ add_filter( 'pre_update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_settings_
  * the empty string a programmatic write's `_tab` resolves to. That is real,
  * but it is a DIFFERENT file's protection: this function is registered
  * independently, at file scope, on `pre_update_option_{$option}`, and
- * nothing before this fix stopped it from being reached directly (a future
+ * nothing else stops it from being reached directly (a future
  * write path, or -- as this project's own test suite already does --
- * calling it in a unit test) without page.php's cooperation. The check
+ * calling it in a unit test) without sanitize-callback.php's cooperation. The check
  * below makes the `_tab` boundary this function's OWN guarantee, not merely
  * an inherited one.
  *
@@ -117,7 +117,7 @@ function blueline_settings_merge( $new_value, $old_value ) {
 
 	// Absent (isset() false for a null/missing key) resolves to '', the
 	// same "no tab" value a programmatic write's forwarded `_tab` carries
-	// once it reaches here via inc/settings/page.php.
+	// once it reaches here via inc/settings/sanitize-callback.php.
 	$submitted_tab = isset( $new_value['_tab'] ) ? (string) $new_value['_tab'] : '';
 	unset( $new_value['_tab'] );
 
@@ -292,7 +292,7 @@ function blueline_settings( string $key = '' ) {
  * ## Why a stored value can be invalid at all
  *
  * Every write that goes through update_option() passes
- * blueline_settings_sanitize_callback() (inc/settings/page.php), which
+ * blueline_settings_sanitize_callback() (inc/settings/sanitize-callback.php), which
  * refuses a bad value and keeps the previously-stored one. But a value can
  * reach the option without going through update_option() at all -- `wp db
  * import`, a restored SQL dump, a hand-edited row, a migration script

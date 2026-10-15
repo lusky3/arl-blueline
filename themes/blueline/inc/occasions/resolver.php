@@ -222,7 +222,7 @@ function blueline_resolve_active_occasion( ?int $now_override = null ): ?array {
 		return null;
 	}
 
-	// PERF-11: memoised per request on every input the walk below reads, so the 5+ callers share one resolve.
+	// Memoised per request on every input the walk below reads, so the 5+ callers share one resolve.
 	$memo_key = md5( (string) wp_json_encode( array( $today_md, $candidates, blueline_settings(), blueline_stored_acknowledgements() ) ) );
 
 	if ( array_key_exists( $memo_key, $memo ) ) {
@@ -261,8 +261,8 @@ function blueline_resolve_active_occasion_uncached( array $candidates ): ?array 
 				: ( $default_accent ??= blueline_occasion_accent_default() ) );
 
 		if ( '' === $raw_accent ) {
-			// The default itself could not be resolved (Phase 2.0's own
-			// blueline_occasion_accent_default() already logs why); nothing to
+			// The default itself could not be resolved (blueline_occasion_accent_default()
+			// already logs why); nothing to
 			// apply for this candidate. Skip, never fatal.
 			continue;
 		}

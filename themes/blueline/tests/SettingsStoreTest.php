@@ -46,8 +46,8 @@ final class SettingsStoreTest extends TestCase {
 	 * $stored['page_faqs'] would not exist at all.
 	 *
 	 * Uses REAL, flat schema keys (`contact_email`, `page_faqs`) rather
-	 * than a fictional nested `content`/`links` shape: since Task 7, the
-	 * actual write path also runs inc/settings/page.php's
+	 * than a fictional nested `content`/`links` shape: the
+	 * actual write path also runs inc/settings/sanitize-callback.php's
 	 * blueline_settings_sanitize_callback() (wired unconditionally at file
 	 * scope, exactly like this file's own blueline_settings_merge()),
 	 * which only lets a real schema field (or a reserved bookkeeping key)
@@ -107,15 +107,13 @@ final class SettingsStoreTest extends TestCase {
 	 * field named in NEITHER the submission nor `_posted_fields` still
 	 * belongs to a tab this submission didn't touch, and survives.
 	 *
-	 * Carries an explicit `_tab` (a P1b fix-round addition): `_posted_fields`
+	 * Carries an explicit `_tab`: `_posted_fields`
 	 * only carries delete authority for a TAB-SCOPED submission -- one that
 	 * also names `_tab` -- per blueline_settings_merge()'s own docblock. A
 	 * programmatic write (no `_tab`) naming a field in `_posted_fields`
 	 * without posting it does NOT delete that field; see
 	 * SettingsMergeProgrammaticWriteTest::test_merge_ignores_posted_fields_ownership_without_a_tab()
-	 * for that half of the contract, found as a Critical bug on staging
-	 * (`wp blueline settings import` could not durably clear a section
-	 * toggle) and fixed alongside this test's own `_tab` addition.
+	 * for that half of the contract.
 	 */
 	public function test_merge_posted_fields_deletes_a_named_absent_field_but_keeps_an_unnamed_one(): void {
 		$old = array(
@@ -232,8 +230,8 @@ final class SettingsStoreTest extends TestCase {
 	 * not just the merge function in isolation.
 	 *
 	 * Uses a REAL schema field (`footer_heading`) rather than a fictional
-	 * one: since Task 7, the actual write path also runs
-	 * inc/settings/page.php's blueline_settings_sanitize_callback()
+	 * one: the actual write path also runs
+	 * inc/settings/sanitize-callback.php's blueline_settings_sanitize_callback()
 	 * (wired unconditionally at file scope, exactly like this file's own
 	 * blueline_settings_merge()), which filters `_posted_fields` to keys
 	 * the schema actually declares -- a fictional field name would be
@@ -309,7 +307,7 @@ final class SettingsStoreTest extends TestCase {
 	}
 
 	/**
-	 * Regression test for the bug Finding #1 fixes: `aa_acknowledgements`
+	 * Regression test for this bug: `aa_acknowledgements`
 	 * was briefly listed in blueline_settings_defaults(), which leaked it
 	 * into blueline_settings()'s returned array -- corrupting the
 	 * import-preview diff, Site Health's schema-field-count denominator and
@@ -340,8 +338,8 @@ final class SettingsStoreTest extends TestCase {
 	 *
 	 * Writes the newer `_schema` value directly to the in-memory option
 	 * store, bypassing update_option() (and therefore
-	 * inc/settings/page.php's sanitize_option_ callback) on purpose: since
-	 * Task 7 that callback clamps any `_schema` it sanitizes to THIS
+	 * inc/settings/sanitize-callback.php's sanitize_option_ callback) on purpose: that
+	 * callback clamps any `_schema` it sanitizes to THIS
 	 * running code's own BLUELINE_SETTINGS_SCHEMA_VERSION -- the correct
 	 * behaviour for a real write reachable through the panel, WP-CLI, or an
 	 * import, none of which can legitimately claim a schema newer than the

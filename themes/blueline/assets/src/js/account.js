@@ -2,8 +2,8 @@
  * Blueline: move focus to a server-rendered result notice on load.
  *
  * `.bl-account-notice` (inc/account/dashboard.php) is the post-claim
- * result notice from a redirect after admin_post_blueline_claim_player
- * (Task 11); WooCommerce's own `.woocommerce-message`/`.woocommerce-error`
+ * result notice from a redirect after admin_post_blueline_claim_player;
+ * WooCommerce's own `.woocommerce-message`/`.woocommerce-error`
  * and the `.woocommerce-info` inside the notices wrapper cover every other
  * server-rendered outcome this same
  * "normal page load, not a live region" problem applies to -- an Account

@@ -11,9 +11,8 @@
  *
  * Two consumers share this: an `aa_acknowledgements` entry
  * (inc/settings/acknowledgements.php) stores this hash at the moment of
- * acknowledgement (Phase 2.0); Phase 2.2's `_validated_against` will
- * store it for the settings option as a whole. See
- * docs/superpowers/specs/2026-08-20-blueline-p2-occasions-design.md §4.3.
+ * acknowledgement; `_validated_against` stores it for the settings option
+ * as a whole.
  *
  * @package blueline
  */
@@ -111,8 +110,8 @@ function blueline_settings_inputs_hash( ?string $contrast_rules_path_override = 
 /**
  * The settings option's own `_validated_against` bookkeeping value: the
  * blueline_settings_inputs_hash() this option was last checked against
- * for deploy-drift revalidation (Phase 2.2,
- * blueline_occasions_maybe_revalidate_on_drift()). '' means either a
+ * for deploy-drift revalidation
+ * (blueline_occasions_maybe_revalidate_on_drift()). '' means either a
  * fresh install, or one whose drift check has genuinely never run yet.
  *
  * Reads get_option() directly, the same shape
@@ -138,8 +137,8 @@ function blueline_validated_against(): string {
  * blueline_occasions_maybe_revalidate_on_drift() found, filtered down to
  * non-'valid' entries) from the `admin_init` hook that computes it to the
  * `admin_notices` hook that renders it -- both fire within the SAME
- * request (design spec §6.5's ruling that the notice is a one-time,
- * same-request surface, never a persisted, recurring one), so a
+ * request (the notice is a one-time, same-request surface, never a
+ * persisted, recurring one), so a
  * module-level static is all this needs -- the identical pattern
  * blueline_settings_page_hook() (inc/settings/page-registration.php) already uses for
  * an unrelated same-request handoff.
@@ -204,28 +203,26 @@ function blueline_occasions_drift_notice_payload_store( $payload = false ): ?arr
 
 add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
 /**
- * Deploy-drift revalidation (design spec §6.2, ruled on further in
- * §6.5): if blueline_settings_inputs_hash() has changed since the last
+ * Deploy-drift revalidation: if blueline_settings_inputs_hash() has changed since the last
  * check (blueline_validated_against()), classify every stored
  * acknowledgement (blueline_occasions_classify_acknowledgements()) and,
  * if anything is no longer `valid`, hand that off to
  * blueline_render_occasions_drift_notice() via
  * blueline_set_occasions_drift_notice_payload() for THIS SAME request's
  * `admin_notices` to render. Either way, `_validated_against` is updated
- * to the current hash immediately -- design spec §6.5's ruling that this
+ * to the current hash immediately, since this
  * is a one-time notice, not a recurring nag. The next request's cheap
  * hash-compare then short-circuits until the next real drift.
  *
- * Hooked to `admin_init`, deliberately narrower than the spec's own
- * prose ("on init") and deliberately NOT following
- * blueline_settings_migrate()'s choice of the universal `init` hook
- * (design spec §6.5): that migration's correctness has to hold before
+ * Hooked to `admin_init`, deliberately NOT following
+ * blueline_settings_migrate()'s choice of the universal `init` hook:
+ * that migration's correctness has to hold before
  * ANYTHING reads the option, on every kind of request (anonymous, cron,
  * REST, WP-CLI) -- this check's correctness need is different in kind.
  * blueline_resolve_active_occasion() already recomputes contrast and
  * acknowledgement coverage from scratch on every single request
  * regardless of whether this check has ever run at all (the fail-closed
- * guarantee, design spec §4.5, holds unconditionally already); this
+ * guarantee holds unconditionally already); this
  * check's ONLY job is *surfacing* drift to an admin via a notice (and a
  * Site Health field in inc/settings/site-health.php) -- pure diagnostics,
  * with zero front-end/cron/REST/WP-CLI consumer.
@@ -233,8 +230,8 @@ add_action( 'admin_init', 'blueline_occasions_maybe_revalidate_on_drift' );
  * hash, unlike blueline_settings_migrate()'s O(1) integer-compare guard,
  * so paying that on every anonymous front-end request for a value
  * nothing on the front end ever reads back would be pure waste. Not
- * `update_option_*`/`add_option_*` either (2.1a's own boundary-purge
- * pattern), since this must ALSO catch drift from causes other than a
+ * `update_option_*`/`add_option_*` either (the pattern the occasion
+ * boundary purge uses), since this must ALSO catch drift from causes other than a
  * settings write -- a deploy touching style.css's mtime, an edited
  * contrast-rules.json -- which no options hook would ever fire for.
  *
@@ -347,7 +344,7 @@ add_action( 'admin_notices', 'blueline_render_occasions_drift_notice' );
  *
  * A `<section>`, never a `<div>` (tests/NoticeDivGuardTest.php) -- and
  * the first `admin_notices`-hooked notice in this codebase naming a
- * variable-length list (design spec §6.5): a `<ul>` inside the
+ * variable-length list: a `<ul>` inside the
  * `<section>`, one `<li>` per non-valid acknowledgement, naming its
  * occasion's label when resolvable
  * (blueline_occasions_drift_notice_label()) and stating whether it is

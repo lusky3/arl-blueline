@@ -1,5 +1,5 @@
 /*
- * Blueline — My Account (Task 12).
+ * Blueline — My Account.
  *
  * League-first dashboard: the claim card and the next-game/team/season
  * modules use a dedicated `.bl-account-module` card component (NOT
@@ -7,14 +7,15 @@
  * see the docblock on blueline_account_module_start() in
  * inc/account/dashboard.php for why reusing that one would double-nest
  * `.bl-container`). The nav rail groups league links before billing links
- * per Task 10's `blueline_account_endpoints()`, and the "Account & billing"
- * card at the bottom is deliberately the smallest, quietest one on the
- * page — reachable in one click, never the first thing shown.
+ * per `blueline_account_endpoints()` (blueline-core plugin), and the
+ * "Account & billing" card at the bottom is deliberately the smallest,
+ * quietest one on the page — reachable in one click, never the first thing
+ * shown.
  *
  * Only fires on the actual My Account page: WooCommerce adds the
  * `woocommerce-account` body class exclusively there, and
  * `.bl-main--woocommerce`/`.bl-container` are shared with every other
- * WooCommerce page (Task 9), so both must be scoped together.
+ * WooCommerce page, so both must be scoped together.
  */
 
 body.woocommerce-account .bl-main--woocommerce .bl-container {
@@ -56,10 +57,10 @@ body.woocommerce-account .bl-main--woocommerce .bl-container {
  * (0,1,0) regardless of stylesheet load order, so the override needs equal
  * or greater specificity, not just a later cascade position -- the same
  * `body.woocommerce-account` scoping this file's very first rule already
- * uses, reused here for the same reason. The old sidebar-era layout never
- * needed this: its `display: grid` on the parent `.bl-container` made a
- * grid item ignore float/width entirely, but that parent grid rule no
- * longer exists now that the nav is a full-width horizontal bar.
+ * uses, reused here for the same reason. A `display: grid` on the parent
+ * `.bl-container` would make a grid item ignore float/width entirely, but
+ * there is no parent grid rule now that the nav is a full-width horizontal
+ * bar.
  */
 body.woocommerce-account .bl-account-nav {
 	float: none;
@@ -86,7 +87,7 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 
 /*
  * Wraps onto a second (or third) line instead of scrolling once the pills
- * outgrow the available width -- a narrow window used to leave the row
+ * outgrow the available width -- a narrow window would leave the row
  * horizontally scrollable, which meant a bare OS scrollbar sitting under
  * primary navigation (confirmed live at ~970px: an unmistakably "broken
  * chrome" scrollbar track, and no on-screen hint that scrolling, rather
@@ -285,11 +286,8 @@ body.woocommerce-account .woocommerce-MyAccount-content {
  * Semantic state is carried by a full border plus a tint of the same hue,
  * not by a thick coloured stripe down one edge.
  *
- * This previously used `border-inline-start: 4px solid`, which is a pattern
- * the project's design rules ban outright on cards, callouts and alerts.
- * Neither the visual review nor the UX review caught it, because both could
- * only see the site logged out and this notice only ever renders to a
- * signed-in player after a claim attempt.
+ * A thick `border-inline-start` stripe is deliberately avoided: the project's
+ * design rules ban it outright on cards, callouts and alerts.
  *
  * The tint is mixed from the semantic token itself rather than hard-coded,
  * so the two can never drift apart, and at 8% it stays far enough from the
@@ -414,7 +412,7 @@ body.woocommerce-account .woocommerce-MyAccount-content {
  * sp_user link. About 84% of players registered for the CURRENT season
  * are already linked (sportspress-player-registration links them at
  * checkout), so this is the safety net for the remaining ~16% and for
- * returning players whose historical records were never linked (Task 11).
+ * returning players whose historical records were never linked.
  *
  * Do not size this from `sp_current_team`: that field is sticky ("last
  * team ever rostered") and is set on ~95% of every player in the site's
@@ -457,8 +455,8 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 }
 
 /*
- * Disambiguating detail (team / season / jersey number) -- P4 finding 6.
- * Two candidates sharing a name used to render as identical rows; this line
+ * Disambiguating detail (team / season / jersey number).
+ * Two candidates can share a name; this line
  * is what turns "Mike Brown" + "Mike Brown" into two distinguishable people.
  */
 .bl-account-claim__detail {
@@ -784,7 +782,7 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 
 /* ---------------------------------------------------------------------
  * Player profile -- bio (photo, name, jersey number) and registration
- * details (Task 3). The photo reuses the same circular-crop, cover-fit
+ * details. The photo reuses the same circular-crop, cover-fit
  * pattern .bl-sp-roster__photo (sportspress.css) already establishes for
  * player headshots, sized larger here (96px, not that class's 32px) since
  * this is a dedicated profile page, not a compact roster row -- a new
