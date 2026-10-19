@@ -15,8 +15,8 @@
     "check:oracle": "npm run lint:css && npm run lint:js && npm run test:js && npm run tokens:check && composer test:oracle && composer lint"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
-    "@wordpress/scripts": "^36.0.0"
+    "@axe-core/playwright": "^4.14.0",
+    "@wordpress/scripts": "^36.1.0"
   },
   "overrides": {
     "uuid": "11.1.1",
