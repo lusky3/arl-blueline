@@ -41,7 +41,7 @@ jobs:
     # GitHub-hosted, never self-hosted: this repo is public, and a
     # self-hosted runner would execute fork pull requests' code on a
     # machine we own.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # 14 tests x up to 2 attempts (1 retry, see playwright.e2e.config.js) x
     # a 30s per-test timeout is a 14-minute worst case for the suite alone,
     # plus about 5 minutes of setup (npm ci, browser, image pull, seeding).
@@ -55,7 +55,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install Node dependencies
         run: npm ci

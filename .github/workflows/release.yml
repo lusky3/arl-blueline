@@ -24,7 +24,7 @@ permissions: {}
 
 jobs:
   guard:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -51,7 +51,7 @@ jobs:
 
   build:
     needs: guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -67,7 +67,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "24"
 
       - name: Install PHP dependencies
         working-directory: themes/blueline
@@ -133,7 +133,7 @@ jobs:
   # verify-manifest.php fails the run instead.
   sign:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     env:
@@ -182,7 +182,7 @@ jobs:
 
   publish:
     needs: sign
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:
