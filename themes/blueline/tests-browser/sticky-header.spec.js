@@ -154,10 +154,12 @@ test.describe( 'sticky header', () => {
 
 			const rows = await page.evaluate( () => {
 				const menu = document.querySelector( '.bl-nav__menu' );
+				// Skip display:none items: the drawer-only search row lives in
+				// this list and reports top 0, which is not a second row.
 				return new Set(
-					[ ...menu.children ].map( ( li ) =>
-						Math.round( li.getBoundingClientRect().top )
-					)
+					[ ...menu.children ]
+						.filter( ( li ) => li.getClientRects().length > 0 )
+						.map( ( li ) => Math.round( li.getBoundingClientRect().top ) )
 				).size;
 			} );
 
