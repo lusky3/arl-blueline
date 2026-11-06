@@ -125,7 +125,7 @@ The steps below stay for rotation and for a new site or repository.
 
 Claude and CI never generate, see or handle the private key.
 
-1. From a checkout of the repository (PHP 8.3 with sodium):
+1. From a checkout of the repository (PHP 8.4 with sodium):
 
        php scripts/release/generate-signing-key.php ~/blueline-release-key.txt
 

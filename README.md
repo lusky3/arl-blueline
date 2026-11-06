@@ -18,7 +18,7 @@ theme older than 1.1.0. Details are in [`docs/OPERATIONS.md`](docs/OPERATIONS.md
 
 ## Requirements
 
-- WordPress 6.9 or newer, PHP 8.3 or newer
+- WordPress 6.9 or newer, PHP 8.4 or newer
 - WooCommerce and SportsPress (the theme overrides their templates; SportsPress Pro is what the league runs)
 
 ## Install
