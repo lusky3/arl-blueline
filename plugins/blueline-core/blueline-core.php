@@ -5,7 +5,7 @@
  * Description:       League functionality for the Blueline theme: player linking and photos, My Account routing, mail wrapper, checkout fields, SEO tags, search and privacy hardening.
  * Version:           0.1.3
  * Requires at least: 6.9
- * Requires PHP:      8.3
+ * Requires PHP:      8.4
  * Author:            Adult Recreational League
  * Author URI:        https://arlhockey.ca
  * License:           GPL-2.0-or-later

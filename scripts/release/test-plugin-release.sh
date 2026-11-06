@@ -194,7 +194,7 @@ JSON
 {
   "name": "arl/blueline-core", "type": "wordpress-plugin", "license": "GPL-2.0-or-later",
   "repositories": [ { "type": "path", "url": "$WORK/dep-pkg", "options": { "symlink": false } } ],
-  "require": { "php": ">=8.3", "acme/runtime-dep": "*" },
+  "require": { "php": ">=8.4", "acme/runtime-dep": "*" },
   "require-dev": { "phpunit/phpunit": "^12.0" }
 }
 JSON

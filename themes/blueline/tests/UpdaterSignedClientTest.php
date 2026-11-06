@@ -157,7 +157,7 @@ final class UpdaterSignedClientTest extends TestCase {
 			array(
 				'version'      => $version,
 				'requires_wp'  => '6.9',
-				'requires_php' => '8.3',
+				'requires_php' => '8.4',
 				'tested_wp'    => '7.1',
 				'zip'          => 'blueline-' . $version . '.zip',
 				'sha256'       => hash( 'sha256', $zip ),

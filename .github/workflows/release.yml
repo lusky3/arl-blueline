@@ -33,7 +33,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           coverage: none
 
       # Tag must equal style.css Version and BLUELINE_VERSION, and CHANGELOG.md
@@ -60,7 +60,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           tools: composer
           coverage: none
 
@@ -147,7 +147,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: sodium
           tools: none
           coverage: none
