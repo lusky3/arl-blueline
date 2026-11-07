@@ -269,6 +269,9 @@ foreach ( $lists as $list_post ) :
 						continue;
 					}
 
+					// Printed below as its own badge: the name above has every tag stripped, the plugin's badge included.
+					$bl_captain_mark = blueline_sp_roster_captain_mark( (int) $player_id, (int) $list_id );
+
 					$number = isset( $row['number'] ) && '' !== $row['number']
 						? $row['number']
 						: get_post_meta( $player_id, 'sp_number', true );
@@ -301,6 +304,9 @@ foreach ( $lists as $list_post ) :
 							</a>
 							<?php if ( $show_position ) : ?>
 								<span class="bl-sp-roster__position"><?php echo esc_html( $position_label ); ?></span>
+							<?php endif; ?>
+							<?php if ( null !== $bl_captain_mark ) : ?>
+								<span class="bl-sp-roster__captain"><span aria-hidden="true"><?php echo esc_html( $bl_captain_mark ); ?></span><span class="screen-reader-text"><?php esc_html_e( 'Captain', 'blueline' ); ?></span></span>
 							<?php endif; ?>
 							<?php if ( $bl_current_user_player_id && (int) $player_id === $bl_current_user_player_id ) : ?>
 								<span class="bl-sp-roster__you"><?php esc_html_e( 'You', 'blueline' ); ?></span>
