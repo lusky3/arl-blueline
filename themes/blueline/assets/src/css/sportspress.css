@@ -853,7 +853,8 @@ table.sp-event-venue :is(th, td) {
 	object-fit: cover;
 }
 
-.bl-sp-roster__position {
+.bl-sp-roster__position,
+.bl-sp-roster__captain {
 	padding: 1px var(--bl-space-2);
 	border: 1px solid var(--bl-content-border-strong);
 	color: var(--bl-content-text-secondary);
@@ -861,6 +862,12 @@ table.sp-event-venue :is(th, td) {
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 	white-space: nowrap;
+}
+
+/* The captain's "C": the position pill, a little stronger. */
+.bl-sp-roster__captain {
+	color: var(--bl-content-text);
+	font-weight: 700;
 }
 
 /*

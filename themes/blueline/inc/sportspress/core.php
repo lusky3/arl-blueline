@@ -43,6 +43,32 @@ function blueline_sp_title( $post_id ) {
 }
 
 /**
+ * The captain's mark for one player on one roster list, or null for anyone else.
+ *
+ * The roster override prints its own markup and strips tags from the name, so
+ * it cannot rely on the badge the player-tools plugin adds to list data. It
+ * asks the plugin's `spt_roster_captain_indicator` filter instead, which
+ * answers with the badge markup for the list's captain and '' otherwise (and
+ * is simply never answered while the plugin is inactive or older than 1.6.1).
+ * Only the badge's text is kept, so the theme styles it like its other badges.
+ *
+ * @param int $player_id sp_player post ID.
+ * @param int $list_id   sp_list post ID the roster row belongs to.
+ * @return string|null The mark ("C" unless the plugin changed it), or null when the player is not the captain.
+ */
+function blueline_sp_roster_captain_mark( int $player_id, int $list_id ): ?string {
+	$badge = trim( (string) apply_filters( 'spt_roster_captain_indicator', '', $player_id, $list_id ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- the player-tools plugin's own filter for themes that print their own roster.
+
+	if ( '' === $badge ) {
+		return null;
+	}
+
+	$text = trim( wp_strip_all_tags( $badge ) );
+
+	return '' !== $text ? $text : 'C';
+}
+
+/**
  * A team name as a schedule cell shows it: without the "(Retired) " prefix
  * and the trailing season codes the league adds to a team it has archived.
  * "(Retired) Woodchester Nissan (Rogues) (W2015-16)" wrapped to five lines in
