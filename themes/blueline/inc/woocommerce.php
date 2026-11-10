@@ -292,8 +292,24 @@ add_action( 'woocommerce_before_checkout_form', 'blueline_checkout_reassurance' 
  * template, so that file's "byte-identical port" claim stays true and this
  * note can be found/changed in one place instead of inside vendor-shaped
  * markup.
+ *
+ * A cart holding only $0 waitlist products gets its own note (ACC-04): there
+ * is no payment, and joining the waitlist is not a season registration.
  */
 function blueline_checkout_reassurance() {
+	if ( blueline_wc_cart_is_waitlist_only() ) {
+		?>
+		<div class="bl-checkout-reassurance">
+			<p>
+				<?php esc_html_e( 'Joining the waitlist is free, so there’s nothing to pay today. It doesn’t register you for the season yet.', 'blueline' ); ?>
+			</p>
+			<p>
+				<?php esc_html_e( 'You’ll get an email confirmation right away. Questions about the waitlist? Just ask us.', 'blueline' ); ?>
+			</p>
+		</div>
+		<?php
+		return;
+	}
 	?>
 	<div class="bl-checkout-reassurance">
 		<p>
@@ -582,6 +598,73 @@ function blueline_wc_is_waitlist_product( $product ): bool {
 	}
 
 	return in_array( (int) $product->get_id(), blueline_wc_season_product_ids(), true );
+}
+
+/**
+ * Whether every product in a non-empty list is a waitlist product.
+ *
+ * @param array $products WC_Product objects (anything else is not a waitlist).
+ * @return bool
+ */
+function blueline_wc_products_are_waitlist_only( array $products ): bool {
+	if ( empty( $products ) ) {
+		return false;
+	}
+
+	foreach ( $products as $product ) {
+		if ( ! blueline_wc_is_waitlist_product( $product ) ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
+ * Whether the cart holds waitlist products and nothing else.
+ *
+ * @return bool
+ */
+function blueline_wc_cart_is_waitlist_only(): bool {
+	if ( ! function_exists( 'WC' ) || ! isset( WC()->cart ) || ! is_object( WC()->cart ) ) {
+		return false;
+	}
+
+	$products = array();
+
+	foreach ( (array) WC()->cart->get_cart() as $cart_item ) {
+		$products[] = $cart_item['data'] ?? null;
+	}
+
+	return blueline_wc_products_are_waitlist_only( $products );
+}
+
+add_filter( 'woocommerce_thankyou_order_received_text', 'blueline_wc_waitlist_thankyou_text', 10, 2 );
+/**
+ * "You've joined the waitlist" instead of "Your registration has been
+ * received" on the thank-you page of an order holding only waitlist products
+ * (ACC-04).
+ *
+ * @param string $text  Escaped thank-you text.
+ * @param mixed  $order The WC_Order, or false when there is none.
+ * @return string
+ */
+function blueline_wc_waitlist_thankyou_text( $text, $order = null ) {
+	if ( ! is_object( $order ) || ! method_exists( $order, 'get_items' ) ) {
+		return $text;
+	}
+
+	$products = array();
+
+	foreach ( $order->get_items() as $item ) {
+		$products[] = is_object( $item ) && method_exists( $item, 'get_product' ) ? $item->get_product() : null;
+	}
+
+	if ( ! blueline_wc_products_are_waitlist_only( $products ) ) {
+		return $text;
+	}
+
+	return esc_html__( 'Thank you. You’ve joined the waitlist.', 'blueline' );
 }
 
 add_filter( 'woocommerce_product_single_add_to_cart_text', 'blueline_wc_waitlist_add_to_cart_text', 20, 2 );

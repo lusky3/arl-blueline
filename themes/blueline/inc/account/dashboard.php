@@ -1062,11 +1062,22 @@ function blueline_account_render_registration( int $user_id, ?int $player_id = n
 		blueline_account_module_empty_state( blueline_registration_empty_message( $has_current_team ) );
 	} else {
 		$order = function_exists( 'wc_get_order' ) ? wc_get_order( $status['order_id'] ) : false;
+
+		if ( ! empty( $status['waitlist'] ) ) {
+			$state = 'waitlist';
+			$label = __( 'On the waitlist', 'blueline' );
+		} elseif ( $status['paid'] ) {
+			$state = 'paid';
+			$label = __( 'Paid', 'blueline' );
+		} else {
+			$state = 'unpaid';
+			$label = __( 'Unpaid', 'blueline' );
+		}
 		?>
 		<div class="bl-account-registration">
 			<p class="bl-account-registration__season"><?php echo esc_html( $status['season'] ); ?></p>
-			<p class="bl-account-registration__status bl-account-registration__status--<?php echo esc_attr( $status['paid'] ? 'paid' : 'unpaid' ); ?>">
-				<?php echo esc_html( $status['paid'] ? __( 'Paid', 'blueline' ) : __( 'Unpaid', 'blueline' ) ); ?>
+			<p class="bl-account-registration__status bl-account-registration__status--<?php echo esc_attr( $state ); ?>">
+				<?php echo esc_html( $label ); ?>
 			</p>
 			<?php if ( $order && is_a( $order, 'WC_Order' ) ) : ?>
 				<a class="bl-account-module__link" href="<?php echo esc_url( $order->get_view_order_url() ); ?>">

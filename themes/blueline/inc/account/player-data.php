@@ -805,28 +805,77 @@ function blueline_player_stats_league_id( int $player_id, int $season_id, ?int $
 }
 
 /**
- * The most recent of $user_id's orders (newest first) containing a
- * product from $product_ids, or null. Paginated in small batches rather
- * than one `limit => -1` fetch of the user's entire order history: the
- * match is almost always in the very first, most-recent page (a
- * registrant's newest order is normally for the current season), so this
- * short-circuits after page one in the common case while still bounding
- * the worst case (a user who registered for the current season only in
- * some older order) to at most `$max_pages` batches rather than hydrating
- * every order a long-time customer has ever placed.
+ * The order statuses that count as a registration: paid (processing,
+ * completed) or awaiting a payment the member has committed to (on-hold, for
+ * an e-Transfer; partial-payment). Pending (an abandoned checkout), failed,
+ * cancelled, refunded and checkout-draft orders are not a registration.
+ *
+ * @return string[]
+ */
+function blueline_registration_order_statuses(): array {
+	return array( 'processing', 'completed', 'on-hold', 'partial-payment' );
+}
+
+/**
+ * What $order is for the season, judged by its lines for $product_ids:
+ * 'paid' or 'unpaid' (by WC_Order::is_paid()) when one of them is a priced
+ * (> $0) season product; 'waitlist' when every one of them is $0 -- the same
+ * "season product at $0" rule as blueline_wc_is_waitlist_product(), read from
+ * the line's own pre-coupon subtotal so a later price change cannot rewrite
+ * an old order; '' when the order holds no season product.
+ *
+ * @param WC_Order $order       The order.
+ * @param int[]    $product_ids Product IDs that count as a match.
+ * @return string 'paid', 'unpaid', 'waitlist' or ''.
+ */
+function blueline_registration_order_kind( $order, array $product_ids ): string {
+	$has_season_item = false;
+
+	foreach ( $order->get_items() as $item ) {
+		if ( ! in_array( (int) $item->get_product_id(), $product_ids, true ) ) {
+			continue;
+		}
+
+		$has_season_item = true;
+
+		if ( (float) $item->get_subtotal() > 0 ) {
+			return $order->is_paid() ? 'paid' : 'unpaid';
+		}
+	}
+
+	return $has_season_item ? 'waitlist' : '';
+}
+
+/**
+ * $user_id's registration order for the season, or null: the newest paid
+ * order with a priced season product; failing that, the newest unpaid one
+ * (on-hold, awaiting payment); failing that, the newest $0 waitlist entry.
+ * Only blueline_registration_order_statuses() are read.
+ *
+ * Paginated in small batches rather than one `limit => -1` fetch of the
+ * user's entire order history: a paid registration is almost always on the
+ * first, most-recent page, so this short-circuits there in the common case
+ * while still bounding the worst case to at most `$max_pages` batches.
  *
  * @param int   $user_id     WordPress user ID.
  * @param int[] $product_ids Product IDs that count as a match.
- * @return WC_Order|null
+ * @return array{order:WC_Order, kind:string}|null
  */
-function blueline_find_registration_order( int $user_id, array $product_ids ) {
+function blueline_find_registration_order( int $user_id, array $product_ids ): ?array {
 	$batch_size = 20;
 	$max_pages  = 10;
+	$rank       = array(
+		'waitlist' => 1,
+		'unpaid'   => 2,
+		'paid'     => 3,
+	);
+	$best       = null;
 
 	for ( $page = 1; $page <= $max_pages; $page++ ) {
 		$orders = wc_get_orders(
 			array(
 				'customer_id' => $user_id,
+				'status'      => blueline_registration_order_statuses(),
 				'limit'       => $batch_size,
 				'paged'       => $page,
 				'orderby'     => 'date',
@@ -835,7 +884,7 @@ function blueline_find_registration_order( int $user_id, array $product_ids ) {
 		);
 
 		if ( empty( $orders ) ) {
-			return null;
+			break;
 		}
 
 		foreach ( (array) $orders as $order ) {
@@ -843,32 +892,47 @@ function blueline_find_registration_order( int $user_id, array $product_ids ) {
 				continue;
 			}
 
-			foreach ( $order->get_items() as $item ) {
-				if ( in_array( $item->get_product_id(), $product_ids, true ) ) {
-					return $order;
-				}
+			$kind = blueline_registration_order_kind( $order, $product_ids );
+
+			if ( '' === $kind ) {
+				continue;
+			}
+
+			if ( 'paid' === $kind ) {
+				// Newest first, so the first paid registration is the answer.
+				return array(
+					'order' => $order,
+					'kind'  => $kind,
+				);
+			}
+
+			if ( null === $best || $rank[ $kind ] > $rank[ $best['kind'] ] ) {
+				$best = array(
+					'order' => $order,
+					'kind'  => $kind,
+				);
 			}
 		}
 
 		if ( count( $orders ) < $batch_size ) {
-			return null; // Last page reached with no match.
+			break; // Last page reached.
 		}
 	}
 
-	return null;
+	return $best;
 }
 
 /**
- * $user_id's registration for the current season: the most recent
- * WooCommerce order containing a product in the newest child product_cat
- * of Registration -- the same season-resolution rule Season State uses, now
+ * $user_id's registration for the current season: the order
+ * blueline_find_registration_order() picks among those containing a product
+ * in the newest child product_cat of Registration -- the same season-resolution rule Season State uses, now
  * via blueline_resolve_registration_term() (inc/settings/commerce.php),
  * which verifies the admin-configured term (or its documented fallback, term
  * 91 -- see BLUELINE_REGISTRATION_TERM_ID in inc/season-state.php) actually
  * exists before trusting it.
  *
  * @param int $user_id WordPress user ID.
- * @return array{season:string, order_id:int, status:string, paid:bool}|null
+ * @return array{season:string, order_id:int, status:string, paid:bool, waitlist:bool}|null
  *         Null if WooCommerce is missing, no product exists for the
  *         current season, or the user has no order containing one.
  */
@@ -927,16 +991,19 @@ function blueline_get_user_registration_status( int $user_id ): ?array {
 		return null;
 	}
 
-	$order = blueline_find_registration_order( $user_id, $product_ids );
+	$found = blueline_find_registration_order( $user_id, $product_ids );
 
-	if ( ! $order ) {
+	if ( ! $found ) {
 		return null;
 	}
+
+	$order = $found['order'];
 
 	return array(
 		'season'   => (string) $season_term->name,
 		'order_id' => $order->get_id(),
 		'status'   => $order->get_status(),
-		'paid'     => (bool) $order->is_paid(),
+		'paid'     => 'paid' === $found['kind'],
+		'waitlist' => 'waitlist' === $found['kind'],
 	);
 }
