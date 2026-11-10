@@ -806,9 +806,13 @@ table.sp-event-venue :is(th, td) {
  * goalie's row wider than every other row. flex-wrap so a badge drops to
  * its own line rather than forcing the cell (and so the whole table) wider
  * than the other columns need; .sp-data-table's own `white-space: nowrap`
- * default is overridden back to normal here for exactly that reason.
+ * default is overridden back to normal here for exactly that reason. The
+ * selector is `td.` + class, not the bare class: `.sp-data-table td` is more
+ * specific than a lone class, so the bare rule never applied -- the cell
+ * stayed nowrap and name, photo and badge held one 190px+ line that pushed
+ * the stat columns off a phone screen.
  */
-.bl-sp-roster__name-cell {
+.bl-sp-roster td.bl-sp-roster__name-cell {
 	white-space: normal;
 }
 
@@ -937,6 +941,29 @@ td.bl-sp-roster__stat {
 	.bl-sp-roster th:last-child,
 	.bl-sp-roster td:last-child {
 		display: none;
+	}
+
+	/* Tighter cells and a text-size name leave the Player column room for
+	   a full name beside G / A / PTS at 360-390px, with no sideways scroll. */
+	table.bl-sp-roster :is(th, td) {
+		padding-inline: var(--bl-space-2);
+	}
+
+	.bl-sp-roster__name {
+		font-size: var(--bl-text-base);
+	}
+}
+
+/* Phones: the photo costs ~40px a row (and the same slot on photo-less
+   rows), which makes most names wrap. The name and the stats are the point. */
+@media (max-width: 480px) {
+
+	.bl-sp-roster__photo {
+		display: none;
+	}
+
+	.bl-sp-roster:has(.bl-sp-roster__photo) .bl-sp-roster__name:not(:has(.bl-sp-roster__photo))::before {
+		content: none;
 	}
 }
 
