@@ -1,9 +1,11 @@
 <?php
 /**
- * `wp blueline-core ownership report|apply|unlink`: the league's tools for sp_player
- * ownership. `report` lists Player-role members who are linked by sp_user but are not
- * the player's post_author; `apply` fixes explicit ids; `unlink` removes a wrong name
- * claim. Shell-only (WP-CLI), so no capability check is needed.
+ * `wp blueline-core ownership report|apply|unlink|move-claim`: the league's tools for
+ * sp_player ownership. `report` lists Player-role members who are linked by sp_user but are
+ * not the player's post_author (or, with --category, any other category); `apply` fixes
+ * explicit ids; `unlink` removes a wrong name claim; `move-claim` moves a name claim made
+ * before blueline-core had its own claim key out of the shared sp_user key. Shell-only
+ * (WP-CLI), so no capability check is needed.
  *
  * @package blueline-core
  */
@@ -21,6 +23,17 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	const FIELDS = array( 'player_id', 'player', 'sp_user', 'user_login', 'post_author', 'post_date', 'name_score', 'flags' );
 
 	/**
+	 * Ownership categories, in the order `report` counts them.
+	 */
+	const CATEGORIES = array(
+		BLUELINE_CORE_OWNERSHIP_VERIFIED,
+		BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR,
+		BLUELINE_CORE_OWNERSHIP_AUTHOR_NOT_ROLE,
+		BLUELINE_CORE_OWNERSHIP_NAME_CLAIM,
+		BLUELINE_CORE_OWNERSHIP_MISSING_USER,
+	);
+
+	/**
 	 * List linked players whose Player-role user is not the post_author. Read-only.
 	 *
 	 * Also prints a count per ownership category (verified, role_not_author,
@@ -32,7 +45,18 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	 * author_is_player: the current author is a Player-role user). `apply`
 	 * refuses flagged rows. A low name_score is a sign of someone else's name claim.
 	 *
+	 * --category=name_claim lists the name claims still held in sp_user (made
+	 * before blueline-core stored claims under its own key); other league
+	 * plugins treat sp_user as identity, so move them with `move-claim`.
+	 *
 	 * ## OPTIONS
+	 *
+	 * [--category=<category>]
+	 * : Which rows to list: role_not_author, verified, author_not_role,
+	 * name_claim or missing_user.
+	 * ---
+	 * default: role_not_author
+	 * ---
 	 *
 	 * [--format=<format>]
 	 * : table or csv.
@@ -44,6 +68,7 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	 *
 	 *     wp blueline-core ownership report
 	 *     wp blueline-core ownership report --format=csv > role-not-author.csv
+	 *     wp blueline-core ownership report --category=name_claim
 	 *
 	 * @param array $args       Positional arguments (none).
 	 * @param array $assoc_args Associative arguments.
@@ -56,11 +81,17 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 			return;
 		}
 
+		$category = (string) ( $assoc_args['category'] ?? BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR );
+		if ( ! in_array( $category, self::CATEGORIES, true ) ) {
+			WP_CLI::error( 'Unknown --category. Use ' . implode( ', ', self::CATEGORIES ) . '.' );
+			return;
+		}
+
 		$rows    = blueline_core_ownership_rows( $this->linked_players() );
 		$targets = array_values(
 			array_filter(
 				$rows,
-				static fn( $row ) => BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR === $row['category']
+				static fn( $row ) => $category === $row['category']
 			)
 		);
 
@@ -145,12 +176,14 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	}
 
 	/**
-	 * Remove the sp_user link from wrongly name-claimed players. Dry run unless --yes.
+	 * Remove the link from wrongly name-claimed players. Dry run unless --yes.
 	 *
-	 * The league's undo for a squatted name claim. Only a plain name claim (the
-	 * linked user is neither the post_author nor a Player-role member) or a link
-	 * to a user that no longer exists is removed; a verified owner or any
-	 * Player-role link is refused. post_author is never touched. The removed
+	 * The league's undo for a squatted name claim. A name claim stored under
+	 * blueline-core's claim key (_blueline_name_claim_user) is removed from that
+	 * key. Otherwise only a plain name claim still in sp_user (the linked user
+	 * is neither the post_author nor a Player-role member) or a link to a user
+	 * that no longer exists is removed; a verified owner or any Player-role
+	 * link is refused. post_author is never touched. The removed
 	 * user is logged so the link can be restored by hand. There is no bulk mode:
 	 * --ids is required.
 	 *
@@ -195,9 +228,9 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 				continue;
 			}
 
-			delete_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $plan['user'] );
+			delete_post_meta( $player_id, $plan['key'], $plan['user'] );
 			blueline_forget_linked_player_cache( $plan['user'] );
-			WP_CLI::log( sprintf( 'Unlinked player %1$d from user %2$d. To restore: wp post meta add %1$d %3$s %2$d', $player_id, $plan['user'], BLUELINE_PLAYER_USER_META ) );
+			WP_CLI::log( sprintf( 'Unlinked player %1$d from user %2$d. To restore: wp post meta add %1$d %3$s %2$d', $player_id, $plan['user'], $plan['key'] ) );
 			++$changed;
 		}
 
@@ -207,6 +240,83 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 		}
 
 		WP_CLI::success( sprintf( '%d player(s) unlinked.', $changed ) );
+	}
+
+	/**
+	 * Move name claims made before blueline-core had its own claim key out of
+	 * sp_user and into _blueline_name_claim_user. Dry run unless --yes.
+	 *
+	 * Other league plugins treat sp_user as "this account is this player"
+	 * (game availability, discipline notices, registration's identity check),
+	 * so a name claim left there grants more than the view-only link it is.
+	 * After the move the claimant still sees the player on their account; the
+	 * other plugins no longer see a link. Only a plain name claim (the linked
+	 * user exists and is neither the post_author nor a Player-role member) is
+	 * moved. post_author is never touched. There is no bulk mode: --ids is
+	 * required. List candidates with `report --category=name_claim`.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --ids=<ids>
+	 * : Comma-separated sp_player IDs.
+	 *
+	 * [--yes]
+	 * : Write. Without it, only prints what would change.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp blueline-core ownership report --category=name_claim
+	 *     wp blueline-core ownership move-claim --ids=101
+	 *     wp blueline-core ownership move-claim --ids=101 --yes
+	 *
+	 * @subcommand move-claim
+	 *
+	 * @param array $args       Positional arguments (none).
+	 * @param array $assoc_args Associative arguments.
+	 * @return void
+	 */
+	public function move_claim( $args, $assoc_args ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP-CLI dispatch signature; no positional arguments.
+		$ids = blueline_core_ownership_parse_ids( (string) ( $assoc_args['ids'] ?? '' ) );
+		if ( is_wp_error( $ids ) ) {
+			WP_CLI::error( $ids->get_error_message() );
+			return;
+		}
+
+		$write   = ! empty( $assoc_args['yes'] );
+		$changed = 0;
+
+		foreach ( $ids as $player_id ) {
+			$plan = blueline_core_ownership_move_claim_plan( $player_id );
+
+			if ( ! $plan['ok'] ) {
+				WP_CLI::warning( sprintf( 'Player %d skipped: %s.', $player_id, $plan['reason'] ) );
+				continue;
+			}
+
+			if ( ! $write ) {
+				WP_CLI::log( sprintf( 'Would move player %1$d\'s link to user %2$d from %3$s to %4$s.', $player_id, $plan['user'], BLUELINE_PLAYER_USER_META, BLUELINE_PLAYER_CLAIM_META ) );
+				++$changed;
+				continue;
+			}
+
+			if ( ! in_array( $plan['user'], blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_CLAIM_META ), true )
+				&& ! add_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, $plan['user'], true ) ) {
+				WP_CLI::warning( sprintf( 'Player %d: the claim key could not be written; sp_user was left as it is.', $player_id ) );
+				continue;
+			}
+
+			delete_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $plan['user'] );
+			blueline_forget_linked_player_cache( $plan['user'] );
+			WP_CLI::log( sprintf( 'Moved player %1$d\'s link to user %2$d to %3$s. To undo: wp post meta add %1$d %4$s %2$d && wp post meta delete %1$d %3$s', $player_id, $plan['user'], BLUELINE_PLAYER_CLAIM_META, BLUELINE_PLAYER_USER_META ) );
+			++$changed;
+		}
+
+		if ( ! $write ) {
+			WP_CLI::success( sprintf( 'Dry run: %d player(s) would move. Nothing was written; re-run with --yes to apply.', $changed ) );
+			return;
+		}
+
+		WP_CLI::success( sprintf( '%d player(s) moved.', $changed ) );
 	}
 
 	/**
@@ -264,16 +374,7 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 	 * @return array<string, int>
 	 */
 	private function count_categories( array $rows ): array {
-		$counts = array_fill_keys(
-			array(
-				BLUELINE_CORE_OWNERSHIP_VERIFIED,
-				BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR,
-				BLUELINE_CORE_OWNERSHIP_AUTHOR_NOT_ROLE,
-				BLUELINE_CORE_OWNERSHIP_NAME_CLAIM,
-				BLUELINE_CORE_OWNERSHIP_MISSING_USER,
-			),
-			0
-		);
+		$counts = array_fill_keys( self::CATEGORIES, 0 );
 
 		foreach ( $rows as $row ) {
 			++$counts[ $row['category'] ];

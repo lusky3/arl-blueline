@@ -315,6 +315,13 @@ header is added by the server's nginx configuration, not WordPress, so it can on
   change the photo or see registration details. See which linked players don't qualify:
   `wp blueline-core ownership report`. Fix individual players: `wp blueline-core ownership apply --ids=<player ids>`
   (dry run; add `--yes` to write). Never bulk-copy `sp_user` into `post_author`: that would promote name-claimed links to owners.
+- [ ] **Old name claims in `sp_user`.** In blueline-core releases after 0.1.3 an "Is this you?" name claim is stored in
+  `_blueline_name_claim_user`, not `sp_user`, because the player app, the discipline notices and registration's identity
+  check treat `sp_user` as "this account is this player". Claims made before that are still in `sp_user`. List them:
+  `wp blueline-core ownership report --category=name_claim` (read-only; `name_score` near 0 means the account name does
+  not match the player). Move the ones you choose: `wp blueline-core ownership move-claim --ids=<player ids>` (dry run;
+  add `--yes` to write). The claimant keeps seeing the player on their account. To remove a wrong claim entirely, use
+  `wp blueline-core ownership unlink --ids=<player ids>`.
 - [ ] **My Account tab wording.** blueline-core 0.1.2+ names the tabs "My Registrations", "My Installments" (only with
   WooCommerce Subscriptions active), "My Address" and "Change My Details", and the theme heads each page with its tab's
   label. Deactivate the Code Snippet "My Account Tab Modifications" (Snippets > All Snippets), then confirm the menu reads

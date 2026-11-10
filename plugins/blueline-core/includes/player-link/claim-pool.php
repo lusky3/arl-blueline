@@ -304,7 +304,8 @@ function blueline_compute_claim_pool_season_term_ids( ?callable $count_fn = null
 
 /**
  * The sp_player IDs eligible to be claimed: tagged with the claim pool's season term(s), with a
- * team set, and not linked to a DIFFERENT user. A player linked to $exclude_linked_to_user_id
+ * team set, and not linked to a DIFFERENT user through sp_user or a name claim
+ * (BLUELINE_PLAYER_CLAIM_META). A player linked to $exclude_linked_to_user_id
  * stays in (re-checking one's own link), as does one carrying a '' or '0' placeholder sp_user;
  * 0 excludes every linked player.
  *
@@ -345,6 +346,18 @@ function blueline_current_season_unclaimed_player_ids( int $exclude_linked_to_us
 				),
 				array(
 					'key'     => BLUELINE_PLAYER_USER_META,
+					'value'   => (string) $exclude_linked_to_user_id,
+					'compare' => '=',
+				),
+			),
+			array(
+				'relation' => 'OR',
+				array(
+					'key'     => BLUELINE_PLAYER_CLAIM_META,
+					'compare' => 'NOT EXISTS',
+				),
+				array(
+					'key'     => BLUELINE_PLAYER_CLAIM_META,
 					'value'   => (string) $exclude_linked_to_user_id,
 					'compare' => '=',
 				),

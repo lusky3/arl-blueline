@@ -48,6 +48,19 @@ final class ClaimPoolQueryTest extends TestCase {
 	}
 
 	/**
+	 * A player another account has name-claimed (the claim key) is never offered; the claimant's
+	 * own claim stays in.
+	 */
+	public function test_a_player_name_claimed_by_another_user_is_excluded(): void {
+		$state = &blueline_test_state();
+		$state['post_meta'][101][ BLUELINE_PLAYER_CLAIM_META ] = '9';
+		$state['post_meta'][102][ BLUELINE_PLAYER_CLAIM_META ] = '5';
+
+		$this->assertSame( array( 100, 102 ), blueline_current_season_unclaimed_player_ids( 5 ) );
+		$this->assertSame( array( 100 ), blueline_current_season_unclaimed_player_ids( 0 ) );
+	}
+
+	/**
 	 * A player linked to a different user is never offered.
 	 */
 	public function test_a_player_linked_to_another_user_is_excluded(): void {
