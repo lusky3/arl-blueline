@@ -458,6 +458,34 @@
 	font-size: var(--bl-text-xs);
 }
 
+/*
+ * SportsPress floats each crest to a side of the cell, so the date, score and
+ * title wrap around them. Whether the title sat beside the crests (a squeezed
+ * column) or below them (full width) depended on how tall the crests were next
+ * to how much text there was, so cards differed, and a long name broke mid-word
+ * ("(TEAMSMULDERS.CO" / "M)") or left one word alone on a line. On a phone the
+ * layout is fixed instead: smaller crests, the date and score between them, and
+ * the title always below, at the card's full width, where `text-wrap: balance`
+ * can even the lines out. The float box matches its image so no dead space is
+ * left beside the date.
+ */
+@media (max-width: 480px) {
+
+	.sp-event-blocks .team-logo {
+		width: 44px;
+		margin: 0 var(--bl-space-2);
+	}
+
+	.sp-event-blocks .team-logo img {
+		width: 100%;
+		height: auto;
+	}
+
+	.sp-event-blocks .sp-event-title {
+		clear: both;
+	}
+}
+
 .sp-event-calendar .sp-highlight {
 	border-radius: 50%;
 }
@@ -964,6 +992,106 @@ td.bl-sp-roster__stat {
 
 	.bl-sp-roster:has(.bl-sp-roster__photo) .bl-sp-roster__name:not(:has(.bl-sp-roster__photo))::before {
 		content: none;
+	}
+}
+
+/*
+ * An event page's details row (Date / Time / Division / Season), its result
+ * table and its box score sat at max-content, 459px, 311px and 485px in boxes
+ * of 317px or less, so Season, Outcome and the stats were behind a sideways
+ * scroll. Let them fill their box (the generic min-width: max-content is what
+ * held them wide), tighten the cells, and let a name wrap. The box score drops
+ * what a phone reader needs least: Position says
+ * "Skater" on almost every row, and PIM is the least-read figure, which is the
+ * same order the team roster uses. Goals, assists and goals against stay.
+ */
+@media (max-width: 700px) {
+
+	table.sp-event-details,
+	table.sp-event-results,
+	table.sp-event-performance {
+		width: 100%;
+		min-width: 0;
+	}
+
+	table.sp-event-results :is(th, td) {
+		padding-inline: var(--bl-space-2);
+		white-space: normal;
+	}
+
+	/*
+	 * The details row is four facts, so show them two by two, each label over
+	 * its value, instead of four narrow columns whose values broke mid-word
+	 * ("W2025-" / "26", "7:45" / "pm"). thead, tbody and tr drop out of the box
+	 * tree so each th and td is a grid item, placed by its position: items 1-2
+	 * take the first pair of rows, 3-4 the second, 5-6 a third.
+	 */
+	table.sp-event-details {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	table.sp-event-details :is(thead, tbody, tr) {
+		display: contents;
+	}
+
+	table.sp-event-details :is(th, td) {
+		padding-inline: var(--bl-space-2);
+		border: 0;
+		text-align: start;
+		white-space: normal;
+	}
+
+	table.sp-event-details th {
+		padding-block: var(--bl-space-2) 0;
+	}
+
+	table.sp-event-details td {
+		padding-block: 0 var(--bl-space-2);
+	}
+
+	table.sp-event-details :is(th, td):nth-child(odd) {
+		grid-column: 1;
+	}
+
+	table.sp-event-details :is(th, td):nth-child(even) {
+		grid-column: 2;
+	}
+
+	table.sp-event-details th:nth-child(-n+2) {
+		grid-row: 1;
+	}
+
+	table.sp-event-details td:nth-child(-n+2) {
+		grid-row: 2;
+	}
+
+	table.sp-event-details th:nth-child(n+3):nth-child(-n+4) {
+		grid-row: 3;
+	}
+
+	table.sp-event-details td:nth-child(n+3):nth-child(-n+4) {
+		grid-row: 4;
+	}
+
+	table.sp-event-details th:nth-child(n+5):nth-child(-n+6) {
+		grid-row: 5;
+	}
+
+	table.sp-event-details td:nth-child(n+5):nth-child(-n+6) {
+		grid-row: 6;
+	}
+
+	table.sp-event-performance :is(th, td) {
+		padding-inline: var(--bl-space-2);
+	}
+
+	table.sp-event-performance td.data-name {
+		white-space: normal;
+	}
+
+	table.sp-event-performance :is(th, td):is(.data-position, .data-pim) {
+		display: none;
 	}
 }
 
