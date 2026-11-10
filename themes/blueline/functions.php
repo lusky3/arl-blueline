@@ -51,6 +51,7 @@ require_once BLUELINE_DIR . '/inc/occasions.php';
 require_once BLUELINE_DIR . '/inc/sportspress.php';
 require_once BLUELINE_DIR . '/inc/email.php';
 require_once BLUELINE_DIR . '/inc/woocommerce.php';
+require_once BLUELINE_DIR . '/inc/next-game-member-scope.php';
 require_once BLUELINE_DIR . '/inc/account/endpoint-toggles.php';
 require_once BLUELINE_DIR . '/inc/account/player-data.php';
 require_once BLUELINE_DIR . '/inc/account/dashboard.php';
