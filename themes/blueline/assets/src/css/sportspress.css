@@ -2679,11 +2679,16 @@ table.sp-event-statistics.sp-data-table {
 		display: none;
 	}
 
-	/* One line per team: a "vs" gutter, then the crest and name. */
+	/*
+	 * One line per team in three columns: a "vs" gutter, a crest, and the name.
+	 * Team links are off by default (sportspress_link_teams), and then the cell
+	 * holds a bare crest span and a bare name span instead of one link around
+	 * both, so each is placed in its own column; a link takes the last two.
+	 */
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home,
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away {
 		display: grid;
-		grid-template-columns: 1.75rem minmax(0, 1fr);
+		grid-template-columns: 1.75rem 2rem minmax(0, 1fr);
 		align-items: center;
 		gap: var(--bl-space-2);
 		flex: 1 0 100%;
@@ -2703,13 +2708,28 @@ table.sp-event-statistics.sp-data-table {
 	/* Home has no "vs", so its crest starts in the second column like Away's. */
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home a,
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away a {
+		grid-column: 2 / -1;
+		grid-row: 1;
+	}
+
+	/* Links off: a bare crest and name, in whatever order they are emitted. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home > .team-logo,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away > .team-logo {
 		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home > .bl-sp-team-name,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away > .bl-sp-team-name {
+		grid-column: 3;
+		grid-row: 1;
 	}
 
 	/* The "vs" hangs in the gutter, next to the away crest. */
 	.sp-event-list.bl-sp-schedule .bl-sp-schedule__vs {
 		display: inline;
 		grid-column: 1;
+		grid-row: 1;
 		justify-self: end;
 		color: var(--bl-content-text-secondary);
 		font-weight: 400;
