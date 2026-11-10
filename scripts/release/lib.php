@@ -246,3 +246,71 @@ function blueline_release_manifest( string $version, string $style_css, string $
 		'changelog'    => $changelog,
 	);
 }
+
+/**
+ * Add the blueline-core zip to a manifest, so the manifest's signature covers
+ * the plugin too. The theme's updater ignores these two fields
+ * (blueline_updater_validate_manifest() keeps only its own keys).
+ *
+ * @param array<string, string> $manifest      Manifest from blueline_release_manifest().
+ * @param string                $plugin_zip    Plugin zip file name.
+ * @param string                $plugin_sha256 Hex digest of the plugin zip.
+ * @return array<string, string>
+ */
+function blueline_release_manifest_with_plugin( array $manifest, string $plugin_zip, string $plugin_sha256 ): array {
+	$manifest['plugin_zip']    = $plugin_zip;
+	$manifest['plugin_sha256'] = strtolower( $plugin_sha256 );
+
+	return $manifest;
+}
+
+/**
+ * Whether a blueline-core zip is the one a signed release manifest names.
+ *
+ * Only a manifest whose signature the theme's own check verified counts:
+ * without that, the manifest is just another file in the same release.
+ *
+ * @param string $outcome       blueline_updater_check_manifest_signature() on the manifest.
+ * @param string $manifest_json The manifest's bytes.
+ * @param string $zip_name      The plugin zip's file name.
+ * @param string $zip_sha256    The plugin zip's sha256 (hex).
+ * @return array{ok: bool, message: string}
+ */
+function blueline_release_plugin_verdict( string $outcome, string $manifest_json, string $zip_name, string $zip_sha256 ): array {
+	if ( 'verified' !== $outcome ) {
+		return array(
+			'ok'      => false,
+			'message' => "manifest.json is not signed by a key in BLUELINE_RELEASE_PUBLIC_KEYS (result: '$outcome'), so it cannot vouch for $zip_name.",
+		);
+	}
+
+	$manifest = json_decode( $manifest_json, true );
+	$named    = is_array( $manifest ) && is_string( $manifest['plugin_zip'] ?? null ) ? $manifest['plugin_zip'] : '';
+	$expected = is_array( $manifest ) && is_string( $manifest['plugin_sha256'] ?? null ) ? strtolower( $manifest['plugin_sha256'] ) : '';
+
+	if ( '' === $named || 1 !== preg_match( '/^[0-9a-f]{64}$/', $expected ) ) {
+		return array(
+			'ok'      => false,
+			'message' => 'manifest.json does not cover a blueline-core zip (no plugin_zip / plugin_sha256): this release predates plugin signing.',
+		);
+	}
+
+	if ( $named !== $zip_name ) {
+		return array(
+			'ok'      => false,
+			'message' => "manifest.json covers $named, not $zip_name.",
+		);
+	}
+
+	if ( ! hash_equals( $expected, strtolower( $zip_sha256 ) ) ) {
+		return array(
+			'ok'      => false,
+			'message' => "$zip_name does NOT match the signed manifest's plugin_sha256. Do not install it.",
+		);
+	}
+
+	return array(
+		'ok'      => true,
+		'message' => "$zip_name matches the signed manifest (sha256 $expected).",
+	);
+}

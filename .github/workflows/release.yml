@@ -1,7 +1,7 @@
 name: Release
 
 # Push a tag vX.Y.Z (final) or vX.Y.Z-rc.N (pre-release) to publish a Blueline
-# release: guard -> build -> sign -> publish. The release carries
+# release: guard -> gate + package -> sign -> publish. The release carries
 # blueline-X.Y.Z.zip (a clean blueline/ theme folder), manifest.json (sha256 +
 # requirements) and, once the RELEASE_SIGNING_KEY secret is set,
 # manifest.json.sig (ed25519 over manifest.json), which the theme's own
@@ -11,9 +11,18 @@ name: Release
 # companion plugin built by scripts/release/package-plugin.sh. The plugin has
 # its own version line (its header Version, not the theme tag) and no updater:
 # production installs it by hand from this zip (docs/RELEASING.md, "Plugin").
+# manifest.json names that zip and its sha256 too, so the same signature covers
+# it (scripts/release/verify-plugin.php checks a downloaded zip).
 #
-# Packaging happens in the read-only `build` job; only `publish` holds
-# contents: write, and it runs nothing but `gh release create`.
+# Only a tag on a commit already on `main` is released: `guard` refuses any
+# other, and `sign` checks again from its own checkout of main before the key
+# is used. The signing scripts run from main's copy, never the tag's, so a tag
+# cannot bring its own code into the job that holds the key.
+#
+# Packaging happens in the `package` job, which installs no dependencies; the
+# `gate` job (npm ci, composer install, tests) produces nothing that ships.
+# Only `publish` holds contents: write, and it runs nothing but
+# `gh release create`.
 
 on:
   push:
@@ -28,7 +37,25 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Full history so origin/main is there for the ancestry check.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A tag pushed on a branch commit (or anywhere off main) is never built,
+      # signed or published: main only takes reviewed PRs.
+      - name: Check the tag is on main
+        run: |
+          commit="$(git rev-parse --verify --quiet "${GITHUB_SHA}^{commit}")" || {
+            echo "::error::Cannot resolve $GITHUB_REF_NAME ($GITHUB_SHA) to a commit."
+            exit 1
+          }
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $commit, which is not on main. Only commits merged to main are released."
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME ($commit) is on main."
 
       - name: Set up PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
@@ -49,13 +76,18 @@ jobs:
       - name: Check the plugin's version sources
         run: php scripts/release/plugin-guard.php
 
-  build:
+  # The tests, with dev dependencies installed. Nothing from this job ships:
+  # it uploads no artifact. It also proves the committed assets/dist/ (which
+  # package.sh ships from `git archive`) is what the sources build to.
+  gate:
     needs: guard
     runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
@@ -81,16 +113,18 @@ jobs:
         working-directory: themes/blueline
         run: npm run build
 
+      - name: Committed assets/dist matches the build
+        working-directory: themes/blueline
+        run: |
+          if [ -n "$(git status --porcelain -- assets/dist)" ]; then
+            git status --short -- assets/dist
+            echo "::error::The committed themes/blueline/assets/dist/ is not what the sources build to. Run 'npm run build' in themes/blueline and commit assets/dist/."
+            exit 1
+          fi
+
       - name: Run the gate
         working-directory: themes/blueline
         run: npm run check
-
-      - name: Package the theme
-        run: |
-          mkdir dist
-          scripts/release/package.sh "$GITHUB_REF_NAME" dist
-          php scripts/release/build-manifest.php "$GITHUB_REF_NAME" "dist/blueline-${GITHUB_REF_NAME#v}.zip" dist
-          cat dist/manifest.json
 
       # The plugin's suite needs the theme checkout's WordPress stubs, not its vendor/.
       - name: Install plugin PHP dependencies
@@ -101,17 +135,42 @@ jobs:
         working-directory: plugins/blueline-core
         run: composer test
 
-      # Reproducible zip: .distignore applied by rsync, `composer install --no-dev`
-      # only if the plugin ever declares runtime dependencies, content list asserted
-      # inside the script, plus a .sha256 beside it.
-      - name: Package the plugin
+  # Builds the zips and manifest.json from the tag with git, rsync and zip only:
+  # no npm or composer install runs on this runner (package-plugin.sh would run
+  # `composer install --no-dev` only if the plugin ever declared runtime
+  # dependencies; it has none). Both zips are reproducible.
+  package:
+    needs: guard
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: "8.4"
+          tools: composer
+          coverage: none
+
+      # Plugin first (.distignore applied by rsync, content list asserted inside
+      # the script, plus a .sha256 beside it), then the theme; manifest.json
+      # records both zips, so its signature covers both.
+      - name: Package the plugin and the theme
         run: |
+          mkdir dist
           plugin_zip="$(bash scripts/release/package-plugin.sh dist | tail -n 1)"
           plugin_file="$(basename "$plugin_zip")"
+          scripts/release/package.sh "$GITHUB_REF_NAME" dist
+          php scripts/release/build-manifest.php "$GITHUB_REF_NAME" "dist/blueline-${GITHUB_REF_NAME#v}.zip" dist "$plugin_zip"
+          cat dist/manifest.json
           {
             echo
             echo "---"
-            echo "Includes the companion plugin: \`$plugin_file\` (sha256 in \`$plugin_file.sha256\`)."
+            echo "Includes the companion plugin: \`$plugin_file\` (sha256 in \`$plugin_file.sha256\`, and in the signed \`manifest.json\`)."
             echo "Install it first on a new site; see docs/RELEASING.md, section Plugin."
           } >> dist/notes.md
           ls -l dist
@@ -127,13 +186,24 @@ jobs:
   # verifies with the theme's own check and BLUELINE_RELEASE_PUBLIC_KEYS before
   # anything is published. Its own job so the signing key never shares a runner
   # with npm/composer installs or the build. No dependencies are installed here.
-  # The key comes from the RELEASE_SIGNING_KEY secret (docs/RELEASING.md,
-  # "Release signing"); while it is unset the release is published unsigned
-  # with a warning, unless the theme already trusts a key, in which case
-  # verify-manifest.php fails the run instead.
+  #
+  # It checks out main, not the tag: the scripts that see the key are main's
+  # reviewed copies, whatever the tagged tree contains, and the tag must be an
+  # ancestor of that checkout.
+  #
+  # `environment: release` lets the owner hold RELEASE_SIGNING_KEY as an
+  # environment secret behind a required reviewer and a v*-tags-only rule
+  # (docs/RELEASING.md, "Release signing"). GitHub creates the environment on
+  # first use if it does not exist yet; until the secret is moved there, the
+  # repository secret of the same name still reaches this job.
+  #
+  # The key comes from the RELEASE_SIGNING_KEY secret; while it is unset the
+  # release is published unsigned with a warning, unless the theme already
+  # trusts a key, in which case verify-manifest.php fails the run instead.
   sign:
-    needs: build
+    needs: [gate, package]
     runs-on: ubuntu-26.04
+    environment: release
     permissions:
       contents: read
     env:
@@ -142,7 +212,21 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Check the tag is on main
+        run: |
+          commit="$(git rev-parse --verify --quiet "${GITHUB_SHA}^{commit}")" || {
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not in main's history. Nothing is signed."
+            exit 1
+          }
+          if ! git merge-base --is-ancestor "$commit" HEAD; then
+            echo "::error::$GITHUB_REF_NAME points at $commit, which is not on main. Nothing is signed."
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME ($commit) is on main; signing with main's scripts at $(git rev-parse HEAD)."
 
       - name: Set up PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
@@ -172,6 +256,20 @@ jobs:
       # with a ::warning:: when the release goes out unsigned.
       - name: Verify the signature with the theme's keys
         run: php scripts/release/verify-manifest.php dist/manifest.json
+
+      # The same check an owner runs before installing the plugin by hand: the
+      # signed manifest names this exact zip. Skipped only while the release is
+      # unsigned (no key in the theme and no secret), when there is nothing to
+      # check it against.
+      - name: Verify the plugin zip against the signed manifest
+        run: |
+          if [[ ! -f dist/manifest.json.sig ]]; then
+            echo "::warning::No manifest.json.sig, so the plugin zip is covered by its .sha256 only."
+            exit 0
+          fi
+          for zip in dist/blueline-core-*.zip; do
+            php scripts/release/verify-plugin.php dist/manifest.json "$zip"
+          done
 
       - name: Upload signed release files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

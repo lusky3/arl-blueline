@@ -47,6 +47,32 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      # No locked dependency may carry a published advisory. The theme's Composer
+      # packages are all dev tooling; package.json has no runtime dependencies, so
+      # `--omit=dev` audits exactly what could ever ship (nothing, today).
+      - name: Audit theme PHP dependencies
+        run: composer audit --locked --no-interaction
+
+      - name: Audit theme runtime npm dependencies
+        run: npm audit --omit=dev
+
+      # Releases ship the committed assets/dist/ (scripts/release/package.sh zips
+      # `git archive`), so it must be exactly what the sources build to. The build
+      # is deterministic for a given package-lock.json (same bytes on any machine
+      # and path), so any difference is a stale or hand-edited bundle. A toolchain
+      # bump that renumbers webpack module ids needs a rebuild committed with it.
+      - name: Build assets
+        run: npm run build
+
+      - name: Committed assets/dist matches the build
+        run: |
+          if [ -n "$(git status --porcelain -- assets/dist)" ]; then
+            git status --short -- assets/dist
+            git diff --stat -- assets/dist
+            echo "::error::The committed themes/blueline/assets/dist/ is not what the sources build to. Run 'npm run build' in themes/blueline and commit assets/dist/."
+            exit 1
+          fi
+
       - name: Run the gate
         env:
           BLUELINE_WP_CORE_INCLUDES_DIR: ${{ github.workspace }}/themes/blueline/vendor/johnpbloch/wordpress-core/wp-includes
