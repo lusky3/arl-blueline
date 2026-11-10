@@ -458,6 +458,34 @@
 	font-size: var(--bl-text-xs);
 }
 
+/*
+ * SportsPress floats each crest to a side of the cell, so the date, score and
+ * title wrap around them. Whether the title sat beside the crests (a squeezed
+ * column) or below them (full width) depended on how tall the crests were next
+ * to how much text there was, so cards differed, and a long name broke mid-word
+ * ("(TEAMSMULDERS.CO" / "M)") or left one word alone on a line. On a phone the
+ * layout is fixed instead: smaller crests, the date and score between them, and
+ * the title always below, at the card's full width, where `text-wrap: balance`
+ * can even the lines out. The float box matches its image so no dead space is
+ * left beside the date.
+ */
+@media (max-width: 480px) {
+
+	.sp-event-blocks .team-logo {
+		width: 44px;
+		margin: 0 var(--bl-space-2);
+	}
+
+	.sp-event-blocks .team-logo img {
+		width: 100%;
+		height: auto;
+	}
+
+	.sp-event-blocks .sp-event-title {
+		clear: both;
+	}
+}
+
 .sp-event-calendar .sp-highlight {
 	border-radius: 50%;
 }
@@ -806,9 +834,13 @@ table.sp-event-venue :is(th, td) {
  * goalie's row wider than every other row. flex-wrap so a badge drops to
  * its own line rather than forcing the cell (and so the whole table) wider
  * than the other columns need; .sp-data-table's own `white-space: nowrap`
- * default is overridden back to normal here for exactly that reason.
+ * default is overridden back to normal here for exactly that reason. The
+ * selector is `td.` + class, not the bare class: `.sp-data-table td` is more
+ * specific than a lone class, so the bare rule never applied -- the cell
+ * stayed nowrap and name, photo and badge held one 190px+ line that pushed
+ * the stat columns off a phone screen.
  */
-.bl-sp-roster__name-cell {
+.bl-sp-roster td.bl-sp-roster__name-cell {
 	white-space: normal;
 }
 
@@ -936,6 +968,129 @@ td.bl-sp-roster__stat {
 	.bl-sp-roster td:nth-child(3),
 	.bl-sp-roster th:last-child,
 	.bl-sp-roster td:last-child {
+		display: none;
+	}
+
+	/* Tighter cells and a text-size name leave the Player column room for
+	   a full name beside G / A / PTS at 360-390px, with no sideways scroll. */
+	table.bl-sp-roster :is(th, td) {
+		padding-inline: var(--bl-space-2);
+	}
+
+	.bl-sp-roster__name {
+		font-size: var(--bl-text-base);
+	}
+}
+
+/* Phones: the photo costs ~40px a row (and the same slot on photo-less
+   rows), which makes most names wrap. The name and the stats are the point. */
+@media (max-width: 480px) {
+
+	.bl-sp-roster__photo {
+		display: none;
+	}
+
+	.bl-sp-roster:has(.bl-sp-roster__photo) .bl-sp-roster__name:not(:has(.bl-sp-roster__photo))::before {
+		content: none;
+	}
+}
+
+/*
+ * An event page's details row (Date / Time / Division / Season), its result
+ * table and its box score sat at max-content, 459px, 311px and 485px in boxes
+ * of 317px or less, so Season, Outcome and the stats were behind a sideways
+ * scroll. Let them fill their box (the generic min-width: max-content is what
+ * held them wide), tighten the cells, and let a name wrap. The box score drops
+ * what a phone reader needs least: Position says
+ * "Skater" on almost every row, and PIM is the least-read figure, which is the
+ * same order the team roster uses. Goals, assists and goals against stay.
+ */
+@media (max-width: 700px) {
+
+	table.sp-event-details,
+	table.sp-event-results,
+	table.sp-event-performance {
+		width: 100%;
+		min-width: 0;
+	}
+
+	table.sp-event-results :is(th, td) {
+		padding-inline: var(--bl-space-2);
+		white-space: normal;
+	}
+
+	/*
+	 * The details row is four facts, so show them two by two, each label over
+	 * its value, instead of four narrow columns whose values broke mid-word
+	 * ("W2025-" / "26", "7:45" / "pm"). thead, tbody and tr drop out of the box
+	 * tree so each th and td is a grid item, placed by its position: items 1-2
+	 * take the first pair of rows, 3-4 the second, 5-6 a third.
+	 */
+	table.sp-event-details {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	table.sp-event-details :is(thead, tbody, tr) {
+		display: contents;
+	}
+
+	table.sp-event-details :is(th, td) {
+		padding-inline: var(--bl-space-2);
+		border: 0;
+		text-align: start;
+		white-space: normal;
+	}
+
+	table.sp-event-details th {
+		padding-block: var(--bl-space-2) 0;
+	}
+
+	table.sp-event-details td {
+		padding-block: 0 var(--bl-space-2);
+	}
+
+	table.sp-event-details :is(th, td):nth-child(odd) {
+		grid-column: 1;
+	}
+
+	table.sp-event-details :is(th, td):nth-child(even) {
+		grid-column: 2;
+	}
+
+	table.sp-event-details th:nth-child(-n+2) {
+		grid-row: 1;
+	}
+
+	table.sp-event-details td:nth-child(-n+2) {
+		grid-row: 2;
+	}
+
+	table.sp-event-details th:nth-child(n+3):nth-child(-n+4) {
+		grid-row: 3;
+	}
+
+	table.sp-event-details td:nth-child(n+3):nth-child(-n+4) {
+		grid-row: 4;
+	}
+
+	table.sp-event-details th:nth-child(n+5):nth-child(-n+6) {
+		grid-row: 5;
+	}
+
+	table.sp-event-details td:nth-child(n+5):nth-child(-n+6) {
+		grid-row: 6;
+	}
+
+	table.sp-event-performance :is(th, td) {
+		padding-inline: var(--bl-space-2);
+	}
+
+	table.sp-event-performance td.data-name {
+		white-space: normal;
+	}
+
+	table.sp-event-performance :is(th, td):is(.data-position, .data-pim) {
 		display: none;
 	}
 }
@@ -2562,14 +2717,19 @@ table.sp-event-statistics.sp-data-table {
  * people never find. Same reading order as the homepage's Next games cards:
  *
  *   6:45 pm                        [result]
- *   [crest] Home  vs  [crest] Away
+ *      [crest] Home
+ *   vs [crest] Away
  *   Arena — Pad
  *
  * The row becomes a wrapping flex line rather than a grid: `order` moves the
  * Result cell up beside the time, the row's ::before is a full-width break
- * after them, and when both names do not fit on one line the away team drops
- * to its own line instead of either being squeezed. Once the table has room
- * for its minimum width, the table and its mirrored crest lockup are unchanged.
+ * after them, and each team takes a line of its own. Every card is the same
+ * shape: with both teams on one line, a long pair wrapped "vs Away" onto a
+ * second line and the cards differed in height and alignment. The crests and
+ * names share a column, "vs" hangs in the gutter beside the away team, and a
+ * name has the card's full width, so it neither wraps nor breaks mid-word.
+ * Once the table has room for its minimum width, the table and its mirrored
+ * crest lockup are unchanged.
  *
  * The switch follows the schedule's own width, not the viewport's: the table's
  * minimum is --bl-sched-total rem (41rem with the default columns, above), and
@@ -2674,12 +2834,19 @@ table.sp-event-statistics.sp-data-table {
 		display: none;
 	}
 
+	/*
+	 * One line per team in three columns: a "vs" gutter, a crest, and the name.
+	 * Team links are off by default (sportspress_link_teams), and then the cell
+	 * holds a bare crest span and a bare name span instead of one link around
+	 * both, so each is placed in its own column; a link takes the last two.
+	 */
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home,
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away {
-		display: flex;
+		display: grid;
+		grid-template-columns: 1.75rem 2rem minmax(0, 1fr);
 		align-items: center;
 		gap: var(--bl-space-2);
-		flex: 0 1 auto;
+		flex: 1 0 100%;
 		width: auto;
 		font-weight: 600;
 	}
@@ -2690,15 +2857,40 @@ table.sp-event-statistics.sp-data-table {
 
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away {
 		order: 5;
+		margin-block-start: var(--bl-space-1);
 	}
 
+	/* Home has no "vs", so its crest starts in the second column like Away's. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home a,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away a {
+		grid-column: 2 / -1;
+		grid-row: 1;
+	}
+
+	/* Links off: a bare crest and name, in whatever order they are emitted. */
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home > .team-logo,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away > .team-logo {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home > .bl-sp-team-name,
+	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away > .bl-sp-team-name {
+		grid-column: 3;
+		grid-row: 1;
+	}
+
+	/* The "vs" hangs in the gutter, next to the away crest. */
 	.sp-event-list.bl-sp-schedule .bl-sp-schedule__vs {
 		display: inline;
+		grid-column: 1;
+		grid-row: 1;
+		justify-self: end;
 		color: var(--bl-content-text-secondary);
 		font-weight: 400;
 	}
 
-	/* Crest first in both, as in "Home vs Away": nothing to mirror. */
+	/* Crest first in both: nothing to mirror. */
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-home a,
 	.sp-event-list.bl-sp-schedule tbody tr.sp-row > td.data-away a {
 		flex-direction: row;
