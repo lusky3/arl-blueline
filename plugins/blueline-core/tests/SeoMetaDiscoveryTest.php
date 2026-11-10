@@ -598,6 +598,70 @@ final class SeoMetaDiscoveryTest extends TestCase {
 	}
 
 	/**
+	 * A post type archive reached by query vars (`/?post_type=product&orderby=price`) names the post type's
+	 * own archive (the shop), not the path it was requested on (the home page). Audit PLG-04.
+	 */
+	public function test_query_var_post_type_archive_names_its_own_archive(): void {
+		$GLOBALS['bl_test_options']['permalink_structure'] = '/%postname%/';
+		$state                                  = &blueline_test_state();
+		$state['request']['archive']            = true;
+		$state['request']['vars']['post_type']  = 'product';
+		$state['request']['query']              = 'post_type=product&orderby=price';
+		$state['post_type_archives']['product'] = 'https://example.test/shop/';
+
+		$this->assertSame( 'https://example.test/shop/', blueline_core_seo_archive_canonical_url() );
+		$this->assertStringContainsString( '<meta property="og:url" content="https://example.test/shop/">', $this->render_head() );
+
+		$state['request']['paged'] = 2;
+		$this->assertSame( 'https://example.test/shop/page/2/', blueline_core_seo_archive_canonical_url() );
+	}
+
+	/**
+	 * A post type with no archive of its own (`/?post_type=sp_event`) gets no canonical rather than the
+	 * home page's.
+	 */
+	public function test_query_var_post_type_without_an_archive_gets_no_canonical(): void {
+		$GLOBALS['bl_test_options']['permalink_structure'] = '/%postname%/';
+		$state                                 = &blueline_test_state();
+		$state['request']['home']              = true;
+		$state['request']['vars']['post_type'] = 'sp_event';
+
+		$this->assertSame( '', blueline_core_seo_archive_canonical_url() );
+		$this->assertStringNotContainsString( 'rel="canonical"', $this->render_head() );
+	}
+
+	/**
+	 * A term archive is named by its term link, whatever address it was reached on.
+	 */
+	public function test_term_archive_names_its_term_link(): void {
+		$GLOBALS['bl_test_options']['permalink_structure'] = '/%postname%/';
+		$state                      = &blueline_test_state();
+		$state['request']['tax']    = 'sp_venue';
+		$state['request']['object'] = (object) array(
+			'term_id'  => 9,
+			'taxonomy' => 'sp_venue',
+		);
+		$state['request']['query']  = 'sp_venue=rink';
+		$state['term_links'][9]     = 'https://example.test/venue/rink/';
+		$state['request']['paged']  = 3;
+
+		$this->assertSame( 'https://example.test/venue/rink/page/3/', blueline_core_seo_archive_canonical_url() );
+	}
+
+	/**
+	 * The blog index is named by the posts page's permalink.
+	 */
+	public function test_posts_page_names_its_permalink(): void {
+		$GLOBALS['bl_test_options']['permalink_structure'] = '/%postname%/';
+		$GLOBALS['bl_test_options']['page_for_posts']      = 1725;
+		$state                             = &blueline_test_state();
+		$state['request']['home']          = true;
+		$state['posts'][1725]['permalink'] = 'https://example.test/news/';
+
+		$this->assertSame( 'https://example.test/news/', blueline_core_seo_archive_canonical_url() );
+	}
+
+	/**
 	 * Search results, 404s, singular pages and plain requests print none (core handles singular pages).
 	 */
 	public function test_no_canonical_on_search_404_or_singular_pages(): void {
