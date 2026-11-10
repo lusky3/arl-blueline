@@ -396,9 +396,9 @@ final class CspReportTest extends TestCase {
 			return $store;
 		};
 
-		$store = $add( $store, 'https://a.test', 3, '2026-10-01' );
-		$store = $add( $store, 'https://b.test', 1, '2026-10-02' );
-		$store = $add( $store, 'https://c.test', 1, '2026-10-03' );
+		$store = $add( $store, 'https://a.test', 3, '2026-09-01' );
+		$store = $add( $store, 'https://b.test', 1, '2026-09-02' );
+		$store = $add( $store, 'https://c.test', 1, '2026-09-03' );
 		$store = $add( $store, 'https://d.test', 1, '2026-10-04' );
 
 		$blocked = array_column( $store['entries'], 'blocked' );
@@ -408,6 +408,143 @@ final class CspReportTest extends TestCase {
 		$this->assertContains( 'https://c.test', $blocked );
 		$this->assertContains( 'https://d.test', $blocked );
 		$this->assertSame( 6, $store['total'] );
+	}
+
+	/**
+	 * A row seen within the last BLUELINE_CORE_CSP_REPORT_EVICT_AFTER_DAYS days is never evicted, however
+	 * many new rows arrive or however often they are reported: when nothing is old enough, the new report
+	 * is dropped instead (audit PLG-02).
+	 */
+	public function test_recent_rows_are_never_evicted(): void {
+		$report = static fn( string $blocked ): array => array(
+			'directive' => 'img-src',
+			'blocked'   => $blocked,
+			'path'      => '/',
+		);
+
+		$store = blueline_core_csp_empty_store();
+		$store = blueline_core_csp_add_to_store( $store, $report( 'https://real.test' ), '2026-10-10', 2 );
+		$store = blueline_core_csp_add_to_store( $store, $report( 'https://old.test' ), '2026-10-01', 2 );
+
+		// Junk pumped many times on the newest day evicts only the row not seen for a week or more.
+		for ( $i = 0; $i < 50; $i++ ) {
+			$store = blueline_core_csp_add_to_store( $store, $report( 'https://junk' . $i . '.test' ), '2026-10-12', 2 );
+		}
+
+		$blocked = array_column( $store['entries'], 'blocked' );
+		$this->assertSame( array( 'https://real.test', 'https://junk0.test' ), $blocked );
+		$this->assertSame( 3, $store['total'], 'a dropped report is not counted' );
+		$this->assertSame( 7, BLUELINE_CORE_CSP_REPORT_EVICT_AFTER_DAYS );
+	}
+
+	/**
+	 * A flood of junk from real pages cannot replace real rows through the endpoint either.
+	 */
+	public function test_a_flood_cannot_evict_a_real_row(): void {
+		$store = blueline_core_csp_empty_store();
+		$store = blueline_core_csp_add_to_store(
+			$store,
+			array(
+				'directive' => 'script-src-elem',
+				'blocked'   => 'https://real.test',
+				'path'      => '/schedule/',
+			),
+			gmdate( 'Y-m-d', time() - 2 * DAY_IN_SECONDS ),
+			BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES
+		);
+		update_option( BLUELINE_CORE_CSP_REPORT_OPTION, $store, false );
+
+		$fill = (int) ceil( ( BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES + 20 ) / BLUELINE_CORE_CSP_REPORT_MAX_PER_BATCH );
+		for ( $r = 0; $r < $fill; $r++ ) {
+			$_SERVER['REMOTE_ADDR'] = '198.51.100.' . $r;
+			$batch                  = array();
+			for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_MAX_PER_BATCH; $i++ ) {
+				$batch[] = $this->api_report( 'img-src', 'https://a' . $r . '-' . $i . '.test/x.png', 'https://example.test/schedule' );
+			}
+			blueline_core_csp_report_handle( $this->request( 'application/reports+json', (string) wp_json_encode( $batch ), 'Agent ' . $r ) );
+		}
+
+		$this->assertContains( 'https://real.test', array_column( blueline_core_csp_store()['entries'], 'blocked' ) );
+	}
+
+	/**
+	 * At most BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY new rows are added per UTC day; rows already
+	 * stored are still counted.
+	 */
+	public function test_new_rows_per_day_are_capped(): void {
+		$store = blueline_core_csp_empty_store();
+		for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY + 5; $i++ ) {
+			$store = blueline_core_csp_add_to_store(
+				$store,
+				array(
+					'directive' => 'img-src',
+					'blocked'   => 'https://n' . $i . '.test',
+					'path'      => '/',
+				),
+				'2026-10-12',
+				BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES
+			);
+		}
+
+		$this->assertCount( BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY, $store['entries'] );
+
+		$store = blueline_core_csp_add_to_store(
+			$store,
+			array(
+				'directive' => 'img-src',
+				'blocked'   => 'https://n0.test',
+				'path'      => '/',
+			),
+			'2026-10-12',
+			BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES
+		);
+		$this->assertSame( 2, $store['entries']['img-src https://n0.test /']['count'], 'a known row is still counted' );
+
+		$store = blueline_core_csp_add_to_store(
+			$store,
+			array(
+				'directive' => 'img-src',
+				'blocked'   => 'https://next-day.test',
+				'path'      => '/',
+			),
+			'2026-10-13',
+			BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES
+		);
+		$this->assertArrayHasKey( 'img-src https://next-day.test /', $store['entries'], 'the allowance resets the next day' );
+	}
+
+	/**
+	 * One request looks up at most BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS distinct new page paths.
+	 */
+	public function test_page_lookups_per_request_are_capped(): void {
+		$lookups = 0;
+		add_filter(
+			'blueline_core_csp_report_path_resolves',
+			static function () use ( &$lookups ) {
+				++$lookups;
+				return true;
+			}
+		);
+
+		$batch = array();
+		for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_MAX_PER_BATCH; $i++ ) {
+			$batch[] = $this->api_report( 'img-src', 'https://img.test/x.png', 'https://example.test/page-' . $i );
+		}
+		blueline_core_csp_report_handle( $this->request( 'application/reports+json', (string) wp_json_encode( $batch ) ) );
+
+		$this->assertSame( BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS, $lookups );
+		$this->assertCount( BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS, blueline_core_csp_store()['entries'] );
+	}
+
+	/**
+	 * With the CSP switched off nothing sends reports, so the public route is not registered at all.
+	 */
+	public function test_route_not_registered_when_csp_is_off(): void {
+		add_filter( 'blueline_core_csp_mode', static fn() => 'off' );
+
+		do_action( 'rest_api_init' );
+
+		$this->assertArrayNotHasKey( '/csp-report', $GLOBALS['bl_core_test_rest_routes']['blueline/v1'] ?? array() );
 	}
 
 	/**
@@ -432,20 +569,22 @@ final class CspReportTest extends TestCase {
 	}
 
 	/**
-	 * Each visitor may send a limited number of reports per window; another visitor is unaffected.
+	 * Each address may send a limited number of reports per window; another address is unaffected.
+	 * The limit is per address, not per user agent: a client that changes its User-Agent on every
+	 * request still runs out (audit PLG-02).
 	 */
 	public function test_rate_limit(): void {
 		for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_RATE_LIMIT; $i++ ) {
-			$this->assertSame( 204, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) ) ), "request $i" );
+			$this->assertSame( 204, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body(), 'Agent ' . $i ) ) ), "request $i" );
 		}
 
 		$this->assertSame( 429, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) ) ) );
-		$this->assertSame( 204, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body(), 'Other browser' ) ) ) );
+		$this->assertSame( 429, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body(), 'Other browser' ) ) ), 'a new user agent is not a new allowance' );
 
 		$_SERVER['REMOTE_ADDR'] = '198.51.100.1';
 		$this->assertSame( 204, $this->http_status( blueline_core_csp_report_handle( $this->request( 'application/csp-report', $this->legacy_body() ) ) ) );
 
-		$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_LIMIT + 2, blueline_core_csp_store()['total'] );
+		$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_LIMIT + 1, blueline_core_csp_store()['total'] );
 	}
 
 	/**
@@ -455,16 +594,16 @@ final class CspReportTest extends TestCase {
 	 */
 	public function test_rate_limit_window_is_fixed(): void {
 		$start = gmmktime( 12, 0, 0, 10, 15, 2026 );
-		$key   = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-15' ), 0, 24 );
+		$key   = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( self::IP, '2026-10-15' ), 0, 24 );
 
 		for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_RATE_LIMIT; $i++ ) {
 			$now = $start + $i * 15;
-			$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $now ), "request $i" );
+			$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, $now ), "request $i" );
 			$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_WINDOW - $i * 15, $GLOBALS['bl_test_transient_ttl'][ $key ], "ttl after request $i" );
 		}
 
-		$this->assertFalse( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $start + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW - 1 ) );
-		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $start + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW ) );
+		$this->assertFalse( blueline_core_csp_report_allow_visitor( self::IP, $start + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW - 1 ) );
+		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, $start + BLUELINE_CORE_CSP_REPORT_RATE_WINDOW ) );
 		$this->assertSame( BLUELINE_CORE_CSP_REPORT_RATE_WINDOW, $GLOBALS['bl_test_transient_ttl'][ $key ] );
 	}
 
@@ -474,10 +613,10 @@ final class CspReportTest extends TestCase {
 	 */
 	public function test_rate_limit_ignores_damaged_counters(): void {
 		$now = gmmktime( 12, 0, 0, 10, 15, 2026 );
-		$key = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-15' ), 0, 24 );
+		$key = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( self::IP, '2026-10-15' ), 0, 24 );
 
 		set_transient( $key, 999, 600 );
-		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $now ) );
+		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, $now ) );
 		$this->assertSame(
 			array(
 				'count' => 1,
@@ -494,7 +633,7 @@ final class CspReportTest extends TestCase {
 			),
 			600
 		);
-		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, self::UA, $now ) );
+		$this->assertTrue( blueline_core_csp_report_allow_visitor( self::IP, $now ) );
 	}
 
 	/**
@@ -621,15 +760,15 @@ final class CspReportTest extends TestCase {
 	}
 
 	/**
-	 * The visitor key is a keyed hash that changes every day and never contains the address.
+	 * The visitor key is a keyed hash of the address that changes every day and never contains it.
 	 */
 	public function test_visitor_key(): void {
-		$today    = blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-14' );
-		$tomorrow = blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-15' );
+		$today    = blueline_core_csp_visitor_key( self::IP, '2026-10-14' );
+		$tomorrow = blueline_core_csp_visitor_key( self::IP, '2026-10-15' );
 
 		$this->assertNotSame( $today, $tomorrow );
-		$this->assertSame( $today, blueline_core_csp_visitor_key( self::IP, self::UA, '2026-10-14' ) );
-		$this->assertNotSame( $today, blueline_core_csp_visitor_key( self::IP, 'Other', '2026-10-14' ) );
+		$this->assertSame( $today, blueline_core_csp_visitor_key( self::IP, '2026-10-14' ) );
+		$this->assertNotSame( $today, blueline_core_csp_visitor_key( '198.51.100.1', '2026-10-14' ) );
 		$this->assertStringNotContainsString( self::IP, $today );
 	}
 

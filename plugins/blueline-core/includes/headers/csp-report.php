@@ -2,16 +2,22 @@
 /**
  * Collects Content-Security-Policy violation reports: `POST /wp-json/blueline/v1/csp-report`.
  *
- * Browsers post reports without a nonce (and usually without cookies), so the route is public. What keeps
- * it cheap and harmless: only the three report content types are accepted, the body is size-capped, each
- * visitor is rate-limited, and every report is validated and reduced before anything is stored.
+ * Browsers post reports without a nonce (and usually without cookies), so the route is public (and is only
+ * registered while the CSP mode is not 'off'). What keeps it cheap and harmless: only the three report
+ * content types are accepted, the body is size-capped, each address is rate-limited, each request looks up
+ * at most BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS new page paths, and every report is validated and reduced
+ * before anything is stored.
  *
  * What is stored: one non-autoloaded option of counts per (directive, blocked origin or keyword, page path),
- * capped at BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES, least-seen (then oldest) evicted first. A new entry is only
- * added for a page the site really serves, so made-up paths cannot crowd out real rows. Never a full URL, a
- * query string, an IP address or a user agent. The rate limiter (a fixed window per visitor) keys a
- * short-lived transient on a keyed hash of address + user agent + today's date, so the key cannot be
- * reversed or linked across days.
+ * capped at BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES. A new entry is only added for a page the site really
+ * serves, at most BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY new entries a day, and when the store is full it
+ * only replaces an entry not seen for BLUELINE_CORE_CSP_REPORT_EVICT_AFTER_DAYS days (least-seen, then
+ * oldest, first); otherwise the new report is dropped. Anyone can post made-up origins for a real page, so
+ * this is what stops a flood from pushing out violations that are still happening. Never a full URL, a
+ * query string, an IP address or a user agent. The rate limiter (a fixed window per address) keys a
+ * short-lived transient on a keyed hash of the address + today's date, so the key cannot be reversed or
+ * linked across days. It is not keyed on the user agent: a client chooses that, so a new one per request
+ * would be a new allowance per request.
  *
  * Read the result with `wp blueline-core csp report`, or the top five in Tools > Site Health.
  *
@@ -29,6 +35,12 @@ const BLUELINE_CORE_CSP_REPORT_MAX_PER_BATCH = 20;
 const BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES   = 200;
 const BLUELINE_CORE_CSP_REPORT_RATE_LIMIT    = 30;
 const BLUELINE_CORE_CSP_REPORT_RATE_WINDOW   = 600;
+// New page paths one request may look up (each lookup costs queries); a browser's batch is about one page.
+const BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS = 3;
+// New entries the store accepts per UTC day, so filling it takes days and a burst shows as dropped reports.
+const BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY = 50;
+// A full store only replaces an entry not reported for this many days: one still happening is never evicted.
+const BLUELINE_CORE_CSP_REPORT_EVICT_AFTER_DAYS = 7;
 // The site's deepest pages are dated posts and paged term archives (`/category/news/page/2/`): four segments.
 const BLUELINE_CORE_CSP_REPORT_MAX_SEGMENTS = 6;
 
@@ -70,6 +82,11 @@ add_action( 'rest_api_init', 'blueline_core_csp_register_report_route' );
  * @return void
  */
 function blueline_core_csp_register_report_route(): void {
+	// No policy is sent when the mode is off, so no browser reports: keep the public route closed.
+	if ( 'off' === blueline_core_csp_mode() ) {
+		return;
+	}
+
 	register_rest_route(
 		'blueline/v1',
 		'/csp-report',
@@ -101,7 +118,7 @@ function blueline_core_csp_report_handle( $request ) {
 	}
 
 	$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-	if ( ! blueline_core_csp_report_allow_visitor( $ip, (string) $request->get_header( 'user_agent' ) ) ) {
+	if ( ! blueline_core_csp_report_allow_visitor( $ip ) ) {
 		return new WP_Error( 'blueline_csp_rate_limited', __( 'Too many reports.', 'blueline-core' ), array( 'status' => 429 ) );
 	}
 
@@ -118,20 +135,22 @@ function blueline_core_csp_report_handle( $request ) {
 }
 
 /**
- * Count one request against the visitor's allowance.
+ * Count one request against the address's allowance.
  *
- * The window is fixed: it opens with the visitor's first request and closes BLUELINE_CORE_CSP_REPORT_RATE_WINDOW
+ * Keyed on the address alone: the user agent is whatever the client says, so keying on it would hand a
+ * fresh allowance to every request that changes it.
+ *
+ * The window is fixed: it opens with the address's first request and closes BLUELINE_CORE_CSP_REPORT_RATE_WINDOW
  * seconds later, and the counter only lives for what is left of it. Refreshing the lifetime on every request
  * would make it a sliding window, which locks out a browser that keeps reporting at a steady trickle.
  *
- * @param string   $ip         Remote address (never stored).
- * @param string   $user_agent User agent (never stored).
- * @param int|null $now        Unix time; null for now.
- * @return bool False once the visitor has sent BLUELINE_CORE_CSP_REPORT_RATE_LIMIT requests in the window.
+ * @param string   $ip  Remote address (never stored).
+ * @param int|null $now Unix time; null for now.
+ * @return bool False once the address has sent BLUELINE_CORE_CSP_REPORT_RATE_LIMIT requests in the window.
  */
-function blueline_core_csp_report_allow_visitor( string $ip, string $user_agent, ?int $now = null ): bool {
+function blueline_core_csp_report_allow_visitor( string $ip, ?int $now = null ): bool {
 	$now    = $now ?? time();
-	$key    = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( $ip, $user_agent, gmdate( 'Y-m-d', $now ) ), 0, 24 );
+	$key    = 'bl_csp_rl_' . substr( blueline_core_csp_visitor_key( $ip, gmdate( 'Y-m-d', $now ) ), 0, 24 );
 	$stored = get_transient( $key );
 	$window = array(
 		'count' => 0,
@@ -158,16 +177,15 @@ function blueline_core_csp_report_allow_visitor( string $ip, string $user_agent,
 }
 
 /**
- * A visitor's rate-limit key: a hash keyed with the site's secret salt, over the address, user agent and
- * day, so it identifies the same browser for a day and cannot be reversed or linked to the next day.
+ * An address's rate-limit key: a hash keyed with the site's secret salt, over the address and day, so it
+ * identifies the same address for a day and cannot be reversed or linked to the next day.
  *
- * @param string $ip         Remote address.
- * @param string $user_agent User agent.
- * @param string $day        Y-m-d (UTC).
+ * @param string $ip  Remote address.
+ * @param string $day Y-m-d (UTC).
  * @return string
  */
-function blueline_core_csp_visitor_key( string $ip, string $user_agent, string $day ): string {
-	return wp_hash( 'blueline-csp|' . $day . '|' . $ip . '|' . $user_agent );
+function blueline_core_csp_visitor_key( string $ip, string $day ): string {
+	return wp_hash( 'blueline-csp|' . $day . '|' . $ip );
 }
 
 /**
@@ -407,22 +425,24 @@ function blueline_core_csp_path_resolves( string $path ): bool {
 }
 
 /**
- * An empty store.
+ * An empty store. `new_day` / `new_count` track how many entries were added on the current UTC day.
  *
- * @return array{since: string, total: int, entries: array<string, array>}
+ * @return array{since: string, total: int, new_day: string, new_count: int, entries: array<string, array>}
  */
 function blueline_core_csp_empty_store(): array {
 	return array(
-		'since'   => '',
-		'total'   => 0,
-		'entries' => array(),
+		'since'     => '',
+		'total'     => 0,
+		'new_day'   => '',
+		'new_count' => 0,
+		'entries'   => array(),
 	);
 }
 
 /**
  * The stored counts, normalised (a damaged value reads as empty).
  *
- * @return array{since: string, total: int, entries: array<string, array{directive: string, blocked: string, path: string, count: int, last: string}>}
+ * @return array{since: string, total: int, new_day: string, new_count: int, entries: array<string, array{directive: string, blocked: string, path: string, count: int, last: string}>}
  */
 function blueline_core_csp_store(): array {
 	$stored = get_option( BLUELINE_CORE_CSP_REPORT_OPTION, array() );
@@ -432,8 +452,10 @@ function blueline_core_csp_store(): array {
 		return $store;
 	}
 
-	$store['since'] = is_string( $stored['since'] ?? null ) ? $stored['since'] : '';
-	$store['total'] = max( 0, (int) ( $stored['total'] ?? 0 ) );
+	$store['since']     = is_string( $stored['since'] ?? null ) ? $stored['since'] : '';
+	$store['total']     = max( 0, (int) ( $stored['total'] ?? 0 ) );
+	$store['new_day']   = is_string( $stored['new_day'] ?? null ) ? $stored['new_day'] : '';
+	$store['new_count'] = max( 0, (int) ( $stored['new_count'] ?? 0 ) );
 
 	foreach ( (array) ( $stored['entries'] ?? array() ) as $key => $entry ) {
 		if ( ! is_array( $entry ) || ! isset( $entry['directive'], $entry['blocked'], $entry['path'] ) ) {
@@ -463,8 +485,10 @@ function blueline_core_csp_entry_key( array $report ): string {
 }
 
 /**
- * Add one report to a store. Pure. When the store is full, the least-seen entry (the oldest of equally
- * rare ones) makes room.
+ * Add one report to a store. Pure. A report that would start a new entry is dropped (the store comes back
+ * unchanged) when BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY entries were already added on $day, or when the
+ * store is full and no entry has gone BLUELINE_CORE_CSP_REPORT_EVICT_AFTER_DAYS days unseen. Otherwise a full
+ * store makes room by evicting the least-seen of those stale entries (the oldest of equally rare ones).
  *
  * @param array                                                   $store  blueline_core_csp_store() shape.
  * @param array{directive: string, blocked: string, path: string} $report One normalised report.
@@ -476,15 +500,34 @@ function blueline_core_csp_add_to_store( array $store, array $report, string $da
 	$key = blueline_core_csp_entry_key( $report );
 
 	if ( ! isset( $store['entries'][ $key ] ) ) {
+		$new_today = ( $store['new_day'] ?? '' ) === $day ? (int) ( $store['new_count'] ?? 0 ) : 0;
+		if ( $new_today >= BLUELINE_CORE_CSP_REPORT_MAX_NEW_PER_DAY ) {
+			return $store;
+		}
+
 		$excess = count( $store['entries'] ) - max( 1, $max ) + 1;
-		for ( $i = 0; $i < $excess; $i++ ) {
-			unset( $store['entries'][ blueline_core_csp_least_seen_key( $store['entries'] ) ] );
+		if ( $excess > 0 ) {
+			$stale_before = gmdate( 'Y-m-d', (int) strtotime( $day . ' 00:00:00 UTC' ) - BLUELINE_CORE_CSP_REPORT_EVICT_AFTER_DAYS * DAY_IN_SECONDS );
+			$stale        = array_filter(
+				$store['entries'],
+				static fn( array $entry ): bool => strcmp( $entry['last'], $stale_before ) <= 0
+			);
+			if ( count( $stale ) < $excess ) {
+				return $store;
+			}
+
+			for ( $i = 0; $i < $excess; $i++ ) {
+				$evict = blueline_core_csp_least_seen_key( $stale );
+				unset( $store['entries'][ $evict ], $stale[ $evict ] );
+			}
 		}
 
 		$store['entries'][ $key ] = $report + array(
 			'count' => 0,
 			'last'  => $day,
 		);
+		$store['new_day']         = $day;
+		$store['new_count']       = $new_today + 1;
 	}
 
 	++$store['entries'][ $key ]['count'];
@@ -515,9 +558,10 @@ function blueline_core_csp_least_seen_key( array $entries ): string {
 
 /**
  * Count reports in the stored option. A report that would add a new entry is only counted when its page
- * is one of the site's (blueline_core_csp_path_resolves()); one already in the store was checked when it
- * was added. Two simultaneous requests can each miss the other's count; for a report of what is broken,
- * that loss does not matter, and it avoids locking on a public endpoint.
+ * is one of the site's (blueline_core_csp_path_resolves()), at most BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS
+ * distinct paths per request, and when blueline_core_csp_add_to_store() finds room for it; one already in
+ * the store was checked when it was added. Two simultaneous requests can each miss the other's count; for
+ * a report of what is broken, that loss does not matter, and it avoids locking on a public endpoint.
  *
  * @param array<int, array{directive: string, blocked: string, path: string}> $reports Normalised reports.
  * @return int How many reports were counted.
@@ -529,15 +573,24 @@ function blueline_core_csp_record( array $reports ): int {
 	$counted  = 0;
 
 	foreach ( $reports as $report ) {
-		if ( ! isset( $store['entries'][ blueline_core_csp_entry_key( $report ) ] ) ) {
-			$resolved[ $report['path'] ] ??= blueline_core_csp_path_resolves( $report['path'] );
+		$key = blueline_core_csp_entry_key( $report );
+
+		if ( ! isset( $store['entries'][ $key ] ) ) {
+			if ( ! isset( $resolved[ $report['path'] ] ) ) {
+				if ( count( $resolved ) >= BLUELINE_CORE_CSP_REPORT_MAX_LOOKUPS ) {
+					continue;
+				}
+				$resolved[ $report['path'] ] = blueline_core_csp_path_resolves( $report['path'] );
+			}
 			if ( ! $resolved[ $report['path'] ] ) {
 				continue;
 			}
 		}
 
 		$store = blueline_core_csp_add_to_store( $store, $report, gmdate( 'Y-m-d', $now ), BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES );
-		++$counted;
+		if ( isset( $store['entries'][ $key ] ) ) {
+			++$counted;
+		}
 	}
 
 	if ( $counted ) {
