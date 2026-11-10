@@ -39,6 +39,17 @@ final class EventPageMobileTest extends TestCase {
 	}
 
 	/**
+	 * The details row is shown two by two, each label over its value.
+	 */
+	public function test_event_details_are_a_two_by_two_grid_on_phones(): void {
+		$css = $this->css();
+
+		$this->assertMatchesRegularExpression( '/table\.sp-event-details \{\s*display: grid;\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/', $css );
+		$this->assertMatchesRegularExpression( '/table\.sp-event-details :is\(thead, tbody, tr\) \{\s*display: contents;/', $css );
+		$this->assertMatchesRegularExpression( '/table\.sp-event-details th:nth-child\(-n\+2\) \{\s*grid-row: 1;.*?table\.sp-event-details td:nth-child\(-n\+2\) \{\s*grid-row: 2;/s', $css );
+	}
+
+	/**
 	 * The box score drops Position and PIM on phones, and keeps the stat columns.
 	 */
 	public function test_box_score_drops_position_and_pim_only(): void {

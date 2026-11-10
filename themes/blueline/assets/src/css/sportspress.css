@@ -987,10 +987,72 @@ td.bl-sp-roster__stat {
 		min-width: 0;
 	}
 
-	table.sp-event-details :is(th, td),
 	table.sp-event-results :is(th, td) {
 		padding-inline: var(--bl-space-2);
 		white-space: normal;
+	}
+
+	/*
+	 * The details row is four facts, so show them two by two, each label over
+	 * its value, instead of four narrow columns whose values broke mid-word
+	 * ("W2025-" / "26", "7:45" / "pm"). thead, tbody and tr drop out of the box
+	 * tree so each th and td is a grid item, placed by its position: items 1-2
+	 * take the first pair of rows, 3-4 the second, 5-6 a third.
+	 */
+	table.sp-event-details {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	table.sp-event-details :is(thead, tbody, tr) {
+		display: contents;
+	}
+
+	table.sp-event-details :is(th, td) {
+		padding-inline: var(--bl-space-2);
+		border: 0;
+		text-align: start;
+		white-space: normal;
+	}
+
+	table.sp-event-details th {
+		padding-block: var(--bl-space-2) 0;
+	}
+
+	table.sp-event-details td {
+		padding-block: 0 var(--bl-space-2);
+	}
+
+	table.sp-event-details :is(th, td):nth-child(odd) {
+		grid-column: 1;
+	}
+
+	table.sp-event-details :is(th, td):nth-child(even) {
+		grid-column: 2;
+	}
+
+	table.sp-event-details th:nth-child(-n+2) {
+		grid-row: 1;
+	}
+
+	table.sp-event-details td:nth-child(-n+2) {
+		grid-row: 2;
+	}
+
+	table.sp-event-details th:nth-child(n+3):nth-child(-n+4) {
+		grid-row: 3;
+	}
+
+	table.sp-event-details td:nth-child(n+3):nth-child(-n+4) {
+		grid-row: 4;
+	}
+
+	table.sp-event-details th:nth-child(n+5):nth-child(-n+6) {
+		grid-row: 5;
+	}
+
+	table.sp-event-details td:nth-child(n+5):nth-child(-n+6) {
+		grid-row: 6;
 	}
 
 	table.sp-event-performance :is(th, td) {
