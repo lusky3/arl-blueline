@@ -246,3 +246,79 @@ function blueline_release_manifest( string $version, string $style_css, string $
 		'changelog'    => $changelog,
 	);
 }
+
+/**
+ * Add the blueline-core zip to a manifest, so the manifest's signature covers
+ * the plugin too. The theme's updater ignores these two fields
+ * (blueline_updater_validate_manifest() keeps only its own keys).
+ *
+ * @param array<string, string> $manifest      Manifest from blueline_release_manifest().
+ * @param string                $plugin_zip    Plugin zip file name.
+ * @param string                $plugin_sha256 Hex digest of the plugin zip.
+ * @return array<string, string>
+ */
+function blueline_release_manifest_with_plugin( array $manifest, string $plugin_zip, string $plugin_sha256 ): array {
+	$manifest['plugin_zip']    = $plugin_zip;
+	$manifest['plugin_sha256'] = strtolower( $plugin_sha256 );
+
+	return $manifest;
+}
+
+/**
+ * Whether a blueline-core zip is the one a signed release manifest names.
+ *
+ * Same policy as blueline_release_signature_verdict() for the theme: while the
+ * theme trusts no release key (`not_required`), sites check integrity only, so
+ * a zip matching the manifest's sha256 passes with a warning. Once a key is
+ * listed, only a manifest the theme's own check verified counts: without that,
+ * the manifest is just another file in the same release.
+ *
+ * @param string $outcome       blueline_updater_check_manifest_signature() on the manifest.
+ * @param string $manifest_json The manifest's bytes.
+ * @param string $zip_name      The plugin zip's file name.
+ * @param string $zip_sha256    The plugin zip's sha256 (hex).
+ * @return array{ok: bool, level: string, message: string} `level` is a GitHub Actions command: notice, warning or error.
+ */
+function blueline_release_plugin_verdict( string $outcome, string $manifest_json, string $zip_name, string $zip_sha256 ): array {
+	$fail = static function ( string $message ): array {
+		return array(
+			'ok'      => false,
+			'level'   => 'error',
+			'message' => $message,
+		);
+	};
+
+	if ( 'verified' !== $outcome && 'not_required' !== $outcome ) {
+		return $fail( "manifest.json is not signed by a key in BLUELINE_RELEASE_PUBLIC_KEYS (result: '$outcome'), so it cannot vouch for $zip_name." );
+	}
+
+	$manifest = json_decode( $manifest_json, true );
+	$named    = is_array( $manifest ) && is_string( $manifest['plugin_zip'] ?? null ) ? $manifest['plugin_zip'] : '';
+	$expected = is_array( $manifest ) && is_string( $manifest['plugin_sha256'] ?? null ) ? strtolower( $manifest['plugin_sha256'] ) : '';
+
+	if ( '' === $named || 1 !== preg_match( '/^[0-9a-f]{64}$/', $expected ) ) {
+		return $fail( 'manifest.json does not cover a blueline-core zip (no plugin_zip / plugin_sha256): this release predates plugin signing.' );
+	}
+
+	if ( $named !== $zip_name ) {
+		return $fail( "manifest.json covers $named, not $zip_name." );
+	}
+
+	if ( ! hash_equals( $expected, strtolower( $zip_sha256 ) ) ) {
+		return $fail( "$zip_name does NOT match the manifest's plugin_sha256. Do not install it." );
+	}
+
+	if ( 'not_required' === $outcome ) {
+		return array(
+			'ok'      => true,
+			'level'   => 'warning',
+			'message' => "$zip_name matches manifest.json's plugin_sha256 ($expected), but the theme trusts no release key yet (BLUELINE_RELEASE_PUBLIC_KEYS is empty), so the signature was not checked: integrity only, not authenticity.",
+		);
+	}
+
+	return array(
+		'ok'      => true,
+		'level'   => 'notice',
+		'message' => "$zip_name matches the signed manifest (sha256 $expected).",
+	);
+}

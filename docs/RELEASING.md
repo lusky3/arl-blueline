@@ -10,12 +10,17 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
 
 ## How it fits together
 
-- `.github/workflows/release.yml` runs on a `v*` tag: **guard** (tag = `style.css`
-  `Version` = `BLUELINE_VERSION` = `package.json` `version`, and `CHANGELOG.md` has a section for it) ->
-  **build** (`npm run build`, `npm run check`, zip, `manifest.json`) -> **sign**
-  (`manifest.json.sig` when the `RELEASE_SIGNING_KEY` secret is set, then a check with
-  the theme's own keys; see [Release signing](#release-signing)) -> **publish**
-  (`gh release create`; `--prerelease` when the tag has a `-` suffix).
+- `.github/workflows/release.yml` runs on a `v*` tag: **guard** (the tagged commit is on
+  `main`; tag = `style.css` `Version` = `BLUELINE_VERSION` = `package.json` `version`, and
+  `CHANGELOG.md` has a section for it) -> **gate** (`npm ci`, `npm run build` and a check that
+  the committed `assets/dist/` is exactly that build, `npm run check`, the plugin's PHPUnit;
+  ships nothing) and, in parallel, **package** (both zips and `manifest.json`, on a runner that
+  installs no npm or Composer dependencies) -> **sign** (checks out `main`, re-checks that the
+  tag is on it, and signs with `main`'s scripts in the `release` environment; see
+  [Release signing](#release-signing)) -> **publish** (`gh release create`; `--prerelease`
+  when the tag has a `-` suffix).
+- A tag on a commit that is not on `main` (a branch commit, a fork's commit) fails the guard:
+  nothing is built, signed or published.
 - `themes/blueline/.distignore` is the one list of files that never ship. The rsync
   deploy and the release zip both read it. Besides tests and build config it drops
   the build inputs already compiled into `assets/dist/` (all of `assets/src/css/`,
@@ -51,8 +56,10 @@ hand: see [Plugin (blueline-core)](#plugin-blueline-core) below.
    `## [X.Y.Z-rc.N]`) section to `themes/blueline/CHANGELOG.md` (rename
    `## [Unreleased]`). The guard accepts the heading with or without the brackets;
    the file uses brackets. Merge.
-2. Tag the merge commit: `git tag vX.Y.Z-rc.1 && git push origin vX.Y.Z-rc.1`.
-   Wait for the workflow; the release appears as a pre-release.
+2. Tag the merge commit on `main` (the workflow refuses a tag anywhere else):
+   `git tag vX.Y.Z-rc.1 && git push origin vX.Y.Z-rc.1`. Wait for the workflow; once the
+   `release` environment has a required reviewer, approve the `sign` job when it asks.
+   The release appears as a pre-release.
 3. On staging (`beta`): Dashboard > Updates > Check again, install, check the site.
 4. Final: another PR sets the version to `X.Y.Z` and renames the changelog section;
    merge, tag `vX.Y.Z`. Production (`stable`) now offers it; click Update.
@@ -74,7 +81,20 @@ Without signing, the updater checks integrity only: `manifest.json` (with the zi
 and the zip are assets of the same GitHub release, so anyone who can publish a release in
 the repository (a stolen token, a compromised account) can publish a matching pair, and
 every site would offer it. With signing, a release is offered only when `manifest.json`
-carries a signature by a key whose private half lives in the owner's password manager.
+carries a signature by a listed key. The private half lives in the owner's password manager
+**and** as the `RELEASE_SIGNING_KEY` Actions secret, because CI signs every release.
+
+What that does and does not stop:
+
+- **Stopped:** a release uploaded by hand without CI, a swapped zip or manifest on an
+  existing release, and a tag on any commit that is not on `main`. The workflow refuses
+  to build or sign such a tag (`guard` and `sign` both check), and the scripts that see
+  the key are always `main`'s, never the tagged tree's.
+- **Not stopped by code alone:** anyone who can get a commit onto `main` (merge a PR) and
+  push a tag can still get a signed release. That is what the repository settings under
+  [Owner hardening](#owner-hardening-repository-settings) close: a tag ruleset limiting who
+  may push `v*` tags, and the key held in the `release` environment behind a required
+  reviewer, so a person approves every signing run.
 
 ### How it works
 
@@ -86,9 +106,16 @@ carries a signature by a key whose private half lives in the owner's password ma
   (44 characters ending in `=`). Safe to publish. A malformed entry fails the theme's tests.
 - **Private key:** libsodium's 64-byte secret key in standard base64 (88 characters ending
   in `==`). It exists only in Bitwarden or Doppler and as the `RELEASE_SIGNING_KEY` Actions
-  secret. Never in the repository, a chat, an email or a ticket.
+  secret (an environment secret of the `release` environment once the owner moves it there;
+  a repository secret until then). Never in the repository, a chat, an email or a ticket.
 - **Signature:** the release asset `manifest.json.sig`, the base64 detached signature over the
   exact bytes of `manifest.json` (not its parsed contents: re-serialised JSON does not verify).
+- **What it covers:** `manifest.json` holds the theme zip's name and sha256 and, from the
+  release after theme 1.1.6, the blueline-core zip's too (`plugin_zip`, `plugin_sha256`), so
+  one signature covers both zips. The theme's updater ignores the two plugin fields; the
+  plugin is checked with `scripts/release/verify-plugin.php` (see
+  [Plugin](#plugin-blueline-core)). Releases up to 1.1.6 (plugin 0.1.3) carry no plugin
+  fields: their plugin zip has only its `.sha256`.
 - **On a site, while the key list is empty** (the state until the owner adds a key): updates
   work as before (sha256 integrity only), and Tools > Site Health shows the recommendation
   "Release signing is not enabled".
@@ -101,9 +128,13 @@ carries a signature by a key whose private half lives in the owner's password ma
   the next check. A second Site Health test ("Blueline release signing") reports the key
   configuration itself.
 - **In the workflow** (`sign` job, which installs nothing and is the only job that sees the
-  secret): `scripts/release/sign-manifest.php` signs (key from the environment only, never
-  printed), then `scripts/release/verify-manifest.php` checks the pair with the theme's own
-  `updater-rules.php` before `publish` runs:
+  secret): it checks out `main` (not the tag), fails unless the tagged commit is an ancestor
+  of it, and runs `environment: release`. Then `main`'s `scripts/release/sign-manifest.php`
+  signs (key from the environment only, never printed), `scripts/release/verify-manifest.php`
+  checks the pair with `main`'s `updater-rules.php` (the keys every site trusts), and
+  `scripts/release/verify-plugin.php` checks that the signed manifest names the plugin zip,
+  all before `publish` runs. The zips it signs come from the `package` job, which builds them
+  from the tag with `git archive`, `rsync` and `zip` and installs no dependencies:
 
   | `RELEASE_SIGNING_KEY` secret | Keys in the theme | Result |
   |---|---|---|
@@ -136,9 +167,13 @@ Claude and CI never generate, see or handle the private key.
    **Doppler** (a secret named `RELEASE_SIGNING_KEY`), with the public key and today's date.
 3. Give it to GitHub Actions:
 
-       gh secret set RELEASE_SIGNING_KEY --repo lusky3/arl-blueline < ~/blueline-release-key.txt
+       gh secret set RELEASE_SIGNING_KEY --env release --repo lusky3/arl-blueline < ~/blueline-release-key.txt
 
-   or paste it at Settings > Secrets and variables > Actions > New repository secret.
+   or paste it at Settings > Environments > `release` > Add environment secret. (Without
+   `--env release` it becomes a repository secret, which the `sign` job also reads, but
+   without the environment's reviewer gate; see
+   [Owner hardening](#owner-hardening-repository-settings).) In the commands below, use
+   `--env release` likewise once the key lives there.
 4. Delete the local copy (`shred -u ~/blueline-release-key.txt`, or `rm`) and clear the
    terminal scrollback.
 5. Open a PR adding the public key to `BLUELINE_RELEASE_PUBLIC_KEYS`:
@@ -152,10 +187,35 @@ Claude and CI never generate, see or handle the private key.
    Tools > Site Health: "Blueline theme updates are signed and verified", and Check again
    still reports updates normally.
 
-Optional hardening (repository settings, no code change): protect `v*` tags with a tag ruleset
-limited to the owner; move the secret into a GitHub Environment (for example `release`) with a
-required reviewer and a `v*`-tags-only deployment rule, then add `environment: release` to the
-`sign` job in `release.yml`.
+### Owner hardening (repository settings)
+
+The workflow side is done: the `sign` job already names `environment: release` (GitHub
+creates the environment, with no rules, the first time a release runs if it does not exist
+yet) and refuses tags that are not on `main`. These settings are the owner's, in the GitHub UI
+(or `gh api`); nothing in the repository can apply them:
+
+1. **Tag ruleset.** Settings > Rules > Rulesets > New tag ruleset, target `refs/tags/v*`
+   (include pattern `v*`), restrict creations, updates and deletions, bypass list: the owner
+   only. Without it, any token with `contents: write` can push a `v*` tag on a commit already
+   on `main` and start a release (it can no longer start one on any other commit).
+2. **`release` environment.** Settings > Environments > `release` (create it if no release has
+   run yet): **Required reviewers** = the owner (tick "Prevent self-review" only if another
+   reviewer exists); **Deployment branches and tags** = Selected, add the tag rule `v*`.
+3. **Move the key into it.** Add `RELEASE_SIGNING_KEY` as an environment secret of `release`
+   (same value, from the password manager: `gh secret set RELEASE_SIGNING_KEY --env release
+   --repo lusky3/arl-blueline < key-file`), then delete the repository secret
+   (`gh secret delete RELEASE_SIGNING_KEY --repo lusky3/arl-blueline`). From then on only a
+   job that names the environment, on a `v*` tag, after your approval, can read it.
+4. **Required status checks on `main`.** In the `Main` ruleset add "Require status checks to
+   pass" with `check`, `plugin-release` and `e2e`, so a red PR cannot merge (and then be tagged).
+5. **Actions policy.** Settings > Actions > General: "Require actions to be pinned to a
+   full-length commit SHA", and allow only GitHub-owned actions, verified creators and
+   `shivammathur/setup-php`.
+
+Stronger still, and not set up: keep the key off GitHub entirely and sign on your own
+machine (download `manifest.json` from a draft release, run `sign-manifest.php` locally,
+upload `manifest.json.sig`). The workflow would then publish with the theme's keys listed
+and no secret, which today fails the run by design.
 
 ### Rotating the key (planned)
 
@@ -233,7 +293,8 @@ The plugin zip rides on every theme release; the tag is the **theme's** (`vX.Y.Z
 2. Merge, tag the theme release as in "Release procedure". `release.yml` then:
    - **guard**: `php scripts/release/plugin-guard.php` (header = constant = composer =
      readme; `Requires PHP` = composer floor). A disagreement stops the release before anything is built.
-   - **build**: plugin PHPUnit, then `scripts/release/package-plugin.sh dist`. It
+   - **gate**: plugin PHPUnit.
+   - **package**: `scripts/release/package-plugin.sh dist`. It
      applies `plugins/blueline-core/.distignore` with rsync (the file `deploy-plugin.sh`
      uses too), runs `composer install --no-dev` only if the plugin ever declares runtime
      dependencies (it has none today, so no `vendor/` ships), syntax-checks every file,
@@ -242,8 +303,16 @@ The plugin zip rides on every theme release; the tag is the **theme's** (`vX.Y.Z
      and every module `includes/modules.php` lists, has no `tests/`, `vendor/`,
      `composer.*`, `phpunit.xml`, `phpcs.xml.dist` or dotfiles, contains only allow-listed
      file types, and that the header inside the zip is the version in the file name.
+     `build-manifest.php` then records the zip's name and sha256 in `manifest.json`.
+   - **sign**: the theme's manifest signature now covers the plugin zip too, and
+     `scripts/release/verify-plugin.php` proves the signed manifest names this zip.
    - **publish**: attaches `blueline-core-<version>.zip` and `.zip.sha256` to the same
      release (read-only build, write-scoped publish, exactly as for the theme).
+
+The plugin has no updater, so nothing on a site checks this signature automatically:
+the check happens when you install it (below), with `verify-plugin.php`. The `.sha256`
+alone proves only that the zip matches a file in the same release, which whoever can
+replace one can replace both.
 3. A plugin-only fix still needs a theme tag to publish (the pipeline is one tag). Cut a
    theme patch release, or build the zip yourself with the dry run below and install that.
 
@@ -251,8 +320,12 @@ The plugin zip rides on every theme release; the tag is the **theme's** (`vX.Y.Z
 shellcheck, and `scripts/release/test-plugin-release.sh`, which builds the zip, compares
 its file list with the runtime files in the tree, builds twice and compares the bytes,
 and proves the guard and packager refuse a drifted version, a syntax error, a missing
-module and an unexpected file. The job also runs `composer validate --strict` and
-`composer audit --locked` for the plugin.
+module and an unexpected file. The `check` job runs `composer validate --strict` and
+`composer audit --locked` for the plugin, `composer audit --locked` and
+`npm audit --omit=dev` for the theme, and rebuilds `assets/dist/` to prove the committed
+build is current (the build is byte-for-byte deterministic for a given `package-lock.json`;
+a toolchain bump that renumbers webpack module ids, Dependabot's included, needs
+`npm run build` committed on its branch before it goes green).
 
 Dry run without publishing (repo root; needs `php`, `rsync`, `zip`):
 
@@ -268,8 +341,16 @@ Order matters. Theme 1.1.0 moved features into the plugin, so a site running the
 theme is untouched (the plugin stays idle). Therefore the plugin goes in first and the
 theme second. The plugin only starts working once a theme >= 1.1.0 is active.
 
-1. Download `blueline-core-<version>.zip` and its `.sha256` from the GitHub release.
-   Verify: `sha256sum -c blueline-core-<version>.zip.sha256`.
+1. Download `blueline-core-<version>.zip`, `manifest.json` and `manifest.json.sig` from the
+   GitHub release into one folder. Verify from a checkout of `main` (PHP with sodium):
+
+       php scripts/release/verify-plugin.php ~/rel/manifest.json ~/rel/blueline-core-<version>.zip
+
+   It must print `::notice::... matches the signed manifest` and exit 0; anything else
+   (`::error::`, exit 1 or 2) means do not install. It checks the signature with the keys in
+   `BLUELINE_RELEASE_PUBLIC_KEYS`, then the zip's sha256 against the manifest's
+   `plugin_sha256`. For a release up to 1.1.6 (plugin 0.1.3 or older), whose manifest has no
+   plugin fields, only `sha256sum -c blueline-core-<version>.zip.sha256` is available.
 2. Confirm the `rh-royal-mcp-register-fix.php` must-use plugin is present on production
    (the plugin refuses to flush rewrite rules without it, to avoid the `/register` 405).
 3. wp-admin > Plugins > Add New > Upload Plugin, choose the zip, install, **activate**.
@@ -280,7 +361,7 @@ theme second. The plugin only starts working once a theme >= 1.1.0 is active.
 5. Check the list in `docs/OPERATIONS.md` ("Production cutover checklist"), in particular
    that all ten modules report `LOADED`.
 
-Later plugin releases: upload the new zip over the old one (Plugins > Add New > Upload,
+Later plugin releases: verify the zip as in step 1, then upload it over the old one (Plugins > Add New > Upload,
 "Replace current with uploaded"), or replace the folder. Do not delete the plugin first:
 uninstalling removes its options. Staging takes a plugin build with
 `scripts/deploy-plugin.sh staging` (local PHPUnit preflight, rsync, activate, then it
