@@ -716,6 +716,12 @@ body.woocommerce-account .woocommerce-MyAccount-content {
 	color: var(--bl-warning);
 }
 
+/* Neutral: a waitlist entry is neither paid nor owing. */
+.bl-account-registration__status--waitlist {
+	background: var(--bl-surface-sunken);
+	color: var(--bl-content-text);
+}
+
 /* ---------------------------------------------------------------------
  * Preferences
  * ------------------------------------------------------------------- */
