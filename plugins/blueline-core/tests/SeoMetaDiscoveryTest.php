@@ -617,6 +617,22 @@ final class SeoMetaDiscoveryTest extends TestCase {
 	}
 
 	/**
+	 * A dated listing filtered by post type (`/2026/?post_type=product`) is a date archive, not the shop:
+	 * it keeps the request-path address instead of naming the post type's archive.
+	 */
+	public function test_date_archive_with_a_post_type_keeps_the_request_path(): void {
+		$GLOBALS['bl_test_options']['permalink_structure'] = '/%postname%/';
+		$state                                  = &blueline_test_state();
+		$state['request']['archive']            = true;
+		$state['request']['date']               = true;
+		$state['request']['vars']['post_type']  = 'product';
+		$state['request']['query']              = 'post_type=product';
+		$state['post_type_archives']['product'] = 'https://example.test/shop/';
+
+		$this->assertSame( 'https://example.test/archive/', blueline_core_seo_archive_canonical_url() );
+	}
+
+	/**
 	 * A post type with no archive of its own (`/?post_type=sp_event`) gets no canonical rather than the
 	 * home page's.
 	 */

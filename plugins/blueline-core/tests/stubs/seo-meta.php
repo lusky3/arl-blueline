@@ -266,6 +266,17 @@ if ( ! function_exists( 'is_tax' ) ) {
 	}
 }
 
+if ( ! function_exists( 'is_date' ) ) {
+	/**
+	 * Stand-in for is_date(): the request's `date` flag.
+	 *
+	 * @return bool
+	 */
+	function is_date() {
+		return ! empty( blueline_test_state()['request']['date'] );
+	}
+}
+
 if ( ! function_exists( 'is_search' ) ) {
 	/**
 	 * Stand-in for is_search().

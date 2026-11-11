@@ -220,10 +220,18 @@ function blueline_core_seo_archive_canonical_url(): string {
  *   naming the home page would call it a duplicate of it);
  * - the blog index: the front page when that is where posts are listed, else the posts page.
  *
+ * Date archives (even filtered by post type) are left to the request-path address.
+ *
  * @return string|null The URL, '' for "print no canonical", or null for "not resolved here" (dates and
  *                     anything else fall back to the request-path address).
  */
 function blueline_core_seo_archive_base_url(): ?string {
+	// A dated listing (`/2026/?post_type=product`) is a date archive whatever post type it is filtered
+	// to; its address is its own path, not the post type's archive.
+	if ( is_date() ) {
+		return null;
+	}
+
 	$queried = get_queried_object();
 	if ( is_object( $queried ) && isset( $queried->term_id, $queried->taxonomy ) ) {
 		$link = get_term_link( $queried );
