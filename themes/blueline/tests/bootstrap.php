@@ -946,12 +946,22 @@ if ( ! function_exists( 'get_post_meta' ) ) {
 	 * row, not a merge and not the last, so a placeholder row shadows the real
 	 * value exactly as it does in production.
 	 *
+	 * Like core's get_metadata(), a non-null answer from the
+	 * `get_post_metadata` filter short-circuits the read (its first element
+	 * when $single).
+	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $key     Meta key.
 	 * @param bool   $single  Whether to return a single value.
 	 * @return mixed
 	 */
 	function get_post_meta( $post_id, $key = '', $single = false ) {
+		$check = apply_filters( 'get_post_metadata', null, (int) $post_id, $key, $single, 'post' );
+
+		if ( null !== $check ) {
+			return $single && is_array( $check ) ? $check[0] : $check;
+		}
+
 		$state = &blueline_test_state();
 		$value = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? '';
 
