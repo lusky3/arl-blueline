@@ -23,6 +23,10 @@
  * whether either surface's "Updated" indicator shows. This file only ever
  * touches the latter.
  *
+ * The key is suffixed with the signed-in member's `data-bl-member` scope
+ * (next-game-keys.js), so on a shared browser one member's "seen" state
+ * never gives another member an "Updated" flag, or hides one (FE-01).
+ *
  * Deliberately its own small file rather than added to assets/src/js/
  * account.js: shares its storage key and `event_id:fingerprint` pair
  * shape with assets/src/js/floating-next-game.js, so both surfaces agree
@@ -35,7 +39,11 @@
  * helper rather than share it through a new cross-file dependency.
  */
 
-const SEEN_KEY = 'blueline:next-game-seen';
+const {
+	SEEN_KEY,
+	memberKey,
+	forgetUnscopedState,
+} = require( './next-game-keys.js' );
 
 /**
  * Parse a stored or server-rendered `event_id:fingerprint` pair into its two
@@ -70,15 +78,20 @@ function parseNextGameState( raw ) {
 }
 
 /**
- * The `event_id:fingerprint` pair this browser last saw (from either this
- * card or the floating widget -- they share this one "seen" key, but NOT
- * the widget's separate "dismissed" key), or null.
+ * The `event_id:fingerprint` pair this member last saw in this browser (from
+ * either this card or the floating widget -- they share this one "seen" key,
+ * but NOT the widget's separate "dismissed" key), or null.
  *
+ * @param {string|null} key The member-scoped seen key (null: no member scope).
  * @return {string|null} The stored pair.
  */
-function readStored() {
+function readStored( key ) {
+	if ( ! key ) {
+		return null;
+	}
+
 	try {
-		return window.localStorage.getItem( SEEN_KEY );
+		return window.localStorage.getItem( key );
 	} catch {
 		// Storage disabled or unavailable -- treat as never seen.
 		return null;
@@ -91,11 +104,16 @@ function readStored() {
  * way, it just cannot suppress a future "Updated" flag it would otherwise
  * have cleared.
  *
- * @param {string} state The current `event_id:fingerprint` pair.
+ * @param {string|null} key   The member-scoped seen key (null: no member scope).
+ * @param {string}      state The current `event_id:fingerprint` pair.
  */
-function writeStored( state ) {
+function writeStored( key, state ) {
+	if ( ! key ) {
+		return;
+	}
+
 	try {
-		window.localStorage.setItem( SEEN_KEY, state );
+		window.localStorage.setItem( key, state );
 	} catch {
 		// Intentionally ignored -- see this function's own docblock.
 	}
@@ -107,12 +125,22 @@ if ( typeof document !== 'undefined' ) {
 	if ( card ) {
 		const currentRaw = card.getAttribute( 'data-bl-next-game-account' );
 		const current = parseNextGameState( currentRaw );
+		const seenKey = memberKey(
+			SEEN_KEY,
+			card.getAttribute( 'data-bl-member' )
+		);
+
+		try {
+			forgetUnscopedState( window.localStorage );
+		} catch {
+			// Storage unavailable -- nothing to clear.
+		}
 
 		if ( current ) {
 			// Read BEFORE writing -- the comparison needs what this
 			// browser saw before this page view, not what it is about to
 			// become.
-			const stored = parseNextGameState( readStored() );
+			const stored = parseNextGameState( readStored( seenKey ) );
 
 			if (
 				stored &&
@@ -131,7 +159,7 @@ if ( typeof document !== 'undefined' ) {
 			// Viewing this card counts as having seen the current state --
 			// write it so the floating widget elsewhere does not keep
 			// flagging an already-acknowledged change.
-			writeStored( currentRaw );
+			writeStored( seenKey, currentRaw );
 		}
 	}
 }

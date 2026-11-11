@@ -58,7 +58,9 @@ final class PlayerSeasonStatsTest extends TestCase {
 		require_once __DIR__ . '/fixtures/player-schedule-stubs.php';
 
 		// Defined here, not in the shared fixture: theme code branches on class_exists( 'SP_Player' ).
-		eval( 'class SP_Player { public function __construct( public $id = 0 ) {} public function data( $league_id = 0 ) { return $GLOBALS["bl_test_sp_player_data"][ (int) $league_id ] ?? array(); } }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- separate-process stand-in for SportsPress's SP_Player.
+		// Like SportsPress (class-sp-player.php), data() drops every season the
+		// player's sp_leagues map has no team for in that league (missing or -1).
+		eval( 'class SP_Player { public function __construct( public $id = 0 ) {} public function data( $league_id = 0 ) { $map = get_post_meta( $this->id, "sp_leagues", true ); $teams = is_array( $map ) && is_array( $map[ (int) $league_id ] ?? null ) ? $map[ (int) $league_id ] : array(); $rows = $GLOBALS["bl_test_sp_player_data"][ (int) $league_id ] ?? array(); foreach ( array_keys( $rows ) as $season ) { if ( -1 === (int) ( $teams[ $season ] ?? -1 ) ) { unset( $rows[ $season ] ); } } return $rows; } }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- separate-process stand-in for SportsPress's SP_Player.
 
 		$state               = &blueline_test_state();
 		$state['post_types'] = array( 'sp_player', 'sp_team', 'sp_event' );
@@ -122,6 +124,162 @@ final class PlayerSeasonStatsTest extends TestCase {
 			),
 			900
 		);
+	}
+
+	/**
+	 * This season's division tables: Kings in league 6, Ice Bears in league 7.
+	 */
+	private function arrange_tables(): void {
+		$state                 = &blueline_test_state();
+		$state['post_types'][] = 'sp_table';
+		blueline_test_register_term( 6, 'sp_league', 'Division 1' );
+		blueline_test_register_term( 7, 'sp_league', 'Division 3' );
+
+		foreach ( array(
+			906 => array( self::KINGS, 6 ),
+			907 => array( self::ICE_BEARS, 7 ),
+		) as $table_id => [ $team_id, $league_id ] ) {
+			$state['post_meta'][ $table_id ]  = array( 'sp_team' => new Blueline_Test_Meta_Rows( array( (string) $team_id ) ) );
+			$state['post_terms'][ $table_id ] = array( 'sp_league' => array( $league_id ) );
+		}
+
+		$GLOBALS['bl_test_get_posts_model'] = static fn( array $args ) => 'sp_table' === ( $args['post_type'] ?? '' ) ? array( 906, 907 ) : null;
+	}
+
+	/**
+	 * SPT-01: nobody saves a player in wp-admin when they are rostered, so
+	 * `sp_leagues` has no entry for the new season, and SportsPress drops that
+	 * season from data(). The stat line must still come back.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_season_missing_from_sp_leagues_still_reads_the_season(): void {
+		$this->arrange(
+			array(
+				6 => array( 600 => self::KINGS ),
+				0 => array( 600 => 1 ),
+			)
+		);
+		$state = &blueline_test_state();
+		$state['post_meta'][ self::PLAYER ]['sp_current_team'] = new Blueline_Test_Meta_Rows( array( '0', (string) self::KINGS ) );
+
+		$this->assertSame( 19, blueline_get_player_season_stats( self::PLAYER )['gp'], 'the all-leagues line, not zeros' );
+	}
+
+	/**
+	 * SPT-01: an entry SportsPress does hold for the season (-1, "did not
+	 * play this league") is left alone.
+	 */
+	#[RunInSeparateProcess]
+	public function test_an_explicit_no_team_entry_is_respected(): void {
+		$this->arrange( array( 0 => array( self::SEASON => -1 ) ) );
+
+		$this->assertSame( 0, blueline_get_player_season_stats( self::PLAYER, null, 0 )['gp'] );
+	}
+
+	/**
+	 * SPT-01: without an sp_leagues entry, the league is the one the team's
+	 * own current-season table is in, so each team still gets its own line.
+	 */
+	#[RunInSeparateProcess]
+	public function test_without_an_sp_leagues_entry_the_team_s_table_league_is_read(): void {
+		$this->arrange( array() );
+		$this->arrange_tables();
+
+		$this->assertSame( 6, blueline_player_stats_league_id( self::PLAYER, self::SEASON, self::KINGS ) );
+		$this->assertSame( 7, blueline_player_stats_league_id( self::PLAYER, self::SEASON, self::ICE_BEARS ) );
+		$this->assertSame( 12, blueline_get_player_season_stats( self::PLAYER, self::KINGS )['gp'] );
+		$this->assertSame( 7, blueline_get_player_season_stats( self::PLAYER, self::ICE_BEARS )['gp'] );
+
+		$blocks = blueline_player_season_stat_blocks( self::PLAYER );
+		$this->assertCount( 2, $blocks );
+		$this->assertSame( 12, $blocks[0]['stats']['gp'] );
+		$this->assertSame( 7, $blocks[1]['stats']['gp'] );
+	}
+
+	/**
+	 * The stored meta is not changed: the season is only lent to data().
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_sp_leagues_meta_is_not_modified(): void {
+		$this->arrange( array( 6 => array( 600 => self::KINGS ) ) );
+
+		blueline_get_player_season_stats( self::PLAYER );
+
+		$this->assertSame( array( 6 => array( 600 => self::KINGS ) ), get_post_meta( self::PLAYER, 'sp_leagues', true ) );
+		$this->assertEmpty( array_filter( $GLOBALS['bl_test_hooks']['get_post_metadata'] ?? array() ), 'the lending filter is removed again' );
+	}
+
+	/**
+	 * SPT-03: a two-team player's roster line on each team is that team's.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_roster_reads_the_line_for_its_own_team(): void {
+		$this->arrange( array() );
+		$this->arrange_tables();
+
+		$this->assertSame( 12, blueline_roster_season_stats( self::KINGS, array( self::PLAYER ) )[ self::PLAYER ]['gp'] );
+		$this->assertSame( 7, blueline_roster_season_stats( self::ICE_BEARS, array( self::PLAYER ) )[ self::PLAYER ]['gp'] );
+	}
+
+	/**
+	 * Three current teams, two of them in one league: no team's block may
+	 * vanish, and that league's line must not sit under only one team's name.
+	 * The one combined block instead.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_league_shared_by_two_of_three_teams_gives_one_combined_block(): void {
+		$this->arrange( array() );
+		$this->arrange_tables();
+		$state = &blueline_test_state();
+		$state['post_meta'][ self::PLAYER ]['sp_current_team'] = new Blueline_Test_Meta_Rows( array( '0', (string) self::KINGS, (string) self::ICE_BEARS, '3000' ) );
+		$state['posts'][3000]                                  = array(
+			'status'    => 'publish',
+			'permalink' => 'https://example.test/team/3000/',
+			'type'      => 'sp_team',
+			'title'     => 'Spares',
+		);
+		$state['post_meta'][908]                               = array( 'sp_team' => new Blueline_Test_Meta_Rows( array( '3000' ) ) );
+		$state['post_terms'][908]                              = array( 'sp_league' => array( 6 ) );
+		$GLOBALS['bl_test_get_posts_model']                    = static fn( array $args ) => 'sp_table' === ( $args['post_type'] ?? '' ) ? array( 906, 907, 908 ) : null;
+
+		$blocks = blueline_player_season_stat_blocks( self::PLAYER );
+
+		$this->assertCount( 1, $blocks );
+		$this->assertNull( $blocks[0]['team'] );
+		$this->assertSame( 19, $blocks[0]['stats']['gp'], 'the all-leagues line' );
+	}
+
+	/**
+	 * A roster asks each team's current league once per request, not once
+	 * per player (each ask is a table query), and remembers a miss too.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_team_league_lookup_runs_once_per_team(): void {
+		$this->arrange( array() );
+		$this->arrange_tables();
+		$state = &blueline_test_state();
+		foreach ( array( 501, 502 ) as $player_id ) {
+			$state['post_meta'][ $player_id ] = $state['post_meta'][ self::PLAYER ];
+		}
+
+		$GLOBALS['bl_test_table_queries']   = 0;
+		$GLOBALS['bl_test_get_posts_model'] = static function ( array $args ) {
+			if ( 'sp_table' !== ( $args['post_type'] ?? '' ) ) {
+				return null;
+			}
+			++$GLOBALS['bl_test_table_queries'];
+			return array( 906, 907 );
+		};
+
+		$stats = blueline_roster_season_stats( self::KINGS, array( self::PLAYER, 501, 502 ) );
+
+		$this->assertSame( 12, $stats[502]['gp'] );
+		$this->assertSame( 1, $GLOBALS['bl_test_table_queries'] );
+
+		blueline_team_current_league_id( 4000 );
+		blueline_team_current_league_id( 4000 );
+		$this->assertSame( 0, blueline_team_current_league_id( 4000 ) );
+		$this->assertSame( 2, $GLOBALS['bl_test_table_queries'], 'a team with no table is looked up once too' );
 	}
 
 	/**

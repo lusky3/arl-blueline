@@ -735,7 +735,7 @@ function blueline_roster_season_stats( int $team_id, array $player_ids ): array 
 
 	foreach ( $player_ids as $player_id ) {
 		if ( ! isset( $cached[ $player_id ] ) || ! is_array( $cached[ $player_id ] ) ) {
-			$cached[ $player_id ] = blueline_get_player_season_stats( $player_id );
+			$cached[ $player_id ] = blueline_get_player_season_stats( $player_id, $team_id ); // This team's line, not the player's first team's.
 			$dirty                = true;
 		}
 	}
