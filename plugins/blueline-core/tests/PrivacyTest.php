@@ -268,10 +268,12 @@ final class PrivacyTest extends TestCase {
 	}
 
 	/**
-	 * The author filters are registered for core posts and SportsPress players.
+	 * The author filters are registered for core posts, SportsPress players and media. A member's
+	 * player photo is an attachment authored by the member and parented to their sp_player, so
+	 * without the attachment filters /wp/v2/media still maps accounts to players (audit PLG-03).
 	 */
-	public function test_author_filters_are_registered_for_posts_and_players(): void {
-		foreach ( array( 'post', 'sp_player' ) as $post_type ) {
+	public function test_author_filters_are_registered_for_posts_players_and_media(): void {
+		foreach ( array( 'post', 'sp_player', 'attachment' ) as $post_type ) {
 			$this->assertNotFalse( has_filter( "rest_prepare_{$post_type}", 'blueline_strip_rest_post_author' ), $post_type );
 			$this->assertNotFalse( has_filter( "rest_{$post_type}_query", 'blueline_strip_rest_author_query_args' ), $post_type );
 		}

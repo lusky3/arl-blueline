@@ -107,14 +107,16 @@ function blueline_restrict_user_rest_dispatch( $result, $server, $request ) { //
 	);
 }
 
-foreach ( array( 'post', 'sp_player' ) as $blueline_privacy_post_type ) {
+// attachment: a member's player photo is authored by the member and parented to their sp_player, so the
+// media author maps accounts to players just as the player's own author does.
+foreach ( array( 'post', 'sp_player', 'attachment' ) as $blueline_privacy_post_type ) {
 	add_filter( "rest_prepare_{$blueline_privacy_post_type}", 'blueline_strip_rest_post_author' );
 	add_filter( "rest_{$blueline_privacy_post_type}_query", 'blueline_strip_rest_author_query_args' );
 }
 unset( $blueline_privacy_post_type );
 
 /**
- * Remove the author ID and the author link from a post or player in REST output for anyone
+ * Remove the author ID and the author link from a post, player or media item in REST output for anyone
  * who may not see post authors: a player's post_author is the member who owns it, so the
  * public field maps every player to an account.
  *
