@@ -56,6 +56,9 @@ if ( ! isset( $highlight ) ) {
 	$highlight = get_post_meta( $id, 'sp_highlight', true );
 }
 
+// Meta and shortcode attributes are strings; the row keys below are ints, compared strictly.
+$highlight = absint( $highlight );
+
 $table = new SP_League_Table( $id );
 
 if ( $show_title && false === $title && $id ) {

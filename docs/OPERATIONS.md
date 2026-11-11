@@ -250,18 +250,28 @@ to clear it after printing. Tools > Site Health shows the number of distinct vio
 `blocked` column, an origin (`https://cdn.example.com`) is a third party the policy does not list; `inline` is an
 inline script, style or `style=` attribute (only reported once `'unsafe-inline'` is removed); `eval` is `eval()` or
 `new Function()`; `data`/`blob` are those URL schemes; `chrome-extension` and the like are the visitor's browser
-extensions and can be ignored. Only counts are stored: no IP address, user agent, full URL or query string. The
-store keeps 200 entries; when it is full, a new one replaces the least-seen entry (the one seen longest ago among
-equally rare ones). Anyone can post to the endpoint, so a report only starts a new entry when its page is one the
-site really serves: a path of at most six short slug-like segments that resolves to the front page, a post, page or
-account tab, a page that lists other content (news, shop) or a taxonomy term archive (a venue, a news category);
-page 2+ of a list counts when page 1 does. Reports from a 404 page or a made-up path are refused (400) and never
-counted, so junk cannot push real rows out. A row already in the store is counted again without the lookup. To
-accept another kind of page, use the `blueline_core_csp_report_path_resolves` filter (`bool $resolves, string $path`).
-Each browser may send 30 report requests per fixed 10-minute window (the window opens with its first request and
-closes 10 minutes later however many arrive; counted against a daily-rotating hash of address and user agent, kept
-in a transient that lives only for the rest of the window); bodies over 16 KB and content types other than
-`application/csp-report`, `application/reports+json` and `application/json` are refused.
+extensions and can be ignored. Only counts are stored: no IP address, user agent, full URL or query string.
+
+Anyone can post to the endpoint, and the counts are only as trustworthy as that allows: a client can still report
+made-up origins on a real page, or repeat a real row to raise its count. What limits it:
+
+- A report only starts a new entry when its page is one the site really serves: a path of at most six short
+  slug-like segments that resolves to the front page, a post, page or account tab, a page that lists other content
+  (news, shop) or a taxonomy term archive (a venue, a news category); page 2+ of a list counts when page 1 does.
+  Reports from a 404 page or a made-up path are refused (400) and never counted. A row already in the store is
+  counted again without the lookup, and one request looks up at most 3 new page paths. To accept another kind of
+  page, use the `blueline_core_csp_report_path_resolves` filter (`bool $resolves, string $path`).
+- The store keeps 200 entries and accepts at most 50 new ones per UTC day. When it is full, a new entry only replaces
+  one that has not been reported for 7 days (the least-seen of those, then the oldest); if every entry was seen in
+  the last 7 days, the new report is dropped. A violation that is still happening is never pushed out, however many
+  junk rows arrive. The flip side: a flood that fills the store can keep a genuinely new violation out until its rows
+  go stale, so an unexpected wall of unfamiliar origins is a reason to `--reset` and watch again.
+- Each IP address may send 30 report requests per fixed 10-minute window (the window opens with its first request
+  and closes 10 minutes later however many arrive; counted against a daily-rotating hash of the address alone, not
+  the user agent, which the client chooses; kept in a transient that lives only for the rest of the window). Visitors
+  behind one shared address (a school or office network) share the allowance. Bodies over 16 KB and content types
+  other than `application/csp-report`, `application/reports+json` and `application/json` are refused.
+- The route is only registered while the mode is `report-only` or `enforce`; with `'off'` it does not exist.
 
 A row is worth acting on when it repeats across days or pages. For each origin that the site really needs, add it
 with the `blueline_core_csp_policy` filter (or in `csp.php`, with a line in the inventory above); for one it does not
@@ -315,6 +325,13 @@ header is added by the server's nginx configuration, not WordPress, so it can on
   change the photo or see registration details. See which linked players don't qualify:
   `wp blueline-core ownership report`. Fix individual players: `wp blueline-core ownership apply --ids=<player ids>`
   (dry run; add `--yes` to write). Never bulk-copy `sp_user` into `post_author`: that would promote name-claimed links to owners.
+- [ ] **Old name claims in `sp_user`.** In blueline-core releases after 0.1.3 an "Is this you?" name claim is stored in
+  `_blueline_name_claim_user`, not `sp_user`, because the player app, the discipline notices and registration's identity
+  check treat `sp_user` as "this account is this player". Claims made before that are still in `sp_user`. List them:
+  `wp blueline-core ownership report --category=name_claim` (read-only; `name_score` near 0 means the account name does
+  not match the player). Move the ones you choose: `wp blueline-core ownership move-claim --ids=<player ids>` (dry run;
+  add `--yes` to write). The claimant keeps seeing the player on their account. To remove a wrong claim entirely, use
+  `wp blueline-core ownership unlink --ids=<player ids>`.
 - [ ] **My Account tab wording.** blueline-core 0.1.2+ names the tabs "My Registrations", "My Installments" (only with
   WooCommerce Subscriptions active), "My Address" and "Change My Details", and the theme heads each page with its tab's
   label. Deactivate the Code Snippet "My Account Tab Modifications" (Snippets > All Snippets), then confirm the menu reads

@@ -914,3 +914,123 @@ function blueline_sp_event_ics_url( $event_id ) {
 
 	return 'data:text/calendar;charset=utf-8,' . rawurlencode( $ics );
 }
+
+/*
+ * The team calendar subscription (`?feed=sp-ical`, linked above) is
+ * SportsPress's own feeds/ical.php, which has no filters for what is wrong
+ * with it (FUNC-24): floating local times, a TZID property at calendar level
+ * (RFC 5545 has none there), DTSTAMP 1970 and bare post-ID UIDs. Its output
+ * is buffered around SportsPress's handler (priority 10) and rewritten.
+ */
+add_action( 'do_feed_sp-ical', 'blueline_sp_ical_feed_buffer_start', 9 );
+add_action( 'do_feed_sp-ical', 'blueline_sp_ical_feed_buffer_end', 11 );
+
+/**
+ * Start buffering the SportsPress team feed.
+ *
+ * @return void
+ */
+function blueline_sp_ical_feed_buffer_start(): void {
+	ob_start( 'blueline_sp_ical_feed_filter_output' );
+	$GLOBALS['blueline_sp_ical_feed_level'] = ob_get_level();
+}
+
+/**
+ * Flush the buffer opened by blueline_sp_ical_feed_buffer_start(), if it is
+ * still the innermost one (otherwise PHP flushes it at shutdown).
+ *
+ * @return void
+ */
+function blueline_sp_ical_feed_buffer_end(): void {
+	if ( isset( $GLOBALS['blueline_sp_ical_feed_level'] ) && ob_get_level() === $GLOBALS['blueline_sp_ical_feed_level'] ) {
+		ob_end_flush();
+	}
+
+	unset( $GLOBALS['blueline_sp_ical_feed_level'] );
+}
+
+/**
+ * Output-buffer callback: rewrite the feed in the site's timezone for this
+ * site's host. Anything that is not a calendar (SportsPress's wp_die() page
+ * for a non-calendar post) passes through.
+ *
+ * @param string $buffer The feed's output.
+ * @return string
+ */
+function blueline_sp_ical_feed_filter_output( $buffer ) {
+	$buffer = (string) $buffer;
+
+	if ( 0 !== strpos( ltrim( $buffer ), 'BEGIN:VCALENDAR' ) ) {
+		return $buffer;
+	}
+
+	return blueline_sp_ical_feed_normalize( $buffer, wp_timezone(), (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+}
+
+/**
+ * Make SportsPress's team feed valid and unambiguous. Pure.
+ *
+ * - DTSTART/DTEND: site-local floating times become UTC (`Z`), so a client
+ *   that ignores X-WR-TIMEZONE still shows the right time.
+ * - The calendar-level `TZID:` line is dropped (X-WR-TIMEZONE stays).
+ * - LAST-MODIFIED (already GMT) is marked `Z`; DTSTAMP takes its value
+ *   instead of 1970, which keeps the feed byte-stable between reads.
+ * - `UID:<id>` becomes `UID:sp-event-<id>@<host>`, the single-game .ics UID.
+ *
+ * Every other line, folded continuations included, is passed through.
+ *
+ * @param string       $ics      The feed text, CRLF-separated.
+ * @param DateTimeZone $timezone The site timezone the times are written in.
+ * @param string       $host     This site's host, for UIDs.
+ * @return string
+ */
+function blueline_sp_ical_feed_normalize( string $ics, DateTimeZone $timezone, string $host ): string {
+	$utc   = new DateTimeZone( 'UTC' );
+	$out   = array();
+	$event = null; // Lines of the VEVENT being read, or null outside one.
+
+	foreach ( explode( "\r\n", $ics ) as $line ) {
+		if ( null === $event ) {
+			if ( 'BEGIN:VEVENT' === $line ) {
+				$event = array( $line );
+			} elseif ( 0 !== strpos( $line, 'TZID:' ) ) {
+				$out[] = $line;
+			}
+			continue;
+		}
+
+		$event[] = $line;
+
+		if ( 'END:VEVENT' !== $line ) {
+			continue;
+		}
+
+		$modified = null;
+		foreach ( $event as $event_line ) {
+			if ( preg_match( '/^LAST-MODIFIED:(\d{8}T\d{6})Z?$/', $event_line, $m ) ) {
+				$modified = $m[1] . 'Z';
+			}
+		}
+
+		foreach ( $event as $event_line ) {
+			if ( preg_match( '/^(DTSTART|DTEND):(\d{8}T\d{6})$/', $event_line, $m ) ) {
+				$local      = DateTimeImmutable::createFromFormat( 'Ymd\THis', $m[2], $timezone );
+				$event_line = $local ? $m[1] . ':' . $local->setTimezone( $utc )->format( 'Ymd\THis\Z' ) : $event_line;
+			} elseif ( null !== $modified && preg_match( '/^(LAST-MODIFIED|DTSTAMP):/', $event_line, $m ) ) {
+				$event_line = $m[1] . ':' . $modified;
+			} elseif ( '' !== $host && preg_match( '/^UID:(\d+)$/', $event_line, $m ) ) {
+				$event_line = 'UID:sp-event-' . $m[1] . '@' . $host;
+			}
+
+			$out[] = $event_line;
+		}
+
+		$event = null;
+	}
+
+	if ( null !== $event ) {
+		array_push( $out, ...$event ); // An unterminated VEVENT: pass it through as it came.
+	}
+
+	return implode( "\r\n", $out );
+}

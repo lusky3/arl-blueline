@@ -25,8 +25,8 @@ function blueline_user_has_player_role( int $user_id ): bool {
 
 /**
  * Whether $user_id owns $player_id: is its post_author, the ownership
- * sportspress-player-registration writes alongside sp_user. A name claim writes only sp_user, so
- * it never confers ownership.
+ * sportspress-player-registration writes alongside sp_user. A name claim writes neither (only
+ * BLUELINE_PLAYER_CLAIM_META), so it never confers ownership.
  *
  * @param int $user_id   WordPress user ID.
  * @param int $player_id sp_player post ID.

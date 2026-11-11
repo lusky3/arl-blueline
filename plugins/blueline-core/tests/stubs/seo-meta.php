@@ -266,6 +266,17 @@ if ( ! function_exists( 'is_tax' ) ) {
 	}
 }
 
+if ( ! function_exists( 'is_date' ) ) {
+	/**
+	 * Stand-in for is_date(): the request's `date` flag.
+	 *
+	 * @return bool
+	 */
+	function is_date() {
+		return ! empty( blueline_test_state()['request']['date'] );
+	}
+}
+
 if ( ! function_exists( 'is_search' ) ) {
 	/**
 	 * Stand-in for is_search().
@@ -290,14 +301,37 @@ if ( ! function_exists( 'is_404' ) ) {
 
 if ( ! function_exists( 'get_query_var' ) ) {
 	/**
-	 * Stand-in for get_query_var(): only `paged` is modelled.
+	 * Stand-in for get_query_var(): `paged` from the request's `paged`, anything else from the
+	 * request's `vars` map.
 	 *
 	 * @param string $var_name      Query var.
 	 * @param mixed  $default_value Fallback.
 	 * @return mixed
 	 */
 	function get_query_var( $var_name, $default_value = '' ) {
-		return 'paged' === $var_name ? (int) ( blueline_test_state()['request']['paged'] ?? 0 ) : $default_value;
+		$request = blueline_test_state()['request'] ?? array();
+
+		if ( 'paged' === $var_name ) {
+			return (int) ( $request['paged'] ?? 0 );
+		}
+
+		return $request['vars'][ $var_name ] ?? $default_value;
+	}
+}
+
+if ( ! function_exists( 'user_trailingslashit' ) ) {
+	/**
+	 * Stand-in for user_trailingslashit(): a trailing slash exactly when the permalink structure ends
+	 * with one, as core does.
+	 *
+	 * @param string $url  URL or path.
+	 * @param string $type Unused; signature parity with core.
+	 * @return string
+	 */
+	function user_trailingslashit( $url, $type = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- signature parity with WP core.
+		$url = rtrim( (string) $url, '/' );
+
+		return '/' === substr( (string) get_option( 'permalink_structure' ), -1 ) ? $url . '/' : $url;
 	}
 }
 

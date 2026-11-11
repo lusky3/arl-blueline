@@ -646,9 +646,11 @@ add_action( 'save_post', 'blueline_sp_cache_on_post_change' );
 add_action( 'delete_post', 'blueline_sp_cache_on_post_change' );
 add_action( 'trashed_post', 'blueline_sp_cache_on_post_change' );
 add_action( 'untrashed_post', 'blueline_sp_cache_on_post_change' );
-add_action( 'sportspress_event_results_saved', 'blueline_sp_cache_mark_dirty' );
-add_action( 'sportspress_event_leagues_saved', 'blueline_sp_cache_mark_dirty' );
-add_action( 'sportspress_event_performances_saved', 'blueline_sp_cache_mark_dirty' );
+// The Score Sheets and Player App plugins write sp_results / sp_players
+// directly and fire only save_post_sp_event, never save_post. The
+// sportspress_event_{results,leagues,performances}_saved actions hooked here
+// before are fired by neither SportsPress Pro 2.7 nor those plugins.
+add_action( 'save_post_sp_event', 'blueline_sp_cache_mark_dirty' );
 add_action( 'created_term', 'blueline_sp_cache_on_term_change', 10, 3 );
 add_action( 'edited_term', 'blueline_sp_cache_on_term_change', 10, 3 );
 add_action( 'delete_term', 'blueline_sp_cache_on_term_change', 10, 3 );

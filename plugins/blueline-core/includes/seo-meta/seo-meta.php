@@ -174,6 +174,10 @@ function blueline_render_archive_canonical() {
  * The page number is kept, so page 2 is its own canonical; every other query argument is dropped
  * when the site uses pretty permalinks (with plain permalinks the query string IS the address).
  *
+ * On a pretty-permalink site the address comes from what is listed, not from the request path, so an
+ * archive reached through query vars (`/?post_type=product`) is named by its own archive (`/shop`)
+ * rather than the path it was requested on (`/`). See blueline_core_seo_archive_base_url().
+ *
  * @return string
  */
 function blueline_core_seo_archive_canonical_url(): string {
@@ -181,7 +185,23 @@ function blueline_core_seo_archive_canonical_url(): string {
 		return '';
 	}
 
-	$url = (string) get_pagenum_link( max( 1, (int) get_query_var( 'paged' ) ) );
+	$paged = max( 1, (int) get_query_var( 'paged' ) );
+
+	if ( '' !== (string) get_option( 'permalink_structure' ) ) {
+		$base = blueline_core_seo_archive_base_url();
+
+		if ( null !== $base ) {
+			if ( '' === $base || 1 === $paged ) {
+				return $base;
+			}
+
+			$pagination = isset( $GLOBALS['wp_rewrite']->pagination_base ) ? (string) $GLOBALS['wp_rewrite']->pagination_base : 'page';
+
+			return user_trailingslashit( trailingslashit( $base ) . $pagination . '/' . $paged, 'paged' );
+		}
+	}
+
+	$url = (string) get_pagenum_link( $paged );
 
 	if ( '' !== (string) get_option( 'permalink_structure' ) ) {
 		$query = strpos( $url, '?' );
@@ -189,6 +209,56 @@ function blueline_core_seo_archive_canonical_url(): string {
 	}
 
 	return $url;
+}
+
+/**
+ * Page 1 of the current archive, from what it lists rather than the request path:
+ *
+ * - a term archive: its term link;
+ * - a post type named in the query (`/?post_type=product`, or the shop itself): that post type's
+ *   archive, or '' when it has none (`/?post_type=sp_event` lists events on the home page's path, and
+ *   naming the home page would call it a duplicate of it);
+ * - the blog index: the front page when that is where posts are listed, else the posts page.
+ *
+ * Date archives (even filtered by post type) are left to the request-path address.
+ *
+ * @return string|null The URL, '' for "print no canonical", or null for "not resolved here" (dates and
+ *                     anything else fall back to the request-path address).
+ */
+function blueline_core_seo_archive_base_url(): ?string {
+	// A dated listing (`/2026/?post_type=product`) is a date archive whatever post type it is filtered
+	// to; its address is its own path, not the post type's archive.
+	if ( is_date() ) {
+		return null;
+	}
+
+	$queried = get_queried_object();
+	if ( is_object( $queried ) && isset( $queried->term_id, $queried->taxonomy ) ) {
+		$link = get_term_link( $queried );
+
+		return is_string( $link ) ? $link : null;
+	}
+
+	$post_type = get_query_var( 'post_type' );
+	$post_type = is_array( $post_type ) ? (string) reset( $post_type ) : (string) $post_type;
+	if ( '' !== $post_type && 'post' !== $post_type ) {
+		$link = get_post_type_archive_link( $post_type );
+
+		return is_string( $link ) ? $link : '';
+	}
+
+	if ( is_home() ) {
+		if ( is_front_page() ) {
+			return home_url( '/' );
+		}
+
+		$posts_page = (int) get_option( 'page_for_posts' );
+		$link       = $posts_page ? get_permalink( $posts_page ) : false;
+
+		return is_string( $link ) && '' !== $link ? $link : null;
+	}
+
+	return null;
 }
 
 add_action( 'wp_head', 'blueline_render_social_meta', 2 );
