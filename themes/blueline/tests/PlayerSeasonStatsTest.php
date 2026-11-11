@@ -222,6 +222,67 @@ final class PlayerSeasonStatsTest extends TestCase {
 	}
 
 	/**
+	 * Three current teams, two of them in one league: no team's block may
+	 * vanish, and that league's line must not sit under only one team's name.
+	 * The one combined block instead.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_league_shared_by_two_of_three_teams_gives_one_combined_block(): void {
+		$this->arrange( array() );
+		$this->arrange_tables();
+		$state = &blueline_test_state();
+		$state['post_meta'][ self::PLAYER ]['sp_current_team'] = new Blueline_Test_Meta_Rows( array( '0', (string) self::KINGS, (string) self::ICE_BEARS, '3000' ) );
+		$state['posts'][3000]                                  = array(
+			'status'    => 'publish',
+			'permalink' => 'https://example.test/team/3000/',
+			'type'      => 'sp_team',
+			'title'     => 'Spares',
+		);
+		$state['post_meta'][908]                               = array( 'sp_team' => new Blueline_Test_Meta_Rows( array( '3000' ) ) );
+		$state['post_terms'][908]                              = array( 'sp_league' => array( 6 ) );
+		$GLOBALS['bl_test_get_posts_model']                    = static fn( array $args ) => 'sp_table' === ( $args['post_type'] ?? '' ) ? array( 906, 907, 908 ) : null;
+
+		$blocks = blueline_player_season_stat_blocks( self::PLAYER );
+
+		$this->assertCount( 1, $blocks );
+		$this->assertNull( $blocks[0]['team'] );
+		$this->assertSame( 19, $blocks[0]['stats']['gp'], 'the all-leagues line' );
+	}
+
+	/**
+	 * A roster asks each team's current league once per request, not once
+	 * per player (each ask is a table query), and remembers a miss too.
+	 */
+	#[RunInSeparateProcess]
+	public function test_the_team_league_lookup_runs_once_per_team(): void {
+		$this->arrange( array() );
+		$this->arrange_tables();
+		$state = &blueline_test_state();
+		foreach ( array( 501, 502 ) as $player_id ) {
+			$state['post_meta'][ $player_id ] = $state['post_meta'][ self::PLAYER ];
+		}
+
+		$GLOBALS['bl_test_table_queries']   = 0;
+		$GLOBALS['bl_test_get_posts_model'] = static function ( array $args ) {
+			if ( 'sp_table' !== ( $args['post_type'] ?? '' ) ) {
+				return null;
+			}
+			++$GLOBALS['bl_test_table_queries'];
+			return array( 906, 907 );
+		};
+
+		$stats = blueline_roster_season_stats( self::KINGS, array( self::PLAYER, 501, 502 ) );
+
+		$this->assertSame( 12, $stats[502]['gp'] );
+		$this->assertSame( 1, $GLOBALS['bl_test_table_queries'] );
+
+		blueline_team_current_league_id( 4000 );
+		blueline_team_current_league_id( 4000 );
+		$this->assertSame( 0, blueline_team_current_league_id( 4000 ) );
+		$this->assertSame( 2, $GLOBALS['bl_test_table_queries'], 'a team with no table is looked up once too' );
+	}
+
+	/**
 	 * Capture a renderer's echoed output.
 	 *
 	 * @param callable $renderer Zero-arg callable that echoes markup.
