@@ -17,11 +17,15 @@
  * Blueline edit: the terms checkbox carries `required` and `aria-required="true"`.
  * Core prints it as hand-written markup (not through woocommerce_form_field), so
  * the blueline-core checkbox filter cannot reach it; without them a screen reader
- * gets no hint the box is required until a failed submit. The checkbox id is
- * `bl-terms-checkbox`, not core's `terms`: the Terms page's own content opens
- * with a heading anchored `#terms`, and two elements sharing an id leave the
- * checkbox's label pointing at the wrong one. Everything else matches
- * WooCommerce 11.0.1.
+ * gets no hint the box is required until a failed submit.
+ *
+ * Blueline edit: the terms content is buffered and passed through
+ * blueline_checkout_terms_content_dedupe_id(). The Terms page's own content
+ * opens with a heading anchored `terms`, the checkbox's id; two elements
+ * sharing an id can leave the checkbox's label pointing at the heading
+ * (A11Y-16). The checkbox keeps core's `id="terms"`, because WooCommerce's
+ * checkout.js restores the tick by that id after every order-review refresh
+ * (ACC-01). Everything else matches WooCommerce 11.0.1.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -32,6 +36,8 @@ if ( apply_filters( 'woocommerce_checkout_show_terms', true ) && function_exists
 	?>
 	<div class="woocommerce-terms-and-conditions-wrapper">
 		<?php
+		ob_start();
+
 		/**
 		 * Terms and conditions hook used to inject content.
 		 *
@@ -40,12 +46,15 @@ if ( apply_filters( 'woocommerce_checkout_show_terms', true ) && function_exists
 		 * @hooked wc_terms_and_conditions_page_content() Shows t&c page content. Priority 30.
 		 */
 		do_action( 'woocommerce_checkout_terms_and_conditions' );
+
+		// Already-escaped hook output; only an id and its in-page links are renamed.
+		echo blueline_checkout_terms_content_dedupe_id( (string) ob_get_clean() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		?>
 
 		<?php if ( wc_terms_and_conditions_checkbox_enabled() ) : ?>
 			<p class="form-row validate-required">
 				<label class="woocommerce-form__label woocommerce-form__label-for-checkbox checkbox">
-				<input type="checkbox" class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="terms" required aria-required="true" <?php checked( apply_filters( 'woocommerce_terms_is_checked_default', isset( $_POST['terms'] ) ), true ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce core's own checkout markup; the checkout nonce is verified in WC_Checkout. ?> id="bl-terms-checkbox" />
+				<input type="checkbox" class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="terms" required aria-required="true" <?php checked( apply_filters( 'woocommerce_terms_is_checked_default', isset( $_POST['terms'] ) ), true ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce core's own checkout markup; the checkout nonce is verified in WC_Checkout. ?> id="terms" />
 					<span class="woocommerce-terms-and-conditions-checkbox-text"><?php wc_terms_and_conditions_checkbox_text(); ?></span>&nbsp;<abbr class="required" title="<?php esc_attr_e( 'required', 'woocommerce' ); ?>">*</abbr>
 				</label>
 				<input type="hidden" name="terms-field" value="1" />

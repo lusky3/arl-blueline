@@ -279,6 +279,27 @@ function blueline_wc_no_products_found(): void {
 	<?php
 }
 
+/**
+ * Rename `id="terms"` (and in-page `#terms` links) inside the terms area's
+ * content, which woocommerce/checkout/terms.php buffers from
+ * `woocommerce_checkout_terms_and_conditions`.
+ *
+ * The Terms page's own content opens with a heading anchored `terms`, the id
+ * WooCommerce gives the required terms checkbox. Two elements with one id can
+ * leave the checkbox's label pointing at the heading (A11Y-16). The checkbox
+ * must keep `id="terms"`: WooCommerce's checkout.js saves and restores the
+ * tick by that id across every order-review refresh (ACC-01). So the heading
+ * gives way instead.
+ *
+ * @param string $html The terms area's content (privacy text, Terms page).
+ * @return string
+ */
+function blueline_checkout_terms_content_dedupe_id( string $html ): string {
+	$html = (string) preg_replace( '/\bid=(["\'])terms\1/', 'id=$1bl-terms-heading$1', $html );
+
+	return (string) preg_replace( '/\bhref=(["\'])#terms\1/', 'href=$1#bl-terms-heading$1', $html );
+}
+
 add_action( 'woocommerce_before_checkout_form', 'blueline_checkout_reassurance' );
 /**
  * A short reassurance note above the checkout form -- the same nervous
