@@ -66,7 +66,8 @@ final class BluelineWaitlistCopyProduct {
 }
 
 /**
- * A minimal order line item: the product it holds.
+ * A minimal order line item: the product it holds (as it is today) and the
+ * subtotal saved on the order when it was placed.
  */
 final class BluelineWaitlistCopyItem {
 
@@ -78,12 +79,21 @@ final class BluelineWaitlistCopyItem {
 	private $product;
 
 	/**
+	 * Saved line subtotal.
+	 *
+	 * @var string
+	 */
+	private $subtotal;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param BluelineWaitlistCopyProduct $product The product.
+	 * @param BluelineWaitlistCopyProduct $product  The product.
+	 * @param string                      $subtotal Saved line subtotal.
 	 */
-	public function __construct( BluelineWaitlistCopyProduct $product ) {
-		$this->product = $product;
+	public function __construct( BluelineWaitlistCopyProduct $product, string $subtotal ) {
+		$this->product  = $product;
+		$this->subtotal = $subtotal;
 	}
 
 	/**
@@ -93,6 +103,15 @@ final class BluelineWaitlistCopyItem {
 	 */
 	public function get_product() {
 		return $this->product;
+	}
+
+	/**
+	 * Saved line subtotal.
+	 *
+	 * @return string
+	 */
+	public function get_subtotal() {
+		return $this->subtotal;
 	}
 }
 
@@ -232,11 +251,37 @@ final class WaitlistCheckoutCopyTest extends TestCase {
 		$this->arrange( array() );
 
 		$received = 'Thank you. Your registration has been received.';
-		$waitlist = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 10, '0' ) ) ) );
-		$paid     = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 11, '525' ) ) ) );
+		$waitlist = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 10, '0' ), '0' ) ) );
+		$paid     = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 11, '525' ), '525' ) ) );
 
 		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $waitlist ) );
 		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, $paid ) );
 		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, false ), 'no order: unchanged' );
+		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, new BluelineWaitlistCopyOrder( array() ) ), 'no lines: unchanged' );
+	}
+
+	/**
+	 * A saved order keeps its meaning when the product's price changes after
+	 * purchase: the thank-you line reads the order's own saved lines, not
+	 * today's product price or today's season.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_thankyou_text_ignores_price_changes_after_purchase(): void {
+		$this->arrange( array() );
+
+		$received = 'Thank you. Your registration has been received.';
+
+		// Paid $525 when placed; the product has since been repriced to $0 (now a waitlist).
+		$was_paid = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 10, '0' ), '525' ) ) );
+		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, $was_paid ) );
+
+		// Joined at $0; the product now costs $575.
+		$was_waitlist = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 11, '575' ), '0' ) ) );
+		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $was_waitlist ) );
+
+		// Joined at $0 in a past season; that product is no longer in the current season.
+		$past_season = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 77, '0' ), '0' ) ) );
+		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $past_season ) );
 	}
 }

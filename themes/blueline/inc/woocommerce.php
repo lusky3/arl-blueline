@@ -642,8 +642,15 @@ function blueline_wc_cart_is_waitlist_only(): bool {
 add_filter( 'woocommerce_thankyou_order_received_text', 'blueline_wc_waitlist_thankyou_text', 10, 2 );
 /**
  * "You've joined the waitlist" instead of "Your registration has been
- * received" on the thank-you page of an order holding only waitlist products
- * (ACC-04).
+ * received" on the thank-you page of a waitlist-only order (ACC-04).
+ *
+ * Judged from the order's own saved lines, never today's product price or
+ * today's season: the page can be reopened long after checkout, and a past
+ * order must keep its meaning. A waitlist-only order is one whose every line
+ * was $0 before coupons -- the same saved-subtotal rule
+ * blueline_registration_order_kind() (inc/account/player-data.php) applies to
+ * season lines. Pre-coupon, so a registration a coupon made free still reads
+ * as a registration.
  *
  * @param string $text  Escaped thank-you text.
  * @param mixed  $order The WC_Order, or false when there is none.
@@ -654,14 +661,16 @@ function blueline_wc_waitlist_thankyou_text( $text, $order = null ) {
 		return $text;
 	}
 
-	$products = array();
+	$items = $order->get_items();
 
-	foreach ( $order->get_items() as $item ) {
-		$products[] = is_object( $item ) && method_exists( $item, 'get_product' ) ? $item->get_product() : null;
+	if ( empty( $items ) ) {
+		return $text;
 	}
 
-	if ( ! blueline_wc_products_are_waitlist_only( $products ) ) {
-		return $text;
+	foreach ( $items as $item ) {
+		if ( ! is_object( $item ) || ! method_exists( $item, 'get_subtotal' ) || (float) $item->get_subtotal() > 0 ) {
+			return $text;
+		}
 	}
 
 	return esc_html__( 'Thank you. You’ve joined the waitlist.', 'blueline' );
