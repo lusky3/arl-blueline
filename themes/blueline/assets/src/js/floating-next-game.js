@@ -30,6 +30,10 @@
  *   decide whether to reveal the "Updated" indicator -- never affects
  *   whether the widget itself is shown or hidden.
  *
+ * Both keys are suffixed with the signed-in member's `data-bl-member` scope
+ * (next-game-keys.js), so on a shared browser one member's state never
+ * applies to another (FE-01).
+ *
  * The stored/compared value under each key is still `event_id:fingerprint`
  * (`data-bl-next-game`), not a content hash of the rendered text. `fingerprint` (a hash of the event's own date/time, venue,
  * opponent, and home/away flag -- blueline_event_schedule_fingerprint() in
@@ -37,16 +41,16 @@
  * a game not suppress a later, changed version of the SAME game.
  */
 
-// DISMISSED_KEY is also read by assets/src/js/preferences-widget-reset.js
-// (the Preferences page's "Show next game widget again" button, which
-// clears this exact key) -- via this file's own `module.exports` below,
-// not by convention, and preferences-widget-reset.test.mjs asserts the two
-// stay equal.
+// The keys come from next-game-keys.js, which account-next-game.js and
+// preferences-widget-reset.js (the "Show next game widget again" button)
+// also require, so the three cannot drift apart.
 const { moveFocusOut } = require( './dismiss-focus.js' );
-
-const DISMISSED_KEY = 'blueline:next-game-dismissed';
-// Shared with account-next-game.js; storage-keys.test.mjs asserts they match.
-const SEEN_KEY = 'blueline:next-game-seen';
+const {
+	DISMISSED_KEY,
+	SEEN_KEY,
+	memberKey,
+	forgetUnscopedState,
+} = require( './next-game-keys.js' );
 
 /**
  * Parse a stored or server-rendered `event_id:fingerprint` pair into its two
@@ -84,10 +88,14 @@ function parseNextGameState( raw ) {
 /**
  * The `event_id:fingerprint` pair stored under the given key, or null.
  *
- * @param {string} key The localStorage key to read.
+ * @param {string|null} key The localStorage key to read (null: no member scope).
  * @return {string|null} The stored pair.
  */
 function readState( key ) {
+	if ( ! key ) {
+		return null;
+	}
+
 	try {
 		return window.localStorage.getItem( key );
 	} catch {
@@ -101,10 +109,14 @@ function readState( key ) {
  * store is not worth surfacing: the widget still behaves correctly for
  * this page view, it just cannot remember it for the next one.
  *
- * @param {string} key   The localStorage key to write.
- * @param {string} state The `event_id:fingerprint` pair to store.
+ * @param {string|null} key   The localStorage key to write (null: no member scope).
+ * @param {string}      state The `event_id:fingerprint` pair to store.
  */
 function writeState( key, state ) {
+	if ( ! key ) {
+		return;
+	}
+
 	try {
 		window.localStorage.setItem( key, state );
 	} catch {
@@ -126,7 +138,17 @@ if ( typeof document !== 'undefined' ) {
 	if ( widget ) {
 		const currentRaw = widget.getAttribute( 'data-bl-next-game' );
 		const current = parseNextGameState( currentRaw );
-		const dismissed = parseNextGameState( readState( DISMISSED_KEY ) );
+		const member = widget.getAttribute( 'data-bl-member' );
+		const dismissedKey = memberKey( DISMISSED_KEY, member );
+		const seenKey = memberKey( SEEN_KEY, member );
+
+		try {
+			forgetUnscopedState( window.localStorage );
+		} catch {
+			// Storage unavailable -- nothing to clear.
+		}
+
+		const dismissed = parseNextGameState( readState( dismissedKey ) );
 
 		if (
 			current &&
@@ -136,7 +158,7 @@ if ( typeof document !== 'undefined' ) {
 		) {
 			widget.hidden = true;
 		} else {
-			const seen = parseNextGameState( readState( SEEN_KEY ) );
+			const seen = parseNextGameState( readState( seenKey ) );
 
 			if (
 				current &&
@@ -184,8 +206,8 @@ if ( typeof document !== 'undefined' ) {
 					// the "Updated" badge would immediately reappear on the
 					// next page, right after the visitor just dismissed
 					// this exact state.
-					writeState( DISMISSED_KEY, currentRaw );
-					writeState( SEEN_KEY, currentRaw );
+					writeState( dismissedKey, currentRaw );
+					writeState( seenKey, currentRaw );
 				}
 			} );
 		}

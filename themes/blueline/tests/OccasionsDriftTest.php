@@ -82,6 +82,19 @@ final class OccasionsDriftTest extends TestCase {
 	}
 
 	/**
+	 * No stored settings row (a fresh install, or straight after "Delete
+	 * all Blueline data") holds no acknowledgement that could drift, so
+	 * nothing is written back: recording the hash would re-create the row
+	 * the teardown just removed (ACC-03).
+	 */
+	public function test_no_stored_settings_writes_nothing(): void {
+		blueline_occasions_maybe_revalidate_on_drift();
+
+		$this->assertFalse( get_option( BLUELINE_SETTINGS_OPTION, false ) );
+		$this->assertNull( blueline_get_occasions_drift_notice_payload() );
+	}
+
+	/**
 	 * Drift with nothing non-valid to report still updates
 	 * `_validated_against` to the current hash -- design spec §6.5's
 	 * ruling that the hash updates regardless of outcome.

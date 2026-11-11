@@ -825,7 +825,7 @@ function blueline_account_render_next_game( int $player_id ) {
 	} else {
 		$venue_url = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
-		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>">
+		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>" <?php echo blueline_next_game_member_attribute(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in blueline_next_game_member_attribute(). ?>>
 			<p class="bl-account-next-game__updated" data-bl-next-game-account-updated hidden>
 				<?php esc_html_e( 'Updated since you last checked', 'blueline' ); ?>
 			</p>

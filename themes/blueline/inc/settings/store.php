@@ -395,7 +395,18 @@ function blueline_settings_repair( array $stored ): array {
  *   this function safe to call from every single request.
  */
 function blueline_settings_migrate(): void {
-	$stored = get_option( BLUELINE_SETTINGS_OPTION, array() );
+	$stored = get_option( BLUELINE_SETTINGS_OPTION, false );
+
+	if ( false === $stored ) {
+		// No row at all: a fresh install, or straight after "Delete all
+		// Blueline data". Reads already fall back to the defaults, so there
+		// is nothing to migrate -- and writing them would re-create the row
+		// the teardown just removed, through add_option(), whose hook also
+		// re-raises the cache-purge flag (ACC-03). The first real save
+		// creates the row; the next request then migrates it.
+		return;
+	}
+
 	$stored = is_array( $stored ) ? $stored : array();
 
 	$stored_schema = isset( $stored['_schema'] ) ? (int) $stored['_schema'] : 0;
