@@ -89,6 +89,55 @@ final class NameClaimKeyTest extends TestCase {
 	}
 
 	/**
+	 * A league link for the user who already holds a name claim on the player still writes sp_user
+	 * (the claim must not count as "already linked" there), and the now-redundant claim row goes.
+	 */
+	public function test_a_league_link_over_the_same_users_claim_writes_sp_user(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+		$state['caps']            = array( 'edit_users' => true );
+		$this->seed_player_post( 100 );
+		$state['post_meta'][100] = array( BLUELINE_PLAYER_CLAIM_META => '5' );
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
+		$this->assertArrayNotHasKey( BLUELINE_PLAYER_CLAIM_META, blueline_test_state()['post_meta'][100] );
+		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
+	}
+
+	/**
+	 * Same, with a '' / '0' sp_user placeholder on the record: it is taken over.
+	 */
+	public function test_a_league_link_over_a_claim_takes_over_a_placeholder(): void {
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+		$state['caps']            = array( 'edit_users' => true );
+		$this->seed_player_post( 100 );
+		$state['post_meta'][100] = array(
+			BLUELINE_PLAYER_CLAIM_META => '5',
+			BLUELINE_PLAYER_USER_META  => '0',
+		);
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
+		$this->assertArrayNotHasKey( BLUELINE_PLAYER_CLAIM_META, blueline_test_state()['post_meta'][100] );
+	}
+
+	/**
+	 * A repeated name claim by the claimant is still a no-op success.
+	 */
+	public function test_repeating_a_name_claim_is_a_no_op(): void {
+		blueline_core_test_seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
+		blueline_test_state()['post_meta'][100][ BLUELINE_PLAYER_CLAIM_META ] = '5';
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+		$this->assertSame( array( '5' ), get_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, false ) );
+		$this->assertArrayNotHasKey( BLUELINE_PLAYER_USER_META, blueline_test_state()['post_meta'][100] );
+	}
+
+	/**
 	 * An existing sp_user link (registration, the league, or a claim made before this change) keeps working.
 	 */
 	public function test_an_existing_sp_user_link_still_resolves(): void {

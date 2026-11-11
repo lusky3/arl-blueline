@@ -296,8 +296,12 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 		);
 	}
 
-	if ( in_array( $user_id, $owners, true ) ) {
-		return true; // Already linked to this user: nothing to write.
+	// Already linked to this user under the key this call writes, or through sp_user (a name claim
+	// adds nothing to that): nothing to write. Never the other way round, so the user's own name claim
+	// never stands in for a league (sp_user) link.
+	if ( in_array( $user_id, blueline_player_link_key_user_ids( $player_id, $meta_key ), true )
+		|| in_array( $user_id, blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_USER_META ), true ) ) {
+		return true;
 	}
 
 	if ( ! $is_admin && ! in_array( $player_id, wp_list_pluck( blueline_find_player_candidates( $user_id ), 'player_id' ), true ) ) {
@@ -318,7 +322,7 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 			);
 		}
 
-		if ( ! $owners ) {
+		if ( ! blueline_player_link_key_user_ids( $player_id, $meta_key ) ) {
 			update_post_meta( $player_id, $meta_key, $user_id, get_post_meta( $player_id, $meta_key, true ) );
 		}
 	}
@@ -342,6 +346,12 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 			'user_already_linked',
 			__( 'This account is already linked to a different player.', 'blueline-core' )
 		);
+	}
+
+	// A league link replaces the same user's own name claim on this record: keeping both would leave
+	// `ownership unlink` (which removes a claim first) able to strip the claim while sp_user stays.
+	if ( BLUELINE_PLAYER_USER_META === $meta_key ) {
+		delete_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, $user_id );
 	}
 
 	return true;

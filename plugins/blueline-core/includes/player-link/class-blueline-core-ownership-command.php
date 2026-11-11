@@ -299,13 +299,22 @@ class Blueline_Core_Ownership_Command extends WP_CLI_Command {
 				continue;
 			}
 
-			if ( ! in_array( $plan['user'], blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_CLAIM_META ), true )
-				&& ! add_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, $plan['user'], true ) ) {
+			$had_claim = in_array( $plan['user'], blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_CLAIM_META ), true );
+			if ( ! $had_claim && ! add_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, $plan['user'], true ) ) {
 				WP_CLI::warning( sprintf( 'Player %d: the claim key could not be written; sp_user was left as it is.', $player_id ) );
 				continue;
 			}
 
-			delete_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $plan['user'] );
+			if ( ! delete_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $plan['user'] ) ) {
+				// Undo this run's claim row so the player is exactly as it was, not half-moved.
+				if ( ! $had_claim ) {
+					delete_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, $plan['user'] );
+				}
+				blueline_forget_linked_player_cache( $plan['user'] );
+				WP_CLI::warning( sprintf( 'Player %d: the old sp_user row could not be removed; nothing was moved.', $player_id ) );
+				continue;
+			}
+
 			blueline_forget_linked_player_cache( $plan['user'] );
 			WP_CLI::log( sprintf( 'Moved player %1$d\'s link to user %2$d to %3$s. To undo: wp post meta add %1$d %4$s %2$d && wp post meta delete %1$d %3$s', $player_id, $plan['user'], BLUELINE_PLAYER_CLAIM_META, BLUELINE_PLAYER_USER_META ) );
 			++$changed;

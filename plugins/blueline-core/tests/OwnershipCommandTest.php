@@ -46,7 +46,30 @@ final class OwnershipCommandTest extends TestCase {
 	 * Remove the fake $wpdb and recorded state.
 	 */
 	protected function tearDown(): void {
-		unset( $GLOBALS['wpdb'], $GLOBALS['bl_core_test_updated_posts'], $GLOBALS['bl_core_test_update_post_error'], $GLOBALS['bl_core_test_kses_removed'] );
+		unset( $GLOBALS['wpdb'], $GLOBALS['bl_core_test_updated_posts'], $GLOBALS['bl_core_test_update_post_error'], $GLOBALS['bl_core_test_kses_removed'], $GLOBALS['bl_core_test_post_meta_delete_vetoed'] );
+	}
+
+	/**
+	 * When the old sp_user row cannot be deleted, move-claim warns, does not count the player as
+	 * moved and removes the claim row it just added, so nothing is left half-moved.
+	 */
+	public function test_move_claim_reports_a_failed_sp_user_delete_and_rolls_back(): void {
+		$this->seed_player( 100, 6, 1 ); // bob: a plain name claim in sp_user.
+		$GLOBALS['bl_core_test_post_meta_delete_vetoed'] = array( 'sp_user' );
+
+		( new Blueline_Core_Ownership_Command() )->move_claim(
+			array(),
+			array(
+				'ids' => '100',
+				'yes' => true,
+			)
+		);
+
+		$state = blueline_test_state();
+		$this->assertSame( '6', $state['post_meta'][100]['sp_user'], 'sp_user is as it was' );
+		$this->assertArrayNotHasKey( '_blueline_name_claim_user', $state['post_meta'][100], 'the claim row this run added is removed again' );
+		$this->assertSame( array( 'Player 100: the old sp_user row could not be removed; nothing was moved.' ), $this->messages( 'warning' ) );
+		$this->assertSame( array( '0 player(s) moved.' ), $this->messages( 'success' ) );
 	}
 
 	/**
