@@ -61,12 +61,14 @@ final class ReleasePluginSigningTest extends TestCase {
 	/**
 	 * Run a release script with an explicit environment (nothing inherited but PATH).
 	 *
-	 * @param string   $script Script file name in scripts/release.
-	 * @param string[] $args   Arguments.
+	 * @param string   $script  Script file name in scripts/release.
+	 * @param string[] $args    Arguments.
+	 * @param string   $prepend A PHP file to run first (php -d auto_prepend_file), '' for none.
 	 * @return array{code: int, out: string, err: string}
 	 */
-	private function run_script( string $script, array $args = array() ): array {
-		$command = array_merge( array( PHP_BINARY, dirname( __DIR__, 3 ) . '/scripts/release/' . $script ), $args );
+	private function run_script( string $script, array $args = array(), string $prepend = '' ): array {
+		$php     = '' === $prepend ? array( PHP_BINARY ) : array( PHP_BINARY, '-d', 'auto_prepend_file=' . $prepend );
+		$command = array_merge( $php, array( dirname( __DIR__, 3 ) . '/scripts/release/' . $script ), $args );
 		$process = proc_open( // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_proc_open -- running the release script under test.
 			$command,
 			array(
@@ -151,11 +153,31 @@ final class ReleasePluginSigningTest extends TestCase {
 	 */
 	public static function unverified_outcomes(): array {
 		return array(
-			'invalid'      => array( 'invalid' ),
-			'missing'      => array( 'missing' ),
-			'not_required' => array( 'not_required' ),
-			'empty'        => array( '' ),
+			'invalid'     => array( 'invalid' ),
+			'missing'     => array( 'missing' ),
+			'unsupported' => array( 'unsupported' ),
+			'empty'       => array( '' ),
 		);
+	}
+
+	/**
+	 * While the theme trusts no key (`not_required`), the verdict matches
+	 * verify-manifest.php's policy: pass with a warning, but only when the zip
+	 * still matches the manifest's sha256.
+	 */
+	public function test_verdict_without_theme_keys_warns_and_still_checks_the_hash(): void {
+		$sha = hash( 'sha256', 'plugin bytes' );
+		$doc = $this->manifest_json( 'blueline-core-0.2.0.zip', $sha );
+
+		$match    = blueline_release_plugin_verdict( 'not_required', $doc, 'blueline-core-0.2.0.zip', $sha );
+		$mismatch = blueline_release_plugin_verdict( 'not_required', $doc, 'blueline-core-0.2.0.zip', hash( 'sha256', 'other' ) );
+		$verified = blueline_release_plugin_verdict( 'verified', $doc, 'blueline-core-0.2.0.zip', $sha );
+
+		$this->assertTrue( $match['ok'], $match['message'] );
+		$this->assertSame( 'warning', $match['level'] );
+		$this->assertFalse( $mismatch['ok'] );
+		$this->assertSame( 'error', $mismatch['level'] );
+		$this->assertSame( 'notice', $verified['level'] );
 	}
 
 	/**
@@ -270,6 +292,68 @@ final class ReleasePluginSigningTest extends TestCase {
 		$this->assertStringStartsWith( '::error::', $unsigned['out'] );
 		$this->assertSame( 1, $foreign['code'], $foreign['out'] . $foreign['err'] );
 		$this->assertStringStartsWith( '::error::', $foreign['out'] );
+	}
+
+	/**
+	 * A PHP file that defines BLUELINE_RELEASE_PUBLIC_KEYS before the script
+	 * loads updater-rules.php (whose define is guarded by `! defined()`). It is
+	 * passed with `php -d auto_prepend_file=`, a php CLI option of the test's
+	 * own subprocess: the scripts gain no key-injection input of their own.
+	 *
+	 * @param string[] $keys Base64 public keys to trust.
+	 * @return string Its path.
+	 */
+	private function trust_keys( array $keys ): string {
+		return $this->write( 'trust-keys.php', "<?php\ndefine( 'BLUELINE_RELEASE_PUBLIC_KEYS', " . var_export( $keys, true ) . " );\n" ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- writing a PHP fixture.
+	}
+
+	/**
+	 * The CLI's accepting path: a throwaway key signs the manifest for a
+	 * throwaway zip, the verifier trusts that key, and it exits 0 with the
+	 * success notice. A swapped zip under the same trust still fails.
+	 */
+	public function test_verify_plugin_cli_accepts_a_zip_the_trusted_signed_manifest_names(): void {
+		list( $secret, $public ) = $this->keypair();
+		$zip                     = $this->write( 'blueline-core-0.2.0.zip', 'throwaway plugin zip' );
+		$bytes                   = $this->manifest_json( 'blueline-core-0.2.0.zip', hash( 'sha256', 'throwaway plugin zip' ) );
+		$manifest                = $this->write( 'manifest.json', $bytes );
+		$signed                  = blueline_release_sign( $bytes, $secret );
+		$this->write( 'manifest.json.sig', $signed['signature'] . "\n" );
+		$trust = $this->trust_keys( array( $public ) );
+
+		$ok = $this->run_script( 'verify-plugin.php', array( $manifest, $zip ), $trust );
+
+		$this->write( 'blueline-core-0.2.0.zip', 'swapped plugin zip' );
+		$swapped = $this->run_script( 'verify-plugin.php', array( $manifest, $zip ), $trust );
+
+		$this->assertSame( 0, $ok['code'], $ok['out'] . $ok['err'] );
+		$this->assertStringStartsWith( '::notice::blueline-core-0.2.0.zip matches the signed manifest', $ok['out'] );
+		$this->assertSame( 1, $swapped['code'], $swapped['out'] . $swapped['err'] );
+		$this->assertStringStartsWith( '::error::', $swapped['out'] );
+	}
+
+	/**
+	 * Consistent with verify-manifest.php: a signed release while the theme
+	 * trusts no key passes with a warning, and only if the sha256 matches.
+	 */
+	public function test_verify_plugin_cli_warns_while_the_theme_trusts_no_key(): void {
+		list( $secret ) = $this->keypair();
+		$zip            = $this->write( 'blueline-core-0.2.0.zip', 'throwaway plugin zip' );
+		$bytes          = $this->manifest_json( 'blueline-core-0.2.0.zip', hash( 'sha256', 'throwaway plugin zip' ) );
+		$manifest       = $this->write( 'manifest.json', $bytes );
+		$this->write( 'manifest.json.sig', blueline_release_sign( $bytes, $secret )['signature'] . "\n" );
+		$trust = $this->trust_keys( array() );
+
+		$plugin = $this->run_script( 'verify-plugin.php', array( $manifest, $zip ), $trust );
+		$theme  = $this->run_script( 'verify-manifest.php', array( $manifest ), $trust );
+
+		$this->write( 'blueline-core-0.2.0.zip', 'swapped plugin zip' );
+		$swapped = $this->run_script( 'verify-plugin.php', array( $manifest, $zip ), $trust );
+
+		$this->assertSame( 0, $theme['code'], $theme['out'] . $theme['err'] );
+		$this->assertSame( 0, $plugin['code'], $plugin['out'] . $plugin['err'] );
+		$this->assertStringStartsWith( '::warning::', $plugin['out'] );
+		$this->assertSame( 1, $swapped['code'] );
 	}
 
 	/**

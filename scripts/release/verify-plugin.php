@@ -10,8 +10,10 @@
  * plugin_zip / plugin_sha256 name this zip and its bytes. The plugin has no
  * updater, so this is the check before installing it by hand (docs/RELEASING.md,
  * "Plugin"); the release workflow runs it before publishing. Policy:
- * blueline_release_plugin_verdict() in lib.php. Prints one GitHub Actions
- * annotation (::notice:: or ::error::).
+ * blueline_release_plugin_verdict() in lib.php, consistent with
+ * verify-manifest.php: while the theme trusts no key, a zip matching the
+ * manifest's sha256 passes with a warning. Prints one GitHub Actions
+ * annotation (::notice::, ::warning:: or ::error::).
  *
  * Exit 0 = genuine, 1 = do not install, 2 = could not tell (usage, unreadable file).
  *
@@ -52,6 +54,6 @@ if ( 'cli' === PHP_SAPI && isset( $argv[0] ) && realpath( $argv[0] ) === __FILE_
 	$outcome = blueline_updater_check_manifest_signature( $manifest, $signature, blueline_updater_public_keys() );
 	$verdict = blueline_release_plugin_verdict( $outcome, $manifest, basename( $zip_path ), $zip_sha256 );
 
-	echo '::' . ( $verdict['ok'] ? 'notice' : 'error' ) . '::' . $verdict['message'] . "\n";
+	echo '::' . $verdict['level'] . '::' . $verdict['message'] . "\n";
 	exit( $verdict['ok'] ? 0 : 1 );
 }
