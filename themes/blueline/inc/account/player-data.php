@@ -700,7 +700,13 @@ function blueline_get_player_season_stats( int $player_id, ?int $team_id = null,
 		return $zero;
 	}
 
-	$row = $player->data( null === $league_id ? blueline_player_stats_league_id( $player_id, $season_id, $team_id ) : $league_id );
+	$row = blueline_sp_player_data_for_season(
+		$player,
+		$player_id,
+		null === $league_id ? blueline_player_stats_league_id( $player_id, $season_id, $team_id ) : $league_id,
+		$season_id,
+		$team_id ? $team_id : blueline_player_current_team_id( $player_id )
+	);
 
 	if ( ! is_array( $row ) || empty( $row[ $season_id ] ) || ! is_array( $row[ $season_id ] ) ) {
 		return $zero;
@@ -709,6 +715,81 @@ function blueline_get_player_season_stats( int $player_id, ?int $team_id = null,
 	$memo[ $memo_key ] = blueline_normalize_player_stats( $row[ $season_id ] );
 
 	return $memo[ $memo_key ];
+}
+
+/**
+ * SP_Player::data( $league_id ), with $season_id's row in it even when the
+ * player's `sp_leagues` map has no entry for that league and season.
+ *
+ * SportsPress computes every season's totals from the event box scores, then
+ * drops each season `sp_leagues` names no team for. Only saving the player in
+ * wp-admin with the league/season grid writes that entry, and rostering does
+ * not, so a whole season's players read as never having played (SPT-01). For
+ * the length of the data() call, a `get_post_metadata` filter answers with
+ * the stored map plus the missing entry. Nothing is written, and an entry
+ * SportsPress does hold (including -1, "did not play this league") is kept.
+ *
+ * @param object $player    The SP_Player.
+ * @param int    $player_id sp_player post ID.
+ * @param int    $league_id sp_league term id, or 0 for the all-leagues bucket.
+ * @param int    $season_id sp_season term id.
+ * @param int    $team_id   The team to name on the row; 0 when unknown.
+ * @return mixed What data() returns.
+ */
+function blueline_sp_player_data_for_season( $player, int $player_id, int $league_id, int $season_id, int $team_id ) {
+	$map = get_post_meta( $player_id, 'sp_leagues', true );
+	$map = is_array( $map ) ? $map : array();
+
+	if ( isset( $map[ $league_id ] ) && is_array( $map[ $league_id ] ) && isset( $map[ $league_id ][ $season_id ] ) ) {
+		return $player->data( $league_id );
+	}
+
+	if ( ! isset( $map[ $league_id ] ) || ! is_array( $map[ $league_id ] ) ) {
+		$map[ $league_id ] = array();
+	}
+
+	// SportsPress stores 1 in the all-leagues bucket, and the team elsewhere.
+	$map[ $league_id ][ $season_id ] = $league_id && $team_id > 0 ? $team_id : 1;
+
+	$lend = static function ( $value, $object_id, $meta_key ) use ( $player_id, $map ) {
+		return ( (int) $object_id === $player_id && 'sp_leagues' === $meta_key ) ? array( $map ) : $value;
+	};
+
+	add_filter( 'get_post_metadata', $lend, 10, 3 );
+
+	try {
+		return $player->data( $league_id );
+	} finally {
+		remove_filter( 'get_post_metadata', $lend, 10 );
+	}
+}
+
+/**
+ * The sp_league term of $team_id's current-season table
+ * (blueline_team_current_table_id()), or 0.
+ *
+ * Memoised per request, misses included: a roster asks once per player, and
+ * each lookup queries the season's tables.
+ *
+ * @param int $team_id sp_team post ID.
+ * @return int
+ */
+function blueline_team_current_league_id( int $team_id ): int {
+	static $memo = array();
+
+	if ( ! isset( $memo[ $team_id ] ) ) {
+		$table_id  = blueline_team_current_table_id( $team_id );
+		$league_id = 0;
+
+		if ( $table_id && taxonomy_exists( 'sp_league' ) ) {
+			$terms     = wp_get_post_terms( $table_id, 'sp_league' );
+			$league_id = is_wp_error( $terms ) || empty( $terms ) ? 0 : (int) $terms[0]->term_id;
+		}
+
+		$memo[ $team_id ] = $league_id;
+	}
+
+	return $memo[ $team_id ];
 }
 
 /**
@@ -740,10 +821,20 @@ function blueline_player_season_stat_blocks( int $player_id ): array {
 
 	$season_id = (int) blueline_current_sp_season_term_id();
 	$blocks    = array();
+	$leagues   = array();
 
 	foreach ( $teams as $team ) {
-		if ( $season_id && blueline_player_stats_league_id( $player_id, $season_id, $team['team_id'] ) > 0 ) {
-			$blocks[] = array(
+		$league_id = $season_id ? blueline_player_stats_league_id( $player_id, $season_id, $team['team_id'] ) : 0;
+
+		// Two teams in one league share one line: no per-team split is honest then.
+		if ( $league_id > 0 && isset( $leagues[ $league_id ] ) ) {
+			$blocks = array();
+			break;
+		}
+
+		if ( $league_id > 0 ) {
+			$leagues[ $league_id ] = true;
+			$blocks[]              = array(
 				'team'  => $team,
 				'stats' => blueline_get_player_season_stats( $player_id, $team['team_id'] ),
 			);
@@ -772,6 +863,9 @@ function blueline_player_season_stat_blocks( int $player_id ): array {
  * league in a season with different teams, which is exactly why this is not
  * hard-coded.
  *
+ * When the map has no entry for the current season (rostering does not write
+ * one), the league of the team's own current-season table is used instead.
+ *
  * Falls back to 0, SportsPress' own all-leagues bucket, which on this data
  * returns the same per-season totals but without a team link.
  *
@@ -789,11 +883,7 @@ function blueline_player_stats_league_id( int $player_id, int $season_id, ?int $
 
 	$leagues = get_post_meta( $player_id, 'sp_leagues', true );
 
-	if ( ! is_array( $leagues ) ) {
-		return 0;
-	}
-
-	foreach ( $leagues as $league_id => $seasons ) {
+	foreach ( is_array( $leagues ) ? $leagues : array() as $league_id => $seasons ) {
 		if ( is_array( $seasons )
 			&& isset( $seasons[ $season_id ] )
 			&& (int) $seasons[ $season_id ] === $team_id ) {
@@ -801,32 +891,82 @@ function blueline_player_stats_league_id( int $player_id, int $season_id, ?int $
 		}
 	}
 
-	return 0;
+	// No entry for this season (SPT-01): the league the team's own table is in.
+	return (int) blueline_current_sp_season_term_id() === $season_id ? blueline_team_current_league_id( $team_id ) : 0;
 }
 
 /**
- * The most recent of $user_id's orders (newest first) containing a
- * product from $product_ids, or null. Paginated in small batches rather
- * than one `limit => -1` fetch of the user's entire order history: the
- * match is almost always in the very first, most-recent page (a
- * registrant's newest order is normally for the current season), so this
- * short-circuits after page one in the common case while still bounding
- * the worst case (a user who registered for the current season only in
- * some older order) to at most `$max_pages` batches rather than hydrating
- * every order a long-time customer has ever placed.
+ * The order statuses that count as a registration: paid (processing,
+ * completed) or awaiting a payment the member has committed to (on-hold, for
+ * an e-Transfer; partial-payment). Pending (an abandoned checkout), failed,
+ * cancelled, refunded and checkout-draft orders are not a registration.
+ *
+ * @return string[]
+ */
+function blueline_registration_order_statuses(): array {
+	return array( 'processing', 'completed', 'on-hold', 'partial-payment' );
+}
+
+/**
+ * What $order is for the season, judged by its lines for $product_ids:
+ * 'paid' or 'unpaid' (by WC_Order::is_paid()) when one of them is a priced
+ * (> $0) season product; 'waitlist' when every one of them is $0 -- the same
+ * "season product at $0" rule as blueline_wc_is_waitlist_product(), read from
+ * the line's own pre-coupon subtotal so a later price change cannot rewrite
+ * an old order; '' when the order holds no season product.
+ *
+ * @param WC_Order $order       The order.
+ * @param int[]    $product_ids Product IDs that count as a match.
+ * @return string 'paid', 'unpaid', 'waitlist' or ''.
+ */
+function blueline_registration_order_kind( $order, array $product_ids ): string {
+	$has_season_item = false;
+
+	foreach ( $order->get_items() as $item ) {
+		if ( ! in_array( (int) $item->get_product_id(), $product_ids, true ) ) {
+			continue;
+		}
+
+		$has_season_item = true;
+
+		if ( (float) $item->get_subtotal() > 0 ) {
+			return $order->is_paid() ? 'paid' : 'unpaid';
+		}
+	}
+
+	return $has_season_item ? 'waitlist' : '';
+}
+
+/**
+ * $user_id's registration order for the season, or null: the newest paid
+ * order with a priced season product; failing that, the newest unpaid one
+ * (on-hold, awaiting payment); failing that, the newest $0 waitlist entry.
+ * Only blueline_registration_order_statuses() are read.
+ *
+ * Paginated in small batches rather than one `limit => -1` fetch of the
+ * user's entire order history: a paid registration is almost always on the
+ * first, most-recent page, so this short-circuits there in the common case
+ * while still bounding the worst case to at most `$max_pages` batches.
  *
  * @param int   $user_id     WordPress user ID.
  * @param int[] $product_ids Product IDs that count as a match.
- * @return WC_Order|null
+ * @return array{order:WC_Order, kind:string}|null
  */
-function blueline_find_registration_order( int $user_id, array $product_ids ) {
+function blueline_find_registration_order( int $user_id, array $product_ids ): ?array {
 	$batch_size = 20;
 	$max_pages  = 10;
+	$rank       = array(
+		'waitlist' => 1,
+		'unpaid'   => 2,
+		'paid'     => 3,
+	);
+	$best       = null;
 
 	for ( $page = 1; $page <= $max_pages; $page++ ) {
 		$orders = wc_get_orders(
 			array(
 				'customer_id' => $user_id,
+				'status'      => blueline_registration_order_statuses(),
 				'limit'       => $batch_size,
 				'paged'       => $page,
 				'orderby'     => 'date',
@@ -835,7 +975,7 @@ function blueline_find_registration_order( int $user_id, array $product_ids ) {
 		);
 
 		if ( empty( $orders ) ) {
-			return null;
+			break;
 		}
 
 		foreach ( (array) $orders as $order ) {
@@ -843,32 +983,47 @@ function blueline_find_registration_order( int $user_id, array $product_ids ) {
 				continue;
 			}
 
-			foreach ( $order->get_items() as $item ) {
-				if ( in_array( $item->get_product_id(), $product_ids, true ) ) {
-					return $order;
-				}
+			$kind = blueline_registration_order_kind( $order, $product_ids );
+
+			if ( '' === $kind ) {
+				continue;
+			}
+
+			if ( 'paid' === $kind ) {
+				// Newest first, so the first paid registration is the answer.
+				return array(
+					'order' => $order,
+					'kind'  => $kind,
+				);
+			}
+
+			if ( null === $best || $rank[ $kind ] > $rank[ $best['kind'] ] ) {
+				$best = array(
+					'order' => $order,
+					'kind'  => $kind,
+				);
 			}
 		}
 
 		if ( count( $orders ) < $batch_size ) {
-			return null; // Last page reached with no match.
+			break; // Last page reached.
 		}
 	}
 
-	return null;
+	return $best;
 }
 
 /**
- * $user_id's registration for the current season: the most recent
- * WooCommerce order containing a product in the newest child product_cat
- * of Registration -- the same season-resolution rule Season State uses, now
+ * $user_id's registration for the current season: the order
+ * blueline_find_registration_order() picks among those containing a product
+ * in the newest child product_cat of Registration -- the same season-resolution rule Season State uses, now
  * via blueline_resolve_registration_term() (inc/settings/commerce.php),
  * which verifies the admin-configured term (or its documented fallback, term
  * 91 -- see BLUELINE_REGISTRATION_TERM_ID in inc/season-state.php) actually
  * exists before trusting it.
  *
  * @param int $user_id WordPress user ID.
- * @return array{season:string, order_id:int, status:string, paid:bool}|null
+ * @return array{season:string, order_id:int, status:string, paid:bool, waitlist:bool}|null
  *         Null if WooCommerce is missing, no product exists for the
  *         current season, or the user has no order containing one.
  */
@@ -927,16 +1082,19 @@ function blueline_get_user_registration_status( int $user_id ): ?array {
 		return null;
 	}
 
-	$order = blueline_find_registration_order( $user_id, $product_ids );
+	$found = blueline_find_registration_order( $user_id, $product_ids );
 
-	if ( ! $order ) {
+	if ( ! $found ) {
 		return null;
 	}
+
+	$order = $found['order'];
 
 	return array(
 		'season'   => (string) $season_term->name,
 		'order_id' => $order->get_id(),
 		'status'   => $order->get_status(),
-		'paid'     => (bool) $order->is_paid(),
+		'paid'     => 'paid' === $found['kind'],
+		'waitlist' => 'waitlist' === $found['kind'],
 	);
 }

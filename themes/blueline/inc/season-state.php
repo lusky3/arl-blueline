@@ -402,11 +402,18 @@ function blueline_season_state_data( ?int $now = null ): array {
 	list( $has_purchasable_product, $product_id, $waitlist_id ) = blueline_season_state_product_signal();
 
 	$events = blueline_season_state_no_event_signals();
+	$ttl    = 15 * MINUTE_IN_SECONDS;
 
 	if ( post_type_exists( 'sp_event' ) ) {
 		list( $now_mysql, $now_ts ) = blueline_season_state_moment( $now );
 
 		$events = blueline_season_state_event_signals( $now_mysql, $now_ts );
+
+		// Expire at puck drop at the latest, so the cached "next game" is never one already under way.
+		$next = $events['next_event_id'] ? get_post( $events['next_event_id'] ) : null;
+		if ( $next ) {
+			$ttl = min( $ttl, max( 1, (int) strtotime( $next->post_date ) - $now_ts ) );
+		}
 	}
 
 	$next_event_id = $events['next_event_id'];
@@ -424,7 +431,7 @@ function blueline_season_state_data( ?int $now = null ): array {
 	);
 
 	if ( $use_cache && function_exists( 'wc_get_product' ) && post_type_exists( 'sp_event' ) ) {
-		set_transient( BLUELINE_SEASON_STATE_TRANSIENT, $data, 15 * MINUTE_IN_SECONDS );
+		set_transient( BLUELINE_SEASON_STATE_TRANSIENT, $data, $ttl );
 	}
 
 	return $data;

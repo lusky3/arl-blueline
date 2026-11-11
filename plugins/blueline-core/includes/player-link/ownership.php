@@ -95,7 +95,7 @@ function blueline_core_ownership_other_owned_player( int $user_id, int $player_i
 /**
  * Enrich raw linked-player rows with the linked user, a category and, for the rows `apply` could
  * act on (role_not_author), the evidence to judge them: name-match score, post date and risk
- * flags. The extra lookups run only for those rows.
+ * flags. The extra lookups run only for those rows; name_claim rows also get a name score.
  *
  * `name_score` is blueline_name_match_score() of the linked user's billing or display name
  * against the player title (0 when the user does not exist). A low score on a row that would be
@@ -120,8 +120,11 @@ function blueline_core_ownership_rows( array $linked ): array {
 		$name_score  = 0.0;
 		$flags       = array();
 
-		if ( BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR === $category ) {
+		if ( BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR === $category || BLUELINE_CORE_OWNERSHIP_NAME_CLAIM === $category ) {
 			$name_score = blueline_name_match_score( blueline_user_match_name( $sp_user ), (string) $row->post_title );
+		}
+
+		if ( BLUELINE_CORE_OWNERSHIP_ROLE_NOT_AUTHOR === $category ) {
 
 			if ( blueline_core_ownership_other_owned_player( $sp_user, $player_id ) > 0 ) {
 				$flags[] = BLUELINE_CORE_OWNERSHIP_FLAG_OWNS_OTHER;
@@ -214,14 +217,16 @@ function blueline_core_ownership_plan( int $player_id ): array {
 }
 
 /**
- * Decide whether `unlink` may remove $player_id's sp_user row.
+ * Decide whether `unlink` may remove $player_id's name claim or sp_user row.
  *
- * Only a view-only name claim (linked user is neither post_author nor a Player role holder) or a
- * dangling link (user no longer exists) may be removed; a verified owner, a Player-role member
- * or the post_author is never unlinked by this tool.
+ * A name claim under BLUELINE_PLAYER_CLAIM_META is always removable (only the self-service claim
+ * flow writes it) and is the row removed when present. Otherwise the sp_user row is removed only
+ * when it is a view-only name claim from before the claim key existed (linked user is neither
+ * post_author nor a Player role holder) or a dangling link (user no longer exists); a verified
+ * owner, a Player-role member or the post_author is never unlinked by this tool.
  *
  * @param int $player_id sp_player post ID.
- * @return array{ok:bool, reason:string, user:int, category:string}
+ * @return array{ok:bool, reason:string, user:int, category:string, key:string}
  */
 function blueline_core_ownership_unlink_plan( int $player_id ): array {
 	$plan = array(
@@ -229,10 +234,20 @@ function blueline_core_ownership_unlink_plan( int $player_id ): array {
 		'reason'   => '',
 		'user'     => (int) get_post_meta( $player_id, BLUELINE_PLAYER_USER_META, true ),
 		'category' => '',
+		'key'      => BLUELINE_PLAYER_USER_META,
 	);
 
 	if ( 'sp_player' !== get_post_type( $player_id ) ) {
 		$plan['reason'] = 'not an sp_player post';
+		return $plan;
+	}
+
+	$claimant = (int) get_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, true );
+	if ( $claimant > 0 ) {
+		$plan['ok']       = true;
+		$plan['user']     = $claimant;
+		$plan['category'] = BLUELINE_CORE_OWNERSHIP_NAME_CLAIM;
+		$plan['key']      = BLUELINE_PLAYER_CLAIM_META;
 		return $plan;
 	}
 
@@ -251,6 +266,56 @@ function blueline_core_ownership_unlink_plan( int $player_id ): array {
 
 	if ( BLUELINE_CORE_OWNERSHIP_NAME_CLAIM !== $plan['category'] && BLUELINE_CORE_OWNERSHIP_MISSING_USER !== $plan['category'] ) {
 		$plan['reason'] = sprintf( 'linked user %1$d is not a plain name claim (%2$s)', $plan['user'], $plan['category'] );
+		return $plan;
+	}
+
+	$plan['ok'] = true;
+	return $plan;
+}
+
+/**
+ * Decide whether `move-claim` may move $player_id's sp_user row to the name-claim key.
+ *
+ * Only a name claim made before the claim key existed qualifies: the sp_user user exists and is
+ * neither the post_author nor a Player role holder. A dangling link is left for `unlink`, and a
+ * player already name-claimed by someone else under the claim key is refused.
+ *
+ * @param int $player_id sp_player post ID.
+ * @return array{ok:bool, reason:string, user:int}
+ */
+function blueline_core_ownership_move_claim_plan( int $player_id ): array {
+	$plan = array(
+		'ok'     => false,
+		'reason' => '',
+		'user'   => (int) get_post_meta( $player_id, BLUELINE_PLAYER_USER_META, true ),
+	);
+
+	if ( 'sp_player' !== get_post_type( $player_id ) ) {
+		$plan['reason'] = 'not an sp_player post';
+		return $plan;
+	}
+
+	if ( $plan['user'] <= 0 ) {
+		$plan['reason'] = 'no linked user (sp_user)';
+		return $plan;
+	}
+
+	$user_exists = (bool) get_userdata( $plan['user'] );
+	$category    = blueline_core_ownership_category(
+		$plan['user'],
+		(int) get_post_field( 'post_author', $player_id ),
+		$user_exists,
+		$user_exists && blueline_user_has_player_role( $plan['user'] )
+	);
+
+	if ( BLUELINE_CORE_OWNERSHIP_NAME_CLAIM !== $category ) {
+		$plan['reason'] = sprintf( 'linked user %1$d is not a plain name claim (%2$s)', $plan['user'], $category );
+		return $plan;
+	}
+
+	$other_claimants = array_diff( blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_CLAIM_META ), array( $plan['user'] ) );
+	if ( $other_claimants ) {
+		$plan['reason'] = sprintf( 'already name-claimed by user %d', reset( $other_claimants ) );
 		return $plan;
 	}
 

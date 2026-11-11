@@ -663,6 +663,23 @@ final class PrivacyDataRequestsTest extends TestCase {
 	}
 
 	/**
+	 * A name claim (blueline-core's own claim key) is exported and erased like an sp_user link.
+	 */
+	public function test_a_name_claim_link_is_exported_and_erased(): void {
+		$this->player( self::PLAYER, 0 );
+		blueline_test_state()['post_meta'][ self::PLAYER ]['_blueline_name_claim_user'] = (string) self::USER;
+
+		$export = blueline_export_player_personal_data( 'five@example.test' );
+		$this->assertSame( array( 'blueline-player-100' ), array_column( $export['data'], 'item_id' ) );
+
+		$response = blueline_erase_player_personal_data( 'five@example.test' );
+
+		$this->assertTrue( $response['items_removed'] );
+		$this->assertArrayNotHasKey( '_blueline_name_claim_user', blueline_test_state()['post_meta'][ self::PLAYER ] );
+		$this->assertSame( '0', blueline_test_state()['post_meta'][ self::PLAYER ]['sp_user'], 'nothing else on the record changes' );
+	}
+
+	/**
 	 * Every linked player is unlinked, with one retention message each.
 	 */
 	public function test_player_erase_handles_a_duplicated_link(): void {

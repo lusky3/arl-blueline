@@ -790,7 +790,7 @@ final class PlayerLinkTest extends TestCase {
 		$result = blueline_link_player_to_user( 100, 5 );
 
 		$this->assertTrue( $result );
-		$this->assertSame( 5, get_post_meta( 100, BLUELINE_PLAYER_USER_META, true ) );
+		$this->assertSame( 5, get_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, true ) );
 		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
 	}
 
@@ -1148,7 +1148,7 @@ final class PlayerLinkTest extends TestCase {
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'already_linked', $result->get_error_code() );
-		$this->assertSame( array( 7 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ), 'exactly one row, the winner\'s' );
+		$this->assertSame( array( 7 ), get_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, false ), 'exactly one row, the winner\'s' );
 		$this->assertNull( blueline_get_linked_player_id( 5 ) );
 	}
 
@@ -1167,7 +1167,7 @@ final class PlayerLinkTest extends TestCase {
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'already_linked', $result->get_error_code() );
-		$this->assertSame( array( 7 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ), 'the other writer\'s row survives' );
+		$this->assertSame( array( 7 ), get_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, false ), 'the other writer\'s row survives' );
 		$this->assertNull( blueline_get_linked_player_id( 5 ) );
 	}
 
@@ -1211,12 +1211,27 @@ final class PlayerLinkTest extends TestCase {
 	 * A '' / '0' sp_user row is the "unclaimed" shape; it is taken over, not treated as an owner.
 	 */
 	public function test_a_placeholder_sp_user_row_is_taken_over(): void {
+		$this->seed_player_post( 100 );
+		$state                    = &blueline_test_state();
+		$state['current_user_id'] = 9;
+		$state['caps']            = array( 'edit_users' => true ); // Only a league write goes to sp_user.
+		$state['post_meta'][100][ BLUELINE_PLAYER_USER_META ] = '0';
+
+		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
+	}
+
+	/**
+	 * A placeholder sp_user row does not block a name claim, and the claim leaves it as it is.
+	 */
+	public function test_a_placeholder_sp_user_row_does_not_block_a_name_claim(): void {
 		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
 		$state = &blueline_test_state();
 		$state['post_meta'][100][ BLUELINE_PLAYER_USER_META ] = '0';
 
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
-		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, false ) );
+		$this->assertSame( array( '0' ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
 	}
 
 	/**
@@ -1226,8 +1241,8 @@ final class PlayerLinkTest extends TestCase {
 		$this->seed_claim_pool( 5, 'Cody Lusk', array( 100 => 'Cody Lusk' ) );
 
 		$this->assertTrue( blueline_link_player_to_user( 100, 5 ) );
-		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_USER_META, false ) );
-		$this->assertFalse( add_post_meta( 100, BLUELINE_PLAYER_USER_META, 6, true ), 'a unique add cannot create a second row' );
+		$this->assertSame( array( 5 ), get_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, false ) );
+		$this->assertFalse( add_post_meta( 100, BLUELINE_PLAYER_CLAIM_META, 6, true ), 'a unique add cannot create a second row' );
 	}
 
 	// -----------------------------------------------------------------------

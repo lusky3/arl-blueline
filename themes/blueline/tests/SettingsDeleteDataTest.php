@@ -238,6 +238,27 @@ final class SettingsDeleteDataTest extends TestCase {
 	}
 
 	/**
+	 * ACC-03: the very next request (the redirect back to the panel) runs
+	 * blueline_settings_migrate() on `init`. It must not write the settings
+	 * back -- through add_option(), which would also fire the first-save
+	 * cache hook and re-raise the "manual purge pending" flag.
+	 */
+	public function test_the_next_request_does_not_recreate_what_was_deleted(): void {
+		$this->seed_everything();
+
+		blueline_settings_delete_all_data();
+
+		// Wired exactly as inc/settings/cache.php wires them in production.
+		add_action( 'update_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_flush_page_cache', 10, 3 );
+		add_action( 'add_option_' . BLUELINE_SETTINGS_OPTION, 'blueline_flush_page_cache_on_first_save', 10, 2 );
+
+		blueline_settings_migrate();
+
+		$this->assertFalse( get_option( BLUELINE_SETTINGS_OPTION, false ), 'migration must not re-create the settings row' );
+		$this->assertFalse( get_option( BLUELINE_CACHE_PURGE_NEEDED_OPTION, false ), 'nor the cache-purge flag' );
+	}
+
+	/**
 	 * The report names each row that was actually removed.
 	 *
 	 * @return void

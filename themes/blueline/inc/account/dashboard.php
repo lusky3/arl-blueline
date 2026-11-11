@@ -825,7 +825,7 @@ function blueline_account_render_next_game( int $player_id ) {
 	} else {
 		$venue_url = ( $event['venue_term_id'] && taxonomy_exists( 'sp_venue' ) ) ? get_term_link( $event['venue_term_id'], 'sp_venue' ) : null;
 		?>
-		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>">
+		<div class="bl-account-next-game" data-bl-next-game-account="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>" <?php echo blueline_next_game_member_attribute(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in blueline_next_game_member_attribute(). ?>>
 			<p class="bl-account-next-game__updated" data-bl-next-game-account-updated hidden>
 				<?php esc_html_e( 'Updated since you last checked', 'blueline' ); ?>
 			</p>
@@ -1062,11 +1062,22 @@ function blueline_account_render_registration( int $user_id, ?int $player_id = n
 		blueline_account_module_empty_state( blueline_registration_empty_message( $has_current_team ) );
 	} else {
 		$order = function_exists( 'wc_get_order' ) ? wc_get_order( $status['order_id'] ) : false;
+
+		if ( ! empty( $status['waitlist'] ) ) {
+			$state = 'waitlist';
+			$label = __( 'On the waitlist', 'blueline' );
+		} elseif ( $status['paid'] ) {
+			$state = 'paid';
+			$label = __( 'Paid', 'blueline' );
+		} else {
+			$state = 'unpaid';
+			$label = __( 'Unpaid', 'blueline' );
+		}
 		?>
 		<div class="bl-account-registration">
 			<p class="bl-account-registration__season"><?php echo esc_html( $status['season'] ); ?></p>
-			<p class="bl-account-registration__status bl-account-registration__status--<?php echo esc_attr( $status['paid'] ? 'paid' : 'unpaid' ); ?>">
-				<?php echo esc_html( $status['paid'] ? __( 'Paid', 'blueline' ) : __( 'Unpaid', 'blueline' ) ); ?>
+			<p class="bl-account-registration__status bl-account-registration__status--<?php echo esc_attr( $state ); ?>">
+				<?php echo esc_html( $label ); ?>
 			</p>
 			<?php if ( $order && is_a( $order, 'WC_Order' ) ) : ?>
 				<a class="bl-account-module__link" href="<?php echo esc_url( $order->get_view_order_url() ); ?>">
