@@ -867,6 +867,21 @@ if ( ! function_exists( 'is_user_logged_in' ) ) {
 		return get_current_user_id() > 0;
 	}
 }
+if ( ! function_exists( 'wp_hash' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_hash(): an HMAC-MD5 of $data keyed
+	 * with a fixed test salt, so it is stable within a run and, like core's,
+	 * a one-way hash that does not contain its input.
+	 *
+	 * @param string $data   Plain text to hash.
+	 * @param string $scheme Salt scheme (ignored here).
+	 * @param string $algo   Hash algorithm.
+	 * @return string
+	 */
+	function wp_hash( $data, $scheme = 'auth', $algo = 'md5' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- matches core's signature.
+		return hash_hmac( $algo, (string) $data, 'blueline-test-salt-' . $scheme );
+	}
+}
 if ( ! function_exists( 'wp_login_url' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' wp_login_url().

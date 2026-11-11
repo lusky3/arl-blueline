@@ -146,7 +146,7 @@ function blueline_account_preferences_endpoint(): void {
 	<p class="bl-preferences-widget__intro">
 		<?php esc_html_e( 'If you’ve dismissed the floating next-game widget, you can bring it back here.', 'blueline' ); ?>
 	</p>
-	<button type="button" class="bl-btn bl-btn--secondary" data-bl-widget-reset>
+	<button type="button" class="bl-btn bl-btn--secondary" data-bl-widget-reset <?php echo blueline_next_game_member_attribute(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in blueline_next_game_member_attribute(). ?>>
 		<span class="bl-skew"><span><?php esc_html_e( 'Show next game widget again', 'blueline' ); ?></span></span>
 	</button>
 	<?php

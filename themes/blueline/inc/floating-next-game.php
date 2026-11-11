@@ -114,6 +114,7 @@ function blueline_render_floating_next_game(): void {
 		role="region"
 		aria-labelledby="bl-next-game-label"
 		data-bl-next-game="<?php echo esc_attr( $event['event_id'] . ':' . $event['fingerprint'] ); ?>"
+		<?php echo blueline_next_game_member_attribute(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in blueline_next_game_member_attribute(). ?>
 	>
 		<p class="bl-floating-next-game__kicker" id="bl-next-game-label"><?php esc_html_e( 'Your next game', 'blueline' ); ?></p>
 		<span class="bl-floating-next-game__updated" data-bl-next-game-updated hidden>
