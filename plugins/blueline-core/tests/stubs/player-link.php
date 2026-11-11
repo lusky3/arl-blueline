@@ -134,8 +134,9 @@ if ( ! function_exists( 'delete_post_meta' ) ) {
 	/**
 	 * Stand-in for delete_post_meta() over the shared post_meta store: with a
 	 * $value only the rows holding that value (string compare) are removed, with
-	 * '' every row for the key. Fallback only: tests/stubs/avatars.php sorts
-	 * first and defines its own (scalar-only) version, which then wins.
+	 * '' every row for the key. Keys listed in
+	 * $GLOBALS['bl_core_test_post_meta_delete_vetoed'] are refused (false), as a
+	 * plugin vetoing the delete would.
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $key     Meta key.
@@ -146,7 +147,7 @@ if ( ! function_exists( 'delete_post_meta' ) ) {
 		$state    = &blueline_test_state();
 		$existing = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? null;
 
-		if ( null === $existing ) {
+		if ( null === $existing || in_array( (string) $key, $GLOBALS['bl_core_test_post_meta_delete_vetoed'] ?? array(), true ) ) {
 			return false;
 		}
 

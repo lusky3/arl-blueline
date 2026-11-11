@@ -46,7 +46,30 @@ final class OwnershipCommandTest extends TestCase {
 	 * Remove the fake $wpdb and recorded state.
 	 */
 	protected function tearDown(): void {
-		unset( $GLOBALS['wpdb'], $GLOBALS['bl_core_test_updated_posts'], $GLOBALS['bl_core_test_update_post_error'], $GLOBALS['bl_core_test_kses_removed'] );
+		unset( $GLOBALS['wpdb'], $GLOBALS['bl_core_test_updated_posts'], $GLOBALS['bl_core_test_update_post_error'], $GLOBALS['bl_core_test_kses_removed'], $GLOBALS['bl_core_test_post_meta_delete_vetoed'] );
+	}
+
+	/**
+	 * When the old sp_user row cannot be deleted, move-claim warns, does not count the player as
+	 * moved and removes the claim row it just added, so nothing is left half-moved.
+	 */
+	public function test_move_claim_reports_a_failed_sp_user_delete_and_rolls_back(): void {
+		$this->seed_player( 100, 6, 1 ); // bob: a plain name claim in sp_user.
+		$GLOBALS['bl_core_test_post_meta_delete_vetoed'] = array( 'sp_user' );
+
+		( new Blueline_Core_Ownership_Command() )->move_claim(
+			array(),
+			array(
+				'ids' => '100',
+				'yes' => true,
+			)
+		);
+
+		$state = blueline_test_state();
+		$this->assertSame( '6', $state['post_meta'][100]['sp_user'], 'sp_user is as it was' );
+		$this->assertArrayNotHasKey( '_blueline_name_claim_user', $state['post_meta'][100], 'the claim row this run added is removed again' );
+		$this->assertSame( array( 'Player 100: the old sp_user row could not be removed; nothing was moved.' ), $this->messages( 'warning' ) );
+		$this->assertSame( array( '0 player(s) moved.' ), $this->messages( 'success' ) );
 	}
 
 	/**
@@ -499,6 +522,138 @@ final class OwnershipCommandTest extends TestCase {
 		);
 
 		$this->assertArrayNotHasKey( 'sp_user', blueline_test_state()['post_meta'][104] );
+	}
+
+	/**
+	 * `report --category=name_claim` lists the legacy name claims still held in sp_user, with a
+	 * name score, so the league can decide which to move to the claim key.
+	 */
+	public function test_report_can_list_the_name_claims_still_in_sp_user(): void {
+		$this->wpdb->results = array(
+			$this->report_row( 100, 1, 5 ), // role_not_author: not listed.
+			$this->report_row( 103, 1, 6 ), // name_claim, bob vs "Player 103".
+		);
+
+		( new Blueline_Core_Ownership_Command() )->report( array(), array( 'category' => 'name_claim' ) );
+
+		$log = $this->messages( 'log' );
+		$this->assertSame( "103\tPlayer 103\t6\tbob\t1\t2026-01-02 03:04:05\t0\t", $log[1] );
+		$this->assertSame( '', $log[2] );
+	}
+
+	/**
+	 * An unknown --category is refused.
+	 */
+	public function test_report_refuses_an_unknown_category(): void {
+		$this->expectException( Blueline_Test_Cli_Exit_Exception::class );
+
+		( new Blueline_Core_Ownership_Command() )->report( array(), array( 'category' => 'everyone' ) );
+	}
+
+	/**
+	 * A name claim stored under the claim key is unlinked from that key, never from sp_user.
+	 */
+	public function test_unlink_removes_a_claim_key_link(): void {
+		$this->seed_player( 100, 0, 1 );
+		blueline_test_state()['post_meta'][100]['_blueline_name_claim_user'] = '6';
+
+		( new Blueline_Core_Ownership_Command() )->unlink( array(), array( 'ids' => '100' ) );
+
+		$this->assertSame( array( 'Would unlink player 100 from user 6 (name_claim).' ), $this->messages( 'log' ) );
+		$this->assertSame( '6', blueline_test_state()['post_meta'][100]['_blueline_name_claim_user'], 'a dry run writes nothing' );
+
+		$GLOBALS['bl_test_cli_log'] = array();
+
+		( new Blueline_Core_Ownership_Command() )->unlink(
+			array(),
+			array(
+				'ids' => '100',
+				'yes' => true,
+			)
+		);
+
+		$state = blueline_test_state();
+		$this->assertArrayNotHasKey( '_blueline_name_claim_user', $state['post_meta'][100] );
+		$this->assertSame( '', $state['post_meta'][100]['sp_user'] );
+		$this->assertStringContainsString( 'wp post meta add 100 _blueline_name_claim_user 6', $this->messages( 'log' )[0] );
+	}
+
+	/**
+	 * The move-claim command moves a legacy name claim from sp_user to the claim key: a dry run unless --yes,
+	 * and the claimant keeps their view-only link.
+	 */
+	public function test_move_claim_dry_run_then_apply_moves_a_legacy_name_claim(): void {
+		$this->seed_player( 100, 6, 1 ); // bob: no Player role, not the author.
+
+		( new Blueline_Core_Ownership_Command() )->move_claim( array(), array( 'ids' => '100' ) );
+
+		$this->assertSame( array( 'Would move player 100\'s link to user 6 from sp_user to _blueline_name_claim_user.' ), $this->messages( 'log' ) );
+		$this->assertStringContainsString( 'Dry run: 1 player(s) would move', $this->messages( 'success' )[0] );
+		$this->assertSame( '6', blueline_test_state()['post_meta'][100]['sp_user'], 'a dry run writes nothing' );
+
+		$GLOBALS['bl_test_cli_log'] = array();
+
+		( new Blueline_Core_Ownership_Command() )->move_claim(
+			array(),
+			array(
+				'ids' => '100',
+				'yes' => true,
+			)
+		);
+
+		$state = blueline_test_state();
+		$this->assertArrayNotHasKey( 'sp_user', $state['post_meta'][100] );
+		$this->assertSame( 6, $state['post_meta'][100]['_blueline_name_claim_user'] );
+		$this->assertSame( 1, $state['posts'][100]['author'], 'post_author is never touched' );
+		$this->assertSame( 100, blueline_get_linked_player_id( 6 ), 'the claimant keeps the view-only link' );
+		$this->assertSame( array( '1 player(s) moved.' ), $this->messages( 'success' ) );
+	}
+
+	/**
+	 * The move-claim command refuses anything but a plain name claim held in sp_user.
+	 */
+	public function test_move_claim_refuses_anything_but_a_plain_name_claim(): void {
+		$this->seed_player( 100, 5, 5 ); // verified.
+		$this->seed_player( 101, 5, 1 ); // role_not_author.
+		$this->seed_player( 102, 6, 6 ); // author_not_role.
+		$this->seed_player( 103, 0, 1 ); // no link.
+		$this->seed_player( 104, 99, 1 ); // missing user.
+		$this->seed_player( 110, 6, 1, 'post' );
+
+		( new Blueline_Core_Ownership_Command() )->move_claim(
+			array(),
+			array(
+				'ids' => '100,101,102,103,104,110',
+				'yes' => true,
+			)
+		);
+
+		$state = blueline_test_state();
+		foreach ( array( 100, 101, 102, 104 ) as $id ) {
+			$this->assertArrayNotHasKey( '_blueline_name_claim_user', $state['post_meta'][ $id ] );
+		}
+		$this->assertSame( '5', $state['post_meta'][100]['sp_user'] );
+		$this->assertSame(
+			array(
+				'Player 100 skipped: linked user 5 is not a plain name claim (verified).',
+				'Player 101 skipped: linked user 5 is not a plain name claim (role_not_author).',
+				'Player 102 skipped: linked user 6 is not a plain name claim (author_not_role).',
+				'Player 103 skipped: no linked user (sp_user).',
+				'Player 104 skipped: linked user 99 is not a plain name claim (missing_user).',
+				'Player 110 skipped: not an sp_player post.',
+			),
+			$this->messages( 'warning' )
+		);
+		$this->assertSame( array( '0 player(s) moved.' ), $this->messages( 'success' ) );
+	}
+
+	/**
+	 * The move-claim command refuses without --ids (no bulk mode).
+	 */
+	public function test_move_claim_refuses_without_ids(): void {
+		$this->expectException( Blueline_Test_Cli_Exit_Exception::class );
+
+		( new Blueline_Core_Ownership_Command() )->move_claim( array(), array( 'yes' => true ) );
 	}
 
 	/**

@@ -25,6 +25,16 @@ function blueline_player_user_meta_key(): string {
 }
 
 /**
+ * Post meta key holding a self-service name claim on an sp_player post (the player-link module's
+ * BLUELINE_PLAYER_CLAIM_META, absent when that module is switched off).
+ *
+ * @return string
+ */
+function blueline_player_claim_meta_key(): string {
+	return defined( 'BLUELINE_PLAYER_CLAIM_META' ) ? (string) constant( 'BLUELINE_PLAYER_CLAIM_META' ) : '_blueline_name_claim_user';
+}
+
+/**
  * Whether any post other than $ignore_post_id uses $attachment_id as its featured image.
  *
  * Gates a permanent attachment delete, so it fails closed: a failed lookup (or no
