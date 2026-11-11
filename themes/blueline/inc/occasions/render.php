@@ -37,22 +37,56 @@ function blueline_render_occasion_motif_maple_leaf(): void {
 }
 
 /**
+ * The elements of one round poppy bloom, centred on 0,0 and about 44 units
+ * across, for the caller to place with a `transform` (the header motif and
+ * both corner-scene blooms share it, so they always match).
+ *
+ * A poppy seen head-on is round, not pointed: four broad, overlapping,
+ * almost circular petals, a dark centre and a ring of tiny stamens. The
+ * earlier drawings (five, then three, pointed teardrop petals) read as a
+ * pinwheel or a daisy, which is what the "they do not look like poppies"
+ * feedback was about. A faint dark outline on each petal keeps the four
+ * apart where they overlap, whatever single colour the bloom is filled with.
+ *
+ * @param string $fill A CSS colour or `currentColor`. Already safe to print.
+ * @param string $ink  The centre and stamen colour. Already safe to print.
+ * @return string SVG elements (no wrapping <svg> or <g>).
+ */
+function blueline_occasion_poppy_bloom( string $fill, string $ink ): string {
+	$petal  = 'fill="' . $fill . '" stroke="' . $ink . '" stroke-opacity=".28" stroke-width=".9"';
+	$bloom  = '';
+	$bloom .= '<circle cx="-7.5" cy="-7.5" r="11.5" ' . $petal . '/>';
+	$bloom .= '<circle cx="7.5" cy="-7.5" r="11.5" ' . $petal . '/>';
+	$bloom .= '<circle cx="7.5" cy="7.5" r="11.5" ' . $petal . '/>';
+	$bloom .= '<circle cx="-7.5" cy="7.5" r="11.5" ' . $petal . '/>';
+	$bloom .= '<circle r="5" fill="' . $ink . '"/>';
+
+	// Eight stamens round the centre.
+	foreach ( range( 0, 7 ) as $i ) {
+		$angle  = deg2rad( $i * 45 );
+		$bloom .= '<circle cx="' . round( 7.6 * cos( $angle ), 2 ) . '" cy="' . round( 7.6 * sin( $angle ), 2 ) . '" r="1" fill="' . $ink . '"/>';
+	}
+
+	return $bloom;
+}
+
+/**
  * The poppy motif (Remembrance Day). NOT aria-hidden: design spec
  * §5/§7.7 requires it carry a real accessible name, so it gets a
  * `<title>` (announced by assistive technology as the element's
  * accessible name for a `role="img"` SVG) instead of the `aria-hidden`
  * every other motif here uses.
  *
- * Five identical petals, one `<path>` rotated 72° around the centre five
- * times, is what actually reads as a poppy at a glance -- the original
- * two-path version (first-round feedback: "the poppies do not look like
- * poppies") had no petal shape at all, just two ambiguous blobs.
+ * The round bloom from blueline_occasion_poppy_bloom(), filled with
+ * `currentColor` so it follows the occasion accent. The falling poppies
+ * (occasions.css) print this same SVG.
  *
  * @return void
  */
 function blueline_render_occasion_motif_poppy(): void {
+	$bloom = blueline_occasion_poppy_bloom( 'currentColor', esc_attr( BLUELINE_TOKEN_INK ) );
 	?>
-	<svg class="bl-occasion-motif bl-occasion-motif--poppy" viewBox="0 0 48 48" role="img" focusable="false"><title><?php esc_html_e( 'Remembrance poppy', 'blueline' ); ?></title><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(72 24 24)"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(144 24 24)"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(216 24 24)"/><path fill="currentColor" d="M24 24C14 20 14 6 24 4C34 6 34 20 24 24Z" transform="rotate(288 24 24)"/><circle cx="24" cy="24" r="5" fill="<?php echo esc_attr( BLUELINE_TOKEN_INK ); ?>"/></svg>
+	<svg class="bl-occasion-motif bl-occasion-motif--poppy" viewBox="0 0 48 48" role="img" focusable="false"><title><?php esc_html_e( 'Remembrance poppy', 'blueline' ); ?></title><g transform="translate(24 24)"><?php echo $bloom; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from numbers and already-escaped token colours in blueline_occasion_poppy_bloom(). ?></g></svg>
 	<?php
 }
 
@@ -290,16 +324,14 @@ function blueline_render_occasion_scene_snowman(): void {
 /**
  * Poppy-field corner scene (Remembrance Day) -- first-round feedback:
  * this occasion "needs more decorations on the corners" too, matching
- * Christmas' presents/snowman pair above. Three simplified 3-petal
- * blooms on stems at staggered heights, the same scale of detail as the
- * presents/snowman scenes (never the full 5-petal accessible poppy
- * blueline_render_occasion_motif_poppy() renders elsewhere -- a corner
- * silhouette does not need that level of fidelity).
+ * Christmas' presents/snowman pair above. Three round blooms (the same
+ * drawing as the header icon, blueline_occasion_poppy_bloom()) on stems
+ * with a leaf each, at staggered heights and sizes.
  *
  * Every colour here is fixed (BLUELINE_TOKEN_DANGER for the blooms, a
- * literal muted green for the stems -- this theme has no green brand
- * token, so this follows blueline_render_occasion_scene_presents()'s own
- * precedent of a fixed literal for a colour nothing else needs), never
+ * literal muted green for the stems and leaves -- this theme has no green
+ * brand token, so this follows blueline_render_occasion_scene_presents()'s
+ * own precedent of a fixed literal for a colour nothing else needs), never
  * `currentColor` or the occasion accent: same reasoning as that
  * function's own docblock -- a corner illustration should not shift
  * colour just because an admin (or blueline_occasion_themed_accent_
@@ -314,32 +346,19 @@ function blueline_render_occasion_scene_snowman(): void {
  */
 function blueline_render_occasion_scene_poppy_field(): void {
 	$stem  = '#4a6741';
-	$bloom = esc_attr( BLUELINE_TOKEN_DANGER );
-	$ink   = esc_attr( BLUELINE_TOKEN_INK );
+	$bloom = blueline_occasion_poppy_bloom( esc_attr( BLUELINE_TOKEN_DANGER ), esc_attr( BLUELINE_TOKEN_INK ) );
 	?>
 	<svg class="bl-occasion-scene bl-occasion-scene--poppy-field" viewBox="0 0 120 110" aria-hidden="true" focusable="false">
-		<path d="M20 110 18 64" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
-		<path d="M52 110 48 40" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
-		<path d="M84 110 88 56" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M20 110 19 70" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M52 110 50 46" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M84 110 86 64" stroke="<?php echo esc_attr( $stem ); ?>" stroke-width="3" stroke-linecap="round" fill="none"/>
+		<path d="M20 98C28 96 33 90 34 84C26 85 21 90 20 98Z" fill="<?php echo esc_attr( $stem ); ?>"/>
+		<path d="M52 100C43 98 38 92 37 86C46 87 51 92 52 100Z" fill="<?php echo esc_attr( $stem ); ?>"/>
+		<path d="M85 100C93 98 98 92 99 86C91 87 86 92 85 100Z" fill="<?php echo esc_attr( $stem ); ?>"/>
 
-		<g transform="translate(18 60)">
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>"/>
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(120)"/>
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(240)"/>
-			<circle r="2.5" fill="<?php echo esc_attr( $ink ); ?>"/>
-		</g>
-		<g transform="translate(48 38) scale(1.3)">
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>"/>
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(120)"/>
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(240)"/>
-			<circle r="2.5" fill="<?php echo esc_attr( $ink ); ?>"/>
-		</g>
-		<g transform="translate(88 54) scale(0.9)">
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>"/>
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(120)"/>
-			<path d="M0 0C-6 -3 -7 -11 0 -13C7 -11 6 -3 0 0Z" fill="<?php echo esc_attr( $bloom ); ?>" transform="rotate(240)"/>
-			<circle r="2.5" fill="<?php echo esc_attr( $ink ); ?>"/>
-		</g>
+		<g transform="translate(19 62) scale(.6)"><?php echo $bloom; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see blueline_occasion_poppy_bloom(). ?></g>
+		<g transform="translate(50 36) scale(.78)"><?php echo $bloom; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see blueline_occasion_poppy_bloom(). ?></g>
+		<g transform="translate(86 56) scale(.54)"><?php echo $bloom; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see blueline_occasion_poppy_bloom(). ?></g>
 	</svg>
 	<?php
 }
