@@ -256,6 +256,30 @@ final class SeasonStateSignalsTest extends TestCase {
 	}
 
 	/**
+	 * SPT-05: the cache never outlives the next game's start, so "Next game"
+	 * cannot name a game already under way. A game a day off keeps 15 minutes.
+	 *
+	 * @param int $starts_in Seconds until the next game, from now.
+	 * @param int $max_ttl   The longest the cache may live.
+	 * @param int $min_ttl   The shortest it should.
+	 */
+	#[RunInSeparateProcess]
+	#[\PHPUnit\Framework\Attributes\TestWith( array( 300, 300, 290 ) )]
+	#[\PHPUnit\Framework\Attributes\TestWith( array( DAY_IN_SECONDS, 900, 900 ) )]
+	public function test_the_cache_expires_by_the_next_game_s_start( int $starts_in, int $max_ttl, int $min_ttl ): void {
+		$this->load_stubs();
+		$this->register_sp_event();
+		$GLOBALS['bl_test_wp_query_results'] = array( array( 501 ), array( 601 ) );
+		$GLOBALS['bl_test_post_dates']       = array( 501 => ( new DateTimeImmutable( '@' . ( time() + $starts_in ) ) )->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ) );
+
+		blueline_season_state_data();
+
+		$ttl = $GLOBALS['bl_test_transient_ttl'][ BLUELINE_SEASON_STATE_TRANSIENT ];
+		$this->assertLessThanOrEqual( $max_ttl, $ttl );
+		$this->assertGreaterThanOrEqual( $min_ttl, $ttl );
+	}
+
+	/**
 	 * With SportsPress missing (mid-update, or skipped) the state still
 	 * resolves, but is not cached: a value computed without the schedule
 	 * must not outlive the moment the plugin is back.
