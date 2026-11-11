@@ -363,8 +363,8 @@ final class SettingsStoreTest extends TestCase {
 	}
 
 	/**
-	 * The forward path: an option with no `_schema` at all (a fresh
-	 * install, or one saved before the panel existed) is treated as schema
+	 * The forward path: a stored option with no `_schema` at all (one
+	 * saved before the panel existed, or by a first save) is treated as schema
 	 * 0 and migrated up to the current version, backfilled with defaults
 	 * for anything not already present.
 	 */
@@ -377,6 +377,17 @@ final class SettingsStoreTest extends TestCase {
 		$this->assertSame( BLUELINE_SETTINGS_SCHEMA_VERSION, $stored['_schema'] );
 		$this->assertSame( 'kept-through-migration@example.com', $stored['contact_email'] );
 		$this->assertSame( blueline_settings_defaults()['footer_heading'], $stored['footer_heading'] );
+	}
+
+	/**
+	 * No stored row at all (a fresh install, or straight after "Delete all
+	 * Blueline data") is nothing to migrate: reads already fall back to
+	 * the defaults, and writing them would undo the teardown (ACC-03).
+	 */
+	public function test_migration_does_not_create_an_absent_option(): void {
+		blueline_settings_migrate();
+
+		$this->assertFalse( get_option( BLUELINE_SETTINGS_OPTION, false ) );
 	}
 
 	/**
