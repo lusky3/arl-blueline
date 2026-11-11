@@ -867,6 +867,21 @@ if ( ! function_exists( 'is_user_logged_in' ) ) {
 		return get_current_user_id() > 0;
 	}
 }
+if ( ! function_exists( 'wp_hash' ) ) {
+	/**
+	 * Minimal stand-in for WordPress' wp_hash(): an HMAC-MD5 of $data keyed
+	 * with a fixed test salt, so it is stable within a run and, like core's,
+	 * a one-way hash that does not contain its input.
+	 *
+	 * @param string $data   Plain text to hash.
+	 * @param string $scheme Salt scheme (ignored here).
+	 * @param string $algo   Hash algorithm.
+	 * @return string
+	 */
+	function wp_hash( $data, $scheme = 'auth', $algo = 'md5' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- matches core's signature.
+		return hash_hmac( $algo, (string) $data, 'blueline-test-salt-' . $scheme );
+	}
+}
 if ( ! function_exists( 'wp_login_url' ) ) {
 	/**
 	 * Minimal stand-in for WordPress' wp_login_url().
@@ -931,12 +946,22 @@ if ( ! function_exists( 'get_post_meta' ) ) {
 	 * row, not a merge and not the last, so a placeholder row shadows the real
 	 * value exactly as it does in production.
 	 *
+	 * Like core's get_metadata(), a non-null answer from the
+	 * `get_post_metadata` filter short-circuits the read (its first element
+	 * when $single).
+	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $key     Meta key.
 	 * @param bool   $single  Whether to return a single value.
 	 * @return mixed
 	 */
 	function get_post_meta( $post_id, $key = '', $single = false ) {
+		$check = apply_filters( 'get_post_metadata', null, (int) $post_id, $key, $single, 'post' );
+
+		if ( null !== $check ) {
+			return $single && is_array( $check ) ? $check[0] : $check;
+		}
+
 		$state = &blueline_test_state();
 		$value = $state['post_meta'][ (int) $post_id ][ (string) $key ] ?? '';
 

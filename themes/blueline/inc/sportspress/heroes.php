@@ -326,7 +326,7 @@ function blueline_sp_event_hero( $event_id ) {
 
 /**
  * The player masthead: number, position (read from the sp_position
- * taxonomy, never a meta field), current team, and nationality (escaped
+ * taxonomy, never a meta field), current teams, and nationality (escaped
  * for the attribute context it is used in).
  *
  * @param int $player_id sp_player post ID.
@@ -344,12 +344,14 @@ function blueline_sp_player_hero( $player_id ) {
 		}
 	}
 
-	$current_team_id = 0;
+	// Every published current team, as the staff hero and My Team list them.
+	$current_teams = array();
 	if ( class_exists( 'SP_Player' ) ) {
-		$sp_player     = new SP_Player( $player_id );
-		$current_teams = array_filter( array_map( 'absint', (array) $sp_player->current_teams() ) );
-		if ( ! empty( $current_teams ) ) {
-			$current_team_id = (int) reset( $current_teams );
+		$sp_player = new SP_Player( $player_id );
+		foreach ( array_unique( array_filter( array_map( 'absint', (array) $sp_player->current_teams() ) ) ) as $team_id ) {
+			if ( 'publish' === get_post_status( $team_id ) ) {
+				$current_teams[] = (int) $team_id;
+			}
 		}
 	}
 
@@ -399,14 +401,14 @@ function blueline_sp_player_hero( $player_id ) {
 				</p>
 			</div>
 
-			<?php if ( $current_team_id && 'publish' === get_post_status( $current_team_id ) ) : ?>
+			<?php foreach ( $current_teams as $current_team_id ) : ?>
 				<a class="bl-sp-hero__team" href="<?php echo esc_url( get_permalink( $current_team_id ) ); ?>">
 					<?php if ( has_post_thumbnail( $current_team_id ) ) : ?>
 						<?php echo get_the_post_thumbnail( $current_team_id, 'thumbnail', array( 'alt' => '' ) ); ?>
 					<?php endif; ?>
 					<span><?php echo esc_html( blueline_sp_title( $current_team_id ) ); ?></span>
 				</a>
-			<?php endif; ?>
+			<?php endforeach; ?>
 		</div>
 	</header>
 	<?php

@@ -2,6 +2,8 @@
 /*
  * Local changes:
  * Changed references of Orders to Registrations, "Order" to "Reg #".
+ * A deleted order shows its bare number; a deleted product shows "Product no
+ * longer available" rather than the previous row's product.
  *
  * Copied from YITH Advanced Refund System 1.1.5: yith-advanced-refund-system-for-woocommerce/templates/myaccount/my-refund-requests.php
  * The original has no @version, so the check script compares the plugin version.
@@ -45,6 +47,8 @@ $columns = apply_filters( 'ywcars_my_refund_requests_columns', array(
 			$order_link = $order
 				? '<a href="' . esc_url( $order->get_view_order_url() ) . '">#' . absint( $request->order_id ) . '</a>'
 				: '#' . absint( $request->order_id );
+			// Reset per row: a request whose product was deleted must not show the previous row's product.
+			$product_link = esc_html__( 'Product no longer available', 'blueline' );
 			if ( $request->whole_order ) {
 				$product_link = '<b>' . esc_html__( 'Whole Amount', 'yith-advanced-refund-system-for-woocommerce' ) . '</b>';
 			} else {

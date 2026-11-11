@@ -274,6 +274,13 @@ function blueline_occasions_maybe_revalidate_on_drift(): void {
 		return;
 	}
 
+	if ( false === get_option( BLUELINE_SETTINGS_OPTION, false ) ) {
+		// No stored settings row, so no acknowledgement that could have
+		// drifted. Recording the hash would re-create the row "Delete all
+		// Blueline data" just removed (ACC-03).
+		return;
+	}
+
 	$current_hash = blueline_settings_inputs_hash();
 
 	if ( blueline_validated_against() === $current_hash ) {

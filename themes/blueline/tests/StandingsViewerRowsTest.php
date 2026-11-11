@@ -147,6 +147,22 @@ final class StandingsViewerRowsTest extends TestCase {
 	}
 
 	/**
+	 * SPT-06: an admin-set featured team (sp_highlight meta, a string) is
+	 * highlighted, and a shortened table is centred on it, as stock
+	 * SportsPress does with its loose comparison.
+	 */
+	#[RunInSeparateProcess]
+	public function test_a_string_featured_team_is_highlighted_and_centred(): void {
+		$this->load_fixture();
+
+		$html = $this->render_table( 'Division 5 | W2026-27', (string) self::HAMMERS, 2 );
+
+		$this->assertMatchesRegularExpression( '/^<tr[^>]*class="[^"]*\bhighlighted\b/', $this->row( $html, self::HAMMERS ) );
+		$this->assertStringContainsString( 'data-team-id="' . self::TRAIN_WRECK . '"', $html );
+		$this->assertStringNotContainsString( 'data-team-id="' . self::TREBLEMAKERS . '"', $html, 'the window is centred on the featured team, not the top' );
+	}
+
+	/**
 	 * A playoff round nobody has played yet shows its heading and the leaf
 	 * empty state, never a table of zeros; a regular season that has not
 	 * started keeps its table (it still lists the teams) under the note.
@@ -321,12 +337,13 @@ final class StandingsViewerRowsTest extends TestCase {
 	 * Render the real template for sp_table 900, as [team_standings] would.
 	 *
 	 * @param string $table_title Visible heading ('' for none).
+	 * @param string $highlight   The featured team, a string as get_post_meta() returns it.
+	 * @param int    $number      Rows to show (-1 for all).
 	 * @return string
 	 */
-	private function render_table( string $table_title = 'Division 5 | W2026-27' ): string {
+	private function render_table( string $table_title = 'Division 5 | W2026-27', string $highlight = '', int $number = -1 ): string {
 		// Template arguments, as sp_get_template() would extract() them.
 		$id             = 900;
-		$highlight      = '';
 		$link_posts     = true;
 		$show_team_logo = false;
 		$show_title     = '' !== $table_title;

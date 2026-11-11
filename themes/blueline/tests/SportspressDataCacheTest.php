@@ -73,6 +73,19 @@ final class SportspressDataCacheTest extends TestCase {
 	}
 
 	/**
+	 * SPT-02: the Score Sheets and Player App plugins write sp_results /
+	 * sp_players and fire only save_post_sp_event (never save_post), so that
+	 * hook alone has to retire the standings and roster caches.
+	 */
+	public function test_a_plugin_written_event_save_invalidates(): void {
+		$this->assertNotFalse( has_action( 'save_post_sp_event', 'blueline_sp_cache_mark_dirty' ) );
+
+		do_action( 'save_post_sp_event', 501, null, true );
+
+		$this->assertTrue( $this->bump_queued() );
+	}
+
+	/**
 	 * Term and option changes invalidate only for SportsPress names.
 	 */
 	public function test_terms_and_options_invalidate_only_for_sportspress(): void {
