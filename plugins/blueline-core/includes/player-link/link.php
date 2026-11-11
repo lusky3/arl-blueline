@@ -1,9 +1,14 @@
 <?php
 /**
- * The user-to-player link: the sp_user store and its request cache, the current-user resolvers,
- * and blueline_link_player_to_user(), the one function that writes a link.
+ * The user-to-player link: the sp_user and name-claim stores and their request cache, the
+ * current-user resolvers, and blueline_link_player_to_user(), the one function that writes a link.
  *
- * The sp_user post meta key is shared with sportspress-player-registration.
+ * Two keys hold a link. sp_user is shared with sportspress-player-registration and the other
+ * league plugins, which trust it as identity; only registration and the league (edit_users) write
+ * it. A self-service name claim is only a typed name, so it is stored under
+ * BLUELINE_PLAYER_CLAIM_META, which nothing outside blueline-core reads. Both resolve the
+ * account's player here; neither alone makes a verified owner (see
+ * blueline_user_is_verified_player_owner()).
  *
  * @package blueline-core
  */
@@ -11,31 +16,22 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Every sp_player post linked to $user_id through sp_user, oldest first, in any non-trashed
- * status. Uncached: callers needing a fresh answer (the post-write check in
- * blueline_link_player_to_user()) use this directly.
- *
- * Status 'any' covers publish, private, draft, pending and future (not trash or auto-draft). A
- * user linked to a draft or private player must still resolve to it, or the
- * `user_already_linked` guard would let them pick up a second one.
+ * The sp_player posts (any non-trashed status) carrying $user_id in the $meta_key post meta.
  *
  * Cost: wp_postmeta is indexed on meta_key and post_id, not meta_value, so this scans every row
- * carrying the sp_user key. It runs at most once per user per request (see
+ * carrying the key. Callers run it at most once per user per request (see
  * blueline_get_linked_player_id()).
  *
- * @param int $user_id WordPress user ID.
- * @return int[] Player post IDs, ascending; empty when unlinked or SportsPress is inactive.
+ * @param string $meta_key BLUELINE_PLAYER_USER_META or BLUELINE_PLAYER_CLAIM_META.
+ * @param int    $user_id  WordPress user ID.
+ * @return int[] Player post IDs.
  */
-function blueline_query_linked_player_ids( int $user_id ): array {
-	if ( $user_id <= 0 || ! post_type_exists( 'sp_player' ) ) {
-		return array();
-	}
-
+function blueline_query_player_ids_by_link_key( string $meta_key, int $user_id ): array {
 	$ids = get_posts(
 		array(
 			'post_type'      => 'sp_player',
 			'post_status'    => 'any',
-			'meta_key'       => BLUELINE_PLAYER_USER_META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- no user-to-player index exists, so resolving a link by value scans the sp_user rows; cached per request by the caller.
+			'meta_key'       => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- no user-to-player index exists, so resolving a link by value scans the key's rows; cached per request by the caller.
 			'meta_value'     => (string) $user_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			'posts_per_page' => 20, // A user is meant to have one; a handful covers legacy duplicates.
 			'orderby'        => 'ID',
@@ -46,6 +42,39 @@ function blueline_query_linked_player_ids( int $user_id ): array {
 	);
 
 	return array_map( 'intval', (array) $ids );
+}
+
+/**
+ * Every sp_player post linked to $user_id, oldest first, in any non-trashed status: through
+ * sp_user, or through a name claim (BLUELINE_PLAYER_CLAIM_META) on a player no OTHER account
+ * holds through sp_user. A registration or league link to the real member supersedes an older
+ * name claim on the same record. Uncached: callers needing a fresh answer (the post-write check
+ * in blueline_link_player_to_user()) use this directly.
+ *
+ * Status 'any' covers publish, private, draft, pending and future (not trash or auto-draft). A
+ * user linked to a draft or private player must still resolve to it, or the
+ * `user_already_linked` guard would let them pick up a second one.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return int[] Player post IDs, ascending; empty when unlinked or SportsPress is inactive.
+ */
+function blueline_query_linked_player_ids( int $user_id ): array {
+	if ( $user_id <= 0 || ! post_type_exists( 'sp_player' ) ) {
+		return array();
+	}
+
+	$ids = blueline_query_player_ids_by_link_key( BLUELINE_PLAYER_USER_META, $user_id );
+
+	foreach ( blueline_query_player_ids_by_link_key( BLUELINE_PLAYER_CLAIM_META, $user_id ) as $id ) {
+		if ( ! array_diff( blueline_player_link_key_user_ids( $id, BLUELINE_PLAYER_USER_META ), array( $user_id ) ) ) {
+			$ids[] = $id;
+		}
+	}
+
+	$ids = array_values( array_unique( $ids ) );
+	sort( $ids );
+
+	return $ids;
 }
 
 /**
@@ -142,16 +171,17 @@ function blueline_user_is_verified_player_owner( int $user_id, ?int $player_id =
 }
 
 /**
- * The distinct, positive user IDs currently stored in $player_id's sp_user rows. Placeholder rows
+ * The distinct, positive user IDs stored in $player_id's $meta_key rows. Placeholder rows
  * ('' or '0') are not owners and are skipped.
  *
- * @param int $player_id sp_player post ID.
+ * @param int    $player_id sp_player post ID.
+ * @param string $meta_key  BLUELINE_PLAYER_USER_META or BLUELINE_PLAYER_CLAIM_META.
  * @return int[]
  */
-function blueline_player_linked_user_ids( int $player_id ): array {
+function blueline_player_link_key_user_ids( int $player_id, string $meta_key ): array {
 	$ids = array();
 
-	foreach ( (array) get_post_meta( $player_id, BLUELINE_PLAYER_USER_META, false ) as $value ) {
+	foreach ( (array) get_post_meta( $player_id, $meta_key, false ) as $value ) {
 		$value = (int) $value;
 		if ( $value > 0 ) {
 			$ids[] = $value;
@@ -162,21 +192,47 @@ function blueline_player_linked_user_ids( int $player_id ): array {
 }
 
 /**
- * Undo this call's own sp_user write after the post-write check found the invariant broken, and
- * drop the cached link. Only the row holding $user_id is removed; a concurrent writer's row is
- * never touched.
+ * The distinct, positive user IDs linked to $player_id through sp_user or a name claim. A player
+ * is taken while either key names someone.
  *
  * @param int $player_id sp_player post ID.
- * @param int $user_id   The user whose row was just written.
+ * @return int[]
  */
-function blueline_rollback_player_link( int $player_id, int $user_id ): void {
-	delete_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $user_id );
+function blueline_player_linked_user_ids( int $player_id ): array {
+	return array_values(
+		array_unique(
+			array_merge(
+				blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_USER_META ),
+				blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_CLAIM_META )
+			)
+		)
+	);
+}
+
+/**
+ * Undo this call's own link write after the post-write check found the invariant broken, and
+ * drop the cached link. Only the $meta_key row holding $user_id is removed; a concurrent
+ * writer's row is never touched.
+ *
+ * @param int    $player_id sp_player post ID.
+ * @param int    $user_id   The user whose row was just written.
+ * @param string $meta_key  The key that row was written under.
+ */
+function blueline_rollback_player_link( int $player_id, int $user_id, string $meta_key ): void {
+	delete_post_meta( $player_id, $meta_key, $user_id );
 	blueline_forget_linked_player_cache( $user_id );
 }
 
 /**
- * Link $player_id to $user_id in sp_user, with the checks a linkage between a person and an
- * account demands:
+ * Link $player_id to $user_id, with the checks a linkage between a person and an account demands.
+ *
+ * Where it is written: a league write (the caller can edit_users) goes to sp_user, the key
+ * registration and the other league plugins share. Anything else is a self-service name claim,
+ * which only an account without the Player role can make (blueline_user_can_claim_by_name()), so
+ * it never meets the SEC-01 owner conditions; it goes to BLUELINE_PLAYER_CLAIM_META, so the other
+ * plugins never mistake a typed name for a member's identity.
+ *
+ * Checks:
  *
  * - $player_id must be an sp_player post (and, unless the caller can edit_users, a published one);
  * - a player already linked to a DIFFERENT user is never silently repointed;
@@ -186,9 +242,9 @@ function blueline_rollback_player_link( int $player_id, int $user_id ): void {
  *   list, so this function can never be used to skip the name gate, whoever calls it.
  *
  * Concurrency: those checks are read-then-write, so two requests can pass them together. The write
- * is therefore a unique add_post_meta() (it fails when any sp_user row exists), and afterwards the
- * invariant is re-checked: exactly one sp_user user on the player and exactly one linked player
- * for the user. If either is violated the row this call wrote is removed and the matching
+ * is therefore a unique add_post_meta() (it fails when the key written has any row), and afterwards the
+ * invariant is re-checked: exactly one linked user on the player (either key) and exactly one
+ * linked player for the user. If either is violated the row this call wrote is removed and the matching
  * WP_Error is returned. When two writers collide both may be rolled back; the player is then left
  * unlinked and either user can retry. Failing closed.
  *
@@ -206,6 +262,7 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 	}
 
 	$is_admin = current_user_can( 'edit_users' );
+	$meta_key = $is_admin ? BLUELINE_PLAYER_USER_META : BLUELINE_PLAYER_CLAIM_META;
 
 	if ( 'sp_player' !== get_post_type( $player_id ) || ( ! $is_admin && 'publish' !== get_post_status( $player_id ) ) ) {
 		return new WP_Error(
@@ -239,8 +296,12 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 		);
 	}
 
-	if ( in_array( $user_id, $owners, true ) ) {
-		return true; // Already linked to this user: nothing to write.
+	// Already linked to this user under the key this call writes, or through sp_user (a name claim
+	// adds nothing to that): nothing to write. Never the other way round, so the user's own name claim
+	// never stands in for a league (sp_user) link.
+	if ( in_array( $user_id, blueline_player_link_key_user_ids( $player_id, $meta_key ), true )
+		|| in_array( $user_id, blueline_player_link_key_user_ids( $player_id, BLUELINE_PLAYER_USER_META ), true ) ) {
+		return true;
 	}
 
 	if ( ! $is_admin && ! in_array( $player_id, wp_list_pluck( blueline_find_player_candidates( $user_id ), 'player_id' ), true ) ) {
@@ -250,7 +311,7 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 		);
 	}
 
-	if ( ! add_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $user_id, true ) ) {
+	if ( ! add_post_meta( $player_id, $meta_key, $user_id, true ) ) {
 		// A row already exists. Someone else may have just written it; a '' or '0' placeholder
 		// row (the "unclaimed" shape the candidate pool also accepts) is taken over.
 		$owners = blueline_player_linked_user_ids( $player_id );
@@ -261,8 +322,8 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 			);
 		}
 
-		if ( ! $owners ) {
-			update_post_meta( $player_id, BLUELINE_PLAYER_USER_META, $user_id, get_post_meta( $player_id, BLUELINE_PLAYER_USER_META, true ) );
+		if ( ! blueline_player_link_key_user_ids( $player_id, $meta_key ) ) {
+			update_post_meta( $player_id, $meta_key, $user_id, get_post_meta( $player_id, $meta_key, true ) );
 		}
 	}
 
@@ -270,7 +331,7 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 
 	// Re-check what is actually stored now, not what was true before the write.
 	if ( array( $user_id ) !== blueline_player_linked_user_ids( $player_id ) ) {
-		blueline_rollback_player_link( $player_id, $user_id );
+		blueline_rollback_player_link( $player_id, $user_id, $meta_key );
 
 		return new WP_Error(
 			'already_linked',
@@ -279,12 +340,18 @@ function blueline_link_player_to_user( int $player_id, int $user_id ) {
 	}
 
 	if ( array_diff( blueline_query_linked_player_ids( $user_id ), array( $player_id ) ) ) {
-		blueline_rollback_player_link( $player_id, $user_id );
+		blueline_rollback_player_link( $player_id, $user_id, $meta_key );
 
 		return new WP_Error(
 			'user_already_linked',
 			__( 'This account is already linked to a different player.', 'blueline-core' )
 		);
+	}
+
+	// A league link replaces the same user's own name claim on this record: keeping both would leave
+	// `ownership unlink` (which removes a claim first) able to strip the claim while sp_user stays.
+	if ( BLUELINE_PLAYER_USER_META === $meta_key ) {
+		delete_post_meta( $player_id, BLUELINE_PLAYER_CLAIM_META, $user_id );
 	}
 
 	return true;

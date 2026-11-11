@@ -16,6 +16,7 @@ require_once __DIR__ . '/../inc/settings/store.php';
 require_once __DIR__ . '/../inc/template-tags.php';
 require_once __DIR__ . '/../inc/sportspress.php';
 require_once __DIR__ . '/../inc/account/dashboard.php';
+require_once __DIR__ . '/../inc/next-game-member-scope.php';
 require_once __DIR__ . '/../inc/floating-next-game.php';
 
 /**
@@ -88,6 +89,21 @@ final class FloatingNextGameTest extends TestCase {
 		$this->arrange();
 
 		$this->assertStringContainsString( 'bl-floating-next-game', $this->render() );
+	}
+
+	/**
+	 * The widget carries the signed-in member's storage scope, so its
+	 * dismissed/seen state is kept per member, not per browser (FE-01).
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_carries_the_members_storage_scope(): void {
+		$this->arrange();
+
+		$this->assertStringContainsString(
+			'data-bl-member="' . blueline_next_game_member_scope( 5 ) . '"',
+			$this->render()
+		);
 	}
 
 	/**

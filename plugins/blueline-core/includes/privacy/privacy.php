@@ -14,8 +14,8 @@
  *
  * Second half: the personal-data exporters and erasers (Tools > Export / Erase Personal Data)
  * for what this plugin stores about a user: the custom avatar (user meta `blueline_avatar_id`
- * and its media file) and the player link (`sp_user` on the sp_player post, plus a flagged
- * player photo). Core knows nothing about either.
+ * and its media file) and the player link (`sp_user` or a `_blueline_name_claim_user` name claim
+ * on the sp_player post, plus a flagged player photo). Core knows nothing about either.
  *
  * @package blueline-core
  */
@@ -277,8 +277,9 @@ function blueline_privacy_avatar_attachment_id( int $user_id ): int {
 }
 
 /**
- * The sp_player posts linked to a user through sp_user. Normally one; every
- * link is returned so a duplicated link is exported and erased too.
+ * The sp_player posts linked to a user through sp_user or a name claim
+ * (blueline_player_claim_meta_key()). Normally one; every link is returned so
+ * a duplicated link is exported and erased too.
  *
  * Not blueline_get_linked_player_id(): that returns one ID from a request
  * cache, which is wrong for a request that has to find and then remove all
@@ -292,19 +293,23 @@ function blueline_privacy_linked_player_ids( int $user_id ): array {
 		return array();
 	}
 
-	$ids = get_posts(
-		array(
-			'post_type'      => 'sp_player',
-			'post_status'    => 'any',
-			'meta_key'       => blueline_player_user_meta_key(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a rare, admin-triggered privacy request, not a request-time query.
-			'meta_value'     => (string) $user_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
-			'no_found_rows'  => true,
-		)
-	);
+	$ids = array();
+	foreach ( array( blueline_player_user_meta_key(), blueline_player_claim_meta_key() ) as $meta_key ) {
+		$found = get_posts(
+			array(
+				'post_type'      => 'sp_player',
+				'post_status'    => 'any',
+				'meta_key'       => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a rare, admin-triggered privacy request, not a request-time query.
+				'meta_value'     => (string) $user_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+			)
+		);
+		$ids   = array_merge( $ids, is_array( $found ) ? $found : array() );
+	}
 
-	$ids = array_values( array_unique( array_map( 'intval', is_array( $ids ) ? $ids : array() ) ) );
+	$ids = array_values( array_unique( array_map( 'intval', $ids ) ) );
 	sort( $ids );
 
 	return $ids;
@@ -603,7 +608,7 @@ function blueline_export_player_personal_data( $email_address, $page = 1 ) { // 
 /**
  * Personal-data eraser for the player link. Deliberately NOT a deletion of
  * the league's player record: standings, game logs and statistics belong to
- * the league. It removes only the sp_user link between the account and the
+ * the league. It removes only the link (sp_user or name claim) between the account and the
  * player (and the user's own uploaded photo, when safe), and reports the
  * player record as retained. Single page.
  *
@@ -635,9 +640,25 @@ function blueline_erase_player_personal_data( $email_address, $page = 1 ) { // p
 			}
 		}
 
-		if ( delete_post_meta( $player_id, blueline_player_user_meta_key(), (string) $user_id ) ) {
+		$unlinked = false;
+		$failed   = false;
+		foreach ( array( blueline_player_user_meta_key(), blueline_player_claim_meta_key() ) as $meta_key ) {
+			if ( ! in_array( (string) $user_id, array_map( 'strval', (array) get_post_meta( $player_id, $meta_key, false ) ), true ) ) {
+				continue;
+			}
+
+			if ( delete_post_meta( $player_id, $meta_key, (string) $user_id ) ) {
+				$unlinked = true;
+			} else {
+				$failed = true;
+			}
+		}
+
+		if ( $unlinked ) {
 			$response['items_removed'] = true;
-		} else {
+		}
+
+		if ( $failed || ! $unlinked ) {
 			$response['messages'][] = sprintf(
 				/* translators: %s: player name. */
 				__( 'The link between this account and the player record "%s" could not be removed.', 'blueline-core' ),

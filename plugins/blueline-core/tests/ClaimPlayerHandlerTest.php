@@ -135,7 +135,8 @@ final class ClaimPlayerHandlerTest extends TestCase {
 		$this->post_claim( 100 );
 
 		$this->assertSame( 'https://example.test/account/?blueline_claim=linked', $this->redirect_target() );
-		$this->assertSame( array( 5 ), get_post_meta( 100, 'sp_user', false ) );
+		$this->assertSame( array( 5 ), get_post_meta( 100, '_blueline_name_claim_user', false ) );
+		$this->assertArrayNotHasKey( 'sp_user', blueline_test_state()['post_meta'][100], 'a name claim never writes the shared sp_user key' );
 		$this->assertSame( 100, blueline_get_linked_player_id( 5 ) );
 	}
 

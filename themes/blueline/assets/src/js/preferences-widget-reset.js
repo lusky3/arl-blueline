@@ -5,31 +5,40 @@
  * itself once a visitor dismisses it, by comparing the current game's
  * event_id:fingerprint pair against WIDGET_DISMISSED_KEY in this browser's
  * own localStorage -- see that file's own docblock. This button just clears
- * that one key; it does not need to touch `blueline:next-game-seen` (the key
+ * the signed-in member's own copy of that key (scoped by the button's
+ * `data-bl-member`, next-game-keys.js), never another member's on a shared
+ * browser (FE-01); it does not need to touch `blueline:next-game-seen` (the key
  * for the separate "Updated since you last checked" indicator),
  * since that key never affects visibility, only whether the indicator
  * shows.
  *
- * WIDGET_DISMISSED_KEY MUST match floating-next-game.js's own DISMISSED_KEY
- * exactly -- kept in sync by convention (cross-referenced in both files'
- * docblocks) and this file's own test, the same trade-off this theme's
- * other localStorage-key-sharing files already make (see footer-theme-
- * toggle.js's own docblock on the same pattern for its STORAGE_KEY).
+ * WIDGET_DISMISSED_KEY is floating-next-game.js's own DISMISSED_KEY, both
+ * taken from next-game-keys.js; this file's own test asserts they match.
  */
 
-const WIDGET_DISMISSED_KEY = 'blueline:next-game-dismissed';
+const {
+	DISMISSED_KEY: WIDGET_DISMISSED_KEY,
+	memberKey,
+} = require( './next-game-keys.js' );
 
 /**
- * Clear the dismissed-widget key. A failure to clear is not worth
+ * Clear the member's dismissed-widget key. A failure to clear is not worth
  * surfacing beyond the button simply not working this once -- the same
  * degrade-silently convention every localStorage access in this theme
  * follows (see assets/src/js/announcement.js).
  *
+ * @param {string|null} member The button's `data-bl-member` scope.
  * @return {boolean} Whether the clear actually succeeded.
  */
-function resetDismissedWidget() {
+function resetDismissedWidget( member ) {
+	const key = memberKey( WIDGET_DISMISSED_KEY, member );
+
+	if ( ! key ) {
+		return false;
+	}
+
 	try {
-		window.localStorage.removeItem( WIDGET_DISMISSED_KEY );
+		window.localStorage.removeItem( key );
 		return true;
 	} catch {
 		return false;
@@ -65,7 +74,10 @@ if ( typeof document !== 'undefined' ) {
 				'[data-bl-widget-reset-confirmation]'
 			);
 
-			if ( confirmation && resetDismissedWidget() ) {
+			if (
+				confirmation &&
+				resetDismissedWidget( button.getAttribute( 'data-bl-member' ) )
+			) {
 				announce(
 					confirmation,
 					confirmation.getAttribute( 'data-bl-message' ) || '',
