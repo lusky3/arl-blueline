@@ -601,6 +601,87 @@ function blueline_wc_is_waitlist_product( $product ): bool {
 }
 
 /**
+ * Whether a product sits in the Registration product_cat or any of its child
+ * terms (any season, past or current). False when the Registration term does
+ * not resolve, or the product no longer exists (it then has no terms).
+ *
+ * @param int $product_id Product ID (a variation's parent, for a variation).
+ * @return bool
+ */
+function blueline_wc_product_in_registration_tree( int $product_id ): bool {
+	$root = blueline_resolve_registration_term();
+
+	if ( $root <= 0 || $product_id <= 0 ) {
+		return false;
+	}
+
+	$terms = wp_get_post_terms( $product_id, 'product_cat', array( 'fields' => 'ids' ) );
+
+	if ( is_wp_error( $terms ) ) {
+		return false;
+	}
+
+	foreach ( (array) $terms as $term ) {
+		$term_id = (int) ( is_object( $term ) ? $term->term_id : $term );
+
+		// Walk up the parents; the depth cap guards against a corrupt loop.
+		for ( $depth = 0; $term_id > 0 && $depth < 10; $depth++ ) {
+			if ( $term_id === $root ) {
+				return true;
+			}
+
+			$parent = get_term( $term_id, 'product_cat' );
+
+			if ( ! $parent || is_wp_error( $parent ) ) {
+				break;
+			}
+
+			$term_id = (int) $parent->parent;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Whether a cart product is a waitlist product. The season lookup
+ * (blueline_wc_is_waitlist_product()) decides while it works. When it returns
+ * nothing -- for example after the season category was recreated -- a product
+ * on offer at $0 still counts if it is in the Registration category tree, or,
+ * if that term no longer resolves either, on its $0 price alone: "nothing to
+ * pay today" is true of it whichever way it was listed.
+ *
+ * @param mixed $product A WC_Product, or anything else (which is never one).
+ * @return bool
+ */
+function blueline_wc_cart_product_is_waitlist( $product ): bool {
+	if ( blueline_wc_is_waitlist_product( $product ) ) {
+		return true;
+	}
+
+	if ( array() !== blueline_wc_season_product_ids()
+		|| ! is_object( $product ) || ! method_exists( $product, 'get_price' ) ) {
+		return false;
+	}
+
+	$price = $product->get_price();
+
+	if ( '' === $price || null === $price || (float) $price > 0 ) {
+		return false;
+	}
+
+	if ( blueline_resolve_registration_term() <= 0 ) {
+		return true;
+	}
+
+	$product_id = method_exists( $product, 'get_parent_id' ) && $product->get_parent_id()
+		? (int) $product->get_parent_id()
+		: (int) $product->get_id();
+
+	return blueline_wc_product_in_registration_tree( $product_id );
+}
+
+/**
  * Whether every product in a non-empty list is a waitlist product.
  *
  * @param array $products WC_Product objects (anything else is not a waitlist).
@@ -612,7 +693,7 @@ function blueline_wc_products_are_waitlist_only( array $products ): bool {
 	}
 
 	foreach ( $products as $product ) {
-		if ( ! blueline_wc_is_waitlist_product( $product ) ) {
+		if ( ! blueline_wc_cart_product_is_waitlist( $product ) ) {
 			return false;
 		}
 	}
@@ -646,11 +727,14 @@ add_filter( 'woocommerce_thankyou_order_received_text', 'blueline_wc_waitlist_th
  *
  * Judged from the order's own saved lines, never today's product price or
  * today's season: the page can be reopened long after checkout, and a past
- * order must keep its meaning. A waitlist-only order is one whose every line
- * was $0 before coupons -- the same saved-subtotal rule
- * blueline_registration_order_kind() (inc/account/player-data.php) applies to
- * season lines. Pre-coupon, so a registration a coupon made free still reads
- * as a registration.
+ * order must keep its meaning. Only registration lines count: a line whose
+ * saved product ID is in the Registration category tree (any season; see
+ * blueline_wc_product_in_registration_tree()). Other lines, and lines whose
+ * product was deleted, are skipped, as blueline_registration_order_kind()
+ * (inc/account/player-data.php) skips non-season lines. The order is a
+ * waitlist join when it has at least one registration line and every one of
+ * them was $0 before coupons -- pre-coupon, so a registration a coupon made
+ * free still reads as a registration.
  *
  * @param string $text  Escaped thank-you text.
  * @param mixed  $order The WC_Order, or false when there is none.
@@ -661,16 +745,26 @@ function blueline_wc_waitlist_thankyou_text( $text, $order = null ) {
 		return $text;
 	}
 
-	$items = $order->get_items();
+	$registration_lines = 0;
 
-	if ( empty( $items ) ) {
-		return $text;
+	foreach ( $order->get_items() as $item ) {
+		if ( ! is_object( $item ) || ! method_exists( $item, 'get_product_id' ) || ! method_exists( $item, 'get_subtotal' ) ) {
+			continue;
+		}
+
+		if ( ! blueline_wc_product_in_registration_tree( (int) $item->get_product_id() ) ) {
+			continue;
+		}
+
+		if ( (float) $item->get_subtotal() > 0 ) {
+			return $text; // A priced registration line: not a waitlist join.
+		}
+
+		++$registration_lines;
 	}
 
-	foreach ( $items as $item ) {
-		if ( ! is_object( $item ) || ! method_exists( $item, 'get_subtotal' ) || (float) $item->get_subtotal() > 0 ) {
-			return $text;
-		}
+	if ( 0 === $registration_lines ) {
+		return $text;
 	}
 
 	return esc_html__( 'Thank you. You’ve joined the waitlist.', 'blueline' );

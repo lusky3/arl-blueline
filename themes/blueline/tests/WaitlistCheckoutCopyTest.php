@@ -14,6 +14,10 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../inc/settings/defaults.php';
+require_once __DIR__ . '/../inc/settings/sections.php';
+require_once __DIR__ . '/../inc/settings/store.php';
+require_once __DIR__ . '/../inc/settings/commerce.php';
 require_once __DIR__ . '/../inc/woocommerce.php';
 
 /**
@@ -106,6 +110,15 @@ final class BluelineWaitlistCopyItem {
 	}
 
 	/**
+	 * Saved product ID.
+	 *
+	 * @return int
+	 */
+	public function get_product_id() {
+		return $this->product->get_id();
+	}
+
+	/**
 	 * Saved line subtotal.
 	 *
 	 * @return string
@@ -157,16 +170,34 @@ final class BluelineWaitlistCopyOrder {
 final class WaitlistCheckoutCopyTest extends TestCase {
 
 	/**
-	 * Define the WooCommerce stand-ins. Season products: 10 ($0 waitlist), 11 ($525).
+	 * Define the WooCommerce stand-ins and a product_cat tree:
+	 * Registration (91) > current season (673): 10 ($0 waitlist), 11 ($525);
+	 * Registration (91) > past season (500): 20 (a past $0 waitlist);
+	 * Merchandise (900): 30 (free), 31 (priced). 999 is a deleted product.
 	 *
-	 * @param BluelineWaitlistCopyProduct[] $cart Products in the cart.
+	 * @param BluelineWaitlistCopyProduct[] $cart         Products in the cart.
+	 * @param int[]                         $season       What the season product lookup returns.
+	 * @param bool                          $registration Whether the Registration term (91) exists.
 	 */
-	private function arrange( array $cart ): void {
+	private function arrange( array $cart, array $season = array( 10, 11 ), bool $registration = true ): void {
 		blueline_test_reset();
 		blueline_test_reset_state();
 
+		blueline_test_register_term( 900, 'product_cat', 'Merchandise' );
+		blueline_test_set_post_terms( 30, 'product_cat', array( 900 ) );
+		blueline_test_set_post_terms( 31, 'product_cat', array( 900 ) );
+
+		if ( $registration ) {
+			blueline_test_register_term( 91, 'product_cat', 'Registration' );
+			blueline_test_register_term( 500, 'product_cat', 'Winter 2025-26', 91 );
+			blueline_test_register_term( 673, 'product_cat', 'Winter 2026-27', 91 );
+			blueline_test_set_post_terms( 10, 'product_cat', array( 673, 91 ) );
+			blueline_test_set_post_terms( 11, 'product_cat', array( 673, 91 ) );
+			blueline_test_set_post_terms( 20, 'product_cat', array( 500 ) );
+		}
+
 		$GLOBALS['bl_test_waitlist_copy'] = array(
-			'season' => array( 10, 11 ),
+			'season' => $season,
 			'cart'   => array_map(
 				static function ( $product ) {
 					return array( 'data' => $product );
@@ -281,7 +312,92 @@ final class WaitlistCheckoutCopyTest extends TestCase {
 		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $was_waitlist ) );
 
 		// Joined at $0 in a past season; that product is no longer in the current season.
-		$past_season = new BluelineWaitlistCopyOrder( array( new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( 77, '0' ), '0' ) ) );
+		$past_season = $this->order( array( array( 20, '0' ) ) );
 		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $past_season ) );
+	}
+
+	/**
+	 * An order from saved (product id, subtotal) lines.
+	 *
+	 * @param array<int, array{0:int, 1:string}> $lines Product id and saved subtotal per line.
+	 * @return BluelineWaitlistCopyOrder
+	 */
+	private function order( array $lines ): BluelineWaitlistCopyOrder {
+		$items = array();
+
+		foreach ( $lines as $line ) {
+			$items[] = new BluelineWaitlistCopyItem( new BluelineWaitlistCopyProduct( $line[0], $line[1] ), $line[1] );
+		}
+
+		return new BluelineWaitlistCopyOrder( $items );
+	}
+
+	/**
+	 * Only Registration-category lines (any season) decide: a free order of
+	 * something else is not a waitlist join, and a deleted product leaves the
+	 * text alone.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_thankyou_text_only_counts_registration_lines(): void {
+		$this->arrange( array() );
+
+		$received = 'Thank you. Your registration has been received.';
+
+		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 30, '0' ) ) ) ), 'free merchandise only' );
+		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 999, '0' ) ) ) ), 'deleted product' );
+		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 20, '0' ) ) ) ), 'past-season waitlist' );
+	}
+
+	/**
+	 * Mixed orders: a priced registration line wins; other products are ignored.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_thankyou_text_for_mixed_orders(): void {
+		$this->arrange( array() );
+
+		$received = 'Thank you. Your registration has been received.';
+
+		$this->assertSame( $received, blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 10, '0' ), array( 11, '525' ) ) ) ), 'waitlist + paid registration' );
+		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 10, '0' ), array( 30, '0' ) ) ) ), 'waitlist + free merchandise' );
+		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 10, '0' ), array( 31, '25' ) ) ) ), 'waitlist + priced merchandise' );
+		$this->assertStringContainsString( 'waitlist', blueline_wc_waitlist_thankyou_text( $received, $this->order( array( array( 10, '0' ), array( 999, '0' ) ) ) ), 'a deleted line is ignored' );
+	}
+
+	/**
+	 * When the season lookup returns nothing (for example the season term was
+	 * recreated), a $0 Registration-category product in the cart still gets
+	 * the waitlist note; a free non-registration product does not.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_cart_waitlist_found_when_season_lookup_is_empty(): void {
+		$this->arrange( array( new BluelineWaitlistCopyProduct( 10, '0' ) ), array() );
+
+		$this->assertTrue( blueline_wc_cart_is_waitlist_only() );
+		$this->assertStringNotContainsString( 'covers the whole season', $this->reassurance() );
+
+		$GLOBALS['bl_test_waitlist_copy']['cart'] = array( array( 'data' => new BluelineWaitlistCopyProduct( 30, '0' ) ) );
+		$this->assertFalse( blueline_wc_cart_is_waitlist_only(), 'free merchandise is not a waitlist' );
+
+		$GLOBALS['bl_test_waitlist_copy']['cart'] = array( array( 'data' => new BluelineWaitlistCopyProduct( 11, '525' ) ) );
+		$this->assertFalse( blueline_wc_cart_is_waitlist_only(), 'a priced registration is not a waitlist' );
+	}
+
+	/**
+	 * When even the Registration term no longer resolves (recreated without
+	 * updating the setting), a cart of nothing but $0 products is treated as
+	 * a waitlist: "nothing to pay today" is true of it either way.
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_cart_waitlist_found_when_registration_term_is_gone(): void {
+		$this->arrange( array( new BluelineWaitlistCopyProduct( 10, '0' ) ), array(), false );
+
+		$this->assertTrue( blueline_wc_cart_is_waitlist_only() );
+
+		$GLOBALS['bl_test_waitlist_copy']['cart'][] = array( 'data' => new BluelineWaitlistCopyProduct( 11, '525' ) );
+		$this->assertFalse( blueline_wc_cart_is_waitlist_only() );
 	}
 }
