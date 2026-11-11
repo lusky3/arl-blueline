@@ -768,19 +768,28 @@ function blueline_sp_player_data_for_season( $player, int $player_id, int $leagu
  * The sp_league term of $team_id's current-season table
  * (blueline_team_current_table_id()), or 0.
  *
+ * Memoised per request, misses included: a roster asks once per player, and
+ * each lookup queries the season's tables.
+ *
  * @param int $team_id sp_team post ID.
  * @return int
  */
 function blueline_team_current_league_id( int $team_id ): int {
-	$table_id = blueline_team_current_table_id( $team_id );
+	static $memo = array();
 
-	if ( ! $table_id || ! taxonomy_exists( 'sp_league' ) ) {
-		return 0;
+	if ( ! isset( $memo[ $team_id ] ) ) {
+		$table_id  = blueline_team_current_table_id( $team_id );
+		$league_id = 0;
+
+		if ( $table_id && taxonomy_exists( 'sp_league' ) ) {
+			$terms     = wp_get_post_terms( $table_id, 'sp_league' );
+			$league_id = is_wp_error( $terms ) || empty( $terms ) ? 0 : (int) $terms[0]->term_id;
+		}
+
+		$memo[ $team_id ] = $league_id;
 	}
 
-	$terms = wp_get_post_terms( $table_id, 'sp_league' );
-
-	return is_wp_error( $terms ) || empty( $terms ) ? 0 : (int) $terms[0]->term_id;
+	return $memo[ $team_id ];
 }
 
 /**
@@ -817,8 +826,13 @@ function blueline_player_season_stat_blocks( int $player_id ): array {
 	foreach ( $teams as $team ) {
 		$league_id = $season_id ? blueline_player_stats_league_id( $player_id, $season_id, $team['team_id'] ) : 0;
 
-		// A league already read for another team would repeat its line here.
-		if ( $league_id > 0 && ! isset( $leagues[ $league_id ] ) ) {
+		// Two teams in one league share one line: no per-team split is honest then.
+		if ( $league_id > 0 && isset( $leagues[ $league_id ] ) ) {
+			$blocks = array();
+			break;
+		}
+
+		if ( $league_id > 0 ) {
 			$leagues[ $league_id ] = true;
 			$blocks[]              = array(
 				'team'  => $team,
