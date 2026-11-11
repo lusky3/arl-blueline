@@ -438,21 +438,27 @@ final class CspReportTest extends TestCase {
 	}
 
 	/**
-	 * A flood of junk from real pages cannot replace real rows through the endpoint either.
+	 * A flood of junk from real pages cannot replace real rows through the endpoint either: with the
+	 * store already full of rows seen two days ago (each seen once, so each is the least-seen
+	 * candidate), every one of them survives a flood of new origins.
 	 */
 	public function test_a_flood_cannot_evict_a_real_row(): void {
-		$store = blueline_core_csp_empty_store();
-		$store = blueline_core_csp_add_to_store(
-			$store,
-			array(
+		$recent = gmdate( 'Y-m-d', time() - 2 * DAY_IN_SECONDS );
+		$store  = blueline_core_csp_empty_store();
+		for ( $i = 0; $i < BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES; $i++ ) {
+			$report = array(
 				'directive' => 'script-src-elem',
-				'blocked'   => 'https://real.test',
+				'blocked'   => 0 === $i ? 'https://real.test' : 'https://real' . $i . '.test',
 				'path'      => '/schedule/',
-			),
-			gmdate( 'Y-m-d', time() - 2 * DAY_IN_SECONDS ),
-			BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES
-		);
+			);
+			$store['entries'][ blueline_core_csp_entry_key( $report ) ] = $report + array(
+				'count' => 1,
+				'last'  => $recent,
+			);
+		}
+		$store['total'] = BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES;
 		update_option( BLUELINE_CORE_CSP_REPORT_OPTION, $store, false );
+		$seeded = array_keys( $store['entries'] );
 
 		$fill = (int) ceil( ( BLUELINE_CORE_CSP_REPORT_MAX_ENTRIES + 20 ) / BLUELINE_CORE_CSP_REPORT_MAX_PER_BATCH );
 		for ( $r = 0; $r < $fill; $r++ ) {
@@ -464,7 +470,9 @@ final class CspReportTest extends TestCase {
 			blueline_core_csp_report_handle( $this->request( 'application/reports+json', (string) wp_json_encode( $batch ), 'Agent ' . $r ) );
 		}
 
-		$this->assertContains( 'https://real.test', array_column( blueline_core_csp_store()['entries'], 'blocked' ) );
+		$after = blueline_core_csp_store()['entries'];
+		$this->assertContains( 'https://real.test', array_column( $after, 'blocked' ) );
+		$this->assertSame( $seeded, array_keys( $after ), 'no recent row was evicted and no junk row got in' );
 	}
 
 	/**
