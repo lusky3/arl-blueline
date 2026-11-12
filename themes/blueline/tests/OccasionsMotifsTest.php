@@ -67,6 +67,27 @@ final class OccasionsMotifsTest extends TestCase {
 	}
 
 	/**
+	 * The poppy is a round bloom -- four wide circular petals round a dark
+	 * centre -- in the header icon and in the corner scene alike. The earlier
+	 * pointed teardrop petals (five, then three) read as a pinwheel, not a
+	 * poppy, so no petal here may be a pointed `<path>`.
+	 */
+	public function test_poppy_is_a_round_four_petal_bloom_everywhere(): void {
+		$icon  = $this->captured( 'blueline_render_occasion_motif_poppy' );
+		$scene = $this->captured( 'blueline_render_occasion_scene_poppy_field' );
+
+		// Four petals (r=11.5), then the centre and the stamens.
+		$this->assertSame( 4, substr_count( $icon, 'r="11.5"' ), 'the icon has four round petals' );
+		$this->assertSame( 12, substr_count( $scene, 'r="11.5"' ), 'the scene has three blooms of four petals' );
+		$this->assertStringContainsString( 'fill="currentColor"', $icon, 'the icon follows the occasion accent' );
+		$this->assertStringContainsString( 'fill="' . BLUELINE_TOKEN_DANGER . '"', $scene, 'the scene keeps its fixed poppy red' );
+
+		// The scene's paths are stems and leaves only; a bloom is circles.
+		$this->assertStringNotContainsString( '<path', $icon, 'the icon has no pointed petal paths' );
+		$this->assertStringNotContainsString( 'rotate(', $scene, 'blooms are not rotated teardrops' );
+	}
+
+	/**
 	 * Asserts none of the four real motifs contains any animation --
 	 * design spec §5/§7.7: "static only, no animation" -- checked as the
 	 * absence of the element/attribute names that would introduce motion.

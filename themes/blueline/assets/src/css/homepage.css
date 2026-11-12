@@ -204,6 +204,39 @@
 }
 
 /*
+ * The active occasion's own line ("Lest we forget."), under the headline:
+ * its motif beside it in the occasion accent, the words in --bl-paper (the
+ * accent red alone would be too dark for text on this ground). The motif is
+ * decorative here (aria-hidden), the line itself is the content.
+ */
+.bl-hero__occasion {
+	display: flex;
+	align-items: center;
+	gap: var(--bl-space-3);
+	margin: 0;
+	color: var(--bl-paper);
+	font-family: var(--bl-font-display);
+	font-weight: 700;
+	font-style: italic;
+	font-size: var(--bl-text-xl);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.bl-hero__occasion-motif {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 2rem;
+	height: 2rem;
+	color: var(--bl-occasion-accent);
+}
+
+.bl-hero__occasion-motif svg {
+	width: 100%;
+	height: 100%;
+}
+
+/*
  * Zero, one or two of these can render per
  * hero -- the price breakdown line ("Skaters $550 · Goalies $145") when the
  * season's registration products don't share one price, and/or the
