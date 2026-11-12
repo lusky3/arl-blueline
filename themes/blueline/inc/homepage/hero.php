@@ -457,6 +457,12 @@ function blueline_render_hero( string $state ): string {
 				<?php echo wp_kses( $content['headline_html'], array( 'span' => array( 'class' => array() ) ) ); ?>
 			</h1>
 
+			<?php
+			// An active occasion's own line ("Lest we forget."), right under the headline
+			// where every visitor reads it. The footer prints it too.
+			blueline_render_hero_occasion_line();
+			?>
+
 			<?php foreach ( ( $content['subcopy_lines'] ?? array() ) as $bl_hero_subcopy_line ) : ?>
 				<p class="bl-hero__subcopy"><?php echo esc_html( $bl_hero_subcopy_line ); ?></p>
 			<?php endforeach; ?>

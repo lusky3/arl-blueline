@@ -251,6 +251,30 @@ function blueline_active_occasion_line(): string {
 }
 
 /**
+ * The active occasion's line with its motif, for the homepage hero (under the
+ * headline, where it is actually read; the footer prints the same line too).
+ * Prints nothing when no occasion is active or it has no line. The motif is
+ * decorative here (aria-hidden): the line is the content.
+ *
+ * @param int|null $now Unix time to resolve the occasion at; null for now.
+ * @return void
+ */
+function blueline_render_hero_occasion_line( ?int $now = null ): void {
+	$occasion = blueline_resolve_active_occasion( $now );
+	$line     = null === $occasion ? '' : (string) ( $occasion['line'] ?? '' );
+
+	if ( '' === $line ) {
+		return;
+	}
+	?>
+	<p class="bl-hero__occasion">
+		<span class="bl-hero__occasion-motif" aria-hidden="true"><?php blueline_render_occasion_motif( (string) ( $occasion['motif'] ?? 'none' ) ); ?></span>
+		<span class="bl-hero__occasion-line"><?php echo esc_html( $line ); ?></span>
+	</p>
+	<?php
+}
+
+/**
  * Presents corner scene (Christmas). Three flat, geometric gift boxes at
  * staggered heights, each a fixed brand colour (never `currentColor`,
  * unlike the small motif icons above): the whole point is three visually

@@ -830,4 +830,69 @@ final class OccasionsResolverTest extends TestCase {
 
 		$this->assertSame( 'Happy Canada Day, ARL!', blueline_active_occasion_line() );
 	}
+
+	/**
+	 * Store one auto occasion for November 11th and return a timestamp in it.
+	 *
+	 * @param string $line The occasion's line.
+	 * @return int
+	 */
+	private function seed_remembrance( string $line ): int {
+		update_option(
+			BLUELINE_SETTINGS_OPTION,
+			array(
+				'occasions' => array(
+					'test-occasion' => $this->occasion(
+						array(
+							'window' => array(
+								'start_md' => '11-04',
+								'end_md'   => '11-11',
+							),
+							'motif'  => 'poppy',
+							'line'   => $line,
+						)
+					),
+				),
+			)
+		);
+
+		return ( new DateTimeImmutable( '2026-11-11 12:00:00', wp_timezone() ) )->getTimestamp();
+	}
+
+	/**
+	 * The hero prints the active occasion's line, with its motif marked
+	 * decorative, so visitors actually read it.
+	 */
+	public function test_hero_prints_the_active_occasions_line_with_its_motif(): void {
+		$now = $this->seed_remembrance( 'Lest we forget.' );
+
+		ob_start();
+		blueline_render_hero_occasion_line( $now );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'class="bl-hero__occasion"', $html );
+		$this->assertStringContainsString( 'Lest we forget.', $html );
+		$this->assertMatchesRegularExpression( '#<span class="bl-hero__occasion-motif" aria-hidden="true">\s*<svg[^>]*bl-occasion-motif--poppy#', $html );
+	}
+
+	/**
+	 * The hero line is escaped, and prints nothing without a line or outside the window.
+	 */
+	public function test_hero_line_is_escaped_and_absent_when_there_is_nothing_to_say(): void {
+		$now = $this->seed_remembrance( 'We <b>remember</b>.' );
+
+		ob_start();
+		blueline_render_hero_occasion_line( $now );
+		$html = (string) ob_get_clean();
+		$this->assertStringNotContainsString( '<b>', $html );
+
+		ob_start();
+		blueline_render_hero_occasion_line( ( new DateTimeImmutable( '2026-11-20 12:00:00', wp_timezone() ) )->getTimestamp() );
+		$this->assertSame( '', (string) ob_get_clean(), 'outside the window' );
+
+		$now = $this->seed_remembrance( '' );
+		ob_start();
+		blueline_render_hero_occasion_line( $now );
+		$this->assertSame( '', (string) ob_get_clean(), 'no line set' );
+	}
 }
