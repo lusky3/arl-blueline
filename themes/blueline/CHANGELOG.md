@@ -8,6 +8,74 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.2.0]
+
+Ships with blueline-core plugin 0.2.0. Install the plugin first (see Upgrade notes). **This release needs PHP 8.4.**
+
+### Added
+- **The captain's badge on team rosters.** A team's captain gets a small "C" beside the name. It appears once the
+  SportsPress-Admin-Tools player-tools plugin is on 1.6.1 or newer, and a captain is set per team list each season.
+- **An occasion's line now shows on the home page.** "Lest we forget." used to appear only in the footer. An active
+  occasion's line now sits right under the home page headline, with the occasion's motif beside it. The footer line
+  stays.
+
+### Changed
+- **The Remembrance Day poppies are round.** The header icon, the falling poppies and the corner flowers now share one
+  round, four-petal poppy with a dark centre, instead of pointed petals that read as a pinwheel. The corner flowers
+  have leaves.
+- **Requires PHP 8.4** (it was 8.3). WordPress will not offer this update to a site running an older PHP.
+- **Phones.** Team rosters fit the screen and keep every stat column, schedule cards put each team on its own line,
+  and game pages (details, box score, past meetings) fit without sideways scrolling. On a phone the box score now
+  leaves out the Position and penalty-minutes columns.
+
+### Fixed
+- **Team rosters showed 0 for every stat this season.** Games played, goals, assists, points and penalty minutes were
+  all 0 on every roster, and in My Account > My Season, whenever a player's league record had no entry for the current
+  season. The stats now read from the box scores. A player on two teams gets each team's own line on that team's
+  roster, and the player page names every current team, not only the first. My Season shows one combined block when
+  two of a player's teams are in the same league.
+- **"My registration" showed the wrong status for some members.** It used a member's newest order whatever its
+  status, so a free waitlist entry read "Paid" and a newer on-hold order hid a paid registration as "Unpaid". It now
+  prefers a paid registration, then an unpaid one, then a waitlist entry, and ignores abandoned checkouts. A waitlist
+  entry reads "On the waitlist", and the checkout note and thank-you page for a waitlist-only order no longer say the
+  payment covers the season.
+- **The checkout terms box unticked itself** whenever the order summary refreshed, for example after changing payment
+  method, so Place order failed until it was ticked again.
+- **Standings and roster stats refresh as soon as a game is scored** from the Score Sheets or Player App plugins. They
+  could be up to 15 minutes out of date before.
+- **The "Next game" panel never names a game that has already started.**
+- **A featured team set on a league table is highlighted again,** and a shortened table centres on it.
+- **The team calendar subscription is a valid calendar.** Game times are written in UTC, the misplaced time zone line
+  and the 1970 timestamp are gone, and each game's ID includes the site's address.
+- **The next-game widget remembers a dismissal per member, not per browser,** so on a shared device one member's
+  dismissal no longer hides it for the next member.
+- **"Delete all Blueline data" stays deleted.** The next page load used to write the settings back.
+- **The refund requests list** shows "Product no longer available" for a deleted product instead of repeating the
+  row above.
+
+### Security
+- **Releases can only be built and signed from `main`.** A tag on any other commit is refused, and the scripts that
+  handle the signing key are always `main`'s. The blueline-core zip is now covered by the release signature too, and
+  CI audits the theme's PHP and runtime npm dependencies and fails if the committed `assets/dist/` is not what the sources
+  build to. The repository settings that close the remaining gap (a tag ruleset and a reviewed `release` environment)
+  are listed in `docs/RELEASING.md`.
+
+### Upgrade notes
+- **Check the site runs PHP 8.4 first.** WordPress hides this update on an older PHP.
+- **Install the blueline-core plugin 0.2.0 by hand first.** Download `blueline-core-0.2.0.zip` and `manifest.json`
+  (with `manifest.json.sig`) from the release and check the zip with `scripts/release/verify-plugin.php`, then upload it
+  over the old one (Plugins > Add New > Upload, "Replace current with uploaded"; do not delete the plugin first). Then
+  update the theme from Dashboard > Updates. See `docs/RELEASING.md` (Plugin).
+- **Then move the old name claims.** Plugin 0.2.0 stores a self-service "Is this you?" claim under its own key, not
+  `sp_user`. Claims made before the update stay in `sp_user` and keep working; run
+  `wp blueline-core ownership report --category=name_claim`, then `wp blueline-core ownership move-claim --ids=...`
+  on the ones you choose (a dry run unless `--yes`). `docs/OPERATIONS.md` has the checklist.
+- **Calendar subscribers see each game once more.** Each game's calendar ID changes, so calendar apps replace the old
+  entries on their next refresh.
+- **Members who dismissed the next-game widget see it once more.**
+- **Behind Cloudflare, check the real visitor address reaches PHP** (`REMOTE_ADDR`); the browser-report endpoint now
+  rate-limits per address only.
+
 ## [1.1.6]
 
 Ships with blueline-core plugin 0.1.3. Install the plugin first (see Upgrade notes). This is the first release
