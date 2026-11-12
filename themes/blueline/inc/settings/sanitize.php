@@ -5,7 +5,7 @@
  * the theme's ~40 sprintf()/printf() call sites.
  *
  * On PHP 7 a malformed format string passed to sprintf()/printf() emitted a
- * warning and limped on. On PHP 8.4, this theme's runtime, it THROWS:
+ * warning and limped on. On PHP 8.3, this theme's runtime, it THROWS:
  *
  *   sprintf( '%1$s . Week %2$d', 'Fall' )   -> ArgumentCountError
  *   sprintf( 'save 50% today', 'x' )        -> ValueError: Unknown format
@@ -65,7 +65,7 @@ defined( 'ABSPATH' ) || exit;
  * blueline_extract_placeholders()'s docblock, which measures both orderings
  * and finds them equivalent; the order is readability, not correctness).
  *
- * Matches PHP 8.4's own parser (ext/standard/formatted_print.c). Every clause
+ * Matches PHP 8.3's own parser (ext/standard/formatted_print.c). Every clause
  * below was verified empirically with `php -r` against this runtime rather
  * than assumed. Summary:
  *

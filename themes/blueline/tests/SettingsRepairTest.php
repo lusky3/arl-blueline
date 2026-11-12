@@ -46,7 +46,7 @@ final class SettingsRepairTest extends TestCase {
 	 * replaced by that field's default and named in `repaired`.
 	 *
 	 * 'save 50% today' is the exact shape inc/settings/sanitize.php's own
-	 * docblock records as a PHP 8.4 ValueError ("Unknown format specifier
+	 * docblock records as a PHP 8.3 ValueError ("Unknown format specifier
 	 * \"t\"": " " is a valid flag, "t" is not a valid type).
 	 */
 	public function test_a_stored_value_that_would_fatal_is_replaced_by_its_default(): void {

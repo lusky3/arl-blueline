@@ -140,3 +140,35 @@ jobs:
       # the guard and packager refuse deliberately broken copies.
       - name: Plugin packaging self-test
         run: bash scripts/release/test-plugin-release.sh
+
+  # The declared runtime floor is PHP 8.3 (Requires PHP in style.css and
+  # blueline-core.php), but `check` above runs on 8.4 because the plugin's
+  # PHPUnit 13 needs it. This job runs the theme suite on real 8.3 and
+  # syntax-checks every PHP file in the theme, the plugin and the mu-plugin
+  # there, so an 8.4-only construct cannot ship under an 8.3 floor.
+  php83:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: "8.3"
+          tools: composer
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Theme tests on PHP 8.3
+        env:
+          BLUELINE_WP_CORE_INCLUDES_DIR: ${{ github.workspace }}/themes/blueline/vendor/johnpbloch/wordpress-core/wp-includes
+        run: composer test
+
+      - name: Syntax-check every PHP file on PHP 8.3
+        working-directory: .
+        run: |
+          find themes/blueline plugins/blueline-core mu-plugins scripts -name '*.php' \
+            -not -path '*/vendor/*' -not -path '*/node_modules/*' -print0 \
+            | xargs -0 -n1 -P4 php -l >/dev/null
