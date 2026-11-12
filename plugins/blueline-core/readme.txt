@@ -3,7 +3,7 @@ Contributors: lusky3
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.4
-Stable tag: 0.1.3
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,13 @@ Each feature is a module that can be switched off with the `blueline_core_module
 3. Against an older theme the plugin does nothing and shows an admin notice, because that theme still provides these features itself.
 
 == Changelog ==
+
+= 0.2.0 =
+* Requires PHP 8.4 (it was 8.3).
+* A self-service "Is this you?" name claim is now stored under its own key (`_blueline_name_claim_user`), not `sp_user`. The other league plugins trust `sp_user` as proof of identity (game availability, discipline notices), so a typed name no longer counts as one. Claims made before this release stay in `sp_user` and keep working. `wp blueline-core ownership report --category=name_claim` lists them and `wp blueline-core ownership move-claim --ids=...` moves the ones you choose (a dry run unless `--yes`). A league link made by an admin writes `sp_user` as before and replaces that member's own claim on the player. Data export and erase cover both keys.
+* The browser security-report endpoint (`/wp-json/blueline/v1/csp-report`) is rate-limited per address only, not per address and browser, so a changed browser string no longer earns a fresh allowance. It keeps at most 50 new entries a day, replaces an entry only if it has not been reported for 7 days, looks up at most 3 new pages per request, and does not exist while the security policy is off.
+* The media REST endpoint no longer shows which account uploaded a player photo, the same as posts and players.
+* Archive pages reached through a query (`/?post_type=product`) now name their own address as the canonical (`/shop`), or none where there is no archive (events, teams), instead of the home page. Date archives are unchanged.
 
 = 0.1.3 =
 * My Account tabs now carry the league's wording: My Registrations, My Address, Change My Details and, when WooCommerce Subscriptions is active, My Installments (right after My Registrations). The site Code Snippet "My Account Tab Modifications" is no longer needed and can be switched off. Page addresses are unchanged, and a site can still rename a tab with the `woocommerce_account_menu_items` filter.
