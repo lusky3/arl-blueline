@@ -266,9 +266,13 @@ function blueline_render_hero_occasion_line( ?int $now = null ): void {
 	if ( '' === $line ) {
 		return;
 	}
+
+	$motif = (string) ( $occasion['motif'] ?? 'none' );
 	?>
 	<p class="bl-hero__occasion">
-		<span class="bl-hero__occasion-motif" aria-hidden="true"><?php blueline_render_occasion_motif( (string) ( $occasion['motif'] ?? 'none' ) ); ?></span>
+		<?php if ( 'none' !== $motif ) : ?>
+			<span class="bl-hero__occasion-motif" aria-hidden="true"><?php blueline_render_occasion_motif( $motif ); ?></span>
+		<?php endif; ?>
 		<span class="bl-hero__occasion-line"><?php echo esc_html( $line ); ?></span>
 	</p>
 	<?php
