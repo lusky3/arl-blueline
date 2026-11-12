@@ -33,7 +33,7 @@ final class PluginInfoTest extends TestCase {
 		$this->assertSame( 'blueline-core', $info->slug );
 		$this->assertSame( BLUELINE_CORE_VERSION, $info->version );
 		$this->assertSame( '6.9', $info->requires );
-		$this->assertSame( '8.4', $info->requires_php );
+		$this->assertSame( '8.3', $info->requires_php );
 		$this->assertSame( '7.1', $info->tested );
 		$this->assertSame( 'https://github.com/lusky3/arl-blueline', $info->homepage );
 		$this->assertStringContainsString( 'Adult Recreational League', $info->author );
@@ -221,7 +221,7 @@ final class PluginInfoTest extends TestCase {
 		$this->assertSame( 'https://github.com/lusky3/arl-blueline', $entry->url );
 		$this->assertSame( '', $entry->package );
 		$this->assertSame( '6.9', $entry->requires );
-		$this->assertSame( '8.4', $entry->requires_php );
+		$this->assertSame( '8.3', $entry->requires_php );
 		$this->assertSame( blueline_core_plugin_info_assets()['icons'], $entry->icons );
 		$this->assertSame( blueline_core_plugin_info_assets()['banners'], $entry->banners );
 		$this->assertNotEmpty( $entry->id );

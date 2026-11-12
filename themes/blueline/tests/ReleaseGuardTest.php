@@ -24,7 +24,7 @@ final class ReleaseGuardTest extends TestCase {
 	 * @return string
 	 */
 	private function style( string $version ): string {
-		return "/*\nTheme Name: Blueline\nVersion: {$version}\nRequires at least: 6.9\nTested up to: 7.1\nRequires PHP: 8.4\n*/\n";
+		return "/*\nTheme Name: Blueline\nVersion: {$version}\nRequires at least: 6.9\nTested up to: 7.1\nRequires PHP: 8.3\n*/\n";
 	}
 
 	/**
@@ -171,7 +171,7 @@ final class ReleaseGuardTest extends TestCase {
 			array_keys( $manifest )
 		);
 		$this->assertSame( '6.9', $manifest['requires_wp'] );
-		$this->assertSame( '8.4', $manifest['requires_php'] );
+		$this->assertSame( '8.3', $manifest['requires_php'] );
 		$this->assertSame( '7.1', $manifest['tested_wp'] );
 	}
 

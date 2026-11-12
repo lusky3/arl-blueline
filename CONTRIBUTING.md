@@ -8,7 +8,7 @@ By contributing you agree that your work is licensed under GPL-2.0-or-later, lik
 
 ## Set up
 
-See the *Develop* section of the [README](README.md). You need PHP 8.4, Composer, and Node 22.
+See the *Develop* section of the [README](README.md). You need PHP 8.4 (the plugin's PHPUnit 13 needs it; the theme and plugin themselves run on PHP 8.3 and CI checks that), Composer, and Node 22.
 
 ## Before you open a pull request
 

@@ -54,7 +54,7 @@ function blueline_plugin_release_stable_tag( string $readme ): string {
 }
 
 /**
- * The minimum PHP version a composer constraint like `>=8.4` or `^8.4` demands.
+ * The minimum PHP version a composer constraint like `>=8.3` or `^8.3` demands.
  *
  * @param string $constraint composer.json `require.php`.
  * @return string Dotted lower bound without patch, '' when it cannot be read.

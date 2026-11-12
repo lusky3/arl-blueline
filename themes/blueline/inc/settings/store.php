@@ -298,7 +298,7 @@ function blueline_settings( string $key = '' ) {
  * import`, a restored SQL dump, a hand-edited row, a migration script
  * writing the table directly. Nothing revalidates it afterwards, so it
  * stays exactly as written. For a field feeding a sprintf() call site that
- * is not cosmetic: on PHP 8.4 a malformed format string THROWS rather than
+ * is not cosmetic: on PHP 8.3 a malformed format string THROWS rather than
  * warning (see inc/settings/sanitize.php's docblock for the verified
  * cases), so one stray "%" in the database takes the front end down for
  * every anonymous visitor.

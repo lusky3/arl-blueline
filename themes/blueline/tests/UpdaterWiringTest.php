@@ -49,7 +49,7 @@ final class UpdaterWiringTest extends TestCase {
 			'manifest'    => array(
 				'version'      => '1.2.0',
 				'requires_wp'  => '6.9',
-				'requires_php' => '8.4',
+				'requires_php' => '8.3',
 				'tested_wp'    => '7.1',
 				'zip'          => 'blueline-1.2.0.zip',
 				'sha256'       => hash( 'sha256', 'ZIP' ),
@@ -135,7 +135,7 @@ final class UpdaterWiringTest extends TestCase {
 				'url'          => 'https://github.com/lusky3/arl-blueline/releases/tag/v1.2.0',
 				'package'      => self::API . 'releases/assets/21',
 				'requires'     => '6.9',
-				'requires_php' => '8.4',
+				'requires_php' => '8.3',
 			),
 			blueline_updater_filter_update( false, array(), 'blueline', array() )
 		);

@@ -2,8 +2,8 @@
 Contributors: lusky3
 Requires at least: 6.9
 Tested up to: 7.1
-Requires PHP: 8.4
-Stable tag: 0.2.0
+Requires PHP: 8.3
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,9 @@ Each feature is a module that can be switched off with the `blueline_core_module
 3. Against an older theme the plugin does nothing and shows an admin notice, because that theme still provides these features itself.
 
 == Changelog ==
+
+= 0.2.1 =
+* Requires PHP 8.3 again (0.2.0 declared 8.4 because the test tooling needs it; the plugin itself runs on 8.3). No other change.
 
 = 0.2.0 =
 * Requires PHP 8.4 (it was 8.3).

@@ -20,7 +20,7 @@ require_once __DIR__ . '/../inc/settings/sanitize.php';
  * outside blueline_sanitize_field(), with the exact string the sanitizer
  * just rejected. That is not incidental coverage: it is the proof that
  * rejecting the string matters -- each one demonstrates the actual
- * PHP 8.4 exception an unvalidated settings save would have shipped to
+ * PHP 8.3 exception an unvalidated settings save would have shipped to
  * production, on this exact runtime, rather than trusting a description of
  * PHP's behaviour written elsewhere.
  */

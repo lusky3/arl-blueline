@@ -239,7 +239,7 @@ final class UpdaterReleaseSelectionTest extends TestCase {
 		return array(
 			'version'      => '1.2.0',
 			'requires_wp'  => '6.9',
-			'requires_php' => '8.4',
+			'requires_php' => '8.3',
 			'tested_wp'    => '7.1',
 			'zip'          => 'blueline-1.2.0.zip',
 			'sha256'       => str_repeat( 'AB', 32 ),
@@ -267,7 +267,7 @@ final class UpdaterReleaseSelectionTest extends TestCase {
 		$good = array(
 			'version'      => '1.2.0',
 			'requires_wp'  => '6.9',
-			'requires_php' => '8.4',
+			'requires_php' => '8.3',
 			'tested_wp'    => '7.1',
 			'zip'          => 'blueline-1.2.0.zip',
 			'sha256'       => str_repeat( 'a', 64 ),

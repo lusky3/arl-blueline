@@ -8,6 +8,19 @@ as the release notes.
 
 ## [Unreleased]
 
+## [1.2.1]
+
+Ships with blueline-core plugin 0.2.1. Everything in 1.2.0 applies; read its upgrade notes too.
+
+### Changed
+- **Requires PHP 8.3 again.** 1.2.0 declared PHP 8.4 because the plugin's test tooling needs it, but the theme and the
+  plugin run on 8.3, and WordPress hid 1.2.0 on a site running 8.3. The declared requirement is back to 8.3. CI now runs
+  the theme's tests and a syntax check of every PHP file on PHP 8.3, so an 8.4-only construct cannot slip in. Developers
+  still need PHP 8.4 to run the plugin's tests.
+
+### Upgrade notes
+- **Skip 1.2.0.** Install the blueline-core plugin 0.2.1 by hand first, then the theme, as described under 1.2.0.
+
 ## [1.2.0]
 
 Ships with blueline-core plugin 0.2.0. Install the plugin first (see Upgrade notes). **This release needs PHP 8.4.**

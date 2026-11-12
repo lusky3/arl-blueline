@@ -3,9 +3,9 @@
  * Plugin Name:       Blueline Core
  * Plugin URI:        https://github.com/lusky3/arl-blueline
  * Description:       League functionality for the Blueline theme: player linking and photos, My Account routing, mail wrapper, checkout fields, SEO tags, search and privacy hardening.
- * Version:           0.2.0
+ * Version:           0.2.1
  * Requires at least: 6.9
- * Requires PHP:      8.4
+ * Requires PHP:      8.3
  * Author:            Adult Recreational League
  * Author URI:        https://arlhockey.ca
  * License:           GPL-2.0-or-later
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BLUELINE_CORE_VERSION', '0.2.0' );
+define( 'BLUELINE_CORE_VERSION', '0.2.1' );
 define( 'BLUELINE_CORE_FILE', __FILE__ );
 define( 'BLUELINE_CORE_DIR', __DIR__ );
 
